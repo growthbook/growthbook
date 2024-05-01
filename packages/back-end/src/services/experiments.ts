@@ -12,7 +12,7 @@ import {
   DEFAULT_METRIC_CAPPING_VALUE,
   DEFAULT_METRIC_WINDOW,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
-  DEFAULT_INFORMATIVE_PRIOR_STDDEV,
+  DEFAULT_PROPER_PRIOR_STDDEV,
 } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import {
@@ -31,6 +31,7 @@ import {
 } from "shared/experiments";
 import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
+import { MetricPriorSettings } from "@back-end/types/fact-table";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotAnalysis,
@@ -309,10 +310,13 @@ export function getDefaultExperimentAnalysisSettings(
     : false;
   return {
     statsEngine,
-    informativePrior: organization.settings?.informativePrior ?? false,
-    informativePriorStdDev:
-      organization.settings?.informativePriorStdDev ??
-      DEFAULT_INFORMATIVE_PRIOR_STDDEV,
+    properPrior:
+      organization.settings?.metricDefaults?.priorSettings?.proper ?? false,
+    properPriorMean:
+      organization.settings?.metricDefaults?.priorSettings?.mean ?? 0,
+    properPriorStdDev:
+      organization.settings?.metricDefaults?.priorSettings?.mean ??
+      DEFAULT_PROPER_PRIOR_STDDEV,
     dimensions: dimension ? [dimension] : [],
     regressionAdjusted:
       hasRegressionAdjustmentFeature &&
@@ -368,12 +372,14 @@ export function getSnapshotSettings({
   experiment,
   phaseIndex,
   settings,
+  orgPriorSettings,
   metricRegressionAdjustmentStatuses,
   metricMap,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
   settings: ExperimentSnapshotAnalysisSettings;
+  orgPriorSettings?: MetricPriorSettings;
   metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
   metricMap: Map<string, ExperimentMetricInterface>;
 }): ExperimentSnapshotSettings {
@@ -394,6 +400,12 @@ export function getSnapshotSettings({
       getMetricForSnapshot(
         m,
         metricMap,
+        orgPriorSettings ?? {
+          override: false,
+          proper: false,
+          mean: 0,
+          stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+        },
         metricRegressionAdjustmentStatuses,
         experiment.metricOverrides
       )
@@ -432,12 +444,14 @@ export async function createManualSnapshot(
   metrics: {
     [key: string]: MetricStats[];
   },
+  orgPriorSettings: MetricPriorSettings | undefined,
   analysisSettings: ExperimentSnapshotAnalysisSettings,
   metricMap: Map<string, ExperimentMetricInterface>
 ) {
   const snapshotSettings = getSnapshotSettings({
     experiment,
     phaseIndex,
+    orgPriorSettings: orgPriorSettings,
     settings: analysisSettings,
     metricRegressionAdjustmentStatuses: [],
     metricMap,
@@ -570,6 +584,7 @@ export async function createSnapshot({
   const snapshotSettings = getSnapshotSettings({
     experiment,
     phaseIndex,
+    orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
     settings: defaultAnalysisSettings,
     metricRegressionAdjustmentStatuses,
     metricMap,
@@ -1306,6 +1321,12 @@ export function postMetricApiPayloadToMetricInterface(
       delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
       windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
       windowUnit: "hours",
+    },
+    priorSettings: {
+      override: false,
+      proper: false,
+      mean: 0,
+      stddev: DEFAULT_PROPER_PRIOR_STDDEV,
     },
     type,
     userIdColumns: (sqlBuilder?.identifierTypeColumns || []).reduce<

@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { useFieldArray, useForm } from "react-hook-form";
+import { FormProvider, useFieldArray, useForm } from "react-hook-form";
 import {
   MetricRegressionAdjustmentStatus,
   ReportInterface,
@@ -11,6 +11,7 @@ import {
 } from "back-end/types/experiment";
 import uniq from "lodash/uniq";
 import {
+  DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
@@ -18,6 +19,7 @@ import { getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
 import { MetricInterface } from "back-end/types/metric";
 import { getRegressionAdjustmentsForMetric } from "shared/experiments";
+import { DifferenceType } from "@back-end/types/stats";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
@@ -38,6 +40,7 @@ import SelectField from "@/components/Forms/SelectField";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 import MetricSelector from "@/components/Experiment/MetricSelector";
+import BayesianPriorSettings from "@/components/Settings/BayesianPriorSettings";
 
 export default function ConfigureReport({
   report,
@@ -103,6 +106,7 @@ export default function ConfigureReport({
   const form = useForm({
     defaultValues: {
       ...report.args,
+      differenceType: report.args.differenceType ?? "relative",
       exposureQueryId:
         getExposureQuery(
           datasource?.settings,
@@ -126,6 +130,10 @@ export default function ConfigureReport({
         DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       metricRegressionAdjustmentStatuses:
         report.args.metricRegressionAdjustmentStatuses || [],
+      properPrior: report.args.properPrior ?? false,
+      properPriorMean: report.args.properPriorMean ?? 0,
+      properPriorStdDev:
+        report.args.properPriorStdDev ?? DEFAULT_PROPER_PRIOR_STDDEV,
       sequentialTestingEnabled:
         hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled,
       sequentialTestingTuningParameter:
@@ -190,6 +198,7 @@ export default function ConfigureReport({
           ...value,
           skipPartialData: !!value.skipPartialData,
         };
+
         if (value.regressionAdjustmentEnabled) {
           args.metricRegressionAdjustmentStatuses = metricRegressionAdjustmentStatuses;
         }
@@ -381,6 +390,28 @@ export default function ConfigureReport({
         showHelp={true}
         newUi={false}
       />
+      <SelectField
+        label="Difference Type"
+        labelClassName="font-weight-bold"
+        value={form.watch("differenceType")}
+        onChange={(v) => form.setValue("differenceType", v as DifferenceType)}
+        sort={false}
+        options={[
+          {
+            label: "Relative",
+            value: "relative",
+          },
+          {
+            label: "Absolute",
+            value: "absolute",
+          },
+          {
+            label: "Scaled Impact",
+            value: "scaled",
+          },
+        ]}
+        helpText="Choose the units to display lifts in"
+      />
       <MetricSelector
         datasource={form.watch("datasource")}
         exposureQueryId={exposureQueryId}
@@ -471,7 +502,7 @@ export default function ConfigureReport({
 
       {form.watch("statsEngine") === "frequentist" && (
         <>
-          <div className="d-flex flex-row no-gutters align-items-center">
+          <div className="d-flex flex-row no-gutters align-items-center mb-3 ml-1">
             <div className="col-3">
               <SelectField
                 label={
@@ -500,7 +531,7 @@ export default function ConfigureReport({
             </div>
           </div>
 
-          <div className="d-flex flex-row no-gutters align-items-top">
+          <div className="d-flex flex-row no-gutters align-items-top ml-1">
             <div className="col-3">
               <SelectField
                 label={
@@ -560,6 +591,16 @@ export default function ConfigureReport({
             </div>
           </div>
         </>
+      )}
+      {form.watch("statsEngine") === "bayesian" && (
+        <FormProvider {...form}>
+          <div className="mb-3 ml-1">
+            <BayesianPriorSettings
+              defaultMean={orgSettings.metricDefaults?.priorSettings?.mean}
+              defaultStdDev={orgSettings.metricDefaults?.priorSettings?.stddev}
+            />
+          </div>
+        </FormProvider>
       )}
 
       {datasourceProperties?.queryLanguage === "sql" && (

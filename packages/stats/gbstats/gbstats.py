@@ -6,8 +6,8 @@ import pandas as pd
 
 from gbstats.bayesian.tests import (
     BayesianTestResult,
-    GaussianEffectABTest,
-    GaussianEffectBayesianConfig,
+    EffectBayesianABTest,
+    EffectBayesianConfig,
     GaussianPrior,
 )
 from gbstats.frequentist.tests import (
@@ -181,7 +181,7 @@ def get_configured_test(
     test_index: int,
     analysis: AnalysisSettingsForStatsEngine,
     metric: MetricSettingsForStatsEngine,
-) -> Union[GaussianEffectABTest, SequentialTwoSidedTTest, TwoSidedTTest]:
+) -> Union[EffectBayesianABTest, SequentialTwoSidedTTest, TwoSidedTTest]:
 
     stat_a = variation_statistic_from_metric_row(row, "baseline", metric)
     stat_b = variation_statistic_from_metric_row(row, f"v{test_index}", metric)
@@ -215,14 +215,14 @@ def get_configured_test(
     else:
         assert type(stat_a) is type(stat_b), "stat_a and stat_b must be of same type."
         prior = GaussianPrior(
-            mean=0,
+            mean=analysis.prior_mean,
             variance=pow(analysis.prior_stddev, 2),
-            informative=analysis.prior_informative,
+            proper=analysis.prior_proper,
         )
-        return GaussianEffectABTest(
+        return EffectBayesianABTest(
             stat_a,
             stat_b,
-            GaussianEffectBayesianConfig(
+            EffectBayesianConfig(
                 **base_config,
                 inverse=metric.inverse,
                 prior_effect=prior,
@@ -253,7 +253,7 @@ def analyze_metric_df(
             df[f"v{i}_stddev"] = None
             df[f"v{i}_expected"] = 0
             df[f"v{i}_p_value"] = None
-            df[f"v{i}_rawrisk"] = None
+            df[f"v{i}_risk"] = None
             df[f"v{i}_prob_beat_baseline"] = None
             df[f"v{i}_uplift"] = None
             df[f"v{i}_error_message"] = None
@@ -280,7 +280,8 @@ def analyze_metric_df(
 
             # Unpack result in Pandas row
             if isinstance(res, BayesianTestResult):
-                s.at[f"v{i}_rawrisk"] = res.risk
+                s.at[f"v{i}_risk"] = res.risk
+                s[f"v{i}_risk_type"] = res.risk_type
                 s[f"v{i}_prob_beat_baseline"] = res.chance_to_win
             elif isinstance(res, FrequentistTestResult):
                 s[f"v{i}_p_value"] = res.p_value
@@ -379,7 +380,8 @@ def format_variation_result(
                 **metricResult,
                 **testResult,
                 chanceToWin=row[f"{prefix}_prob_beat_baseline"],
-                risk=row[f"{prefix}_rawrisk"],
+                risk=row[f"{prefix}_risk"],
+                riskType=row[f"{prefix}_risk_type"],
             )
 
 

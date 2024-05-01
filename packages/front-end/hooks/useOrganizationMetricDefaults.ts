@@ -2,6 +2,7 @@ import { useCallback, useMemo } from "react";
 import { OrganizationSettings } from "back-end/types/organization";
 import {
   MetricCappingSettings,
+  MetricPriorSettings,
   MetricWindowSettings,
 } from "back-end/types/fact-table";
 import {
@@ -10,6 +11,7 @@ import {
   DEFAULT_METRIC_WINDOW,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_METRIC_WINDOW_HOURS,
+  DEFAULT_PROPER_PRIOR_STDDEV,
 } from "shared/constants";
 import useOrgSettings from "./useOrgSettings";
 
@@ -27,6 +29,12 @@ const defaultMetricCappingSettings: MetricCappingSettings = {
   type: DEFAULT_METRIC_CAPPING,
   value: DEFAULT_METRIC_CAPPING_VALUE,
 };
+const defaultMetricPriorSettings: MetricPriorSettings = {
+  override: false,
+  proper: false,
+  mean: 0,
+  stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+};
 
 const METRIC_DEFAULTS = {
   minimumSampleSize: defaultMinSampleSize,
@@ -34,6 +42,7 @@ const METRIC_DEFAULTS = {
   minPercentageChange: defaultMinPercentChange,
   windowSettings: defaultMetricWindowSettings,
   cappingSettings: defaultMetricCappingSettings,
+  priorSettings: defaultMetricPriorSettings,
 };
 
 /**
@@ -53,6 +62,7 @@ type OrganizationMetricDefaults = {
     minPercentageChange: number;
     windowSettings: MetricWindowSettings;
     cappingSettings: MetricCappingSettings;
+    priorSettings: MetricPriorSettings;
   };
 
   /**
@@ -98,12 +108,13 @@ export type OrganizationSettingsWithMetricDefaults = Omit<
     minPercentageChange: number;
     windowSettings: MetricWindowSettings;
     cappingSettings: MetricCappingSettings;
+    priorSettings: MetricPriorSettings;
   };
 };
 
 export const useOrganizationMetricDefaults = (): OrganizationMetricDefaults => {
   const orgSettings = useOrgSettings();
-
+  console.log(orgSettings);
   /**
    * @link OrganizationMetricDefaults#metricDefaults
    */

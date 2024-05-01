@@ -23,7 +23,7 @@ from gbstats.utils import truncated_normal_mean
 class GaussianPrior:
     mean: float = 0
     variance: float = 1
-    informative: bool = False
+    proper: bool = False
 
 
 @dataclass
@@ -34,15 +34,19 @@ class BayesianConfig(BaseConfig):
 
 
 @dataclass
-class GaussianEffectBayesianConfig(BayesianConfig):
+class EffectBayesianConfig(BayesianConfig):
     prior_effect: GaussianPrior = field(default_factory=GaussianPrior)
 
 
 # Results
+RiskType = Literal["absolute", "relative"]
+
+
 @dataclass
 class BayesianTestResult(TestResult):
     chance_to_win: float
     risk: List[float]
+    risk_type: RiskType
     error_message: Optional[str] = None
 
 
@@ -78,18 +82,16 @@ class BayesianABTest(BaseABTest):
             uplift=Uplift(dist="normal", mean=0, stddev=0),
             risk=[0, 0],
             error_message=error_message,
+            risk_type="relative" if self.relative else "absolute",
         )
 
     def has_empty_input(self):
         return self.stat_a.n == 0 or self.stat_b.n == 0
 
     def credible_interval(
-        self, mean_diff: float, std_diff: float, alpha: float, log: bool
+        self, mean_diff: float, std_diff: float, alpha: float
     ) -> List[float]:
         ci = norm.ppf([alpha / 2, 1 - alpha / 2], mean_diff, std_diff)
-
-        if log:
-            return (np.exp(ci) - 1).tolist()
         return ci.tolist()
 
     def chance_to_win(self, mean_diff: float, std_diff: float) -> float:
@@ -116,29 +118,30 @@ class BayesianABTest(BaseABTest):
                 stddev=result.uplift.stddev * adjustment,
             ),
             risk=result.risk,
+            risk_type=result.risk_type,
         )
 
 
-class GaussianEffectABTest(BayesianABTest):
+class EffectBayesianABTest(BayesianABTest):
     def __init__(
         self,
         stat_a: TestStatistic,
         stat_b: TestStatistic,
-        config: GaussianEffectBayesianConfig = GaussianEffectBayesianConfig(),
+        config: EffectBayesianConfig = EffectBayesianConfig(),
     ):
         super().__init__(stat_a, stat_b, config)
         # rescale prior if needed
         if self.relative and config.prior_type == "absolute":
             self.prior_effect = GaussianPrior(
-                config.prior_effect.mean / self.stat_a.unadjusted_mean,
+                config.prior_effect.mean / abs(self.stat_a.unadjusted_mean),
                 config.prior_effect.variance / pow(self.stat_a.unadjusted_mean, 2),
-                config.prior_effect.informative,
+                config.prior_effect.proper,
             )
         elif not self.relative and config.prior_type == "relative":
             self.prior_effect = GaussianPrior(
-                config.prior_effect.mean * self.stat_a.unadjusted_mean,
+                config.prior_effect.mean * abs(self.stat_a.unadjusted_mean),
                 config.prior_effect.variance * pow(self.stat_a.unadjusted_mean, 2),
-                config.prior_effect.informative,
+                config.prior_effect.proper,
             )
         else:
             self.prior_effect = config.prior_effect
@@ -173,7 +176,7 @@ class GaussianEffectABTest(BayesianABTest):
 
         post_prec = (
             1 / data_variance
-            + int(self.prior_effect.informative) / self.prior_effect.variance
+            + int(self.prior_effect.proper) / self.prior_effect.variance
         )
         self.mean_diff = (
             (
@@ -181,34 +184,18 @@ class GaussianEffectABTest(BayesianABTest):
                 + self.prior_effect.mean / self.prior_effect.variance
             )
             / post_prec
-            if self.prior_effect.informative
+            if self.prior_effect.proper
             else data_mean
         )
 
         self.std_diff = np.sqrt(1 / post_prec)
 
         ctw = self.chance_to_win(self.mean_diff, self.std_diff)
-        ci = self.credible_interval(
-            self.mean_diff, self.std_diff, self.alpha, log=False
-        )
+        ci = self.credible_interval(self.mean_diff, self.std_diff, self.alpha)
 
-        # risk is always absolute in gbstats
-        risk = self.get_risk(
-            frequentist_diff(
-                self.stat_a.mean, self.stat_b.mean, False, self.stat_a.unadjusted_mean
-            ),
-            np.sqrt(
-                frequentist_variance(
-                    self.stat_a.variance,
-                    self.stat_a.mean,
-                    self.stat_a.n,
-                    self.stat_b.variance,
-                    self.stat_b.mean,
-                    self.stat_b.n,
-                    False,
-                )
-            ),
-        )
+        risk = self.get_risk(self.mean_diff, self.std_diff)
+        # flip risk for inverse metrics
+        risk = [risk[0], risk[1]] if not self.inverse else [risk[1], risk[0]]
 
         result = BayesianTestResult(
             chance_to_win=ctw,
@@ -220,6 +207,7 @@ class GaussianEffectABTest(BayesianABTest):
                 stddev=self.std_diff,
             ),
             risk=risk,
+            risk_type="relative" if self.relative else "absolute",
         )
         if self.scaled:
             result = self.scale_result(

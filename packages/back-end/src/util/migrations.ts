@@ -1,6 +1,7 @@
 import isEqual from "lodash/isEqual";
 import cloneDeep from "lodash/cloneDeep";
 import {
+  DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
@@ -78,6 +79,15 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
         delayHours: doc.conversionDelayHours || 0,
       };
     }
+  }
+
+  if (doc.priorSettings === undefined) {
+    newDoc.priorSettings = {
+      override: false,
+      proper: false,
+      mean: 0,
+      stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+    };
   }
 
   if (!doc.userIdTypes?.length) {
@@ -648,6 +658,9 @@ export function migrateSnapshot(
             windowUnit: "hours",
             windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
           },
+          properPrior: false,
+          properPriorMean: 0,
+          properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
           regressionAdjustmentDays:
             regressionSettings?.regressionAdjustmentDays || 0,
           regressionAdjustmentEnabled: !!(

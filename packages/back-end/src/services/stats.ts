@@ -3,7 +3,6 @@ import os from "os";
 import { PythonShell } from "python-shell";
 import cloneDeep from "lodash/cloneDeep";
 import {
-  DEFAULT_INFORMATIVE_PRIOR_STDDEV,
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   EXPOSURE_DATE_DIMENSION_NAME,
@@ -52,8 +51,6 @@ export interface AnalysisSettingsForStatsEngine {
   baseline_index: number;
   dimension: string;
   stats_engine: string;
-  prior_informative: boolean;
-  prior_stddev: number;
   sequential_testing_enabled: boolean;
   sequential_tuning_parameter: number;
   difference_type: string;
@@ -76,6 +73,9 @@ export interface MetricSettingsForStatsEngine {
   denominator_metric_type?: "count" | "binomial" | "quantile";
   covariate_metric_type?: "count" | "binomial" | "quantile";
   quantile_value?: number;
+  prior_proper?: boolean;
+  prior_mean?: number;
+  prior_stddev?: number;
 }
 
 export interface QueryResultsForStatsEngine {
@@ -137,10 +137,6 @@ export function getAnalysisSettingsForStatsEngine(
     baseline_index: settings.baselineVariationIndex ?? 0,
     dimension: settings.dimensions[0] || "",
     stats_engine: settings.statsEngine,
-    prior_informative: Boolean(settings.informativePrior) ?? false,
-    prior_stddev:
-      Number(settings.informativePriorStdDev) ??
-      DEFAULT_INFORMATIVE_PRIOR_STDDEV,
     sequential_testing_enabled: settings.sequentialTesting ?? false,
     sequential_tuning_parameter: sequentialTestingTuningParameterNumber,
     difference_type: settings.differenceType,
@@ -281,6 +277,9 @@ export function getMetricSettingsForStatsEngine(
     ...(!!quantileMetric && isFactMetric(metric)
       ? { quantile_value: metric.quantileSettings?.quantile ?? 0 }
       : {}),
+    prior_proper: metric.priorSettings.proper,
+    prior_mean: metric.priorSettings.mean,
+    prior_stddev: metric.priorSettings.stddev,
   };
 }
 

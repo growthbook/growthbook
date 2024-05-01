@@ -409,9 +409,10 @@ const Results: FC<{
                 <div>
                   <span className="text-muted">Informative prior:</span>{" "}
                   <span>
-                    {analysis?.settings?.informativePrior &&
-                    analysis?.settings?.informativePriorStdDev
-                      ? `N(0, ${analysis.settings.informativePriorStdDev}^2)`
+                    {analysis?.settings?.properPrior &&
+                    analysis?.settings?.properPriorStdDev &&
+                    analysis?.settings?.properPriorMean !== undefined
+                      ? `N(${analysis.settings.properPriorMean}, ${analysis.settings.properPriorStdDev}^2)`
                       : "Disabled"}
                   </span>
                 </div>

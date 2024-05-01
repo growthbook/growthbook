@@ -1793,6 +1793,7 @@ export async function postSnapshot(
         phase,
         users,
         metrics,
+        orgSettings?.metricDefaults?.priorSettings,
         analysisSettings,
         metricMap
       );

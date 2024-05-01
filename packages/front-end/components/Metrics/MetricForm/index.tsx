@@ -8,8 +8,10 @@ import {
 import { useFieldArray, useForm } from "react-hook-form";
 import { FaArrowRight, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import {
+  DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { isProjectListValidForProject } from "shared/util";
@@ -17,11 +19,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
-import {
-  defaultLoseRiskThreshold,
-  defaultWinRiskThreshold,
-  getMetricFormatter,
-} from "@/services/metrics";
+import { getMetricFormatter } from "@/services/metrics";
 import { useAuth } from "@/services/auth";
 import RadioSelector from "@/components/Forms/RadioSelector";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -46,6 +44,7 @@ import ConfirmModal from "@/components/ConfirmModal";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
 import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
 import { MetricDelayHours } from "./MetricDelayHours";
@@ -334,8 +333,8 @@ const MetricForm: FC<MetricFormProps> = ({
           : project
           ? [project]
           : [],
-      winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
-      loseRisk: (current.loseRisk || defaultLoseRiskThreshold) * 100,
+      winRisk: (current.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100,
+      loseRisk: (current.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100,
       maxPercentChange: getMaxPercentageChangeForMetric(current) * 100,
       minPercentChange: getMinPercentageChangeForMetric(current) * 100,
       minSampleSize: getMinSampleSizeForMetric(current),
@@ -348,6 +347,7 @@ const MetricForm: FC<MetricFormProps> = ({
         current.regressionAdjustmentDays ??
         settings.regressionAdjustmentDays ??
         DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+      priorSettings: current.priorSettings || metricDefaults.priorSettings,
     },
   });
 
@@ -380,6 +380,7 @@ const MetricForm: FC<MetricFormProps> = ({
     regressionAdjustmentOverride: form.watch("regressionAdjustmentOverride"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
+    priorSettings: form.watch("priorSettings"),
   };
 
   // We want to show a warning when someone tries to create a metric for just the demo project
@@ -518,6 +519,7 @@ const MetricForm: FC<MetricFormProps> = ({
 
     const body = JSON.stringify(sendValue);
 
+    console.log(sendValue);
     if (edit) {
       await apiCall(`/metric/${current.id}`, {
         method: "PUT",
@@ -1213,6 +1215,15 @@ const MetricForm: FC<MetricFormProps> = ({
           ) : (
             <>
               <MetricDelayHours form={form} />
+
+              <MetricPriorSettingsForm
+                priorSettings={form.watch("priorSettings")}
+                setPriorSettings={(priorSettings) =>
+                  form.setValue("priorSettings", priorSettings)
+                }
+                metricDefaults={metricDefaults}
+              />
+
               {ignoreNullsSupported && value.type !== "binomial" && (
                 <div className="form-group">
                   <SelectField

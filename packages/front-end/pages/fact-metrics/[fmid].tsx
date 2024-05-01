@@ -5,6 +5,10 @@ import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import { ColumnRef, FactTableInterface } from "back-end/types/fact-table";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { quantileMetricType } from "shared/experiments";
+import {
+  DEFAULT_LOSE_RISK_THRESHOLD,
+  DEFAULT_WIN_RISK_THRESHOLD,
+} from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCuped, GBEdit } from "@/components/Icons";
@@ -21,16 +25,13 @@ import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";
 import RightRailSection from "@/components/Layout/RightRailSection";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import {
-  defaultLoseRiskThreshold,
-  defaultWinRiskThreshold,
-  getPercentileLabel,
-} from "@/services/metrics";
+import { getPercentileLabel } from "@/services/metrics";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -188,6 +189,7 @@ export default function FactMetricPage() {
   const settings = useOrgSettings();
 
   const {
+    metricDefaults,
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
@@ -597,7 +599,7 @@ export default function FactMetricPage() {
                     <span className="text-gray">Acceptable risk &lt;</span>{" "}
                     <span className="font-weight-bold">
                       {factMetric?.winRisk * 100 ||
-                        defaultWinRiskThreshold * 100}
+                        DEFAULT_WIN_RISK_THRESHOLD * 100}
                       %
                     </span>
                   </li>
@@ -605,12 +607,17 @@ export default function FactMetricPage() {
                     <span className="text-gray">Unacceptable risk &gt;</span>{" "}
                     <span className="font-weight-bold">
                       {factMetric?.loseRisk * 100 ||
-                        defaultLoseRiskThreshold * 100}
+                        DEFAULT_LOSE_RISK_THRESHOLD * 100}
                       %
                     </span>
                   </li>
                 </ul>
               </RightRailSectionGroup>
+
+              <MetricPriorRightRailSectionGroup
+                metric={factMetric}
+                metricDefaults={metricDefaults}
+              />
 
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-2">

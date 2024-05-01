@@ -17,11 +17,7 @@ import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import SelectField from "@/components/Forms/SelectField";
 import Tab from "@/components/Tabs/Tab";
 import Toggle from "@/components/Forms/Toggle";
-
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
+import BayesianPriorSettings from "@/components/Settings/BayesianPriorSettings";
 
 export default function StatsEngineSettings() {
   const form = useFormContext();
@@ -171,56 +167,8 @@ export default function StatsEngineSettings() {
               })}
             />
           </div>
-          <div className="p-3 my-3 border rounded">
-            <h5 className="font-weight-bold mb-4">Priors</h5>
-            <div className="form-group mb-0 mr-2">
-              <div className={"d-flex"}>
-                <label className="mr-1" htmlFor="toggle-informativePrior">
-                  Use informative prior
-                </label>
-                <Toggle
-                  id={"toggle-informativePrior"}
-                  value={form.watch("informativePrior")}
-                  setValue={(value) => {
-                    form.setValue("informativePrior", value);
-                  }}
-                  disabled={hasFileConfig()}
-                />
-              </div>
-              {form.watch("informativePrior") ? (
-                <div className="form-inline">
-                  <Field
-                    label="Prior Standard Deviation"
-                    type="number"
-                    className={`ml-2 form-inline`}
-                    containerClassName="mb-0 mt-3"
-                    min="0"
-                    disabled={hasFileConfig()}
-                    helpText={
-                      <>
-                        <span className="ml-2">(0.1 is default)</span>
-                        <div>
-                          <span className="ml-2">
-                            {`Your prior beliefs are that ~68% of experiment lifts lie between ${percentFormatter.format(
-                              -1 * form.watch("informativePriorStdDev")
-                            )} and ${percentFormatter.format(
-                              form.watch("informativePriorStdDev")
-                            )}`}
-                          </span>
-                        </div>
-                      </>
-                    }
-                    {...form.register("informativePriorStdDev", {
-                      valueAsNumber: true,
-                      validate: (v) => {
-                        return !(v <= 0);
-                      },
-                    })}
-                  />
-                </div>
-              ) : null}
-            </div>
-          </div>
+
+          <BayesianPriorSettings />
         </Tab>
 
         <Tab id="frequentist" display="Frequentist">

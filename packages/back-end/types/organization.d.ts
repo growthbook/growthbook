@@ -8,7 +8,11 @@ import type { ReqContextClass } from "../src/services/context";
 import { attributeDataTypes } from "../src/util/organization.util";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
-import { MetricCappingSettings, MetricWindowSettings } from "./fact-table";
+import {
+  MetricCappingSettings,
+  MetricPriorSettings,
+  MetricWindowSettings,
+} from "./fact-table";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
@@ -114,6 +118,7 @@ export interface MetricDefaults {
   minPercentageChange?: number;
   windowSettings?: MetricWindowSettings;
   cappingSettings?: MetricCappingSettings;
+  priorSettings?: MetricPriorSettings;
 }
 
 export interface Namespaces {
@@ -174,8 +179,6 @@ export interface OrganizationSettings {
   multipleExposureMinPercent?: number;
   defaultRole?: MemberRoleInfo;
   statsEngine?: StatsEngine;
-  informativePrior?: boolean;
-  informativePriorStdDev?: number;
   pValueThreshold?: number;
   pValueCorrection?: PValueCorrection;
   regressionAdjustmentEnabled?: boolean;

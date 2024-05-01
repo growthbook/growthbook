@@ -9,9 +9,11 @@ export const DEFAULT_METRIC_WINDOW_DELAY_HOURS = 0;
 export const DEFAULT_METRIC_WINDOW_HOURS = 72;
 export const DEFAULT_METRIC_CAPPING = "";
 export const DEFAULT_METRIC_CAPPING_VALUE = 0;
+export const DEFAULT_WIN_RISK_THRESHOLD = 0.0025;
+export const DEFAULT_LOSE_RISK_THRESHOLD = 0.0125;
 
 // Bayesian prior
-export const DEFAULT_INFORMATIVE_PRIOR_STDDEV = 0.1;
+export const DEFAULT_PROPER_PRIOR_STDDEV = 0.1;
 
 // Regression Adjustment (CUPED):
 export const DEFAULT_REGRESSION_ADJUSTMENT_ENABLED = false;

@@ -21,6 +21,10 @@ import { BsGear } from "react-icons/bs";
 import { IdeaInterface } from "back-end/types/idea";
 import { date } from "shared/dates";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import {
+  DEFAULT_LOSE_RISK_THRESHOLD,
+  DEFAULT_WIN_RISK_THRESHOLD,
+} from "shared/constants";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -28,11 +32,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
-import {
-  defaultWinRiskThreshold,
-  defaultLoseRiskThreshold,
-  getMetricFormatter,
-} from "@/services/metrics";
+import { getMetricFormatter } from "@/services/metrics";
 import MetricForm from "@/components/Metrics/MetricForm";
 import Tabs from "@/components/Tabs/Tabs";
 import Tab from "@/components/Tabs/Tab";
@@ -69,6 +69,7 @@ import PageHead from "@/components/Layout/PageHead";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -116,11 +117,12 @@ const MetricPage: FC = () => {
   }>(`/metric/${mid}`);
 
   const {
+    metricDefaults,
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
   } = useOrganizationMetricDefaults();
-
+  console.log(metricDefaults);
   const form = useForm<{ name: string; description: string }>();
 
   useEffect(() => {
@@ -1285,17 +1287,22 @@ const MetricPage: FC = () => {
                   <li className="mb-2">
                     <span className="text-gray">Acceptable risk &lt;</span>{" "}
                     <span className="font-weight-bold">
-                      {(metric.winRisk || defaultWinRiskThreshold) * 100}%
+                      {(metric.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100}%
                     </span>
                   </li>
                   <li className="mb-2">
                     <span className="text-gray">Unacceptable risk &gt;</span>{" "}
                     <span className="font-weight-bold">
-                      {(metric.loseRisk || defaultLoseRiskThreshold) * 100}%
+                      {(metric.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100}%
                     </span>
                   </li>
                 </ul>
               </RightRailSectionGroup>
+
+              <MetricPriorRightRailSectionGroup
+                metric={metric}
+                metricDefaults={metricDefaults}
+              />
 
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-2">

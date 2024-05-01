@@ -4,9 +4,11 @@ import { ReactElement, useEffect, useState } from "react";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
   DEFAULT_FACT_METRIC_WINDOW,
+  DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import {
   CreateFactMetricProps,
@@ -19,11 +21,7 @@ import {
 import { isProjectListValidForProject } from "shared/util";
 import omit from "lodash/omit";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import {
-  defaultLoseRiskThreshold,
-  defaultWinRiskThreshold,
-  formatNumber,
-} from "@/services/metrics";
+import { formatNumber } from "@/services/metrics";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
@@ -47,6 +45,7 @@ import { MetricCappingSettingsForm } from "@/components/Metrics/MetricForm/Metri
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { MetricDelayHours } from "@/components/Metrics/MetricForm/MetricDelayHours";
 import { AppFeatures } from "@/types/app-features";
+import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
 
 export interface Props {
   close?: () => void;
@@ -375,8 +374,8 @@ export default function FactMetricModal({
         windowUnit: "days",
         windowValue: 3,
       },
-      winRisk: (existing?.winRisk || defaultWinRiskThreshold) * 100,
-      loseRisk: (existing?.loseRisk || defaultLoseRiskThreshold) * 100,
+      winRisk: (existing?.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100,
+      loseRisk: (existing?.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100,
       minPercentChange:
         (existing?.minPercentChange || metricDefaults.minPercentageChange) *
         100,
@@ -394,6 +393,7 @@ export default function FactMetricModal({
         existing?.regressionAdjustmentDays ||
         (settings.regressionAdjustmentDays ??
           DEFAULT_REGRESSION_ADJUSTMENT_DAYS),
+      priorSettings: existing?.priorSettings || metricDefaults.priorSettings,
     },
   });
 
@@ -929,6 +929,15 @@ export default function FactMetricModal({
                     metricType={type}
                   />
                 ) : null}
+
+                <MetricPriorSettingsForm
+                  priorSettings={form.watch("priorSettings")}
+                  setPriorSettings={(priorSettings) =>
+                    form.setValue("priorSettings", priorSettings)
+                  }
+                  metricDefaults={metricDefaults}
+                />
+
                 <PremiumTooltip commercialFeature="regression-adjustment">
                   <label className="mb-1">
                     <GBCuped /> Regression Adjustment (CUPED)
