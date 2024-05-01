@@ -310,13 +310,6 @@ export function getDefaultExperimentAnalysisSettings(
     : false;
   return {
     statsEngine,
-    properPrior:
-      organization.settings?.metricDefaults?.priorSettings?.proper ?? false,
-    properPriorMean:
-      organization.settings?.metricDefaults?.priorSettings?.mean ?? 0,
-    properPriorStdDev:
-      organization.settings?.metricDefaults?.priorSettings?.mean ??
-      DEFAULT_PROPER_PRIOR_STDDEV,
     dimensions: dimension ? [dimension] : [],
     regressionAdjusted:
       hasRegressionAdjustmentFeature &&
@@ -389,6 +382,12 @@ export function getSnapshotSettings({
     throw new Error("Invalid snapshot phase");
   }
 
+  const defaultPriorSettings = orgPriorSettings ?? {
+    override: false,
+    proper: false,
+    mean: 0,
+    stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+  };
   const metricSettings = [
     // Combine goals, guardrails, and activation metric and de-dupe the list
     ...new Set([
@@ -401,12 +400,7 @@ export function getSnapshotSettings({
       getMetricForSnapshot(
         m,
         metricMap,
-        orgPriorSettings ?? {
-          override: false,
-          proper: false,
-          mean: 0,
-          stddev: DEFAULT_PROPER_PRIOR_STDDEV,
-        },
+        defaultPriorSettings,
         metricRegressionAdjustmentStatuses,
         experiment.metricOverrides
       )
@@ -427,6 +421,7 @@ export function getSnapshotSettings({
     experimentId: experiment.trackingKey || experiment.id,
     goalMetrics: experiment.metrics,
     guardrailMetrics: experiment.guardrails || [],
+    defaultMetricPriorSettings: defaultPriorSettings,
     regressionAdjustmentEnabled:
       settings.statsEngine === "frequentist" && !!settings.regressionAdjusted,
     exposureQueryId: experiment.exposureQueryId,

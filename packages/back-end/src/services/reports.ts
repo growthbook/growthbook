@@ -95,6 +95,7 @@ export function reportArgsFromSnapshot(
       snapshot.settings,
       analysisSettings
     ),
+    defaultMetricPriorSettings: snapshot.settings.defaultMetricPriorSettings,
     sequentialTestingEnabled: analysisSettings.sequentialTesting,
     sequentialTestingTuningParameter:
       analysisSettings.sequentialTestingTuningParameter,
@@ -124,6 +125,12 @@ export function getSnapshotSettingsFromReportArgs(
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
 } {
+  const defaultMetricPriorSettings = args.defaultMetricPriorSettings || {
+    override: false,
+    proper: false,
+    mean: 0,
+    stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+  };
   const snapshotSettings: ExperimentSnapshotSettings = {
     metricSettings: args.metrics
       .concat(args.guardrails || [])
@@ -132,12 +139,7 @@ export function getSnapshotSettingsFromReportArgs(
         getMetricForSnapshot(
           m,
           metricMap,
-          {
-            override: false,
-            proper: args.properPrior ?? false,
-            mean: args.properPriorMean ?? 0,
-            stddev: args.properPriorStdDev ?? DEFAULT_PROPER_PRIOR_STDDEV,
-          },
+          defaultMetricPriorSettings,
           args.metricRegressionAdjustmentStatuses,
           args.metricOverrides
         )
@@ -154,6 +156,7 @@ export function getSnapshotSettingsFromReportArgs(
     segment: args.segment || "",
     queryFilter: args.queryFilter || "",
     skipPartialData: !!args.skipPartialData,
+    defaultMetricPriorSettings: defaultMetricPriorSettings,
     regressionAdjustmentEnabled: !!args.regressionAdjustmentEnabled,
     goalMetrics: args.metrics,
     guardrailMetrics: args.guardrails || [],

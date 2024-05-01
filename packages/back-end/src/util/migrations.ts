@@ -630,6 +630,12 @@ export function migrateSnapshot(
       : "running";
   }
 
+  const defaultMetricPriorSettings = {
+    override: false,
+    proper: false,
+    mean: 0,
+    stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+  };
   // Migrate settings
   // We weren't tracking all of these before, so just pick good defaults
   if (!snapshot.settings) {
@@ -688,6 +694,7 @@ export function migrateSnapshot(
       goalMetrics: metricIds.filter((m) => m !== activationMetric),
       guardrailMetrics: [],
       activationMetric: activationMetric || null,
+      defaultMetricPriorSettings: defaultMetricPriorSettings,
       regressionAdjustmentEnabled: !!regressionAdjustmentEnabled,
       startDate: snapshot.dateCreated,
       endDate: snapshot.dateCreated,
@@ -700,6 +707,11 @@ export function migrateSnapshot(
       attributionModel: "firstExposure",
       variations,
     };
+  } else {
+    // Add new settings field in case it is missing
+    if (snapshot.settings.defaultMetricPriorSettings === undefined) {
+      snapshot.settings.defaultMetricPriorSettings = defaultMetricPriorSettings;
+    }
   }
 
   // Some fields used to be optional, but are now required

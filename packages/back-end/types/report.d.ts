@@ -1,3 +1,4 @@
+import { MetricPriorSettings } from "./fact-table";
 import { AttributionModel, MetricOverride } from "./experiment";
 import { SnapshotVariation } from "./experiment-snapshot";
 import { Queries } from "./query";
@@ -58,9 +59,7 @@ export interface ExperimentReportArgs {
   statsEngine?: StatsEngine;
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
-  properPrior?: boolean;
-  properPriorMean?: number;
-  properPriorStdDev?: number;
+  defaultMetricPriorSettings?: MetricPriorSettings;
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
   pValueThreshold?: number;

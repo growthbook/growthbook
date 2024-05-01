@@ -404,20 +404,6 @@ const Results: FC<{
                 </div>
               </>
             )}
-            {analysis?.settings?.statsEngine === "bayesian" && (
-              <>
-                <div>
-                  <span className="text-muted">Informative prior:</span>{" "}
-                  <span>
-                    {analysis?.settings?.properPrior &&
-                    analysis?.settings?.properPriorStdDev &&
-                    analysis?.settings?.properPriorMean !== undefined
-                      ? `N(${analysis.settings.properPriorMean}, ${analysis.settings.properPriorStdDev}^2)`
-                      : "Disabled"}
-                  </span>
-                </div>
-              </>
-            )}
             <div>
               <span className="text-muted">Run date:</span>{" "}
               <span>

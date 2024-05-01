@@ -11,7 +11,6 @@ import {
 } from "back-end/types/experiment";
 import uniq from "lodash/uniq";
 import {
-  DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
@@ -130,10 +129,6 @@ export default function ConfigureReport({
         DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       metricRegressionAdjustmentStatuses:
         report.args.metricRegressionAdjustmentStatuses || [],
-      properPrior: report.args.properPrior ?? false,
-      properPriorMean: report.args.properPriorMean ?? 0,
-      properPriorStdDev:
-        report.args.properPriorStdDev ?? DEFAULT_PROPER_PRIOR_STDDEV,
       sequentialTestingEnabled:
         hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled,
       sequentialTestingTuningParameter:
