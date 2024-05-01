@@ -24,6 +24,7 @@ const MetricSelector: FC<
     includeFacts?: boolean;
     availableIds?: string[];
     onlyBinomial?: boolean;
+    onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   }
 > = ({
   datasource,
@@ -33,6 +34,7 @@ const MetricSelector: FC<
   placeholder,
   availableIds,
   onlyBinomial,
+  onPaste,
   ...selectProps
 }) => {
   const {
@@ -108,6 +110,7 @@ const MetricSelector: FC<
       formatOptionLabel={({ value, label }) => {
         return value ? <MetricName id={value} /> : label;
       }}
+      onPaste={onPaste}
     />
   );
 };
