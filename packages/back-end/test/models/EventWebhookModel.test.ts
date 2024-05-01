@@ -7,12 +7,18 @@ describe("getAllEventWebHooksForEvent", () => {
   describe("when event has no projects", () => {
     it("implements the right logic", async () => {
       jest.spyOn(EventWebHookModel, "find").mockImplementation(() => [
-        { toJSON: () => ({ name: "doc with no projects" }), projects: [] },
         {
-          toJSON: () => ({ name: "doc with event project" }),
+          toJSON: () => ({ name: "webhook with no filter on projects" }),
+          projects: [],
+        },
+        {
+          toJSON: () => ({ name: "webhook with filter for event project" }),
           projects: ["event project"],
         },
-        { toJSON: () => ({ name: "doc with foo project" }), projects: ["foo"] },
+        {
+          toJSON: () => ({ name: "webhook with filter for foo project" }),
+          projects: ["foo"],
+        },
       ]);
 
       const ret = await getAllEventWebHooksForEvent({
@@ -28,24 +34,23 @@ describe("getAllEventWebHooksForEvent", () => {
         events: "feature.created",
         organizationId: "aabb",
       });
-      expect(ret).toEqual([
-        { name: "doc with no projects" },
-        { name: "doc with event project" },
-        { name: "doc with foo project" },
-      ]);
+      expect(ret).toEqual([{ name: "webhook with no filter on projects" }]);
     });
   });
 
   describe("when event has projects", () => {
     it("implements the right logic", async () => {
       jest.spyOn(EventWebHookModel, "find").mockImplementation(() => [
-        { toJSON: () => ({ name: "doc with no projects" }), projects: [] },
         {
-          toJSON: () => ({ name: "doc with event project" }),
+          toJSON: () => ({ name: "webhook with no filter on projects" }),
+          projects: [],
+        },
+        {
+          toJSON: () => ({ name: "webhook with filter for event project" }),
           projects: ["event project"],
         },
         {
-          toJSON: () => ({ name: "doc with foo projects" }),
+          toJSON: () => ({ name: "webhook with filter for foo projects" }),
           projects: ["foo"],
         },
       ]);
@@ -63,7 +68,10 @@ describe("getAllEventWebHooksForEvent", () => {
         events: "feature.created",
         organizationId: "aabb",
       });
-      expect(ret).toEqual([{ name: "doc with event project" }]);
+      expect(ret).toEqual([
+        { name: "webhook with no filter on projects" },
+        { name: "webhook with filter for event project" },
+      ]);
     });
   });
 });

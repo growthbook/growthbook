@@ -6,9 +6,11 @@ import {
   getAccountPlan,
   getEffectiveAccountPlan,
   getLicense,
+  getLicenseError,
   orgHasPremiumFeature,
 } from "enterprise";
 import { hasReadAccess } from "shared/permissions";
+import { experimentHasLinkedChanges } from "shared/util";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -36,6 +38,7 @@ import {
 import { updatePassword } from "../../services/users";
 import { getAllTags } from "../../models/TagModel";
 import {
+  Environment,
   Invite,
   MemberRole,
   MemberRoleWithProjects,
@@ -118,6 +121,9 @@ import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { TeamInterface } from "../../../types/team";
 import { queueSingleWebhookById } from "../../jobs/sdkWebhooks";
 import { initializeLicenseForOrg } from "../../services/licenseData";
+import { findSDKConnectionsByOrganization } from "../../models/SdkConnectionModel";
+import { triggerSingleSDKWebhookJobs } from "../../jobs/updateAllJobs";
+import { SDKConnectionInterface } from "../../../types/sdk-connection";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -152,7 +158,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     status: 200,
     metrics,
     datasources: datasources.map((d) => {
-      const integration = getSourceIntegrationObject(d);
+      const integration = getSourceIntegrationObject(context, d);
       return {
         id: d.id,
         name: d.name,
@@ -617,9 +623,9 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   } = org;
 
   let license;
-  if (licenseKey) {
+  if (licenseKey || process.env.LICENSE_KEY) {
     // automatically set the license data based on org license key
-    license = getLicense(org.licenseKey);
+    license = getLicense(licenseKey || process.env.LICENSE_KEY);
     if (!license || (license.organizationId && license.organizationId !== id)) {
       try {
         license = await initializeLicenseForOrg(org);
@@ -667,6 +673,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     enterpriseSSO,
     accountPlan: getAccountPlan(org),
     effectiveAccountPlan: getEffectiveAccountPlan(org),
+    licenseError: getLicenseError(org),
     commercialFeatures: [...accountFeatures[getEffectiveAccountPlan(org)]],
     roles: getRoles(org),
     members: expandedMembers,
@@ -709,9 +716,10 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
 
   const namespaces: NamespaceUsage = {};
 
-  // Get all of the active experiments that are tied to a namespace
+  // Get active legacy experiment rules on features
   const allFeatures = await getAllFeatures(context);
   allFeatures.forEach((f) => {
+    if (f.archived) return;
     environments.forEach((env) => {
       if (!f.environmentSettings?.[env]?.enabled) return;
       const rules = f.environmentSettings?.[env]?.rules || [];
@@ -741,6 +749,20 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
 
   const allExperiments = await getAllExperiments(context);
   allExperiments.forEach((e) => {
+    if (e.archived) return;
+
+    // Skip experiments that are not linked to any changes since they aren't included in the payload
+    if (!experimentHasLinkedChanges(e)) return;
+
+    // Skip if experiment is stopped and doesn't have a temporary rollout enabled
+    if (
+      e.status === "stopped" &&
+      (e.excludeFromPayload || !e.releasedVariationId)
+    ) {
+      return;
+    }
+
+    // Skip if a namespace isn't enabled on the latest phase
     if (!e.phases) return;
     const phase = e.phases[e.phases.length - 1];
     if (!phase) return;
@@ -1153,10 +1175,13 @@ export async function putOrganization(
   req: AuthRequest<Partial<OrganizationInterface>>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
-  const { name, settings, connections, externalId } = req.body;
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { name, settings, connections, externalId, licenseKey } = req.body;
 
   const deletedEnvIds: string[] = [];
+  const envsWithModifiedProjects: Environment[] = [];
+  const existingEnvironments = getEnvironments(org);
 
   if (connections || name) {
     req.checkPermissions("organizationSettings");
@@ -1164,11 +1189,9 @@ export async function putOrganization(
   if (settings) {
     Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
       if (k === "environments") {
-        const existing = getEnvironments(org);
-
         // Require permissions for any old environments that changed
         const affectedEnvs: Set<string> = new Set();
-        existing.forEach((env) => {
+        existingEnvironments.forEach((env) => {
           const oldHash = JSON.stringify(env);
           const newHash = JSON.stringify(
             settings[k]?.find((e) => e.id === env.id)
@@ -1182,10 +1205,23 @@ export async function putOrganization(
         });
 
         // Require permissions for any new environments that have been added
-        const oldIds = new Set(existing.map((env) => env.id) || []);
+        const oldIds = new Set(existingEnvironments.map((env) => env.id) || []);
         settings[k]?.forEach((env) => {
           if (!oldIds.has(env.id)) {
             affectedEnvs.add(env.id);
+          }
+        });
+
+        // Check if any environments' projects have been changed (may require webhook triggers)
+        existingEnvironments.forEach((env) => {
+          const oldProjects = env.projects || [];
+          const newProjects =
+            settings[k]?.find((e) => e.id === env.id)?.projects || [];
+          if (JSON.stringify(oldProjects) !== JSON.stringify(newProjects)) {
+            envsWithModifiedProjects.push({
+              ...env,
+              projects: newProjects,
+            });
           }
         });
 
@@ -1241,6 +1277,12 @@ export async function putOrganization(
       }
     }
 
+    if (licenseKey && licenseKey.trim() !== org.licenseKey) {
+      updates.licenseKey = licenseKey.trim();
+      orig.licenseKey = org.licenseKey;
+      await setLicenseKey(org, updates.licenseKey);
+    }
+
     await updateOrganization(org.id, updates);
 
     await req.audit({
@@ -1255,6 +1297,28 @@ export async function putOrganization(
     deletedEnvIds.forEach((envId) => {
       removeEnvironmentFromSlackIntegration({ organizationId: org.id, envId });
     });
+
+    // Trigger SDK webhooks to reflect project changes in environments
+    const affectedConnections = new Set<SDKConnectionInterface>();
+    if (envsWithModifiedProjects.length) {
+      const connections = await findSDKConnectionsByOrganization(context);
+      for (const env of envsWithModifiedProjects) {
+        const affected = connections.filter((c) => c.environment === env.id);
+        affected.forEach((c) => affectedConnections.add(c));
+      }
+    }
+    for (const connection of affectedConnections) {
+      const isUsingProxy = !!(
+        connection.proxy.enabled && connection.proxy.host
+      );
+      await triggerSingleSDKWebhookJobs(
+        org.id,
+        connection,
+        {},
+        connection.proxy,
+        isUsingProxy
+      );
+    }
 
     res.status(200).json({
       status: 200,
@@ -1272,9 +1336,13 @@ export const autoAddGroupsAttribute = async (
   res: Response<{ status: 200; added: boolean }>
 ) => {
   // Add missing `$groups` attribute automatically if it's being referenced by a Saved Group
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
-  req.checkPermissions("manageTargetingAttributes", []);
+  // TODO: When we add project-scoping to saved groups - pass in the actual projects array below
+  if (!context.permissions.canCreateAttribute({})) {
+    context.permissions.throwPermissionError();
+  }
 
   let added = false;
 
@@ -1910,6 +1978,27 @@ export async function putAdminResetUserPassword(
   });
 }
 
+async function setLicenseKey(org: OrganizationInterface, licenseKey: string) {
+  if (!IS_CLOUD && IS_MULTI_ORG) {
+    throw new Error(
+      "You must use the LICENSE_KEY environmental variable on multi org sites."
+    );
+  }
+
+  try {
+    org.licenseKey = licenseKey;
+    await initializeLicenseForOrg(org, true);
+  } catch (error) {
+    // As we show this error on the front-end, show a more generic invalid license key error
+    // if the error is not related to being able to connect to the license server
+    if (error.message.includes("Could not connect")) {
+      throw new Error(error?.message);
+    } else {
+      throw new Error("Invalid license key");
+    }
+  }
+}
+
 export async function putLicenseKey(
   req: AuthRequest<{ licenseKey: string }>,
   res: Response
@@ -1920,33 +2009,13 @@ export async function putLicenseKey(
     throw new Error("Must be part of an organization");
   }
   req.checkPermissions("manageBilling");
-  if (IS_CLOUD) {
-    throw new Error("License keys are only applicable to self-hosted accounts");
-  }
-
-  if (IS_MULTI_ORG) {
-    throw new Error(
-      "You must use the LICENSE_KEY environmental variable on multi org sites."
-    );
-  }
 
   const licenseKey = req.body.licenseKey.trim();
   if (!licenseKey) {
     throw new Error("missing license key");
   }
 
-  try {
-    org.licenseKey = licenseKey;
-    await initializeLicenseForOrg(org);
-  } catch (error) {
-    // As we show this error on the front-end, show a more generic invalid license key error
-    // if the error is not related to being able to connect to the license server
-    if (error.message.includes("Could not connect")) {
-      throw new Error(error?.message);
-    } else {
-      throw new Error("Invalid license key");
-    }
-  }
+  await setLicenseKey(org, licenseKey);
 
   try {
     await updateOrganization(orgId, {

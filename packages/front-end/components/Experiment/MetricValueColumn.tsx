@@ -1,6 +1,11 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { CSSProperties, DetailedHTMLProps, TdHTMLAttributes } from "react";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  isFactMetric,
+  isRatioMetric,
+  quantileMetricType,
+} from "shared/experiments";
 import {
   getColumnRefFormatter,
   getExperimentMetricFormatter,
@@ -48,12 +53,20 @@ export default function MetricValueColumn({
   );
 
   const numeratorValue = stats.value;
-  const denominatorValue = stats.denominator || stats.users || users;
+  const denominatorValue =
+    metric.denominator || isRatioMetric(metric)
+      ? stats.denominator ?? stats.users
+      : stats.users || users;
 
   let numerator: string;
   let denominator = numberFormatter.format(denominatorValue);
 
-  if (isFactMetric(metric)) {
+  const quantileMetric = quantileMetricType(metric);
+  if (quantileMetric && stats.stats?.count !== undefined) {
+    numerator = `${numberFormatter.format(stats.stats.count)} ${
+      quantileMetric === "event" ? "events" : "users"
+    }`;
+  } else if (isFactMetric(metric)) {
     numerator = getColumnRefFormatter(metric.numerator, getFactTableById)(
       numeratorValue,
       formatterOptions
@@ -75,7 +88,7 @@ export default function MetricValueColumn({
       {metric && stats.users ? (
         <>
           <div className="result-number">{overall}</div>
-          {showRatio ? (
+          {showRatio && numerator ? (
             <div className="result-number-sub text-muted">
               <em>
                 <span
@@ -84,9 +97,14 @@ export default function MetricValueColumn({
                   }}
                 >
                   {numerator}
-                </span>{" "}
-                /&nbsp;
-                {denominator}
+                </span>
+                {!quantileMetric ? (
+                  <>
+                    {" "}
+                    /&nbsp;
+                    {denominator}
+                  </>
+                ) : null}
               </em>
             </div>
           ) : null}

@@ -11,7 +11,10 @@ import { ReactElement, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
 import { FaExternalLinkAlt } from "react-icons/fa";
-import { validateFeatureValue } from "shared/util";
+import {
+  filterEnvironmentsByExperiment,
+  validateFeatureValue,
+} from "shared/util";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -28,6 +31,7 @@ import usePermissions from "@/hooks/usePermissions";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -134,8 +138,13 @@ export default function FeatureFromExperimentModal({
   mutate,
 }: Props) {
   const { project, refreshTags } = useDefinitions();
-  const environments = useEnvironments();
+  const allEnvironments = useEnvironments();
+  const environments = filterEnvironmentsByExperiment(
+    allEnvironments,
+    experiment
+  );
   const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
 
   const defaultValues = genFormDefaultValues({
@@ -147,11 +156,12 @@ export default function FeatureFromExperimentModal({
 
   const { features, mutate: mutateFeatures } = useFeaturesList(false);
 
-  // Skip features that already have this experiment
   // TODO: include features where the only reference to this experiment is an old revision
   const validFeatures = features.filter((f) => {
     if (f.archived) return false;
+    // Skip features that already have this experiment
     if (experiment.linkedFeatures?.includes(f.id)) return false;
+    if ((experiment.project || "") !== (f.project || "")) return false;
     return true;
   });
 
@@ -172,7 +182,11 @@ export default function FeatureFromExperimentModal({
   let ctaEnabled = true;
   let disabledMessage: string | undefined;
 
-  if (!permissions.check("createFeatureDrafts", project)) {
+  if (
+    !permissionsUtil.canManageFeatureDrafts({
+      project: experiment.project ?? project,
+    })
+  ) {
     ctaEnabled = false;
     disabledMessage =
       "You don't have permission to create feature flag drafts.";
@@ -389,6 +403,7 @@ export default function FeatureFromExperimentModal({
 
           <EnvironmentSelect
             environmentSettings={environmentSettings}
+            environments={environments}
             setValue={(env, on) => {
               environmentSettings[env.id].enabled = on;
               form.setValue("environmentSettings", environmentSettings);

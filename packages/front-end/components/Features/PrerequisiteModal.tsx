@@ -3,6 +3,7 @@ import { FeatureInterface, FeaturePrerequisite } from "back-end/types/feature";
 import React, { useMemo } from "react";
 import {
   evaluatePrerequisiteState,
+  filterEnvironmentsByFeature,
   getDefaultPrerequisiteCondition,
   isFeatureCyclic,
   PrerequisiteStateResult,
@@ -55,7 +56,8 @@ export default function PrerequisiteModal({
   const { features } = useFeaturesList(false);
   const prerequisites = getPrerequisites(feature);
   const prerequisite = prerequisites[i] ?? null;
-  const environments = useEnvironments();
+  const allEnvironments = useEnvironments();
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
   const { apiCall } = useAuth();
 
@@ -88,12 +90,13 @@ export default function PrerequisiteModal({
     newFeature.prerequisites[i] = form.getValues();
 
     const featuresMap = new Map(features.map((f) => [f.id, f]));
-    return isFeatureCyclic(newFeature, featuresMap, revision);
+    return isFeatureCyclic(newFeature, featuresMap, revision, envs);
   }, [
     parentFeatureId,
     features,
     revisions,
     version,
+    envs,
     feature,
     prerequisites,
     form,
@@ -127,7 +130,8 @@ export default function PrerequisiteModal({
       wouldBeCyclicStates[f.id] = isFeatureCyclic(
         newFeature,
         featuresMap,
-        revision
+        revision,
+        envs
       )[0];
     }
     return [featuresStates, wouldBeCyclicStates];

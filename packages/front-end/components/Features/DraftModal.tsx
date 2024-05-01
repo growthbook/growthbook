@@ -3,13 +3,18 @@ import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { autoMerge, mergeResultHasChanges } from "shared/util";
+import {
+  autoMerge,
+  filterEnvironmentsByFeature,
+  mergeResultHasChanges,
+} from "shared/util";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import Field from "@/components/Forms/Field";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export interface Props {
   feature: FeatureInterface;
@@ -71,8 +76,10 @@ export default function DraftModal({
   onPublish,
   onDiscard,
 }: Props) {
-  const environments = useEnvironments();
+  const allEnvironments = useEnvironments();
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const { apiCall } = useAuth();
 
@@ -169,7 +176,7 @@ export default function DraftModal({
       closeCta="Cancel"
       size="max"
       secondaryCTA={
-        permissions.check("createFeatureDrafts", feature.project) ? (
+        permissionsUtil.canManageFeatureDrafts(feature) ? (
           <Button
             color="outline-danger"
             onClick={async () => {

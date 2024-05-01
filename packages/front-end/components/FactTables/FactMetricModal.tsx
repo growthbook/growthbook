@@ -4,9 +4,11 @@ import { ReactElement, useEffect, useState } from "react";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
   DEFAULT_FACT_METRIC_WINDOW,
+  DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import {
   CreateFactMetricProps,
@@ -19,11 +21,7 @@ import {
 import { isProjectListValidForProject } from "shared/util";
 import omit from "lodash/omit";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import {
-  defaultLoseRiskThreshold,
-  defaultWinRiskThreshold,
-  formatNumber,
-} from "@/services/metrics";
+import { formatNumber } from "@/services/metrics";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
@@ -375,8 +373,8 @@ export default function FactMetricModal({
         windowUnit: "days",
         windowValue: 3,
       },
-      winRisk: (existing?.winRisk || defaultWinRiskThreshold) * 100,
-      loseRisk: (existing?.loseRisk || defaultLoseRiskThreshold) * 100,
+      winRisk: (existing?.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100,
+      loseRisk: (existing?.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100,
       minPercentChange:
         (existing?.minPercentChange || metricDefaults.minPercentageChange) *
         100,
@@ -416,10 +414,10 @@ export default function FactMetricModal({
   let regressionAdjustmentAvailableForMetric = true;
   let regressionAdjustmentAvailableForMetricReason = <></>;
 
-  if (type === "ratio") {
+  if (["ratio", "quantile"].includes(type)) {
     regressionAdjustmentAvailableForMetric = false;
     regressionAdjustmentAvailableForMetricReason = (
-      <>Not available for ratio metrics.</>
+      <>{`Not available for ${type} metrics.`}</>
     );
   }
 
@@ -452,12 +450,16 @@ export default function FactMetricModal({
   }, [isNew, initialType, source]);
 
   const quantileSettings = form.watch("quantileSettings") || {
-    type: "unit",
+    type: "event",
     quantile: 0.5,
     ignoreZeros: false,
   };
 
-  const hasQuantileMetrics = growthbook && growthbook.isOn("quantile-metrics");
+  const quantileMetricFlag = growthbook && growthbook.isOn("quantile-metrics");
+  const quantileMetricsAvailableForDatasource =
+    quantileMetricFlag && selectedDataSource?.properties?.hasQuantileTesting;
+  const hasQuantileMetricCommercialFeature =
+    quantileMetricFlag && hasCommercialFeature("quantile-metrics");
 
   const numeratorFactTable = getFactTableById(
     form.watch("numerator.factTableId")
@@ -480,6 +482,11 @@ export default function FactMetricModal({
 
         if (values.metricType === "ratio" && !values.denominator)
           throw new Error("Must select a denominator for ratio metrics");
+
+        // reset denominator for non-ratio metrics
+        if (values.metricType !== "ratio" && values.denominator) {
+          values.denominator = null;
+        }
 
         if (!selectedDataSource) throw new Error("Must select a data source");
 
@@ -617,11 +624,14 @@ export default function FactMetricModal({
                         <strong>Mean</strong> metrics calculate the average
                         value of a numeric column in a fact table.
                       </div>
-                      {hasQuantileMetrics ? (
+                      {quantileMetricFlag ? (
                         <div className="mb-2">
                           <strong>Quantile</strong> metrics calculate the value
                           at a specific percentile of a numeric column in a fact
                           table.
+                          {!quantileMetricsAvailableForDatasource
+                            ? " Quantile metrics are not available for MySQL data sources."
+                            : ""}
                         </div>
                       ) : null}
                       <div>
@@ -636,6 +646,13 @@ export default function FactMetricModal({
             }
             value={type}
             setValue={(type) => {
+              if (
+                type === "quantile" &&
+                (!quantileMetricsAvailableForDatasource ||
+                  !hasQuantileMetricCommercialFeature)
+              ) {
+                return;
+              }
               form.setValue("metricType", type as FactMetricType);
 
               if (type === "quantile") {
@@ -673,11 +690,24 @@ export default function FactMetricModal({
                 value: "mean",
                 label: "Mean",
               },
-              ...(hasQuantileMetrics
+              ...(quantileMetricFlag
                 ? [
                     {
                       value: "quantile",
-                      label: "Quantile",
+                      label: (
+                        <>
+                          <PremiumTooltip
+                            commercialFeature="quantile-metrics"
+                            body={
+                              !quantileMetricsAvailableForDatasource
+                                ? "Quantile metrics are not available for MySQL data sources"
+                                : ""
+                            }
+                          >
+                            Quantile
+                          </PremiumTooltip>
+                        </>
+                      ),
                     },
                   ]
                 : []),
@@ -751,7 +781,7 @@ export default function FactMetricModal({
                   htmlFor="quantileTypeSelector"
                   className="ml-2 cursor-pointer"
                 >
-                  Group by Experiment User before taking quantile?
+                  Aggregate by Experiment User before taking quantile?
                 </label>
               </div>
               <label>
@@ -771,13 +801,13 @@ export default function FactMetricModal({
                     .watch("numerator")
                     ?.column?.startsWith("$$") ? undefined : (
                     <div className="form-group">
-                      <label className="ml-2" htmlFor="quantileIgnoreZeros">
+                      <label htmlFor="quantileIgnoreZeros">
                         Ignore Zeros{" "}
                         <Tooltip
                           body={`If the ${
                             quantileSettings.type === "unit"
                               ? "per-user"
-                              : "row's"
+                              : "rows"
                           } value is zero (or null), exclude it from the quantile calculation`}
                         />
                       </label>
@@ -803,6 +833,13 @@ export default function FactMetricModal({
                   form.setValue("quantileSettings", quantileSettings)
                 }
               />
+              <div className="alert alert-info">
+                The final metric value will be the selected quantile
+                {quantileSettings.type === "unit"
+                  ? " of all aggregated experiment user values"
+                  : " of all rows that are matched to experiment users"}
+                {quantileSettings.ignoreZeros ? ", ignoring zeros" : ""}.
+              </div>
             </div>
           ) : type === "ratio" ? (
             <>
@@ -883,11 +920,13 @@ export default function FactMetricModal({
             >
               <Tab id="query" display="Query Settings">
                 <MetricDelayHours form={form} />
-                <MetricCappingSettingsForm
-                  form={form}
-                  datasourceType={selectedDataSource.type}
-                  metricType={type}
-                />
+                {type !== "quantile" ? (
+                  <MetricCappingSettingsForm
+                    form={form}
+                    datasourceType={selectedDataSource.type}
+                    metricType={type}
+                  />
+                ) : null}
                 <PremiumTooltip commercialFeature="regression-adjustment">
                   <label className="mb-1">
                     <GBCuped /> Regression Adjustment (CUPED)
@@ -1042,6 +1081,10 @@ export default function FactMetricModal({
                     The{" "}
                     {type === "proportion"
                       ? "number of conversions"
+                      : type === "quantile"
+                      ? `number of ${
+                          quantileSettings.type === "unit" ? "users" : "events"
+                        }`
                       : `total value`}{" "}
                     required in an experiment variation before showing results
                     (default{" "}

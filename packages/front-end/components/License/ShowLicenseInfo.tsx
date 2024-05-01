@@ -7,6 +7,7 @@ import EditLicenseModal from "@/components/Settings/EditLicenseModal";
 import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
+import { isCloud } from "@/services/env";
 import RefreshLicenseButton from "./RefreshLicenseButton";
 import DownloadLicenseUsageButton from "./DownloadLicenseUsageButton";
 
@@ -35,7 +36,7 @@ const ShowLicenseInfo: FC<{
 
   // TODO: Remove this once we have migrated all organizations to use the license key
   const usesLicenseInfoOnModel =
-    !showUpgradeButton && !organization?.licenseKey;
+    isCloud() && !showUpgradeButton && !organization?.licenseKey;
 
   return (
     <div>
@@ -113,22 +114,23 @@ const ShowLicenseInfo: FC<{
                 {license &&
                   license.plan && ( // A license might not have a plan if a stripe pro form is not filled out
                     <>
-                      {["pro", "pro_sso"].includes(license.plan) && (
-                        <div className="col-sm-2">
-                          <div>Status:</div>
-                          <span
-                            className={`text-muted ${
-                              !["active", "trialing"].includes(
-                                license.stripeSubscription?.status || ""
-                              )
-                                ? "alert-danger"
-                                : ""
-                            }`}
-                          >
-                            {license.stripeSubscription?.status}
-                          </span>
-                        </div>
-                      )}
+                      {["pro", "pro_sso"].includes(license.plan) &&
+                        license.stripeSubscription?.status && (
+                          <div className="col-sm-2">
+                            <div>Status:</div>
+                            <span
+                              className={`text-muted ${
+                                !["active", "trialing"].includes(
+                                  license.stripeSubscription?.status || ""
+                                )
+                                  ? "alert-danger"
+                                  : ""
+                              }`}
+                            >
+                              {license.stripeSubscription?.status}
+                            </span>
+                          </div>
+                        )}
                       <div className="col-sm-2">
                         <div>Issued:</div>
                         <span className="text-muted">
@@ -150,7 +152,7 @@ const ShowLicenseInfo: FC<{
                 {license && (
                   <>
                     {license.id.startsWith("license") && (
-                      <div className="col-sm-2">
+                      <div className="col">
                         <RefreshLicenseButton />
                       </div>
                     )}

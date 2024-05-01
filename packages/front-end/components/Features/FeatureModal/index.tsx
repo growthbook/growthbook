@@ -22,6 +22,7 @@ import usePermissions from "@/hooks/usePermissions";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FeatureValueField from "@/components/Features/FeatureValueField";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -143,6 +144,7 @@ export default function FeatureModal({
   const { project, refreshTags } = useDefinitions();
   const environments = useEnvironments();
   const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
 
   const defaultValues = genFormDefaultValues({
@@ -171,7 +173,11 @@ export default function FeatureModal({
   let ctaEnabled = true;
   let disabledMessage: string | undefined;
 
-  if (!permissions.check("createFeatureDrafts", project)) {
+  if (
+    !permissionsUtil.canManageFeatureDrafts({
+      project: featureToDuplicate?.project ?? project,
+    })
+  ) {
     ctaEnabled = false;
     disabledMessage =
       "You don't have permission to create feature flag drafts.";
@@ -294,6 +300,7 @@ export default function FeatureModal({
 
       <EnvironmentSelect
         environmentSettings={environmentSettings}
+        environments={environments}
         setValue={(env, on) => {
           environmentSettings[env.id].enabled = on;
           form.setValue("environmentSettings", environmentSettings);

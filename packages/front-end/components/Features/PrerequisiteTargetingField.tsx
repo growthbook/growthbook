@@ -38,6 +38,7 @@ import { useUser } from "@/services/UserContext";
 import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
 import { GBAddCircle } from "@/components/Icons";
+import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 
 export interface Props {
   value: FeaturePrerequisite[];
@@ -164,7 +165,8 @@ export default function PrerequisiteTargetingField({
         wouldBeCyclic = isFeatureCyclic(
           newFeature,
           featuresMap,
-          newRevision
+          newRevision,
+          environments
         )[0];
       }
       wouldBeCyclicStates[f.id] = wouldBeCyclic;
@@ -606,10 +608,7 @@ export const PrerequisiteAlerts = ({
             <>
               Prerequisite evaluation is only supported in the following SDKs
               and versions:
-              <ul className="mb-1">
-                <li>Javascript &gt;= 0.33.0</li>
-                <li>React &gt;= 0.23.0</li>
-              </ul>
+              <MinSDKVersionsList capability="prerequisites" />
             </>
           }
         />

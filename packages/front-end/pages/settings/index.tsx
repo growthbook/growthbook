@@ -106,11 +106,19 @@ const GeneralSettingsPage = (): React.ReactElement => {
       regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
       sequentialTestingEnabled: false,
       sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+      powerCalculatorEnabled: false,
       attributionModel: "firstExposure",
       displayCurrency,
       secureAttributeSalt: "",
       killswitchConfirmation: false,
-      requireReviews: false,
+      requireReviews: [
+        {
+          requireReviewOn: false,
+          resetReviewOnChange: false,
+          environments: [],
+          projects: [],
+        },
+      ],
       defaultDataSource: settings.defaultDataSource || "",
       useStickyBucketing: false,
       useFallbackAttributes: false,
@@ -146,6 +154,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     pValueCorrection: form.watch("pValueCorrection"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
+    powerCalculatorEnabled: form.watch("powerCalculatorEnabled"),
     sequentialTestingEnabled: form.watch("sequentialTestingEnabled"),
     sequentialTestingTuningParameter: form.watch(
       "sequentialTestingTuningParameter"

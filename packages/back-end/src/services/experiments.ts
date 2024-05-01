@@ -31,6 +31,7 @@ import {
 import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
 import { updateExperiment } from "../models/ExperimentModel";
+import { Context } from "../models/BaseModel";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
@@ -132,7 +133,7 @@ export async function createMetric(data: Partial<MetricInterface>) {
 }
 
 export async function getExperimentMetricById(
-  context: ReqContext | ApiReqContext,
+  context: Context,
   metricId: string
 ): Promise<ExperimentMetricInterface | null> {
   if (isFactMetricId(metricId)) {
@@ -142,7 +143,7 @@ export async function getExperimentMetricById(
 }
 
 export async function refreshMetric(
-  context: ReqContext | ApiReqContext,
+  context: Context,
   metric: MetricInterface,
   metricAnalysisDays: number = DEFAULT_METRIC_ANALYSIS_DAYS
 ) {
@@ -422,16 +423,25 @@ export function getSnapshotSettings({
   };
 }
 
-export async function createManualSnapshot(
-  experiment: ExperimentInterface,
-  phaseIndex: number,
-  users: number[],
+export async function createManualSnapshot({
+  experiment,
+  phaseIndex,
+  users,
+  metrics,
+  analysisSettings,
+  metricMap,
+  context,
+}: {
+  experiment: ExperimentInterface;
+  phaseIndex: number;
+  users: number[];
   metrics: {
     [key: string]: MetricStats[];
-  },
-  analysisSettings: ExperimentSnapshotAnalysisSettings,
-  metricMap: Map<string, ExperimentMetricInterface>
-) {
+  };
+  analysisSettings: ExperimentSnapshotAnalysisSettings;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  context: Context;
+}) {
   const snapshotSettings = getSnapshotSettings({
     experiment,
     phaseIndex,
@@ -479,7 +489,7 @@ export async function createManualSnapshot(
     ],
   };
 
-  const snapshot = await createExperimentSnapshotModel(data);
+  const snapshot = await createExperimentSnapshotModel({ data, context });
 
   return snapshot;
 }
@@ -621,7 +631,7 @@ export async function createSnapshot({
     },
   });
 
-  const snapshot = await createExperimentSnapshotModel(data);
+  const snapshot = await createExperimentSnapshotModel({ data, context });
 
   const integration = await getIntegrationFromDatasourceId(
     context,
@@ -652,12 +662,14 @@ export async function createSnapshotAnalysis({
   analysisSettings,
   metricMap,
   snapshot,
+  context,
 }: {
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
   snapshot: ExperimentSnapshotInterface;
+  context: Context;
 }): Promise<void> {
   // check if analysis is possible
   if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
@@ -678,7 +690,12 @@ export async function createSnapshotAnalysis({
     dateCreated: new Date(),
   };
   // and analysis to mongo record if it does not exist, overwrite if it does
-  addOrUpdateSnapshotAnalysis(organization.id, snapshot.id, analysis);
+  addOrUpdateSnapshotAnalysis({
+    organization: organization.id,
+    id: snapshot.id,
+    analysis,
+    context,
+  });
 
   // Format data correctly
   const queryMap: QueryMap = await getQueryMap(
@@ -698,7 +715,12 @@ export async function createSnapshotAnalysis({
   analysis.status = "success";
   analysis.error = undefined;
 
-  updateSnapshotAnalysis(organization.id, snapshot.id, analysis);
+  updateSnapshotAnalysis({
+    organization: organization.id,
+    id: snapshot.id,
+    analysis,
+    context,
+  });
 }
 
 function getExperimentMetric(
@@ -911,6 +933,7 @@ export function toSnapshotApiInterface(
             const data = v.metrics[m];
             return {
               variationId: variationIds[i],
+              users: v.users,
               analyses: [
                 {
                   engine:
@@ -1777,8 +1800,9 @@ export function postExperimentApiPayloadToInterface(
     activationMetric: "",
     segment: "",
     queryFilter: "",
-    skipPartialData: false,
-    attributionModel: "firstExposure",
+    skipPartialData: payload.inProgressConversions === "strict",
+    attributionModel: payload.attributionModel || "firstExposure",
+    ...(payload.statsEngine ? { statsEngine: payload.statsEngine } : {}),
     variations:
       payload.variations.map((v) => ({
         ...v,
@@ -1831,6 +1855,9 @@ export function updateExperimentApiPayloadToInterface(
     variations,
     releasedVariationId,
     excludeFromPayload,
+    inProgressConversions,
+    attributionModel,
+    statsEngine,
   } = payload;
   return {
     ...(trackingKey ? { trackingKey } : {}),
@@ -1849,6 +1876,11 @@ export function updateExperimentApiPayloadToInterface(
     ...(status ? { status } : {}),
     ...(releasedVariationId !== undefined ? { releasedVariationId } : {}),
     ...(excludeFromPayload !== undefined ? { excludeFromPayload } : {}),
+    ...(inProgressConversions !== undefined
+      ? { skipPartialData: inProgressConversions === "strict" }
+      : {}),
+    ...(attributionModel !== undefined ? { attributionModel } : {}),
+    ...(statsEngine !== undefined ? { statsEngine } : {}),
     ...(variations
       ? {
           variations: variations?.map((v) => ({

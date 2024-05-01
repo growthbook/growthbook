@@ -16,8 +16,8 @@ import {
   applyMetricOverrides,
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
-  useRiskVariation,
   setAdjustedCIs,
+  hasRisk,
 } from "@/services/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
@@ -164,8 +164,7 @@ const BreakDownResults: FC<{
     metricFilter,
   ]);
 
-  const risk = useRiskVariation(
-    variations.length,
+  const _hasRisk = hasRisk(
     ([] as ExperimentTableRow[]).concat(...tables.map((t) => t.rows))
   );
 
@@ -215,7 +214,7 @@ const BreakDownResults: FC<{
               rows={table.rows}
               dimension={dimension}
               id={table.metric.id}
-              hasRisk={risk.hasRisk}
+              hasRisk={_hasRisk}
               tableRowAxis="dimension" // todo: dynamic grouping?
               labelHeader={
                 <div style={{ marginBottom: 2 }}>

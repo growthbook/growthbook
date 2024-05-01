@@ -1,0 +1,117 @@
+---
+title: SDK Webhooks
+description: SDK Webhooks trigger every time your SDK Payload changes.
+sidebar_label: SDK Webhooks
+slug: /app/webhooks/sdk-webhooks
+---
+
+# SDK Webhooks
+
+GrowthBook has SDK-based webhooks that trigger a script on your server whenever something changes within GrowthBook which will affect that SDK.
+
+## Adding a Webhook
+
+When logged into GrowthBook as an admin, navigate to **SDK Connections** .
+
+Under the SDK Webhooks section you can add a webhook endpoint and select with method you would like to be notified with `POST, PUT, GET, DELETE, PURGE`.
+
+Once a SDK webhook is created you will be able to view the secret and when the last time it was fired as well as if there was an error.
+
+### VPCs and Firewalls
+
+If your webhook endpoint is behind a firewall and you are using GrowthBook Cloud, make sure to whitelist the ip address `52.70.79.40`.
+
+## Verify Signatures
+
+Webhook payloads are signed with a shared secret so you can verify they actually came from GrowthBook. The signature is passed in a `webhook-secret` header. GrowthBook uses the `whsec_` prefix to help identify the crypto method used for encoding. For example `webhook-secret:"whsec_iM0hCLU0fZc885zfkFPX3UJwSHbYyam9ji0WglnT3fc="`.
+The signature is a HMAC SHA-256 hash of the payload using the secret as the key. The secret is the secret key that is generated when you create a webhook. You can find the secret key via **SDK Configuration → SDK Connections**, choosing a connection, and viewing the your webhook's details.
+
+GrowthBook signs based on the payload that is returned to ensure its integrity. This means that if you do not receive any payload back, and you have the option turned off, we sign based on an empty string as no data is getting passed.
+
+When comparing the signatures, you should remove the `whsec_` prefix from the secret key, as `whsec_` is just a prefix to help identify the crypto method.
+
+Here is example code in NodeJS for verifying the signature. Other languages should be similar:
+
+```js
+const crypto = require("crypto");
+const express = require("express");
+const bodyParser = require("body-parser");
+
+// Retrieve from GrowthBook SDK connection settings
+const GROWTHBOOK_WEBHOOK_SECRET = "wk_123A5341464B3A13";
+
+const port = 1337;
+const app = express();
+
+app.post(
+  "/webhook",
+  bodyParser.raw({ type: "application/json" }),
+  (req, res) => {
+    // if there is no payload sent, the hash is based on an empty string
+    const payload = req.body?.data?.payload || "";
+    const webhookSecret = req.get("webhook-secret");
+
+    if (webhookSecret && webhookSecret.startsWith("whsec_")) {
+      const signingKey = webhookSecret.split("whsec_")[1];
+      const computed = crypto
+        .createHmac("sha256", GROWTHBOOK_WEBHOOK_SECRET)
+        .update(payload)
+        .digest("hex");
+
+      if (
+        !crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(signingKey))
+      ) {
+        throw new Error("mismatch signatures");
+      }
+    } else {
+      throw new Error("invalid secret");
+    }
+
+    const data = JSON.parse(payload);
+    // TODO: Do something with the webhook data
+
+    // Make sure to respond with a 200 status code
+    res.status(200).send("");
+  }
+);
+
+app.listen(port, () => {
+  console.log(`Webhook endpoint listening on port ${port}`);
+});
+```
+
+## Errors and Retries
+
+If your endpoint returns any HTTP status besides `200`, the webhook will be considered failed.
+
+Failed webhooks are tried a total of 3 times using an exponential back-off between attempts.
+
+You can view the status of your webhooks in the GrowthBook app under **SDK Connections** .
+
+## Supported HTTP Types
+
+- **POST**
+- **PUT**
+- **GET**
+- **DELETE**
+- **PURGE**
+
+### Sending Payload
+
+SDK Webhooks will send the payload to the endpoint **except GET.** In body is a JSON object containing feature definitions in the same format that SDKs are expecting.
+
+Here's an example payload:
+
+```json
+{
+  "type": "payload.changed",
+  "timestamp": "2024-04-03T01:54:20.449Z",
+  "data":{
+    "payload":{
+      "timestamp": 1625098156,
+      "features": ...
+      }
+    }
+  }
+}
+```

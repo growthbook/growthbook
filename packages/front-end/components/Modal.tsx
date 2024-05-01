@@ -1,11 +1,4 @@
-import {
-  FC,
-  useRef,
-  useEffect,
-  useState,
-  ReactElement,
-  ReactNode,
-} from "react";
+import { FC, useRef, useEffect, useState, ReactNode } from "react";
 import clsx from "clsx";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
@@ -13,17 +6,18 @@ import Tooltip from "./Tooltip/Tooltip";
 import { DocLink, DocSection } from "./DocLink";
 
 type ModalProps = {
-  header?: "logo" | string | ReactElement | boolean;
+  header?: "logo" | string | ReactNode | boolean;
   open: boolean;
   className?: string;
   submitColor?: string;
-  cta?: string | ReactElement;
-  closeCta?: string | ReactElement;
+  cta?: string | ReactNode;
+  closeCta?: string | ReactNode;
   includeCloseCta?: boolean;
   ctaEnabled?: boolean;
   disabledMessage?: string;
   docSection?: DocSection;
   error?: string;
+  loading?: boolean;
   size?: "md" | "lg" | "max" | "fill";
   sizeY?: "max" | "fill";
   inline?: boolean;
@@ -34,8 +28,8 @@ type ModalProps = {
   close?: () => void;
   submit?: () => void | Promise<void>;
   fullWidthSubmit?: boolean;
-  secondaryCTA?: ReactElement;
-  tertiaryCTA?: ReactElement;
+  secondaryCTA?: ReactNode;
+  tertiaryCTA?: ReactNode;
   successMessage?: string;
   children: ReactNode;
   bodyClassName?: string;
@@ -65,6 +59,7 @@ const Modal: FC<ModalProps> = ({
   autoFocusSelector = "input:not(:disabled),textarea:not(:disabled),select:not(:disabled)",
   solidOverlay = false,
   error: externalError,
+  loading: externalLoading,
   secondaryCTA,
   tertiaryCTA,
   successMessage,
@@ -83,6 +78,10 @@ const Modal: FC<ModalProps> = ({
   useEffect(() => {
     setError(externalError || null);
   }, [externalError]);
+
+  useEffect(() => {
+    setLoading(externalLoading || false);
+  }, [externalLoading]);
 
   const bodyRef = useRef<HTMLDivElement>(null);
   useEffect(() => {

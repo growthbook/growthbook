@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import omit from "lodash/omit";
 import { LicenseInterface } from "../license";
 
 const licenseSchema = new mongoose.Schema({
@@ -40,6 +41,9 @@ const licenseSchema = new mongoose.Schema({
     of: { _id: false, date: Date, userHashes: [String] },
   }, // Map of first 7 chars of user email shas to the last time they were in a usage request
   usingMongoCache: { type: Boolean, default: true }, // True if the license is using the mongo cache
+  firstFailedFetchDate: Date, // Date of the first failed fetch
+  lastFailedFetchDate: Date, // Date of the last failed fetch
+  lastServerErrorMessage: String, // The last error message from a failed fetch
   signedChecksum: String, // Checksum of the license key
   dateCreated: Date, // Date the license was issued
   dateExpires: Date, // Date the license expires
@@ -51,3 +55,15 @@ export type LicenseDocument = mongoose.Document & LicenseInterface;
 const LicenseModel = mongoose.model<LicenseDocument>("License", licenseSchema);
 
 export { LicenseModel };
+
+export function toInterface(doc: LicenseDocument): LicenseInterface {
+  const ret = doc.toJSON<LicenseDocument>();
+  return omit(ret, ["__v", "_id"]);
+}
+
+export async function getLicenseByKey(
+  key: string
+): Promise<LicenseInterface | null> {
+  const doc = await LicenseModel.findOne({ id: key });
+  return doc ? toInterface(doc) : null;
+}

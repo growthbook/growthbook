@@ -340,6 +340,30 @@ gb.SetAttributes(attrs);
       </>
     );
   }
+  if (language === "elixir") {
+    return (
+      <>
+        {introText}
+        <Code
+          language="elixir"
+          code={`
+attrs = %{
+${Object.entries(exampleAttributes)
+  .map(([key, value]) => {
+    return `  ${JSON.stringify(key)} => ${JSON.stringify(value)}`;
+  })
+  .join(",\n")}
+}
+
+context = %GrowthBook.Context{
+  features: features,
+  attributes: attrs
+}
+          `.trim()}
+        />
+      </>
+    );
+  }
 
   return null;
 }

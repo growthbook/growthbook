@@ -1,4 +1,9 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import {
+  OrganizationSettings,
+  RequireReview,
+} from "back-end/types/organization";
 import {
   validateFeatureValue,
   getValidation,
@@ -7,6 +12,9 @@ import {
   RulesAndValues,
   MergeConflict,
   validateCondition,
+  checkEnvironmentsMatch,
+  checkIfRevisionNeedsReview,
+  resetReviewOnChange,
 } from "../../src/util";
 
 const feature: FeatureInterface = {
@@ -28,6 +36,74 @@ const exampleJsonSchema = {
       type: "string",
     },
   },
+};
+const rules: Record<string, FeatureRule[]> = {
+  dev: [
+    {
+      description: "test",
+      id: "test",
+      type: "rollout",
+      value: "test",
+      coverage: 1,
+      hashAttribute: "test",
+    },
+  ],
+  prod: [
+    {
+      description: "test",
+      id: "test",
+      type: "rollout",
+      value: "test",
+      coverage: 1,
+      hashAttribute: "test",
+    },
+  ],
+};
+const changedRules: Record<string, FeatureRule[]> = {
+  ...rules,
+  prod: [
+    ...rules.prod,
+
+    {
+      description: "test1",
+      id: "test1",
+      type: "rollout",
+      value: "test",
+      coverage: 1,
+      hashAttribute: "test",
+    },
+  ],
+};
+const baseRevision: FeatureRevisionInterface = {
+  featureId: feature.id,
+  organization: feature.organization,
+  baseVersion: 0,
+  version: 0,
+  dateCreated: new Date(),
+  dateUpdated: new Date(),
+  datePublished: null,
+  publishedBy: null,
+  createdBy: null,
+  comment: "",
+  status: "draft",
+  defaultValue: "",
+  rules: rules,
+};
+
+const revision: FeatureRevisionInterface = {
+  featureId: feature.id,
+  organization: feature.organization,
+  baseVersion: 0,
+  version: 1,
+  dateCreated: new Date(),
+  dateUpdated: new Date(),
+  datePublished: null,
+  publishedBy: null,
+  createdBy: null,
+  comment: "",
+  status: "draft",
+  defaultValue: "",
+  rules: changedRules,
 };
 
 describe("autoMerge", () => {
@@ -448,7 +524,7 @@ describe("validateCondition", () => {
     expect(validateCondition("{(+")).toEqual({
       success: false,
       empty: false,
-      error: "Unexpected token ( in JSON at position 1",
+      error: "Expected property name or '}' in JSON at position 1",
     });
   });
   it("returns error when condition is not an object", () => {
@@ -462,7 +538,7 @@ describe("validateCondition", () => {
     expect(validateCondition("{test: true}")).toEqual({
       success: false,
       empty: false,
-      error: "Unexpected token t in JSON at position 1",
+      error: "Expected property name or '}' in JSON at position 1",
       suggestedValue: '{"test":true}',
     });
   });
@@ -471,5 +547,335 @@ describe("validateCondition", () => {
       success: true,
       empty: false,
     });
+  });
+});
+
+describe("check enviroments match", () => {
+  it("should find a environment match", () => {
+    const environments = ["prod", "staging"];
+    const reviewSetting = {
+      requireReviewOn: true,
+      resetReviewOnChange: false,
+      environments: ["prod"],
+      projects: [],
+    };
+    expect(checkEnvironmentsMatch(environments, reviewSetting)).toEqual(true);
+  });
+
+  it("should not find a environment match", () => {
+    const environments = ["prod-1"];
+    const reviewSetting = {
+      requireReviewOn: true,
+      resetReviewOnChange: false,
+      environments: ["prod"],
+      projects: [],
+    };
+    expect(checkEnvironmentsMatch(environments, reviewSetting)).toEqual(false);
+  });
+
+  it("should turn on when everything is empty", () => {
+    const environments = ["prod", "staging"];
+    const reviewSetting: RequireReview = {
+      requireReviewOn: true,
+      resetReviewOnChange: false,
+      environments: [],
+      projects: [],
+    };
+    expect(checkEnvironmentsMatch(environments, reviewSetting)).toEqual(true);
+  });
+});
+describe("check revision needs review", () => {
+  it("should require review when env matches", () => {
+    const settings: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: false,
+          environments: ["prod"],
+          projects: [],
+        },
+      ],
+    };
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision,
+        revision,
+        allEnvironments: ["prod", "dev", "staging"],
+        settings,
+      })
+    ).toEqual(true);
+  });
+  it("should not require review", () => {
+    const settings: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: false,
+          environments: ["dev"],
+          projects: [],
+        },
+      ],
+    };
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision,
+        revision,
+        allEnvironments: ["prod", "dev", "staging"],
+        settings,
+      })
+    ).toEqual(false);
+  });
+
+  it("should require review with multi rules", () => {
+    const settings: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: false,
+          environments: ["dev"],
+          projects: ["a"],
+        },
+        {
+          requireReviewOn: false,
+          resetReviewOnChange: false,
+          environments: [],
+          projects: ["b"],
+        },
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: false,
+          environments: ["prod"],
+          projects: [],
+        },
+      ],
+    };
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision,
+        revision,
+        allEnvironments: ["prod", "dev", "staging"],
+        settings,
+      })
+    ).toEqual(true);
+  });
+  it("should not require review with multi rules", () => {
+    const settings: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: false,
+          environments: ["dev"],
+          projects: [],
+        },
+        {
+          requireReviewOn: false,
+          resetReviewOnChange: false,
+          environments: [],
+          projects: [],
+        },
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: false,
+          environments: ["staging"],
+          projects: [],
+        },
+      ],
+    };
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision,
+        revision,
+        allEnvironments: ["prod", "dev", "staging"],
+        settings,
+      })
+    ).toEqual(false);
+  });
+  it("legacy rules", () => {
+    const settings: OrganizationSettings = {
+      requireReviews: true,
+    };
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision,
+        revision,
+        allEnvironments: ["prod", "dev", "staging"],
+        settings,
+      })
+    ).toEqual(true);
+    settings.requireReviews = false;
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision,
+        revision,
+        allEnvironments: ["prod", "dev", "staging"],
+        settings,
+      })
+    ).toEqual(false);
+  });
+});
+
+describe("reset review on change", () => {
+  it("require reset with single rule", () => {
+    const settings: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: true,
+          environments: ["prod"],
+          projects: [],
+        },
+      ],
+    };
+    const settingsOff: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: false,
+          environments: ["prod"],
+          projects: [],
+        },
+      ],
+    };
+    expect(
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: ["staging"],
+        defaultValueChanged: false,
+        settings,
+      })
+    ).toEqual(false);
+    expect(
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: ["prod"],
+        defaultValueChanged: false,
+        settings,
+      })
+    ).toEqual(true);
+    expect(
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: ["staging"],
+        defaultValueChanged: false,
+        settings: settingsOff,
+      })
+    ).toEqual(false);
+    expect(
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: ["prod"],
+        defaultValueChanged: false,
+        settings: settingsOff,
+      })
+    ).toEqual(false);
+  });
+
+  it("require reset with multiple rules", () => {
+    const settings: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: true,
+          environments: ["prod"],
+          projects: [],
+        },
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: true,
+          environments: [],
+          projects: [],
+        },
+      ],
+    };
+    const settingsOff: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: false,
+          environments: ["prod"],
+          projects: [],
+        },
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: true,
+          environments: [],
+          projects: [],
+        },
+      ],
+    };
+    expect(
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: ["staging"],
+        defaultValueChanged: false,
+        settings,
+      })
+    ).toEqual(false);
+    expect(
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: ["prod"],
+        defaultValueChanged: false,
+        settings,
+      })
+    ).toEqual(true);
+    expect(
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: ["prod"],
+        defaultValueChanged: false,
+        settings: settingsOff,
+      })
+    ).toEqual(false);
+    expect(
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: ["staging"],
+        defaultValueChanged: false,
+        settings: settingsOff,
+      })
+    ).toEqual(false);
+  });
+  it("turn off for first project", () => {
+    const settings: OrganizationSettings = {
+      requireReviews: [
+        {
+          requireReviewOn: false,
+          resetReviewOnChange: false,
+          environments: [],
+          projects: ["a"],
+        },
+        {
+          requireReviewOn: true,
+          resetReviewOnChange: true,
+          environments: [],
+          projects: [],
+        },
+      ],
+    };
+    feature.project = "a";
+    expect(
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: ["env"],
+        defaultValueChanged: false,
+        settings,
+      })
+    ).toEqual(false);
+    feature.project = "b";
+    expect(
+      resetReviewOnChange({
+        feature,
+        changedEnvironments: ["staging"],
+        defaultValueChanged: false,
+        settings,
+      })
+    ).toEqual(true);
   });
 });

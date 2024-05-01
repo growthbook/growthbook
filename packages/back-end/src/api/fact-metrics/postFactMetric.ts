@@ -2,8 +2,10 @@ import z from "zod";
 import { getScopedSettings } from "shared/settings";
 import {
   DEFAULT_FACT_METRIC_WINDOW,
+  DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_METRIC_WINDOW_HOURS,
+  DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import {
   CreateFactMetricProps,
@@ -30,11 +32,17 @@ export async function getCreateMetricPropsFromBody(
   }
 
   const {
+    quantileSettings,
     cappingSettings,
     windowSettings,
     regressionAdjustmentSettings,
     numerator,
     denominator,
+    riskThresholdSuccess,
+    riskThresholdDanger,
+    minPercentChange,
+    maxPercentChange,
+    minSampleSize,
     ...otherFields
   } = body;
 
@@ -49,19 +57,32 @@ export async function getCreateMetricPropsFromBody(
 
   const data: CreateFactMetricProps = {
     datasource: factTable.datasource,
-    loseRisk: scopedSettings.loseRisk.value || 0,
-    winRisk: scopedSettings.winRisk.value || 0,
+    loseRisk:
+      riskThresholdDanger ||
+      scopedSettings.loseRisk.value ||
+      DEFAULT_LOSE_RISK_THRESHOLD,
+    winRisk:
+      riskThresholdSuccess ||
+      scopedSettings.winRisk.value ||
+      DEFAULT_WIN_RISK_THRESHOLD,
     maxPercentChange:
-      scopedSettings.metricDefaults.value.maxPercentageChange || 0,
+      maxPercentChange ||
+      scopedSettings.metricDefaults.value.maxPercentageChange ||
+      0,
     minPercentChange:
-      scopedSettings.metricDefaults.value.minPercentageChange || 0,
-    minSampleSize: scopedSettings.metricDefaults.value.minimumSampleSize || 0,
+      minPercentChange ||
+      scopedSettings.metricDefaults.value.minPercentageChange ||
+      0,
+    minSampleSize:
+      minSampleSize ||
+      scopedSettings.metricDefaults.value.minimumSampleSize ||
+      150,
     description: "",
     owner: "",
     projects: [],
     tags: [],
     inverse: false,
-    quantileSettings: null, // TODO-quantile
+    quantileSettings: quantileSettings ?? null,
     windowSettings: {
       type: scopedSettings.windowType.value ?? DEFAULT_FACT_METRIC_WINDOW,
       delayHours:

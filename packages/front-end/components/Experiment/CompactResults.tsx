@@ -20,8 +20,8 @@ import {
   applyMetricOverrides,
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
-  useRiskVariation,
   setAdjustedCIs,
+  hasRisk,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
@@ -32,7 +32,7 @@ import {
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
-import MetricName from "@/components/Metrics/MetricName";
+import MetricName, { PercentileLabel } from "@/components/Metrics/MetricName";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -148,7 +148,14 @@ const CompactResults: FC<{
         metricOverrideFields: overrideFields,
         rowClass: newMetric?.inverse ? "inverse" : "",
         variations: results.variations.map((v) => {
-          return v.metrics[metricId];
+          return (
+            v.metrics?.[metricId] || {
+              users: 0,
+              value: 0,
+              cr: 0,
+              errorMessage: "No data",
+            }
+          );
         }),
         regressionAdjustmentStatus,
         isGuardrail,
@@ -203,7 +210,6 @@ const CompactResults: FC<{
     const vars = results?.variations;
     return variations.map((v, i) => vars?.[i]?.users || 0);
   }, [results, variations]);
-  const risk = useRiskVariation(variations.length, rows);
 
   return (
     <>
@@ -258,7 +264,7 @@ const CompactResults: FC<{
         baselineRow={baselineRow}
         rows={rows.filter((r) => !r.isGuardrail)}
         id={id}
-        hasRisk={risk.hasRisk}
+        hasRisk={hasRisk(rows)}
         tableRowAxis="metric"
         labelHeader="Goal Metrics"
         editMetrics={editMetrics}
@@ -288,7 +294,7 @@ const CompactResults: FC<{
             baselineRow={baselineRow}
             rows={rows.filter((r) => r.isGuardrail)}
             id={id}
-            hasRisk={risk.hasRisk}
+            hasRisk={hasRisk(rows)}
             tableRowAxis="metric"
             labelHeader="Guardrail Metrics"
             editMetrics={editMetrics}
@@ -362,6 +368,7 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
             className="metriclabel text-dark"
           >
             <MetricName id={metric.id} disableTooltip />
+            <PercentileLabel metric={metric} />
           </Link>
         </span>
       </Tooltip>

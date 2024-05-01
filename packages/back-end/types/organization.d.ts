@@ -31,6 +31,12 @@ export type UserPermissions = {
   global: UserPermission;
   projects: { [key: string]: UserPermission };
 };
+export type RequireReview = {
+  requireReviewOn: boolean;
+  resetReviewOnChange: boolean;
+  environments: string[];
+  projects: string[];
+};
 
 export type MemberRole =
   | "noaccess"
@@ -83,6 +89,7 @@ export interface Member extends MemberRoleWithProjects {
   dateCreated?: Date;
   externalId?: string;
   managedByIdp?: boolean;
+  lastLoginDate?: Date;
 }
 
 export interface ExpandedMember extends Member {
@@ -142,6 +149,7 @@ export type Environment = {
   description?: string;
   toggleOnList?: boolean;
   defaultState?: boolean;
+  projects?: string[];
 };
 
 export interface OrganizationSettings {
@@ -180,7 +188,7 @@ export interface OrganizationSettings {
   displayCurrency?: string;
   secureAttributeSalt?: string;
   killswitchConfirmation?: boolean;
-  requireReviews?: boolean;
+  requireReviews?: boolean | RequireReview[];
   defaultDataSource?: string;
   disableMultiMetricQueries?: boolean;
   useStickyBucketing?: boolean;
@@ -188,6 +196,7 @@ export interface OrganizationSettings {
   codeReferencesEnabled?: boolean;
   codeRefsBranchesToFilter?: string[];
   codeRefsPlatformUrl?: string;
+  powerCalculatorEnabled?: boolean;
 }
 
 export interface SubscriptionQuote {

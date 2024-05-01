@@ -606,48 +606,75 @@ export const transformLDFeatureFlagToGBFeature = (
  */
 async function getFromLD<ResType>(
   url: string,
-  apiToken: string
+  apiToken: string,
+  merge?: (existing: ResType, next: ResType) => ResType
 ): Promise<ResType> {
-  const response = await fetch(url, {
-    headers: {
-      Authorization: apiToken,
-    },
-  });
-  if (!response.ok) {
-    throw new Error(response.statusText);
-  }
+  // Pagination queue
+  const fetchPage = async (url: string, result?: ResType) => {
+    const response = await fetch(`https://app.launchdarkly.com${url}`, {
+      headers: {
+        Authorization: apiToken,
+      },
+    });
+    if (!response.ok) {
+      throw new Error(response.statusText);
+    }
 
-  return await response.json();
+    const data = await response.json();
+    if (merge) {
+      // Merge this page into the existing result
+      result = result ? merge(result, data) : data;
+
+      // If there's a next page, recursively fetch it
+      if (data?._links?.next?.href) {
+        result = await fetchPage(data._links.next.href, result);
+      }
+    } else {
+      // Merging not supported, just return the data
+      result = data;
+    }
+
+    return result as ResType;
+  };
+
+  return fetchPage(url);
 }
 
 export const getLDProjects = async (
   apiToken: string
 ): Promise<LDListProjectsResponse> =>
-  getFromLD("https://app.launchdarkly.com/api/v2/projects?limit=300", apiToken);
+  getFromLD("/api/v2/projects?limit=300", apiToken, (existing, next) => {
+    existing.items = [...existing.items, ...next.items];
+    return existing;
+  });
 
 export const getLDEnvironments = async (
   apiToken: string,
   project: string
 ): Promise<LDListEnvironmentsResponse> =>
   getFromLD(
-    `https://app.launchdarkly.com/api/v2/projects/${project}/environments?limit=300`,
-    apiToken
+    `/api/v2/projects/${project}/environments?limit=300`,
+    apiToken,
+    (existing, next) => {
+      existing.items = [...existing.items, ...next.items];
+      return existing;
+    }
   );
 
 export const getLDFeatureFlags = async (
   apiToken: string,
   project: string
 ): Promise<LDListFeatureFlagsResponse> =>
-  getFromLD(`https://app.launchdarkly.com/api/v2/flags/${project}`, apiToken);
+  getFromLD(`/api/v2/flags/${project}`, apiToken, (existing, next) => {
+    existing.items = [...existing.items, ...next.items];
+    return existing;
+  });
 
 export const getLDFeatureFlag = async (
   apiToken: string,
   project: string,
   key: string
 ): Promise<LDListFeatureFlagsResponse["items"][0]> =>
-  getFromLD(
-    `https://app.launchdarkly.com/api/v2/flags/${project}/${key}`,
-    apiToken
-  );
+  getFromLD(`/api/v2/flags/${project}/${key}`, apiToken);
 
 // endregion LD

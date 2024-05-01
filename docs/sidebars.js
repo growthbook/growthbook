@@ -340,6 +340,16 @@ const sidebars = {
               id: "statistics/aggregation",
               label: "Aggregate Data",
             },
+            {
+              type: "doc",
+              id: "statistics/quantile",
+              label: "Quantile Testing",
+            },
+            {
+              type: "doc",
+              id: "statistics/power",
+              label: "Power Analysis",
+            },
           ],
         },
       ],
@@ -366,6 +376,12 @@ const sidebars = {
         { type: "doc", id: "lib/kotlin", label: "Kotlin (Android)" },
         { type: "doc", id: "lib/flutter", label: "Flutter" },
         { type: "doc", id: "lib/swift", label: "Swift (iOS)" },
+        {
+          type: "doc",
+          id: "lib/elixir",
+          label: "Elixir",
+          className: "pill-new",
+        },
         { type: "doc", id: "lib/build-your-own", label: "Build Your Own" },
       ],
     },
@@ -383,21 +399,23 @@ const sidebars = {
         "self-host/production",
       ],
     },
-    /*
-        {
-      type: "category",
-      label: "Advanced",
-      collapsed: true,
-      items: [
-        { type: "doc", id: "api-overview", label: "API" },
-        { type: "doc", id: "self-host/proxy", label: "Proxy" },
-        { type: "doc", id: "webhooks", label: "Webhooks" },
-      ],
-    },
-     */
     { type: "doc", id: "self-host/proxy", label: "Proxy" },
     { type: "doc", id: "api-overview", label: "API" },
-    { type: "doc", id: "webhooks", label: "Webhooks" },
+    {
+      type: "category",
+      collapsed: true,
+      label: "Webhooks",
+      items: [
+        { type: "doc", id: "webhooks/overview", label: "Webhooks overview" },
+        { type: "doc", id: "webhooks/event-webhooks", label: "Event Webhooks" },
+        { type: "doc", id: "webhooks/sdk-webhooks", label: "SDK Webhooks" },
+        {
+          type: "doc",
+          id: "webhooks/global-sdk-webhooks",
+          label: "Global SDK Webhooks",
+        },
+      ],
+    },
     {
       type: "category",
       label: "Installation Tutorials",
@@ -483,6 +501,12 @@ const sidebars = {
           type: "doc",
           id: "integrations/slack",
           label: "Slack alerts",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/discord",
+          label: "Discord alerts",
           className: "pill-new",
         },
         { type: "doc", id: "sso", label: "SSO" },

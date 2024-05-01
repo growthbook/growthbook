@@ -8,6 +8,7 @@ import { BsFlag } from "react-icons/bs";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
@@ -63,6 +64,7 @@ const ExperimentsPage = (): React.ReactElement => {
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
   const { getUserDisplay, permissions, userId } = useUser();
+  const settings = useOrgSettings();
 
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -222,6 +224,15 @@ const ExperimentsPage = (): React.ReactElement => {
               <h1>Experiments</h1>
             </div>
             <div style={{ flex: 1 }} />
+            {settings.powerCalculatorEnabled && (
+              <Link
+                className="btn btn-outline-primary float-right"
+                type="button"
+                href="/power-calculator"
+              >
+                Power Calculator
+              </Link>
+            )}
             {canAdd && (
               <div className="col-auto">
                 <button
@@ -355,55 +366,49 @@ const ExperimentsPage = (): React.ReactElement => {
                         type="icon"
                       />
                     </td>
-                    <td
-                      onClick={() => {
-                        router.push(`/experiment/${e.id}`);
-                      }}
-                      className="cursor-pointer"
-                      data-title="Experiment name:"
-                    >
-                      <div className="d-flex flex-column">
-                        <div className="d-flex">
-                          <Link
-                            href={`/experiment/${e.id}`}
-                            className="testname"
-                          >
-                            {e.name}
-                          </Link>
-                          {e.hasVisualChangesets ? (
-                            <Tooltip
-                              className="d-flex align-items-center ml-2"
-                              body="Visual experiment"
+                    <td data-title="Experiment name:" className="p-0">
+                      <Link
+                        href={`/experiment/${e.id}`}
+                        className="d-block p-2"
+                      >
+                        <div className="d-flex flex-column">
+                          <div className="d-flex">
+                            <span className="testname">{e.name}</span>
+                            {e.hasVisualChangesets ? (
+                              <Tooltip
+                                className="d-flex align-items-center ml-2"
+                                body="Visual experiment"
+                              >
+                                <RxDesktop className="text-blue" />
+                              </Tooltip>
+                            ) : null}
+                            {(e.linkedFeatures || []).length > 0 ? (
+                              <Tooltip
+                                className="d-flex align-items-center ml-2"
+                                body="Linked Feature Flag"
+                              >
+                                <BsFlag className="text-blue" />
+                              </Tooltip>
+                            ) : null}
+                            {e.hasURLRedirects ? (
+                              <Tooltip
+                                className="d-flex align-items-center ml-2"
+                                body="URL Redirect experiment"
+                              >
+                                <PiShuffle className="text-blue" />
+                              </Tooltip>
+                            ) : null}
+                          </div>
+                          {isFiltered && e.trackingKey && (
+                            <span
+                              className="testid text-muted small"
+                              title="Experiment Id"
                             >
-                              <RxDesktop className="text-blue" />
-                            </Tooltip>
-                          ) : null}
-                          {(e.linkedFeatures || []).length > 0 ? (
-                            <Tooltip
-                              className="d-flex align-items-center ml-2"
-                              body="Linked Feature Flag"
-                            >
-                              <BsFlag className="text-blue" />
-                            </Tooltip>
-                          ) : null}
-                          {e.hasURLRedirects ? (
-                            <Tooltip
-                              className="d-flex align-items-center ml-2"
-                              body="URL Redirect experiment"
-                            >
-                              <PiShuffle className="text-blue" />
-                            </Tooltip>
-                          ) : null}
+                              {e.trackingKey}
+                            </span>
+                          )}
                         </div>
-                        {isFiltered && e.trackingKey && (
-                          <span
-                            className="testid text-muted small"
-                            title="Experiment Id"
-                          >
-                            {e.trackingKey}
-                          </span>
-                        )}
-                      </div>
+                      </Link>
                     </td>
                     {showProjectColumn && (
                       <td className="nowrap" data-title="Project:">

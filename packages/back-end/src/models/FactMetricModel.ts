@@ -8,30 +8,25 @@ import { ApiFactMetric } from "../../types/openapi";
 import { factMetricValidator } from "../routers/fact-table/fact-table.validators";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { UpdateProps } from "../../types/models";
-import { BaseModel, ModelConfig } from "./BaseModel";
+import { MakeModelClass } from "./BaseModel";
 import { getFactTableMap } from "./FactTableModel";
 
-type FactMetricSchema = typeof factMetricValidator;
+const BaseClass = MakeModelClass({
+  schema: factMetricValidator,
+  collectionName: "factmetrics",
+  idPrefix: "fact__",
+  auditLog: {
+    entity: "metric",
+    createEvent: "metric.create",
+    updateEvent: "metric.update",
+    deleteEvent: "metric.delete",
+  },
+  projectScoping: "multiple",
+  globallyUniqueIds: false,
+  readonlyFields: ["datasource"],
+});
 
-export class FactMetricModel extends BaseModel<FactMetricSchema> {
-  protected getConfig() {
-    const config: ModelConfig<FactMetricSchema> = {
-      schema: factMetricValidator,
-      collectionName: "factmetrics",
-      idPrefix: "fact__",
-      auditLog: {
-        entity: "metric",
-        createEvent: "metric.create",
-        updateEvent: "metric.update",
-        deleteEvent: "metric.delete",
-      },
-      projectScoping: "multiple",
-      globallyUniqueIds: false,
-      readonlyFields: ["datasource"],
-    };
-    return config;
-  }
-
+export class FactMetricModel extends BaseClass {
   protected canRead(doc: FactMetricInterface): boolean {
     return this.context.hasPermission("readData", doc.projects || []);
   }
@@ -152,12 +147,31 @@ export class FactMetricModel extends BaseModel<FactMetricSchema> {
     } else if (data.denominator?.factTableId) {
       throw new Error("Denominator not allowed for non-ratio metric");
     }
+    if (data.metricType === "quantile") {
+      if (!this.context.hasPremiumFeature("quantile-metrics")) {
+        throw new Error("Quantile metrics are a premium feature");
+      }
 
-    // TODO-quantile add validation for quantile metrics
+      if (!data.quantileSettings) {
+        throw new Error("Must specify `quantileSettings` for Quantile metrics");
+      }
+    }
+    if (data.loseRisk < data.winRisk) {
+      throw new Error(
+        `riskThresholdDanger (${data.loseRisk}) must be greater than riskThresholdSuccess (${data.winRisk})`
+      );
+    }
+
+    if (data.minPercentChange >= data.maxPercentChange) {
+      throw new Error(
+        `maxPercentChange (${data.maxPercentChange}) must be greater than minPercentChange (${data.minPercentChange})`
+      );
+    }
   }
 
   public toApiInterface(factMetric: FactMetricInterface): ApiFactMetric {
     const {
+      quantileSettings,
       cappingSettings,
       windowSettings,
       regressionAdjustmentDays,
@@ -167,13 +181,17 @@ export class FactMetricModel extends BaseModel<FactMetricSchema> {
       dateUpdated,
       denominator,
       metricType,
+      loseRisk,
+      winRisk,
       ...otherFields
     } = omit(factMetric, ["organization"]);
 
     return {
       ...otherFields,
-      // TODO-quantile
-      metricType: metricType === "quantile" ? "mean" : metricType,
+      riskThresholdDanger: loseRisk,
+      riskThresholdSuccess: winRisk,
+      metricType: metricType,
+      quantileSettings: quantileSettings || undefined,
       cappingSettings: {
         ...cappingSettings,
         type: cappingSettings.type || "none",
