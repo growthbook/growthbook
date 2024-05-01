@@ -59,6 +59,18 @@ export class Permissions {
     return this.checkGlobalPermission("manageNorthStarMetric");
   };
 
+  public canCreateNamespace = (): boolean => {
+    return this.checkGlobalPermission("manageNamespaces");
+  };
+
+  public canUpdateNamespace = (): boolean => {
+    return this.checkGlobalPermission("manageNamespaces");
+  };
+
+  public canDeleteNamespace = (): boolean => {
+    return this.checkGlobalPermission("manageNamespaces");
+  };
+
   //Project Permissions
   public canCreateVisualChange = (
     experiment: Pick<ExperimentInterface, "project">
