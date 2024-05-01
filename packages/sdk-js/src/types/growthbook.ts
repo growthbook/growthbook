@@ -321,6 +321,9 @@ export type FeatureApiResponse = {
   encryptedExperiments?: string;
 };
 
+// Alias
+export type GrowthBookPayload = FeatureApiResponse;
+
 // Polyfills required for non-standard browser environments (ReactNative, Node, etc.)
 // These are typed as `any` since polyfills like `node-fetch` are not 100% compatible with native types
 export type Polyfills = {
@@ -391,6 +394,11 @@ export type InitOptions = {
   timeout?: number;
   skipCache?: boolean;
   payload?: FeatureApiResponse;
+  streaming?: boolean;
+};
+
+export type InitSyncOptions = {
+  payload: FeatureApiResponse;
   streaming?: boolean;
 };
 

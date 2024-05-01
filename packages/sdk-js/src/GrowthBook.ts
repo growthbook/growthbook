@@ -30,6 +30,7 @@ import type {
   FeatureEvalContext,
   InitOptions,
   InitResponse,
+  InitSyncOptions,
 } from "./types/growthbook";
 import type { ConditionInterface } from "./types/mongrule";
 import {
@@ -103,6 +104,7 @@ export class GrowthBook<
   private _deferredTrackingCalls: Map<string, TrackingData>;
 
   private _payload: FeatureApiResponse | undefined;
+  private _decryptedPayload: FeatureApiResponse | undefined;
 
   private _autoExperimentsAllowed: boolean;
 
@@ -171,6 +173,18 @@ export class GrowthBook<
       this._setAntiFlicker();
     }
 
+    // Hydrate sticky bucket service
+    if (this._ctx.stickyBucketService && this._ctx.stickyBucketAssignmentDocs) {
+      for (const key in this._ctx.stickyBucketAssignmentDocs) {
+        const doc = this._ctx.stickyBucketAssignmentDocs[key];
+        if (doc) {
+          this._ctx.stickyBucketService.saveAssignments(doc).catch(() => {
+            // Ignore hydration errors
+          });
+        }
+      }
+    }
+
     // Legacy - passing in features/experiments into the constructor instead of using init
     if (this.ready) {
       this.refreshStickyBuckets(this.getPayload());
@@ -180,6 +194,7 @@ export class GrowthBook<
   public async setPayload(payload: FeatureApiResponse): Promise<void> {
     this._payload = payload;
     const data = await this.decryptPayload(payload);
+    this._decryptedPayload = data;
     await this.refreshStickyBuckets(data);
     if (data.features) {
       this._ctx.features = data.features;
@@ -190,6 +205,47 @@ export class GrowthBook<
     }
     this.ready = true;
     this._render();
+  }
+
+  public initSync(options: InitSyncOptions): GrowthBook {
+    this._initialized = true;
+
+    const payload = options.payload;
+
+    if (payload.encryptedExperiments || payload.encryptedFeatures) {
+      throw new Error("initSync does not support encrypted payloads");
+    }
+
+    if (
+      this._ctx.stickyBucketService &&
+      !this._ctx.stickyBucketAssignmentDocs
+    ) {
+      throw new Error(
+        "initSync requires you to pass stickyBucketAssignmentDocs into the GrowthBook constructor"
+      );
+    }
+
+    this._payload = payload;
+    this._decryptedPayload = payload;
+    if (payload.features) {
+      this._ctx.features = payload.features;
+    }
+    if (payload.experiments) {
+      this._ctx.experiments = payload.experiments;
+      this._updateAllAutoExperiments();
+    }
+
+    this.ready = true;
+
+    if (options.streaming) {
+      if (!this._ctx.clientKey) {
+        throw new Error("Must specify clientKey to enable streaming");
+      }
+      startAutoRefresh(this, true);
+      subscribe(this);
+    }
+
+    return this;
   }
 
   public async init(options?: InitOptions): Promise<InitResponse> {
@@ -286,6 +342,9 @@ export class GrowthBook<
         experiments: this.getExperiments(),
       }
     );
+  }
+  public getDecryptedPayload(): FeatureApiResponse {
+    return this._decryptedPayload || this.getPayload();
   }
 
   public isRemoteEval(): boolean {

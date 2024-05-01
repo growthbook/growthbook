@@ -164,9 +164,18 @@ await gb.init({
 
 The data structure for "payload" is exactly the same as what is returned by the GrowthBook SDK endpoints and webhooks.
 
-You can update the payload at any time by calling `setPayload(newPayloadJSON)` and there is also a `getPayload()` method, which is useful in hybrid apps where you want to hydrate the client with data from the server.
+You can update the payload at any time by calling `setPayload(newPayloadJSON)` and there are also `getPayload()` and `getDecryptedPayload()` methods, which are useful in hybrid apps where you want to hydrate the client with data from the server.
 
-Note: you don't need to specify `clientKey` or `apiHost` on your GrowthBook instance unless you want to enable streaming (see below) or call `refreshFeatures()`.
+Note: you don't need to specify `clientKey` or `apiHost` on your GrowthBook instance unless you want to enable streaming (see below) or call `refreshFeatures()` later.
+
+#### Synchronous Init
+
+There is a alternate synchronous version of init named `initSync`, which can be useful in some environments. There are some restrictions/differences:
+
+- You MUST pass in `payload`
+- The `payload` MUST NOT have encrypted features or experiments
+- If you use sticky bucketing, you MUST pass `stickyBucketAssignmentDocs` into your GrowthBook constructor
+- The return value is the GrowthBook instance to enable easy method chaining
 
 ## Streaming Updates
 

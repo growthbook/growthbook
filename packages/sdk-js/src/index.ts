@@ -40,7 +40,9 @@ export type {
   InitOptions,
   PrefetchOptions,
   InitResponse,
+  InitSyncOptions,
   Helpers,
+  GrowthBookPayload,
 } from "./types/growthbook";
 
 export type {
