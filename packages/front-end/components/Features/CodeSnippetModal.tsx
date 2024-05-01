@@ -11,7 +11,7 @@ import {
 } from "react-icons/fa";
 import { FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
-import { getDefaultSDKVersion } from "shared/sdk-versioning";
+import { getLatestSDKVersion } from "shared/sdk-versioning";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getApiHost, getCdnHost } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -85,7 +85,7 @@ export default function CodeSnippetModal({
 
   const [language, setLanguage] = useState<SDKLanguage>("javascript");
   const [version, setVersion] = useState<string>(
-    getDefaultSDKVersion("javascript")
+    getLatestSDKVersion("javascript")
   );
 
   const [configOpen, setConfigOpen] = useState(true);
@@ -105,7 +105,7 @@ export default function CodeSnippetModal({
       (currentConnection?.languages?.length === 1 &&
       currentConnection?.languages?.[0] === language
         ? currentConnection?.sdkVersion
-        : undefined) ?? getDefaultSDKVersion(language);
+        : undefined) ?? getLatestSDKVersion(language);
     setLanguage(language);
     setVersion(version);
   }, [currentConnection]);
@@ -214,7 +214,7 @@ export default function CodeSnippetModal({
                     (currentConnection?.languages?.length === 1 &&
                     currentConnection?.languages?.[0] === language
                       ? currentConnection?.sdkVersion
-                      : undefined) ?? getDefaultSDKVersion(language);
+                      : undefined) ?? getLatestSDKVersion(language);
                   setLanguage(language);
                   setVersion(version);
                 }}
