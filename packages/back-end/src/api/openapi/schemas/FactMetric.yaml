@@ -13,6 +13,11 @@ required:
   - cappingSettings
   - windowSettings
   - regressionAdjustmentSettings
+  - riskThresholdSuccess
+  - riskThresholdDanger
+  - minPercentChange
+  - maxPercentChange
+  - minSampleSize
   - managedBy
   - dateCreated
   - dateUpdated
@@ -156,6 +161,16 @@ properties:
       days:
         type: number
         description: Number of pre-exposure days to use for the regression adjustment
+  riskThresholdSuccess:
+    type: number
+  riskThresholdDanger:
+    type: number
+  minPercentChange:
+    type: number
+  maxPercentChange:
+    type: number
+  minSampleSize:
+    type: number
   managedBy:
     type: string
     description: Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere.

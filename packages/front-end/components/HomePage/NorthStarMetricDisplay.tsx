@@ -6,9 +6,9 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
-import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import DateGraph, { DraftExperiment } from "@/components/Metrics/DateGraph";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const NorthStarMetricDisplay = ({
   metricId,
@@ -24,8 +24,8 @@ const NorthStarMetricDisplay = ({
   hoverDate?: number | null;
   onHoverCallback?: (ret: { d: number | null }) => void;
 }): React.ReactElement => {
-  const { project } = useDefinitions();
-  const permissions = usePermissions();
+  const { project, getDatasourceById } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
 
   const { data, error, mutate } = useApi<{
@@ -55,6 +55,8 @@ const NorthStarMetricDisplay = ({
   const { status } = getQueryStatus(metric.queries || [], metric.analysisError);
   const hasQueries = metric.queries?.length > 0;
 
+  const datasource = getDatasourceById(metric.datasource);
+
   return (
     <>
       <div className="mt-2">
@@ -79,7 +81,7 @@ const NorthStarMetricDisplay = ({
         ) : (
           <div className="mb-4">
             <h4 className="my-3">{metric.name}</h4>
-            {permissions.check("runQueries", metric.projects || []) && (
+            {datasource && permissionsUtil.canRunMetricQueries(datasource) && (
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();

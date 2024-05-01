@@ -9,6 +9,7 @@ import {
   BsCodeSlash,
 } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
+import { GlobalPermission } from "@back-end/types/organization";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
@@ -64,7 +65,6 @@ const navlinks: SidebarLinkProps[] = [
         href: "/fact-tables",
         path: /^fact-tables/,
         beta: true,
-        feature: "fact-tables",
       },
       {
         name: "Segments",
@@ -147,93 +147,99 @@ const navlinks: SidebarLinkProps[] = [
     Icon: GBSettings,
     path: /^(settings|admin|projects|integrations)/,
     autoClose: true,
-    permissions: [
-      "organizationSettings",
-      "manageTeam",
-      "manageTags",
-      "manageApiKeys",
-      "manageBilling",
-      "manageWebhooks",
-    ],
     subLinks: [
       {
         name: "General",
         href: "/settings",
         path: /^settings$/,
-        permissions: ["organizationSettings"],
+        filter: ({ permissions }) => permissions.check("organizationSettings"),
       },
       {
         name: "Team",
         href: "/settings/team",
         path: /^settings\/team/,
-        permissions: ["manageTeam"],
+        filter: ({ permissions }) => permissions.check("manageTeam"),
       },
       {
         name: "Tags",
         href: "/settings/tags",
         path: /^settings\/tags/,
-        permissions: ["manageTags"],
+        filter: ({ permissions }) => permissions.check("manageTags"),
       },
       {
         name: "Projects",
         href: "/projects",
         path: /^project/,
-        permissions: ["manageProjects"],
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canUpdateSomeProjects(),
       },
       {
         name: "API Keys",
         href: "/settings/keys",
         path: /^settings\/keys/,
-        permissions: ["manageApiKeys"],
+        filter: ({ permissions }) => permissions.check("manageApiKeys"),
       },
       {
         name: "Webhooks",
         href: "/settings/webhooks",
         path: /^settings\/webhooks/,
-        permissions: ["manageWebhooks"],
+        filter: ({ permissions }) => permissions.check("manageWebhooks"),
       },
       {
         name: "Logs",
         href: "/events",
         path: /^events/,
-        permissions: ["viewEvents"],
+        filter: ({ permissions }) => permissions.check("viewEvents"),
       },
       {
         name: "Slack",
         href: "/integrations/slack",
         path: /^integrations\/slack/,
-        feature: "slack-integration",
-        permissions: ["manageIntegrations"],
+        filter: ({ permissions, gb }) =>
+          permissions.check("manageIntegrations") &&
+          !!gb?.isOn("slack-integration"),
       },
       {
         name: "GitHub",
         href: "/integrations/github",
         path: /^integrations\/github/,
-        feature: "github-integration",
-        permissions: ["manageIntegrations"],
+        filter: ({ permissions, gb }) =>
+          permissions.check("manageIntegrations") &&
+          !!gb?.isOn("github-integration"),
       },
       {
         name: "Import your data",
         href: "/importing",
         path: /^importing/,
-        feature: "import-from-x",
-        permissions: ["manageFeatures", "manageEnvironments", "manageProjects"],
+        filter: ({ permissions, permissionsUtils, gb }) =>
+          permissions.check("manageFeatures", "") &&
+          permissions.check("manageEnvironments" as GlobalPermission) &&
+          permissionsUtils.canCreateProjects() &&
+          !!gb?.isOn("import-from-x"),
       },
       {
         name: "Billing",
         href: "/settings/billing",
         path: /^settings\/billing/,
-        permissions: ["manageBilling"],
+        filter: ({ permissions }) => permissions.check("manageBilling"),
       },
       {
         name: "Admin",
         href: "/admin",
         path: /^admin/,
-        multiOrgOnly: true,
         divider: true,
-        superAdmin: true,
+        filter: ({ superAdmin, isMultiOrg }) => superAdmin && isMultiOrg,
       },
     ],
+  },
+];
+
+const breadcumbLinks = [
+  ...navlinks,
+  {
+    name: "Power Calculator",
+    path: /^power-calculator/,
+    subLinks: [],
   },
 ];
 
@@ -312,7 +318,7 @@ const Layout = (): React.ReactElement => {
       pageTitle = o.title;
     }
   });
-  navlinks.forEach((o) => {
+  breadcumbLinks.forEach((o) => {
     if (o.subLinks) {
       o.subLinks.forEach((s) => {
         if (!pageTitle && s.path.test(path)) {

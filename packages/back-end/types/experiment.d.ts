@@ -144,8 +144,8 @@ export interface ExperimentInterface {
   hashVersion: 1 | 2;
   disableStickyBucketing?: boolean;
   metricsNotificationsEnabled?: boolean;
-  pastNotifications?: ExperimentNotification[];
   metricsNotifications?: string[];
+  pastNotifications?: ExperimentNotification[];
   bucketVersion?: number;
   minBucketVersion?: number;
   name: string;

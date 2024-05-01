@@ -1,7 +1,7 @@
 import { AttributionModel, MetricOverride } from "./experiment";
 import { SnapshotVariation } from "./experiment-snapshot";
 import { Queries } from "./query";
-import { StatsEngine } from "./stats";
+import { DifferenceType, StatsEngine } from "./stats";
 
 export interface ReportInterfaceBase {
   id: string;
@@ -61,6 +61,7 @@ export interface ExperimentReportArgs {
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
   pValueThreshold?: number;
+  differenceType?: DifferenceType;
 }
 export interface ExperimentReportResultDimension {
   name: string;

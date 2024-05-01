@@ -3,7 +3,10 @@ import { createEvent } from "../models/EventModel";
 import { getExperimentById, updateExperiment } from "../models/ExperimentModel";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { ExperimentWarningNotificationEvent } from "../events/notification-events";
-import { ExperimentSnapshotDocument } from "../models/ExperimentSnapshotModel";
+import {
+  ExperimentSnapshotDocument,
+  getDefaultAnalysisResults,
+} from "../models/ExperimentSnapshotModel";
 import {
   ExperimentInterface,
   ExperimentNotification,
@@ -47,114 +50,91 @@ const dispatchEvent = async (
   new EventNotifier(emittedEvent.id).perform();
 };
 
-const updateWrapper = async ({
+export const memoizeNotification = async ({
   context,
   experiment,
   type,
-  handler,
+  triggered,
+  dispatch,
 }: {
   context: Context;
   experiment: ExperimentInterface;
   type: ExperimentNotification;
-  handler: () => Promise<void>;
+  triggered: boolean;
+  dispatch: () => Promise<void>;
 }) => {
-  if (experiment.pastNotifications?.includes(type)) return;
+  if (triggered && experiment.pastNotifications?.includes(type)) return;
+  if (!triggered && !experiment.pastNotifications?.includes(type)) return;
 
-  await handler();
+  await dispatch();
+
+  const pastNotifications = triggered
+    ? [...(experiment.pastNotifications || []), type]
+    : (experiment.pastNotifications || []).filter((t) => t !== type);
 
   await updateExperiment({
     experiment,
     context,
     changes: {
-      pastNotifications: [...(experiment.pastNotifications || []), type],
+      pastNotifications,
     },
   });
 };
 
-export const notifyFailedAutoUpdate = async ({
+export const notifyAutoUpdate = ({
   context,
-  experimentId,
+  experiment,
+  success,
 }: {
   context: Context;
-  experimentId: string;
-}) => {
-  const experiment = await getExperimentById(context, experimentId);
-
-  if (!experiment) throw new Error("Error while fetching experiment!");
-
-  await updateWrapper({
+  experiment: ExperimentInterface;
+  success: boolean;
+}) =>
+  memoizeNotification({
     context,
     experiment,
     type: "auto-update",
-    handler: () =>
+    triggered: !success,
+    dispatch: () =>
       dispatchEvent(context, {
         type: "auto-update",
-        success: false,
-        experimentId,
+        success,
+        experimentId: experiment.id,
         experimentName: experiment.name,
       }),
   });
-};
-
-export const notifyAutoUpdateSuccess = async ({
-  context,
-  experimentId,
-}: {
-  context: Context;
-  experimentId: string;
-}) => {
-  const experiment = await getExperimentById(context, experimentId);
-
-  if (!experiment) throw new Error("Error while fetching experiment!");
-
-  if (!experiment.pastNotifications?.includes("auto-update")) return;
-
-  await dispatchEvent(context, {
-    type: "auto-update",
-    success: true,
-    experimentId,
-    experimentName: experiment.name,
-  });
-
-  await updateExperiment({
-    experiment,
-    context,
-    changes: {
-      pastNotifications: (experiment.pastNotifications || []).filter(
-        (v) => v !== "auto-update"
-      ),
-    },
-  });
-};
 
 export const MINIMUM_MULTIPLE_EXPOSURES_PERCENT = 0.01;
 
 const notifyMultipleExposures = async ({
   context,
   experiment,
-  lastResult,
+  results,
   snapshot,
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  lastResult: ExperimentReportResultDimension;
+  results: ExperimentReportResultDimension;
   snapshot: ExperimentSnapshotDocument;
-}) =>
-  updateWrapper({
+}) => {
+  const totalsUsers = results.variations.reduce(
+    (totalUsersCount, { users }) => totalUsersCount + users,
+    0
+  );
+  const percent = snapshot.multipleExposures / totalsUsers;
+  const multipleExposureMinPercent =
+    context.org.settings?.multipleExposureMinPercent ??
+    MINIMUM_MULTIPLE_EXPOSURES_PERCENT;
+
+  const triggered = multipleExposureMinPercent < percent;
+
+  await memoizeNotification({
     context,
     experiment,
     type: "multiple-exposures",
-    handler: async () => {
-      const totalsUsers = lastResult.variations.reduce(
-        (totalUsersCount, { users }) => totalUsersCount + users,
-        0
-      );
-      const percent = snapshot.multipleExposures / totalsUsers;
-      const multipleExposureMinPercent =
-        context.org.settings?.multipleExposureMinPercent ??
-        MINIMUM_MULTIPLE_EXPOSURES_PERCENT;
-
-      if (snapshot.multipleExposures < multipleExposureMinPercent) return;
+    triggered,
+    dispatch: async () => {
+      if (!triggered) return;
 
       await dispatchEvent(context, {
         type: "multiple-exposures",
@@ -165,27 +145,31 @@ const notifyMultipleExposures = async ({
       });
     },
   });
+};
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 
 const notifySrm = async ({
   context,
   experiment,
-  lastResult,
+  results,
 }: {
   context: Context;
   experiment: ExperimentInterface;
-  lastResult: ExperimentReportResultDimension;
-}) =>
-  updateWrapper({
+  results: ExperimentReportResultDimension;
+}) => {
+  const srmThreshold =
+    context.org.settings?.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
+
+  const triggered = results.srm < srmThreshold;
+
+  await memoizeNotification({
     context,
     experiment,
     type: "srm",
-    handler: async () => {
-      const srmThreshold =
-        context.org.settings?.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
-
-      if (srmThreshold <= lastResult.srm) return;
+    triggered,
+    dispatch: async () => {
+      if (!triggered) return;
 
       await dispatchEvent(context, {
         type: "srm",
@@ -195,6 +179,7 @@ const notifySrm = async ({
       });
     },
   });
+};
 
 export const notifyExperimentChange = async ({
   context,
@@ -206,27 +191,15 @@ export const notifyExperimentChange = async ({
   const experiment = await getExperimentById(context, snapshot.experiment);
   if (!experiment) throw new Error("Error while fetching experiment!");
 
-  if (
-    !context.org.settings?.experimentNotificationsEnabled &&
-    !experiment.metricsNotificationsEnabled
-  )
-    return;
+  const results = getDefaultAnalysisResults(snapshot);
 
-  const [
-    {
-      results: [lastResult],
-    },
-  ] = snapshot.analyses.sort(
-    (a, b) => b.dateCreated.getTime() - a.dateCreated.getTime()
-  );
-
-  if (lastResult) {
+  if (results) {
     await notifyMultipleExposures({
       context,
       experiment,
-      lastResult,
+      results,
       snapshot,
     });
-    await notifySrm({ context, experiment, lastResult });
+    await notifySrm({ context, experiment, results });
   }
 };
