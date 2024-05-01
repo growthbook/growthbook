@@ -1999,12 +1999,17 @@ export async function putLicenseKey(
   req: AuthRequest<{ licenseKey: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+
+  const { org } = context;
   const orgId = org?.id;
   if (!orgId) {
     throw new Error("Must be part of an organization");
   }
-  req.checkPermissions("manageBilling");
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
 
   const licenseKey = req.body.licenseKey.trim();
   if (!licenseKey) {
