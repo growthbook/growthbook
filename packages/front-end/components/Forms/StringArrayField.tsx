@@ -37,13 +37,10 @@ export default function StringArrayField({
 
     if (delimiters.includes(event.key)) {
       event.preventDefault();
-      onChange([...value, ...checkForPasteDelimitation(inputValue)]);
+      onChange([...value, inputValue]);
       setInputValue("");
     }
   };
-
-  const checkForPasteDelimitation = (val: string) =>
-    val.split(/[\s,]/g).filter((e) => e.trim().length > 0);
 
   return (
     <Field
@@ -67,7 +64,7 @@ export default function StringArrayField({
             onKeyDown={(event) => handleKeyDown(event)}
             onBlur={() => {
               if (!inputValue) return;
-              onChange([...value, ...checkForPasteDelimitation(inputValue)]);
+              onChange([...value, inputValue]);
               setInputValue("");
             }}
             placeholder={placeholder}
