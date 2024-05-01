@@ -380,29 +380,27 @@ const Results: FC<{
                   : "Bayesian"}
               </span>
             </div>
+            <div>
+              <span className="text-muted">
+                <GBCuped size={13} /> CUPED:
+              </span>{" "}
+              <span>
+                {analysis?.settings?.regressionAdjusted
+                  ? "Enabled"
+                  : "Disabled"}
+              </span>
+            </div>
             {analysis?.settings?.statsEngine === "frequentist" && (
-              <>
-                <div>
-                  <span className="text-muted">
-                    <GBCuped size={13} /> CUPED:
-                  </span>{" "}
-                  <span>
-                    {analysis?.settings?.regressionAdjusted
-                      ? "Enabled"
-                      : "Disabled"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted">
-                    <GBSequential size={13} /> Sequential:
-                  </span>{" "}
-                  <span>
-                    {analysis?.settings?.sequentialTesting
-                      ? "Enabled"
-                      : "Disabled"}
-                  </span>
-                </div>
-              </>
+              <div>
+                <span className="text-muted">
+                  <GBSequential size={13} /> Sequential:
+                </span>{" "}
+                <span>
+                  {analysis?.settings?.sequentialTesting
+                    ? "Enabled"
+                    : "Disabled"}
+                </span>
+              </div>
             )}
             {analysis?.settings?.statsEngine === "bayesian" && (
               <>

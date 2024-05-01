@@ -455,7 +455,6 @@ export default function MetricsOverridesSelector({
                         <GBCuped size={14} /> Regression Adjustment (CUPED)
                       </span>
                     </PremiumTooltip>{" "}
-                    <span className="small text-muted">(Frequentist only)</span>
                   </div>
                 </div>
 

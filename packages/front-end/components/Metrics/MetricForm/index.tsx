@@ -1310,9 +1310,6 @@ const MetricForm: FC<MetricFormProps> = ({
                   <GBCuped /> Regression Adjustment (CUPED)
                 </label>
               </PremiumTooltip>
-              <small className="d-block mb-1 text-muted">
-                Only applicable to frequentist analyses
-              </small>
               <div className="px-3 py-2 pb-0 mb-2 border rounded">
                 {regressionAdjustmentAvailableForMetric ? (
                   <>
