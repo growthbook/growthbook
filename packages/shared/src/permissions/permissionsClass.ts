@@ -360,7 +360,7 @@ export class Permissions {
     return projects.every((project) => this.hasPermission(permission, project));
   }
 
-  private checkProjectFilterUpdatePermission(
+  public checkProjectFilterUpdatePermission(
     existing: { projects?: string[] },
     updates: { projects?: string[] },
     permission: ProjectScopedPermission
