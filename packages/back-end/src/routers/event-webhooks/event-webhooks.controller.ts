@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { hasReadAccess } from "shared/permissions";
 import { PrivateApiErrorResponse } from "../../../types/api";
 import {
   EventWebHookInterface,
@@ -33,13 +34,16 @@ export const getEventWebHooks = async (
   req: GetEventWebHooksRequest,
   res: Response<GetEventWebHooks>
 ) => {
-  req.checkPermissions("manageWebhooks");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  const eventWebHooks = await EventWebHook.getAllEventWebHooks(context.org.id);
 
-  const eventWebHooks = await EventWebHook.getAllEventWebHooks(org.id);
+  // filter the eventWebhooks based on readAccess level
+  const filteredWebHooks = eventWebHooks.filter(() =>
+    hasReadAccess(context.readAccessFilter, [])
+  );
 
-  return res.json({ eventWebHooks });
+  return res.json({ eventWebHooks: filteredWebHooks });
 };
 
 // endregion GET /event-webhooks
@@ -58,14 +62,21 @@ export const getEventWebHook = async (
 ) => {
   req.checkPermissions("manageWebhooks");
 
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { eventWebHookId } = req.params;
 
-  const eventWebHook = await getEventWebHookById(eventWebHookId, org.id);
+  const eventWebHook = await getEventWebHookById(
+    eventWebHookId,
+    context.org.id
+  );
+
   if (!eventWebHook) {
     return res.status(404).json({ status: 404, message: "Not found" });
   }
 
+  // if the webhook was found, but the user doesn't have read access, throw a permission error
+  if (!hasReadAccess(context.readAccessFilter, [])) {
+  }
   return res.json({
     eventWebHook,
   });
@@ -98,9 +109,11 @@ export const createEventWebHook = async (
   req: PostEventWebHooksRequest,
   res: Response<PostEventWebHooksResponse | PrivateApiErrorResponse>
 ) => {
-  req.checkPermissions("manageWebhooks");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canCreateWebhook()) {
+    context.permissions.throwPermissionError();
+  }
   const {
     url,
     name,
@@ -118,7 +131,7 @@ export const createEventWebHook = async (
     name,
     url,
     events,
-    organizationId: org.id,
+    organizationId: context.org.id,
     enabled,
     projects,
     environments,
@@ -175,13 +188,15 @@ export const deleteEventWebHook = async (
   req: DeleteEventWebhookRequest,
   res: Response<DeleteEventWebhookResponse | PrivateApiErrorResponse>
 ) => {
-  req.checkPermissions("manageWebhooks");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canDeleteWebhook()) {
+    context.permissions.throwPermissionError();
+  }
 
   const successful = await deleteEventWebHookById({
     eventWebHookId: req.params.eventWebHookId,
-    organizationId: org.id,
+    organizationId: context.org.id,
   });
 
   const status = successful ? 200 : 404;
@@ -219,14 +234,16 @@ export const putEventWebHook = async (
   req: UpdateEventWebHookRequest,
   res: Response<UpdateEventWebHookResponse>
 ) => {
-  req.checkPermissions("manageWebhooks");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canUpdateWebhook()) {
+    context.permissions.throwPermissionError();
+  }
 
   const successful = await updateEventWebHook(
     {
       eventWebHookId: req.params.eventWebHookId,
-      organizationId: org.id,
+      organizationId: context.org.id,
     },
     req.body
   );
@@ -256,11 +273,14 @@ export const createTestEventWebHook = async (
   req: PostTestEventWebHooksRequest,
   res: Response<PostTestEventWebHooksResponse | PrivateApiErrorResponse>
 ) => {
-  req.checkPermissions("manageWebhooks");
+  const context = getContextFromReq(req);
 
+  if (!context.permissions.canCreateWebhook()) {
+    context.permissions.throwPermissionError();
+  }
   const {
     org: { id: organizationId },
-  } = getContextFromReq(req);
+  } = context;
   const { webhookId } = req.body;
 
   const webhook = await EventWebHook.getEventWebHookById(

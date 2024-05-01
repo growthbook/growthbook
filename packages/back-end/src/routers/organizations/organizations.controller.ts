@@ -1610,13 +1610,15 @@ export async function postWebhook(
   }>,
   res: Response
 ) {
-  req.checkPermissions("manageWebhooks");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canCreateWebhook()) {
+    context.permissions.throwPermissionError();
+  }
   const { name, endpoint, project, environment } = req.body;
 
   const webhook = await createWebhook({
-    organization: org.id,
+    organization: context.org.id,
     name,
     endpoint,
     project,
@@ -1649,9 +1651,12 @@ export async function postWebhookSDK(
   }>,
   res: Response
 ) {
-  req.checkPermissions("manageWebhooks");
+  const context = getContextFromReq(req);
+  const { org } = context;
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canCreateWebhook()) {
+    context.permissions.throwPermissionError();
+  }
   const { name, endpoint, sdkid, sendPayload, headers, httpMethod } = req.body;
   const webhookcount = await countWebhooksByOrg(org.id);
   const canAddMultipleSdkWebhooks = orgHasPremiumFeature(
@@ -1681,9 +1686,12 @@ export async function putWebhook(
   req: AuthRequest<WebhookInterface, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageWebhooks");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canUpdateWebhook()) {
+    context.permissions.throwPermissionError();
+  }
+
   const { id } = req.params;
   const webhook = await WebhookModel.findOne({
     id,
@@ -1692,7 +1700,7 @@ export async function putWebhook(
   if (!webhook) {
     throw new Error("Could not find webhook");
   }
-  if (webhook.organization !== org.id) {
+  if (webhook.organization !== context.org.id) {
     throw new Error("You don't have access to that webhook");
   }
 
@@ -1718,13 +1726,15 @@ export async function deleteWebhook(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageWebhooks");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canDeleteWebhook()) {
+    context.permissions.throwPermissionError();
+  }
   const { id } = req.params;
 
   await WebhookModel.deleteOne({
-    organization: org.id,
+    organization: context.org.id,
     id,
   });
 
@@ -1737,13 +1747,15 @@ export async function deleteWebhookSDK(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageWebhooks");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canDeleteWebhook()) {
+    context.permissions.throwPermissionError();
+  }
   const { id } = req.params;
 
   await WebhookModel.deleteOne({
-    organization: org.id,
+    organization: context.org.id,
     id,
   });
 
