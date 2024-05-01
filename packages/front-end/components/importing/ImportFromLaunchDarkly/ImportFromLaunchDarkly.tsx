@@ -786,7 +786,7 @@ export default function ImportFromLaunchDarkly() {
             ) : null}
             {data.envs ? (
               <div className="appbox mb-4">
-                <ImportHeader name="Environmnets" items={data.envs} />
+                <ImportHeader name="Environments" items={data.envs} />
                 <div style={{ maxHeight: 400, overflowY: "auto" }}>
                   <table className="gbtable table w-auto">
                     <thead>

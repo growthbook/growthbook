@@ -14,8 +14,6 @@ import Mixpanel from "../integrations/Mixpanel";
 import {
   DataSourceInterface,
   DataSourceParams,
-  DataSourceSettings,
-  DataSourceType,
   ExposureQuery,
 } from "../../types/datasource";
 import Mysql from "../integrations/Mysql";
@@ -58,35 +56,34 @@ export function mergeParams(
 }
 
 function getIntegrationObj(
-  type: DataSourceType,
-  params: string,
-  settings: DataSourceSettings
+  context: ReqContext,
+  datasource: DataSourceInterface
 ): SourceIntegrationInterface {
-  switch (type) {
+  switch (datasource.type) {
     case "athena":
-      return new Athena(params, settings);
+      return new Athena(context, datasource);
     case "redshift":
-      return new Redshift(params, settings);
+      return new Redshift(context, datasource);
     case "google_analytics":
-      return new GoogleAnalytics(params, settings);
+      return new GoogleAnalytics(context, datasource);
     case "snowflake":
-      return new Snowflake(params, settings);
+      return new Snowflake(context, datasource);
     case "postgres":
-      return new Postgres(params, settings);
+      return new Postgres(context, datasource);
     case "mysql":
-      return new Mysql(params, settings);
+      return new Mysql(context, datasource);
     case "mssql":
-      return new Mssql(params, settings);
+      return new Mssql(context, datasource);
     case "bigquery":
-      return new BigQuery(params, settings);
+      return new BigQuery(context, datasource);
     case "clickhouse":
-      return new ClickHouse(params, settings);
+      return new ClickHouse(context, datasource);
     case "mixpanel":
-      return new Mixpanel(params, settings ?? {});
+      return new Mixpanel(context, datasource);
     case "presto":
-      return new Presto(params, settings);
+      return new Presto(context, datasource);
     case "databricks":
-      return new Databricks(params, settings);
+      return new Databricks(context, datasource);
   }
 }
 
@@ -99,25 +96,24 @@ export async function getIntegrationFromDatasourceId(
   if (!datasource) {
     throw new Error("Could not load data source");
   }
-  return getSourceIntegrationObject(datasource, throwOnDecryptionError);
+  return getSourceIntegrationObject(
+    context,
+    datasource,
+    throwOnDecryptionError
+  );
 }
 
 export function getSourceIntegrationObject(
+  context: ReqContext | ApiReqContext,
   datasource: DataSourceInterface,
   throwOnDecryptionError: boolean = false
 ) {
-  const { type, params, settings } = datasource;
-
-  const obj = getIntegrationObj(type, params, settings);
+  const obj = getIntegrationObj(context, datasource);
 
   // Sanity check, this should never happen
   if (!obj) {
-    throw new Error("Unknown data source type: " + type);
+    throw new Error("Unknown data source type: " + datasource.type);
   }
-
-  obj.organization = datasource.organization;
-  obj.datasource = datasource.id;
-  obj.type = datasource.type;
 
   if (throwOnDecryptionError && obj.decryptionError) {
     throw new Error(
@@ -129,13 +125,15 @@ export function getSourceIntegrationObject(
 }
 
 export async function testDataSourceConnection(
+  context: ReqContext,
   datasource: DataSourceInterface
 ) {
-  const integration = getSourceIntegrationObject(datasource);
+  const integration = getSourceIntegrationObject(context, datasource);
   await integration.testConnection();
 }
 
 export async function testQuery(
+  context: ReqContext,
   datasource: DataSourceInterface,
   query: string,
   templateVariables?: TemplateVariables
@@ -145,7 +143,11 @@ export async function testQuery(
   error?: string;
   sql?: string;
 }> {
-  const integration = getSourceIntegrationObject(datasource);
+  if (!context.permissions.canRunTestQueries(datasource)) {
+    throw new Error("Permission denied");
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource);
 
   // The Mixpanel integration does not support test queries
   if (!integration.getTestQuery || !integration.runTestQuery) {
