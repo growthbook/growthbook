@@ -230,7 +230,6 @@ if (
 const gb = new GrowthBook({
   ...dataContext,
   remoteEval: !!dataContext.remoteEval,
-  subscribeToChanges: true,
   trackingCallback: (e, r) => {
     const p = { experiment_id: e.key, variation_id: r.key };
 
@@ -256,27 +255,14 @@ gb.setRenderer(() => {
   document.dispatchEvent(new CustomEvent("growthbookdata"));
 });
 
-(async () => {
-  // Hydrate sticky bucket service
-  if (stickyBucketService && windowContext.stickyBucketAssignmentDocs) {
-    for (const key in windowContext.stickyBucketAssignmentDocs) {
-      const doc = windowContext.stickyBucketAssignmentDocs?.[key];
-      if (doc) {
-        await stickyBucketService.saveAssignments(doc);
-      }
-    }
-  }
-
-  // Load features/experiments
-  gb.init({
-    payload: windowContext.payload,
-    streaming: !(
-      windowContext.noStreaming ||
-      dataContext.noStreaming ||
-      windowContext.backgroundSync === false
-    ),
-  });
-})();
+gb.init({
+  payload: windowContext.payload,
+  streaming: !(
+    windowContext.noStreaming ||
+    dataContext.noStreaming ||
+    windowContext.backgroundSync === false
+  ),
+});
 
 // Poll for URL changes and update GrowthBook
 let currentUrl = location.href;
