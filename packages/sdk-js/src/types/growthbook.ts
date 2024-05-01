@@ -384,7 +384,7 @@ export type CacheSettings = {
   maxEntries: number;
   disableIdleStreams: boolean;
   idleStreamInterval: number;
-  disableLocalCache: boolean;
+  disableCache: boolean;
 };
 
 export type ApiHost = string;

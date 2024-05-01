@@ -103,7 +103,7 @@ describe("feature-repo", () => {
       maxAge: 2000,
       cacheKey: localStorageCacheKey,
       backgroundSync: true,
-      disableLocalCache: false,
+      disableCache: false,
     });
   });
   afterEach(async () => {
@@ -1329,7 +1329,7 @@ describe("feature-repo", () => {
     cleanup();
   });
 
-  it("can disableLocalCache", async () => {
+  it("can disableCache", async () => {
     // Mock API
     const [f, cleanup] = mockApi({
       features: {
@@ -1341,7 +1341,7 @@ describe("feature-repo", () => {
 
     // Disable localCache
     configureCache({
-      disableLocalCache: true,
+      disableCache: true,
     });
 
     // Each new GrowthBook instance hits the API

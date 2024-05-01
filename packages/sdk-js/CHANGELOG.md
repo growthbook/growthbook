@@ -15,7 +15,7 @@
 - Fix bug when passing in `stickyBucketAssignmentDocs` to the GrowthBook constructor
 - New `jsInjectionNonce` setting to add a nonce onto any injected <script\> tags. This provides a safer alternative to allowing `unsafe-inline` in your Content Security Policy.
 - Get a list of triggered experiments by their `changeId` (a new, more-specific AutoExperiment identifier) via `getCompletedChangeIds`.
-- Disable in-memory cache via `configureCache({ disableLocalCache: true })` or the new GrowthBook constructor option `disableCache`.
+- Disable in-memory cache via `configureCache({ disableCache: true })` or the new GrowthBook constructor option `disableCache`.
 - Easier streaming customization via `init({ streaming: true })`.
 - Prefetch payloads (and optionally begin streaming) before you create a GrowthBook instance with `prefetchPayload()`.
 - New `debug` setting to turn on debug logging

@@ -37,7 +37,7 @@ const cacheSettings: CacheSettings = {
   maxEntries: 10,
   disableIdleStreams: false,
   idleStreamInterval: 20000,
-  disableLocalCache: false,
+  disableCache: false,
 };
 
 const polyfills = getPolyfills();
@@ -231,9 +231,7 @@ async function fetchFeaturesWithCache({
 
   await initializeCache();
   const existing =
-    !cacheSettings.disableLocalCache && !skipCache
-      ? cache.get(cacheKey)
-      : undefined;
+    !cacheSettings.disableCache && !skipCache ? cache.get(cacheKey) : undefined;
   if (
     existing &&
     (allowStale || existing.staleAt > now) &&
@@ -325,7 +323,7 @@ async function initializeCache(): Promise<void> {
       const value = await polyfills.localStorage.getItem(
         cacheSettings.cacheKey
       );
-      if (!cacheSettings.disableLocalCache && value) {
+      if (!cacheSettings.disableCache && value) {
         const parsed: [string, CacheEntry][] = JSON.parse(value);
         if (parsed && Array.isArray(parsed)) {
           parsed.forEach(([key, data]) => {
@@ -377,7 +375,7 @@ function onNewFeatureData(
   // If contents haven't changed, ignore the update, extend the stale TTL
   const version = data.dateUpdated || "";
   const staleAt = new Date(Date.now() + cacheSettings.staleTTL);
-  const existing = !cacheSettings.disableLocalCache
+  const existing = !cacheSettings.disableCache
     ? cache.get(cacheKey)
     : undefined;
   if (existing && version && existing.version === version) {
@@ -386,7 +384,7 @@ function onNewFeatureData(
     return;
   }
 
-  if (!cacheSettings.disableLocalCache) {
+  if (!cacheSettings.disableCache) {
     // Update in-memory cache
     cache.set(cacheKey, {
       data,
