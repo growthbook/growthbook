@@ -156,7 +156,14 @@ Throughout the GrowthBook application, we randomly celebrate key milestones like
 
 ## How do I make my own identifier?
 
-There are cases where 3rd party identifiers will not load in time, or may cause a flash. In these cases, generating your own identifier can load features much more quickly. This id will often align one to one with the other identifiers, so does not need to be passed outside the SDK. Please be aware of any cookie policies. Note, this technique is already included with our no-code SDK.
+There are cases when using feature flags client side where the 3rd party identifiers used for assignment will be slow to
+load, and may cause flickering as some of the DOM rerenders. In these cases, generating your
+own identifier will make sure that features are assigned correctly when GrowthBook loads. This id that is generated will
+typically align one to one with the other identifiers, and does not need to be passed outside the SDK.
+
+The code below can be used to generate a unique user id and save it in a cookie for the maximum amount of time allowed.
+Note, this technique is already included with our HTML/no-code SDK. Please be aware
+of any cookie policies this code may impact.
 
 ```js
 const getUUID = () => {
@@ -190,8 +197,9 @@ const getUUID = () => {
 }
 ```
 
+Below is the same code, minified:
+
 ```js
-// minified version:
 const getUUID=()=>{let $="gbuuid",e=()=>window.crypto.randomUUID?window.crypto.randomUUID():"10000000-1000-4000-8000-100000000000".replace(/[018]/g,$=>($^crypto.getRandomValues(new Uint8Array(1))[0]&15>>$/4).toString(16)),t=$=>{let e=`; ${document.cookie}`.split(`; ${$}=`);if(2===e.length)return e.pop().split(";").shift()},r=($,e)=>{var t=new Date;t.setTime(t.getTime()+3456e7),document.cookie=$+"="+e+";path=/;expires="+t.toGMTString()};if(t($))return t($);let i=e();return r($,i),i};
 ```
 
