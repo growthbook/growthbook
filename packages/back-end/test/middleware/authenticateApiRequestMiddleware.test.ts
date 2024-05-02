@@ -5,7 +5,7 @@ import { OrganizationInterface, Permission } from "../../types/organization";
 describe("REST API auth middleware", () => {
   describe("verifyApiKeyPermission", () => {
     const organization: OrganizationInterface = {
-      dateCreated: undefined,
+      dateCreated: new Date(),
       id: "org_sktwi1id9l7z9xkjb",
       invites: [],
       name: "Main Org",
@@ -95,6 +95,7 @@ describe("REST API auth middleware", () => {
         environments,
         project,
         teams: [],
+        superAdmin: false,
       });
     });
 
@@ -111,6 +112,7 @@ describe("REST API auth middleware", () => {
           environments,
           project,
           teams: [],
+          superAdmin: false,
         });
       }).toThrowError();
     });
@@ -131,6 +133,7 @@ describe("REST API auth middleware", () => {
           environments,
           project,
           teams: [],
+          superAdmin: false,
         });
       }).toThrowError();
     });
@@ -147,6 +150,7 @@ describe("REST API auth middleware", () => {
         environments,
         project,
         teams: [],
+        superAdmin: false,
       });
     });
 
@@ -162,6 +166,7 @@ describe("REST API auth middleware", () => {
         environments,
         project,
         teams: [],
+        superAdmin: false,
       });
     });
 
@@ -181,6 +186,7 @@ describe("REST API auth middleware", () => {
           environments,
           project,
           teams: [],
+          superAdmin: false,
         });
       }).toThrowError();
     });
@@ -201,8 +207,49 @@ describe("REST API auth middleware", () => {
           environments,
           project,
           teams: [],
+          superAdmin: false,
         });
       }).toThrowError();
+    });
+
+    it("should throw an error when user is not part of an org", () => {
+      const permission: Permission = "readData";
+      const project = undefined;
+      const environments = ["production", "staging"];
+
+      expect(() => {
+        verifyApiKeyPermission({
+          apiKey: {
+            ...userKey,
+            userId: "u_unknown_id",
+          },
+          permission,
+          organization,
+          environments,
+          project,
+          teams: [],
+          superAdmin: false,
+        });
+      }).toThrowError();
+    });
+
+    it("should allow superAdmins to readData even when not part of an org", () => {
+      const permission: Permission = "readData";
+      const project = undefined;
+      const environments = ["production", "staging"];
+
+      verifyApiKeyPermission({
+        apiKey: {
+          ...userKey,
+          userId: "u_unknown_id",
+        },
+        permission,
+        organization,
+        environments,
+        project,
+        teams: [],
+        superAdmin: true,
+      });
     });
   });
 });

@@ -247,23 +247,19 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       environments: [],
       limitAccessByEnvironment: false,
       name: data.userName,
-      role: data.superAdmin ? "admin" : "readonly",
+      role: "readonly",
       projectRoles: [],
     };
   }
-
-  const role =
-    (data?.superAdmin && "admin") ||
-    (user?.role ?? currentOrg?.organization?.settings?.defaultRole?.role);
 
   // Update current user data for telemetry data
   useEffect(() => {
     currentUser = {
       org: orgId || "",
       id: data?.userId || "",
-      role: role || "",
+      role: user?.role || "",
     };
-  }, [orgId, data?.userId, role]);
+  }, [orgId, data?.userId, user?.role]);
 
   // Refresh organization data when switching orgs or license key changes
   useEffect(() => {
