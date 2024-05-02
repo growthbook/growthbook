@@ -60,7 +60,7 @@ export default function MetricValueColumn({
       : undefined
   )
     ? stats.denominator ?? stats.users
-    : stats.users || users;
+    : stats.denominator || stats.users || users;
 
   let numerator: string;
   let denominator = numberFormatter.format(denominatorValue);
