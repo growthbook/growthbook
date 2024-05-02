@@ -110,7 +110,7 @@ export async function getTableData(
     databaseName,
     tableSchema,
     tableName,
-  } = await fetchTableData(datasource, informationSchema, tableId);
+  } = await fetchTableData(context, datasource, informationSchema, tableId);
 
   if (!tableData) {
     res
@@ -222,10 +222,9 @@ export async function putInformationSchema(
     return;
   }
 
-  req.checkPermissions(
-    "runQueries",
-    datasource?.projects?.length ? datasource.projects : []
-  );
+  if (!context.permissions.canRunSchemaQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
 
   await queueUpdateInformationSchema(
     datasource.id,

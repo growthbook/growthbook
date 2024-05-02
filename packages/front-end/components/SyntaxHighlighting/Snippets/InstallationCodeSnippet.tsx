@@ -220,6 +220,21 @@ dependencies {
   if (language === "csharp") {
     return <Code language="sh" code="dotnet add package growthbook-c-sharp" />;
   }
+  if (language === "elixir") {
+    return (
+      <Code
+        language="elixir"
+        filename="mix.exs"
+        code={`
+def deps do
+  [
+    {:growthbook, "~> 0.2"}
+  ]
+end
+    `.trim()}
+      />
+    );
+  }
 
   return <em>Depends on your platform</em>;
 }

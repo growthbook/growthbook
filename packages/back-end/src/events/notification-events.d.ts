@@ -1,5 +1,7 @@
 import { ApiExperiment, ApiFeature } from "../../types/openapi";
-import { NotificationEventPayload } from "./base-types";
+import { IfEqual } from "../util/types";
+import { ExperimentWarningNotificationPayload } from "../types/ExperimentNotification";
+import { NotificationEventName, NotificationEventPayload } from "./base-types";
 import { UserLoginAuditableProperties } from "./event-types";
 
 // region User
@@ -70,6 +72,18 @@ export type ExperimentDeletedNotificationEvent = NotificationEventPayload<
   }
 >;
 
+export type ExperimentInfoNotificationEvent = NotificationEventPayload<
+  "experiment.info",
+  "experiment",
+  null
+>;
+
+export type ExperimentWarningNotificationEvent = NotificationEventPayload<
+  "experiment.warning",
+  "experiment",
+  ExperimentWarningNotificationPayload
+>;
+
 export type WebhookTestEvent = NotificationEventPayload<
   "webhook.test",
   "webhook",
@@ -81,7 +95,7 @@ export type WebhookTestEvent = NotificationEventPayload<
 /**
  * All supported event types in the database
  */
-export type NotificationEvent =
+type AllNotificationEvent =
   | UserLoginNotificationEvent
   | FeatureCreatedNotificationEvent
   | FeatureUpdatedNotificationEvent
@@ -89,4 +103,13 @@ export type NotificationEvent =
   | ExperimentCreatedNotificationEvent
   | ExperimentUpdatedNotificationEvent
   | ExperimentDeletedNotificationEvent
+  | ExperimentInfoNotificationEvent
+  | ExperimentWarningNotificationEvent
   | WebhookTestEvent;
+
+// Make sure we have a payload for each type of event
+type NotificationEvent = IfEqual<
+  NotificationEventName,
+  AllNotificationEvent["event"],
+  AllNotificationEvent
+>;

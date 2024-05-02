@@ -20,6 +20,12 @@ export class PastExperimentsQueryRunner extends QueryRunner<
   PastExperimentParams,
   PastExperiment[]
 > {
+  checkPermissions(): boolean {
+    return this.context.permissions.canRunPastExperimentQueries(
+      this.integration.datasource
+    );
+  }
+
   async startQueries(params: PastExperimentParams): Promise<Queries> {
     return [
       await this.startQuery({

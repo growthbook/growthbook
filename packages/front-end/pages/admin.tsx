@@ -50,7 +50,7 @@ function OrganizationRow({
           id={organization.id}
           currentName={organization.name}
           currentExternalId={organization.externalId || ""}
-          showExternalId={!isCloud()}
+          currentLicenseKey={organization.licenseKey || ""}
           onEdit={onEdit}
           close={() => setEditOrgModalOpen(false)}
         />

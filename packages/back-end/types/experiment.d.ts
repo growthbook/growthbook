@@ -12,6 +12,11 @@ export type ImplementationType = "visual" | "code" | "configuration" | "custom";
 
 export type ExperimentPhaseType = "ramp" | "main" | "holdout";
 
+export type ExperimentNotification =
+  | "auto-update"
+  | "multiple-exposures"
+  | "srm";
+
 export type DomChange = {
   selector: string;
   action: "append" | "set" | "remove";
@@ -138,6 +143,7 @@ export interface ExperimentInterface {
   fallbackAttribute?: string;
   hashVersion: 1 | 2;
   disableStickyBucketing?: boolean;
+  pastNotifications?: ExperimentNotification[];
   bucketVersion?: number;
   minBucketVersion?: number;
   name: string;

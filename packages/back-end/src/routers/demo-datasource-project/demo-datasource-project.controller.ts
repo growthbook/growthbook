@@ -209,7 +209,7 @@ export const postDemoDatasourceProject = async (
       name: "Sample Data",
     });
     const datasource = await createDataSource(
-      org.id,
+      context,
       "Sample Data Source",
       DATASOURCE_TYPE,
       DEMO_DATASOURCE_PARAMS,
