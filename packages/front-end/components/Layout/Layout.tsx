@@ -212,7 +212,7 @@ const navlinks: SidebarLinkProps[] = [
         href: "/importing",
         path: /^importing/,
         filter: ({ permissions, permissionsUtils, gb }) =>
-          permissions.check("manageFeatures", "") &&
+          permissionsUtils.canViewFeatureModal() &&
           permissions.check("manageEnvironments" as GlobalPermission) &&
           permissionsUtils.canCreateProjects() &&
           !!gb?.isOn("import-from-x"),
@@ -231,6 +231,15 @@ const navlinks: SidebarLinkProps[] = [
         filter: ({ superAdmin, isMultiOrg }) => superAdmin && isMultiOrg,
       },
     ],
+  },
+];
+
+const breadcumbLinks = [
+  ...navlinks,
+  {
+    name: "Power Calculator",
+    path: /^power-calculator/,
+    subLinks: [],
   },
 ];
 
@@ -309,7 +318,7 @@ const Layout = (): React.ReactElement => {
       pageTitle = o.title;
     }
   });
-  navlinks.forEach((o) => {
+  breadcumbLinks.forEach((o) => {
     if (o.subLinks) {
       o.subLinks.forEach((s) => {
         if (!pageTitle && s.path.test(path)) {

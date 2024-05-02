@@ -152,7 +152,7 @@ const ShowLicenseInfo: FC<{
                 {license && (
                   <>
                     {license.id.startsWith("license") && (
-                      <div className="col-sm-2">
+                      <div className="col">
                         <RefreshLicenseButton />
                       </div>
                     )}
