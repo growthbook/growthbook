@@ -73,7 +73,9 @@ jobs:
           docker cp temp-container:/usr/local/src/app/packages/front-end/.next/static ./static
           docker cp temp-container:/usr/local/src/app/packages/front-end/public ./public
           docker cp temp-container:/usr/local/src/app/buildinfo/SHA ./SHA
+          docker cp temp-container:/usr/local/src/app/buildinfo/DATE ./DATE
           docker rm temp-container
           SHA=$(cat ./SHA)
-          aws s3 sync ./static s3://growthbook-cloud-static-files/$SHA/_next/static
-          aws s3 sync ./public s3://growthbook-cloud-static-files/$SHA/public
+          DATE=$(cat ./DATE)
+          aws s3 sync ./static s3://growthbook-cloud-static-files/$DATE/$SHA/_next/static
+          aws s3 sync ./public s3://growthbook-cloud-static-files/$DATE/$SHA/public
