@@ -59,6 +59,10 @@ export class Permissions {
     return this.checkGlobalPermission("manageNorthStarMetric");
   };
 
+  public canViewEvents = (): boolean => {
+    return this.checkGlobalPermission("viewEvents");
+  };
+
   //Project Permissions
   public canCreateVisualChange = (
     experiment: Pick<ExperimentInterface, "project">

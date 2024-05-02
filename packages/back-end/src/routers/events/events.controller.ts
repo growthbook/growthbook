@@ -15,11 +15,13 @@ export const getEvents = async (
   req: GetEventsRequest,
   res: Response<GetEventsResponse | ApiErrorResponse>
 ) => {
-  req.checkPermissions("viewEvents");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canViewEvents()) {
+    context.permissions.throwPermissionError();
+  }
 
-  const events = await Event.getLatestEventsForOrganization(org.id, 50);
+  const events = await Event.getLatestEventsForOrganization(context.org.id, 50);
 
   return res.json({ events });
 };
@@ -34,11 +36,16 @@ export const getEventById = async (
   req: GetEventRequest,
   res: Response<GetEventResponse | ApiErrorResponse>
 ) => {
-  req.checkPermissions("viewEvents");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canViewEvents()) {
+    context.permissions.throwPermissionError();
+  }
 
-  const event = await Event.getEventForOrganization(req.params.id, org.id);
+  const event = await Event.getEventForOrganization(
+    req.params.id,
+    context.org.id
+  );
   if (!event) {
     return res.status(404).json({ message: "Not Found" });
   }
