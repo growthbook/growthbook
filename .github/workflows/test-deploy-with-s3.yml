@@ -38,6 +38,7 @@ jobs:
         uses: depot/build-push-action@v1
         with:
           push: true
+          load: true
           context: .
           project: vmp2ssvj9r
           tags: |
