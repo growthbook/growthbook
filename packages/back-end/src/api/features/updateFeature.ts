@@ -38,6 +38,19 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       req.context.permissions.throwPermissionError();
     }
 
+    if (project != null) {
+      req.checkPermissions(
+        "publishFeatures",
+        feature.project,
+        getEnabledEnvironments(feature, orgEnvs)
+      );
+      req.checkPermissions(
+        "publishFeatures",
+        project,
+        getEnabledEnvironments(feature, orgEnvs)
+      );
+    }
+
     // ensure environment keys are valid
     if (req.body.environments != null) {
       validateEnvKeys(orgEnvs, Object.keys(req.body.environments ?? {}));
