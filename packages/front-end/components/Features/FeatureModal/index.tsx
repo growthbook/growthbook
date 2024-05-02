@@ -18,7 +18,6 @@ import {
   useEnvironments,
 } from "@/services/features";
 import { useWatching } from "@/services/WatchProvider";
-import usePermissions from "@/hooks/usePermissions";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FeatureValueField from "@/components/Features/FeatureValueField";

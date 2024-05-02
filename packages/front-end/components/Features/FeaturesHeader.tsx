@@ -11,7 +11,6 @@ import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/Demo
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
-import usePermissions from "@/hooks/usePermissions";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -64,7 +63,6 @@ export default function FeaturesHeader({
   const [showImplementation, setShowImplementation] = useState(firstFeature);
 
   const { organization } = useUser();
-  const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
