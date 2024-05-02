@@ -44,14 +44,14 @@ jobs:
             growthbook/growthbook:deploy-with-s3-test
           platforms: linux/amd64,linux/arm64
 
-      - name: Extract static assets from Docker image and upload to S3
-        env:
-          DEPOT_TOKEN: ${{ secrets.DEPOT_TOKEN }}
-        run: |
-          depot build . -t static-files --output=type=local,dest=./public
-          ls ./public
-          echo "would run aws s3 sync ./static s3://growthbook-cloud-static-files/$sha/.next/static"
-          echo "would run aws s3 sync ./public s3://growthbook-cloud-static-files/$sha/public"
+    #   - name: Extract static assets from Docker image and upload to S3
+    #     env:
+    #       DEPOT_TOKEN: ${{ secrets.DEPOT_TOKEN }}
+    #     run: |
+    #       depot build . -t static-files --output=type=local,dest=./public
+    #       ls ./public
+    #       echo "would run aws s3 sync ./static s3://growthbook-cloud-static-files/$sha/.next/static"
+    #       echo "would run aws s3 sync ./public s3://growthbook-cloud-static-files/$sha/public"
 
   # Deploy the back-end for GrowthBook Cloud
   prod:
@@ -75,5 +75,5 @@ jobs:
           docker cp temp-container:/usr/local/src/app/buildinfo/SHA ./SHA
           docker rm temp-container
           SHA=$(cat ./SHA)
-          echo "would run aws s3 sync ./static s3://growthbook-cloud-static-files/$SHA/.next/static"
-          echo "would run aws s3 sync ./public s3://growthbook-cloud-static-files/$SHA/public"
+          aws s3 sync ./static s3://growthbook-cloud-static-files/$SHA/.next/static
+          aws s3 sync ./public s3://growthbook-cloud-static-files/$SHA/public
