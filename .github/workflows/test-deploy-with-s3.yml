@@ -1,0 +1,82 @@
+name: Temp Test Fake Deploy With S3
+
+on:
+  # Push to any branch ... this one in particular.  Will delete this file.
+  push:
+
+jobs:
+  # Build and publish the commit to docker
+  docker:
+    runs-on: ubuntu-latest
+    if: ${{ github.repository == 'growthbook/growthbook' }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Install Depot CLI
+        uses: depot/setup-action@v1
+
+      - name: Prepare build metadata
+        id: metadata
+        run: |
+          # Store current git hash and date in files
+          mkdir -p buildinfo
+          echo "${GITHUB_SHA}" > buildinfo/SHA
+          printf '%(%Y-%m-%dT%H:%M:%SZ)T' > buildinfo/DATE
+          echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Build, tag, and push image to Docker Hub
+        uses: depot/build-push-action@v1
+        with:
+          push: true
+          context: .
+          project: vmp2ssvj9r
+          tags: |
+            growthbook/growthbook:deploy-with-s3-test
+          platforms: linux/amd64,linux/arm64
+
+      - name: Extract static assets from Docker image and upload to S3
+        run: |
+          docker pull growthbook/growthbook:deploy-with-s3-test
+          docker create --name temp-container growthbook/growthbook:deploy-with-s3-test
+          docker cp temp-container:/usr/local/src/app/packages/front-end/.next/static ./static
+          docker cp temp-container:/usr/local/src/app/packages/front-end/public ./public
+          docker cp temp-container:/usr/local/src/app/buildinfo/SHA ./SHA
+          docker rm temp-container
+          SHA=$(cat ./SHA)
+          echo "would run aws s3 sync ./static s3://growthbook-cloud-static-files/$SHA/.next/static"
+          echo "would run aws s3 sync ./public s3://growthbook-cloud-static-files/$SHA/public"
+
+  # Deploy the back-end for GrowthBook Cloud
+  prod:
+    runs-on: ubuntu-latest
+    needs: [docker]
+    if: ${{ github.repository == 'growthbook/growthbook' }}
+    steps:
+      - name: Configure AWS credentials for GrowthBook Cloud
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Extract static assets from Docker image and upload to S3
+        run: |
+          docker pull growthbook/growthbook:deploy-with-s3-test
+          docker create --name temp-container growthbook/growthbook:deploy-with-s3-test
+          docker cp temp-container:/usr/local/src/app/packages/front-end/.next/static ./static
+          docker cp temp-container:/usr/local/src/app/packages/front-end/public ./public
+          docker cp temp-container:/usr/local/src/app/buildinfo/SHA ./SHA
+          docker rm temp-container
+          SHA=$(cat ./SHA)
+          echo "would run aws s3 sync ./static s3://growthbook-cloud-static-files/$SHA/.next/static"
+          echo "would run aws s3 sync ./public s3://growthbook-cloud-static-files/$SHA/public"
