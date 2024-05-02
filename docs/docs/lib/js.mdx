@@ -512,7 +512,38 @@ Updating from a **0.X.X** release to **1.0.0** is still backwards compatible for
 - The `enableDevMode: true` setting previously also disabled cache as a side-effect. This is no longer the case in 1.0.0, and you must explicitly also set `disableCache: true`
 - Previously, a network request to fetch features was started immediately upon creating a GrowthBook instance. Starting in 1.0.0, it waits until you call `loadFeatures` (or the new `init` method) before starting the network request. As a replacement, there is now a standalone `prefetchPayload` function that you can use to kick off a network request outside of the context of a GrowthBook instance.
 
-In addition to the above, we highly recommend switching from `loadFeatures()` to the new `init()` method. The `init()` method solves many pain points including easier error handling and more control over caching and streaming. See the Loading Features section above for more info.
+#### Switching to init
+
+GrowthBook 1.0.0 introduced a new `init` (and `initSync`) method.
+
+We recommend everyone starts using this in their implementation. It solves many pain points including easier error handling and more control over caching and streaming.
+
+For those currently using `loadFeatures`, `init` is a direct replacement. The only difference is that streaming is now opt-in instead of on-by-default.
+
+```ts
+// Previous
+await gb.loadFeatures({ timeout: 1000 });
+
+// New
+await gb.init({ timeout: 1000, streaming: true });
+```
+
+For those currently NOT using `loadFeatures` and passing features/experiments directly into the GrowthBook constructor, `init` and `initSync` can be used instead. The code below assumes you have a `payload` variable with the contents from the SDK Connection Endpoint.
+
+```ts
+// Previous
+const gb = new GrowthBook({
+  features: payload.features,
+  experiments: payload.experiments
+});
+
+// New (async)
+const gb = new GrowthBook();
+await gb.init({ payload: payload });
+
+// New (non-async)
+const gb = (new GrowthBook()).initSync({ payload: payload });
+```
 
 ## GrowthBook Instance (reference)
 
