@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { omit } from "lodash";
+import { hasReadAccess } from "shared/permissions";
+import { ReqContext } from "@back-end/types/organization";
 import { ArchetypeInterface } from "../../types/archetype";
 
 const archetypeSchema = new mongoose.Schema({
@@ -66,15 +68,15 @@ export async function createArchetype(
 }
 
 export async function getAllArchetypes(
-  organization: string,
-  owner: string
+  context: ReqContext
 ): Promise<ArchetypeInterface[]> {
   const archetype: ArchetypeDocument[] = await ArchetypeModel.find({
-    organization,
+    organization: context.org,
   });
   return (
     archetype
-      .filter((su) => su.owner === owner || su.isPublic)
+      .filter((su) => su.owner === context.userId || su.isPublic)
+      .filter(() => hasReadAccess(context.readAccessFilter, []))
       .map((value) => value.toJSON()) || []
   );
 }
