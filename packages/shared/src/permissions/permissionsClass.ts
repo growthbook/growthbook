@@ -113,6 +113,49 @@ export class Permissions {
   };
 
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
+  public canViewFeatureModal = (project?: string): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: project ? [project] : [],
+      },
+      "manageFeatures"
+    );
+  };
+
+  public canCreateFeature = (
+    feature: Pick<FeatureInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: feature.project ? [feature.project] : [],
+      },
+      "manageFeatures"
+    );
+  };
+
+  public canUpdateFeature = (
+    existing: Pick<FeatureInterface, "project">,
+    updated: Pick<FeatureInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "manageFeatures"
+    );
+  };
+
+  public canDeleteFeature = (
+    feature: Pick<FeatureInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: feature.project ? [feature.project] : [],
+      },
+      "manageFeatures"
+    );
+  };
+
+  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
   public canViewIdeaModal = (project?: string): boolean => {
     return this.canCreateIdea({ project });
   };
