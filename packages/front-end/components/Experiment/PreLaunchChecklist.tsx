@@ -14,7 +14,6 @@ import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
-import usePermissions from "@/hooks/usePermissions";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
@@ -53,7 +52,6 @@ export function PreLaunchChecklist({
 }) {
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
-  const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
   const [checkListOpen, setCheckListOpen] = useState(true);
   const [showSdkForm, setShowSdkForm] = useState(false);
@@ -61,11 +59,9 @@ export function PreLaunchChecklist({
   const showEditChecklistLink =
     hasCommercialFeature("custom-launch-checklist") &&
     permissionsUtil.canManageOrgSettings();
-  const canCreateAnalyses = permissions.check(
-    "createAnalyses",
-    experiment.project
-  );
-  const canEditExperiment = !experiment.archived && canCreateAnalyses;
+  const canEditExperiment =
+    !experiment.archived &&
+    permissionsUtil.canViewExperimentModal(experiment.project);
 
   const { data } = useApi<{ checklist: ExperimentLaunchChecklistInterface }>(
     "/experiments/launch-checklist"

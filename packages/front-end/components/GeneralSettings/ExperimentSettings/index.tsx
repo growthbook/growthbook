@@ -214,6 +214,22 @@ export default function ExperimentSettings({
 
           <StatsEngineSettings />
 
+          <div className="d-flex form-group mb-3">
+            <label className="mr-1" htmlFor="toggle-factTableQueryOptimization">
+              <span className="badge badge-purple text-uppercase mr-2">
+                Alpha
+              </span>
+              Enable Power Calculator
+            </label>
+            <Toggle
+              id="toggle-powerCalculator"
+              value={form.watch("powerCalculatorEnabled")}
+              setValue={(value) => {
+                form.setValue("powerCalculatorEnabled", !!value);
+              }}
+            />
+          </div>
+
           <StickyBucketingSettings />
 
           <h4 className="mt-4 mb-2">Experiment Health Settings</h4>
