@@ -4,6 +4,7 @@ import { cloneDeep } from "lodash";
 import { Request } from "express";
 import {
   getLicense,
+  isActiveSubscriptionStatus,
   isAirGappedLicenseKey,
   postSubscriptionUpdateToLicenseServer,
 } from "enterprise";
@@ -258,7 +259,10 @@ async function updateSubscriptionIfProLicense(
     !isAirGappedLicenseKey(organization.licenseKey)
   ) {
     const license = await getLicense(organization.licenseKey);
-    if (license?.plan === "pro") {
+    if (
+      license?.plan === "pro" &&
+      isActiveSubscriptionStatus(license?.stripeSubscription?.status)
+    ) {
       // Only pro plans have a Stripe subscription that needs to get updated
       const seatsInUse = getNumberOfUniqueMembersAndInvites(organization);
       await postSubscriptionUpdateToLicenseServer(

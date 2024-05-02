@@ -187,7 +187,10 @@ export async function updateSnapshot({
     }
   );
 
-  const experimentSnapshotModel = await ExperimentSnapshotModel.findOne({ id });
+  const experimentSnapshotModel = await ExperimentSnapshotModel.findOne({
+    id,
+    organization,
+  });
   if (!experimentSnapshotModel) throw "Internal error";
 
   await notifyExperimentChange({
@@ -247,7 +250,10 @@ export async function updateSnapshotAnalysis({
     }
   );
 
-  const experimentSnapshotModel = await ExperimentSnapshotModel.findOne({ id });
+  const experimentSnapshotModel = await ExperimentSnapshotModel.findOne({
+    id,
+    organization,
+  });
   if (!experimentSnapshotModel) throw "Internal error";
 
   await notifyExperimentChange({

@@ -11,6 +11,7 @@ import { AppFeatures } from "@/types/app-features";
 import { isCloud, isMultiOrg } from "@/services/env";
 import { PermissionFunctions, useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import styles from "./SidebarLink.module.scss";
 
 export type SidebarLinkProps = {
@@ -30,6 +31,7 @@ export type SidebarLinkProps = {
     isCloud: boolean;
     isMultiOrg: boolean;
     gb?: GrowthBook<AppFeatures>;
+    project?: string;
   }) => boolean;
   subLinks?: SidebarLinkProps[];
   beta?: boolean;
@@ -37,6 +39,7 @@ export type SidebarLinkProps = {
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const { permissions, superAdmin } = useUser();
+  const { project } = useDefinitions();
   const router = useRouter();
 
   const path = router.route.substr(1);
@@ -62,6 +65,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
     isCloud: isCloud(),
     isMultiOrg: isMultiOrg(),
     gb: growthbook,
+    project,
   };
 
   if (props.filter && !props.filter(filterProps)) {
