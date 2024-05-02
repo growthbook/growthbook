@@ -12,7 +12,6 @@ import { date } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import Collapsible from "react-collapsible";
 import useApi from "@/hooks/useApi";
-import { isCloud } from "@/services/env";
 import EditOrganization from "@/components/Admin/EditOrganization";
 import Code from "@/components/SyntaxHighlighting/Code";
 import DeleteOrganizationModal from "@/components/Admin/DeleteOrganizationModal";
@@ -49,7 +48,7 @@ export default function OrganizationRow({
           id={organization.id}
           currentName={organization.name}
           currentExternalId={organization.externalId || ""}
-          showExternalId={!isCloud()}
+          currentLicenseKey={organization.licenseKey || ""}
           onEdit={onUpdate}
           close={() => setEditOrgModalOpen(false)}
         />
