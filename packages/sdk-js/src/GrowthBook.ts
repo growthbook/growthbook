@@ -436,6 +436,7 @@ export class GrowthBook<
     decryptionKey?: string,
     subtle?: SubtleCrypto
   ): Promise<FeatureApiResponse> {
+    data = { ...data };
     if (data.encryptedFeatures) {
       data.features = JSON.parse(
         await decrypt(

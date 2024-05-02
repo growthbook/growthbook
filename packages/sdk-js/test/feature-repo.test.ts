@@ -1329,6 +1329,48 @@ describe("feature-repo", () => {
     cleanup();
   });
 
+  it("preserves both an encrypted and unencrypted payload", async () => {
+    const encryptedFeatures =
+      "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      decryptionKey: "Ns04T5n9+59rl2x3SlNHtQ==",
+    });
+    // Initial value of feature should be null
+    expect(growthbook.evalFeature("testfeature1").value).toEqual(null);
+
+    // Calling init() moves the payload into the feature repo. It is available for use
+    await growthbook.init({
+      payload: {
+        encryptedFeatures,
+      },
+    });
+    expect(growthbook.evalFeature("testfeature1").value).toEqual(true);
+
+    expect(growthbook.getPayload()).toEqual({
+      encryptedFeatures:
+        "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx",
+    });
+
+    expect(growthbook.getDecryptedPayload()).toEqual({
+      features: {
+        testfeature1: {
+          defaultValue: true,
+          rules: [
+            {
+              condition: { id: "1234" },
+              force: false,
+            },
+          ],
+        },
+      },
+    });
+
+    growthbook.destroy();
+  });
+
   it("can disableCache", async () => {
     // Mock API
     const [f, cleanup] = mockApi({
