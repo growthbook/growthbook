@@ -10,6 +10,7 @@ import {
 import ValidateValue from "@/components/Features/ValidateValue";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import Modal from "@/components/Modal";
+import { getPublicAssetsPath } from "@/services/env";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 
@@ -82,7 +83,7 @@ export default function ExperimentSummary({
             <div className="col-4">
               <img
                 className=""
-                src="/images/add-graph.svg"
+                src={`${getPublicAssetsPath()}/images/add-graph.svg`}
                 alt=""
                 style={{ width: "100%", maxWidth: "200px" }}
               />

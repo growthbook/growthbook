@@ -14,6 +14,7 @@ import { useFeaturesList } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import GuidedGetStarted from "@/components/GuidedGetStarted/GuidedGetStarted";
 import styles from "@/components/GuidedGetStarted/GuidedGetStarted.module.scss";
+import { getPublicAssetsPath } from "@/services/env";
 
 const GetStartedPage = (): React.ReactElement => {
   const { ready, error: definitionsError } = useDefinitions();
@@ -73,7 +74,7 @@ const GetStartedPage = (): React.ReactElement => {
               <img
                 role="button"
                 className={styles.videoPreview}
-                src="/images/intro-video-cover.png"
+                src={`${getPublicAssetsPath()}/images/intro-video-cover.png`}
                 width={"100%"}
                 onClick={async () => {
                   setShowVideo(true);

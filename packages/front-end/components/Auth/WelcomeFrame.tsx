@@ -1,5 +1,6 @@
 import { ReactNode, FC, ReactElement } from "react";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import { getPublicAssetsPath } from "@/services/env";
 
 type WelcomeFrameProps = {
   leftside: string | ReactElement | boolean;
@@ -28,7 +29,7 @@ const WelcomeFrame: FC<WelcomeFrameProps> = ({
                 rel="noreferrer"
               >
                 <img
-                  src="/logo/growth-book-logo-white.png"
+                  src={`${getPublicAssetsPath()}/logo/growth-book-logo-white.png`}
                   style={{ maxWidth: "150px" }}
                 />
               </a>

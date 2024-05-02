@@ -1,5 +1,6 @@
 import React, { FC, PropsWithChildren } from "react";
 import Link from "next/link";
+import { getPublicAssetsPath } from "@/services/env";
 
 type ImportFromServiceCardProps = PropsWithChildren<{
   service: string;
@@ -28,7 +29,7 @@ export const ImportFromServiceCard: FC<ImportFromServiceCardProps> = ({
           }}
         >
           <img
-            src={`/images/3rd-party-logos/importing/icons/${icon}.svg`}
+            src={`${getPublicAssetsPath()}/images/3rd-party-logos/importing/icons/${icon}.svg`}
             style={{
               width: 40,
             }}

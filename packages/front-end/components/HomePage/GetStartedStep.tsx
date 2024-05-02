@@ -3,6 +3,7 @@ import { ReactElement } from "react";
 import { FaCheck } from "react-icons/fa";
 import { FiArrowRight } from "react-icons/fi";
 import Button from "@/components/Button";
+import { getPublicAssetsPath } from "@/services/env";
 
 export type Props = {
   current: boolean;
@@ -40,7 +41,7 @@ export default function GetStartedStep({
       <img
         className=""
         style={{ width: "100%", maxWidth: "200px", maxHeight: "160px" }}
-        src={image}
+        src={`${getPublicAssetsPath()}${image}`}
         alt=""
       />
     </div>

@@ -29,7 +29,7 @@ import SDKLanguageLogo from "@/components/Features/SDKConnections/SDKLanguageLog
 import ProxyTestButton from "@/components/Features/SDKConnections/ProxyTestButton";
 import Button from "@/components/Button";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import { isCloud } from "@/services/env";
+import { getPublicAssetsPath, isCloud } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PageHead from "@/components/Layout/PageHead";
 import { useEnvironments } from "@/services/features";
@@ -439,7 +439,7 @@ export default function SDKConnectionPage() {
           title={
             <>
               <img
-                src="/logo/growthbook-logo.png"
+                src={`${getPublicAssetsPath()}/logo/growthbook-logo.png`}
                 style={{ width: 130 }}
                 alt="GrowthBook"
               />

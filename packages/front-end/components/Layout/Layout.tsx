@@ -10,7 +10,7 @@ import {
 } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
 import { GlobalPermission } from "@back-end/types/organization";
-import { getGrowthBookBuild } from "@/services/env";
+import { getGrowthBookBuild, getPublicAssetsPath } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -386,7 +386,7 @@ const Layout = (): React.ReactElement => {
                       <img
                         className={styles.userlogo}
                         alt="GrowthBook"
-                        src={settings.logoPath}
+                        src={`${getPublicAssetsPath()}${settings.logoPath}`}
                       />
                     </>
                   ) : (
@@ -394,12 +394,12 @@ const Layout = (): React.ReactElement => {
                       <img
                         className={styles.logo}
                         alt="GrowthBook"
-                        src="/logo/growth-book-logomark-white.svg"
+                        src={`${getPublicAssetsPath()}/logo/growth-book-logomark-white.svg`}
                       />
                       <img
                         className={styles.logotext}
                         alt="GrowthBook"
-                        src="/logo/growth-book-name-white.svg"
+                        src={`${getPublicAssetsPath()}/logo/growth-book-name-white.svg`}
                       />
                     </>
                   )}

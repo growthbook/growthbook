@@ -21,9 +21,6 @@ const cspHeader = `
 module.exports = {
   // We already run eslint and typescript in CI/CD
   // Disable here to speed up production builds
-  assetPrefix: process.env.IS_CLOUD
-    ? `https://growthbook-cloud-static-files.s3.amazonaws.com/${gitCommitDate}/${gitSha}/`
-    : "",
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -45,4 +42,7 @@ module.exports = {
       ],
     },
   ],
+  assetPrefix: process.env.USE_REMOTE_ASSETS
+    ? `https://growthbook-cloud-static-files.s3.amazonaws.com/${gitCommitDate}/${gitSha}/`
+    : "",
 };

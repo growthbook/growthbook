@@ -8,7 +8,7 @@ import { useWatching } from "@/services/WatchProvider";
 import useGlobalMenu from "@/services/useGlobalMenu";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
-import { usingSSO } from "@/services/env";
+import { getPublicAssetsPath, usingSSO } from "@/services/env";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCelebrationLocalStorage } from "@/hooks/useCelebration";
 import Modal from "@/components/Modal";
@@ -135,7 +135,7 @@ const TopNav: FC<{
             <div>
               <img
                 alt="GrowthBook"
-                src="/logo/growthbook-logo.png"
+                src={`${getPublicAssetsPath()}/logo/growthbook-logo.png`}
                 style={{ height: 40 }}
               />
             </div>

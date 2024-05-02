@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { BsQuestionLg, BsXLg } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
 import { useUser } from "@/services/UserContext";
-import { isCloud } from "@/services/env";
+import { getPublicAssetsPath, isCloud } from "@/services/env";
 import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 
@@ -58,7 +58,7 @@ export default function InAppHelp() {
           <div className="bg-purple rounded-top p-3 pb-4 d-flex align-items-center">
             <img
               alt="GrowthBook"
-              src="/logo/growth-book-logomark-white.svg"
+              src={`${getPublicAssetsPath()}/logo/growth-book-logomark-white.svg`}
               className="mb-1 pr-1"
               style={{ height: 30 }}
             />

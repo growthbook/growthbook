@@ -18,6 +18,7 @@ import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import { DocLink, DocSection } from "@/components/DocLink";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import MetricForm from "@/components/Metrics/MetricForm";
+import { getPublicAssetsPath } from "@/services/env";
 import styles from "./GuidedGetStarted.module.scss";
 import GetStartedSteps from "./GetStartedSteps";
 import SuccessCard from "./SuccessCard";
@@ -94,7 +95,7 @@ export default function GuidedGetStarted({
               <img
                 role="button"
                 className={styles.videoPreview}
-                src="/images/intro-video-cover.png"
+                src={`${getPublicAssetsPath()}/images/intro-video-cover.png`}
                 width={"100%"}
                 onClick={async () => {
                   setShowVideo(true);

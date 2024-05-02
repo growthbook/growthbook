@@ -18,6 +18,7 @@ const env: EnvironmentInitValue = {
   storeSegmentsInMongo: false,
   allowCreateMetrics: true,
   usingFileProxy: false,
+  publicAssetsPath: "",
 };
 
 export async function initEnv() {
@@ -86,4 +87,7 @@ export function storeSegmentsInMongo() {
 }
 export function usingFileProxy() {
   return env.usingFileProxy;
+}
+export function getPublicAssetsPath() {
+  return env.publicAssetsPath;
 }

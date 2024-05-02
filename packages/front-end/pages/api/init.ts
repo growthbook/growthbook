@@ -24,6 +24,7 @@ export interface EnvironmentInitValue {
   storeSegmentsInMongo: boolean;
   allowCreateMetrics: boolean;
   usingFileProxy: boolean;
+  publicAssetsPath: string;
 }
 
 // Get env variables at runtime on the front-end while still using SSG
@@ -38,6 +39,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     CDN_HOST,
     IS_CLOUD,
     IS_MULTI_ORG,
+    USE_REMOTE_ASSETS,
     ALLOW_SELF_ORG_CREATION,
     DISABLE_TELEMETRY,
     DEFAULT_CONVERSION_WINDOW_HOURS,
@@ -69,6 +71,11 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       .toString();
   }
 
+  const publicAssetsPath =
+    IS_CLOUD && USE_REMOTE_ASSETS
+      ? `https://growthbook-cloud-static-files.s3.amazonaws.com/${build.date}/${build.sha}/public`
+      : "";
+
   const body: EnvironmentInitValue = {
     appOrigin: APP_ORIGIN || "http://localhost:3000",
     apiHost: API_HOST || "http://localhost:3100",
@@ -99,6 +106,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     usingSSO: !!SSO_CONFIG, // No matter what SSO_CONFIG is set to we want it to count as using it.
     storeSegmentsInMongo: stringToBoolean(STORE_SEGMENTS_IN_MONGO),
     usingFileProxy: stringToBoolean(USING_FILE_PROXY),
+    publicAssetsPath,
   };
 
   res.status(200).json(body);

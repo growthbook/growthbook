@@ -8,7 +8,7 @@ import { GrowthBook, useGrowthBook } from "@growthbook/growthbook-react";
 import { GlobalPermission } from "@back-end/types/organization";
 import { Permissions } from "shared/permissions";
 import { AppFeatures } from "@/types/app-features";
-import { isCloud, isMultiOrg } from "@/services/env";
+import { getPublicAssetsPath, isCloud, isMultiOrg } from "@/services/env";
 import { PermissionFunctions, useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import styles from "./SidebarLink.module.scss";
@@ -114,7 +114,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
           {props.Icon && <props.Icon className={styles.icon} />}
           {props.icon && (
             <span>
-              <img src={`/icons/${props.icon}`} />
+              <img src={`${getPublicAssetsPath()}/icons/${props.icon}`} />
             </span>
           )}
           {props.name}
@@ -156,7 +156,9 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
                       {l.Icon && <l.Icon className={styles.icon} />}
                       {l.icon && (
                         <span>
-                          <img src={`/icons/${l.icon}`} />
+                          <img
+                            src={`${getPublicAssetsPath()}/icons/${l.icon}`}
+                          />
                         </span>
                       )}
                     </>

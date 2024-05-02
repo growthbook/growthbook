@@ -3,6 +3,7 @@ import { safeLogout } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Avatar from "@/components/Avatar/Avatar";
 import Button from "@/components/Button";
+import { getPublicAssetsPath } from "@/services/env";
 import { ThemeToggler } from "./ThemeToggler/ThemeToggler";
 
 export default function TopNavLite() {
@@ -15,7 +16,7 @@ export default function TopNavLite() {
       <div>
         <img
           alt="GrowthBook"
-          src="/logo/growthbook-logo.png"
+          src={`${getPublicAssetsPath()}/logo/growthbook-logo.png`}
           style={{ height: 36 }}
         />
       </div>

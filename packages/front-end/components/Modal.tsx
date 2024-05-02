@@ -1,5 +1,6 @@
 import { FC, useRef, useEffect, useState, ReactNode } from "react";
 import clsx from "clsx";
+import { getPublicAssetsPath } from "@/services/env";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
@@ -116,7 +117,7 @@ const Modal: FC<ModalProps> = ({
             {header === "logo" ? (
               <img
                 alt="GrowthBook"
-                src="/logo/growthbook-logo.png"
+                src={`${getPublicAssetsPath()}/logo/growthbook-logo.png`}
                 style={{ height: 40 }}
               />
             ) : (

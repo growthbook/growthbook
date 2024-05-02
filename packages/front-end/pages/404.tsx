@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/react";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
-import { isSentryEnabled } from "@/services/env";
+import { getPublicAssetsPath, isSentryEnabled } from "@/services/env";
 
 export default function Custom404() {
   const ind = Math.ceil(Math.random() * 2);
@@ -23,7 +23,7 @@ export default function Custom404() {
   return (
     <div className="container d-flex justify-content-center h-100 align-items-center flex-column">
       <img
-        src={`/images/errors/404-${ind}.png`}
+        src={`${getPublicAssetsPath()}/images/errors/404-${ind}.png`}
         alt="404"
         style={{ maxWidth: "400px", width: "50%", minWidth: "230px" }}
       />
