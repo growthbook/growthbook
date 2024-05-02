@@ -43,8 +43,11 @@ jobs:
 
       - name: Build, tag, and push image to Docker Hub
         uses: depot/build-push-action@v1
+
         with:
           push: true
+          build-args: |
+            IS_CLOUD=true
           context: .
           project: vmp2ssvj9r
           tags: |

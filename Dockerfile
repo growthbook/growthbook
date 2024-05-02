@@ -41,6 +41,8 @@ RUN yarn install --frozen-lockfile --ignore-optional
 RUN yarn postinstall
 # Build the app and do a clean install with only production dependencies
 COPY packages ./packages
+ARG IS_CLOUD
+ENV IS_CLOUD=$IS_CLOUD
 RUN \
   yarn build \
   && rm -rf node_modules \
@@ -53,12 +55,6 @@ RUN \
   && rm -rf packages/sdk-react/node_modules \
   && yarn install --frozen-lockfile --production=true --ignore-optional
 RUN yarn postinstall
-
-# this stage is just for capturing the contents of /app/public
-FROM scratch AS static-files
-WORKDIR /usr/local/src/app
-COPY --from=nodebuild packages/front-end/.next/static static
-COPY --from=nodebuild packages/front-end/public public
 
 # Package the full app together
 FROM python:${PYTHON_MAJOR}-slim
