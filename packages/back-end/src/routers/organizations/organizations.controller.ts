@@ -1233,7 +1233,9 @@ export async function putOrganization(
           "Not supported: Updating organization attributes not supported via this route."
         );
       } else if (k === "northStar") {
-        req.checkPermissions("manageNorthStarMetric");
+        if (!context.permissions.canManageNorthStarMetric()) {
+          context.permissions.throwPermissionError();
+        }
       } else if (k === "namespaces") {
         req.checkPermissions("manageNamespaces");
       } else {
