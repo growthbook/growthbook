@@ -35,6 +35,9 @@ declare global {
   }
 }
 
+// Ensure dataLayer exists
+window.dataLayer = window.dataLayer || [];
+
 const currentScript = document.currentScript;
 const dataContext: DOMStringMap = currentScript ? currentScript.dataset : {};
 const windowContext: WindowContext = window.growthbook_config || {};
@@ -233,13 +236,14 @@ const gb = new GrowthBook({
   trackingCallback: (e, r) => {
     const p = { experiment_id: e.key, variation_id: r.key };
 
-    // GA4 (gtag and GTM options)
-    window.gtag
-      ? window.gtag("event", "experiment_viewed", p)
-      : window.dataLayer &&
-        window.dataLayer.push({ event: "experiment_viewed", ...p });
+    // GA4 - gtag
+    window.gtag && window.gtag("event", "experiment_viewed", p);
 
-    // Segment
+    // GTM - dataLayer
+    window.dataLayer &&
+      window.dataLayer.push({ event: "experiment_viewed", ...p });
+
+    // Segment - analytics.js
     window.analytics &&
       window.analytics.track &&
       window.analytics.track("Experiment Viewed", p);
