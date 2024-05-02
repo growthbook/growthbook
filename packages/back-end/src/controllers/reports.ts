@@ -44,7 +44,9 @@ export async function postReportFromSnapshot(
     throw new Error("Could not find experiment");
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canCreateReport(experiment)) {
+    context.permissions.throwPermissionError();
+  }
 
   const phase = experiment.phases[snapshot.phase];
   if (!phase) {
@@ -168,7 +170,8 @@ export async function deleteReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const report = await getReportById(org.id, req.params.id);
 
   if (!report) {
@@ -178,6 +181,15 @@ export async function deleteReport(
   // Only allow admins to delete other people's reports
   if (report.userId !== req.userId) {
     req.checkPermissions("superDelete");
+  }
+
+  const connectedExperiment = await getExperimentById(
+    context,
+    report.experimentId || ""
+  );
+
+  if (!context.permissions.canDeleteReport(connectedExperiment || {})) {
+    context.permissions.throwPermissionError();
   }
 
   await deleteReportById(org.id, req.params.id);
@@ -253,8 +265,10 @@ export async function putReport(
     report.experimentId || ""
   );
 
-  // Reports don't have projects, but the experiment does, so check that
-  req.checkPermissions("createAnalyses", experiment?.project || "");
+  // Reports don't have projects, but the experiment does, so check the experiment's project for permission if it exists
+  if (!context.permissions.canUpdateReport(experiment || {})) {
+    context.permissions.throwPermissionError();
+  }
 
   const updates: Partial<ReportInterface> = {};
   let needsRun = false;

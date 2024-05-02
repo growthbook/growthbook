@@ -209,7 +209,6 @@ export const deleteProject = async (
       if (!context.permissions.canDeleteMetric({ projects: [id] })) {
         context.permissions.throwPermissionError();
       }
-
       await deleteAllMetricsForAProject({
         projectId: id,
         context,
@@ -248,8 +247,9 @@ export const deleteProject = async (
   // Clean up experiments
   if (deleteExperiments) {
     try {
-      req.checkPermissions("createAnalyses", id);
-
+      if (!context.permissions.canDeleteExperiment({ project: id })) {
+        context.permissions.throwPermissionError();
+      }
       await deleteAllExperimentsForAProject({
         projectId: id,
         context,

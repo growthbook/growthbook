@@ -5,7 +5,6 @@ import {
   ExperimentReportVariation,
 } from "back-end/types/report";
 import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
-import usePermissions from "@/hooks/usePermissions";
 import FixVariationIds from "@/components/Experiment/FixVariationIds";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
@@ -44,8 +43,6 @@ const VariationIdWarning: FC<{
   datasource,
 }) => {
   const [idModal, setIdModal] = useState(false);
-
-  const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
 
   if (!results) return null;
@@ -123,7 +120,7 @@ const VariationIdWarning: FC<{
           {setVariationIds &&
             datasource &&
             permissionsUtil.canRunExperimentQueries(datasource) &&
-            permissions.check("createAnalyses", project) && (
+            permissionsUtil.canViewExperimentModal(project) && (
               <button
                 className="btn btn-info btn-sm ml-3"
                 type="button"
