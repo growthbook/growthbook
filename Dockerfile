@@ -54,6 +54,11 @@ RUN \
   && yarn install --frozen-lockfile --production=true --ignore-optional
 RUN yarn postinstall
 
+# this stage is just for capturing the contents of /app/public
+FROM scratch AS static-files
+WORKDIR /usr/local/src/app
+COPY --from=nodebuild packages/front-end/.next/static static
+COPY --from=nodebuild packages/front-end/public public
 
 # Package the full app together
 FROM python:${PYTHON_MAJOR}-slim
