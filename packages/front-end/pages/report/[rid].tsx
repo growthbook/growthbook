@@ -75,9 +75,9 @@ export default function ReportPage() {
     ? permissionsUtil.canViewReportModal(experimentData.experiment.project)
     : false;
 
-  const canDeleteReport = experimentData
-    ? permissionsUtil.canDeleteReport(experimentData.experiment)
-    : false;
+  const canDeleteReport = permissionsUtil.canDeleteReport(
+    experimentData?.experiment || {}
+  );
 
   // todo: move to report args
   const orgSettings = useOrgSettings();

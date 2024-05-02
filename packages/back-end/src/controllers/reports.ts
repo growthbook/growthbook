@@ -188,10 +188,7 @@ export async function deleteReport(
     report.experimentId || ""
   );
 
-  if (!connectedExperiment) {
-    throw new Error("Could not find connected experiment");
-  }
-  if (!context.permissions.canDeleteReport(connectedExperiment)) {
+  if (!context.permissions.canDeleteReport(connectedExperiment || {})) {
     context.permissions.throwPermissionError();
   }
 
@@ -268,12 +265,8 @@ export async function putReport(
     report.experimentId || ""
   );
 
-  if (!experiment) {
-    throw new Error("Could not find connected experiment");
-  }
-
-  // Reports don't have projects, but the experiment does, so check the experiment's project for permission
-  if (!context.permissions.canUpdateReport(experiment)) {
+  // Reports don't have projects, but the experiment does, so check the experiment's project for permission if it exists
+  if (!context.permissions.canUpdateReport(experiment || {})) {
     context.permissions.throwPermissionError();
   }
 
