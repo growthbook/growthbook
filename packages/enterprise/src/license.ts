@@ -14,6 +14,9 @@ export const LICENSE_SERVER_URL =
   process.env.LICENSE_SERVER_URL ||
   "https://central_license_server.growthbook.io/api/v1/";
 
+// mimic behavior in back-end/src/util/secrets.ts
+const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
+
 const logger = pino();
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
@@ -467,7 +470,7 @@ export async function postNewProTrialSubscriptionToLicenseServer(
       name,
       email,
       seats,
-      appOrigin: process.env.APP_ORIGIN,
+      appOrigin: APP_ORIGIN,
       cloudSecret: process.env.CLOUD_SECRET,
     })
   );
@@ -485,7 +488,7 @@ export async function postNewProSubscriptionToLicenseServer(
   return callLicenseServer(
     url,
     JSON.stringify({
-      appOrigin: process.env.APP_ORIGIN,
+      appOrigin: APP_ORIGIN,
       cloudSecret: process.env.CLOUD_SECRET,
       organizationId,
       companyName,
@@ -516,7 +519,7 @@ export async function postCreateBillingSessionToLicenseServer(
   return await callLicenseServer(
     url,
     JSON.stringify({
-      appOrigin: process.env.APP_ORIGIN,
+      appOrigin: APP_ORIGIN,
       licenseId,
     })
   );
@@ -561,7 +564,7 @@ export async function postCreateTrialEnterpriseLicenseToLicenseServer(
       organizationId,
       companyName,
       context,
-      appOrigin: process.env.APP_ORIGIN,
+      appOrigin: APP_ORIGIN,
       cloudSecret: process.env.CLOUD_SECRET,
     })
   );
@@ -575,7 +578,7 @@ export async function postResendEmailVerificationEmailToLicenseServer(
     url,
     JSON.stringify({
       organizationId,
-      appOrigin: process.env.APP_ORIGIN,
+      appOrigin: APP_ORIGIN,
     })
   );
 }
@@ -652,6 +655,7 @@ async function updateLicenseFromServer(
     license.lastServerErrorMessage = e.message;
     license.usingMongoCache = true;
     verifyAndSetServerLicenseData(license);
+    throw e;
   }
   return license;
 }

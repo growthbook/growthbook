@@ -2,6 +2,7 @@ import {
   Attributes,
   CacheSettings,
   FeatureApiResponse,
+  FetchResponse,
   Helpers,
   Polyfills,
   PrefetchOptions,
@@ -36,7 +37,7 @@ const cacheSettings: CacheSettings = {
   maxEntries: 10,
   disableIdleStreams: false,
   idleStreamInterval: 20000,
-  disableLocalCache: false,
+  disableCache: false,
 };
 
 const polyfills = getPolyfills();
@@ -104,7 +105,7 @@ try {
 const subscribedInstances: Map<string, Set<GrowthBook>> = new Map();
 let cacheInitialized = false;
 const cache: Map<string, CacheEntry> = new Map();
-const activeFetches: Map<string, Promise<FeatureApiResponse>> = new Map();
+const activeFetches: Map<string, Promise<FetchResponse>> = new Map();
 const streams: Map<string, ScopedChannel> = new Map();
 const supportsSSE: Set<string> = new Set();
 
@@ -135,7 +136,6 @@ export async function prefetchPayload(options: PrefetchOptions) {
     instance,
     skipCache: options.skipCache,
     allowStale: false,
-    updateInstance: false,
     backgroundSync: options.streaming,
   });
 
@@ -148,27 +148,24 @@ export async function refreshFeatures({
   timeout,
   skipCache,
   allowStale,
-  updateInstance,
   backgroundSync,
 }: {
   instance: GrowthBook;
   timeout?: number;
   skipCache?: boolean;
   allowStale?: boolean;
-  updateInstance?: boolean;
   backgroundSync?: boolean;
-}): Promise<void> {
+}): Promise<FetchResponse> {
   if (!backgroundSync) {
     cacheSettings.backgroundSync = false;
   }
 
-  const data = await fetchFeaturesWithCache({
+  return fetchFeaturesWithCache({
     instance,
     allowStale,
     timeout,
     skipCache,
   });
-  updateInstance && data && (await refreshInstance(instance, data));
 }
 
 // Subscribe a GrowthBook instance to feature changes
@@ -223,7 +220,7 @@ async function fetchFeaturesWithCache({
   allowStale?: boolean;
   timeout?: number;
   skipCache?: boolean;
-}): Promise<FeatureApiResponse | null> {
+}): Promise<FetchResponse> {
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
   const now = new Date();
@@ -233,12 +230,10 @@ async function fetchFeaturesWithCache({
   );
 
   await initializeCache();
-  const existing = !cacheSettings.disableLocalCache
-    ? cache.get(cacheKey)
-    : undefined;
+  const existing =
+    !cacheSettings.disableCache && !skipCache ? cache.get(cacheKey) : undefined;
   if (
     existing &&
-    !skipCache &&
     (allowStale || existing.staleAt > now) &&
     existing.staleAt > minStaleAt
   ) {
@@ -253,9 +248,17 @@ async function fetchFeaturesWithCache({
     else {
       startAutoRefresh(instance);
     }
-    return existing.data;
+    return { data: existing.data, success: true, source: "cache" };
   } else {
-    return await promiseTimeout(fetchFeatures(instance), timeout);
+    const res = await promiseTimeout(fetchFeatures(instance), timeout);
+    return (
+      res || {
+        data: null,
+        success: false,
+        source: "timeout",
+        error: new Error("Timeout"),
+      }
+    );
   }
 }
 
@@ -320,7 +323,7 @@ async function initializeCache(): Promise<void> {
       const value = await polyfills.localStorage.getItem(
         cacheSettings.cacheKey
       );
-      if (!cacheSettings.disableLocalCache && value) {
+      if (!cacheSettings.disableCache && value) {
         const parsed: [string, CacheEntry][] = JSON.parse(value);
         if (parsed && Array.isArray(parsed)) {
           parsed.forEach(([key, data]) => {
@@ -372,7 +375,7 @@ function onNewFeatureData(
   // If contents haven't changed, ignore the update, extend the stale TTL
   const version = data.dateUpdated || "";
   const staleAt = new Date(Date.now() + cacheSettings.staleTTL);
-  const existing = !cacheSettings.disableLocalCache
+  const existing = !cacheSettings.disableCache
     ? cache.get(cacheKey)
     : undefined;
   if (existing && version && existing.version === version) {
@@ -381,7 +384,7 @@ function onNewFeatureData(
     return;
   }
 
-  if (!cacheSettings.disableLocalCache) {
+  if (!cacheSettings.disableCache) {
     // Update in-memory cache
     cache.set(cacheKey, {
       data,
@@ -401,15 +404,13 @@ function onNewFeatureData(
 
 async function refreshInstance(
   instance: GrowthBook,
-  data: FeatureApiResponse
+  data: FeatureApiResponse | null
 ): Promise<void> {
-  await instance.setPayload(data);
+  await instance.setPayload(data || instance.getPayload());
 }
 
 // Fetch the features payload from helper function or from in-mem injected payload
-async function fetchFeatures(
-  instance: GrowthBook
-): Promise<FeatureApiResponse> {
+async function fetchFeatures(instance: GrowthBook): Promise<FetchResponse> {
   const { apiHost, apiRequestHeaders } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
   const remoteEval = instance.isRemoteEval();
@@ -451,7 +452,7 @@ async function fetchFeatures(
         onNewFeatureData(key, cacheKey, data);
         startAutoRefresh(instance);
         activeFetches.delete(cacheKey);
-        return data;
+        return { data, success: true, source: "network" as const };
       })
       .catch((e) => {
         process.env.NODE_ENV !== "production" &&
@@ -461,10 +462,13 @@ async function fetchFeatures(
             error: e ? e.message : null,
           });
         activeFetches.delete(cacheKey);
-        const existing = !cacheSettings.disableLocalCache
-          ? cache.get(cacheKey)
-          : undefined;
-        return Promise.resolve(existing ?? {});
+
+        return {
+          data: null,
+          source: "error" as const,
+          success: false,
+          error: e,
+        };
       });
     activeFetches.set(cacheKey, promise);
   }

@@ -13,7 +13,9 @@ type WindowContext = Context & {
   uuidKey?: string;
   uuid?: string;
   persistUuidOnLoad?: boolean;
+  noStreaming?: boolean;
   useStickyBucketService?: "cookie" | "localStorage";
+  stickyBucketPrefix?: string;
   payload?: FeatureApiResponse;
 };
 declare global {
@@ -32,6 +34,9 @@ declare global {
     gtag?: (...args: any) => void;
   }
 }
+
+// Ensure dataLayer exists
+window.dataLayer = window.dataLayer || [];
 
 const currentScript = document.currentScript;
 const dataContext: DOMStringMap = currentScript ? currentScript.dataset : {};
@@ -168,7 +173,10 @@ function getAutoAttributes(
     : "unknown";
 
   const _uuid = getUUID(useCookies);
-  if (windowContext.persistUuidOnLoad && useCookies) {
+  if (
+    (windowContext.persistUuidOnLoad || dataContext.persistUuidOnLoad) &&
+    useCookies
+  ) {
     persistUUID();
   }
 
@@ -199,28 +207,43 @@ function getAttributes() {
 
 // Create sticky bucket service
 let stickyBucketService: StickyBucketService | undefined = undefined;
-if (windowContext.useStickyBucketService === "cookie") {
+if (
+  windowContext.useStickyBucketService === "cookie" ||
+  dataContext.useStickyBucketService === "cookie"
+) {
   stickyBucketService = new BrowserCookieStickyBucketService({
+    prefix:
+      windowContext.stickyBucketPrefix ||
+      dataContext.stickyBucketPrefix ||
+      undefined,
     jsCookie: Cookies,
   });
-} else if (windowContext.useStickyBucketService === "localStorage") {
-  stickyBucketService = new LocalStorageStickyBucketService();
+} else if (
+  windowContext.useStickyBucketService === "localStorage" ||
+  dataContext.useStickyBucketService === "localStorage"
+) {
+  stickyBucketService = new LocalStorageStickyBucketService({
+    prefix:
+      windowContext.stickyBucketPrefix ||
+      dataContext.stickyBucketPrefix ||
+      undefined,
+  });
 }
 // Create GrowthBook instance
 const gb = new GrowthBook({
   ...dataContext,
   remoteEval: !!dataContext.remoteEval,
-  subscribeToChanges: true,
   trackingCallback: (e, r) => {
     const p = { experiment_id: e.key, variation_id: r.key };
 
-    // GA4 (gtag and GTM options)
-    window.gtag
-      ? window.gtag("event", "experiment_viewed", p)
-      : window.dataLayer &&
-        window.dataLayer.push({ event: "experiment_viewed", ...p });
+    // GA4 - gtag
+    window.gtag && window.gtag("event", "experiment_viewed", p);
 
-    // Segment
+    // GTM - dataLayer
+    window.dataLayer &&
+      window.dataLayer.push({ event: "experiment_viewed", ...p });
+
+    // Segment - analytics.js
     window.analytics &&
       window.analytics.track &&
       window.analytics.track("Experiment Viewed", p);
@@ -236,20 +259,14 @@ gb.setRenderer(() => {
   document.dispatchEvent(new CustomEvent("growthbookdata"));
 });
 
-(async () => {
-  // Hydrate sticky bucket service
-  if (stickyBucketService && windowContext.stickyBucketAssignmentDocs) {
-    for (const key in windowContext.stickyBucketAssignmentDocs) {
-      const doc = windowContext.stickyBucketAssignmentDocs?.[key];
-      if (doc) {
-        await stickyBucketService.saveAssignments(doc);
-      }
-    }
-  }
-
-  // Load features/experiments
-  gb.init({ payload: windowContext.payload });
-})();
+gb.init({
+  payload: windowContext.payload,
+  streaming: !(
+    windowContext.noStreaming ||
+    dataContext.noStreaming ||
+    windowContext.backgroundSync === false
+  ),
+});
 
 // Poll for URL changes and update GrowthBook
 let currentUrl = location.href;

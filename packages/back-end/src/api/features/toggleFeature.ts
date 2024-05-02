@@ -19,7 +19,9 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
 
     const environmentIds = getEnvironmentIdsFromOrg(req.organization);
 
-    req.checkPermissions("manageFeatures", feature.project);
+    if (!req.context.permissions.canUpdateFeature(feature, {})) {
+      req.context.permissions.throwPermissionError();
+    }
     req.checkPermissions(
       "publishFeatures",
       feature.project,

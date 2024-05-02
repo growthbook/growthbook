@@ -10,7 +10,6 @@ import {
 import { BsArrowRepeat } from "react-icons/bs";
 import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
 import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
 import ResultsDownloadButton from "@/components/Experiment/ResultsDownloadButton";
 import Button from "@/components/Button";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -59,11 +58,10 @@ export default function ResultMoreMenu({
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
-  const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
 
-  const canEdit = permissions.check("createAnalyses", project);
+  const canEdit = permissionsUtil.canViewExperimentModal(project);
 
   const canDownloadJupyterNotebook =
     hasData && supportsNotebooks && notebookUrl && notebookFilename;

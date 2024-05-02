@@ -25,6 +25,7 @@ export type {
   UrlTarget,
   AutoExperiment,
   AutoExperimentVariation,
+  AutoExperimentChangeType,
   DOMMutation,
   UrlTargetType,
   RenderFunction,
@@ -38,6 +39,10 @@ export type {
   ApplyDomChangesCallback,
   InitOptions,
   PrefetchOptions,
+  InitResponse,
+  InitSyncOptions,
+  Helpers,
+  GrowthBookPayload,
 } from "./types/growthbook";
 
 export type {
@@ -67,4 +72,9 @@ export {
 
 export { evalCondition } from "./mongrule";
 
-export { isURLTargeted, getPolyfills } from "./util";
+export {
+  isURLTargeted,
+  getPolyfills,
+  getAutoExperimentChangeType,
+  paddedVersionString,
+} from "./util";

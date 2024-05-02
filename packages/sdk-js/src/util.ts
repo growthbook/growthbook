@@ -1,4 +1,6 @@
 import {
+  AutoExperiment,
+  AutoExperimentChangeType,
   Polyfills,
   UrlTarget,
   UrlTargetType,
@@ -366,4 +368,31 @@ export function mergeQueryStrings(oldUrl: string, newUrl: string): string {
   });
 
   return redirectUrl.toString();
+}
+
+function isObj(x: unknown): x is Record<string, unknown> {
+  return typeof x === "object" && x !== null;
+}
+
+export function getAutoExperimentChangeType(
+  exp: AutoExperiment
+): AutoExperimentChangeType {
+  if (
+    exp.urlPatterns &&
+    exp.variations.some(
+      (variation) => isObj(variation) && "urlRedirect" in variation
+    )
+  ) {
+    return "redirect";
+  } else if (
+    exp.variations.some(
+      (variation) =>
+        isObj(variation) &&
+        (variation.domMutations || "js" in variation || "css" in variation)
+    )
+  ) {
+    return "visual";
+  }
+
+  return "unknown";
 }

@@ -29,11 +29,14 @@ import type {
   WidenPrimitives,
   FeatureEvalContext,
   InitOptions,
+  InitResponse,
+  InitSyncOptions,
 } from "./types/growthbook";
 import type { ConditionInterface } from "./types/mongrule";
 import {
   chooseVariation,
   decrypt,
+  getAutoExperimentChangeType,
   getBucketRanges,
   getQueryStringOverride,
   getUrlRegExp,
@@ -97,12 +100,13 @@ export class GrowthBook<
     { valueHash: string; undo: () => void }
   >;
   private _triggeredExpKeys: Set<string>;
-  private _loadFeaturesCalled: boolean;
+  private _initialized: boolean;
   private _deferredTrackingCalls: Map<string, TrackingData>;
 
   private _payload: FeatureApiResponse | undefined;
+  private _decryptedPayload: FeatureApiResponse | undefined;
 
-  private _autoExperimentsAllowed;
+  private _autoExperimentsAllowed: boolean;
 
   constructor(context?: Context) {
     context = context || {};
@@ -114,7 +118,7 @@ export class GrowthBook<
     this._trackedExperiments = new Set();
     this._completedChangeIds = new Set();
     this._trackedFeatures = {};
-    this.debug = false;
+    this.debug = !!context.debug;
     this._subscriptions = new Set();
     this._rtQueue = [];
     this._rtTimer = 0;
@@ -124,7 +128,7 @@ export class GrowthBook<
     this._attributeOverrides = {};
     this._activeAutoExperiments = new Map();
     this._triggeredExpKeys = new Set();
-    this._loadFeaturesCalled = false;
+    this._initialized = false;
     this._redirectedUrl = "";
     this._deferredTrackingCalls = new Map();
     this._autoExperimentsAllowed = !context.disableExperimentsOnLoad;
@@ -169,6 +173,18 @@ export class GrowthBook<
       this._setAntiFlicker();
     }
 
+    // Hydrate sticky bucket service
+    if (this._ctx.stickyBucketService && this._ctx.stickyBucketAssignmentDocs) {
+      for (const key in this._ctx.stickyBucketAssignmentDocs) {
+        const doc = this._ctx.stickyBucketAssignmentDocs[key];
+        if (doc) {
+          this._ctx.stickyBucketService.saveAssignments(doc).catch(() => {
+            // Ignore hydration errors
+          });
+        }
+      }
+    }
+
     // Legacy - passing in features/experiments into the constructor instead of using init
     if (this.ready) {
       this.refreshStickyBuckets(this.getPayload());
@@ -178,62 +194,122 @@ export class GrowthBook<
   public async setPayload(payload: FeatureApiResponse): Promise<void> {
     this._payload = payload;
     const data = await this.decryptPayload(payload);
+    this._decryptedPayload = data;
     await this.refreshStickyBuckets(data);
-    data.features && this.setFeatures(data.features);
-    data.experiments && this.setExperiments(data.experiments);
+    if (data.features) {
+      this._ctx.features = data.features;
+    }
+    if (data.experiments) {
+      this._ctx.experiments = data.experiments;
+      this._updateAllAutoExperiments();
+    }
     this.ready = true;
     this._render();
   }
 
-  public async init(options?: InitOptions): Promise<void> {
-    options = options || {};
-    if (options.payload) {
-      if (options.streaming && !this._ctx.clientKey) {
+  public initSync(options: InitSyncOptions): GrowthBook {
+    this._initialized = true;
+
+    const payload = options.payload;
+
+    if (payload.encryptedExperiments || payload.encryptedFeatures) {
+      throw new Error("initSync does not support encrypted payloads");
+    }
+
+    if (
+      this._ctx.stickyBucketService &&
+      !this._ctx.stickyBucketAssignmentDocs
+    ) {
+      throw new Error(
+        "initSync requires you to pass stickyBucketAssignmentDocs into the GrowthBook constructor"
+      );
+    }
+
+    this._payload = payload;
+    this._decryptedPayload = payload;
+    if (payload.features) {
+      this._ctx.features = payload.features;
+    }
+    if (payload.experiments) {
+      this._ctx.experiments = payload.experiments;
+      this._updateAllAutoExperiments();
+    }
+
+    this.ready = true;
+
+    if (options.streaming) {
+      if (!this._ctx.clientKey) {
         throw new Error("Must specify clientKey to enable streaming");
       }
+      startAutoRefresh(this, true);
+      subscribe(this);
+    }
 
+    return this;
+  }
+
+  public async init(options?: InitOptions): Promise<InitResponse> {
+    this._initialized = true;
+
+    options = options || {};
+    if (options.payload) {
       await this.setPayload(options.payload);
-
       if (options.streaming) {
+        if (!this._ctx.clientKey) {
+          throw new Error("Must specify clientKey to enable streaming");
+        }
         startAutoRefresh(this, true);
         subscribe(this);
       }
+
+      return {
+        success: true,
+        source: "init",
+      };
     } else {
+      const { data, ...res } = await this._refresh({
+        ...options,
+        allowStale: true,
+      });
       if (options.streaming) {
-        this._ctx.subscribeToChanges = true;
+        subscribe(this);
       }
 
-      await this.loadFeatures(options);
+      await this.setPayload(data || {});
+      return res;
     }
-    this._loadFeaturesCalled = true;
   }
 
+  /** @deprecated Use {@link init} */
   public async loadFeatures(options?: LoadFeaturesOptions): Promise<void> {
-    if (!options) options = {};
+    this._initialized = true;
+
+    options = options || {};
     if (options.autoRefresh) {
       // interpret deprecated autoRefresh option as subscribeToChanges
       this._ctx.subscribeToChanges = true;
     }
-    await this._refresh({
-      ...(options || {}),
+    const { data } = await this._refresh({
+      ...options,
       allowStale: true,
-      updateInstance: true,
     });
+    await this.setPayload(data || {});
 
     if (this._canSubscribe()) {
       subscribe(this);
     }
-    this._loadFeaturesCalled = true;
   }
 
   public async refreshFeatures(
     options?: RefreshFeaturesOptions
   ): Promise<void> {
-    await this._refresh({
+    const res = await this._refresh({
       ...(options || {}),
       allowStale: false,
-      updateInstance: true,
     });
+    if (res.data) {
+      await this.setPayload(res.data);
+    }
   }
 
   public getApiInfo(): [ApiHost, ClientKey] {
@@ -259,7 +335,7 @@ export class GrowthBook<
   public getClientKey(): string {
     return this._ctx.clientKey || "";
   }
-  public getPayload(): FeatureApiResponse | undefined {
+  public getPayload(): FeatureApiResponse {
     return (
       this._payload || {
         features: this.getFeatures(),
@@ -267,8 +343,8 @@ export class GrowthBook<
       }
     );
   }
-  public getBackgroundSync(): boolean {
-    return this._ctx.backgroundSync ?? true;
+  public getDecryptedPayload(): FeatureApiResponse {
+    return this._decryptedPayload || this.getPayload();
   }
 
   public isRemoteEval(): boolean {
@@ -283,22 +359,21 @@ export class GrowthBook<
     timeout,
     skipCache,
     allowStale,
-    updateInstance,
+    streaming,
   }: RefreshFeaturesOptions & {
     allowStale?: boolean;
-    updateInstance?: boolean;
+    streaming?: boolean;
   }) {
     if (!this._ctx.clientKey) {
       throw new Error("Missing clientKey");
     }
     // Trigger refresh in feature repository
-    await refreshFeatures({
+    return refreshFeatures({
       instance: this,
       timeout,
-      skipCache: skipCache || this._ctx.enableDevMode,
+      skipCache: skipCache || this._ctx.disableCache,
       allowStale,
-      updateInstance,
-      backgroundSync: this._ctx.backgroundSync ?? true,
+      backgroundSync: streaming ?? this._ctx.backgroundSync ?? true,
     });
   }
 
@@ -312,12 +387,14 @@ export class GrowthBook<
     }
   }
 
+  /** @deprecated Use {@link setPayload} */
   public setFeatures(features: Record<string, FeatureDefinition>) {
     this._ctx.features = features;
     this.ready = true;
     this._render();
   }
 
+  /** @deprecated Use {@link setPayload} */
   public async setEncryptedFeatures(
     encryptedString: string,
     decryptionKey?: string,
@@ -333,12 +410,14 @@ export class GrowthBook<
     );
   }
 
+  /** @deprecated Use {@link setPayload} */
   public setExperiments(experiments: AutoExperiment[]): void {
     this._ctx.experiments = experiments;
     this.ready = true;
     this._updateAllAutoExperiments();
   }
 
+  /** @deprecated Use {@link setPayload} */
   public async setEncryptedExperiments(
     encryptedString: string,
     decryptionKey?: string,
@@ -357,6 +436,7 @@ export class GrowthBook<
     decryptionKey?: string,
     subtle?: SubtleCrypto
   ): Promise<FeatureApiResponse> {
+    data = { ...data };
     if (data.encryptedFeatures) {
       data.features = JSON.parse(
         await decrypt(
@@ -483,13 +563,13 @@ export class GrowthBook<
 
   private async _refreshForRemoteEval() {
     if (!this._ctx.remoteEval) return;
-    if (!this._loadFeaturesCalled) return;
-    await this._refresh({
+    if (!this._initialized) return;
+    const res = await this._refresh({
       allowStale: false,
-      updateInstance: true,
-    }).catch(() => {
-      // Ignore errors
     });
+    if (res.data) {
+      await this.setPayload(res.data);
+    }
   }
 
   public getAllResults() {
@@ -571,8 +651,18 @@ export class GrowthBook<
     )
       return null;
 
-    // Run the experiment
-    const result = this.run(experiment);
+    // Check if this particular experiment is blocked by context settings
+    // For example, if all visualEditor experiments are disabled
+    const isBlocked = this._isAutoExperimentBlockedByContext(experiment);
+    if (isBlocked) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Auto experiment blocked", { id: experiment.key });
+    }
+
+    // Run the experiment (if blocked exclude)
+    const result = isBlocked
+      ? this._getResult(experiment, -1, false, "")
+      : this.run(experiment);
 
     // A hash to quickly tell if the assigned value changed
     const valueHash = JSON.stringify(result.value);
@@ -592,7 +682,13 @@ export class GrowthBook<
 
     // Apply new changes
     if (result.inExperiment) {
-      if (result.value.urlRedirect && experiment.urlPatterns) {
+      const changeType = getAutoExperimentChangeType(experiment);
+
+      if (
+        changeType === "redirect" &&
+        result.value.urlRedirect &&
+        experiment.urlPatterns
+      ) {
         const url = experiment.persistQueryString
           ? mergeQueryStrings(this._getContextUrl(), result.value.urlRedirect)
           : result.value.urlRedirect;
@@ -626,7 +722,7 @@ export class GrowthBook<
             }
           }
         }
-      } else {
+      } else if (changeType === "visual") {
         const undo = this._ctx.applyDomChangesCallback
           ? this._ctx.applyDomChangesCallback(result.value)
           : this._applyDOMChanges(result.value);
@@ -650,19 +746,6 @@ export class GrowthBook<
     }
   }
 
-  private _getExperimentChangeType(
-    exp: AutoExperiment
-  ): AutoExperiment["changeType"] {
-    if (exp.changeType) return exp.changeType;
-    if (
-      exp.urlPatterns &&
-      exp.variations.some((variation) => variation.urlRedirect)
-    ) {
-      return "redirect";
-    }
-    return "visual";
-  }
-
   private _updateAllAutoExperiments(forceRerun?: boolean) {
     if (!this._autoExperimentsAllowed) return;
 
@@ -684,7 +767,7 @@ export class GrowthBook<
       // Once you're in a redirect experiment, break out of the loop and don't run any further experiments
       if (
         result?.inExperiment &&
-        this._getExperimentChangeType(exp) === "redirect"
+        getAutoExperimentChangeType(exp) === "redirect"
       ) {
         break;
       }
@@ -1034,6 +1117,8 @@ export class GrowthBook<
   ): boolean {
     if (!range && coverage === undefined) return true;
 
+    if (!range && coverage === 0) return false;
+
     const { hashValue } = this._getHashAttribute(
       hashAttribute,
       fallbackAttribute
@@ -1084,13 +1169,6 @@ export class GrowthBook<
     if (this._ctx.enabled === false) {
       process.env.NODE_ENV !== "production" &&
         this.log("Context disabled", { id: key });
-      return this._getResult(experiment, -1, false, featureId);
-    }
-
-    // 2.1 If the experiment is blocked, return immediately
-    if (this._isExperimentBlockedByContext(experiment as AutoExperiment)) {
-      process.env.NODE_ENV !== "production" &&
-        this.log("Experiment blocked", { id: key });
       return this._getResult(experiment, -1, false, featureId);
     }
 
@@ -1412,6 +1490,8 @@ export class GrowthBook<
   }
 
   public fireDeferredTrackingCalls() {
+    if (!this._ctx.trackingCallback) return;
+
     this._deferredTrackingCalls.forEach((call: TrackingData) => {
       if (!call || !call.experiment || !call.result) {
         console.error("Invalid deferred tracking call", { call: call });
@@ -1576,8 +1656,10 @@ export class GrowthBook<
     return false;
   }
 
-  private _isExperimentBlockedByContext(experiment: AutoExperiment): boolean {
-    const changeType = this._getExperimentChangeType(experiment);
+  private _isAutoExperimentBlockedByContext(
+    experiment: AutoExperiment
+  ): boolean {
+    const changeType = getAutoExperimentChangeType(experiment);
     if (changeType === "visual") {
       if (this._ctx.disableVisualExperiments) return true;
 
@@ -1586,9 +1668,7 @@ export class GrowthBook<
           return true;
         }
       }
-    }
-
-    if (changeType === "redirect") {
+    } else if (changeType === "redirect") {
       if (this._ctx.disableUrlRedirectExperiments) return true;
 
       // Validate URLs
@@ -1612,6 +1692,9 @@ export class GrowthBook<
         });
         return true;
       }
+    } else {
+      // Block any unknown changeTypes
+      return true;
     }
 
     if (

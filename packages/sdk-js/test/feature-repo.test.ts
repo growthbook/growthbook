@@ -103,7 +103,7 @@ describe("feature-repo", () => {
       maxAge: 2000,
       cacheKey: localStorageCacheKey,
       backgroundSync: true,
-      disableLocalCache: false,
+      disableCache: false,
     });
   });
   afterEach(async () => {
@@ -751,7 +751,7 @@ describe("feature-repo", () => {
     cleanup();
   });
 
-  it("doesn't cache when `enableDevMode` is on", async () => {
+  it("doesn't cache when `disableCache` is true", async () => {
     await seedLocalStorage();
 
     const apiVersion = "2025-01-01T00:00:00Z";
@@ -767,7 +767,7 @@ describe("feature-repo", () => {
     const growthbook = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      enableDevMode: true,
+      disableCache: true,
     });
     // Initial value of feature should be null
     expect(growthbook.evalFeature("foo").value).toEqual(null);
@@ -887,8 +887,8 @@ describe("feature-repo", () => {
     // Doesn't throw errors
     await growthbook.loadFeatures({ timeout: 20 });
     expect(f.mock.calls.length).toEqual(1);
-    // Ready state remains false
-    expect(growthbook.ready).toEqual(false);
+    // Ready state changes to true
+    expect(growthbook.ready).toEqual(true);
     expect(growthbook.getFeatures()).toEqual({});
 
     // After fetch finished in the background, refreshing should actually finish in time
@@ -901,6 +901,115 @@ describe("feature-repo", () => {
         defaultValue: "api",
       },
     });
+
+    growthbook.destroy();
+    cleanup();
+  });
+
+  it("handles timeouts with init", async () => {
+    const payload = {
+      features: {
+        foo: {
+          defaultValue: "api",
+        },
+      },
+    };
+    const [f, cleanup] = mockApi(payload, false, 100);
+
+    configureCache({
+      staleTTL: 800,
+    });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+
+    expect(growthbook.ready).toEqual(false);
+    // Doesn't throw errors
+    const res = await growthbook.init({ timeout: 20 });
+    expect(f.mock.calls.length).toEqual(1);
+    expect(growthbook.ready).toEqual(true);
+    expect(growthbook.getFeatures()).toEqual({});
+    expect(res.success).toEqual(false);
+    expect(res.source).toEqual("timeout");
+    expect(res.error?.message).toEqual("Timeout");
+    growthbook.destroy();
+
+    // After fetch finished in the background, creating a new instance should work
+    await sleep(200);
+    const growthbook2 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    const res2 = await growthbook2.init({ timeout: 20 });
+    expect(res2.success).toEqual(true);
+    expect(growthbook2.getFeatures()).toEqual(payload.features);
+    expect(res2.source).toEqual("cache");
+    expect(res2.error).toEqual(undefined);
+    growthbook2.destroy();
+
+    clearCache();
+
+    // Another instance with a longer timeout should return from network
+    const growthbook3 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "querty1234",
+    });
+    const res3 = await growthbook3.init({ timeout: 200 });
+    expect(res3.success).toEqual(true);
+    expect(growthbook3.getFeatures()).toEqual(payload.features);
+    expect(res3.source).toEqual("network");
+    expect(res3.error).toEqual(undefined);
+    growthbook3.destroy();
+
+    cleanup();
+  });
+
+  it("handles errors with init", async () => {
+    const [f, cleanup] = mockApi(null);
+
+    // eslint-disable-next-line
+    const log = jest.fn((msg: string, ctx: Record<string, unknown>) => {
+      // Do nothing
+    });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      log,
+    });
+    growthbook.debug = true;
+
+    expect(growthbook.ready).toEqual(false);
+    const res = await growthbook.init();
+    // Attempts network request, logs the error
+    expect(f.mock.calls.length).toEqual(1);
+    expect(log.mock.calls.length).toEqual(1);
+    expect(log.mock.calls[0][0]).toEqual("Error fetching features");
+
+    // Ready state changes to true
+    expect(growthbook.ready).toEqual(true);
+    expect(growthbook.getFeatures()).toEqual({});
+
+    // init response indicates an error
+    expect(res.success).toEqual(false);
+    expect(res.source).toEqual("error");
+    expect(res.error?.message).toEqual("HTTP error: 500");
+
+    const payload = {
+      features: {
+        foo: { defaultValue: "a" },
+      },
+    };
+    await growthbook.setPayload(payload);
+
+    // Refreshing with an error, logs the error, but doesn't overwrite the payload
+    await growthbook.refreshFeatures();
+    expect(growthbook.getFeatures()).toEqual(payload.features);
+    expect(f.mock.calls.length).toEqual(2);
+    expect(log.mock.calls.length).toEqual(2);
+    expect(log.mock.calls[1][0]).toEqual("Error fetching features");
 
     growthbook.destroy();
     cleanup();
@@ -1220,7 +1329,49 @@ describe("feature-repo", () => {
     cleanup();
   });
 
-  it("can disableLocalCache", async () => {
+  it("preserves both an encrypted and unencrypted payload", async () => {
+    const encryptedFeatures =
+      "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      decryptionKey: "Ns04T5n9+59rl2x3SlNHtQ==",
+    });
+    // Initial value of feature should be null
+    expect(growthbook.evalFeature("testfeature1").value).toEqual(null);
+
+    // Calling init() moves the payload into the feature repo. It is available for use
+    await growthbook.init({
+      payload: {
+        encryptedFeatures,
+      },
+    });
+    expect(growthbook.evalFeature("testfeature1").value).toEqual(true);
+
+    expect(growthbook.getPayload()).toEqual({
+      encryptedFeatures:
+        "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx",
+    });
+
+    expect(growthbook.getDecryptedPayload()).toEqual({
+      features: {
+        testfeature1: {
+          defaultValue: true,
+          rules: [
+            {
+              condition: { id: "1234" },
+              force: false,
+            },
+          ],
+        },
+      },
+    });
+
+    growthbook.destroy();
+  });
+
+  it("can disableCache", async () => {
     // Mock API
     const [f, cleanup] = mockApi({
       features: {
@@ -1232,7 +1383,7 @@ describe("feature-repo", () => {
 
     // Disable localCache
     configureCache({
-      disableLocalCache: true,
+      disableCache: true,
     });
 
     // Each new GrowthBook instance hits the API
