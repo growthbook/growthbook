@@ -3,6 +3,7 @@ import { CSSProperties, DetailedHTMLProps, TdHTMLAttributes } from "react";
 import {
   ExperimentMetricInterface,
   isFactMetric,
+  isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
 import {
@@ -52,7 +53,10 @@ export default function MetricValueColumn({
   );
 
   const numeratorValue = stats.value;
-  const denominatorValue = stats.denominator || stats.users || users;
+  const denominatorValue =
+    metric.denominator || isRatioMetric(metric)
+      ? stats.denominator ?? stats.users
+      : stats.users || users;
 
   let numerator: string;
   let denominator = numberFormatter.format(denominatorValue);

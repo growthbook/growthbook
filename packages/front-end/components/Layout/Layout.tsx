@@ -234,6 +234,15 @@ const navlinks: SidebarLinkProps[] = [
   },
 ];
 
+const breadcumbLinks = [
+  ...navlinks,
+  {
+    name: "Power Calculator",
+    path: /^power-calculator/,
+    subLinks: [],
+  },
+];
+
 const otherPageTitles = [
   {
     path: /^$/,
@@ -309,7 +318,7 @@ const Layout = (): React.ReactElement => {
       pageTitle = o.title;
     }
   });
-  navlinks.forEach((o) => {
+  breadcumbLinks.forEach((o) => {
     if (o.subLinks) {
       o.subLinks.forEach((s) => {
         if (!pageTitle && s.path.test(path)) {

@@ -55,6 +55,10 @@ export class Permissions {
     return this.checkGlobalPermission("createDimensions");
   };
 
+  public canManageNorthStarMetric = (): boolean => {
+    return this.checkGlobalPermission("manageNorthStarMetric");
+  };
+
   //Project Permissions
   public canCreateVisualChange = (
     experiment: Pick<ExperimentInterface, "project">

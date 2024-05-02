@@ -9,6 +9,7 @@ import Toggle from "@/components/Forms/Toggle";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useEnvironments } from "@/services/features";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 export default function FeaturesSettings() {
   const [
@@ -19,6 +20,7 @@ export default function FeaturesSettings() {
   const { hasCommercialFeature } = useUser();
   const environments = useEnvironments();
   const form = useFormContext();
+  const { projects } = useDefinitions();
 
   const hasSecureAttributesFeature = hasCommercialFeature(
     "hash-secure-attributes"
@@ -138,7 +140,24 @@ export default function FeaturesSettings() {
 
                 {!!form.watch(`requireReviews.${i}.requireReviewOn`) && (
                   <div className="mt-3">
-                    <label htmlFor={`environments-${i}`} className="h5">
+                    <label htmlFor={`projects-${i}`} className="h5">
+                      Projects
+                    </label>
+                    <MultiSelectField
+                      id={`projects-${i}`}
+                      value={form.watch(`requireReviews.${i}.projects`) || []}
+                      onChange={(projects) => {
+                        form.setValue(`requireReviews.${i}.projects`, projects);
+                      }}
+                      options={projects.map((e) => {
+                        return {
+                          value: e.id,
+                          label: e.name,
+                        };
+                      })}
+                      placeholder="All Projects"
+                    />
+                    <label htmlFor={`environments-${i}`} className="h5 mt-3">
                       Environments
                     </label>
                     <MultiSelectField
