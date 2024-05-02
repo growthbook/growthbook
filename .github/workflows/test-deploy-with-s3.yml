@@ -75,5 +75,5 @@ jobs:
           docker cp temp-container:/usr/local/src/app/buildinfo/SHA ./SHA
           docker rm temp-container
           SHA=$(cat ./SHA)
-          aws s3 sync ./static s3://growthbook-cloud-static-files/$SHA/.next/static
+          aws s3 sync ./static s3://growthbook-cloud-static-files/$SHA/_next/static
           aws s3 sync ./public s3://growthbook-cloud-static-files/$SHA/public
