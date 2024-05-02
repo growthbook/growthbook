@@ -49,7 +49,7 @@ class TestPermissions extends Permissions {
   }
 }
 
-// GLOBAL_PERMISSIONS
+// GLOBAL_PERMISSIONS HELPER METHODS
 describe("canCreatePresentation", () => {
   it("Calls checkGlobalPermission with the correct parameters", () => {
     const p = new TestPermissions();
@@ -124,7 +124,7 @@ describe("canManageNorthStarMetric", () => {
   });
 });
 
-// PROJECT_SCOPED_PERMISSIONS
+// PROJECT_SCOPED_PERMISSIONS HELPER METHODS
 describe("canCreateVisualChange", () => {
   it("Calls checkProjectFilterPermission with the correct parameters", () => {
     const p = new TestPermissions();
@@ -682,4 +682,247 @@ describe("canRunMetricQueries", () => {
   });
 });
 
-//ENV_SCOPED_PERMISSIONS
+//ENV_SCOPED_PERMISSIONS HELPER METHODS
+
+// hasPermission Tests
+describe("hasPermission", () => {
+  it("hasPermission should always return true if user is superAdmin, regardless of their other roles", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      true
+    );
+
+    expect(permissions.hasPermission("manageFeatures", "project1")).toEqual(
+      true
+    );
+  });
+
+  it("hasPermission should use project level role over global role when specified", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          project1: {
+            permissions: roleToPermissionMap("engineer", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.hasPermission("manageFeatures", "project1")).toEqual(
+      true
+    );
+  });
+
+  it("hasPermission should use global role over project role user doesn't have a specific role for the specified project", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          project1: {
+            permissions: roleToPermissionMap("engineer", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.hasPermission("manageFeatures", "project2")).toEqual(
+      false
+    );
+  });
+
+  it("hasPermission should use global role if no project is specified", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          project1: {
+            permissions: roleToPermissionMap("engineer", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.hasPermission("manageFeatures", "")).toEqual(false);
+  });
+
+  it("hasPermission should return false if user doesn't have env permission", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: true,
+          environments: ["dev"],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.hasPermission("publishFeatures", "", ["prod"])).toEqual(
+      false
+    );
+  });
+
+  it("hasPermission should return false if user doesn't have env permission", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: true,
+          environments: ["dev"],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.hasPermission("publishFeatures", "", ["dev"])).toEqual(
+      true
+    );
+  });
+});
+
+// checkProjectFilterPermission
+describe("checkProjectFilterPermission", () => {
+  class MockPermissionsHasPermissionsReturnsFalse extends Permissions {
+    public constructor() {
+      super(
+        {
+          global: {
+            permissions: roleToPermissionMap("noaccess", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+          projects: {
+            project1: {
+              permissions: roleToPermissionMap("readonly", testOrg),
+              limitAccessByEnvironment: false,
+              environments: [],
+            },
+            project2: {
+              permissions: roleToPermissionMap("readonly", testOrg),
+              limitAccessByEnvironment: false,
+              environments: [],
+            },
+          },
+        },
+        false
+      );
+
+      this.hasPermission = jest.fn(() => false);
+    }
+  }
+
+  class MockPermissionsHasPermissionsReturnsTrue extends Permissions {
+    public constructor() {
+      super(
+        {
+          global: {
+            permissions: roleToPermissionMap("noaccess", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+          projects: {
+            project1: {
+              permissions: roleToPermissionMap("readonly", testOrg),
+              limitAccessByEnvironment: false,
+              environments: [],
+            },
+            project2: {
+              permissions: roleToPermissionMap("readonly", testOrg),
+              limitAccessByEnvironment: false,
+              environments: [],
+            },
+          },
+        },
+        false
+      );
+
+      this.hasPermission = jest.fn(() => true);
+    }
+  }
+  it("Calls this.hasPermission once with the correct parameters & correct number of times for non READ_ONLY_PERMISSION and 1 project", () => {
+    const p = new MockPermissionsHasPermissionsReturnsFalse();
+    expect(
+      p.checkProjectFilterPermission({ projects: ["a"] }, "manageFeatures")
+    );
+    expect(p.hasPermission).toBeCalledTimes(1);
+    expect(p.hasPermission).toHaveBeenCalledWith("manageFeatures", "a");
+  });
+
+  it("Calls this.hasPermission 4 times for non READ_ONLY_PERMISSION and 4 project", () => {
+    const p = new MockPermissionsHasPermissionsReturnsTrue();
+    expect(
+      p.checkProjectFilterPermission(
+        { projects: ["a", "b", "c", "d"] },
+        "manageFeatures"
+      )
+    );
+    expect(p.hasPermission).toBeCalledTimes(4);
+  });
+
+  it("Calls this.hasPermission 3 times for READ_ONLY_PERMISSION and 4 project", () => {
+    const p = new MockPermissionsHasPermissionsReturnsFalse();
+    expect(p.checkProjectFilterPermission({}, "runQueries"));
+    expect(p.hasPermission).toBeCalledTimes(3);
+  });
+});
+
+// checkProjectFilerUpdatePermission
+
+// checkGlobalPermission
+describe("checkGlobalPermission", () => {
+  class MockPermissions extends Permissions {
+    public constructor() {
+      super(
+        {
+          global: {
+            permissions: roleToPermissionMap("noaccess", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+          projects: {},
+        },
+        false
+      );
+
+      this.hasPermission = jest.fn(() => true);
+    }
+  }
+
+  it("Calls this.hasPermission with the correct paramters", () => {
+    const p = new MockPermissions();
+    expect(p.checkGlobalPermission("createDimensions"));
+    expect(p.hasPermission).toBeCalledTimes(1);
+    expect(p.hasPermission).toHaveBeenCalledWith("createDimensions", "");
+  });
+});

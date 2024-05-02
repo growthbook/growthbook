@@ -487,11 +487,7 @@ export class Permissions {
   }
 
   public checkGlobalPermission(permissionToCheck: GlobalPermission): boolean {
-    if (this.superAdmin) {
-      return true;
-    }
-
-    return this.userPermissions.global.permissions[permissionToCheck] || false;
+    return this.hasPermission(permissionToCheck, "");
   }
 
   public checkProjectFilterPermission(
@@ -535,7 +531,7 @@ export class Permissions {
     return true;
   }
 
-  private hasPermission(
+  public hasPermission(
     permissionToCheck: Permission,
     project: string,
     envs?: string[]
