@@ -27,7 +27,7 @@ async function getAthenaInstance(params: AthenaConnectionParams) {
   }
 
   // handle assuming a role first
-  if (!IS_CLOUD && params.authType == "assumeRole") {
+  if (!IS_CLOUD && params.authType === "assumeRole") {
     // use client to assume another role
     const credentials = await assumeRole(params);
 
