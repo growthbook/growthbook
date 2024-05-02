@@ -58,6 +58,8 @@ export type {
   UrlTarget,
   UrlTargetType,
   WidenPrimitives,
+  GrowthBookPayload,
+  InitSyncOptions,
 } from "@growthbook/growthbook";
 
 export type {

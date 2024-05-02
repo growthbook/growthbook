@@ -589,16 +589,19 @@ export default async function MyServerPage() {
 
 The best part about React Server Components, is that you can easily share feature definitions with your Client Components. By doing this, you avoid any network requests from the browser and any flickering that goes along with that.
 
-Let's first create a ClientApp wrapper that takes a `payload` prop and uses it to initialize a GrowthBook instance:
+Let's first create a GrowthBookWrapper wrapper that takes a `payload` prop and uses it to initialize a GrowthBook instance:
 
 ```tsx
 "use client";
-import { GrowthBookPayload } from "@growthbook/growthbook";
-import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+import {
+  GrowthBook,
+  GrowthBookProvider,
+  GrowthBookPayload
+} from "@growthbook/growthbook-react";
 import { PropsWithChildren, useMemo } from "react";
 import Cookies from "js-cookie";
 
-export default function ClientApp({
+export default function GrowthBookWrapper({
   payload,
   children,
 }: PropsWithChildren<{ payload: GrowthBookPayload }>) {
@@ -615,6 +618,7 @@ export default function ClientApp({
             variationId: result.key
           });
         },
+        // Targeting attributes
         attributes: {
           id: Cookies.get("my_uuid"),
         },
@@ -633,6 +637,7 @@ export default function ClientApp({
 Now we'll make a really simple client component using the GrowthBook React SDK:
 
 ```tsx
+"use client";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 
 export default function OtherComponent() {
@@ -647,7 +652,7 @@ Now, we can render these from our server component:
 
 ```tsx
 import { GrowthBook } from "@growthbook/growthbook";
-import ClientApp from "./ClientApp";
+import GrowthBookWrapper from "./GrowthBookWrapper";
 import OtherComponent from "./OtherComponent";
 import GrowthBookTracking from "./GrowthBookTracking";
 
@@ -682,9 +687,9 @@ export default async function MyServerPage() {
   return (
     <div>
       <p>Server feature: {serverFeature ? "ON" : "OFF"}</p>
-      <ClientApp payload={payload}>
+      <GrowthBookWrapper payload={payload}>
         <OtherComponent>
-      </ClientApp>
+      </GrowthBookWrapper>
       <GrowthBookTracking data={trackingData} />
     </div>
   );

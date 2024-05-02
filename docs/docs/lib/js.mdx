@@ -86,9 +86,7 @@ app.use(function(req, res, next) {
   res.on('close', () => req.growthbook.destroy());
 
   // Wait for features to load (will be cached in-memory for future requests)
-  req.growthbook.init({timeout: 1000})
-    .catch((e) => console.error("Failed to load features from GrowthBook", e))
-    .finally(() => next());
+  req.growthbook.init({timeout: 1000}).then(() => next())
 });
 ```
 

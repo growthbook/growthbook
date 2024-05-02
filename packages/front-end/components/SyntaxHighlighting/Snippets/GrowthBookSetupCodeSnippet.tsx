@@ -214,7 +214,6 @@ app.use(function(req, res, next) {
               ? `\n    decryptionKey: ${JSON.stringify(encryptionKey)},`
               : ""
           }
-    enableDevMode: true,
     trackingCallback: (experiment, result) => {
       // ${trackingComment}
       console.log("Viewed Experiment", {
@@ -230,13 +229,9 @@ app.use(function(req, res, next) {
   // Wait for features to load (will be cached in-memory for future requests)${
     useInit
       ? `\n  req.growthbook.init({ timeout: 1000 })`
-      : `\n  rew.growthbook.loadFeatures({ timeout: 1000 })`
+      : `\n  req.growthbook.loadFeatures({ timeout: 1000 })`
   }
     .then(() => next())
-    .catch((e) => {
-      console.error("Failed to load features from GrowthBook", e);
-      next();
-    });
 })
 `.trim()}
         />
