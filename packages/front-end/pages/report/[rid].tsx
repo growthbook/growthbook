@@ -485,8 +485,8 @@ export default function ReportPage() {
                   statsEngine={report.args.statsEngine || DEFAULT_STATS_ENGINE}
                   pValueCorrection={pValueCorrection}
                   regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-                  metricRegressionAdjustmentStatuses={
-                    report.args.metricRegressionAdjustmentStatuses
+                  settingsForSnapshotMetrics={
+                    report.args.settingsForSnapshotMetrics
                   }
                   sequentialTestingEnabled={sequentialTestingEnabled}
                   differenceType={differenceType}
@@ -552,8 +552,8 @@ export default function ReportPage() {
                     }
                     pValueCorrection={pValueCorrection}
                     regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-                    metricRegressionAdjustmentStatuses={
-                      report.args.metricRegressionAdjustmentStatuses
+                    settingsForSnapshotMetrics={
+                      report.args.settingsForSnapshotMetrics
                     }
                     sequentialTestingEnabled={sequentialTestingEnabled}
                     differenceType={differenceType}

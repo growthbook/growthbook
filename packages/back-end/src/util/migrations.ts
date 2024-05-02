@@ -5,6 +5,12 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import {
+  LegacyMetricRegressionAdjustmentStatus,
+  LegacyReportInterface,
+  MetricSnapshotSettings,
+  ReportInterface,
+} from "@back-end/types/report";
 import { SdkWebHookLogDocument } from "../models/SdkWebhookLogModel";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import {
@@ -558,6 +564,45 @@ export function upgradeExperimentDoc(
   return experiment as ExperimentInterface;
 }
 
+function migrateRegressionAdjustmentStatusesToMetricSettings(
+  metricRegressionAdjustmentStatuses: LegacyMetricRegressionAdjustmentStatus[]
+): MetricSnapshotSettings[] {
+  return metricRegressionAdjustmentStatuses.map((m) => ({
+    metric: m.metric,
+    properPrior: false,
+    properPriorMean: 0,
+    properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
+    regressionAdjustmentReason: m.reason,
+    regressionAdjustmentDays: m.regressionAdjustmentDays,
+    regressionAdjustmentEnabled: m.regressionAdjustmentEnabled,
+    regressionAdjustmentAvailable: m.regressionAdjustmentAvailable,
+  }));
+}
+
+export function migrateReport(orig: LegacyReportInterface): ReportInterface {
+  const { args, ...report } = orig;
+
+  if ((args?.attributionModel as string) === "allExposures") {
+    args.attributionModel = "experimentDuration";
+  }
+
+  if (
+    args?.metricRegressionAdjustmentStatuses &&
+    args?.settingsForSnapshotMetrics === undefined
+  ) {
+    args.settingsForSnapshotMetrics = migrateRegressionAdjustmentStatusesToMetricSettings(
+      args.metricRegressionAdjustmentStatuses
+    );
+  }
+
+  delete args?.metricRegressionAdjustmentStatuses;
+
+  return {
+    ...report,
+    args,
+  };
+}
+
 export function migrateSnapshot(
   orig: LegacyExperimentSnapshotInterface
 ): ExperimentSnapshotInterface {
@@ -664,9 +709,9 @@ export function migrateSnapshot(
             windowUnit: "hours",
             windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
           },
-          properPrior: false,
-          properPriorMean: 0,
-          properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
+          properPrior: defaultMetricPriorSettings.proper,
+          properPriorMean: defaultMetricPriorSettings.mean,
+          properPriorStdDev: defaultMetricPriorSettings.stddev,
           regressionAdjustmentDays:
             regressionSettings?.regressionAdjustmentDays || 0,
           regressionAdjustmentEnabled: !!(
@@ -712,6 +757,28 @@ export function migrateSnapshot(
     if (snapshot.settings.defaultMetricPriorSettings === undefined) {
       snapshot.settings.defaultMetricPriorSettings = defaultMetricPriorSettings;
     }
+
+    // migrate metric for snapshot to have new fields as old snapshots
+    // may not have prior settings
+    snapshot.settings.metricSettings = snapshot.settings.metricSettings.map(
+      (m) => {
+        if (m.computedSettings) {
+          m.computedSettings = {
+            ...m.computedSettings,
+            properPrior:
+              m.computedSettings.properPrior ??
+              defaultMetricPriorSettings.proper,
+            properPriorMean:
+              m.computedSettings.properPriorMean ??
+              defaultMetricPriorSettings.mean,
+            properPriorStdDev:
+              m.computedSettings.properPriorStdDev ??
+              defaultMetricPriorSettings.stddev,
+          };
+        }
+        return m;
+      }
+    );
   }
 
   // Some fields used to be optional, but are now required

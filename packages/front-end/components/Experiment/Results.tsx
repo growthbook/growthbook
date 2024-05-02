@@ -3,9 +3,13 @@ import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { getValidDate, ago } from "shared/dates";
-import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import {
+  DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "@back-end/types/experiment-snapshot";
+import { MetricSnapshotSettings } from "@back-end/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -124,10 +128,15 @@ const Results: FC<{
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
   });
-  const snapshotMetricRegressionAdjustmentStatuses =
+  const settingsForSnapshotMetrics: MetricSnapshotSettings[] =
     snapshot?.settings?.metricSettings?.map((m) => ({
       metric: m.id,
-      reason: m.computedSettings?.regressionAdjustmentReason || "",
+      properPrior: m.computedSettings?.properPrior ?? false,
+      properPriorMean: m.computedSettings?.properPriorMean ?? 0,
+      properPriorStdDev:
+        m.computedSettings?.properPriorStdDev ?? DEFAULT_PROPER_PRIOR_STDDEV,
+      regressionAdjustmentReason:
+        m.computedSettings?.regressionAdjustmentReason || "",
       regressionAdjustmentDays:
         m.computedSettings?.regressionAdjustmentDays || 0,
       regressionAdjustmentEnabled: !!m.computedSettings
@@ -315,9 +324,7 @@ const Results: FC<{
           statsEngine={analysis.settings.statsEngine}
           pValueCorrection={pValueCorrection}
           regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
-          metricRegressionAdjustmentStatuses={
-            snapshotMetricRegressionAdjustmentStatuses
-          }
+          settingsForSnapshotMetrics={settingsForSnapshotMetrics}
           sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
           differenceType={analysis.settings?.differenceType}
           metricFilter={metricFilter}
@@ -353,9 +360,7 @@ const Results: FC<{
             statsEngine={analysis.settings.statsEngine}
             pValueCorrection={pValueCorrection}
             regressionAdjustmentEnabled={analysis.settings?.regressionAdjusted}
-            metricRegressionAdjustmentStatuses={
-              snapshotMetricRegressionAdjustmentStatuses
-            }
+            settingsForSnapshotMetrics={settingsForSnapshotMetrics}
             sequentialTestingEnabled={analysis.settings?.sequentialTesting}
             differenceType={analysis.settings?.differenceType}
             metricFilter={metricFilter}

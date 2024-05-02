@@ -3,7 +3,7 @@ import { MdSwapCalls } from "react-icons/md";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-  MetricRegressionAdjustmentStatus,
+  MetricSnapshotSettings,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import {
@@ -60,7 +60,7 @@ const CompactResults: FC<{
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   regressionAdjustmentEnabled?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   sequentialTestingEnabled?: boolean;
   differenceType: DifferenceType;
   metricFilter?: ResultsMetricFilters;
@@ -89,7 +89,7 @@ const CompactResults: FC<{
   statsEngine,
   pValueCorrection,
   regressionAdjustmentEnabled,
-  metricRegressionAdjustmentStatuses,
+  settingsForSnapshotMetrics,
   sequentialTestingEnabled,
   differenceType,
   metricFilter,
@@ -134,11 +134,9 @@ const CompactResults: FC<{
         metric,
         metricOverrides
       );
-      let regressionAdjustmentStatus:
-        | MetricRegressionAdjustmentStatus
-        | undefined;
-      if (regressionAdjustmentEnabled && metricRegressionAdjustmentStatuses) {
-        regressionAdjustmentStatus = metricRegressionAdjustmentStatuses.find(
+      let metricSnapshotSettings: MetricSnapshotSettings | undefined;
+      if (settingsForSnapshotMetrics) {
+        metricSnapshotSettings = settingsForSnapshotMetrics.find(
           (s) => s.metric === metricId
         );
       }
@@ -150,7 +148,7 @@ const CompactResults: FC<{
         variations: results.variations.map((v) => {
           return v.metrics[metricId];
         }),
-        regressionAdjustmentStatus,
+        metricSnapshotSettings,
         isGuardrail,
       };
     }
@@ -189,8 +187,7 @@ const CompactResults: FC<{
     metrics,
     guardrails,
     metricOverrides,
-    regressionAdjustmentEnabled,
-    metricRegressionAdjustmentStatuses,
+    settingsForSnapshotMetrics,
     pValueCorrection,
     pValueThreshold,
     statsEngine,
@@ -369,12 +366,12 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
 
     const cupedIconDisplay =
       regressionAdjustmentEnabled &&
-      !row?.regressionAdjustmentStatus?.regressionAdjustmentEnabled ? (
+      !row?.metricSnapshotSettings?.regressionAdjustmentEnabled ? (
         <Tooltip
           className="ml-1"
           body={
-            row?.regressionAdjustmentStatus?.reason
-              ? `CUPED disabled: ${row?.regressionAdjustmentStatus?.reason}`
+            row?.metricSnapshotSettings?.regressionAdjustmentReason
+              ? `CUPED disabled: ${row?.metricSnapshotSettings?.regressionAdjustmentReason}`
               : `CUPED disabled`
           }
         >

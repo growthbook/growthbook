@@ -8,7 +8,7 @@ import normal from "@stdlib/stats/base/dists/normal";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariationWithIndex,
-  MetricRegressionAdjustmentStatus,
+  MetricSnapshotSettings,
 } from "back-end/types/report";
 import { MetricDefaults } from "back-end/types/organization";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
@@ -38,7 +38,7 @@ export type ExperimentTableRow = {
   metricOverrideFields: string[];
   variations: SnapshotMetric[];
   rowClass?: string;
-  regressionAdjustmentStatus?: MetricRegressionAdjustmentStatus;
+  metricSnapshotSettings?: MetricSnapshotSettings;
   isGuardrail?: boolean;
 };
 

@@ -28,13 +28,25 @@ export interface ExperimentReportVariationWithIndex
   extends ExperimentReportVariation {
   index: number;
 }
-export interface MetricRegressionAdjustmentStatus {
+export interface MetricSnapshotSettings {
+  metric: string;
+  properPrior: boolean;
+  properPriorMean: number;
+  properPriorStdDev: number;
+  regressionAdjustmentReason: string;
+  regressionAdjustmentEnabled: boolean;
+  regressionAdjustmentAvailable: boolean;
+  regressionAdjustmentDays: number;
+}
+
+export type LegacyMetricRegressionAdjustmentStatus = {
   metric: string;
   regressionAdjustmentEnabled: boolean;
   regressionAdjustmentAvailable: boolean;
   regressionAdjustmentDays: number;
   reason: string;
-}
+};
+
 export interface ExperimentReportArgs {
   trackingKey: string;
   datasource: string;
@@ -58,7 +70,7 @@ export interface ExperimentReportArgs {
   attributionModel?: AttributionModel;
   statsEngine?: StatsEngine;
   regressionAdjustmentEnabled?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   defaultMetricPriorSettings?: MetricPriorSettings;
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
@@ -82,3 +94,9 @@ export interface ExperimentReportInterface extends ReportInterfaceBase {
 }
 
 export type ReportInterface = ExperimentReportInterface;
+
+export type LegacyReportInterface = ReportInterface & {
+  args: ExperimentReportArgs & {
+    metricRegressionAdjustmentStatuses?: LegacyMetricRegressionAdjustmentStatus[];
+  };
+};

@@ -10,7 +10,6 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { getAllMetricRegressionAdjustmentStatuses } from "shared/experiments";
 import { MetricInterface } from "back-end/types/metric";
 import { DifferenceType } from "back-end/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -25,6 +24,7 @@ import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
+import { getAllMetricSettingsForSnapshot } from "shared/experiments";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -127,7 +127,7 @@ export default function ResultsTab({
     regressionAdjustmentEnabled,
     regressionAdjustmentHasValidMetrics,
   } = useMemo(() => {
-    return getAllMetricRegressionAdjustmentStatuses({
+    return getAllMetricSettingsForSnapshot({
       allExperimentMetrics,
       denominatorMetrics,
       orgSettings,

@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
+import { migrateReport } from "@back-end/src/util/migrations";
 import { ReportInterface } from "../../types/report";
 import { ReqContext } from "../../types/organization";
 import { ApiReqContext } from "../../types/api";
@@ -30,11 +31,7 @@ type ReportDocument = mongoose.Document & ReportInterface;
 const ReportModel = mongoose.model<ReportInterface>("Report", reportSchema);
 
 const toInterface = (doc: ReportDocument): ReportInterface => {
-  const json = omit(doc.toJSON<ReportDocument>(), ["__v", "_id"]);
-  if ((json.args?.attributionModel as string) === "allExposures") {
-    json.args.attributionModel = "experimentDuration";
-  }
-  return json;
+  return migrateReport(omit(doc.toJSON<ReportDocument>(), ["__v", "_id"]));
 };
 
 export async function createReport(

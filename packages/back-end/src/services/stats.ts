@@ -253,6 +253,7 @@ export function getMetricSettingsForStatsEngine(
   if (isFactMetric(metric) && ratioMetric) {
     denominator = metric;
   }
+
   return {
     id: metric.id,
     name: metric.name,

@@ -287,8 +287,8 @@ export async function putReport(
       statsEngine === "frequentist"
         ? !!updates.args?.regressionAdjustmentEnabled
         : false;
-    updates.args.metricRegressionAdjustmentStatuses =
-      updates.args?.metricRegressionAdjustmentStatuses || [];
+    updates.args.settingsForSnapshotMetrics =
+      updates.args?.settingsForSnapshotMetrics || [];
 
     needsRun = true;
   }

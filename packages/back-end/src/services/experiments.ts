@@ -25,7 +25,7 @@ import {
 } from "shared/util";
 import {
   ExperimentMetricInterface,
-  getRegressionAdjustmentsForMetric,
+  getMetricSnapshotSettings,
   isFactMetric,
   isFactMetricId,
 } from "shared/experiments";
@@ -87,7 +87,7 @@ import {
   ApiExperimentResults,
   ApiMetric,
 } from "../../types/openapi";
-import { MetricRegressionAdjustmentStatus } from "../../types/report";
+import { MetricSnapshotSettings } from "../../types/report";
 import {
   postExperimentValidator,
   postMetricValidator,
@@ -367,14 +367,14 @@ export function getSnapshotSettings({
   phaseIndex,
   settings,
   orgPriorSettings,
-  metricRegressionAdjustmentStatuses,
+  settingsForSnapshotMetrics,
   metricMap,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
   settings: ExperimentSnapshotAnalysisSettings;
-  orgPriorSettings?: MetricPriorSettings;
-  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
+  orgPriorSettings: MetricPriorSettings | undefined;
+  settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
@@ -400,8 +400,7 @@ export function getSnapshotSettings({
       getMetricForSnapshot(
         m,
         metricMap,
-        defaultPriorSettings,
-        metricRegressionAdjustmentStatuses,
+        settingsForSnapshotMetrics,
         experiment.metricOverrides
       )
     )
@@ -450,7 +449,7 @@ export async function createManualSnapshot(
     phaseIndex,
     orgPriorSettings: orgPriorSettings,
     settings: analysisSettings,
-    metricRegressionAdjustmentStatuses: [],
+    settingsForSnapshotMetrics: [],
     metricMap,
   });
 
@@ -561,7 +560,7 @@ export async function createSnapshot({
   useCache = false,
   defaultAnalysisSettings,
   additionalAnalysisSettings,
-  metricRegressionAdjustmentStatuses,
+  settingsForSnapshotMetrics,
   metricMap,
   factTableMap,
 }: {
@@ -571,7 +570,7 @@ export async function createSnapshot({
   useCache?: boolean;
   defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings;
   additionalAnalysisSettings: ExperimentSnapshotAnalysisSettings[];
-  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
+  settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
 }): Promise<ExperimentResultsQueryRunner> {
@@ -583,7 +582,7 @@ export async function createSnapshot({
     phaseIndex,
     orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
     settings: defaultAnalysisSettings,
-    metricRegressionAdjustmentStatuses,
+    settingsForSnapshotMetrics,
     metricMap,
   });
 
@@ -1919,19 +1918,15 @@ export function updateExperimentApiPayloadToInterface(
   };
 }
 
-export async function getRegressionAdjustmentInfo(
+export async function getSettingsForSnapshotMetrics(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
 ): Promise<{
   regressionAdjustmentEnabled: boolean;
-  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
+  settingsForSnapshotMetrics: MetricSnapshotSettings[];
 }> {
   let regressionAdjustmentEnabled = false;
-  const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
-
-  if (!experiment.regressionAdjustmentEnabled) {
-    return { regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses };
-  }
+  const settingsForSnapshotMetrics: MetricSnapshotSettings[] = [];
 
   const metricMap = await getMetricMap(context);
 
@@ -1952,9 +1947,7 @@ export async function getRegressionAdjustmentInfo(
 
   for (const metric of allExperimentMetrics) {
     if (!metric) continue;
-    const {
-      metricRegressionAdjustmentStatus,
-    } = getRegressionAdjustmentsForMetric({
+    const { metricSnapshotSettings } = getMetricSnapshotSettings({
       metric: metric,
       denominatorMetrics: denominatorMetrics,
       experimentRegressionAdjustmentEnabled:
@@ -1963,15 +1956,15 @@ export async function getRegressionAdjustmentInfo(
       organizationSettings: context.org.settings,
       metricOverrides: experiment.metricOverrides,
     });
-    if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {
+    if (metricSnapshotSettings.regressionAdjustmentEnabled) {
       regressionAdjustmentEnabled = true;
     }
-    metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
+    settingsForSnapshotMetrics.push(metricSnapshotSettings);
   }
   if (!experiment.regressionAdjustmentEnabled) {
     regressionAdjustmentEnabled = false;
   }
-  return { regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses };
+  return { regressionAdjustmentEnabled, settingsForSnapshotMetrics };
 }
 
 export function visualChangesetsHaveChanges({

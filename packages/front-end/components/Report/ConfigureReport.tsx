@@ -1,9 +1,6 @@
 import React, { useMemo } from "react";
 import { FormProvider, useFieldArray, useForm } from "react-hook-form";
-import {
-  MetricRegressionAdjustmentStatus,
-  ReportInterface,
-} from "back-end/types/report";
+import { MetricSnapshotSettings, ReportInterface } from "back-end/types/report";
 import { FaQuestionCircle } from "react-icons/fa";
 import {
   AttributionModel,
@@ -17,8 +14,8 @@ import {
 import { getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
 import { MetricInterface } from "back-end/types/metric";
-import { getRegressionAdjustmentsForMetric } from "shared/experiments";
 import { DifferenceType } from "@back-end/types/stats";
+import { getMetricSnapshotSettings } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
@@ -127,8 +124,7 @@ export default function ConfigureReport({
         (hasRegressionAdjustmentFeature &&
           report.args.regressionAdjustmentEnabled) ??
         DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-      metricRegressionAdjustmentStatuses:
-        report.args.metricRegressionAdjustmentStatuses || [],
+      settingsForSnapshotMetrics: report.args.settingsForSnapshotMetrics || [],
       sequentialTestingEnabled:
         hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled,
       sequentialTestingTuningParameter:
@@ -137,13 +133,11 @@ export default function ConfigureReport({
   });
 
   // CUPED adjustments
-  const metricRegressionAdjustmentStatuses = useMemo(() => {
-    const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
+  const settingsForSnapshotMetrics = useMemo(() => {
+    const settingsForSnapshotMetrics: MetricSnapshotSettings[] = [];
     for (const metric of allExperimentMetrics) {
       if (!metric) continue;
-      const {
-        metricRegressionAdjustmentStatus,
-      } = getRegressionAdjustmentsForMetric({
+      const { metricSnapshotSettings } = getMetricSnapshotSettings({
         metric: metric,
         denominatorMetrics: denominatorMetrics,
         experimentRegressionAdjustmentEnabled: !!form.watch(
@@ -152,9 +146,9 @@ export default function ConfigureReport({
         organizationSettings: orgSettings,
         metricOverrides: report.args.metricOverrides,
       });
-      metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
+      settingsForSnapshotMetrics.push(metricSnapshotSettings);
     }
-    return metricRegressionAdjustmentStatuses;
+    return settingsForSnapshotMetrics;
   }, [
     allExperimentMetrics,
     denominatorMetrics,
@@ -194,9 +188,7 @@ export default function ConfigureReport({
           skipPartialData: !!value.skipPartialData,
         };
 
-        if (value.regressionAdjustmentEnabled) {
-          args.metricRegressionAdjustmentStatuses = metricRegressionAdjustmentStatuses;
-        }
+        args.settingsForSnapshotMetrics = settingsForSnapshotMetrics;
 
         const res = await apiCall<{ updatedReport: ReportInterface }>(
           `/report/${report.id}`,

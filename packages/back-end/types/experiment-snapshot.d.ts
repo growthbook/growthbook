@@ -9,7 +9,7 @@ import { Queries } from "./query";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-  MetricRegressionAdjustmentStatus,
+  LegacyMetricRegressionAdjustmentStatus,
 } from "./report";
 import { DimensionInterface } from "./dimension";
 import { AttributionModel } from "./experiment";
@@ -55,7 +55,7 @@ export type LegacyExperimentSnapshotInterface = ExperimentSnapshotInterface & {
   hasCorrectedStats?: boolean;
   results?: ExperimentReportResultDimension[];
   regressionAdjustmentEnabled?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  metricRegressionAdjustmentStatuses?: LegacyMetricRegressionAdjustmentStatus[];
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
   queryFilter?: string;

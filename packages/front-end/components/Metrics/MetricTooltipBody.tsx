@@ -128,6 +128,7 @@ const MetricTooltipBody = ({
       ),
     },
   ];
+  // TODO add prior
 
   if (reportRegressionAdjustmentEnabled && row) {
     metricInfo.push({
@@ -135,7 +136,7 @@ const MetricTooltipBody = ({
       label: "CUPED",
       body: (
         <>
-          {row?.regressionAdjustmentStatus?.regressionAdjustmentEnabled
+          {row?.metricSnapshotSettings?.regressionAdjustmentEnabled
             ? "Enabled"
             : "Disabled"}
           {metricOverrideFields.includes("regressionAdjustmentEnabled") ? (
@@ -144,13 +145,13 @@ const MetricTooltipBody = ({
         </>
       ),
     });
-    if (row?.regressionAdjustmentStatus?.regressionAdjustmentEnabled) {
+    if (row?.metricSnapshotSettings?.regressionAdjustmentEnabled) {
       metricInfo.push({
         show: true,
         label: "CUPED Lookback (days)",
         body: (
           <>
-            {row?.regressionAdjustmentStatus?.regressionAdjustmentDays}
+            {row?.metricSnapshotSettings?.regressionAdjustmentDays}
             {metricOverrideFields.includes("regressionAdjustmentDays") ? (
               <small className="text-purple ml-1">(override)</small>
             ) : null}

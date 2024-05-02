@@ -17,9 +17,6 @@ class AnalysisSettingsForStatsEngine:
     baseline_index: int = 0
     dimension: str = ""
     stats_engine: StatsEngine = "bayesian"
-    prior_proper: bool = False
-    prior_mean: float = 0
-    prior_stddev: float = 0.1
     sequential_testing_enabled: bool = False
     sequential_tuning_parameter: float = 5000
     difference_type: DifferenceType = "relative"
@@ -46,6 +43,9 @@ class MetricSettingsForStatsEngine:
     statistic_type: StatisticType
     main_metric_type: MetricType
     inverse: bool = False
+    prior_proper: bool = False
+    prior_mean: float = 0
+    prior_stddev: float = 0.1
     denominator_metric_type: Optional[MetricType] = None
     covariate_metric_type: Optional[MetricType] = None
     quantile_value: Optional[float] = None
