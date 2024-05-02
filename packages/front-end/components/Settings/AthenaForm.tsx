@@ -24,9 +24,13 @@ const AthenaForm: FC<{
                 value: "auto",
                 display: "Auto-discovery",
               },
+              {
+                value: "assumeRole",
+                display: "Assume IAM Role",
+              },
             ]}
-            helpText="'Auto-discovery' will look for credentials in environment variables and instance metadata."
-            value={params.authType || "accessKey"}
+            helpText="'Auto-discovery' will look for credentials in environment variables and instance metadata. 'Assume IAM Role' uses the current role to assume another role and execute Athena with temporary credentials."
+            value={params.authType || "auto"}
             onChange={(e) => {
               setParams({
                 authType: e.target.value,
@@ -35,29 +39,7 @@ const AthenaForm: FC<{
           />
         </div>
       )}
-      <div className="form-group col-md-12">
-        <label>AWS Region</label>
-        <input
-          type="text"
-          className="form-control"
-          name="region"
-          required
-          value={params.region || ""}
-          onChange={onParamChange}
-        />
-      </div>
-      <div className="form-group col-md-12">
-        <label>Workgroup (optional)</label>
-        <input
-          type="text"
-          className="form-control"
-          name="workGroup"
-          placeholder="primary"
-          value={params.workGroup || ""}
-          onChange={onParamChange}
-        />
-      </div>
-      {(isCloud() || params.authType !== "auto") && (
+      {(isCloud() || params.authType == "accessKey") && (
         <>
           <div className="form-group col-md-12">
             <label>AWS Access Key</label>
@@ -86,6 +68,68 @@ const AthenaForm: FC<{
           </div>
         </>
       )}
+      {(isCloud() || params.authType == "assumeRole") && (
+        <>
+          <div className="form-group col-md-12">
+            <label>AWS IAM Role ARN</label>
+            <input
+              type="text"
+              className="form-control"
+              name="assumeRoleARN"
+              required={!existing}
+              value={params.assumeRoleARN || ""}
+              onChange={onParamChange}
+              placeholder={existing ? "(Keep existing)" : ""}
+            />
+          </div>
+          <div className="form-group col-md-12">
+            <label>Role Session Name</label>
+            <input
+              type="text"
+              className="form-control"
+              name="roleSessionName"
+              required={!existing}
+              value={params.roleSessionName || ""}
+              onChange={onParamChange}
+              placeholder={existing ? "(Keep existing)" : ""}
+            />
+          </div>
+          <div className="form-group col-md-12">
+            <label>External ID</label>
+            <input
+              type="text"
+              className="form-control"
+              name="externalId"
+              required={!existing}
+              value={params.externalId || ""}
+              onChange={onParamChange}
+              placeholder={existing ? "(Keep existing)" : ""}
+            />
+          </div>
+        </>
+      )}
+      <div className="form-group col-md-12">
+        <label>AWS Region</label>
+        <input
+          type="text"
+          className="form-control"
+          name="region"
+          required
+          value={params.region || ""}
+          onChange={onParamChange}
+        />
+      </div>
+      <div className="form-group col-md-12">
+        <label>Workgroup (optional)</label>
+        <input
+          type="text"
+          className="form-control"
+          name="workGroup"
+          placeholder="primary"
+          value={params.workGroup || ""}
+          onChange={onParamChange}
+        />
+      </div>
       <div className="form-group col-md-12">
         <label>Default Catalog (optional)</label>
         <input
