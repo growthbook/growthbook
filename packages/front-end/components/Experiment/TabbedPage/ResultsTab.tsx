@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { MetricInterface } from "back-end/types/metric";
 import { DifferenceType } from "back-end/types/stats";
+import { getAllMetricSettingsForSnapshot } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -24,7 +25,6 @@ import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
-import { getAllMetricSettingsForSnapshot } from "shared/experiments";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

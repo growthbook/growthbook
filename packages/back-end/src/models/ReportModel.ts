@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
-import { migrateReport } from "@back-end/src/util/migrations";
+import { migrateReport } from "../util/migrations";
 import { ReportInterface } from "../../types/report";
 import { ReqContext } from "../../types/organization";
 import { ApiReqContext } from "../../types/api";

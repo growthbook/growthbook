@@ -449,8 +449,8 @@ export async function createManualSnapshot({
   users: number[];
   metrics: {
     [key: string]: MetricStats[];
-  },
-  orgPriorSettings: MetricPriorSettings | undefined,
+  };
+  orgPriorSettings: MetricPriorSettings | undefined;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
   context: Context;
