@@ -713,6 +713,14 @@ export class GrowthBook<
     return value === null ? (defaultValue as WidenPrimitives<V>) : value;
   }
 
+  public getFeatureValues() {
+    const features: Record<string, FeatureResult["value"]> = {};
+    for (const key in this._ctx.features || {}) {
+      features[key] = this._evalFeature(key).value;
+    }
+    return features;
+  }
+
   /**
    * @deprecated Use {@link evalFeature}
    * @param id
