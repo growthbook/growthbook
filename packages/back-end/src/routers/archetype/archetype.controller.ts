@@ -68,7 +68,7 @@ export const getArchetypeAndEval = async (
   res: Response<GetArchetypeAndEvalResponse | PrivateApiErrorResponse>
 ) => {
   const context = getContextFromReq(req);
-  const { org, userId } = context;
+  const { org } = context;
   const { id, version } = req.params;
   const {
     scrubPrerequisites: scrubPrerequisitesStr,

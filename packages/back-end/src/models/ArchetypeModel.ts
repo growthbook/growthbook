@@ -71,7 +71,7 @@ export async function getAllArchetypes(
   context: ReqContext
 ): Promise<ArchetypeInterface[]> {
   const archetype: ArchetypeDocument[] = await ArchetypeModel.find({
-    organization: context.org,
+    organization: context.org.id,
   });
   return (
     archetype
