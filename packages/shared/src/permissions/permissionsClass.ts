@@ -55,6 +55,18 @@ export class Permissions {
     return this.checkGlobalPermission("createDimensions");
   };
 
+  public canCreateSegment = (): boolean => {
+    return this.checkGlobalPermission("createSegments");
+  };
+
+  public canUpdateSegment = (): boolean => {
+    return this.checkGlobalPermission("createSegments");
+  };
+
+  public canDeleteSegment = (): boolean => {
+    return this.checkGlobalPermission("createSegments");
+  };
+
   public canManageNorthStarMetric = (): boolean => {
     return this.checkGlobalPermission("manageNorthStarMetric");
   };
@@ -474,8 +486,12 @@ export class Permissions {
     );
   }
 
-  private checkGlobalPermission(permission: GlobalPermission): boolean {
-    return this.hasPermission(permission, "");
+  private checkGlobalPermission(permissionToCheck: GlobalPermission): boolean {
+    if (this.superAdmin) {
+      return true;
+    }
+
+    return this.userPermissions.global.permissions[permissionToCheck] || false;
   }
 
   private checkProjectFilterPermission(
