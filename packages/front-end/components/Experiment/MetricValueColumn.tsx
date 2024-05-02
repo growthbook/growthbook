@@ -45,7 +45,7 @@ export default function MetricValueColumn({
 }: Props) {
   const displayCurrency = useCurrency();
   const formatterOptions = { currency: displayCurrency };
-  const { getFactTableById } = useDefinitions();
+  const { getFactTableById, getMetricById } = useDefinitions();
 
   const overall = getExperimentMetricFormatter(metric, getFactTableById)(
     stats.cr,
@@ -53,10 +53,14 @@ export default function MetricValueColumn({
   );
 
   const numeratorValue = stats.value;
-  const denominatorValue =
-    metric.denominator || isRatioMetric(metric)
-      ? stats.denominator ?? stats.users
-      : stats.users || users;
+  const denominatorValue = isRatioMetric(
+    metric,
+    !isFactMetric(metric) && metric.denominator
+      ? getMetricById(metric.denominator) ?? undefined
+      : undefined
+  )
+    ? stats.denominator ?? stats.users
+    : stats.users || users;
 
   let numerator: string;
   let denominator = numberFormatter.format(denominatorValue);
