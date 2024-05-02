@@ -45,6 +45,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
 
       - name: Extract static assets from Docker image and upload to S3
+        env:
+          DEPOT_TOKEN: ${{ secrets.DEPOT_TOKEN }}
         run: |
           depot build . -t static-files --output=type=local,dest=./public
           ls ./public
