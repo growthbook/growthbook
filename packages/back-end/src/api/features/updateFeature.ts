@@ -34,11 +34,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const orgEnvs = getEnvironmentIdsFromOrg(req.organization);
 
-    // check permissions for previous project and new one
-    req.checkPermissions("manageFeatures", [
-      feature.project ?? "",
-      project ?? "",
-    ]);
+    if (!req.context.permissions.canUpdateFeature(feature, req.body)) {
+      req.context.permissions.throwPermissionError();
+    }
 
     if (project != null) {
       if (

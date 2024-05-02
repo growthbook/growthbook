@@ -21,7 +21,9 @@ export const updateExperiment = createApiRequestHandler(
       throw new Error("Could not find the experiment to update");
     }
 
-    req.checkPermissions("createAnalyses", experiment.project);
+    if (!req.context.permissions.canUpdateExperiment(experiment, req.body)) {
+      req.context.permissions.throwPermissionError();
+    }
 
     const datasource = await getDataSourceById(
       req.context,

@@ -299,7 +299,7 @@ export default function FeaturesOverview({
     (revision.status === "published" || revision.status === "discarded") &&
     (!isLive || drafts.length > 0);
 
-  const canEdit = permissions.check("manageFeatures", projectId);
+  const canEdit = permissionsUtil.canViewFeatureModal(projectId);
   const canEditDrafts = permissionsUtil.canManageFeatureDrafts(feature);
   const renderStatusCopy = () => {
     switch (revision.status) {

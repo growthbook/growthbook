@@ -64,7 +64,9 @@ export const parseJsonSchemaForEnterprise = (
 
 export const postFeature = createApiRequestHandler(postFeatureValidator)(
   async (req): Promise<PostFeatureResponse> => {
-    req.checkPermissions("manageFeatures", req.body.project);
+    if (!req.context.permissions.canCreateFeature(req.body)) {
+      req.context.permissions.throwPermissionError();
+    }
 
     const existing = await getFeature(req.context, req.body.id);
     if (existing) {
