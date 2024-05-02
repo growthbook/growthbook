@@ -98,6 +98,32 @@ describe("canDeleteDimension", () => {
   });
 });
 
+describe("canUpdateSegment", () => {
+  it("Calls checkGlobalPermission with the correct parameters", () => {
+    const p = new TestPermissions();
+    p.canUpdateSegment();
+    expect(p.checkGlobalPermission).toHaveBeenCalledWith("createSegments");
+  });
+});
+
+describe("canDeleteSegment", () => {
+  it("Calls checkGlobalPermission with the correct parameters", () => {
+    const p = new TestPermissions();
+    p.canDeleteSegment();
+    expect(p.checkGlobalPermission).toHaveBeenCalledWith("createSegments");
+  });
+});
+
+describe("canManageNorthStarMetric", () => {
+  it("Calls checkGlobalPermission with the correct parameters", () => {
+    const p = new TestPermissions();
+    p.canManageNorthStarMetric();
+    expect(p.checkGlobalPermission).toHaveBeenCalledWith(
+      "manageNorthStarMetric"
+    );
+  });
+});
+
 // PROJECT_SCOPED_PERMISSIONS
 describe("canCreateVisualChange", () => {
   it("Calls checkProjectFilterPermission with the correct parameters", () => {
@@ -162,6 +188,140 @@ describe("canDeleteAttribute", () => {
     expect(p.checkProjectFilterPermission).toHaveBeenCalledWith(
       { projects: ["a", "b"] },
       "manageTargetingAttributes"
+    );
+  });
+});
+
+describe("canViewFeatureModal", () => {
+  it("Calls checkProjectFilterPermission with the correct paramters", () => {
+    const p = new TestPermissions();
+    expect(p.canViewFeatureModal("a"));
+    expect(p.checkProjectFilterPermission).toHaveBeenCalledWith(
+      { projects: ["a"] },
+      "manageFeatures"
+    );
+  });
+});
+
+describe("canCreateFeature", () => {
+  it("Calls checkProjectFilterPermission with the correct paramters", () => {
+    const p = new TestPermissions();
+    expect(p.canCreateFeature({ project: "a" }));
+    expect(p.checkProjectFilterPermission).toHaveBeenCalledWith(
+      { projects: ["a"] },
+      "manageFeatures"
+    );
+  });
+});
+
+describe("canUpdateFeature", () => {
+  it("Calls checkProjectFilterPermission with the correct paramters", () => {
+    const p = new TestPermissions();
+    expect(p.canUpdateFeature({ project: "a" }, { project: "b" }));
+    expect(p.checkProjectFilterUpdatePermission).toHaveBeenCalledWith(
+      { projects: ["a"] },
+      { projects: ["b"] },
+      "manageFeatures"
+    );
+  });
+});
+
+describe("canDeleteFeature", () => {
+  it("Calls checkProjectFilterPermission with the correct paramters", () => {
+    const p = new TestPermissions();
+    expect(p.canDeleteFeature({ project: "a" }));
+    expect(p.checkProjectFilterPermission).toHaveBeenCalledWith(
+      { projects: ["a"] },
+      "manageFeatures"
+    );
+  });
+});
+
+describe("canViewExperimentModal", () => {
+  it("Calls checkProjectFilterPermission with the correct paramters", () => {
+    const p = new TestPermissions();
+    expect(p.canViewExperimentModal("a"));
+    expect(p.checkProjectFilterPermission).toHaveBeenCalledWith(
+      { projects: ["a"] },
+      "createAnalyses"
+    );
+  });
+});
+
+describe("canCreateExperiment", () => {
+  it("Calls checkProjectFilterPermission with the correct paramters", () => {
+    const p = new TestPermissions();
+    expect(p.canCreateExperiment({ project: "a" }));
+    expect(p.checkProjectFilterPermission).toHaveBeenCalledWith(
+      { projects: ["a"] },
+      "createAnalyses"
+    );
+  });
+});
+
+describe("canUpdateExperiment", () => {
+  it("Calls checkProjectFilterPermission with the correct paramters", () => {
+    const p = new TestPermissions();
+    expect(p.canUpdateExperiment({ project: "a" }, { project: "b" }));
+    expect(p.checkProjectFilterUpdatePermission).toHaveBeenCalledWith(
+      { projects: ["a"] },
+      { projects: ["b"] },
+      "createAnalyses"
+    );
+  });
+});
+
+describe("canDeleteExperiment", () => {
+  it("Calls checkProjectFilterPermission with the correct paramters", () => {
+    const p = new TestPermissions();
+    expect(p.canDeleteExperiment({ project: "a" }));
+    expect(p.checkProjectFilterPermission).toHaveBeenCalledWith(
+      { projects: ["a"] },
+      "createAnalyses"
+    );
+  });
+});
+
+describe("canViewReportModal", () => {
+  it("Calls checkProjectFilterPermission with the correct paramters", () => {
+    const p = new TestPermissions();
+    expect(p.canViewReportModal("a"));
+    expect(p.checkProjectFilterPermission).toHaveBeenCalledWith(
+      { projects: ["a"] },
+      "createAnalyses"
+    );
+  });
+});
+
+describe("canCreateReport", () => {
+  it("Calls checkProjectFilterPermission with the correct paramters", () => {
+    const p = new TestPermissions();
+    expect(p.canCreateReport({ project: "a" }));
+    expect(p.checkProjectFilterPermission).toHaveBeenCalledWith(
+      { projects: ["a"] },
+      "createAnalyses"
+    );
+  });
+});
+
+describe("canUpdateReport", () => {
+  it("Calls checkProjectFilterPermission with the correct paramters", () => {
+    const p = new TestPermissions();
+    expect(p.canUpdateReport({ project: "a" }));
+    expect(p.checkProjectFilterPermission).toHaveBeenCalledWith(
+      { projects: ["a"] },
+      "createAnalyses"
+    );
+  });
+});
+
+describe("canDeleteReport", () => {
+  it("Calls checkProjectFilterPermission with the correct paramters", () => {
+    const p = new TestPermissions();
+    expect(p.canDeleteReport({ project: "a" }));
+    expect(p.checkProjectFilterPermission).toHaveBeenCalledWith(
+      { projects: ["a"] },
+      "createAnalyses"
     );
   });
 });
