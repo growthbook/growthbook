@@ -199,7 +199,9 @@ export const startExperimentResultQueries = async (
     );
   }
 
-  const exposureQuery = (integration.settings?.queries?.exposure || []).find(
+  const settings = integration.datasource.settings;
+
+  const exposureQuery = (settings?.queries?.exposure || []).find(
     (q) => q.id === snapshotSettings.exposureQueryId
   );
 
@@ -213,8 +215,8 @@ export const startExperimentResultQueries = async (
   // Settings for units table
   const useUnitsTable =
     (integration.getSourceProperties().supportsWritingTables &&
-      integration.settings.pipelineSettings?.allowWriting &&
-      !!integration.settings.pipelineSettings?.writeDataset &&
+      settings.pipelineSettings?.allowWriting &&
+      !!settings.pipelineSettings?.writeDataset &&
       hasPipelineModeFeature) ??
     false;
   let unitQuery: QueryPointer | null = null;
@@ -222,7 +224,7 @@ export const startExperimentResultQueries = async (
     useUnitsTable && !!integration.generateTablePath
       ? integration.generateTablePath(
           `growthbook_tmp_units_${queryParentId}`,
-          integration.settings.pipelineSettings?.writeDataset,
+          settings.pipelineSettings?.writeDataset,
           "",
           true
         )
@@ -378,6 +380,12 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
+  checkPermissions(): boolean {
+    return this.context.permissions.canRunExperimentQueries(
+      this.integration.datasource
+    );
+  }
+
   async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
@@ -467,7 +475,12 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
           ? "error"
           : "success",
     };
-    await updateSnapshot(this.model.organization, this.model.id, updates);
+    await updateSnapshot({
+      organization: this.model.organization,
+      id: this.model.id,
+      updates,
+      context: this.context,
+    });
     return {
       ...this.model,
       ...updates,

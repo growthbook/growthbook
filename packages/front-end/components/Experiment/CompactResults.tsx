@@ -146,7 +146,14 @@ const CompactResults: FC<{
         metricOverrideFields: overrideFields,
         rowClass: newMetric?.inverse ? "inverse" : "",
         variations: results.variations.map((v) => {
-          return v.metrics[metricId];
+          return (
+            v.metrics?.[metricId] || {
+              users: 0,
+              value: 0,
+              cr: 0,
+              errorMessage: "No data",
+            }
+          );
         }),
         metricSnapshotSettings,
         isGuardrail,

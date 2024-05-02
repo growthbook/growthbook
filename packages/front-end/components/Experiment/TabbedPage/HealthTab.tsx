@@ -56,7 +56,7 @@ export default function HealthTab({
   const hasPermissionToConfigHealthTag =
     (datasource &&
       permissions.check("organizationSettings") &&
-      permissions.check("runQueries", datasource.projects) &&
+      permissionsUtil.canRunHealthQueries(datasource) &&
       permissionsUtil.canUpdateDataSourceSettings(datasource)) ||
     false;
   const [healthIssues, setHealthIssues] = useState<IssueValue[]>([]);

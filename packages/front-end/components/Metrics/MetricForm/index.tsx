@@ -409,9 +409,7 @@ const MetricForm: FC<MetricFormProps> = ({
         // If the numerator has a value (not binomial),
         // then count metrics can be used as the denominator as well (as long as they don't have their own denominator)
         // This makes it act like a true ratio metric
-        return (
-          value.type !== "binomial" && m.type === "count" && !m.denominator
-        );
+        return value.type !== "binomial" && !m.denominator;
       })
       .map((m) => {
         return {

@@ -14,14 +14,15 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import { AUTOMATIC_DIMENSION_OTHER_NAME } from "shared/constants";
+import { ReqContext } from "../../types/organization";
 import { MetricInterface, MetricType } from "../../types/metric";
 import {
   DataSourceSettings,
   DataSourceProperties,
   ExposureQuery,
-  DataSourceType,
   SchemaFormatConfig,
   AutoMetricSchemas,
+  DataSourceInterface,
 } from "../../types/datasource";
 import {
   MetricValueParams,
@@ -76,6 +77,7 @@ import {
   MetricQuantileSettings,
 } from "../../types/fact-table";
 import { applyMetricOverrides } from "../util/integration";
+import { ReqContextClass } from "../services/context";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
@@ -105,13 +107,11 @@ const N_STAR_VALUES = [
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
-  settings: DataSourceSettings;
-  datasource!: string;
-  organization!: string;
-  decryptionError!: boolean;
+  datasource: DataSourceInterface;
+  context: ReqContext;
+  decryptionError: boolean;
   // eslint-disable-next-line
   params: any;
-  type!: DataSourceType;
   abstract setParams(encryptedParams: string): void;
   abstract runQuery(
     sql: string,
@@ -122,16 +122,16 @@ export default abstract class SqlIntegration
   }
   abstract getSensitiveParamKeys(): string[];
 
-  constructor(encryptedParams: string, settings: DataSourceSettings) {
+  constructor(context: ReqContextClass, datasource: DataSourceInterface) {
+    this.datasource = datasource;
+    this.context = context;
+    this.decryptionError = false;
     try {
-      this.setParams(encryptedParams);
+      this.setParams(datasource.params);
     } catch (e) {
       this.params = {};
       this.decryptionError = true;
     }
-    this.settings = {
-      ...settings,
-    };
   }
   getSourceProperties(): DataSourceProperties {
     return {
@@ -168,8 +168,10 @@ export default abstract class SqlIntegration
     };
 
     if (
-      this.settings.schemaFormat &&
-      supportedEventTrackers[this.settings.schemaFormat as AutoMetricSchemas]
+      this.datasource.settings.schemaFormat &&
+      supportedEventTrackers[
+        this.datasource.settings.schemaFormat as AutoMetricSchemas
+      ]
     ) {
       return true;
     }
@@ -277,7 +279,7 @@ export default abstract class SqlIntegration
       exposureQueryId = userIdType === "user" ? "user_id" : "anonymous_id";
     }
 
-    const queries = this.settings?.queries?.exposure || [];
+    const queries = this.datasource.settings?.queries?.exposure || [];
 
     const match = queries.find((q) => q.id === exposureQueryId);
 
@@ -293,7 +295,7 @@ export default abstract class SqlIntegration
   getPastExperimentQuery(params: PastExperimentParams): string {
     // TODO: for past experiments, UNION all exposure queries together
     const experimentQueries = (
-      this.settings.queries?.exposure || []
+      this.datasource.settings.queries?.exposure || []
     ).map(({ id }) => this.getExposureQuery(id));
 
     return format(
@@ -809,7 +811,7 @@ export default abstract class SqlIntegration
       joins.push(
         `${table} as (
         ${this.getIdentitiesQuery(
-          this.settings,
+          this.datasource.settings,
           baseIdType,
           idType,
           from,
@@ -2890,7 +2892,7 @@ export default abstract class SqlIntegration
 
     return formatInformationSchema(
       results.rows as RawInformationSchema[],
-      this.type
+      this.datasource.type
     );
   }
   async getTableData(
@@ -2918,7 +2920,7 @@ export default abstract class SqlIntegration
       case "amplitude": {
         return {
           trackedEventTableName: `EVENTS_${
-            this.settings.schemaOptions?.projectId || `*`
+            this.datasource.settings.schemaOptions?.projectId || `*`
           }`,
           eventColumn: "event_type",
           timestampColumn: "event_time",
@@ -2926,7 +2928,9 @@ export default abstract class SqlIntegration
           anonymousIdColumn: "amplitude_id",
           getMetricTableName: ({ schema }) =>
             this.generateTablePath(
-              `EVENTS_${this.settings.schemaOptions?.projectId || `*`}`,
+              `EVENTS_${
+                this.datasource.settings.schemaOptions?.projectId || `*`
+              }`,
               schema
             ),
           getDateLimitClause: (start: Date, end: Date) =>
