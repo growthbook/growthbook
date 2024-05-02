@@ -41,8 +41,11 @@ RUN yarn install --frozen-lockfile --ignore-optional
 RUN yarn postinstall
 # Build the app and do a clean install with only production dependencies
 COPY packages ./packages
+# Args needed for frontend next.config.js to know what it should set its assetPrefix to
 ARG IS_CLOUD
 ENV IS_CLOUD=$IS_CLOUD
+# wildcard used to act as 'copy if exists'
+COPY buildinfo* ./buildinfo
 RUN \
   yarn build \
   && rm -rf node_modules \
