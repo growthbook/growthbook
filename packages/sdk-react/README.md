@@ -8,7 +8,7 @@ This is the React client library that lets you evaluate feature flags and run ex
 
 - **No external dependencies**
 - **Lightweight and fast**
-- Local targeting and evaluation, **no HTTP requests**
+- Local targeting and evaluation, **no HTTP requests required**
 - Works for both **client and server-side** rendering as well as **React Native**
 - **No flickering** when running A/B tests
 - Written in **Typescript** with extensive test coverage
