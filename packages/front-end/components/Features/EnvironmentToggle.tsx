@@ -2,10 +2,10 @@ import { useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import usePermissions from "@/hooks/usePermissions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import Toggle from "@/components/Forms/Toggle";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export interface Props {
   feature: FeatureInterface;
@@ -25,7 +25,7 @@ export default function EnvironmentToggle({
   const [toggling, setToggling] = useState(false);
 
   const { apiCall } = useAuth();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   id = id || feature.id + "__" + environment;
 
@@ -87,9 +87,7 @@ export default function EnvironmentToggle({
         value={env?.enabled ?? false}
         id={id}
         disabledMessage="You don't have permission to change features in this environment"
-        disabled={
-          !permissions.check("publishFeatures", feature.project, [environment])
-        }
+        disabled={!permissionsUtil.canPublishFeature(feature, [environment])}
         setValue={async (on) => {
           if (toggling) return;
           if (on && env?.enabled) return;

@@ -277,16 +277,14 @@ export default function FeaturesOverview({
 
   const hasDraftPublishPermission =
     (approved &&
-      permissions.check(
-        "publishFeatures",
-        projectId,
+      permissionsUtil.canPublishFeature(
+        feature,
         getAffectedRevisionEnvs(feature, revision, environments)
       )) ||
     (isDraft &&
       !requireReviews &&
-      permissions.check(
-        "publishFeatures",
-        projectId,
+      permissionsUtil.canPublishFeature(
+        feature,
         getAffectedRevisionEnvs(feature, revision, environments)
       ));
 

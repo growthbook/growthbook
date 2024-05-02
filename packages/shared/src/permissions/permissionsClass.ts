@@ -1,6 +1,7 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { MetricInterface } from "back-end/types/metric";
 import {
+  EnvScopedPermission,
   GlobalPermission,
   Permission,
   ProjectScopedPermission,
@@ -333,6 +334,20 @@ export class Permissions {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
+  // ENV_SCOPED_PERMISSIONS
+  public canPublishFeature = (
+    feature: Pick<FeatureInterface, "project">,
+    environments: string[]
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      {
+        projects: feature.project ? [feature.project] : [],
+      },
+      environments,
+      "publishFeatures"
+    );
+  };
+
   public throwPermissionError(): void {
     throw new PermissionError(
       "You do not have permission to perform this action"
@@ -382,6 +397,18 @@ export class Permissions {
       return false;
     }
     return true;
+  }
+
+  public checkEnvFilterPermission(
+    obj: { projects?: string[] },
+    envs: string[],
+    permission: EnvScopedPermission
+  ): boolean {
+    const projects = obj.projects?.length ? obj.projects : [""];
+
+    return projects.every((project) =>
+      this.hasPermission(permission, project, envs)
+    );
   }
 
   private hasPermission(
