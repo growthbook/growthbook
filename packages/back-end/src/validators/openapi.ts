@@ -54,6 +54,12 @@ export const getProjectValidator = {
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
+export const putProjectValidator = {
+  bodySchema: z.object({ "name": z.string().describe("Project name.").optional(), "description": z.string().describe("Project description.").optional(), "settings": z.object({ "statsEngine": z.string().describe("Stats engine.").optional() }).describe("Project settings.").optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
 export const listDimensionsValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "datasourceId": z.string().optional() }).strict(),

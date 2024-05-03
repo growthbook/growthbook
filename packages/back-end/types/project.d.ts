@@ -13,3 +13,9 @@ export interface ProjectInterface {
 export interface ProjectSettings {
   statsEngine?: StatsEngine;
 }
+
+export interface UpdateProjectProp {
+  name: string;
+  description?: string;
+  settings: ProjectSettings;
+}

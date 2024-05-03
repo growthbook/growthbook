@@ -44,12 +44,8 @@ export interface paths {
   "/projects/{id}": {
     /** Get a single project */
     get: operations["getProject"];
-    parameters: {
-        /** @description The id of the requested resource */
-      path: {
-        id: string;
-      };
-    };
+    /** Edit a single project */
+    put: operations["putProject"];
   };
   "/dimensions": {
     /** Get all dimensions */
@@ -2637,6 +2633,56 @@ export interface operations {
   };
   getProject: {
     /** Get a single project */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            project: {
+              id: string;
+              name: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              description?: string;
+              settings?: {
+                statsEngine?: string;
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+  putProject: {
+    /** Edit a single project */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Project name. */
+          name?: string;
+          /** @description Project description. */
+          description?: string;
+          /** @description Project settings. */
+          settings?: {
+            /** @description Stats engine. */
+            statsEngine?: string;
+          };
+        };
+      };
+    };
     responses: {
       200: {
         content: {
@@ -6162,6 +6208,7 @@ export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["20
 export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
 export type GetProjectResponse = operations["getProject"]["responses"]["200"]["content"]["application/json"];
+export type PutProjectResponse = operations["putProject"]["responses"]["200"]["content"]["application/json"];
 export type ListDimensionsResponse = operations["listDimensions"]["responses"]["200"]["content"]["application/json"];
 export type GetDimensionResponse = operations["getDimension"]["responses"]["200"]["content"]["application/json"];
 export type ListSegmentsResponse = operations["listSegments"]["responses"]["200"]["content"]["application/json"];
