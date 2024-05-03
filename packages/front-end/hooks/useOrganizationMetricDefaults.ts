@@ -114,7 +114,6 @@ export type OrganizationSettingsWithMetricDefaults = Omit<
 
 export const useOrganizationMetricDefaults = (): OrganizationMetricDefaults => {
   const orgSettings = useOrgSettings();
-  console.log(orgSettings);
   /**
    * @link OrganizationMetricDefaults#metricDefaults
    */

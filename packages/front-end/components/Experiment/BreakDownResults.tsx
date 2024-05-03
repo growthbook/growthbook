@@ -215,11 +215,10 @@ const BreakDownResults: FC<{
               tableRowAxis="dimension" // todo: dynamic grouping?
               labelHeader={
                 <div style={{ marginBottom: 2 }}>
-                  {getRenderLabelColumn(regressionAdjustmentEnabled)(
-                    table.metric.name,
-                    table.metric,
-                    table.rows[0]
-                  )}
+                  {getRenderLabelColumn(
+                    regressionAdjustmentEnabled,
+                    statsEngine
+                  )(table.metric.name, table.metric, table.rows[0])}
                 </div>
               }
               editMetrics={undefined}

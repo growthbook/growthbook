@@ -95,8 +95,8 @@ export interface ExperimentReportInterface extends ReportInterfaceBase {
 
 export type ReportInterface = ExperimentReportInterface;
 
-export type LegacyReportInterface = ReportInterface & {
+export interface LegacyReportInterface extends ReportInterface {
   args: ExperimentReportArgs & {
     metricRegressionAdjustmentStatuses?: LegacyMetricRegressionAdjustmentStatus[];
   };
-};
+}

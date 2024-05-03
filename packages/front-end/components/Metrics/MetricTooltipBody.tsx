@@ -5,6 +5,8 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import React from "react";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
+import { StatsEngine } from "@back-end/types/stats";
 import {
   capitalizeFirstLetter,
   isNullUndefinedOrEmpty,
@@ -19,6 +21,7 @@ import MetricName from "./MetricName";
 interface MetricToolTipCompProps {
   metric: ExperimentMetricInterface;
   row?: ExperimentTableRow;
+  statsEngine?: StatsEngine;
   reportRegressionAdjustmentEnabled?: boolean;
 }
 
@@ -32,6 +35,7 @@ interface MetricInfo {
 const MetricTooltipBody = ({
   metric,
   row,
+  statsEngine,
   reportRegressionAdjustmentEnabled,
 }: MetricToolTipCompProps): React.ReactElement => {
   function validMetricDescription(description: string): boolean {
@@ -128,7 +132,19 @@ const MetricTooltipBody = ({
       ),
     },
   ];
-  // TODO add prior
+
+  if (statsEngine === "bayesian" && row?.metricSnapshotSettings?.properPrior) {
+    metricInfo.push({
+      show: true,
+      label: "Bayesian Prior",
+      body: `Mean: ${
+        row?.metricSnapshotSettings?.properPriorMean ?? 0
+      }, Std. Dev.: ${
+        row?.metricSnapshotSettings?.properPriorStdDev ??
+        DEFAULT_PROPER_PRIOR_STDDEV
+      }`,
+    });
+  }
 
   if (reportRegressionAdjustmentEnabled && row) {
     metricInfo.push({

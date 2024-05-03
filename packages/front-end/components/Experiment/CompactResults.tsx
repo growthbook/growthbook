@@ -269,7 +269,10 @@ const CompactResults: FC<{
         sequentialTestingEnabled={sequentialTestingEnabled}
         pValueCorrection={pValueCorrection}
         differenceType={differenceType}
-        renderLabelColumn={getRenderLabelColumn(regressionAdjustmentEnabled)}
+        renderLabelColumn={getRenderLabelColumn(
+          regressionAdjustmentEnabled,
+          statsEngine
+        )}
         metricFilter={metricFilter}
         setMetricFilter={setMetricFilter}
         metricTags={allMetricTags}
@@ -301,7 +304,8 @@ const CompactResults: FC<{
             pValueCorrection={pValueCorrection}
             differenceType={differenceType}
             renderLabelColumn={getRenderLabelColumn(
-              regressionAdjustmentEnabled
+              regressionAdjustmentEnabled,
+              statsEngine
             )}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
@@ -319,7 +323,7 @@ const CompactResults: FC<{
 };
 export default CompactResults;
 
-export function getRenderLabelColumn(regressionAdjustmentEnabled) {
+export function getRenderLabelColumn(regressionAdjustmentEnabled, statsEngine) {
   return function renderLabelColumn(
     label: string,
     metric: ExperimentMetricInterface,
@@ -332,6 +336,7 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
           <MetricTooltipBody
             metric={metric}
             row={row}
+            statsEngine={statsEngine}
             reportRegressionAdjustmentEnabled={regressionAdjustmentEnabled}
           />
         }
