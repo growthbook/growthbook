@@ -71,6 +71,10 @@ export class Permissions {
     return this.checkGlobalPermission("organizationSettings");
   };
 
+  public canSuperDeleteReport = (): boolean => {
+    return this.checkGlobalPermission("superDeleteReport");
+  };
+
   public canManageNorthStarMetric = (): boolean => {
     return this.checkGlobalPermission("manageNorthStarMetric");
   };
