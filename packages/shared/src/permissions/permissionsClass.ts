@@ -67,6 +67,10 @@ export class Permissions {
     return this.checkGlobalPermission("createSegments");
   };
 
+  public canManageOrgSettings = (): boolean => {
+    return this.checkGlobalPermission("organizationSettings");
+  };
+
   public canManageNorthStarMetric = (): boolean => {
     return this.checkGlobalPermission("manageNorthStarMetric");
   };
