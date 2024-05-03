@@ -17,11 +17,14 @@ export async function postExperimentLaunchChecklist(
   req: AuthRequest<{ tasks: ChecklistTask[]; projectId?: string }>,
   res: Response
 ) {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
+  const { org, userId } = context;
 
   const { tasks, projectId } = req.body;
-
-  req.checkPermissions("organizationSettings");
 
   if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
     throw new Error(
@@ -83,12 +86,14 @@ export async function putExperimentLaunchChecklist(
   req: AuthRequest<{ tasks: ChecklistTask[] }, { id: string }>,
   res: Response
 ) {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  if (!context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
+  const { org, userId } = context;
   const { tasks } = req.body;
 
   const { id } = req.params;
-
-  req.checkPermissions("organizationSettings");
 
   if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
     throw new Error(

@@ -3175,9 +3175,9 @@ export interface operations {
             })[];
           phases?: ({
               name: string;
-              /** Format: date */
+              /** Format: date-time */
               dateStarted: string;
-              /** Format: date */
+              /** Format: date-time */
               dateEnded?: string;
               reasonForStopping?: string;
               seed?: string;
@@ -3499,9 +3499,9 @@ export interface operations {
             })[];
           phases?: ({
               name: string;
-              /** Format: date */
+              /** Format: date-time */
               dateStarted: string;
-              /** Format: date */
+              /** Format: date-time */
               dateEnded?: string;
               reasonForStopping?: string;
               seed?: string;
