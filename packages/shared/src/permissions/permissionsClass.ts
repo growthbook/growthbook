@@ -55,6 +55,14 @@ export class Permissions {
     return this.checkGlobalPermission("createDimensions");
   };
 
+  public canCreateApiKey = (): boolean => {
+    return this.checkGlobalPermission("manageApiKeys");
+  };
+
+  public canDeleteApiKey = (): boolean => {
+    return this.checkGlobalPermission("manageApiKeys");
+  };
+
   public canManageTeam = (): boolean => {
     return this.checkGlobalPermission("manageTeam");
   };

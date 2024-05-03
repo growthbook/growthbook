@@ -178,7 +178,9 @@ const navlinks: SidebarLinkProps[] = [
         name: "API Keys",
         href: "/settings/keys",
         path: /^settings\/keys/,
-        filter: ({ permissions }) => permissions.check("manageApiKeys"),
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canCreateApiKey() ||
+          permissionsUtils.canDeleteApiKey(),
       },
       {
         name: "Webhooks",
