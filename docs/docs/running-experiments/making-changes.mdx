@@ -29,7 +29,7 @@ If you are not making targeting or traffic changes and simply want to **start a 
 - New phase, re-randomize traffic
 - New phase, do not re-randomize
 
-#### Update the existing phase
+## Update the existing phase
 
 This modifies the experiment in-place without resetting results or re-randomizing users. This provides the best user experience for your users and you can re-use data that was already collected, which can reduce the time the experiment needs to run.
 
@@ -43,7 +43,7 @@ All of these changes have something in common - they are simply increasing the n
 
 If you have Sticky Bucketing enabled, you may also elect to apply changes to new traffic only, leaving already-bucketed users in their existing (sticky) buckets. An example of this scenario could be decreasing the percent of people included in the experiment for all new incoming users, but leaving existing users in their existing buckets.
 
-#### Start a new phase
+## Start a new phase
 
 This creates a brand new phase of the experiment. All data collected until this point is excluded from the analysis and you start fresh (nothing is deleted from your data warehouse, we just hide old data from the results).
 
