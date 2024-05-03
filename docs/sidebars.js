@@ -456,12 +456,87 @@ const sidebars = {
     },
     {
       type: "category",
+      label: "Integrations",
+      collapsed: true,
+      items: [
+        {
+          type: "doc",
+          id: "integrations/slack",
+          label: "Slack alerts",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/discord",
+          label: "Discord alerts",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/datadog",
+          label: "DataDog",
+        },
+        {
+          type: "doc",
+          id: "integrations/github-metrics",
+          label: "GitHub (Metric Definitions)",
+        },
+        {
+          type: "doc",
+          id: "tools/chrome-extension",
+          label: "Chrome Extension",
+        },
+        {
+          type: "doc",
+          id: "tools/vscode-extension",
+          label: "VS Code Extension",
+        },
+        {
+          type: "doc",
+          id: "tools/cli",
+          className: "pill-new",
+          label: "GrowthBook CLI",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Security",
+      collapsed: false,
+      items: [
+        {
+          type: "doc",
+          id: "account/user-permissions",
+          label: "Roles & Permissions",
+        },
+        { type: "doc", id: "sso", label: "SSO" },
+        {
+          type: "doc",
+          id: "integrations/scim",
+          label: "SCIM",
+        },
+        {
+          type: "doc",
+          id: "compliance",
+          label: "Compliance",
+        },
+        {
+          type: "doc",
+          id: "account/audit-logs",
+          label: "Audit Logs",
+        },
+      ],
+    },
+    { type: "doc", id: "faq", label: "FAQ" },
+    {
+      type: "category",
       label: "Tutorials",
       collapsed: true,
       link: {
         type: "doc",
         id: "guide/index",
       },
+      className: "top-divider",
       items: [
         {
           type: "doc",
@@ -508,80 +583,6 @@ const sidebars = {
           type: "doc",
           id: "guide/importing",
           label: "Migrate from LaunchDarkly",
-        },
-      ],
-    },
-    {
-      type: "category",
-      label: "Integrations",
-      collapsed: true,
-      items: [
-        {
-          type: "doc",
-          id: "integrations/slack",
-          label: "Slack alerts",
-          className: "pill-new",
-        },
-        {
-          type: "doc",
-          id: "integrations/discord",
-          label: "Discord alerts",
-          className: "pill-new",
-        },
-        {
-          type: "doc",
-          id: "integrations/datadog",
-          label: "DataDog",
-        },
-        {
-          type: "doc",
-          id: "integrations/github-metrics",
-          label: "GitHub (Metric Definitions)",
-        },
-        {
-          type: "doc",
-          id: "tools/chrome-extension",
-          label: "Chrome Extension",
-        },
-        {
-          type: "doc",
-          id: "tools/vscode-extension",
-          label: "VS Code Extension",
-        },
-        {
-          type: "doc",
-          id: "tools/cli",
-          className: "pill-new",
-          label: "GrowthBook CLI",
-        },
-      ],
-    },
-    { type: "doc", id: "faq", label: "FAQ" },
-    {
-      type: "category",
-      label: "Security",
-      collapsed: false,
-      items: [
-        {
-          type: "doc",
-          id: "account/user-permissions",
-          label: "Roles & Permissions",
-        },
-        { type: "doc", id: "sso", label: "SSO" },
-        {
-          type: "doc",
-          id: "integrations/scim",
-          label: "SCIM",
-        },
-        {
-          type: "doc",
-          id: "compliance",
-          label: "Compliance",
-        },
-        {
-          type: "doc",
-          id: "account/audit-logs",
-          label: "Audit Logs",
         },
       ],
     },
