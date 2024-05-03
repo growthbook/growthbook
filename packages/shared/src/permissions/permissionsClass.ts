@@ -59,6 +59,42 @@ export class Permissions {
     return this.checkGlobalPermission("manageIntegrations");
   };
 
+  public canCreateApiKey = (): boolean => {
+    return this.checkGlobalPermission("manageApiKeys");
+  };
+
+  public canDeleteApiKey = (): boolean => {
+    return this.checkGlobalPermission("manageApiKeys");
+  };
+
+  public canManageTeam = (): boolean => {
+    return this.checkGlobalPermission("manageTeam");
+  };
+
+  public canCreateSegment = (): boolean => {
+    return this.checkGlobalPermission("createSegments");
+  };
+
+  public canUpdateSegment = (): boolean => {
+    return this.checkGlobalPermission("createSegments");
+  };
+
+  public canDeleteSegment = (): boolean => {
+    return this.checkGlobalPermission("createSegments");
+  };
+
+  public canManageOrgSettings = (): boolean => {
+    return this.checkGlobalPermission("organizationSettings");
+  };
+
+  public canSuperDeleteReport = (): boolean => {
+    return this.checkGlobalPermission("superDeleteReport");
+  };
+
+  public canManageNorthStarMetric = (): boolean => {
+    return this.checkGlobalPermission("manageNorthStarMetric");
+  };
+
   //Project Permissions
   public canCreateVisualChange = (
     experiment: Pick<ExperimentInterface, "project">
@@ -109,6 +145,141 @@ export class Permissions {
     return this.checkProjectFilterPermission(
       attribute,
       "manageTargetingAttributes"
+    );
+  };
+
+  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
+  public canViewFeatureModal = (project?: string): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: project ? [project] : [],
+      },
+      "manageFeatures"
+    );
+  };
+
+  public canCreateFeature = (
+    feature: Pick<FeatureInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: feature.project ? [feature.project] : [],
+      },
+      "manageFeatures"
+    );
+  };
+
+  public canUpdateFeature = (
+    existing: Pick<FeatureInterface, "project">,
+    updated: Pick<FeatureInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "manageFeatures"
+    );
+  };
+
+  public canDeleteFeature = (
+    feature: Pick<FeatureInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: feature.project ? [feature.project] : [],
+      },
+      "manageFeatures"
+    );
+  };
+
+  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
+  public canViewExperimentModal = (project?: string): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: project ? [project] : [],
+      },
+      "createAnalyses"
+    );
+  };
+
+  public canCreateExperiment = (
+    experiment: Pick<ExperimentInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: experiment.project ? [experiment.project] : [],
+      },
+      "createAnalyses"
+    );
+  };
+
+  public canUpdateExperiment = (
+    existing: Pick<ExperimentInterface, "project">,
+    updated: Pick<ExperimentInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "createAnalyses"
+    );
+  };
+
+  public canDeleteExperiment = (
+    experiment: Pick<ExperimentInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: experiment.project ? [experiment.project] : [] },
+      "createAnalyses"
+    );
+  };
+
+  // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
+  public canViewReportModal = (project?: string): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: project ? [project] : [],
+      },
+      "createAnalyses"
+    );
+  };
+  // reports don't have projects, but their connected experiments do
+  public canCreateReport = (
+    connectedExperiment: Pick<ExperimentInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: connectedExperiment.project
+          ? [connectedExperiment.project]
+          : [],
+      },
+      "createAnalyses"
+    );
+  };
+
+  // reports don't have projects, but their connected experiments do
+  public canUpdateReport = (
+    connectedExperiment: Pick<ExperimentInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: connectedExperiment.project
+          ? [connectedExperiment.project]
+          : [],
+      },
+      "createAnalyses"
+    );
+  };
+
+  // reports don't have projects, but their connected experiments do
+  public canDeleteReport = (
+    connectedExperiment: Pick<ExperimentInterface, "project">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: connectedExperiment.project
+          ? [connectedExperiment.project]
+          : [],
+      },
+      "createAnalyses"
     );
   };
 
@@ -339,8 +510,12 @@ export class Permissions {
     );
   }
 
-  private checkGlobalPermission(permission: GlobalPermission): boolean {
-    return this.hasPermission(permission, "");
+  private checkGlobalPermission(permissionToCheck: GlobalPermission): boolean {
+    if (this.superAdmin) {
+      return true;
+    }
+
+    return this.userPermissions.global.permissions[permissionToCheck] || false;
   }
 
   private checkProjectFilterPermission(

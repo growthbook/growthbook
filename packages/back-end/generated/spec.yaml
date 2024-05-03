@@ -1038,10 +1038,10 @@ paths:
                         type: string
                       dateStarted:
                         type: string
-                        format: date
+                        format: date-time
                       dateEnded:
                         type: string
-                        format: date
+                        format: date-time
                       reasonForStopping:
                         type: string
                       seed:
@@ -1278,10 +1278,10 @@ paths:
                         type: string
                       dateStarted:
                         type: string
-                        format: date
+                        format: date-time
                       dateEnded:
                         type: string
-                        format: date
+                        format: date-time
                       reasonForStopping:
                         type: string
                       seed:

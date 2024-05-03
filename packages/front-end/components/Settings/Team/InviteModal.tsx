@@ -229,7 +229,16 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
             label="Email Address"
             value={form.watch("email")}
             onChange={(emails) => {
-              form.setValue("email", emails);
+              // check for multiple values
+              const parsedEmails: string[] = [];
+              emails.forEach((em) => {
+                parsedEmails.push(
+                  ...em.split(/[\s,]/g).filter((e) => e.trim().length > 0)
+                );
+              });
+              // dedup:
+              const dedupedEmails = [...new Set(parsedEmails)];
+              form.setValue("email", dedupedEmails);
             }}
             helpText="Enter a list of emails to invite multiple members at once."
             type="email"

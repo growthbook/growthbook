@@ -7,14 +7,16 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 type ApiKeysTableProps = {
   onDelete: (keyId: string | undefined) => () => Promise<void>;
   keys: ApiKeyInterface[];
-  canManageKeys: boolean;
+  canCreateKeys: boolean;
+  canDeleteKeys: boolean;
   onReveal: (keyId: string | undefined) => () => Promise<string>;
 };
 
 export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   keys = [],
   onDelete,
-  canManageKeys,
+  canCreateKeys,
+  canDeleteKeys,
   onReveal,
 }) => {
   return (
@@ -24,7 +26,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
           <th style={{ width: 150 }}>Description</th>
           <th>Key</th>
           <th>Role</th>
-          {canManageKeys && <th style={{ width: 30 }}></th>}
+          {canDeleteKeys && <th style={{ width: 30 }}></th>}
         </tr>
       </thead>
       <tbody>
@@ -32,7 +34,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
           <tr key={key.id}>
             <td>{key.description}</td>
             <td style={{ minWidth: 295 }}>
-              {canManageKeys ? (
+              {canCreateKeys ? (
                 <ClickToReveal
                   valueWhenHidden="secret_abcdefghijklmnop123"
                   getValue={onReveal(key.id)}
@@ -42,7 +44,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
               )}
             </td>
             <td>{key.role || "-"}</td>
-            {canManageKeys && (
+            {canDeleteKeys && (
               <td>
                 <MoreMenu>
                   <DeleteButton

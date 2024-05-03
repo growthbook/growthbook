@@ -1,5 +1,10 @@
 import { GrowthBook } from "../src";
-import { Context, Experiment } from "../src/types/growthbook";
+import {
+  AutoExperiment,
+  Context,
+  Experiment,
+  TrackingData,
+} from "../src/types/growthbook";
 
 Object.defineProperty(window, "location", {
   value: {
@@ -746,5 +751,92 @@ describe("experiments", () => {
     });
 
     growthbook.destroy();
+  });
+
+  // TODO: test setEncryptedExperiments
+
+  it("handles deferred tracking calls", () => {
+    const trackingCallback = jest.fn();
+    const gb = new GrowthBook({
+      attributes: { id: "1" },
+    });
+
+    const exp: AutoExperiment<number> = {
+      changeId: "123",
+      key: "my-test",
+      variations: [0, 1],
+    };
+    const result = gb.run(exp);
+
+    expect(gb.getDeferredTrackingCalls()).toEqual([
+      {
+        experiment: exp,
+        result,
+      },
+    ]);
+    expect(gb.getCompletedChangeIds()).toEqual(["123"]);
+    gb.setTrackingCallback(trackingCallback);
+    expect(trackingCallback).toHaveBeenCalledTimes(1);
+    expect(trackingCallback).toHaveBeenCalledWith(exp, result);
+
+    // Does not call trackingCallback again for the same experiment
+    gb.run(exp);
+    expect(trackingCallback).toHaveBeenCalledTimes(1);
+
+    gb.destroy();
+
+    // Can set deferred tracking calls on an existing GrowthBook instance
+    const trackingCallback2 = jest.fn();
+    const gb2 = new GrowthBook({ trackingCallback: trackingCallback2 });
+    gb2.setDeferredTrackingCalls([
+      ({
+        invalid: true,
+      } as unknown) as TrackingData,
+      {
+        experiment: exp,
+        result,
+      },
+    ]);
+    expect(trackingCallback2).toHaveBeenCalledTimes(0);
+    gb2.fireDeferredTrackingCalls();
+    expect(trackingCallback2).toHaveBeenCalledTimes(1);
+    expect(trackingCallback2).toHaveBeenCalledWith(exp, result);
+    expect(gb2.getDeferredTrackingCalls()).toEqual([]);
+
+    gb2.destroy();
+  });
+
+  it("handles deferred tracking calls when there is no trackingCallback", () => {
+    const gb = new GrowthBook({
+      attributes: { id: "1" },
+    });
+    const exp: AutoExperiment<number> = {
+      key: "my-test",
+      variations: [0, 1],
+    };
+    const result = gb.run(exp);
+    gb.destroy();
+
+    // Can set deferred tracking calls on an existing GrowthBook instance
+    const trackingCallback = jest.fn();
+    const gb2 = new GrowthBook();
+    gb2.setDeferredTrackingCalls([
+      ({
+        invalid: true,
+      } as unknown) as TrackingData,
+      {
+        experiment: exp,
+        result,
+      },
+    ]);
+    // This should do nothing because there's no trackingCallback yet
+    gb2.fireDeferredTrackingCalls();
+
+    gb2.setTrackingCallback(trackingCallback);
+    expect(trackingCallback).toHaveBeenCalledTimes(1);
+    expect(trackingCallback).toHaveBeenCalledWith(exp, result);
+    expect(gb2.getDeferredTrackingCalls()).toEqual([]);
+
+    gb2.destroy();
   });
 });

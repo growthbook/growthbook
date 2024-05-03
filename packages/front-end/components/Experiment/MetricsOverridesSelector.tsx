@@ -629,6 +629,23 @@ export default function MetricsOverridesSelector({
               onChange={(m) => setSelectedMetricId(m)}
               initialOption="Choose Metric..."
               disabled={disabled}
+              onPaste={(e) => {
+                try {
+                  const clipboard = e.clipboardData;
+                  const data = JSON.parse(clipboard.getData("Text"));
+                  if (data.every((d) => d.startsWith("met_"))) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    data.forEach((d) => {
+                      metricOverrides.append({
+                        id: d,
+                      });
+                    });
+                  }
+                } catch (e) {
+                  // fail silently
+                }
+              }}
             />
           </div>
           <div className="col-auto">
