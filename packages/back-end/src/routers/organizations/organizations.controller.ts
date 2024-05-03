@@ -1448,7 +1448,8 @@ export async function postApiKey(
   }>,
   res: Response
 ) {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   const {
     description = "",
     environment = "",
@@ -1476,7 +1477,9 @@ export async function postApiKey(
   if (secret) {
     if (type !== "user") {
       // All access token types except `user` require the permission
-      req.checkPermissions("manageApiKeys");
+      if (!context.permissions.canCreateApiKey()) {
+        context.permissions.throwPermissionError();
+      }
     }
   } else {
     req.checkPermissions("manageEnvironments", project, [environment]);
@@ -1489,7 +1492,6 @@ export async function postApiKey(
         "Cannot create user personal access token without a user ID"
       );
     }
-
     const key = await createUserPersonalAccessApiKey({
       description,
       userId: userId,
@@ -1559,7 +1561,9 @@ export async function deleteApiKey(
   if (keyObj.secret) {
     if (!keyObj.userId) {
       // If there is no userId, this is an API Key, so we check permissions.
-      req.checkPermissions("manageApiKeys");
+      if (!context.permissions.canDeleteApiKey()) {
+        context.permissions.throwPermissionError();
+      }
       // Otherwise, this is a Personal Access Token (PAT) - users can delete only their own PATs regardless of permission level.
     } else if (keyObj.userId !== userId) {
       throw new Error("You do not have permission to delete this.");
@@ -1583,7 +1587,8 @@ export async function postApiKeyReveal(
   req: AuthRequest<{ id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.body;
 
   const key = await getUnredactedSecretKey(org.id, id);
@@ -1595,7 +1600,9 @@ export async function postApiKeyReveal(
 
   if (!key.userId) {
     // Only admins can reveal non-user keys
-    req.checkPermissions("manageApiKeys");
+    if (!context.permissions.canCreateApiKey()) {
+      context.permissions.throwPermissionError();
+    }
   } else {
     // This is a user key
     // The key must be owned by the user requesting to reveal it
@@ -2056,12 +2063,17 @@ export async function putLicenseKey(
   req: AuthRequest<{ licenseKey: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+
+  const { org } = context;
   const orgId = org?.id;
   if (!orgId) {
     throw new Error("Must be part of an organization");
   }
-  req.checkPermissions("manageBilling");
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
 
   const licenseKey = req.body.licenseKey.trim();
   if (!licenseKey) {
