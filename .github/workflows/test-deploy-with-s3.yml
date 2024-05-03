@@ -84,15 +84,7 @@ jobs:
           project: vmp2ssvj9r
           tags: |
             growthbook/growthbook:deploy-with-s3-test-cloud
-          platforms: linux/amd64,linux/arm64
-
-      - name: Determine if with load it gets the right docker layer
-        run: |
-          docker pull growthbook/growthbook:deploy-with-s3-test-cloud
-          docker history growthbook/growthbook:deploy-with-s3-test-cloud
-          docker create --name temp-container growthbook/growthbook:deploy-with-s3-test-cloud
-          docker cp temp-container:/usr/local/src/app/packages/front-end/.next/static ./static
-          ls -la ./static
+          platforms: linux/amd64
 
   # Deploy the back-end for GrowthBook Cloud
   prod:
