@@ -55,6 +55,14 @@ export class Permissions {
     return this.checkGlobalPermission("createDimensions");
   };
 
+  public canCreateAndUpdateTag = (): boolean => {
+    return this.checkGlobalPermission("manageTags");
+  };
+
+  public canDeleteTag = (): boolean => {
+    return this.checkGlobalPermission("manageTags");
+  };
+
   public canManageBilling = (): boolean => {
     return this.checkGlobalPermission("manageBilling");
   };
