@@ -30,6 +30,7 @@ import FeatureModal from "@/components/Features/FeatureModal";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import { FeatureTab } from "@/pages/features/[fid]";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function FeaturesHeader({
   feature,
@@ -64,6 +65,7 @@ export default function FeaturesHeader({
 
   const { organization } = useUser();
   const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
@@ -88,7 +90,7 @@ export default function FeaturesHeader({
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
 
-  const canEdit = permissions.check("manageFeatures", projectId);
+  const canEdit = permissionsUtil.canViewFeatureModal(projectId);
   const enabledEnvs = getEnabledEnvironments(feature, environments);
   const isArchived = feature.archived;
 
