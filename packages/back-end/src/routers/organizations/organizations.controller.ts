@@ -1283,7 +1283,7 @@ export async function putOrganization(
         }
       } else if (k === "namespaces") {
         throw new Error(
-          "Not supported: Updating organization attributes not supported via this route."
+          "Not supported: Updating namespaces not supported via this route."
         );
       } else {
         if (!context.permissions.canManageOrgSettings()) {
