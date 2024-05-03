@@ -13,11 +13,11 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import { GBAddCircle } from "@/components/Icons";
-import usePermissions from "@/hooks/usePermissions";
 import Code, { Language } from "@/components/SyntaxHighlighting/Code";
 import { hasFileConfig, storeSegmentsInMongo } from "@/services/env";
 import { DocLink } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const SegmentPage: FC = () => {
   const {
@@ -29,17 +29,13 @@ const SegmentPage: FC = () => {
     mutateDefinitions: mutate,
   } = useDefinitions();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
-  function canAddEditRemoveSegments(): boolean {
-    if (!permissions.createSegments) {
-      return false;
-    }
+  const hasCreatePermission = permissionsUtil.canCreateSegment();
+  let canStoreSegmentsInMongo = false;
 
-    if (hasFileConfig() && !storeSegmentsInMongo()) {
-      return false;
-    }
-    return true;
+  if (!hasFileConfig() || (hasFileConfig() && storeSegmentsInMongo())) {
+    canStoreSegmentsInMongo = true;
   }
 
   const [
@@ -212,7 +208,7 @@ const SegmentPage: FC = () => {
           <h1>Segments</h1>
         </div>
         <div style={{ flex: 1 }}></div>
-        {canAddEditRemoveSegments() && (
+        {hasCreatePermission && canStoreSegmentsInMongo && (
           <div className="col-auto">
             <Button
               color="primary"
@@ -253,8 +249,8 @@ const SegmentPage: FC = () => {
                   <th className="d-none d-sm-table-cell">Data Source</th>
                   <th className="d-none d-md-table-cell">Identifier Type</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
-                  {canAddEditRemoveSegments() && <th>Date Updated</th>}
-                  {canAddEditRemoveSegments() && <th></th>}
+                  <th>Date Updated</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -300,11 +296,10 @@ const SegmentPage: FC = () => {
                           expandable={true}
                         />
                       </td>
-                      {canAddEditRemoveSegments() && (
-                        <td>{ago(s.dateUpdated || "")}</td>
-                      )}
-                      {canAddEditRemoveSegments() && (
-                        <td>
+                      <td>{s.dateUpdated ? ago(s.dateUpdated) : ""}</td>
+                      <td>
+                        {permissionsUtil.canUpdateSegment() &&
+                        canStoreSegmentsInMongo ? (
                           <a
                             href="#"
                             className="tr-hover text-primary mr-3"
@@ -316,6 +311,9 @@ const SegmentPage: FC = () => {
                           >
                             <FaPencilAlt />
                           </a>
+                        ) : null}
+                        {permissionsUtil.canDeleteSegment() &&
+                        canStoreSegmentsInMongo ? (
                           <DeleteButton
                             link={true}
                             className={"tr-hover text-primary"}
@@ -333,8 +331,8 @@ const SegmentPage: FC = () => {
                               await mutate({});
                             }}
                           />
-                        </td>
-                      )}
+                        ) : null}
+                      </td>
                     </tr>
                   );
                 })}
@@ -346,7 +344,7 @@ const SegmentPage: FC = () => {
       {segments.length === 0 && !hasFileConfig() && (
         <div className="alert alert-info">
           You don&apos;t have any segments defined yet.{" "}
-          {permissions.createSegments &&
+          {hasCreatePermission &&
             "Click the button above to create your first one."}
         </div>
       )}
@@ -355,7 +353,7 @@ const SegmentPage: FC = () => {
           You don&apos;t have any segments defined yet. You can add them to your{" "}
           <code>config.yml</code> file and remove the{" "}
           <code>STORE_SEGMENTS_IN_MONGO</code> environment variable
-          {permissions.createSegments &&
+          {hasCreatePermission &&
             " or click the button above to create your first one"}
           . <DocLink docSection="config_yml">View Documentation</DocLink>
         </div>

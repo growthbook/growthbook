@@ -10,6 +10,7 @@ import { getAllMetricRegressionAdjustmentStatuses } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
+import { DataSourceInterface } from "@back-end/types/datasource";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
@@ -100,6 +101,7 @@ import {
   findURLRedirectsByExperiment,
   syncURLRedirectsWithVariations,
 } from "../models/UrlRedirectModel";
+import { logger } from "../util/logger";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -435,6 +437,7 @@ export async function postExperiments(
     {
       allowDuplicateTrackingKey?: boolean;
       originalId?: string;
+      autoRefreshResults?: boolean;
     }
   >,
   res: Response<
@@ -450,10 +453,13 @@ export async function postExperiments(
   const data = req.body;
   data.organization = org.id;
 
-  req.checkPermissions("createAnalyses", data.project);
+  if (!context.permissions.canCreateExperiment(data)) {
+    context.permissions.throwPermissionError();
+  }
 
+  let datasource: DataSourceInterface | null = null;
   if (data.datasource) {
-    const datasource = await getDataSourceById(context, data.datasource);
+    datasource = await getDataSourceById(context, data.datasource);
     if (!datasource) {
       res.status(403).json({
         status: 403,
@@ -600,6 +606,29 @@ export async function postExperiments(
       }
     }
 
+    if (
+      datasource &&
+      req.query.autoRefreshResults &&
+      experiment.metrics.length > 0
+    ) {
+      // This is doing an expensive analytics SQL query, so may take a long time
+      // Set timeout to 30 minutes
+      req.setTimeout(30 * 60 * 1000);
+
+      try {
+        await createExperimentSnapshot({
+          context,
+          experiment,
+          datasource,
+          dimension: "",
+          phase: 0,
+          useCache: true,
+        });
+      } catch (e) {
+        logger.error(e, "Failed to auto-refresh imported experiment");
+      }
+    }
+
     await req.audit({
       event: "experiment.create",
       entity: {
@@ -671,7 +700,9 @@ export async function postExperiment(
     return;
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
+    context.permissions.throwPermissionError();
+  }
 
   if (data.datasource) {
     const datasource = await getDataSourceById(context, data.datasource);
@@ -921,7 +952,9 @@ export async function postExperimentArchive(
     return;
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -985,7 +1018,9 @@ export async function postExperimentUnarchive(
     return;
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+    context.permissions.throwPermissionError();
+  }
 
   changes.archived = false;
 
@@ -1041,7 +1076,10 @@ export async function postExperimentStatus(
   if (experiment.organization !== org.id) {
     throw new Error("You do not have access to this experiment");
   }
-  req.checkPermissions("createAnalyses", experiment.project);
+
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -1148,7 +1186,10 @@ export async function postExperimentStop(
     });
     return;
   }
-  req.checkPermissions("createAnalyses", experiment.project);
+
+  if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -1236,7 +1277,9 @@ export async function deleteExperimentPhase(
     return;
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -1303,7 +1346,9 @@ export async function putExperimentPhase(
     throw new Error("Invalid phase");
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -1383,7 +1428,9 @@ export async function postExperimentTargeting(
     return;
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -1497,7 +1544,9 @@ export async function postExperimentPhase(
     });
     return;
   }
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -1610,7 +1659,9 @@ export async function deleteExperiment(
     return;
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canDeleteExperiment(experiment)) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
@@ -1678,36 +1729,28 @@ export async function cancelSnapshot(
 
   res.status(200).json({ status: 200 });
 }
-export async function postSnapshot(
-  req: AuthRequest<
-    {
-      phase: number;
-      dimension?: string;
-      users?: number[];
-      metrics?: { [key: string]: MetricStats[] };
-    },
-    { id: string },
-    { force?: string }
-  >,
-  res: Response
-) {
-  const context = getContextFromReq(req);
-  const { org } = context;
-  const { id } = req.params;
-  const experiment = await getExperimentById(context, id);
 
-  if (!experiment) {
-    res.status(404).json({
-      status: 404,
-      message: "Experiment not found",
-    });
-    return;
-  }
-
+async function createExperimentSnapshot({
+  context,
+  experiment,
+  datasource,
+  dimension,
+  phase,
+  useCache = true,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  datasource: DataSourceInterface;
+  dimension: string | undefined;
+  phase: number;
+  useCache?: boolean;
+}) {
   let project = null;
   if (experiment.project) {
     project = await findProjectById(context, experiment.project);
   }
+
+  const { org } = context;
   const orgSettings: OrganizationSettings = org.settings as OrganizationSettings;
   const { settings } = getScopedSettings({
     organization: org,
@@ -1715,7 +1758,6 @@ export async function postSnapshot(
     experiment,
   });
   const statsEngine = settings.statsEngine.value;
-  const { phase, dimension } = req.body;
 
   const allExperimentMetricIds = uniq([
     ...experiment.metrics,
@@ -1734,7 +1776,6 @@ export async function postSnapshot(
       denominatorMetricIds.map((m) => getMetricById(context, m))
     )
   ).filter(Boolean) as MetricInterface[];
-  const datasource = await getDataSourceById(context, experiment.datasource);
 
   const {
     metricRegressionAdjustmentStatuses,
@@ -1751,20 +1792,6 @@ export async function postSnapshot(
     hasRegressionAdjustmentFeature: true,
   });
 
-  if (!experiment.phases[phase]) {
-    res.status(404).json({
-      status: 404,
-      message: "Phase not found",
-    });
-    return;
-  }
-
-  const useCache = !req.query["force"];
-
-  // This is doing an expensive analytics SQL query, so may take a long time
-  // Set timeout to 30 minutes
-  req.setTimeout(30 * 60 * 1000);
-
   const analysisSettings = getDefaultExperimentAnalysisSettings(
     statsEngine,
     experiment,
@@ -1776,12 +1803,88 @@ export async function postSnapshot(
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
+  const queryRunner = await createSnapshot({
+    experiment,
+    context,
+    phaseIndex: phase,
+    useCache,
+    defaultAnalysisSettings: analysisSettings,
+    additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
+      analysisSettings,
+      experiment
+    ),
+    metricRegressionAdjustmentStatuses:
+      metricRegressionAdjustmentStatuses || [],
+    metricMap,
+    factTableMap,
+  });
+  const snapshot = queryRunner.model;
+
+  return snapshot;
+}
+
+export async function postSnapshot(
+  req: AuthRequest<
+    {
+      phase: number;
+      dimension?: string;
+      users?: number[];
+      metrics?: { [key: string]: MetricStats[] };
+    },
+    { id: string },
+    { force?: string }
+  >,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id } = req.params;
+  const { phase, dimension } = req.body;
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  if (!experiment.phases[phase]) {
+    res.status(404).json({
+      status: 404,
+      message: "Phase not found",
+    });
+    return;
+  }
+
   // Manual snapshot
   if (!experiment.datasource) {
     const { users, metrics } = req.body;
     if (!users || !metrics) {
       throw new Error("Missing users and metric data");
     }
+
+    let project = null;
+    if (experiment.project) {
+      project = await findProjectById(context, experiment.project);
+    }
+    const { settings } = getScopedSettings({
+      organization: org,
+      project: project ?? undefined,
+      experiment,
+    });
+    const statsEngine = settings.statsEngine.value;
+
+    const analysisSettings = getDefaultExperimentAnalysisSettings(
+      statsEngine,
+      experiment,
+      org,
+      false,
+      dimension
+    );
+
+    const metricMap = await getMetricMap(context);
 
     try {
       const snapshot = await createManualSnapshot({
@@ -1822,23 +1925,26 @@ export async function postSnapshot(
     }
   }
 
+  const datasource = await getDataSourceById(context, experiment.datasource);
+  if (!datasource) {
+    throw new Error("Could not find datasource for this experiment");
+  }
+
+  const useCache = !req.query["force"];
+
+  // This is doing an expensive analytics SQL query, so may take a long time
+  // Set timeout to 30 minutes
+  req.setTimeout(30 * 60 * 1000);
+
   try {
-    const queryRunner = await createSnapshot({
-      experiment,
+    const snapshot = await createExperimentSnapshot({
       context,
-      phaseIndex: phase,
+      experiment,
+      datasource,
+      dimension,
+      phase,
       useCache,
-      defaultAnalysisSettings: analysisSettings,
-      additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
-        analysisSettings,
-        experiment
-      ),
-      metricRegressionAdjustmentStatuses:
-        metricRegressionAdjustmentStatuses || [],
-      metricMap,
-      factTableMap,
     });
-    const snapshot = queryRunner.model;
 
     await req.audit({
       event: "experiment.refresh",
@@ -1963,7 +2069,9 @@ export async function deleteScreenshot(
     return;
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+    context.permissions.throwPermissionError();
+  }
 
   if (!experiment.variations[variation]) {
     res.status(404).json({
@@ -2034,7 +2142,10 @@ export async function addScreenshot(
     });
     return;
   }
-  req.checkPermissions("createAnalyses", experiment.project);
+
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+    context.permissions.throwPermissionError();
+  }
 
   if (!experiment.variations[variation]) {
     res.status(404).json({
@@ -2137,31 +2248,36 @@ export async function getPastExperimentsList(
   const experimentMap = new Map<string, string>();
   (experiments || []).forEach((e) => {
     experimentMap.set(e.trackingKey, e.id);
+    experimentMap.set(e.trackingKey + "::" + e.exposureQueryId, e.id);
   });
 
   const trackingKeyMap: Record<string, string> = {};
   (pastExperiments.experiments || []).forEach((e) => {
-    const id = experimentMap.get(e.trackingKey);
-    if (id) {
-      trackingKeyMap[e.trackingKey] = id;
-    }
+    const keys = [e.trackingKey, e.trackingKey + "::" + e.exposureQueryId];
+    keys.forEach((key) => {
+      const id = experimentMap.get(key);
+      if (id) {
+        trackingKeyMap[key] = id;
+      }
+    });
   });
 
   res.status(200).json({
     status: 200,
     experiments: pastExperiments,
     existing: trackingKeyMap,
+    lookbackDays: IMPORT_LIMIT_DAYS,
   });
 }
 
 //experiments/import, sent here right after "add experiment"
 export async function postPastExperiments(
-  req: AuthRequest<{ datasource: string; force: boolean }>,
+  req: AuthRequest<{ datasource: string; force: boolean; refresh?: boolean }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { datasource, force } = req.body;
+  const { datasource, force, refresh } = req.body;
 
   const integration = await getIntegrationFromDatasourceId(
     context,
@@ -2177,7 +2293,6 @@ export async function postPastExperiments(
   const start = new Date();
   start.setDate(start.getDate() - IMPORT_LIMIT_DAYS);
 
-  let needsRun = false;
   if (!pastExperiments) {
     pastExperiments = await createPastExperiments({
       organization: org.id,
@@ -2186,14 +2301,17 @@ export async function postPastExperiments(
       start,
       queries: [],
     });
-    needsRun = true;
   }
 
+  let needsRun = false;
   if (force) {
     needsRun = true;
     pastExperiments = await updatePastExperiments(pastExperiments, {
       config: {
-        start,
+        start:
+          !refresh && pastExperiments.config
+            ? pastExperiments.config.start
+            : start,
         end: new Date(),
       },
     });
@@ -2207,6 +2325,7 @@ export async function postPastExperiments(
     );
     pastExperiments = await queryRunner.startAnalysis({
       from: start,
+      forceRefresh: !!refresh,
     });
   }
 
