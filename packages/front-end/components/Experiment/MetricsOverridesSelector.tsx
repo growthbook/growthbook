@@ -2,7 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useFieldArray, UseFormReturn } from "react-hook-form";
 import { FaTimes } from "react-icons/fa";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
+import {
+  DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+} from "shared/constants";
 import { isUndefined } from "lodash";
 import {
   getConversionWindowHours,
@@ -105,6 +108,18 @@ export default function MetricsOverridesSelector({
           const metricDefinition = allMetricDefinitions.find(
             (md) => md.id === mo.id
           );
+
+          const defaultPriorSource = metricDefinition?.priorSettings.override
+            ? "metric"
+            : "organization";
+          const defaultPriorSettings = metricDefinition?.priorSettings.override
+            ? metricDefinition.priorSettings
+            : settings.metricDefaults?.priorSettings ?? {
+                override: false,
+                proper: false,
+                mean: 0,
+                stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+              };
 
           const hasRegressionAdjustmentFeature = hasCommercialFeature(
             "regression-adjustment"
@@ -445,6 +460,126 @@ export default function MetricsOverridesSelector({
                         <div className="col text-danger small">{riskError}</div>
                       </div>
                     )}
+                  </div>
+                </div>
+
+                <div className="row mt-1">
+                  <div className="col">
+                    <span className="uppercase-title">Bayesian Priors</span>{" "}
+                    <span className="small text-muted">(Bayesian only)</span>
+                  </div>
+                </div>
+
+                <div className="row">
+                  <div className="col border mx-1 mt-1 mb-2 px-2 py-1 rounded">
+                    <div className="form-inline my-1">
+                      <input
+                        type="checkbox"
+                        className="form-check-input"
+                        {...form.register(
+                          `metricOverrides.${i}.properPriorOverride`
+                        )}
+                        id={`toggle-priorOverride_${i}`}
+                        disabled={!hasRegressionAdjustmentFeature}
+                      />
+                      <label
+                        className="small mr-1 cursor-pointer"
+                        htmlFor={`toggle-priorOverride_${i}`}
+                      >
+                        Override metric-level settings
+                      </label>
+                    </div>
+                    <div
+                      style={{
+                        display: form.watch(
+                          `metricOverrides.${i}.properPriorOverride`
+                        )
+                          ? "block"
+                          : "none",
+                      }}
+                    >
+                      <div className="d-flex my-2 border-bottom"></div>
+                      <div className="form-group mt-1 mb-2 mr-2 form-inline">
+                        <label
+                          className="mr-1 small"
+                          htmlFor={`toggle-properPrior_${i}`}
+                        >
+                          Use proper prior for this metric
+                        </label>
+                        <Toggle
+                          id={`toggle-properPrior_${i}`}
+                          value={
+                            !!form.watch(
+                              `metricOverrides.${i}.properPriorEnabled`
+                            )
+                          }
+                          setValue={(v) =>
+                            form.setValue(
+                              `metricOverrides.${i}.properPriorEnabled`,
+                              v
+                            )
+                          }
+                        />
+                        <div className="small">
+                          <small className="form-text text-muted">
+                            <>
+                              {`(${defaultPriorSource} default: `}
+                              {defaultPriorSettings.proper ? "On" : "Off"}
+                              {")"}
+                            </>
+                          </small>
+                        </div>
+                      </div>
+                    </div>
+                    {(defaultPriorSettings.proper &&
+                      !form.watch(
+                        `metricOverrides.${i}.properPriorOverride`
+                      )) ||
+                    !!form.watch(`metricOverrides.${i}.properPriorEnabled`) ? (
+                      <>
+                        <div className="row">
+                          <div className="col">
+                            <Field
+                              label="Prior Mean"
+                              type="number"
+                              step="any"
+                              placeholder="default"
+                              containerClassName="small mb-0 mt-0"
+                              helpText={
+                                <>{`${defaultPriorSource} default: ${defaultPriorSettings.mean}`}</>
+                              }
+                              {...form.register(
+                                `metricOverrides.${i}.properPriorMean`,
+                                {
+                                  valueAsNumber: true,
+                                }
+                              )}
+                            />
+                          </div>
+                          <div className="col">
+                            <Field
+                              label="Prior Standard Deviation"
+                              type="number"
+                              step="any"
+                              placeholder="default"
+                              containerClassName="small mb-0 mt-0"
+                              helpText={
+                                <>{`${defaultPriorSource} default: ${defaultPriorSettings.stddev}`}</>
+                              }
+                              {...form.register(
+                                `metricOverrides.${i}.properPriorStdDev`,
+                                {
+                                  valueAsNumber: true,
+                                  validate: (v) => {
+                                    return !((v ?? 0) <= 0);
+                                  },
+                                }
+                              )}
+                            />
+                          </div>
+                        </div>
+                      </>
+                    ) : null}
                   </div>
                 </div>
 

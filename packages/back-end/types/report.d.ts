@@ -71,6 +71,7 @@ export interface ExperimentReportArgs {
   statsEngine?: StatsEngine;
   regressionAdjustmentEnabled?: boolean;
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
+  useLatestPriorSettings?: boolean;
   defaultMetricPriorSettings?: MetricPriorSettings;
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
@@ -95,8 +96,8 @@ export interface ExperimentReportInterface extends ReportInterfaceBase {
 
 export type ReportInterface = ExperimentReportInterface;
 
-export interface LegacyReportInterface extends ReportInterface {
+export type LegacyReportInterface = ReportInterface & {
   args: ExperimentReportArgs & {
     metricRegressionAdjustmentStatuses?: LegacyMetricRegressionAdjustmentStatus[];
   };
-}
+};

@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { FormProvider, useFieldArray, useForm } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 import { MetricSnapshotSettings, ReportInterface } from "back-end/types/report";
 import { FaQuestionCircle } from "react-icons/fa";
 import {
@@ -36,7 +36,8 @@ import SelectField from "@/components/Forms/SelectField";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 import MetricSelector from "@/components/Experiment/MetricSelector";
-import BayesianPriorSettings from "@/components/Settings/BayesianPriorSettings";
+import Toggle from "@/components/Forms/Toggle";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function ConfigureReport({
   report,
@@ -120,6 +121,7 @@ export default function ConfigureReport({
         ? getValidDate(report.args.endDate).toISOString().substr(0, 16)
         : undefined,
       statsEngine: report.args.statsEngine || parentSettings.statsEngine.value,
+      useLatestPriorSettings: report.args.useLatestPriorSettings || false,
       regressionAdjustmentEnabled:
         (hasRegressionAdjustmentFeature &&
           report.args.regressionAdjustmentEnabled) ??
@@ -580,14 +582,26 @@ export default function ConfigureReport({
         </>
       )}
       {form.watch("statsEngine") === "bayesian" && (
-        <FormProvider {...form}>
-          <div className="mb-3 ml-1">
-            <BayesianPriorSettings
-              defaultMean={orgSettings.metricDefaults?.priorSettings?.mean}
-              defaultStdDev={orgSettings.metricDefaults?.priorSettings?.stddev}
-            />
-          </div>
-        </FormProvider>
+        <div className="align-items-center">
+          <label
+            className="ml-1 mr-1 mb-3 font-weight-bold"
+            htmlFor="useLatestPriorSettings"
+          >
+            Use latest metric prior settings{" "}
+            <Tooltip
+              body={
+                "Enabling this ensures the report uses the latest priors set for your organization and metrics. You can disable it to freeze the priors for this report and keep them from changing when metric definitions change."
+              }
+            >
+              <FaQuestionCircle />
+            </Tooltip>
+          </label>
+          <Toggle
+            id="useLatestPriorSettings"
+            value={form.watch("useLatestPriorSettings")}
+            setValue={(v) => form.setValue("useLatestPriorSettings", v)}
+          />
+        </div>
       )}
 
       {datasourceProperties?.queryLanguage === "sql" && (

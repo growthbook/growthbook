@@ -218,7 +218,6 @@ export function getMetricForSnapshot(
           metric.windowSettings.windowValue ??
           DEFAULT_METRIC_WINDOW_HOURS,
       },
-      // TODO allow for metric prior overrides by experiment
       properPrior: metricSnapshotSettings?.properPrior ?? false,
       properPriorMean: metricSnapshotSettings?.properPriorMean ?? 0,
       properPriorStdDev:

@@ -25,6 +25,13 @@ export default function genMetricOverrideResolver(
         : null;
     } else if (fieldName == "windowType") {
       metricValue = ctx.scopes?.metric?.windowSettings?.type;
+    } else if (
+      fieldName === "properPriorOverride" ||
+      fieldName === "properPriorEnabled" ||
+      fieldName === "properPriorMean" ||
+      fieldName === "properPriorStdDev"
+    ) {
+      // TODO
     } else {
       metricValue = ctx.scopes?.metric?.[fieldName];
     }

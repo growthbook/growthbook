@@ -133,16 +133,25 @@ const MetricTooltipBody = ({
     },
   ];
 
-  if (statsEngine === "bayesian" && row?.metricSnapshotSettings?.properPrior) {
+  if (statsEngine === "bayesian") {
     metricInfo.push({
       show: true,
       label: "Bayesian Prior",
-      body: `Mean: ${
-        row?.metricSnapshotSettings?.properPriorMean ?? 0
-      }, Std. Dev.: ${
-        row?.metricSnapshotSettings?.properPriorStdDev ??
-        DEFAULT_PROPER_PRIOR_STDDEV
-      }`,
+      body: (
+        <>
+          {row?.metricSnapshotSettings?.properPrior
+            ? `Mean: ${
+                row?.metricSnapshotSettings?.properPriorMean ?? 0
+              }, Std. Dev.: ${
+                row?.metricSnapshotSettings?.properPriorStdDev ??
+                DEFAULT_PROPER_PRIOR_STDDEV
+              }`
+            : "disabled"}
+          {metricOverrideFields.includes("prior") ? (
+            <small className="text-purple ml-1">(override)</small>
+          ) : null}
+        </>
+      ),
     });
   }
 

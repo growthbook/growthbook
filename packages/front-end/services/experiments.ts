@@ -205,6 +205,17 @@ export function applyMetricOverrides<T extends ExperimentMetricInterface>(
         overrideFields.push("regressionAdjustmentDays");
       }
     }
+
+    if (metricOverride?.properPriorOverride) {
+      newMetric.priorSettings.override = true;
+      newMetric.priorSettings.proper =
+        metricOverride.properPriorEnabled ?? newMetric.priorSettings.proper;
+      newMetric.priorSettings.mean =
+        metricOverride.properPriorMean ?? newMetric.priorSettings.mean;
+      newMetric.priorSettings.stddev =
+        metricOverride.properPriorStdDev ?? newMetric.priorSettings.stddev;
+      overrideFields.push("prior");
+    }
   }
   return { newMetric, overrideFields };
 }

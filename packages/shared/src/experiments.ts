@@ -176,9 +176,35 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
     }
   }
 
-  // get RA settings from metric override
+  // start with default prior settings
+  const metricPriorSettings = {
+    properPrior: false,
+    properPriorMean: 0,
+    properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
+  };
+
+  // get prior settings from organization
+  if (organizationSettings?.metricDefaults?.priorSettings) {
+    metricPriorSettings.properPrior =
+      organizationSettings.metricDefaults.priorSettings.proper;
+    metricPriorSettings.properPriorMean =
+      organizationSettings.metricDefaults.priorSettings.mean;
+    metricPriorSettings.properPriorStdDev =
+      organizationSettings.metricDefaults.priorSettings.stddev;
+  }
+
+  // get prior settings from metric
+  if (metric.priorSettings.override) {
+    metricPriorSettings.properPrior = metric.priorSettings.proper;
+    metricPriorSettings.properPriorMean = metric.priorSettings.mean;
+    metricPriorSettings.properPriorStdDev = metric.priorSettings.stddev;
+  }
+
+  // get RA and prior settings from metric override
   if (metricOverrides) {
     const metricOverride = metricOverrides.find((mo) => mo.id === metric.id);
+
+    // RA override
     if (metricOverride?.regressionAdjustmentOverride) {
       regressionAdjustmentEnabled = !!metricOverride?.regressionAdjustmentEnabled;
       regressionAdjustmentDays =
@@ -196,9 +222,20 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
         regressionAdjustmentReason = "";
       }
     }
+
+    // prior override
+    if (metricOverride?.properPriorOverride) {
+      metricPriorSettings.properPrior =
+        metricOverride?.properPriorEnabled ?? metricPriorSettings.properPrior;
+      metricPriorSettings.properPriorMean =
+        metricOverride?.properPriorMean ?? metricPriorSettings.properPriorMean;
+      metricPriorSettings.properPriorStdDev =
+        metricOverride?.properPriorStdDev ??
+        metricPriorSettings.properPriorStdDev;
+    }
   }
 
-  // final gatekeeping
+  // final gatekeeping for RA
   if (regressionAdjustmentEnabled) {
     if (metric && isFactMetric(metric) && isRatioMetric(metric)) {
       // is this a fact ratio metric?
@@ -241,22 +278,7 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
     newMetric,
     metricSnapshotSettings: {
       metric: newMetric.id,
-      ...(metric.priorSettings.override
-        ? {
-            properPrior: metric.priorSettings.proper,
-            properPriorMean: metric.priorSettings.mean,
-            properPriorStdDev: metric.priorSettings.stddev,
-          }
-        : {
-            properPrior:
-              organizationSettings?.metricDefaults?.priorSettings?.proper ??
-              false,
-            properPriorMean:
-              organizationSettings?.metricDefaults?.priorSettings?.mean ?? 0,
-            properPriorStdDev:
-              organizationSettings?.metricDefaults?.priorSettings?.stddev ??
-              DEFAULT_PROPER_PRIOR_STDDEV,
-          }),
+      ...metricPriorSettings,
       regressionAdjustmentEnabled,
       regressionAdjustmentAvailable,
       regressionAdjustmentDays,
