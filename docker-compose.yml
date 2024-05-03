@@ -8,7 +8,7 @@ services:
     volumes:
       - mongodata:/data/db
   growthbook:
-    image: "growthbook/growthbook:deploy-with-s3-test"
+    image: "growthbook/growthbook:deploy-with-s3-test-cloud"
     ports:
       - "3000:3000"
       - "3100:3100"

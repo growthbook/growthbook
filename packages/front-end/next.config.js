@@ -14,6 +14,15 @@ if (fs.existsSync(path.join(rootPath, "buildinfo", "DATE"))) {
     .toString();
 }
 
+fs.writeFileSync(
+  path.join(__dirname, "styles", "variables.scss"),
+  `$public-asset-prefix: "${
+    process.env.USE_REMOTE_ASSETS
+      ? `https://growthbook-cloud-static-files.s3.amazonaws.com/${gitCommitDate}/${gitSha}/public`
+      : ""
+  }";`
+);
+
 const cspHeader = `
     frame-ancestors 'none';
 `;

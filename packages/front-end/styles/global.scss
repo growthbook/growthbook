@@ -10,6 +10,8 @@
 // Bootstrap theme overrides must be loaded AFTER Bootstrap
 @import "_bootstrap-theme-overrides";
 
+@import "variables";
+
 html,
 body,
 #__next,
@@ -1363,7 +1365,8 @@ main.main.report {
     min-height: 100%;
   }
   .ghosted-logo {
-    background: transparent url("/logo/growth-book-logomark-ghosted.png") 50%
+    background: transparent
+      url("#{$public-asset-prefix}/logo/growth-book-logomark-ghosted.png") 50%
       50%;
     background-size: contain;
     background-repeat: no-repeat;
@@ -2371,7 +2374,7 @@ li.metrics a span img {
   .image-blank {
     background-size: contain;
     background: var(--surface-background-color-alt)
-      url("/images/image-blank.png") no-repeat 50% 50%;
+      url("#{$public-asset-prefix}/images/image-blank.png") no-repeat 50% 50%;
     min-height: 200px;
     border-top: 1px solid var(--border-color-300);
     border-bottom: 1px solid var(--border-color-300);
@@ -2753,7 +2756,7 @@ html {
     border-radius: 3px;
 
     & > div {
-      background-image: url("/images/getstarted-explore.svg");
+      background-image: url("#{$public-asset-prefix}/images/getstarted-explore.svg");
       background-repeat: no-repeat;
       background-position: bottom right;
       min-height: 110px;
