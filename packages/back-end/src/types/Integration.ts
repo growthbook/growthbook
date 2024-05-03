@@ -170,6 +170,7 @@ export type DimensionSlicesQueryParams = {
 
 export type PastExperimentParams = {
   from: Date;
+  forceRefresh?: boolean;
 };
 
 export type MetricValueParams = {
@@ -196,6 +197,7 @@ export type MetricValueResult = {
 };
 
 export type PastExperimentResult = {
+  mergeResults: boolean;
   experiments: {
     exposureQueryId: string;
     experiment_id: string;
@@ -205,6 +207,8 @@ export type PastExperimentResult = {
     start_date: Date;
     end_date: Date;
     users: number;
+    latest_data: Date;
+    start_of_range: boolean;
   }[];
 };
 
@@ -249,6 +253,7 @@ export type PastExperimentResponseRows = {
   start_date: string;
   end_date: string;
   users: number;
+  latest_data: string;
 }[];
 
 export type ExperimentMetricQueryResponseRows = {

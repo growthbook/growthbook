@@ -32,7 +32,7 @@
     "@dqbd/tiktoken": "^1.0.7",
     "@google-cloud/bigquery": "5",
     "@google-cloud/storage": "^5.20.5",
-    "@growthbook/growthbook": "^0.36.0",
+    "@growthbook/growthbook": "^1.0.0",
     "@growthbook/proxy-eval": "^1.0.2",
     "@octokit/auth-app": "^6.0.1",
     "@octokit/core": "^5.0.2",
@@ -144,7 +144,7 @@
   "optionalDependencies": {
     "@apidevtools/swagger-parser": "^10.1.0",
     "concurrently": "^7.4.0",
-    "json-schema-to-zod": "^0.6.3",
+    "json-schema-to-zod": "^2.1.0",
     "nodemon": "^2.0.20",
     "objects-to-csv": "^1.3.6",
     "openapi-typescript": "^6.1.1",
