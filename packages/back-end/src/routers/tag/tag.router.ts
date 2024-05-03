@@ -22,20 +22,6 @@ router.post(
   tagController.postTag
 );
 
-router.put(
-  "/",
-  validateRequestMiddleware({
-    body: z
-      .object({
-        id: z.string(),
-        color: z.string(),
-        description: z.string(),
-      })
-      .strict(),
-  }),
-  tagController.postTag
-);
-
 router.delete(
   "/",
   validateRequestMiddleware({

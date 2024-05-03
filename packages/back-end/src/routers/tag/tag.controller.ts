@@ -42,42 +42,6 @@ export const postTag = async (
   });
 };
 
-// endregion PUT /tag
-
-// region PUT /tag
-
-type UpdateTagRequest = AuthRequest<TagInterface>;
-
-type UpdateTagResponse = {
-  status: 200;
-};
-
-/**
- * PUT /tag
- * Create a tag resource
- * @param req
- * @param res
- */
-export const putTag = async (
-  req: UpdateTagRequest,
-  res: Response<UpdateTagResponse>
-) => {
-  const context = getContextFromReq(req);
-
-  if (!context.permissions.canCreateAndUpdateTag()) {
-    context.permissions.throwPermissionError();
-  }
-  const { id, color, description } = req.body;
-
-  await addTag(context.org.id, id, color, description);
-
-  res.status(200).json({
-    status: 200,
-  });
-};
-
-// endregion PUT /tag
-
 // region DELETE /tag/:id
 
 type DeleteTagRequest = AuthRequest<{ id: string }, { id: string }>;
