@@ -30,7 +30,7 @@ export const postTag = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canCreateTag()) {
+  if (!context.permissions.canCreateAndUpdateTag()) {
     context.permissions.throwPermissionError();
   }
   const { id, color, description } = req.body;
@@ -64,7 +64,7 @@ export const putTag = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canUpdateTag()) {
+  if (!context.permissions.canCreateAndUpdateTag()) {
     context.permissions.throwPermissionError();
   }
   const { id, color, description } = req.body;

@@ -36,7 +36,7 @@ const TagsInput: FC<{
   const permissionsUtil = usePermissionsUtil();
   if (!tagOptions) tagOptions = tags;
 
-  if (!permissionsUtil.canCreateTag()) {
+  if (!permissionsUtil.canCreateAndUpdateTag()) {
     creatable = false;
   }
 

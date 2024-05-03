@@ -27,9 +27,7 @@ const TagsPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
 
   const canManageTags =
-    permissionsUtil.canCreateTag() ||
-    permissionsUtil.canUpdateTag() ||
-    permissionsUtil.canDeleteTag();
+    permissionsUtil.canCreateAndUpdateTag() || permissionsUtil.canDeleteTag();
 
   if (!canManageTags) {
     return (
@@ -90,7 +88,7 @@ const TagsPage: FC = () => {
                       <Tag tag={t.id} skipMargin={true} />
                     </td>
                     <td>
-                      {permissionsUtil.canUpdateTag() ? (
+                      {permissionsUtil.canCreateAndUpdateTag() ? (
                         <button
                           className="btn btn-outline-primary tr-hover mr-2"
                           onClick={(e) => {
@@ -132,7 +130,7 @@ const TagsPage: FC = () => {
       ) : (
         <></>
       )}
-      {permissionsUtil.canCreateTag() ? (
+      {permissionsUtil.canCreateAndUpdateTag() ? (
         <button
           className="btn btn-primary"
           onClick={(e) => {

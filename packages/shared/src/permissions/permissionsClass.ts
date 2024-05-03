@@ -55,11 +55,7 @@ export class Permissions {
     return this.checkGlobalPermission("createDimensions");
   };
 
-  public canCreateTag = (): boolean => {
-    return this.checkGlobalPermission("manageTags");
-  };
-
-  public canUpdateTag = (): boolean => {
+  public canCreateAndUpdateTag = (): boolean => {
     return this.checkGlobalPermission("manageTags");
   };
 
