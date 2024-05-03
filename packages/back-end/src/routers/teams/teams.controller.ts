@@ -44,10 +44,13 @@ export const postTeam = async (
   req: CreateTeamRequest,
   res: Response<CreateTeamResponse>
 ) => {
-  const { org, userName } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userName } = context;
   const { name, description, permissions } = req.body;
 
-  req.checkPermissions("manageTeam");
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
 
   const existingTeamWithName = await findTeamByName(name, org.id);
 
@@ -113,11 +116,14 @@ export const updateTeam = async (
   req: PutTeamRequest,
   res: Response<PutTeamResponse>
 ) => {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { name, description, permissions } = req.body;
   const { id } = req.params;
 
-  req.checkPermissions("manageTeam");
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
 
   const team = await findTeamById(id, org.id);
 
@@ -170,10 +176,13 @@ export const deleteTeamById = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<DeleteTeamResponse>
 ) => {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
 
-  req.checkPermissions("manageTeam");
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
 
   const team = await findTeamById(id, org.id);
 
@@ -225,11 +234,14 @@ export const addTeamMembers = async (
   req: AuthRequest<{ members: string[] }, { id: string }>,
   res: Response<DeleteTeamResponse>
 ) => {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
   const { members } = req.body;
 
-  req.checkPermissions("manageTeam");
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
 
   const team = await findTeamById(id, org.id);
 
@@ -281,10 +293,13 @@ export const deleteTeamMember = async (
   req: AuthRequest<null, { id: string; memberId: string }>,
   res: Response<DeleteTeamResponse>
 ) => {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id, memberId } = req.params;
 
-  req.checkPermissions("manageTeam");
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
 
   const team = await findTeamById(id, org.id);
 

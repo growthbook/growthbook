@@ -1,4 +1,20 @@
-import { UrlTarget, UrlTargetType, VariationRange } from "./types/growthbook";
+import {
+  AutoExperiment,
+  AutoExperimentChangeType,
+  Polyfills,
+  UrlTarget,
+  UrlTargetType,
+  VariationRange,
+} from "./types/growthbook";
+
+const polyfills: Polyfills = {
+  fetch: globalThis.fetch ? globalThis.fetch.bind(globalThis) : undefined,
+  SubtleCrypto: globalThis.crypto ? globalThis.crypto.subtle : undefined,
+  EventSource: globalThis.EventSource,
+};
+export function getPolyfills(): Polyfills {
+  return polyfills;
+}
 
 function hashFnv32a(str: string): number {
   let hval = 0x811c9dc5;
@@ -260,7 +276,10 @@ export async function decrypt(
   subtle?: SubtleCrypto
 ): Promise<string> {
   decryptionKey = decryptionKey || "";
-  subtle = subtle || (globalThis.crypto && globalThis.crypto.subtle);
+  subtle =
+    subtle ||
+    (globalThis.crypto && globalThis.crypto.subtle) ||
+    polyfills.SubtleCrypto;
   if (!subtle) {
     throw new Error("No SubtleCrypto implementation found");
   }
@@ -349,4 +368,31 @@ export function mergeQueryStrings(oldUrl: string, newUrl: string): string {
   });
 
   return redirectUrl.toString();
+}
+
+function isObj(x: unknown): x is Record<string, unknown> {
+  return typeof x === "object" && x !== null;
+}
+
+export function getAutoExperimentChangeType(
+  exp: AutoExperiment
+): AutoExperimentChangeType {
+  if (
+    exp.urlPatterns &&
+    exp.variations.some(
+      (variation) => isObj(variation) && "urlRedirect" in variation
+    )
+  ) {
+    return "redirect";
+  } else if (
+    exp.variations.some(
+      (variation) =>
+        isObj(variation) &&
+        (variation.domMutations || "js" in variation || "css" in variation)
+    )
+  ) {
+    return "visual";
+  }
+
+  return "unknown";
 }

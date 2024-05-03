@@ -54,7 +54,7 @@ const IdeaPage = (): ReactElement => {
     getDatasourceById,
   } = useDefinitions();
 
-  const { permissions, getUserDisplay } = useUser();
+  const { getUserDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
   const { apiCall } = useAuth();
@@ -161,7 +161,7 @@ const IdeaPage = (): ReactElement => {
         </div>
         <div className="d-flex align-items-center">
           {!idea.archived &&
-            permissions.check("createAnalyses", idea.project) &&
+            permissionsUtil.canViewExperimentModal(idea.project) &&
             !data.experiment && (
               <div className="col-md-auto">
                 <button
