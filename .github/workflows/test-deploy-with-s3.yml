@@ -77,6 +77,7 @@ jobs:
         uses: depot/build-push-action@v1
         with:
           push: true
+          load: true
           build-args: |
             USE_REMOTE_ASSETS=true
           context: .
@@ -84,6 +85,13 @@ jobs:
           tags: |
             growthbook/growthbook:deploy-with-s3-test-cloud
           platforms: linux/amd64,linux/arm64
+
+      - name: Determine if with load it gets the right docker layer
+        run: |
+          docker pull growthbook/growthbook:deploy-with-s3-test-cloud
+          docker create --name temp-container growthbook/growthbook:deploy-with-s3-test-cloud
+          docker cp temp-container:/usr/local/src/app/packages/front-end/.next/static ./static
+          ls -la ./static
 
   # Deploy the back-end for GrowthBook Cloud
   prod:
