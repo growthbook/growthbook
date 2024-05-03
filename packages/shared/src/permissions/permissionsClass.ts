@@ -107,6 +107,10 @@ export class Permissions {
     return this.checkGlobalPermission("manageNorthStarMetric");
   };
 
+  public canViewEvents = (): boolean => {
+    return this.checkGlobalPermission("viewEvents");
+  };
+
   public canCreateArchetype = (): boolean => {
     return this.checkGlobalPermission("manageArchetype");
   };

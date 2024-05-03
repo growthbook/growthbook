@@ -194,7 +194,7 @@ const navlinks: SidebarLinkProps[] = [
         name: "Logs",
         href: "/events",
         path: /^events/,
-        filter: ({ permissions }) => permissions.check("viewEvents"),
+        filter: ({ permissionsUtils }) => permissionsUtils.canViewEvents(),
       },
       {
         name: "Slack",
