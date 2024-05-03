@@ -575,6 +575,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "compliance",
+          label: "Compliance",
+        },
+        {
+          type: "doc",
           id: "account/audit-logs",
           label: "Audit Logs",
         },
