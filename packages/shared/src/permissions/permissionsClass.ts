@@ -63,6 +63,10 @@ export class Permissions {
     return this.checkGlobalPermission("manageTags");
   };
 
+  public canManageTeam = (): boolean => {
+    return this.checkGlobalPermission("manageTeam");
+  };
+
   public canCreateSegment = (): boolean => {
     return this.checkGlobalPermission("createSegments");
   };

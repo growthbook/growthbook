@@ -10,8 +10,8 @@ import ProjectBadges from "@/components/ProjectBadges";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useEnvironments } from "@/services/features";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const TeamsList: FC = () => {
   const { teams, refreshOrganization } = useUser();
@@ -19,8 +19,8 @@ const TeamsList: FC = () => {
   const router = useRouter();
   const environments = useEnvironments();
   const { apiCall } = useAuth();
-  const permissions = usePermissions();
-  const canManageTeam = permissions.check("manageTeam");
+  const permissionsUtil = usePermissionsUtil();
+  const canManageTeam = permissionsUtil.canManageTeam();
 
   return (
     <div className="mb-4">
