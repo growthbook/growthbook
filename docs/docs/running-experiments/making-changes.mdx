@@ -1,0 +1,62 @@
+---
+title: Making Changes to Experiments
+description: Make targeting and rollout changes to a running experiment
+slug: /app/making-experiment-changes
+---
+
+# Making Changes to Experiments
+
+We allow you make changes to an experiment's targeting while it is running. This is especially useful if you want to start running on a small percent of traffic and then gradually ramp up exposure. To make a change to a running experiment, click the "Make Changes" button on the top of the experiment page.
+
+You will then be asked what sort of change you want to make, with options ranging from targeting changes to traffic and variation weight changes. You may also make multiple changes at once by choosing "advanced".
+
+Based on what you are changing, we will provide a list of possible release plans for that change and provide a recommended plan to use. The UI should guide you to make the correct recommended choice in most cases, but you are able to change this if desired.
+
+When changing a **single targeting or traffic setting**, your release plan options may include:
+
+- New phase, re-randomize traffic
+- Same phase, apply changes to everyone
+- Same phase, apply changes to new traffic only (Sticky Bucketing enabled only)
+
+Note that potentially unsafe options per your specific changes may be removed (often "Same phase" options are unsafe for certain types of changes).
+
+When using **"advanced"** to make multiple targeting or traffic changes at once, all above options will be made available (including potentially unsafe ones), as well as an additional option:
+
+- New Phase, re-randomize traffic, block bucketed users (Sticky Bucketing enabled only)
+
+If you are not making targeting or traffic changes and simply want to **start a new phase**, the release plan options will be:
+
+- New phase, re-randomize traffic
+- New phase, do not re-randomize
+
+#### Update the existing phase
+
+This modifies the experiment in-place without resetting results or re-randomizing users. This provides the best user experience for your users and you can re-use data that was already collected, which can reduce the time the experiment needs to run.
+
+However, if you're not careful, this can introduce significant bias and data quality issues into your results. A few categories of changes are broadly considered "safe" and if you are only making these changes, this is the approach we recommend going with. The "safe" changes are:
+
+- Increasing the percent of people included in the experiment
+- Removing a condition from an experiment (e.g. going from "US visitors only" to "All visitors")
+- Removing an experiment from a namespace
+
+All of these changes have something in common - they are simply increasing the number of users exposed to the experiment. There is no effect on existing users in the experiment.
+
+If you have Sticky Bucketing enabled, you may also elect to apply changes to new traffic only, leaving already-bucketed users in their existing (sticky) buckets. An example of this scenario could be decreasing the percent of people included in the experiment for all new incoming users, but leaving existing users in their existing buckets.
+
+#### Start a new phase
+
+This creates a brand new phase of the experiment. All data collected until this point is excluded from the analysis and you start fresh (nothing is deleted from your data warehouse, we just hide old data from the results).
+
+In most cases, you will also want to re-randomize traffic. This will cause everyone - including existing experiment users - to get assigned a new random variation. This can be a disruptive user experience since many people will switch from Control to Treatment (or vice versa).
+
+Why would you ever want to do this? Some changes you make completely invalidate past results so this lets you cleanly separate the data analysis from before and after you make the change. Re-randomizing traffic can also eliminate [carryover bias](/kb/experiments/carryover-bias) and make your results more reliable and accurate.
+
+We recommend this approach for any change that is not considered "safe" (listed above). This can include (but not limited to):
+
+- Changing the traffic split (weights) between variations
+- Adding a new targeting condition
+- Decreasing the percent of people included
+
+Because of how disruptive this can be, it's best to plan ahead before starting an experiment. It's better to start with more conservative targeting and scale up than the reverse (starting big and scaling back).
+
+As before, if you have Sticky Bucketing enabled, you have some additional options about how to treat already-bucketed users. By default when starting a new phase, these bucketed users will be reassigned (their sticky bucket will be cleared). You may instead choose to block these users from the experiment going forward (in which case they will still see the control). This strategy is only available in the "advanced" mode.

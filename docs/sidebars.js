@@ -96,7 +96,7 @@ const sidebars = {
         {
           type: "doc",
           id: "feature-flag-experiments",
-          label: "Feature Flags",
+          label: "In Code (Feature Flags)",
         },
         {
           type: "doc",
@@ -108,6 +108,11 @@ const sidebars = {
           id: "running-experiments/url-redirects",
           label: "URL Redirects",
           className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "running-experiments/making-changes",
+          label: "Making Changes",
         },
         {
           type: "doc",
@@ -298,7 +303,7 @@ const sidebars = {
         {
           type: "doc",
           id: "experimentation-analysis/experiment-configuration",
-          label: "Experiments (Adding and Configuring)",
+          label: "Experiments (Setup)",
         },
         {
           type: "doc",
@@ -418,7 +423,7 @@ const sidebars = {
     },
     {
       type: "category",
-      label: "Installation Tutorials",
+      label: "Tutorials",
       collapsed: true,
       link: {
         type: "doc",
@@ -471,29 +476,6 @@ const sidebars = {
     },
     {
       type: "category",
-      label: "Tools",
-      collapsed: true,
-      items: [
-        {
-          type: "doc",
-          id: "tools/chrome-extension",
-          label: "Chrome Extension",
-        },
-        {
-          type: "doc",
-          id: "tools/vscode-extension",
-          label: "Visual Studio Code Extension",
-        },
-        {
-          type: "doc",
-          id: "tools/cli",
-          className: "pill-new",
-          label: "Command Line Interface (CLI)",
-        },
-      ],
-    },
-    {
-      type: "category",
       label: "Integrations",
       collapsed: true,
       items: [
@@ -509,37 +491,50 @@ const sidebars = {
           label: "Discord alerts",
           className: "pill-new",
         },
-        { type: "doc", id: "sso", label: "SSO" },
         {
           type: "doc",
           id: "integrations/datadog",
           label: "DataDog",
-          className: "pill-new",
-        },
-        {
-          type: "doc",
-          id: "integrations/scim",
-          label: "SCIM",
-          className: "pill-new",
         },
         {
           type: "doc",
           id: "integrations/github-metrics",
           label: "GitHub (Metric Definitions)",
+        },
+        {
+          type: "doc",
+          id: "tools/chrome-extension",
+          label: "Chrome Extension",
+        },
+        {
+          type: "doc",
+          id: "tools/vscode-extension",
+          label: "VS Code Extension",
+        },
+        {
+          type: "doc",
+          id: "tools/cli",
           className: "pill-new",
+          label: "GrowthBook CLI",
         },
       ],
     },
     { type: "doc", id: "faq", label: "FAQ" },
     {
       type: "category",
-      label: "Account",
+      label: "Security",
       collapsed: true,
       items: [
         {
           type: "doc",
           id: "account/user-permissions",
           label: "Roles & Permissions",
+        },
+        { type: "doc", id: "sso", label: "SSO" },
+        {
+          type: "doc",
+          id: "integrations/scim",
+          label: "SCIM",
         },
         {
           type: "doc",
