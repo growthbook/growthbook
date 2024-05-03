@@ -345,6 +345,11 @@ const sidebars = {
               id: "statistics/quantile",
               label: "Quantile Testing",
             },
+            {
+              type: "doc",
+              id: "statistics/power",
+              label: "Power Analysis",
+            },
           ],
         },
       ],

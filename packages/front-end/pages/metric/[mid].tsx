@@ -33,7 +33,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import { getMetricFormatter } from "@/services/metrics";
-import MetricForm from "@/components/Metrics/MetricForm";
+import MetricForm, { usesValueColumn } from "@/components/Metrics/MetricForm";
 import Tabs from "@/components/Tabs/Tabs";
 import Tab from "@/components/Tabs/Tab";
 import StatusIndicator from "@/components/Experiment/StatusIndicator";
@@ -1011,7 +1011,8 @@ const MetricPage: FC = () => {
                         </RightRailSectionGroup>
                       )}
                       {metric.type != "binomial" &&
-                        metric.templateVariables?.valueColumn && (
+                        metric.templateVariables?.valueColumn &&
+                        usesValueColumn(metric.sql) && (
                           <RightRailSectionGroup
                             title="Value Column"
                             type="custom"

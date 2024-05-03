@@ -54,6 +54,7 @@ const docSections = {
   webflow: "/integrations/webflow",
   wordpress: "/integrations/wordpress",
   prerequisites: "/features/prerequisites",
+  statisticsSequential: "/statistics/sequential",
 };
 
 export type DocSection = keyof typeof docSections;
