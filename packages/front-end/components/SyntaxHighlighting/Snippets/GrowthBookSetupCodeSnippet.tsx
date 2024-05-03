@@ -1,17 +1,20 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
 import { useState } from "react";
+import { paddedVersionString } from "@growthbook/growthbook";
 import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
 import Code from "@/components/SyntaxHighlighting/Code";
 
 export default function GrowthBookSetupCodeSnippet({
   language,
+  version,
   apiKey,
   apiHost,
   encryptionKey,
   remoteEvalEnabled,
 }: {
   language: SDKLanguage;
+  version?: string;
   apiKey: string;
   apiHost: string;
   encryptionKey?: string;
@@ -70,6 +73,8 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
   }
 
   if (language === "javascript") {
+    const useInit =
+      paddedVersionString(version) >= paddedVersionString("1.0.0");
     return (
       <>
         Create a GrowthBook instance
@@ -85,8 +90,7 @@ const growthbook = new GrowthBook({
               ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
               : ""
           }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
-  enableDevMode: true,
-  subscribeToChanges: true,
+  enableDevMode: true,${!useInit ? `\n  subscribeToChanges: true,` : ""}
   trackingCallback: (experiment, result) => {
     // ${trackingComment}
     console.log("Viewed Experiment", {
@@ -96,14 +100,19 @@ const growthbook = new GrowthBook({
   }
 });
 
-// Wait for features to be available
-await growthbook.loadFeatures();
+// Wait for features to be available${
+            useInit
+              ? `\nawait growthbook.init({ streaming: true });`
+              : `\nawait growthbook.loadFeatures();`
+          }
 `.trim()}
         />
       </>
     );
   }
   if (language === "react") {
+    const useInit =
+      paddedVersionString(version) >= paddedVersionString("1.0.0");
     return (
       <>
         Create a GrowthBook instance
@@ -119,8 +128,7 @@ const growthbook = new GrowthBook({
               ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
               : ""
           }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
-  enableDevMode: true,
-  subscribeToChanges: true,
+  enableDevMode: true,${!useInit ? `\n  subscribeToChanges: true,` : ""}
   trackingCallback: (experiment, result) => {
     // ${trackingComment}
     console.log("Viewed Experiment", {
@@ -140,8 +148,11 @@ import { GrowthBookProvider } from "@growthbook/growthbook-react";
 
 export default function MyApp() {
   useEffect(() => {
-    // Load features asynchronously when the app renders
-    growthbook.loadFeatures();
+    // Load features asynchronously when the app renders${
+      useInit
+        ? `\n    growthbook.init({ streaming: true });`
+        : `\n    growthbook.loadFeatures();`
+    }
   }, []);
 
   return (
@@ -166,6 +177,8 @@ export default function MyApp() {
     );
   }
   if (language === "nodejs") {
+    const useInit =
+      paddedVersionString(version) >= paddedVersionString("1.0.0");
     return (
       <>
         Add some polyfills for missing browser APIs
@@ -201,7 +214,6 @@ app.use(function(req, res, next) {
               ? `\n    decryptionKey: ${JSON.stringify(encryptionKey)},`
               : ""
           }
-    enableDevMode: true,
     trackingCallback: (experiment, result) => {
       // ${trackingComment}
       console.log("Viewed Experiment", {
@@ -214,13 +226,12 @@ app.use(function(req, res, next) {
   // Clean up at the end of the request
   res.on('close', () => req.growthbook.destroy());
 
-  // Wait for features to load (will be cached in-memory for future requests)
-  req.growthbook.loadFeatures({ timeout: 1000 })
+  // Wait for features to load (will be cached in-memory for future requests)${
+    useInit
+      ? `\n  req.growthbook.init({ timeout: 1000 })`
+      : `\n  req.growthbook.loadFeatures({ timeout: 1000 })`
+  }
     .then(() => next())
-    .catch((e) => {
-      console.error("Failed to load features from GrowthBook", e);
-      next();
-    })
 })
 `.trim()}
         />

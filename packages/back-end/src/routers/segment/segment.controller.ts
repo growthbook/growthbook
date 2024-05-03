@@ -145,11 +145,12 @@ export const postSegment = async (
     EventAuditUserForResponseLocals
   >
 ) => {
-  req.checkPermissions("createSegments");
-
   const { datasource, name, sql, userIdType, description } = req.body;
 
   const context = getContextFromReq(req);
+  if (!context.permissions.canCreateSegment()) {
+    context.permissions.throwPermissionError();
+  }
   const { org, userName } = context;
 
   const datasourceDoc = await getDataSourceById(context, datasource);
@@ -209,10 +210,11 @@ export const putSegment = async (
     EventAuditUserForResponseLocals
   >
 ) => {
-  req.checkPermissions("createSegments");
-
   const { id } = req.params;
   const context = getContextFromReq(req);
+  if (!context.permissions.canUpdateSegment()) {
+    context.permissions.throwPermissionError();
+  }
   const { org } = context;
 
   const segment = await findSegmentById(id, org.id);
@@ -266,10 +268,13 @@ export const deleteSegment = async (
   req: DeleteSegmentRequest,
   res: Response<DeleteSegmentResponse, EventAuditUserForResponseLocals>
 ) => {
-  req.checkPermissions("createSegments");
-
   const { id } = req.params;
   const context = getContextFromReq(req);
+
+  if (!context.permissions.canDeleteSegment()) {
+    context.permissions.throwPermissionError();
+  }
+
   const { org } = context;
   const segment = await findSegmentById(id, org.id);
 
