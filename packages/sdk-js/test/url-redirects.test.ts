@@ -1,5 +1,8 @@
-import { GrowthBook } from "../src";
-import { sleep } from "./visual-changes.test";
+import { AutoExperiment, GrowthBook } from "../src";
+
+function sleep(ms = 20) {
+  return new Promise((res) => setTimeout(res, ms));
+}
 
 describe("urlRedirects", () => {
   const realLocation = window.location;
@@ -153,5 +156,198 @@ describe("urlRedirects", () => {
     expect(window.location.replace).not.toHaveBeenCalled();
 
     gb.destroy();
+  });
+
+  it("Skips redirect when the context URL is invalid", async () => {
+    const gb = new GrowthBook({
+      attributes: { id: "1" },
+      url: "http:://www.example.com/home",
+      experiments: [
+        {
+          key: "my-experiment",
+          urlPatterns: [
+            {
+              type: "simple",
+              include: true,
+              pattern: "/home",
+            },
+          ],
+          weights: [0, 1],
+          manual: true,
+          variations: [
+            {},
+            {
+              urlRedirect: "http://www.example.com/home-new",
+            },
+          ],
+        },
+      ],
+    });
+
+    await sleep();
+
+    const results = gb.triggerExperiment("my-experiment");
+    expect(results?.length).toBe(1);
+    expect(results?.[0]?.inExperiment).toEqual(false);
+
+    // Valid URL
+    gb.setURL("http://www.example.com/home");
+    const results2 = gb.triggerExperiment("my-experiment");
+    expect(results2?.length).toBe(1);
+    expect(results2?.[0]?.inExperiment).toEqual(true);
+
+    gb.destroy();
+  });
+
+  it("Skips redirect test when one of the variation URLs is invalid", async () => {
+    const gb = new GrowthBook({
+      attributes: { id: "1" },
+      url: "http://www.example.com/home",
+      experiments: [
+        {
+          key: "my-experiment",
+          urlPatterns: [
+            {
+              type: "simple",
+              include: true,
+              pattern: "/home",
+            },
+          ],
+          // Even works when you aren't assigned the broken variation
+          weights: [1, 0, 0],
+          manual: true,
+          variations: [
+            {},
+            {
+              urlRedirect: "http://www.example.com/home-new",
+            },
+            {
+              urlRedirect: "fdsjaklfsd7&&**",
+            },
+          ],
+        },
+      ],
+    });
+
+    await sleep();
+
+    const results = gb.triggerExperiment("my-experiment");
+    expect(results?.length).toBe(1);
+    expect(results?.[0]?.inExperiment).toEqual(false);
+
+    gb.destroy();
+  });
+
+  it("Skips redirect test when one of the variations is a cross-origin test and that is disabled", () => {
+    const gb = new GrowthBook({
+      attributes: { id: "1" },
+      url: "http://www.example.com/home",
+      experiments: [
+        {
+          key: "my-experiment",
+          urlPatterns: [
+            {
+              type: "simple",
+              include: true,
+              pattern: "/home",
+            },
+          ],
+          weights: [1, 0],
+          manual: true,
+          variations: [
+            {},
+            {
+              urlRedirect: "http://www.google.com/home-new",
+            },
+          ],
+        },
+      ],
+      disableCrossOriginUrlRedirectExperiments: true,
+    });
+
+    // Different domain, block
+    const results = gb.triggerExperiment("my-experiment");
+    expect(results?.length).toBe(1);
+    expect(results?.[0]?.inExperiment).toEqual(false);
+
+    // Same domain, but different protocol, block
+    gb.setURL("https://www.google.com/home");
+    const results2 = gb.triggerExperiment("my-experiment");
+    expect(results2?.length).toBe(1);
+    expect(results2?.[0]?.inExperiment).toEqual(false);
+
+    // Same domain, same protocol, different subdomain, block
+    gb.setURL("http://something.google.com/home");
+    const results3 = gb.triggerExperiment("my-experiment");
+    expect(results3?.length).toBe(1);
+    expect(results3?.[0]?.inExperiment).toEqual(false);
+
+    // Same domain, same protocol, same subdomain, allow
+    gb.setURL("http://www.google.com/home");
+    const results4 = gb.triggerExperiment("my-experiment");
+    expect(results4?.length).toBe(1);
+    expect(results4?.[0]?.inExperiment).toEqual(true);
+
+    gb.destroy();
+  });
+
+  it("Skips redirect test when it is disabled via context", () => {
+    const experiments: AutoExperiment[] = [
+      {
+        changeId: "123",
+        key: "my-experiment",
+        urlPatterns: [
+          {
+            type: "simple",
+            include: true,
+            pattern: "/home",
+          },
+        ],
+        weights: [1, 0],
+        manual: true,
+        variations: [
+          {},
+          {
+            urlRedirect: "http://www.example.com/home-new",
+          },
+        ],
+      },
+    ];
+
+    // All URL Redirect tests blocked via context
+    const gb = new GrowthBook({
+      attributes: { id: "1" },
+      url: "http://www.example.com/home",
+      experiments: experiments,
+      disableUrlRedirectExperiments: true,
+    });
+    const results = gb.triggerExperiment("my-experiment");
+    expect(results?.length).toBe(1);
+    expect(results?.[0]?.inExperiment).toEqual(false);
+    gb.destroy();
+
+    // This specific changeId is blocked via context
+    const gb2 = new GrowthBook({
+      attributes: { id: "1" },
+      url: "http://www.example.com/home",
+      experiments: experiments,
+      blockedChangeIds: ["abc", "123"],
+    });
+    const results2 = gb2.triggerExperiment("my-experiment");
+    expect(results2?.length).toBe(1);
+    expect(results2?.[0]?.inExperiment).toEqual(false);
+    gb2.destroy();
+
+    // Not blocked
+    const gb3 = new GrowthBook({
+      attributes: { id: "1" },
+      url: "http://www.example.com/home",
+      experiments: experiments,
+      blockedChangeIds: ["abc"],
+    });
+    const results3 = gb3.triggerExperiment("my-experiment");
+    expect(results3?.length).toBe(1);
+    expect(results3?.[0]?.inExperiment).toEqual(true);
+    gb3.destroy();
   });
 });

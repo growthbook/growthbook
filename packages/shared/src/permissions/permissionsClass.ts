@@ -55,6 +55,26 @@ export class Permissions {
     return this.checkGlobalPermission("createDimensions");
   };
 
+  public canManageBilling = (): boolean => {
+    return this.checkGlobalPermission("manageBilling");
+  };
+
+  public canManageIntegrations = (): boolean => {
+    return this.checkGlobalPermission("manageIntegrations");
+  };
+
+  public canCreateApiKey = (): boolean => {
+    return this.checkGlobalPermission("manageApiKeys");
+  };
+
+  public canDeleteApiKey = (): boolean => {
+    return this.checkGlobalPermission("manageApiKeys");
+  };
+
+  public canManageTeam = (): boolean => {
+    return this.checkGlobalPermission("manageTeam");
+  };
+
   public canCreateSegment = (): boolean => {
     return this.checkGlobalPermission("createSegments");
   };
@@ -65,6 +85,14 @@ export class Permissions {
 
   public canDeleteSegment = (): boolean => {
     return this.checkGlobalPermission("createSegments");
+  };
+
+  public canManageOrgSettings = (): boolean => {
+    return this.checkGlobalPermission("organizationSettings");
+  };
+
+  public canSuperDeleteReport = (): boolean => {
+    return this.checkGlobalPermission("superDeleteReport");
   };
 
   public canManageNorthStarMetric = (): boolean => {

@@ -301,9 +301,12 @@ export async function putMemberRole(
   req: AuthRequest<MemberRoleWithProjects, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageTeam");
+  const context = getContextFromReq(req);
 
-  const { org, userId } = getContextFromReq(req);
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+  const { org, userId } = context;
   const {
     role,
     limitAccessByEnvironment,
@@ -465,8 +468,13 @@ export async function postMemberApproval(
   req: AuthRequest<unknown, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageTeam");
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
   const { id } = req.params;
 
   const pendingMember = org?.pendingMembers?.find((m) => m.id === id);
@@ -515,8 +523,12 @@ export async function postAutoApproveMembers(
   req: AuthRequest<{ state: boolean }>,
   res: Response
 ) {
-  req.checkPermissions("manageTeam");
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+  const { org } = context;
   const { state } = req.body;
 
   try {
@@ -539,9 +551,13 @@ export async function putInviteRole(
   req: AuthRequest<MemberRoleWithProjects, { key: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageTeam");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
   const {
     role,
     limitAccessByEnvironment,
@@ -995,9 +1011,13 @@ export async function postInvite(
   >,
   res: Response
 ) {
-  req.checkPermissions("manageTeam");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
   const {
     email,
     role,
@@ -1042,9 +1062,13 @@ export async function deleteMember(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageTeam");
+  const context = getContextFromReq(req);
 
-  const { org, userId } = getContextFromReq(req);
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org, userId } = context;
   const { id } = req.params;
 
   if (id === userId) {
@@ -1065,9 +1089,13 @@ export async function postInviteResend(
   req: AuthRequest<{ key: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageTeam");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
   const { key } = req.body;
 
   let emailSent = false;
@@ -1091,9 +1119,13 @@ export async function deleteInvite(
   req: AuthRequest<{ key: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageTeam");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
   const { key } = req.body;
 
   await revokeInvite(org, key);
@@ -1180,7 +1212,9 @@ export async function putOrganization(
   const existingEnvironments = getEnvironments(org);
 
   if (connections || name) {
-    req.checkPermissions("organizationSettings");
+    if (!context.permissions.canManageOrgSettings()) {
+      context.permissions.throwPermissionError();
+    }
   }
   if (settings) {
     Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
@@ -1239,7 +1273,9 @@ export async function putOrganization(
       } else if (k === "namespaces") {
         req.checkPermissions("manageNamespaces");
       } else {
-        req.checkPermissions("organizationSettings");
+        if (!context.permissions.canManageOrgSettings()) {
+          context.permissions.throwPermissionError();
+        }
       }
     });
   }
@@ -1412,7 +1448,8 @@ export async function postApiKey(
   }>,
   res: Response
 ) {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   const {
     description = "",
     environment = "",
@@ -1440,7 +1477,9 @@ export async function postApiKey(
   if (secret) {
     if (type !== "user") {
       // All access token types except `user` require the permission
-      req.checkPermissions("manageApiKeys");
+      if (!context.permissions.canCreateApiKey()) {
+        context.permissions.throwPermissionError();
+      }
     }
   } else {
     req.checkPermissions("manageEnvironments", project, [environment]);
@@ -1453,7 +1492,6 @@ export async function postApiKey(
         "Cannot create user personal access token without a user ID"
       );
     }
-
     const key = await createUserPersonalAccessApiKey({
       description,
       userId: userId,
@@ -1523,7 +1561,9 @@ export async function deleteApiKey(
   if (keyObj.secret) {
     if (!keyObj.userId) {
       // If there is no userId, this is an API Key, so we check permissions.
-      req.checkPermissions("manageApiKeys");
+      if (!context.permissions.canDeleteApiKey()) {
+        context.permissions.throwPermissionError();
+      }
       // Otherwise, this is a Personal Access Token (PAT) - users can delete only their own PATs regardless of permission level.
     } else if (keyObj.userId !== userId) {
       throw new Error("You do not have permission to delete this.");
@@ -1547,7 +1587,8 @@ export async function postApiKeyReveal(
   req: AuthRequest<{ id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.body;
 
   const key = await getUnredactedSecretKey(org.id, id);
@@ -1559,7 +1600,9 @@ export async function postApiKeyReveal(
 
   if (!key.userId) {
     // Only admins can reveal non-user keys
-    req.checkPermissions("manageApiKeys");
+    if (!context.permissions.canCreateApiKey()) {
+      context.permissions.throwPermissionError();
+    }
   } else {
     // This is a user key
     // The key must be owned by the user requesting to reveal it
@@ -1766,9 +1809,12 @@ export async function postImportConfig(
   }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
-
   const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
+
   const { contents } = req.body;
 
   const config: ConfigFile = JSON.parse(contents);
@@ -1784,7 +1830,11 @@ export async function postImportConfig(
 }
 
 export async function getOrphanedUsers(req: AuthRequest, res: Response) {
-  req.checkPermissions("organizationSettings");
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
 
   if (IS_CLOUD) {
     throw new Error("Unable to get orphaned users on GrowthBook Cloud");
@@ -1824,7 +1874,11 @@ export async function addOrphanedUser(
   req: AuthRequest<MemberRoleWithProjects, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
 
   if (IS_CLOUD) {
     throw new Error("This action is not permitted on GrowthBook Cloud");
@@ -1893,7 +1947,11 @@ export async function deleteOrphanedUser(
   req: AuthRequest<unknown, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
 
   if (IS_CLOUD) {
     throw new Error("Unable to delete orphaned users on GrowthBook Cloud");
@@ -1943,7 +2001,11 @@ export async function putAdminResetUserPassword(
   >,
   res: Response
 ) {
-  req.checkPermissions("organizationSettings");
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
 
   const { updatedPassword } = req.body;
   const userToUpdateId = req.params.id;
@@ -2001,12 +2063,17 @@ export async function putLicenseKey(
   req: AuthRequest<{ licenseKey: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+
+  const { org } = context;
   const orgId = org?.id;
   if (!orgId) {
     throw new Error("Must be part of an organization");
   }
-  req.checkPermissions("manageBilling");
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
 
   const licenseKey = req.body.licenseKey.trim();
   if (!licenseKey) {
@@ -2032,7 +2099,8 @@ export async function putDefaultRole(
   req: AuthRequest<{ defaultRole: MemberRole }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { defaultRole } = req.body;
 
   const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
@@ -2043,7 +2111,9 @@ export async function putDefaultRole(
     );
   }
 
-  req.checkPermissions("manageTeam");
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
 
   updateOrganization(org.id, {
     settings: {
