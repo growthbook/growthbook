@@ -362,7 +362,7 @@ const sidebars = {
     {
       type: "category",
       label: "SDKs",
-      collapsed: true,
+      collapsed: false,
       link: {
         type: "doc",
         id: "lib/index",
@@ -434,9 +434,9 @@ const sidebars = {
         "self-host/environment-variables",
         "self-host/config-yml",
         "self-host/production",
+        { type: "doc", id: "self-host/proxy", label: "Proxy" },
       ],
     },
-    { type: "doc", id: "self-host/proxy", label: "Proxy" },
     { type: "doc", id: "api-overview", label: "API" },
     {
       type: "category",
@@ -462,7 +462,11 @@ const sidebars = {
         id: "guide/index",
       },
       items: [
-        { type: "doc", id: "guide/nextjs-and-growthbook", label: "Next.js" },
+        {
+          type: "doc",
+          id: "guide/nextjs-and-growthbook",
+          label: "Next.js",
+        },
         {
           type: "doc",
           id: "guide/create-react-app-and-growthbook",
