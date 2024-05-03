@@ -35,6 +35,7 @@ import TagsFilter, {
 import { useWatching } from "@/services/WatchProvider";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const NUM_PER_PAGE = 20;
 
@@ -63,7 +64,8 @@ const ExperimentsPage = (): React.ReactElement => {
   const router = useRouter();
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
-  const { getUserDisplay, permissions, userId } = useUser();
+  const { getUserDisplay, userId } = useUser();
+  const permissionsUtil = usePermissionsUtil();
   const settings = useOrgSettings();
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -199,7 +201,7 @@ const ExperimentsPage = (): React.ReactElement => {
     );
   }
 
-  const canAdd = permissions.check("createAnalyses", project);
+  const canAdd = permissionsUtil.canViewExperimentModal(project);
 
   const hasArchivedExperiments = experiments.some((item) => item.archived);
 

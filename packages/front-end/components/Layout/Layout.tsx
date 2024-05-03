@@ -152,7 +152,8 @@ const navlinks: SidebarLinkProps[] = [
         name: "General",
         href: "/settings",
         path: /^settings$/,
-        filter: ({ permissions }) => permissions.check("organizationSettings"),
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canManageOrgSettings(),
       },
       {
         name: "Team",
@@ -215,7 +216,7 @@ const navlinks: SidebarLinkProps[] = [
         href: "/importing",
         path: /^importing/,
         filter: ({ permissions, permissionsUtils, gb }) =>
-          permissions.check("manageFeatures", "") &&
+          permissionsUtils.canViewFeatureModal() &&
           permissions.check("manageEnvironments" as GlobalPermission) &&
           permissionsUtils.canCreateProjects() &&
           !!gb?.isOn("import-from-x"),
