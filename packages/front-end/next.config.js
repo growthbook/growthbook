@@ -6,12 +6,15 @@ const rootPath = path.join(__dirname, "..", "..");
 let gitSha = "";
 let gitCommitDate = "";
 if (fs.existsSync(path.join(rootPath, "buildinfo", "SHA"))) {
-  gitSha = fs.readFileSync(path.join(rootPath, "buildinfo", "SHA")).toString();
+  gitSha = trim(
+    fs.readFileSync(path.join(rootPath, "buildinfo", "SHA")).toString().trim()
+  );
 }
 if (fs.existsSync(path.join(rootPath, "buildinfo", "DATE"))) {
   gitCommitDate = fs
     .readFileSync(path.join(rootPath, "buildinfo", "DATE"))
-    .toString();
+    .toString()
+    .trim();
 }
 
 fs.writeFileSync(
