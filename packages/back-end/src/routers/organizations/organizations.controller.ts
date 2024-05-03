@@ -301,9 +301,12 @@ export async function putMemberRole(
   req: AuthRequest<MemberRoleWithProjects, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageTeam");
+  const context = getContextFromReq(req);
 
-  const { org, userId } = getContextFromReq(req);
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+  const { org, userId } = context;
   const {
     role,
     limitAccessByEnvironment,
@@ -465,8 +468,13 @@ export async function postMemberApproval(
   req: AuthRequest<unknown, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageTeam");
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
   const { id } = req.params;
 
   const pendingMember = org?.pendingMembers?.find((m) => m.id === id);
@@ -515,8 +523,12 @@ export async function postAutoApproveMembers(
   req: AuthRequest<{ state: boolean }>,
   res: Response
 ) {
-  req.checkPermissions("manageTeam");
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+  const { org } = context;
   const { state } = req.body;
 
   try {
@@ -539,9 +551,13 @@ export async function putInviteRole(
   req: AuthRequest<MemberRoleWithProjects, { key: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageTeam");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
   const {
     role,
     limitAccessByEnvironment,
@@ -995,9 +1011,13 @@ export async function postInvite(
   >,
   res: Response
 ) {
-  req.checkPermissions("manageTeam");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
   const {
     email,
     role,
@@ -1042,9 +1062,13 @@ export async function deleteMember(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageTeam");
+  const context = getContextFromReq(req);
 
-  const { org, userId } = getContextFromReq(req);
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org, userId } = context;
   const { id } = req.params;
 
   if (id === userId) {
@@ -1065,9 +1089,13 @@ export async function postInviteResend(
   req: AuthRequest<{ key: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageTeam");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
   const { key } = req.body;
 
   let emailSent = false;
@@ -1091,9 +1119,13 @@ export async function deleteInvite(
   req: AuthRequest<{ key: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageTeam");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
   const { key } = req.body;
 
   await revokeInvite(org, key);
@@ -2055,7 +2087,8 @@ export async function putDefaultRole(
   req: AuthRequest<{ defaultRole: MemberRole }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { defaultRole } = req.body;
 
   const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
@@ -2066,7 +2099,9 @@ export async function putDefaultRole(
     );
   }
 
-  req.checkPermissions("manageTeam");
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
 
   updateOrganization(org.id, {
     settings: {
