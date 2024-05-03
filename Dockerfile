@@ -58,6 +58,7 @@ RUN \
   && rm -rf packages/sdk-react/node_modules \
   && yarn install --frozen-lockfile --production=true --ignore-optional
 RUN yarn postinstall
+RUN ls -la packages/front-end/.next/static
 
 # Package the full app together
 FROM python:${PYTHON_MAJOR}-slim

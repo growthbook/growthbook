@@ -103,6 +103,7 @@ jobs:
           docker pull growthbook/growthbook:deploy-with-s3-test-cloud
           docker create --name temp-container growthbook/growthbook:deploy-with-s3-test-cloud
           docker cp temp-container:/usr/local/src/app/packages/front-end/.next/static ./static
+          ls -la ./static
           docker cp temp-container:/usr/local/src/app/packages/front-end/public ./public
           docker cp temp-container:/usr/local/src/app/buildinfo/SHA ./SHA
           docker cp temp-container:/usr/local/src/app/buildinfo/DATE ./DATE
