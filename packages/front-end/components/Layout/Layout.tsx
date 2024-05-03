@@ -152,19 +152,22 @@ const navlinks: SidebarLinkProps[] = [
         name: "General",
         href: "/settings",
         path: /^settings$/,
-        filter: ({ permissions }) => permissions.check("organizationSettings"),
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canManageOrgSettings(),
       },
       {
         name: "Team",
         href: "/settings/team",
         path: /^settings\/team/,
-        filter: ({ permissions }) => permissions.check("manageTeam"),
+        filter: ({ permissionsUtils }) => permissionsUtils.canManageTeam(),
       },
       {
         name: "Tags",
         href: "/settings/tags",
         path: /^settings\/tags/,
-        filter: ({ permissions }) => permissions.check("manageTags"),
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canCreateAndUpdateTag() ||
+          permissionsUtils.canDeleteTag(),
       },
       {
         name: "Projects",
@@ -177,7 +180,9 @@ const navlinks: SidebarLinkProps[] = [
         name: "API Keys",
         href: "/settings/keys",
         path: /^settings\/keys/,
-        filter: ({ permissions }) => permissions.check("manageApiKeys"),
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canCreateApiKey() ||
+          permissionsUtils.canDeleteApiKey(),
       },
       {
         name: "Webhooks",
@@ -195,16 +200,16 @@ const navlinks: SidebarLinkProps[] = [
         name: "Slack",
         href: "/integrations/slack",
         path: /^integrations\/slack/,
-        filter: ({ permissions, gb }) =>
-          permissions.check("manageIntegrations") &&
+        filter: ({ permissionsUtils, gb }) =>
+          permissionsUtils.canManageIntegrations() &&
           !!gb?.isOn("slack-integration"),
       },
       {
         name: "GitHub",
         href: "/integrations/github",
         path: /^integrations\/github/,
-        filter: ({ permissions, gb }) =>
-          permissions.check("manageIntegrations") &&
+        filter: ({ permissionsUtils, gb }) =>
+          permissionsUtils.canManageIntegrations() &&
           !!gb?.isOn("github-integration"),
       },
       {
@@ -212,7 +217,7 @@ const navlinks: SidebarLinkProps[] = [
         href: "/importing",
         path: /^importing/,
         filter: ({ permissions, permissionsUtils, gb }) =>
-          permissions.check("manageFeatures", "") &&
+          permissionsUtils.canViewFeatureModal() &&
           permissions.check("manageEnvironments" as GlobalPermission) &&
           permissionsUtils.canCreateProjects() &&
           !!gb?.isOn("import-from-x"),
@@ -221,7 +226,7 @@ const navlinks: SidebarLinkProps[] = [
         name: "Billing",
         href: "/settings/billing",
         path: /^settings\/billing/,
-        filter: ({ permissions }) => permissions.check("manageBilling"),
+        filter: ({ permissionsUtils }) => permissionsUtils.canManageBilling(),
       },
       {
         name: "Admin",
