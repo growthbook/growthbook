@@ -546,7 +546,9 @@ export async function getExperimentsToUpdateLegacy(
 export async function getPastExperimentsByDatasource(
   context: ReqContext | ApiReqContext,
   datasource: string
-): Promise<Pick<ExperimentInterface, "id" | "trackingKey">[]> {
+): Promise<
+  Pick<ExperimentInterface, "id" | "trackingKey" | "exposureQueryId">[]
+> {
   const experiments = await ExperimentModel.find(
     {
       organization: context.org.id,
@@ -556,6 +558,7 @@ export async function getPastExperimentsByDatasource(
       _id: false,
       id: true,
       trackingKey: true,
+      exposureQueryId: true,
       project: true,
     }
   );
@@ -567,6 +570,7 @@ export async function getPastExperimentsByDatasource(
   return experimentsUserCanAccess.map((exp) => ({
     id: exp.id,
     trackingKey: exp.trackingKey,
+    exposureQueryId: exp.exposureQueryId,
   }));
 }
 

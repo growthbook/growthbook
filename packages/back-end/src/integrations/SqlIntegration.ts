@@ -298,6 +298,8 @@ export default abstract class SqlIntegration
       this.datasource.settings.queries?.exposure || []
     ).map(({ id }) => this.getExposureQuery(id));
 
+    const end = new Date();
+
     return format(
       `-- Past Experiments
     WITH
@@ -319,13 +321,15 @@ export default abstract class SqlIntegration
                 : this.castToString("variation_id")
             } as variation_name,
             ${this.dateTrunc(this.castUserDateCol("timestamp"))} as date,
-            count(distinct ${q.userIdType}) as users
+            count(distinct ${q.userIdType}) as users,
+            MAX(${this.castUserDateCol("timestamp")}) as latest_data
           FROM
             (
               ${compileSqlTemplate(q.query, { startDate: params.from })}
             ) e${i}
           WHERE
             timestamp > ${this.toTimestamp(params.from)}
+            AND timestamp <= ${this.toTimestamp(end)}
           GROUP BY
             experiment_id,
             variation_id,
@@ -365,7 +369,8 @@ export default abstract class SqlIntegration
           MIN(d.variation_name) as variation_name,
           MIN(d.date) as start_date,
           MAX(d.date) as end_date,
-          SUM(d.users) as users
+          SUM(d.users) as users,
+          MAX(latest_data) as latest_data
         FROM
           __experiments d
           JOIN __userThresholds u ON (
@@ -381,12 +386,6 @@ export default abstract class SqlIntegration
     ${this.selectStarLimit(
       `
       __variations
-    WHERE
-      -- Skip experiments at start of date range since it's likely missing data
-      ${this.dateDiff(
-        this.castUserDateCol(this.toTimestamp(params.from)),
-        "start_date"
-      )} > 2
     ORDER BY
       start_date DESC, experiment_id ASC, variation_id ASC
       `,
@@ -412,6 +411,7 @@ export default abstract class SqlIntegration
           users: parseInt(row.users) || 0,
           end_date: this.convertDate(row.end_date).toISOString(),
           start_date: this.convertDate(row.start_date).toISOString(),
+          latest_data: this.convertDate(row.latest_data).toISOString(),
         };
       }),
       statistics: statistics,
