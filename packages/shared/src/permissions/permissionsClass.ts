@@ -55,6 +55,10 @@ export class Permissions {
     return this.checkGlobalPermission("createDimensions");
   };
 
+  public canManageIntegrations = (): boolean => {
+    return this.checkGlobalPermission("manageIntegrations");
+  };
+
   public canCreateApiKey = (): boolean => {
     return this.checkGlobalPermission("manageApiKeys");
   };
