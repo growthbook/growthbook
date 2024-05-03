@@ -38,9 +38,9 @@ export const getArchetype = async (
   req: AuthRequest,
   res: Response<GetArchetypeResponse>
 ) => {
-  const context = getContextFromReq(req);
+  const { org, userId } = getContextFromReq(req);
 
-  const archetype = await getAllArchetypes(context);
+  const archetype = await getAllArchetypes(org.id, userId);
 
   return res.status(200).json({
     status: 200,
@@ -68,7 +68,7 @@ export const getArchetypeAndEval = async (
   res: Response<GetArchetypeAndEvalResponse | PrivateApiErrorResponse>
 ) => {
   const context = getContextFromReq(req);
-  const { org } = context;
+  const { org, userId } = getContextFromReq(req);
   const { id, version } = req.params;
   const {
     scrubPrerequisites: scrubPrerequisitesStr,
@@ -101,7 +101,7 @@ export const getArchetypeAndEval = async (
     throw new Error("Could not find feature revision");
   }
 
-  const archetype = await getAllArchetypes(context);
+  const archetype = await getAllArchetypes(org.id, userId);
   const featureResults: { [key: string]: FeatureTestResult[] } = {};
 
   if (archetype.length) {
