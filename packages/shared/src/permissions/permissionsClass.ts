@@ -55,6 +55,10 @@ export class Permissions {
     return this.checkGlobalPermission("createDimensions");
   };
 
+  public canManageBilling = (): boolean => {
+    return this.checkGlobalPermission("manageBilling");
+  };
+
   public canManageIntegrations = (): boolean => {
     return this.checkGlobalPermission("manageIntegrations");
   };

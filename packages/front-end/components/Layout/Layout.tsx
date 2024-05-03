@@ -224,7 +224,7 @@ const navlinks: SidebarLinkProps[] = [
         name: "Billing",
         href: "/settings/billing",
         path: /^settings\/billing/,
-        filter: ({ permissions }) => permissions.check("manageBilling"),
+        filter: ({ permissionsUtils }) => permissionsUtils.canManageBilling(),
       },
       {
         name: "Admin",
