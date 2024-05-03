@@ -165,7 +165,9 @@ const navlinks: SidebarLinkProps[] = [
         name: "Tags",
         href: "/settings/tags",
         path: /^settings\/tags/,
-        filter: ({ permissions }) => permissions.check("manageTags"),
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canCreateAndUpdateTag() ||
+          permissionsUtils.canDeleteTag(),
       },
       {
         name: "Projects",

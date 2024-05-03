@@ -808,10 +808,14 @@ export async function postNamespaces(
   }>,
   res: Response
 ) {
-  req.checkPermissions("manageNamespaces");
-
   const { name, description, status } = req.body;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canCreateNamespace()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
 
   const namespaces = org.settings?.namespaces || [];
 
@@ -859,11 +863,15 @@ export async function putNamespaces(
   >,
   res: Response
 ) {
-  req.checkPermissions("manageNamespaces");
-
   const { name, description, status } = req.body;
   const originalName = req.params.name;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canUpdateNamespace()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
 
   const namespaces = org.settings?.namespaces || [];
 
@@ -906,9 +914,12 @@ export async function deleteNamespace(
   req: AuthRequest<null, { name: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageNamespaces");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canDeleteNamespace()) {
+    context.permissions.throwPermissionError();
+  }
+  const { org } = context;
   const { name } = req.params;
 
   const namespaces = org.settings?.namespaces || [];
@@ -1271,7 +1282,9 @@ export async function putOrganization(
           context.permissions.throwPermissionError();
         }
       } else if (k === "namespaces") {
-        req.checkPermissions("manageNamespaces");
+        throw new Error(
+          "Not supported: Updating namespaces not supported via this route."
+        );
       } else {
         if (!context.permissions.canManageOrgSettings()) {
           context.permissions.throwPermissionError();

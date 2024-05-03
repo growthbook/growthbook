@@ -128,7 +128,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                     <SortableTH field="condition">Condition</SortableTH>
                     <SortableTH field={"owner"}>Owner</SortableTH>
                     <SortableTH field={"dateUpdated"}>Date Updated</SortableTH>
-                    {canUpdate || (canDelete && <th></th>)}
+                    {(canUpdate || canDelete) && <th></th>}
                   </tr>
                 </thead>
                 <tbody>
