@@ -78,7 +78,7 @@ const ExperimentPage = (): ReactElement => {
   } = data;
 
   const canEditExperiment =
-    !permissionsUtil.canViewExperimentModal(experiment.project) &&
+    permissionsUtil.canViewExperimentModal(experiment.project) &&
     !experiment.archived;
 
   let canRunExperiment = !experiment.archived;
