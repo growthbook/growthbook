@@ -124,6 +124,64 @@ describe("canManageNorthStarMetric", () => {
   });
 });
 
+describe("canManageBilling", () => {
+  it("Calls checkGlobalPermission with the correct parameters", () => {
+    const p = new TestPermissions();
+    p.canManageBilling();
+    expect(p.checkGlobalPermission).toHaveBeenCalledWith("manageBilling");
+  });
+});
+
+describe("canManageIntegrations", () => {
+  it("Calls checkGlobalPermission with the correct parameters", () => {
+    const p = new TestPermissions();
+    p.canManageIntegrations();
+    expect(p.checkGlobalPermission).toHaveBeenCalledWith("manageIntegrations");
+  });
+});
+
+describe("canCreateApiKey", () => {
+  it("Calls checkGlobalPermission with the correct parameters", () => {
+    const p = new TestPermissions();
+    p.canCreateApiKey();
+    expect(p.checkGlobalPermission).toHaveBeenCalledWith("manageApiKeys");
+  });
+});
+
+describe("canDeleteApiKey", () => {
+  it("Calls checkGlobalPermission with the correct parameters", () => {
+    const p = new TestPermissions();
+    p.canDeleteApiKey();
+    expect(p.checkGlobalPermission).toHaveBeenCalledWith("manageApiKeys");
+  });
+});
+
+describe("canManageTeam", () => {
+  it("Calls checkGlobalPermission with the correct parameters", () => {
+    const p = new TestPermissions();
+    p.canManageTeam();
+    expect(p.checkGlobalPermission).toHaveBeenCalledWith("manageTeam");
+  });
+});
+
+describe("canManageOrgSettings", () => {
+  it("Calls checkGlobalPermission with the correct parameters", () => {
+    const p = new TestPermissions();
+    p.canManageOrgSettings();
+    expect(p.checkGlobalPermission).toHaveBeenCalledWith(
+      "organizationSettings"
+    );
+  });
+});
+
+describe("canSuperDeleteReport", () => {
+  it("Calls checkGlobalPermission with the correct parameters", () => {
+    const p = new TestPermissions();
+    p.canSuperDeleteReport();
+    expect(p.checkGlobalPermission).toHaveBeenCalledWith("superDeleteReport");
+  });
+});
+
 // PROJECT_SCOPED_PERMISSIONS HELPER METHODS
 describe("canCreateVisualChange", () => {
   it("Calls checkProjectFilterPermission with the correct parameters", () => {
