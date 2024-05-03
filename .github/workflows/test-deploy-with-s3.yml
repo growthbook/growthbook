@@ -6,7 +6,7 @@ on:
 
 jobs:
   # Build and publish the commit to docker for self-hosted
-  docker:
+  create-docker-self-hosted-image:
     runs-on: ubuntu-latest
     if: ${{ github.repository == 'growthbook/growthbook' }}
     permissions:
@@ -45,7 +45,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
 
   # Build and publish the commit to docker for cloud
-  docker-cloud:
+  create-docker-cloud-image:
     runs-on: ubuntu-latest
     if: ${{ github.repository == 'growthbook/growthbook' }}
     permissions:

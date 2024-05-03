@@ -89,5 +89,7 @@ RUN pip3 install /usr/local/src/gbstats/*.whl
 EXPOSE 3000
 # The back-end api (Express)
 EXPOSE 3100
+
+RUN ls -la packages/front-end/.next/static
 # Start both front-end and back-end at once
 CMD ["yarn","start"]
