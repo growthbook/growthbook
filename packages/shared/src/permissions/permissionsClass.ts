@@ -55,6 +55,14 @@ export class Permissions {
     return this.checkGlobalPermission("createDimensions");
   };
 
+  public canCreateAndUpdateTag = (): boolean => {
+    return this.checkGlobalPermission("manageTags");
+  };
+
+  public canDeleteTag = (): boolean => {
+    return this.checkGlobalPermission("manageTags");
+  };
+
   public canManageBilling = (): boolean => {
     return this.checkGlobalPermission("manageBilling");
   };
@@ -101,6 +109,42 @@ export class Permissions {
 
   public canViewEvents = (): boolean => {
     return this.checkGlobalPermission("viewEvents");
+  };
+
+  public canCreateArchetype = (): boolean => {
+    return this.checkGlobalPermission("manageArchetype");
+  };
+
+  public canUpdateArchetype = (): boolean => {
+    return this.checkGlobalPermission("manageArchetype");
+  };
+
+  public canDeleteArchetype = (): boolean => {
+    return this.checkGlobalPermission("manageArchetype");
+  };
+
+  public canCreateSavedGroup = (): boolean => {
+    return this.checkGlobalPermission("manageSavedGroups");
+  };
+
+  public canUpdateSavedGroup = (): boolean => {
+    return this.checkGlobalPermission("manageSavedGroups");
+  };
+
+  public canDeleteSavedGroup = (): boolean => {
+    return this.checkGlobalPermission("manageSavedGroups");
+  };
+
+  public canCreateNamespace = (): boolean => {
+    return this.checkGlobalPermission("manageNamespaces");
+  };
+
+  public canUpdateNamespace = (): boolean => {
+    return this.checkGlobalPermission("manageNamespaces");
+  };
+
+  public canDeleteNamespace = (): boolean => {
+    return this.checkGlobalPermission("manageNamespaces");
   };
 
   //Project Permissions
