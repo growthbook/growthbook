@@ -89,6 +89,7 @@ jobs:
       - name: Determine if with load it gets the right docker layer
         run: |
           docker pull growthbook/growthbook:deploy-with-s3-test-cloud
+          docker history growthbook/growthbook:deploy-with-s3-test-cloud
           docker create --name temp-container growthbook/growthbook:deploy-with-s3-test-cloud
           docker cp temp-container:/usr/local/src/app/packages/front-end/.next/static ./static
           ls -la ./static
@@ -109,6 +110,7 @@ jobs:
       - name: Extract static assets from Docker image and upload to S3
         run: |
           docker pull growthbook/growthbook:deploy-with-s3-test-cloud
+          docker history growthbook/growthbook:deploy-with-s3-test-cloud
           docker create --name temp-container growthbook/growthbook:deploy-with-s3-test-cloud
           docker cp temp-container:/usr/local/src/app/packages/front-end/.next/static ./static
           ls -la ./static
