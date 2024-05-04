@@ -540,8 +540,13 @@ const sidebars = {
       items: [
         {
           type: "doc",
+          id: "guide/nextjs-app-router",
+          label: "Next.js (App Router)",
+        },
+        {
+          type: "doc",
           id: "guide/nextjs-and-growthbook",
-          label: "Next.js",
+          label: "Next.js (Pages Router)",
         },
         {
           type: "doc",

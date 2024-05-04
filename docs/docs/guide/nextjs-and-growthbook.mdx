@@ -1,12 +1,12 @@
 ---
-title: GrowthBook and Next.js
+title: GrowthBook and Next.js (Pages Router)
 description: This guide walks you through using GrowthBook with Next.js Pages Router.
 slug: nextjs-and-growthbook
 ---
 
 # GrowthBook and Next.js (Pages Router)
 
-Note: If you are using the newer Next.js App Router instead, check out our [Example App](https://github.com/growthbook/examples/tree/main/next-js).
+Note: If you are using the newer Next.js App Router, check out [our dedicated App Router guide](/guide/nextjs-app-router) instead.
 
 This document is a guide on how to add GrowthBook feature flags to your Next.js application. It assumes you are starting from scratch, so if you already have a Next.js application, you can skip to step 2.
 
@@ -61,13 +61,22 @@ After that, visit `http://localhost:3000` and create your first user account.
 
 ## 3. Integrate the GrowthBook React SDK into our Next.js app
 
-GrowthBook will generate some integration code for you, including a unique SDK Endpoint to load your features from.
+GrowthBook will generate some integration code for you, including a unique SDK Client Key to load your features from.
 
 <img
   src="/images/guides/nextjs-2-feature-flag-key.png"
   alt="GrowthBook Integration Code"
   style={{ width: 500, margin: "0 auto" }}
 />
+
+Create the file `.env.local` if it doesn't exist yet and add your generated key there:
+
+```bash
+NEXT_PUBLIC_GROWTHBOOK_API_HOST=https://cdn.growthbook.io
+NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY=
+# Below is only required if you enabled encryption
+NEXT_PUBLIC_GROWTHBOOK_DECRYPTION_KEY=
+```
 
 We first need to install the GrowthBook React SDK in our Next.js app:
 
@@ -82,24 +91,25 @@ import "../styles/globals.css";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 import { useEffect } from "react";
 
-const FEATURES_ENDPOINT = "http://localhost:3100/api/features/key_abc123";
-
 // Create a GrowthBook instance
 const growthbook = new GrowthBook({
+  apiHost: process.env.NEXT_PUBLIC_GROWTHBOOK_API_HOST,
+  clientKey: process.env.NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY,
+  decryptionKey: process.env.NEXT_PUBLIC_GROWTHBOOK_DECRYPTION_KEY,
   trackingCallback: (experiment, result) => {
-    console.log("Viewed Experiment", experiment, result);
+    console.log("Viewed Experiment", {
+      experimentId: experiment.key,
+      variationId: result.key
+    });
   },
 });
+// Start downloading feature definitions
+growthbook.init();
 
 export default function MyApp({ Component, pageProps, router }) {
   // Refresh features and targeting attributes on navigation
   useEffect(() => {
-    fetch(FEATURES_ENDPOINT)
-      .then((res) => res.json())
-      .then((json) => {
-        growthbook.setFeatures(json.features);
-      });
-
+    gb.setURL(window.location.href);
     growthbook.setAttributes({
       id: "123",
       loggedIn: true,
@@ -119,8 +129,6 @@ export default function MyApp({ Component, pageProps, router }) {
   );
 }
 ```
-
-Replace the `FEATURES_ENDPOINT` constant with the one you see in your instructions modal in GrowthBook.
 
 In a real application, you would pull some of the targeting attributes from your authentication system or an API, but let's just leave them hard-coded for now.
 
@@ -209,106 +217,3 @@ Try changing the user id in the targeting attributes in `pages/_app.js` to a few
 We showed here how to do a targeted rule, and how to do a rollout rule. It's also just as easy to make an A/B test in the same manner. You will need to set up an event tracking and connect GrowthBook to your data source.
 
 You can look at the [GrowthBook React SDK](/lib/react) docs for more ways to use feature flags in your code besides the `<IfFeatureEnabled>` component. Once you do the initial integration work, it only takes a few seconds to wrap your code in feature flags. Once you realize how easy and stress-free deploys and experimentation can be, there's no going back.
-
-## GrowthBook on Next.js App Router
-
-Next.js 13 introduces a new paradigm in Next.js apps that delineate between **server-side** and **client-side** components. Among these changes include a new folder layout for the default Next.js app.
-
-The following examples illustrate how to use Growthbook using both **server** and **client** components on a brand new Next app created using `create-next-app`:
-
-### Server components
-
-For Server components, you'll need to use the [Growthbook JS SDK](/lib/js).
-
-Changes to `app/page.tsx`:
-
-```ts
-import { GrowthBook } from "@growthbook/growthbook";
-
-const growthbook = new GrowthBook({
-  apiHost: "...",
-  clientKey: "...",
-  enableDevMode: true,
-  trackingCallback: (experiment, result) => {
-    // TODO: Use your real analytics tracking system
-    console.log("Viewed Experiment", {
-      experimentId: experiment.key,
-      variationId: result.key,
-    });
-  },
-});
-
-export default async function Home() {
-  await growthbook.loadFeatures();
-
-  const isWelcomeBannerOn = growthbook.isOn("welcome-banner-01");
-
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      {isWelcomeBannerOn && <h1 className="text-4xl">Welcome!</h1>}
-```
-
-Note: The above approach can be swapped out with the `fetch`-based method illustrated in some other parts of our documentation.
-
-### Client components
-
-New client component: `WelcomeBanner.tsx`
-
-```ts
-"use client";
-
-import {
-  GrowthBook,
-  GrowthBookProvider,
-  useFeatureIsOn,
-} from "@growthbook/growthbook-react";
-import { useEffect } from "react";
-
-const growthbook = new GrowthBook({
-  apiHost: "http://localhost:3100",
-  clientKey: "sdk-DxCjpOJmwJaWck",
-  enableDevMode: true,
-  trackingCallback: (experiment, result) => {
-    // TODO: Use your real analytics tracking system
-    console.log("Viewed Experiment", {
-      experimentId: experiment.key,
-      variationId: result.key,
-    });
-  },
-});
-
-const WelcomeBanner = () => {
-  const enabled = useFeatureIsOn("welcome-banner");
-  if (!enabled) return null;
-  return <h1 className="text-4xl">Welcome!</h1>;
-};
-
-const WelcomeBannerWithGB = () => {
-  useEffect(() => {
-    // Load features asynchronously when the app renders
-    growthbook.loadFeatures();
-  }, []);
-
-  return (
-    <GrowthBookProvider growthbook={growthbook}>
-      <WelcomeBanner />
-    </GrowthBookProvider>
-  );
-};
-
-export default WelcomeBannerWithGB;
-```
-
-Changes to `app/pages.tsx`
-
-```ts
-import WelcomeBanner from "./WelcomeBanner";
-
-export default async function Home() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <WelcomeBanner />
-      {/* ... */}
-  );
-}
-```
