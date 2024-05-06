@@ -36,7 +36,6 @@ const DeleteOrganization: FC<{
       header={"Delete Organization"}
       cta={"Delete"}
       close={close}
-      inline={!close}
       ctaEnabled={name === currentName}
     >
       <p>

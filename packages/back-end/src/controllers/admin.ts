@@ -8,7 +8,6 @@ import {
 } from "../models/OrganizationModel";
 import { getUserById } from "../services/users";
 import { findUsersByIds, updateUserById } from "../models/UserModel";
-import { getContextFromReq } from "../services/organizations";
 import { auditDetailsUpdate } from "../services/audit";
 
 export async function getOrganizations(
@@ -84,24 +83,6 @@ export async function updateUser(
     });
   }
 
-  // If the superAdmin field is being updated, check that the user making the
-  // request is a super admin and a member of the org
-  if (Object.keys(updates).includes("superAdmin")) {
-    const context = getContextFromReq(req);
-    const memberIds = context.org.members.map((m) => m.id);
-    if (
-      !context.userId ||
-      !memberIds.length ||
-      !memberIds.includes(context.userId)
-    ) {
-      return res.status(403).json({
-        status: 403,
-        message:
-          "Only super admins that are members of an org can update its users to super admin status",
-      });
-    }
-  }
-
   const updated = await updateUserById(userId, updates);
 
   req.audit({
@@ -129,6 +110,14 @@ export async function deleteOrganization(
     });
 
   await deleteOrganizationData(req.params.orgId);
+
+  req.audit({
+    event: "organization.delete",
+    entity: {
+      object: "organization",
+      id: req.params.orgId,
+    },
+  });
 
   return res.status(200).json({
     status: 200,
