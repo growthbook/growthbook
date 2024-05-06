@@ -260,7 +260,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     // Make sure the feature key example is valid
     if (
       transformedOrgSettings.featureKeyExample &&
-      transformedOrgSettings.featureKeyExample.length > 0 &&
       !transformedOrgSettings.featureKeyExample.match(/^[a-zA-Z0-9_.:|-]+$/)
     ) {
       throw new Error(
@@ -269,14 +268,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
     }
 
     // If the regex validator exists, then the feature key example must match the regex and be valid.
-    if (
-      transformedOrgSettings.featureRegexValidator &&
-      transformedOrgSettings.featureRegexValidator.length >= 1
-    ) {
+    if (transformedOrgSettings.featureRegexValidator) {
       if (
         !transformedOrgSettings.featureKeyExample ||
-        !transformedOrgSettings.featureRegexValidator ||
-        transformedOrgSettings.featureKeyExample?.trim().length == 0
+        !transformedOrgSettings.featureRegexValidator
       ) {
         throw new Error(
           "Feature key example must not be empty when a regex validator is defined."
