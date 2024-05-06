@@ -318,6 +318,37 @@ export async function findOrganizationsByMemberId(userId: string) {
   return docs.map(toInterface);
 }
 
+// find all orgs that contain user id in either members, invites, or pendingMembers
+// collections
+export async function findOrganizationsByUserId(userId: string) {
+  const docs = await OrganizationModel.find({
+    $or: [
+      {
+        members: {
+          $elemMatch: {
+            id: userId,
+          },
+        },
+      },
+      {
+        pendingMembers: {
+          $elemMatch: {
+            id: userId,
+          },
+        },
+      },
+      {
+        invites: {
+          $elemMatch: {
+            id: userId,
+          },
+        },
+      },
+    ],
+  });
+  return docs.map(toInterface);
+}
+
 export async function findOrganizationByInviteKey(key: string) {
   const doc = await OrganizationModel.findOne({
     "invites.key": key,
@@ -449,10 +480,9 @@ export async function deleteOrganizationData(orgId: string) {
 
   const userIds = org.members.map((m: Member) => m.id);
 
-  // TODO better way to do this?
   const usersToDelete = [];
   for (const userId of userIds) {
-    const allOrgsWithUser = await findOrganizationsByMemberId(userId);
+    const allOrgsWithUser = await findOrganizationsByUserId(userId);
     if (allOrgsWithUser.length === 1) usersToDelete.push(userId);
   }
 
