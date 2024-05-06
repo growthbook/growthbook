@@ -1,12 +1,17 @@
 import Link from "next/link";
 import React, { FC } from "react";
 import { EventWebHooksPage } from "@/components/EventWebHooks/EventWebHooksPage";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const WebhooksPage: FC = () => {
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
-  if (!permissions.manageWebhooks) {
+  const canManageWebhooks =
+    permissionsUtil.canCreateWebhook() ||
+    permissionsUtil.canUpdateWebhook() ||
+    permissionsUtil.canDeleteWebhook();
+
+  if (!canManageWebhooks) {
     return (
       <div className="container pagecontents">
         <div className="alert alert-danger">

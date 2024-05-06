@@ -34,16 +34,11 @@ export const getEventWebHooks = async (
   req: GetEventWebHooksRequest,
   res: Response<GetEventWebHooks>
 ) => {
-  const context = getContextFromReq(req);
+  const { org } = getContextFromReq(req);
 
-  const eventWebHooks = await EventWebHook.getAllEventWebHooks(context.org.id);
+  const eventWebHooks = await EventWebHook.getAllEventWebHooks(org.id);
 
-  // filter the eventWebhooks based on readAccess level
-  const filteredWebHooks = eventWebHooks.filter(() =>
-    hasReadAccess(context.readAccessFilter, [])
-  );
-
-  return res.json({ eventWebHooks: filteredWebHooks });
+  return res.json({ eventWebHooks });
 };
 
 // endregion GET /event-webhooks
@@ -60,8 +55,6 @@ export const getEventWebHook = async (
   req: GetEventWebHookByIdRequest,
   res: Response<GetEventWebHookByIdResponse | PrivateApiErrorResponse>
 ) => {
-  req.checkPermissions("manageWebhooks");
-
   const context = getContextFromReq(req);
   const { eventWebHookId } = req.params;
 
@@ -74,9 +67,6 @@ export const getEventWebHook = async (
     return res.status(404).json({ status: 404, message: "Not found" });
   }
 
-  // if the webhook was found, but the user doesn't have read access, throw a permission error
-  if (!hasReadAccess(context.readAccessFilter, [])) {
-  }
   return res.json({
     eventWebHook,
   });
@@ -161,8 +151,6 @@ export const getEventWebHookLogs = async (
   req: GetEventWebHookLogsRequest,
   res: Response<GetEventWebHookLogsResponse | PrivateApiErrorResponse>
 ) => {
-  req.checkPermissions("manageWebhooks");
-
   const { org } = getContextFromReq(req);
 
   const eventWebHookLogs = await EventWebHookLog.getLatestRunsForWebHook(

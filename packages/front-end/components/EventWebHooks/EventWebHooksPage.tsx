@@ -1,11 +1,15 @@
 import React from "react";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { EventWebHookListContainer } from "./EventWebHookList/EventWebHookList";
 
 export const EventWebHooksPage = () => {
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
-  if (!permissions.manageWebhooks) {
+  if (
+    !permissionsUtil.canCreateWebhook() ||
+    !permissionsUtil.canUpdateWebhook() ||
+    !permissionsUtil.canDeleteWebhook()
+  ) {
     return (
       <div className="pagecontents">
         <div className="alert alert-danger">
