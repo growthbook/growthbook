@@ -3,8 +3,20 @@ import { MetricWindowSettings } from "back-end/types/fact-table";
 import { SettingsResolver, Settings, ScopeDefinition } from "../types";
 import { getConversionWindowHours } from "../../experiments";
 
+// skip RA and prior fields because they are handled by custom
+// resolvers that take into account whether the requisite override
+// field is true before choosing which scope to apply for the value
 export default function genMetricOverrideResolver(
-  fieldName: keyof Omit<MetricOverride, "id">
+  fieldName: keyof Omit<
+    MetricOverride,
+    | "id"
+    | "regressionAdjustmentEnabled"
+    | "regressionAdjustmentDays"
+    | "properPriorOverride"
+    | "properPriorEnabled"
+    | "properPriorMean"
+    | "properPriorStdDev"
+  >
 ): SettingsResolver<Settings[keyof Settings]> {
   return (ctx) => {
     const metricOverride = ctx.scopes?.experiment?.metricOverrides?.find(
@@ -25,24 +37,11 @@ export default function genMetricOverrideResolver(
         : null;
     } else if (fieldName == "windowType") {
       metricValue = ctx.scopes?.metric?.windowSettings?.type;
-    } else if (
-      fieldName === "properPriorOverride" ||
-      fieldName === "properPriorEnabled" ||
-      fieldName === "properPriorMean" ||
-      fieldName === "properPriorStdDev"
-    ) {
-      // TODO
     } else {
       metricValue = ctx.scopes?.metric?.[fieldName];
     }
 
-    const value =
-      metricOverride?.[fieldName] ??
-      metricValue ??
-      (fieldName === "regressionAdjustmentEnabled"
-        ? ctx.scopes?.experiment?.[fieldName]
-        : null) ??
-      null;
+    const value = metricOverride?.[fieldName] ?? metricValue ?? null;
 
     let scopeApplied: keyof ScopeDefinition | "organization" = "organization";
     let reason = "org-level setting applied";
@@ -53,12 +52,6 @@ export default function genMetricOverrideResolver(
     } else if (typeof metricValue !== "undefined") {
       scopeApplied = "metric";
       reason = "metric-level setting applied";
-    } else if (
-      fieldName === "regressionAdjustmentEnabled" &&
-      typeof ctx.scopes?.experiment?.[fieldName] !== "undefined"
-    ) {
-      scopeApplied = "experiment";
-      reason = "experiment-level setting applied";
     }
 
     return {
