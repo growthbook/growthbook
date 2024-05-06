@@ -180,7 +180,9 @@ export async function deleteReport(
 
   // Only allow admins to delete other people's reports
   if (report.userId !== req.userId) {
-    req.checkPermissions("superDelete");
+    if (!context.permissions.canSuperDeleteReport()) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   const connectedExperiment = await getExperimentById(
