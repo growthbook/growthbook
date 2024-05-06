@@ -12,7 +12,6 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getRules, useEnvironments } from "@/services/features";
-import usePermissions from "@/hooks/usePermissions";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Button";
@@ -77,12 +76,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     const rules = getRules(feature, environment);
     const environments = useEnvironments();
-    const permissions = usePermissions();
     const permissionsUtil = usePermissionsUtil();
 
     const canEdit =
       !locked &&
-      permissions.check("manageFeatures", feature.project) &&
+      permissionsUtil.canViewFeatureModal(feature.project) &&
       permissionsUtil.canManageFeatureDrafts(feature);
 
     const upcomingScheduleRule = getUpcomingScheduleRule(rule);

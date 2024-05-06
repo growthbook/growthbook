@@ -1,5 +1,9 @@
 import { FC, useMemo, useRef, ReactNode, useState } from "react";
-import ReactSelect, { FormatOptionLabelMeta } from "react-select";
+import ReactSelect, {
+  components,
+  InputProps,
+  FormatOptionLabelMeta,
+} from "react-select";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
 import CreatableSelect from "react-select/creatable";
@@ -26,6 +30,7 @@ export type SelectFieldProps = Omit<
   formatGroupLabel?: (value: GroupedValue) => ReactNode;
   isSearchable?: boolean;
   isClearable?: boolean;
+  onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
 };
 
 export function useSelectOptions(
@@ -66,6 +71,12 @@ export function useSelectOptions(
     return [m, clone] as const;
   }, [options, initialOption]);
 }
+
+const Input = (props: InputProps) => {
+  // @ts-expect-error will be passed down
+  const { onPaste } = props.selectProps;
+  return <components.Input onPaste={onPaste} {...props} />;
+};
 
 export const ReactSelectProps = {
   // See react-select.scss and apply styles with CSS
@@ -134,6 +145,7 @@ const SelectField: FC<SelectFieldProps> = ({
   formatGroupLabel,
   isSearchable = true,
   isClearable = false,
+  onPaste,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -195,13 +207,12 @@ const SelectField: FC<SelectFieldProps> = ({
                 inputValue={inputValue}
                 options={sorted}
                 autoFocus={autoFocus}
-                onChange={(selected) => {
+                onChange={(selected: { value: string }) => {
                   onChange(selected?.value || "");
                   setInputValue("");
                 }}
                 onFocus={() => {
-                  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-                  if (!map.has(selected?.value)) {
+                  if (!selected?.value || !map.has(selected?.value)) {
                     // If this was a custom option, reset the input value so it's editable
                     setInputValue(selected?.value || "");
                   }
@@ -231,6 +242,11 @@ const SelectField: FC<SelectFieldProps> = ({
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
+                // @ts-expect-error onPaste is passed to Input
+                onPaste={onPaste}
+                components={{
+                  Input,
+                }}
               />
             ) : (
               <ReactSelect
@@ -241,7 +257,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 classNamePrefix="gb-select"
                 isDisabled={disabled || false}
                 options={sorted}
-                onChange={(selected) => {
+                onChange={(selected: { value: string }) => {
                   onChange(selected?.value || "");
                 }}
                 autoFocus={autoFocus}
@@ -250,6 +266,11 @@ const SelectField: FC<SelectFieldProps> = ({
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
+                // @ts-expect-error onPaste is passed to Input
+                onPaste={onPaste}
+                components={{
+                  Input,
+                }}
               />
             )}
             {required && (

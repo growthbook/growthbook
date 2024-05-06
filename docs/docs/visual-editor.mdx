@@ -198,6 +198,25 @@ If you have the `script-src` directive defined in your website's CSP, you'll nee
 Content-Security-Policy: script-src 'self' 'unsafe-inline' 'unsafe-eval';
 ```
 
+##### Using Script Nonces
+
+As an alternative to allowing `unsafe-inline`, we support "nonces", although this requires some very technical and custom configuration to hook up.
+
+First, you will need to generate a unique nonce value for every request and add it to your CSP header. This can be done on the edge such as with a CloudFlare Worker.
+
+Then, you will need to pass this nonce into your GrowthBook SDK as `jsInjectionNonce`.
+
+For example, if you are using our [Script Tag SDK](/lib/script-tag), you can add the following into your page's `<head>` BEFORE you load the GrowthBook snippet. Replace all instances of `$NONCE` with the unique nonce value you generated.
+
+```html
+<script nonce="$NONCE">
+window.growthbook_config = window.growthbook_config || {};
+window.growthbook_config.jsInjectionNonce = "$NONCE";
+</script>
+```
+
+You will still need to allow `unsafe-eval`.
+
 ## Drafts and QA
 
 While the experiment is still a draft, you can preview variations by adding a querystring to your URL.
