@@ -121,6 +121,8 @@ export default function StatsEngineSettings() {
 
   return (
     <div className="mb-3 form-group flex-column align-items-start">
+      <h4>Stats Engine Settings</h4>
+
       <StatsEngineSelect
         label="Default Statistics Engine"
         allowUndefined={false}
@@ -130,8 +132,6 @@ export default function StatsEngineSettings() {
         }}
         labelClassName="mr-2"
       />
-
-      <h4>Stats Engine Settings</h4>
 
       <div className="p-3 my-3 border rounded">
         <h5 className="font-weight-bold mb-4">
