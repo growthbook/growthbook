@@ -96,7 +96,6 @@ export async function getCreateMetricPropsFromBody(
       type: "",
       value: 0,
     },
-    // TODO allow for prior via API
     priorSettings: {
       override: false,
       proper: false,

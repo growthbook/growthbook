@@ -517,7 +517,6 @@ const MetricForm: FC<MetricFormProps> = ({
 
     const body = JSON.stringify(sendValue);
 
-    console.log(sendValue);
     if (edit) {
       await apiCall(`/metric/${current.id}`, {
         method: "PUT",

@@ -34,7 +34,10 @@ import {
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
 } from "../types/experiment-snapshot";
-import { ExperimentReportResultDimension, LegacyReportInterface } from "../types/report";
+import {
+  ExperimentReportResultDimension,
+  LegacyReportInterface,
+} from "../types/report";
 import { Queries } from "../types/query";
 import { ExperimentPhase } from "../types/experiment";
 import { LegacySavedGroupInterface } from "../types/saved-group";
@@ -339,7 +342,6 @@ describe("Metric Migration", () => {
       userIdTypes: ["anonymous_id", "user_id"],
     };
 
-
     expect(upgradeMetricDoc(baseMetric)).toEqual({
       ...baseMetric,
       priorSettings: {
@@ -349,8 +351,7 @@ describe("Metric Migration", () => {
         stddev: DEFAULT_PROPER_PRIOR_STDDEV,
       },
     });
-  })
-
+  });
 
   it("updates old metric objects - userIdType", () => {
     const baseMetric: LegacyMetricInterface = {
@@ -1279,7 +1280,6 @@ describe("Organization Migration", () => {
   });
 });
 
-
 describe("Snapshot Migration", () => {
   it("upgrades legacy snapshot instances", () => {
     const results: ExperimentReportResultDimension[] = [
@@ -1614,7 +1614,6 @@ describe("Snapshot Migration", () => {
               properPrior: false,
               properPriorMean: 0,
               properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
-
             },
           },
         ],
@@ -1642,7 +1641,6 @@ describe("Snapshot Migration", () => {
   });
 });
 
-
 describe("Report Migration", () => {
   const baseLegacyReport: LegacyReportInterface = {
     type: "experiment",
@@ -1661,7 +1659,7 @@ describe("Report Migration", () => {
       startDate: new Date(),
       variations: [],
       metrics: [],
-    }
+    },
   };
 
   it("migrates attribution model", () => {
@@ -1670,7 +1668,7 @@ describe("Report Migration", () => {
       args: {
         ...baseLegacyReport.args,
         attributionModel: "allExposures",
-      }
+      },
     };
 
     expect(migrateReport(report)).toEqual({
@@ -1678,7 +1676,7 @@ describe("Report Migration", () => {
       args: {
         ...report.args,
         attributionModel: "experimentDuration",
-      }
+      },
     });
   });
 
@@ -1687,34 +1685,38 @@ describe("Report Migration", () => {
       ...baseLegacyReport,
       args: {
         ...baseLegacyReport.args,
-        metricRegressionAdjustmentStatuses: [{
-          metric: "met_123",
-          regressionAdjustmentEnabled: true,
-          regressionAdjustmentAvailable: true,
-          regressionAdjustmentDays: 14,
-          reason: "foo",
-        }]
-      }
+        metricRegressionAdjustmentStatuses: [
+          {
+            metric: "met_123",
+            regressionAdjustmentEnabled: true,
+            regressionAdjustmentAvailable: true,
+            regressionAdjustmentDays: 14,
+            reason: "foo",
+          },
+        ],
+      },
     };
 
     expect(migrateReport(report)).toEqual({
       ...report,
       args: {
         ...report.args,
-        settingsForSnapshotMetrics: [{
-          metric: "met_123",
-          regressionAdjustmentEnabled: true,
-          regressionAdjustmentAvailable: true,
-          regressionAdjustmentDays: 14,
-          regressionAdjustmentReason: "foo",
-          properPrior: false,
-          properPriorMean: 0,
-          properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
-        }]
-      }
+        settingsForSnapshotMetrics: [
+          {
+            metric: "met_123",
+            regressionAdjustmentEnabled: true,
+            regressionAdjustmentAvailable: true,
+            regressionAdjustmentDays: 14,
+            regressionAdjustmentReason: "foo",
+            properPrior: false,
+            properPriorMean: 0,
+            properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
+          },
+        ],
+      },
     });
   });
-})
+});
 
 describe("saved group migrations", () => {
   const baseSavedGroup: LegacySavedGroupInterface = {

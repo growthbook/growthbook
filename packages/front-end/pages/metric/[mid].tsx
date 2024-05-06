@@ -120,7 +120,7 @@ const MetricPage: FC = () => {
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
   } = useOrganizationMetricDefaults();
-  console.log(metricDefaults);
+
   const form = useForm<{ name: string; description: string }>();
 
   useEffect(() => {
