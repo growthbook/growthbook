@@ -530,56 +530,58 @@ export default function MetricsOverridesSelector({
                           </small>
                         </div>
                       </div>
+                      {(defaultPriorSettings.proper &&
+                        !form.watch(
+                          `metricOverrides.${i}.properPriorOverride`
+                        )) ||
+                      !!form.watch(
+                        `metricOverrides.${i}.properPriorEnabled`
+                      ) ? (
+                        <>
+                          <div className="row">
+                            <div className="col">
+                              <Field
+                                label="Prior Mean"
+                                type="number"
+                                step="any"
+                                placeholder="default"
+                                containerClassName="small mb-0 mt-0"
+                                helpText={
+                                  <>{`${defaultPriorSource} default: ${defaultPriorSettings.mean}`}</>
+                                }
+                                {...form.register(
+                                  `metricOverrides.${i}.properPriorMean`,
+                                  {
+                                    valueAsNumber: true,
+                                  }
+                                )}
+                              />
+                            </div>
+                            <div className="col">
+                              <Field
+                                label="Prior Standard Deviation"
+                                type="number"
+                                step="any"
+                                placeholder="default"
+                                containerClassName="small mb-0 mt-0"
+                                helpText={
+                                  <>{`${defaultPriorSource} default: ${defaultPriorSettings.stddev}`}</>
+                                }
+                                {...form.register(
+                                  `metricOverrides.${i}.properPriorStdDev`,
+                                  {
+                                    valueAsNumber: true,
+                                    validate: (v) => {
+                                      return !((v ?? 0) <= 0);
+                                    },
+                                  }
+                                )}
+                              />
+                            </div>
+                          </div>
+                        </>
+                      ) : null}
                     </div>
-                    {(defaultPriorSettings.proper &&
-                      !form.watch(
-                        `metricOverrides.${i}.properPriorOverride`
-                      )) ||
-                    !!form.watch(`metricOverrides.${i}.properPriorEnabled`) ? (
-                      <>
-                        <div className="row">
-                          <div className="col">
-                            <Field
-                              label="Prior Mean"
-                              type="number"
-                              step="any"
-                              placeholder="default"
-                              containerClassName="small mb-0 mt-0"
-                              helpText={
-                                <>{`${defaultPriorSource} default: ${defaultPriorSettings.mean}`}</>
-                              }
-                              {...form.register(
-                                `metricOverrides.${i}.properPriorMean`,
-                                {
-                                  valueAsNumber: true,
-                                }
-                              )}
-                            />
-                          </div>
-                          <div className="col">
-                            <Field
-                              label="Prior Standard Deviation"
-                              type="number"
-                              step="any"
-                              placeholder="default"
-                              containerClassName="small mb-0 mt-0"
-                              helpText={
-                                <>{`${defaultPriorSource} default: ${defaultPriorSettings.stddev}`}</>
-                              }
-                              {...form.register(
-                                `metricOverrides.${i}.properPriorStdDev`,
-                                {
-                                  valueAsNumber: true,
-                                  validate: (v) => {
-                                    return !((v ?? 0) <= 0);
-                                  },
-                                }
-                              )}
-                            />
-                          </div>
-                        </div>
-                      </>
-                    ) : null}
                   </div>
                 </div>
 

@@ -488,7 +488,7 @@ export default function ResultsTableTooltip({
             data.metricSnapshotSettings?.properPrior ? (
               <div
                 className={clsx(
-                  "results-prior rounded d-flex justify-content-center mt-2",
+                  "results-prior text-muted rounded d-flex justify-content-center mt-2",
                   data.rowResults.resultsStatus
                 )}
               >
@@ -496,14 +496,6 @@ export default function ResultsTableTooltip({
                   className="cursor-pointer"
                   body={
                     <>
-                      <div className="mb-1">
-                        {`This metric was analyzed with a proper Bayesian prior of mean ${
-                          data.metricSnapshotSettings?.properPriorMean ?? 0
-                        } and standard deviation ${
-                          data.metricSnapshotSettings?.properPriorStdDev ??
-                          DEFAULT_PROPER_PRIOR_STDDEV
-                        }.`}
-                      </div>
                       <div className="mb-1">
                         {`This metric was analyzed with a proper Bayesian prior of mean ${
                           data.metricSnapshotSettings?.properPriorMean ?? 0
