@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { OrganizationInterface } from "back-end/types/organization";
 import { FaPlus, FaSearch } from "react-icons/fa";
-import { isCloud, isMultiOrg } from "@/services/env";
+import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
-import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/components/Pagination";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -139,17 +138,6 @@ export default function OrgsTable({
           }}
           close={() => setOrgModalOpen(false)}
         />
-      )}
-      {!isCloud() && isMultiOrg() && (
-        <div className="divider border-top mt-3">
-          <OrphanedUsersList
-            mutateUsers={() => {
-              loadOrgs(page, query);
-            }}
-            numUsersInAccount={0}
-            enableAdd={false}
-          />
-        </div>
       )}
     </>
   );

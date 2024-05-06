@@ -8,8 +8,8 @@ import { isCloud } from "@/services/env";
 import AddOrphanedUserModal from "./AddOrphanedUserModal";
 
 const OrphanedUsersList: FC<{
-  mutateUsers: () => void;
-  numUsersInAccount: number;
+  mutateUsers?: () => void;
+  numUsersInAccount?: number;
   enableAdd?: boolean;
 }> = ({ mutateUsers, numUsersInAccount, enableAdd = true }) => {
   const { apiCall } = useAuth();
@@ -48,7 +48,7 @@ const OrphanedUsersList: FC<{
           close={() => setAddModal("")}
           mutate={() => {
             mutate();
-            mutateUsers();
+            mutateUsers?.();
           }}
           {...addModalData}
         />

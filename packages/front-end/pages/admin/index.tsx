@@ -1,8 +1,9 @@
 import { FC, useCallback, useState } from "react";
 import { OrganizationInterface } from "back-end/types/organization";
 import { useUser } from "@/services/UserContext";
-import { isCloud } from "@/services/env";
+import { isCloud, isMultiOrg } from "@/services/env";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
+import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
 import { useAuth } from "@/services/auth";
 import OrgsTable from "./OrgsTable";
 
@@ -62,6 +63,12 @@ const Admin: FC = () => {
         <div>
           <ShowLicenseInfo showInput={false} />{" "}
           <div className="divider border-bottom mb-3 mt-3" />
+        </div>
+      )}
+
+      {!isCloud() && isMultiOrg() && (
+        <div className="divider border-top mt-3">
+          <OrphanedUsersList enableAdd={false} />
         </div>
       )}
     </div>
