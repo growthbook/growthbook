@@ -88,7 +88,7 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   manageWebhooks: false,
   manageIntegrations: false,
   organizationSettings: false,
-  superDelete: false,
+  superDeleteReport: false,
   viewEvents: false,
   readData: false,
 };

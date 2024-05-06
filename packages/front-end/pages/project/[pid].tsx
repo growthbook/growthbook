@@ -6,7 +6,6 @@ import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "back-end/types/project";
 import { getScopedSettings } from "shared/settings";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import usePermissions from "@/hooks/usePermissions";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import Button from "@/components/Button";
@@ -44,11 +43,10 @@ const ProjectPage: FC = () => {
   const [saveMsg, setSaveMsg] = useState(false);
   const [originalValue, setOriginalValue] = useState<ProjectSettings>({});
 
-  const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
   const canEditSettings = permissionsUtil.canUpdateProject(pid);
   // todo: should this also be project scoped?
-  const canManageTeam = permissions.check("manageTeam");
+  const canManageTeam = permissionsUtil.canManageTeam();
 
   const form = useForm<ProjectSettings>();
 

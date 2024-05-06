@@ -35,7 +35,7 @@ export const GLOBAL_PERMISSIONS = [
   "createDimensions",
   "createSegments",
   "organizationSettings",
-  "superDelete",
+  "superDeleteReport",
   "manageTeam",
   "manageTags",
   "manageApiKeys",

@@ -29,9 +29,11 @@ import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const ExperimentPage = (): ReactElement => {
   const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
   const { eid } = router.query;
 
@@ -76,7 +78,7 @@ const ExperimentPage = (): ReactElement => {
   } = data;
 
   const canEditExperiment =
-    permissions.check("createAnalyses", experiment.project) &&
+    permissionsUtil.canViewExperimentModal(experiment.project) &&
     !experiment.archived;
 
   let canRunExperiment = !experiment.archived;

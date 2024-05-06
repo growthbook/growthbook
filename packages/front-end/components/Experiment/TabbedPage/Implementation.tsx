@@ -9,6 +9,7 @@ import AddLinkedChanges from "@/components/Experiment/LinkedChanges/AddLinkedCha
 import RedirectLinkedChanges from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
 import FeatureLinkedChanges from "@/components/Experiment/LinkedChanges/FeatureLinkedChanges";
 import VisualLinkedChanges from "@/components/Experiment/LinkedChanges/VisualLinkedChanges";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import TargetingInfo from "./TargetingInfo";
 
 export interface Props {
@@ -37,12 +38,11 @@ export default function Implementation({
   const phases = experiment.phases || [];
 
   const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
-  const canCreateAnalyses = permissions.check(
-    "createAnalyses",
-    experiment.project
-  );
-  const canEditExperiment = !experiment.archived && canCreateAnalyses;
+  const canEditExperiment =
+    !experiment.archived &&
+    permissionsUtil.canViewExperimentModal(experiment.project);
 
   const hasVisualEditorPermission =
     canEditExperiment &&

@@ -50,8 +50,8 @@
     "husky": "^7.0.0",
     "lint-staged": "^10.2.7",
     "plop": "^3.1.1",
-    "prettier": "^2.2.1",
-    "typescript": "5.3.3"
+    "prettier": "^2.7.1",
+    "typescript": "5.4.5"
   },
   "lint-staged": {
     "./**/*.{json,css,scss,md,mdx}": [
@@ -65,7 +65,7 @@
     ]
   },
   "resolutions": {
-    "@growthbook/growthbook": "0.36.0"
+    "@growthbook/growthbook": "1.0.0"
   },
   "prettier": {
     "overrides": [

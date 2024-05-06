@@ -17,7 +17,7 @@
     "@dnd-kit/core": "^4.0.3",
     "@dnd-kit/sortable": "^5.1.0",
     "@floating-ui/react": "^0.25.4",
-    "@growthbook/growthbook-react": "^0.26.0",
+    "@growthbook/growthbook-react": "^1.0.0",
     "@jitsu/sdk-js": "^2.2.0",
     "@jukben/emoji-search": "^2.0.1",
     "@popperjs/core": "^2.11.5",
@@ -103,7 +103,7 @@
     "identity-obj-proxy": "^3.0.0",
     "jest": "^27.1.1",
     "sass": "^1.55.0",
-    "typescript": "5.3.3"
+    "typescript": "5.4.5"
   },
   "optionalDependencies": {
     "@babel/core": "^7.19.6"

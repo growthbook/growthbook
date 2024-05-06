@@ -2,16 +2,16 @@ import { useRouter } from "next/router";
 import { useState } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { date, daysLeft } from "shared/dates";
-import usePermissions from "@/hooks/usePermissions";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
 import { isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function AccountPlanNotices() {
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
   const { license, licenseError } = useUser();
   const {
@@ -23,10 +23,9 @@ export default function AccountPlanNotices() {
     subscriptionStatus,
   } = useStripeSubscription();
 
-  if (
-    license?.message &&
-    (license.message.showAllUsers || permissions.manageBilling)
-  ) {
+  const canManageBilling = permissionsUtil.canManageBilling();
+
+  if (license?.message && (license.message.showAllUsers || canManageBilling)) {
     return (
       <Tooltip body={<>{license.message.tooltipText}</>}>
         <div className="alert alert-danger py-1 px-2 mb-0 d-none d-md-block mr-1">
@@ -38,7 +37,7 @@ export default function AccountPlanNotices() {
 
   // GrowthBook Cloud-specific Notices
   // TODO: Get rid of this logic once we have migrated all organizations to use the license key
-  if (isCloud() && permissions.manageBilling && !license) {
+  if (isCloud() && canManageBilling && !license) {
     // On an active trial
     const trialRemaining = trialEnd ? daysLeft(trialEnd) : -1;
     if (subscriptionStatus === "trialing" && trialRemaining >= 0) {

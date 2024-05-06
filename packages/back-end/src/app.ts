@@ -366,7 +366,6 @@ app.get(
   "/dimension-slices/datasource/:datasourceId/:exposureQueryId",
   datasourcesController.getLatestDimensionSlicesForDatasource
 );
-app.post("/organization/sample-data", datasourcesController.postSampleData);
 
 if (IS_CLOUD) {
   app.get("/vercel/has-token", vercelController.getHasToken);

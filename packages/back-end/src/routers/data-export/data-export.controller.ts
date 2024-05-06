@@ -20,9 +20,12 @@ export const getDataExportForEvents = async (
     EventAuditUserForResponseLocals
   >
 ) => {
-  req.checkPermissions("viewEvents");
+  const context = getContextFromReq(req);
+  const { org } = context;
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canViewEvents()) {
+    context.permissions.throwPermissionError();
+  }
 
   if (!orgHasPremiumFeature(org, "audit-logging")) {
     return res.status(403).json({
