@@ -32,6 +32,7 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -192,6 +193,7 @@ export default function FeatureFromExperimentModal({
       "You don't have permission to create feature flag drafts.";
   }
 
+  const orgSettings = useOrgSettings();
   const existing = form.watch("existing");
 
   function updateValuesOnTypeChange(val: FeatureValueType) {
@@ -352,7 +354,10 @@ export default function FeatureFromExperimentModal({
 
       {!existing && (
         <>
-          <FeatureKeyField keyField={form.register("id")} />
+          <FeatureKeyField
+            keyField={form.register("id")}
+            placeHolder={orgSettings.featureKeyExample || "my-feature"}
+          />
 
           {showTags ? (
             <TagsField

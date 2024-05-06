@@ -2,14 +2,15 @@ import { FC } from "react";
 import { UseFormRegisterReturn } from "react-hook-form";
 import Field from "@/components/Forms/Field";
 
-const FeatureKeyField: FC<{ keyField: UseFormRegisterReturn }> = ({
-  keyField,
-}) => (
+const FeatureKeyField: FC<{
+  keyField: UseFormRegisterReturn;
+  placeHolder: string;
+}> = ({ keyField, placeHolder }) => (
   <Field
     label="Feature Key"
     {...keyField}
     pattern="^[a-zA-Z0-9_.:|-]+$"
-    placeholder="my-feature"
+    placeholder={placeHolder}
     required
     title="Only letters, numbers, and the characters '_-.:|' allowed. No spaces."
     helpText={

@@ -34,11 +34,21 @@ const Button: FC<Props> = ({
   ...otherProps
 }) => {
   const [_internalLoading, setLoading] = useState(false);
-  const [error, setError] = useState<boolean | null>(false);
+  const [error, setError] = useState<string | null>(null);
   const loading = _externalLoading || _internalLoading;
 
   return (
     <>
+      {error && (
+        <div className="alert alert-danger mr-auto">
+          {error
+            .split("\n")
+            .filter((v) => !!v.trim())
+            .map((s, i) => (
+              <div key={i}>{s}</div>
+            ))}
+        </div>
+      )}
       <button
         {...otherProps}
         className={clsx("btn", className, {
@@ -70,7 +80,6 @@ const Button: FC<Props> = ({
           children
         )}
       </button>
-      {error && <pre className="text-danger ml-2">{error}</pre>}
       {!error && !loading && description ? (
         <small>
           <em>{description}</em>

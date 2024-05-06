@@ -99,7 +99,40 @@ export default function FeaturesSettings() {
             {...form.register("secureAttributeSalt")}
           />
         </div>
-
+        <div>
+          <label htmlFor="featureKeyExample">
+            Feature Key Example (Optional)
+          </label>
+          <Field
+            id="featureKeyExample"
+            {...form.register("featureKeyExample")}
+            placeholder="growth-20240531-newFeature"
+          />
+          <p>
+            <small className="text-muted mb-3">
+              When creating a new feature, this example will be shown. Only
+              letters, numbers, and the characters _, -, ., :, and | allowed. No
+              spaces.
+            </small>
+          </p>
+        </div>
+        <div>
+          <label htmlFor="featureRegexValidator">
+            Feature Key Regex Validator (Optional)
+          </label>
+          <Field
+            id="featureRegexValidator"
+            {...form.register("featureRegexValidator")}
+            placeholder="^.*-\d{8}-.*$"
+          />
+          <p>
+            <small className="text-muted mb-3">
+              When using the create feature modal, it will validate the feature
+              key against this regex. This will not block API feature creation,
+              and is used to enforce naming conventions at some companies.
+            </small>
+          </p>
+        </div>
         <div>
           <label className="mr-1" htmlFor="toggle-killswitchConfirmation">
             Require confirmation when changing an environment kill switch
