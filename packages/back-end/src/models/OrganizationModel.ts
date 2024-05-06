@@ -486,7 +486,7 @@ export async function deleteOrganizationData(orgId: string) {
     if (allOrgsWithUser.length === 1) usersToDelete.push(userId);
   }
 
-  // these collecttions are not tied to orgs
+  // these collections are not tied to orgs
   const collectionsIgnored = ["agendaJobs", "installations"];
 
   const allCollections = await mongoose.connection.db

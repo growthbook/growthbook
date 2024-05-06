@@ -12,6 +12,7 @@ import { date } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import Collapsible from "react-collapsible";
 import useApi from "@/hooks/useApi";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import EditOrganization from "@/components/Admin/EditOrganization";
 import Code from "@/components/SyntaxHighlighting/Code";
 import DeleteOrganizationModal from "@/components/Admin/DeleteOrganizationModal";
@@ -33,6 +34,10 @@ export default function OrganizationRow({
   const [expanded, setExpanded] = useState(false);
   const [editOrgModalOpen, setEditOrgModalOpen] = useState(false);
   const [deleteOrgModalOpen, setDeleteOrgModalOpen] = useState(false);
+  const [lastPickedOrg, setLastPickedOrg] = useLocalStorage(
+    "gb-last-picked-org",
+    ""
+  );
 
   const { settings, members, ...otherAttributes } = organization;
 
@@ -57,7 +62,10 @@ export default function OrganizationRow({
         <DeleteOrganizationModal
           id={organization.id}
           currentName={organization.name}
-          onDelete={() => window.location.reload()}
+          onDelete={() => {
+            if (lastPickedOrg === organization.id) setLastPickedOrg("");
+            window.location.reload();
+          }}
           close={() => setDeleteOrgModalOpen(false)}
         />
       )}
