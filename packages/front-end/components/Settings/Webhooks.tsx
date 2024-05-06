@@ -8,6 +8,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import WebhooksModal from "./WebhooksModal";
 
 const Webhooks: FC = () => {
@@ -17,6 +18,7 @@ const Webhooks: FC = () => {
   const { getProjectById, projects } = useDefinitions();
   const { apiCall } = useAuth();
   const [open, setOpen] = useState<null | Partial<WebhookInterface>>(null);
+  const permissionsUtil = usePermissionsUtil();
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -105,29 +107,33 @@ const Webhooks: FC = () => {
                     )}
                   </td>
                   <td>
-                    <a
-                      href="#"
-                      className="tr-hover text-primary mr-3"
-                      title="Edit this webhook"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setOpen(webhook);
-                      }}
-                    >
-                      <FaPencilAlt />
-                    </a>
-                    <DeleteButton
-                      link={true}
-                      className={"tr-hover text-primary"}
-                      displayName="Webhook"
-                      title="Delete this webhook"
-                      onClick={async () => {
-                        await apiCall(`/webhook/${webhook.id}`, {
-                          method: "DELETE",
-                        });
-                        mutate();
-                      }}
-                    />
+                    {permissionsUtil.canUpdateWebhook() ? (
+                      <a
+                        href="#"
+                        className="tr-hover text-primary mr-3"
+                        title="Edit this webhook"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setOpen(webhook);
+                        }}
+                      >
+                        <FaPencilAlt />
+                      </a>
+                    ) : null}
+                    {permissionsUtil.canDeleteWebhook() ? (
+                      <DeleteButton
+                        link={true}
+                        className={"tr-hover text-primary"}
+                        displayName="Webhook"
+                        title="Delete this webhook"
+                        onClick={async () => {
+                          await apiCall(`/webhook/${webhook.id}`, {
+                            method: "DELETE",
+                          });
+                          mutate();
+                        }}
+                      />
+                    ) : null}
                   </td>
                 </tr>
                 {webhook.error && (
@@ -144,16 +150,17 @@ const Webhooks: FC = () => {
           </tbody>
         </table>
       )}
-
-      <button
-        className="btn btn-primary"
-        onClick={(e) => {
-          e.preventDefault();
-          setOpen({});
-        }}
-      >
-        <FaBolt /> Create New SDK Webhook
-      </button>
+      {permissionsUtil.canCreateWebhook() ? (
+        <button
+          className="btn btn-primary"
+          onClick={(e) => {
+            e.preventDefault();
+            setOpen({});
+          }}
+        >
+          <FaBolt /> Create New SDK Webhook
+        </button>
+      ) : null}
     </div>
   );
 };
