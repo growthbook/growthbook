@@ -1,7 +1,7 @@
 import Link from "next/link";
 import React, { FC } from "react";
-import { EventWebHooksPage } from "@/components/EventWebHooks/EventWebHooksPage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { EventWebHookListContainer } from "@/components/EventWebHooks/EventWebHookList/EventWebHookList";
 
 const WebhooksPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
@@ -23,12 +23,12 @@ const WebhooksPage: FC = () => {
 
   return (
     <div className="container-fluid pagecontents">
-      <div className="mt-3">
-        <EventWebHooksPage />
-      </div>
-      <div className="alert alert-info mt-5">
-        Looking for SDK Endpoints? They have moved to the{" "}
-        <Link href="/sdks">SDK Connections</Link> page.
+      <div className="pagecontents">
+        <EventWebHookListContainer />
+        <div className="alert alert-info mt-5">
+          Looking for SDK Endpoints? They have moved to the{" "}
+          <Link href="/sdks">SDK Connections</Link> page.
+        </div>
       </div>
     </div>
   );
