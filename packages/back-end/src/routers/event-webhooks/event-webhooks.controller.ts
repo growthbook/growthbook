@@ -1,5 +1,4 @@
 import type { Response } from "express";
-import { hasReadAccess } from "shared/permissions";
 import { PrivateApiErrorResponse } from "../../../types/api";
 import {
   EventWebHookInterface,
