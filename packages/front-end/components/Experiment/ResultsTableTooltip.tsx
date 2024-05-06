@@ -1,5 +1,8 @@
 import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
-import { ExperimentReportVariationWithIndex } from "back-end/types/report";
+import {
+  ExperimentReportVariationWithIndex,
+  MetricSnapshotSettings,
+} from "back-end/types/report";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import {
   DifferenceType,
@@ -21,6 +24,7 @@ import {
   isFactMetric,
   quantileMetricType,
 } from "shared/experiments";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
 import {
   getEffectLabel,
@@ -64,6 +68,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 export interface TooltipData {
   metricRow: number;
   metric: ExperimentMetricInterface;
+  metricSnapshotSettings?: MetricSnapshotSettings;
   dimensionName?: string;
   dimensionValue?: string;
   variation: ExperimentReportVariationWithIndex;
@@ -479,6 +484,39 @@ export default function ResultsTableTooltip({
                   : pValText}
               </div>
             </div>
+            {data.statsEngine === "bayesian" &&
+            data.metricSnapshotSettings?.properPrior ? (
+              <div
+                className={clsx(
+                  "results-prior text-muted rounded d-flex justify-content-center mt-2",
+                  data.rowResults.resultsStatus
+                )}
+              >
+                <Tooltip
+                  className="cursor-pointer"
+                  body={
+                    <>
+                      <div className="mb-1">
+                        {`This metric was analyzed with a proper Bayesian prior of mean ${
+                          data.metricSnapshotSettings?.properPriorMean ?? 0
+                        } and standard deviation ${
+                          data.metricSnapshotSettings?.properPriorStdDev ??
+                          DEFAULT_PROPER_PRIOR_STDDEV
+                        }.`}
+                      </div>
+                      <div>
+                        {
+                          "This affects all of the results for this metric (the lift, the chance to win, credible intervals, and more). It also may explain why the experiment lift is not exactly the percent difference between the variation and the baseline."
+                        }
+                      </div>
+                    </>
+                  }
+                >
+                  <HiOutlineExclamationCircle size={16} className="flag-icon" />
+                  <span>Your Bayesian prior affects results</span>
+                </Tooltip>
+              </div>
+            ) : null}
 
             {hasFlaggedItems ? (
               <div
@@ -578,6 +616,7 @@ export default function ResultsTableTooltip({
                 ) : null}
               </div>
             ) : null}
+            {}
           </div>
 
           <div className="mt-3 mb-2 results">

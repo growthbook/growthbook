@@ -23,7 +23,6 @@ import { generateReportNotebook } from "../services/notebook";
 import { getContextFromReq } from "../services/organizations";
 import { reportArgsFromSnapshot } from "../services/reports";
 import { AuthRequest } from "../types/AuthRequest";
-import { ExperimentInterface } from "../../types/experiment";
 import { getFactTableMap } from "../models/FactTableModel";
 
 export async function postReportFromSnapshot(
@@ -45,7 +44,9 @@ export async function postReportFromSnapshot(
     throw new Error("Could not find experiment");
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canCreateReport(experiment)) {
+    context.permissions.throwPermissionError();
+  }
 
   const phase = experiment.phases[snapshot.phase];
   if (!phase) {
@@ -169,7 +170,8 @@ export async function deleteReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const report = await getReportById(org.id, req.params.id);
 
   if (!report) {
@@ -179,6 +181,15 @@ export async function deleteReport(
   // Only allow admins to delete other people's reports
   if (report.userId !== req.userId) {
     req.checkPermissions("superDelete");
+  }
+
+  const connectedExperiment = await getExperimentById(
+    context,
+    report.experimentId || ""
+  );
+
+  if (!context.permissions.canDeleteReport(connectedExperiment || {})) {
+    context.permissions.throwPermissionError();
   }
 
   await deleteReportById(org.id, req.params.id);
@@ -199,14 +210,6 @@ export async function refreshReport(
   if (!report) {
     throw new Error("Unknown report id");
   }
-
-  let experiment: ExperimentInterface | null = null;
-
-  if (report.experimentId) {
-    experiment = await getExperimentById(context, report.experimentId || "");
-  }
-
-  req.checkPermissions("runQueries", experiment?.project || "");
 
   const useCache = !req.query["force"];
 
@@ -260,9 +263,10 @@ export async function putReport(
     report.experimentId || ""
   );
 
-  // Reports don't have projects, but the experiment does, so check that
-  req.checkPermissions("createAnalyses", experiment?.project || "");
-  req.checkPermissions("runQueries", experiment?.project || "");
+  // Reports don't have projects, but the experiment does, so check the experiment's project for permission if it exists
+  if (!context.permissions.canUpdateReport(experiment || {})) {
+    context.permissions.throwPermissionError();
+  }
 
   const updates: Partial<ReportInterface> = {};
   let needsRun = false;
@@ -283,8 +287,8 @@ export async function putReport(
     updates.args.statsEngine = statsEngine;
     updates.args.regressionAdjustmentEnabled = !!updates.args
       ?.regressionAdjustmentEnabled;
-    updates.args.metricRegressionAdjustmentStatuses =
-      updates.args?.metricRegressionAdjustmentStatuses || [];
+    updates.args.settingsForSnapshotMetrics =
+      updates.args?.settingsForSnapshotMetrics || [];
 
     needsRun = true;
   }
@@ -307,6 +311,7 @@ export async function putReport(
       updatedReport.args.datasource,
       true
     );
+
     const queryRunner = new ReportQueryRunner(
       context,
       updatedReport,
@@ -337,17 +342,11 @@ export async function cancelReport(
     throw new Error("Could not cancel query");
   }
 
-  const experiment = await getExperimentById(
-    context,
-    report.experimentId || ""
-  );
-
-  req.checkPermissions("runQueries", experiment?.project || "");
-
   const integration = await getIntegrationFromDatasourceId(
     context,
     report.args.datasource
   );
+
   const queryRunner = new ReportQueryRunner(context, report, integration);
   await queryRunner.cancelQueries();
 

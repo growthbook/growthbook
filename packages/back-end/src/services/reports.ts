@@ -11,11 +11,10 @@ import {
   isBinomialMetric,
   ExperimentMetricInterface,
 } from "shared/experiments";
-import { MetricPriorSettings } from "@back-end/types/fact-table";
 import {
   ExperimentReportArgs,
   ExperimentReportVariation,
-  MetricRegressionAdjustmentStatus,
+  MetricSnapshotSettings,
 } from "../../types/report";
 import {
   ExperimentInterface,
@@ -42,14 +41,19 @@ export function getReportVariations(
   });
 }
 
-function getMetricRegressionAdjustmentStatusesFromSnapshot(
+function getMetricSnapshotSettingsFromSnapshot(
   snapshotSettings: ExperimentSnapshotSettings,
   analysisSettings: ExperimentSnapshotAnalysisSettings
-): MetricRegressionAdjustmentStatus[] {
+): MetricSnapshotSettings[] {
   return snapshotSettings.metricSettings.map((m) => {
     return {
       metric: m.id,
-      reason: m.computedSettings?.regressionAdjustmentReason || "",
+      properPrior: m.computedSettings?.properPrior || false,
+      properPriorMean: m.computedSettings?.properPriorMean || 0,
+      properPriorStdDev:
+        m.computedSettings?.properPriorStdDev || DEFAULT_PROPER_PRIOR_STDDEV,
+      regressionAdjustmentReason:
+        m.computedSettings?.regressionAdjustmentReason || "",
       regressionAdjustmentDays:
         m.computedSettings?.regressionAdjustmentDays ||
         DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
@@ -91,10 +95,11 @@ export function reportArgsFromSnapshot(
     attributionModel: snapshot.settings.attributionModel,
     statsEngine: analysisSettings.statsEngine,
     regressionAdjustmentEnabled: analysisSettings.regressionAdjusted,
-    metricRegressionAdjustmentStatuses: getMetricRegressionAdjustmentStatusesFromSnapshot(
+    settingsForSnapshotMetrics: getMetricSnapshotSettingsFromSnapshot(
       snapshot.settings,
       analysisSettings
     ),
+    defaultMetricPriorSettings: snapshot.settings.defaultMetricPriorSettings,
     sequentialTestingEnabled: analysisSettings.sequentialTesting,
     sequentialTestingTuningParameter:
       analysisSettings.sequentialTestingTuningParameter,
@@ -124,6 +129,12 @@ export function getSnapshotSettingsFromReportArgs(
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
 } {
+  const defaultMetricPriorSettings = args.defaultMetricPriorSettings || {
+    override: false,
+    proper: false,
+    mean: 0,
+    stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+  };
   const snapshotSettings: ExperimentSnapshotSettings = {
     metricSettings: args.metrics
       .concat(args.guardrails || [])
@@ -132,13 +143,7 @@ export function getSnapshotSettingsFromReportArgs(
         getMetricForSnapshot(
           m,
           metricMap,
-          {
-            override: false,
-            proper: args.properPrior ?? false,
-            mean: args.properPriorMean ?? 0,
-            stddev: args.properPriorStdDev ?? DEFAULT_PROPER_PRIOR_STDDEV,
-          },
-          args.metricRegressionAdjustmentStatuses,
+          args.settingsForSnapshotMetrics,
           args.metricOverrides
         )
       )
@@ -154,6 +159,7 @@ export function getSnapshotSettingsFromReportArgs(
     segment: args.segment || "",
     queryFilter: args.queryFilter || "",
     skipPartialData: !!args.skipPartialData,
+    defaultMetricPriorSettings: defaultMetricPriorSettings,
     regressionAdjustmentEnabled: !!args.regressionAdjustmentEnabled,
     goalMetrics: args.metrics,
     guardrailMetrics: args.guardrails || [],
@@ -172,15 +178,14 @@ export function getSnapshotSettingsFromReportArgs(
 export function getMetricForSnapshot(
   id: string | null | undefined,
   metricMap: Map<string, ExperimentMetricInterface>,
-  orgPriorSettings: MetricPriorSettings,
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[],
+  settingsForSnapshotMetrics?: MetricSnapshotSettings[],
   metricOverrides?: MetricOverride[]
 ): MetricForSnapshot | null {
   if (!id) return null;
   const metric = metricMap.get(id);
   if (!metric) return null;
   const overrides = metricOverrides?.find((o) => o.id === id);
-  const regressionAdjustmentStatus = metricRegressionAdjustmentStatuses?.find(
+  const metricSnapshotSettings = settingsForSnapshotMetrics?.find(
     (s) => s.metric === id
   );
   return {
@@ -213,26 +218,20 @@ export function getMetricForSnapshot(
           metric.windowSettings.windowValue ??
           DEFAULT_METRIC_WINDOW_HOURS,
       },
-      // TODO allow for metric prior overrides by experiment
-      ...(metric.priorSettings.override
-        ? {
-            properPrior: metric.priorSettings.proper,
-            properPriorMean: metric.priorSettings.mean,
-            properPriorStdDev: metric.priorSettings.stddev,
-          }
-        : {
-            properPrior: orgPriorSettings.proper,
-            properPriorMean: orgPriorSettings.mean,
-            properPriorStdDev: orgPriorSettings.stddev,
-          }),
+      properPrior: metricSnapshotSettings?.properPrior ?? false,
+      properPriorMean: metricSnapshotSettings?.properPriorMean ?? 0,
+      properPriorStdDev:
+        metricSnapshotSettings?.properPriorStdDev ??
+        DEFAULT_PROPER_PRIOR_STDDEV,
       regressionAdjustmentDays:
-        regressionAdjustmentStatus?.regressionAdjustmentDays ??
+        metricSnapshotSettings?.regressionAdjustmentDays ??
         DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
       regressionAdjustmentEnabled:
-        regressionAdjustmentStatus?.regressionAdjustmentEnabled ?? false,
+        metricSnapshotSettings?.regressionAdjustmentEnabled ?? false,
       regressionAdjustmentAvailable:
-        regressionAdjustmentStatus?.regressionAdjustmentAvailable ?? true,
-      regressionAdjustmentReason: regressionAdjustmentStatus?.reason ?? "",
+        metricSnapshotSettings?.regressionAdjustmentAvailable ?? true,
+      regressionAdjustmentReason:
+        metricSnapshotSettings?.regressionAdjustmentReason ?? "",
     },
   };
 }

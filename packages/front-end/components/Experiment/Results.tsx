@@ -3,11 +3,14 @@ import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { getValidDate, ago } from "shared/dates";
-import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import {
+  DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "@back-end/types/experiment-snapshot";
+import { MetricSnapshotSettings } from "@back-end/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -19,6 +22,7 @@ import StatusBanner from "@/components/Experiment/StatusBanner";
 import { GBCuped, GBSequential } from "@/components/Icons";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { ExperimentTab } from "./TabbedPage";
 
 const BreakDownResults = dynamic(
@@ -102,7 +106,7 @@ const Results: FC<{
     setPhase(experiment.phases.length - 1);
   }, [experiment.phases.length, setPhase]);
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
 
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
@@ -124,10 +128,15 @@ const Results: FC<{
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
   });
-  const snapshotMetricRegressionAdjustmentStatuses =
+  const settingsForSnapshotMetrics: MetricSnapshotSettings[] =
     snapshot?.settings?.metricSettings?.map((m) => ({
       metric: m.id,
-      reason: m.computedSettings?.regressionAdjustmentReason || "",
+      properPrior: m.computedSettings?.properPrior ?? false,
+      properPriorMean: m.computedSettings?.properPriorMean ?? 0,
+      properPriorStdDev:
+        m.computedSettings?.properPriorStdDev ?? DEFAULT_PROPER_PRIOR_STDDEV,
+      regressionAdjustmentReason:
+        m.computedSettings?.regressionAdjustmentReason || "",
       regressionAdjustmentDays:
         m.computedSettings?.regressionAdjustmentDays || 0,
       regressionAdjustmentEnabled: !!m.computedSettings
@@ -165,6 +174,8 @@ const Results: FC<{
   if (error) {
     return <div className="alert alert-danger m-3">{error.message}</div>;
   }
+
+  const datasource = getDatasourceById(experiment.datasource);
 
   return (
     <>
@@ -231,7 +242,8 @@ const Results: FC<{
                 ago(experiment.phases[phase]?.dateStarted ?? "") +
                 ". Give it a little longer and click the 'Update' button above to check again."}
             {!snapshot &&
-              permissions.check("runQueries", experiment.project) &&
+              datasource &&
+              permissionsUtil.canRunExperimentQueries(datasource) &&
               `Click the "Update" button above.`}
             {snapshotLoading && <div> Snapshot loading...</div>}
           </div>
@@ -239,6 +251,7 @@ const Results: FC<{
 
       {snapshot && !snapshot.dimension && (
         <VariationIdWarning
+          datasource={datasource}
           unknownVariations={snapshot.unknownVariations || []}
           isUpdating={status === "running"}
           results={analysis?.results?.[0]}
@@ -315,9 +328,7 @@ const Results: FC<{
           statsEngine={analysis.settings.statsEngine}
           pValueCorrection={pValueCorrection}
           regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
-          metricRegressionAdjustmentStatuses={
-            snapshotMetricRegressionAdjustmentStatuses
-          }
+          settingsForSnapshotMetrics={settingsForSnapshotMetrics}
           sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
           differenceType={analysis.settings?.differenceType}
           metricFilter={metricFilter}
@@ -353,9 +364,7 @@ const Results: FC<{
             statsEngine={analysis.settings.statsEngine}
             pValueCorrection={pValueCorrection}
             regressionAdjustmentEnabled={analysis.settings?.regressionAdjusted}
-            metricRegressionAdjustmentStatuses={
-              snapshotMetricRegressionAdjustmentStatuses
-            }
+            settingsForSnapshotMetrics={settingsForSnapshotMetrics}
             sequentialTestingEnabled={analysis.settings?.sequentialTesting}
             differenceType={analysis.settings?.differenceType}
             metricFilter={metricFilter}
@@ -401,20 +410,6 @@ const Results: FC<{
                     : "Disabled"}
                 </span>
               </div>
-            )}
-            {analysis?.settings?.statsEngine === "bayesian" && (
-              <>
-                <div>
-                  <span className="text-muted">Informative prior:</span>{" "}
-                  <span>
-                    {analysis?.settings?.properPrior &&
-                    analysis?.settings?.properPriorStdDev &&
-                    analysis?.settings?.properPriorMean !== undefined
-                      ? `N(${analysis.settings.properPriorMean}, ${analysis.settings.properPriorStdDev}^2)`
-                      : "Disabled"}
-                  </span>
-                </div>
-              </>
             )}
             <div>
               <span className="text-muted">Run date:</span>{" "}

@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { ReqContext } from "../../../types/organization";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getContextFromReq } from "../../services/organizations";
 import {
@@ -44,11 +45,16 @@ export const getFactTables = async (
 };
 
 async function testFilterQuery(
+  context: ReqContext,
   datasource: DataSourceInterface,
   factTable: FactTableInterface,
   filter: string
 ): Promise<FactFilterTestResults> {
-  const integration = getSourceIntegrationObject(datasource, true);
+  if (!context.permissions.canRunTestQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource, true);
 
   if (!integration.getTestQuery || !integration.runTestQuery) {
     throw new Error("Testing not supported on this data source");
@@ -96,9 +102,9 @@ export const postFactTable = async (
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
-  req.checkPermissions("runQueries", datasource.projects || []);
 
   data.columns = await runRefreshColumnsQuery(
+    context,
     datasource,
     data as FactTableInterface
   );
@@ -137,10 +143,9 @@ export const putFactTable = async (
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
-  req.checkPermissions("runQueries", datasource.projects || []);
 
   // Update the columns
-  data.columns = await runRefreshColumnsQuery(datasource, {
+  data.columns = await runRefreshColumnsQuery(context, datasource, {
     ...factTable,
     ...data,
   } as FactTableInterface);
@@ -226,9 +231,13 @@ export const postFactFilterTest = async (
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
-  req.checkPermissions("runQueries", datasource.projects || []);
 
-  const result = await testFilterQuery(datasource, factTable, data.value);
+  const result = await testFilterQuery(
+    context,
+    datasource,
+    factTable,
+    data.value
+  );
 
   res.status(200).json({
     status: 200,
@@ -256,7 +265,6 @@ export const postFactFilter = async (
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
-  req.checkPermissions("runQueries", datasource.projects || []);
 
   const filter = await createFactFilter(factTable, data);
 
@@ -280,18 +288,6 @@ export const putFactFilter = async (
 
   if (!context.permissions.canUpdateFactTable(factTable, {})) {
     context.permissions.throwPermissionError();
-  }
-
-  // If the filter SQL is changing, re-test the query
-  const existingFilter = factTable.filters.find(
-    (f) => f.id === req.params.filterId
-  );
-  if (existingFilter && existingFilter.value !== data.value) {
-    const datasource = await getDataSourceById(context, factTable.datasource);
-    if (!datasource) {
-      throw new Error("Could not find datasource");
-    }
-    req.checkPermissions("runQueries", datasource.projects || []);
   }
 
   await updateFactFilter(context, factTable, req.params.filterId, data);

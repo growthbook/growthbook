@@ -979,6 +979,21 @@ paths:
                   type: string
                 excludeFromPayload:
                   type: boolean
+                inProgressConversions:
+                  type: string
+                  enum:
+                    - loose
+                    - strict
+                attributionModel:
+                  type: string
+                  enum:
+                    - firstExposure
+                    - experimentDuration
+                statsEngine:
+                  type: string
+                  enum:
+                    - bayesian
+                    - frequentist
                 variations:
                   type: array
                   minItems: 2
@@ -1023,10 +1038,10 @@ paths:
                         type: string
                       dateStarted:
                         type: string
-                        format: date
+                        format: date-time
                       dateEnded:
                         type: string
-                        format: date
+                        format: date-time
                       reasonForStopping:
                         type: string
                       seed:
@@ -1204,6 +1219,21 @@ paths:
                   type: string
                 excludeFromPayload:
                   type: boolean
+                inProgressConversions:
+                  type: string
+                  enum:
+                    - loose
+                    - strict
+                attributionModel:
+                  type: string
+                  enum:
+                    - firstExposure
+                    - experimentDuration
+                statsEngine:
+                  type: string
+                  enum:
+                    - bayesian
+                    - frequentist
                 variations:
                   type: array
                   minItems: 2
@@ -1248,10 +1278,10 @@ paths:
                         type: string
                       dateStarted:
                         type: string
-                        format: date
+                        format: date-time
                       dateEnded:
                         type: string
-                        format: date
+                        format: date-time
                       reasonForStopping:
                         type: string
                       seed:
@@ -1845,6 +1875,8 @@ paths:
                         stddev:
                           type: number
                           description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
+                          minimum: 0
+                          exclusiveMinimum: true
                     riskThresholdSuccess:
                       type: number
                       description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
@@ -2995,6 +3027,8 @@ paths:
                     stddev:
                       type: number
                       description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
+                      minimum: 0
+                      exclusiveMinimum: true
                 regressionAdjustmentSettings:
                   type: object
                   description: Controls the regression adjustment (CUPED) settings for the metric
@@ -3231,6 +3265,8 @@ paths:
                       stddev:
                         type: number
                         description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
+                        minimum: 0
+                        exclusiveMinimum: true
                 regressionAdjustmentSettings:
                   type: object
                   description: Controls the regression adjustment (CUPED) settings for the metric
@@ -4662,6 +4698,8 @@ components:
                         properties:
                           variationId:
                             type: string
+                          users:
+                            type: number
                           analyses:
                             type: array
                             items:

@@ -1,11 +1,4 @@
-import {
-  FC,
-  useRef,
-  useEffect,
-  useState,
-  ReactElement,
-  ReactNode,
-} from "react";
+import { FC, useRef, useEffect, useState, ReactNode } from "react";
 import clsx from "clsx";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
@@ -13,12 +6,12 @@ import Tooltip from "./Tooltip/Tooltip";
 import { DocLink, DocSection } from "./DocLink";
 
 type ModalProps = {
-  header?: "logo" | string | ReactElement | boolean;
+  header?: "logo" | string | ReactNode | boolean;
   open: boolean;
   className?: string;
   submitColor?: string;
-  cta?: string | ReactElement;
-  closeCta?: string | ReactElement;
+  cta?: string | ReactNode;
+  closeCta?: string | ReactNode;
   includeCloseCta?: boolean;
   ctaEnabled?: boolean;
   disabledMessage?: string;
@@ -35,8 +28,8 @@ type ModalProps = {
   close?: () => void;
   submit?: () => void | Promise<void>;
   fullWidthSubmit?: boolean;
-  secondaryCTA?: ReactElement;
-  tertiaryCTA?: ReactElement;
+  secondaryCTA?: ReactNode;
+  tertiaryCTA?: ReactNode;
   successMessage?: string;
   children: ReactNode;
   bodyClassName?: string;

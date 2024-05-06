@@ -18,7 +18,7 @@ import {
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import { getRules, isRuleFullyCovered } from "@/services/features";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { Rule, SortableRule } from "./Rule";
 
 export default function RuleList({
@@ -43,7 +43,7 @@ export default function RuleList({
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [items, setItems] = useState(getRules(feature, environment));
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   useEffect(() => {
     setItems(getRules(feature, environment));
@@ -86,8 +86,8 @@ export default function RuleList({
 
   const canEdit =
     !locked &&
-    permissions.check("manageFeatures", feature.project) &&
-    permissions.check("createFeatureDrafts", feature.project);
+    permissionsUtil.canViewFeatureModal(feature.project) &&
+    permissionsUtil.canManageFeatureDrafts(feature);
 
   return (
     <DndContext

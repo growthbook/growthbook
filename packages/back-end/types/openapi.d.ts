@@ -1114,6 +1114,7 @@ export interface components {
               metricId: string;
               variations: ({
                   variationId: string;
+                  users?: number;
                   analyses: ({
                       /** @enum {unknown} */
                       engine: "bayesian" | "frequentist";
@@ -3165,6 +3166,12 @@ export interface operations {
           minBucketVersion?: number;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
+          /** @enum {string} */
+          inProgressConversions?: "loose" | "strict";
+          /** @enum {string} */
+          attributionModel?: "firstExposure" | "experimentDuration";
+          /** @enum {string} */
+          statsEngine?: "bayesian" | "frequentist";
           variations: ({
               id?: string;
               key: string;
@@ -3179,9 +3186,9 @@ export interface operations {
             })[];
           phases?: ({
               name: string;
-              /** Format: date */
+              /** Format: date-time */
               dateStarted: string;
-              /** Format: date */
+              /** Format: date-time */
               dateEnded?: string;
               reasonForStopping?: string;
               seed?: string;
@@ -3483,6 +3490,12 @@ export interface operations {
           minBucketVersion?: number;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
+          /** @enum {string} */
+          inProgressConversions?: "loose" | "strict";
+          /** @enum {string} */
+          attributionModel?: "firstExposure" | "experimentDuration";
+          /** @enum {string} */
+          statsEngine?: "bayesian" | "frequentist";
           variations?: ({
               id?: string;
               key: string;
@@ -3497,9 +3510,9 @@ export interface operations {
             })[];
           phases?: ({
               name: string;
-              /** Format: date */
+              /** Format: date-time */
               dateStarted: string;
-              /** Format: date */
+              /** Format: date-time */
               dateEnded?: string;
               reasonForStopping?: string;
               seed?: string;
@@ -3720,6 +3733,7 @@ export interface operations {
                       metricId: string;
                       variations: ({
                           variationId: string;
+                          users?: number;
                           analyses: ({
                               /** @enum {unknown} */
                               engine: "bayesian" | "frequentist";

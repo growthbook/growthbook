@@ -5,14 +5,14 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import { LegacyReportInterface, ReportInterface } from "@back-end/types/report";
 import { SdkWebHookLogDocument } from "../models/SdkWebhookLogModel";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import {
   DataSourceInterface,
   DataSourceSettings,
 } from "../../types/datasource";
-import SqlIntegration from "../integrations/SqlIntegration";
-import { getSourceIntegrationObject } from "../services/datasource";
+import { decryptDataSourceParams } from "../services/datasource";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
@@ -188,8 +188,21 @@ export function upgradeDatasourceObject(
 
   // Upgrade old docs to the new exposure queries format
   if (settings && !settings?.queries?.exposure) {
-    const integration = getSourceIntegrationObject(datasource);
-    if (integration instanceof SqlIntegration) {
+    const isSQL = !["google_analytics", "mixpanel"].includes(datasource.type);
+    if (isSQL) {
+      let schema = "";
+      try {
+        const params = decryptDataSourceParams(datasource.params);
+        if (
+          "defaultSchema" in params &&
+          typeof params.defaultSchema === "string"
+        ) {
+          schema = params.defaultSchema;
+        }
+      } catch (e) {
+        // Ignore decryption errors, they are handled elsewhere
+      }
+
       settings.queries = settings.queries || {};
       settings.queries.exposure = [
         {
@@ -200,11 +213,7 @@ export function upgradeDatasourceObject(
           dimensions: settings.experimentDimensions || [],
           query:
             settings.queries.experimentsQuery ||
-            getDefaultExperimentQuery(
-              settings,
-              "user_id",
-              integration.getSchema()
-            ),
+            getDefaultExperimentQuery(settings, "user_id", schema),
         },
         {
           id: "anonymous_id",
@@ -214,11 +223,7 @@ export function upgradeDatasourceObject(
           dimensions: settings.experimentDimensions || [],
           query:
             settings.queries.experimentsQuery ||
-            getDefaultExperimentQuery(
-              settings,
-              "anonymous_id",
-              integration.getSchema()
-            ),
+            getDefaultExperimentQuery(settings, "anonymous_id", schema),
         },
       ];
     }
@@ -558,6 +563,39 @@ export function upgradeExperimentDoc(
   return experiment as ExperimentInterface;
 }
 
+export function migrateReport(orig: LegacyReportInterface): ReportInterface {
+  const { args, ...report } = orig;
+
+  if ((args?.attributionModel as string) === "allExposures") {
+    args.attributionModel = "experimentDuration";
+  }
+
+  if (
+    args?.metricRegressionAdjustmentStatuses &&
+    args?.settingsForSnapshotMetrics === undefined
+  ) {
+    args.settingsForSnapshotMetrics = args.metricRegressionAdjustmentStatuses.map(
+      (m) => ({
+        metric: m.metric,
+        properPrior: false,
+        properPriorMean: 0,
+        properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
+        regressionAdjustmentReason: m.reason,
+        regressionAdjustmentDays: m.regressionAdjustmentDays,
+        regressionAdjustmentEnabled: m.regressionAdjustmentEnabled,
+        regressionAdjustmentAvailable: m.regressionAdjustmentAvailable,
+      })
+    );
+  }
+
+  delete args?.metricRegressionAdjustmentStatuses;
+
+  return {
+    ...report,
+    args,
+  };
+}
+
 export function migrateSnapshot(
   orig: LegacyExperimentSnapshotInterface
 ): ExperimentSnapshotInterface {
@@ -630,6 +668,12 @@ export function migrateSnapshot(
       : "running";
   }
 
+  const defaultMetricPriorSettings = {
+    override: false,
+    proper: false,
+    mean: 0,
+    stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+  };
   // Migrate settings
   // We weren't tracking all of these before, so just pick good defaults
   if (!snapshot.settings) {
@@ -658,9 +702,9 @@ export function migrateSnapshot(
             windowUnit: "hours",
             windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
           },
-          properPrior: false,
-          properPriorMean: 0,
-          properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
+          properPrior: defaultMetricPriorSettings.proper,
+          properPriorMean: defaultMetricPriorSettings.mean,
+          properPriorStdDev: defaultMetricPriorSettings.stddev,
           regressionAdjustmentDays:
             regressionSettings?.regressionAdjustmentDays || 0,
           regressionAdjustmentEnabled: !!(
@@ -688,6 +732,7 @@ export function migrateSnapshot(
       goalMetrics: metricIds.filter((m) => m !== activationMetric),
       guardrailMetrics: [],
       activationMetric: activationMetric || null,
+      defaultMetricPriorSettings: defaultMetricPriorSettings,
       regressionAdjustmentEnabled: !!regressionAdjustmentEnabled,
       startDate: snapshot.dateCreated,
       endDate: snapshot.dateCreated,
@@ -700,6 +745,33 @@ export function migrateSnapshot(
       attributionModel: "firstExposure",
       variations,
     };
+  } else {
+    // Add new settings field in case it is missing
+    if (snapshot.settings.defaultMetricPriorSettings === undefined) {
+      snapshot.settings.defaultMetricPriorSettings = defaultMetricPriorSettings;
+    }
+
+    // migrate metric for snapshot to have new fields as old snapshots
+    // may not have prior settings
+    snapshot.settings.metricSettings = snapshot.settings.metricSettings.map(
+      (m) => {
+        if (m.computedSettings) {
+          m.computedSettings = {
+            ...m.computedSettings,
+            properPrior:
+              m.computedSettings.properPrior ??
+              defaultMetricPriorSettings.proper,
+            properPriorMean:
+              m.computedSettings.properPriorMean ??
+              defaultMetricPriorSettings.mean,
+            properPriorStdDev:
+              m.computedSettings.properPriorStdDev ??
+              defaultMetricPriorSettings.stddev,
+          };
+        }
+        return m;
+      }
+    );
   }
 
   // Some fields used to be optional, but are now required

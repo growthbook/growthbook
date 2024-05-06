@@ -1,9 +1,6 @@
 import React, { useMemo } from "react";
-import { FormProvider, useFieldArray, useForm } from "react-hook-form";
-import {
-  MetricRegressionAdjustmentStatus,
-  ReportInterface,
-} from "back-end/types/report";
+import { useFieldArray, useForm } from "react-hook-form";
+import { MetricSnapshotSettings, ReportInterface } from "back-end/types/report";
 import { FaQuestionCircle } from "react-icons/fa";
 import {
   AttributionModel,
@@ -11,15 +8,14 @@ import {
 } from "back-end/types/experiment";
 import uniq from "lodash/uniq";
 import {
-  DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
 import { MetricInterface } from "back-end/types/metric";
-import { getRegressionAdjustmentsForMetric } from "shared/experiments";
 import { DifferenceType } from "@back-end/types/stats";
+import { getMetricSnapshotSettings } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
@@ -40,7 +36,8 @@ import SelectField from "@/components/Forms/SelectField";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 import MetricSelector from "@/components/Experiment/MetricSelector";
-import BayesianPriorSettings from "@/components/Settings/BayesianPriorSettings";
+import Toggle from "@/components/Forms/Toggle";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function ConfigureReport({
   report,
@@ -124,16 +121,12 @@ export default function ConfigureReport({
         ? getValidDate(report.args.endDate).toISOString().substr(0, 16)
         : undefined,
       statsEngine: report.args.statsEngine || parentSettings.statsEngine.value,
+      useLatestPriorSettings: report.args.useLatestPriorSettings || false,
       regressionAdjustmentEnabled:
         (hasRegressionAdjustmentFeature &&
           report.args.regressionAdjustmentEnabled) ??
         DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-      metricRegressionAdjustmentStatuses:
-        report.args.metricRegressionAdjustmentStatuses || [],
-      properPrior: report.args.properPrior ?? false,
-      properPriorMean: report.args.properPriorMean ?? 0,
-      properPriorStdDev:
-        report.args.properPriorStdDev ?? DEFAULT_PROPER_PRIOR_STDDEV,
+      settingsForSnapshotMetrics: report.args.settingsForSnapshotMetrics || [],
       sequentialTestingEnabled:
         hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled,
       sequentialTestingTuningParameter:
@@ -142,13 +135,11 @@ export default function ConfigureReport({
   });
 
   // CUPED adjustments
-  const metricRegressionAdjustmentStatuses = useMemo(() => {
-    const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
+  const settingsForSnapshotMetrics = useMemo(() => {
+    const settingsForSnapshotMetrics: MetricSnapshotSettings[] = [];
     for (const metric of allExperimentMetrics) {
       if (!metric) continue;
-      const {
-        metricRegressionAdjustmentStatus,
-      } = getRegressionAdjustmentsForMetric({
+      const { metricSnapshotSettings } = getMetricSnapshotSettings({
         metric: metric,
         denominatorMetrics: denominatorMetrics,
         experimentRegressionAdjustmentEnabled: !!form.watch(
@@ -157,9 +148,9 @@ export default function ConfigureReport({
         organizationSettings: orgSettings,
         metricOverrides: report.args.metricOverrides,
       });
-      metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
+      settingsForSnapshotMetrics.push(metricSnapshotSettings);
     }
-    return metricRegressionAdjustmentStatuses;
+    return settingsForSnapshotMetrics;
   }, [
     allExperimentMetrics,
     denominatorMetrics,
@@ -199,9 +190,7 @@ export default function ConfigureReport({
           skipPartialData: !!value.skipPartialData,
         };
 
-        if (value.regressionAdjustmentEnabled) {
-          args.metricRegressionAdjustmentStatuses = metricRegressionAdjustmentStatuses;
-        }
+        args.settingsForSnapshotMetrics = settingsForSnapshotMetrics;
 
         const res = await apiCall<{ updatedReport: ReportInterface }>(
           `/report/${report.id}`,
@@ -562,14 +551,26 @@ export default function ConfigureReport({
         </div>
       )}
       {form.watch("statsEngine") === "bayesian" && (
-        <FormProvider {...form}>
-          <div className="mb-3 ml-1">
-            <BayesianPriorSettings
-              defaultMean={orgSettings.metricDefaults?.priorSettings?.mean}
-              defaultStdDev={orgSettings.metricDefaults?.priorSettings?.stddev}
-            />
-          </div>
-        </FormProvider>
+        <div className="align-items-center">
+          <label
+            className="ml-1 mr-1 mb-3 font-weight-bold"
+            htmlFor="useLatestPriorSettings"
+          >
+            Use latest metric prior settings{" "}
+            <Tooltip
+              body={
+                "Enabling this ensures the report uses the latest priors set for your organization and metrics. You can disable it to freeze the priors for this report and keep them from changing when metric definitions change."
+              }
+            >
+              <FaQuestionCircle />
+            </Tooltip>
+          </label>
+          <Toggle
+            id="useLatestPriorSettings"
+            value={form.watch("useLatestPriorSettings")}
+            setValue={(v) => form.setValue("useLatestPriorSettings", v)}
+          />
+        </div>
       )}
       <div className="d-flex flex-row no-gutters align-items-center mb-3 ml-1">
         <div className="col-3">

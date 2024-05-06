@@ -9,11 +9,11 @@ import { Queries } from "./query";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-  MetricRegressionAdjustmentStatus,
+  LegacyMetricRegressionAdjustmentStatus,
 } from "./report";
 import { DimensionInterface } from "./dimension";
 import { AttributionModel } from "./experiment";
-import { MetricWindowSettings } from "./fact-table";
+import { MetricPriorSettings, MetricWindowSettings } from "./fact-table";
 
 export interface SnapshotMetric {
   value: number;
@@ -55,7 +55,7 @@ export type LegacyExperimentSnapshotInterface = ExperimentSnapshotInterface & {
   hasCorrectedStats?: boolean;
   results?: ExperimentReportResultDimension[];
   regressionAdjustmentEnabled?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  metricRegressionAdjustmentStatuses?: LegacyMetricRegressionAdjustmentStatus[];
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
   queryFilter?: string;
@@ -104,9 +104,6 @@ export interface DimensionForSnapshot {
 export interface ExperimentSnapshotAnalysisSettings {
   dimensions: string[];
   statsEngine: StatsEngine;
-  properPrior?: boolean;
-  properPriorMean?: number;
-  properPriorStdDev?: number;
   regressionAdjusted?: boolean;
   sequentialTesting?: boolean;
   sequentialTestingTuningParameter?: number;
@@ -140,6 +137,7 @@ export interface ExperimentSnapshotSettings {
   goalMetrics: string[];
   guardrailMetrics: string[];
   activationMetric: string | null;
+  defaultMetricPriorSettings: MetricPriorSettings;
   regressionAdjustmentEnabled: boolean;
   attributionModel: AttributionModel;
   experimentId: string;

@@ -145,6 +145,9 @@ properties:
       stddev:
         type: number
         description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
+        minimum: 0
+        exclusiveMinimum: true
+
   regressionAdjustmentSettings:
     type: object
     description: Controls the regression adjustment (CUPED) settings for the metric

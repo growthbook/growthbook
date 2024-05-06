@@ -10,9 +10,9 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { getAllMetricRegressionAdjustmentStatuses } from "shared/experiments";
 import { MetricInterface } from "back-end/types/metric";
 import { DifferenceType } from "back-end/types/stats";
+import { getAllMetricSettingsForSnapshot } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -127,7 +127,7 @@ export default function ResultsTab({
     regressionAdjustmentEnabled,
     regressionAdjustmentHasValidMetrics,
   } = useMemo(() => {
-    return getAllMetricRegressionAdjustmentStatuses({
+    return getAllMetricSettingsForSnapshot({
       allExperimentMetrics,
       denominatorMetrics,
       orgSettings,

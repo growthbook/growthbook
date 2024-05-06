@@ -215,9 +215,9 @@ def get_configured_test(
     else:
         assert type(stat_a) is type(stat_b), "stat_a and stat_b must be of same type."
         prior = GaussianPrior(
-            mean=analysis.prior_mean,
-            variance=pow(analysis.prior_stddev, 2),
-            proper=analysis.prior_proper,
+            mean=metric.prior_mean,
+            variance=pow(metric.prior_stddev, 2),
+            proper=metric.prior_proper,
         )
         return EffectBayesianABTest(
             stat_a,

@@ -25,7 +25,7 @@ import {
 } from "shared/util";
 import {
   ExperimentMetricInterface,
-  getRegressionAdjustmentsForMetric,
+  getMetricSnapshotSettings,
   isFactMetric,
   isFactMetricId,
 } from "shared/experiments";
@@ -33,6 +33,7 @@ import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
 import { MetricPriorSettings } from "@back-end/types/fact-table";
 import { updateExperiment } from "../models/ExperimentModel";
+import { Context } from "../models/BaseModel";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
@@ -87,7 +88,7 @@ import {
   ApiExperimentResults,
   ApiMetric,
 } from "../../types/openapi";
-import { MetricRegressionAdjustmentStatus } from "../../types/report";
+import { MetricSnapshotSettings } from "../../types/report";
 import {
   postExperimentValidator,
   postMetricValidator,
@@ -134,7 +135,7 @@ export async function createMetric(data: Partial<MetricInterface>) {
 }
 
 export async function getExperimentMetricById(
-  context: ReqContext | ApiReqContext,
+  context: Context,
   metricId: string
 ): Promise<ExperimentMetricInterface | null> {
   if (isFactMetricId(metricId)) {
@@ -144,7 +145,7 @@ export async function getExperimentMetricById(
 }
 
 export async function refreshMetric(
-  context: ReqContext | ApiReqContext,
+  context: Context,
   metric: MetricInterface,
   metricAnalysisDays: number = DEFAULT_METRIC_ANALYSIS_DAYS
 ) {
@@ -310,13 +311,6 @@ export function getDefaultExperimentAnalysisSettings(
     : false;
   return {
     statsEngine,
-    properPrior:
-      organization.settings?.metricDefaults?.priorSettings?.proper ?? false,
-    properPriorMean:
-      organization.settings?.metricDefaults?.priorSettings?.mean ?? 0,
-    properPriorStdDev:
-      organization.settings?.metricDefaults?.priorSettings?.mean ??
-      DEFAULT_PROPER_PRIOR_STDDEV,
     dimensions: dimension ? [dimension] : [],
     regressionAdjusted:
       hasRegressionAdjustmentFeature &&
@@ -373,14 +367,14 @@ export function getSnapshotSettings({
   phaseIndex,
   settings,
   orgPriorSettings,
-  metricRegressionAdjustmentStatuses,
+  settingsForSnapshotMetrics,
   metricMap,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
   settings: ExperimentSnapshotAnalysisSettings;
-  orgPriorSettings?: MetricPriorSettings;
-  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
+  orgPriorSettings: MetricPriorSettings | undefined;
+  settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
@@ -388,6 +382,12 @@ export function getSnapshotSettings({
     throw new Error("Invalid snapshot phase");
   }
 
+  const defaultPriorSettings = orgPriorSettings ?? {
+    override: false,
+    proper: false,
+    mean: 0,
+    stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+  };
   const metricSettings = [
     // Combine goals, guardrails, and activation metric and de-dupe the list
     ...new Set([
@@ -400,13 +400,7 @@ export function getSnapshotSettings({
       getMetricForSnapshot(
         m,
         metricMap,
-        orgPriorSettings ?? {
-          override: false,
-          proper: false,
-          mean: 0,
-          stddev: DEFAULT_PROPER_PRIOR_STDDEV,
-        },
-        metricRegressionAdjustmentStatuses,
+        settingsForSnapshotMetrics,
         experiment.metricOverrides
       )
     )
@@ -427,6 +421,7 @@ export function getSnapshotSettings({
     goalMetrics: experiment.metrics,
     guardrailMetrics: experiment.guardrails || [],
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,
+    defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
     metricSettings: metricSettings,
     variations: experiment.variations.map((v, i) => ({
@@ -437,23 +432,33 @@ export function getSnapshotSettings({
   };
 }
 
-export async function createManualSnapshot(
-  experiment: ExperimentInterface,
-  phaseIndex: number,
-  users: number[],
+export async function createManualSnapshot({
+  experiment,
+  phaseIndex,
+  users,
+  metrics,
+  orgPriorSettings,
+  analysisSettings,
+  metricMap,
+  context,
+}: {
+  experiment: ExperimentInterface;
+  phaseIndex: number;
+  users: number[];
   metrics: {
     [key: string]: MetricStats[];
-  },
-  orgPriorSettings: MetricPriorSettings | undefined,
-  analysisSettings: ExperimentSnapshotAnalysisSettings,
-  metricMap: Map<string, ExperimentMetricInterface>
-) {
+  };
+  orgPriorSettings: MetricPriorSettings | undefined;
+  analysisSettings: ExperimentSnapshotAnalysisSettings;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  context: Context;
+}) {
   const snapshotSettings = getSnapshotSettings({
     experiment,
     phaseIndex,
     orgPriorSettings: orgPriorSettings,
     settings: analysisSettings,
-    metricRegressionAdjustmentStatuses: [],
+    settingsForSnapshotMetrics: [],
     metricMap,
   });
 
@@ -496,7 +501,7 @@ export async function createManualSnapshot(
     ],
   };
 
-  const snapshot = await createExperimentSnapshotModel(data);
+  const snapshot = await createExperimentSnapshotModel({ data, context });
 
   return snapshot;
 }
@@ -564,7 +569,7 @@ export async function createSnapshot({
   useCache = false,
   defaultAnalysisSettings,
   additionalAnalysisSettings,
-  metricRegressionAdjustmentStatuses,
+  settingsForSnapshotMetrics,
   metricMap,
   factTableMap,
 }: {
@@ -574,7 +579,7 @@ export async function createSnapshot({
   useCache?: boolean;
   defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings;
   additionalAnalysisSettings: ExperimentSnapshotAnalysisSettings[];
-  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
+  settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
 }): Promise<ExperimentResultsQueryRunner> {
@@ -586,7 +591,7 @@ export async function createSnapshot({
     phaseIndex,
     orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
     settings: defaultAnalysisSettings,
-    metricRegressionAdjustmentStatuses,
+    settingsForSnapshotMetrics,
     metricMap,
   });
 
@@ -639,7 +644,7 @@ export async function createSnapshot({
     },
   });
 
-  const snapshot = await createExperimentSnapshotModel(data);
+  const snapshot = await createExperimentSnapshotModel({ data, context });
 
   const integration = await getIntegrationFromDatasourceId(
     context,
@@ -670,12 +675,14 @@ export async function createSnapshotAnalysis({
   analysisSettings,
   metricMap,
   snapshot,
+  context,
 }: {
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
   snapshot: ExperimentSnapshotInterface;
+  context: Context;
 }): Promise<void> {
   // check if analysis is possible
   if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
@@ -696,7 +703,12 @@ export async function createSnapshotAnalysis({
     dateCreated: new Date(),
   };
   // and analysis to mongo record if it does not exist, overwrite if it does
-  addOrUpdateSnapshotAnalysis(organization.id, snapshot.id, analysis);
+  addOrUpdateSnapshotAnalysis({
+    organization: organization.id,
+    id: snapshot.id,
+    analysis,
+    context,
+  });
 
   // Format data correctly
   const queryMap: QueryMap = await getQueryMap(
@@ -716,7 +728,12 @@ export async function createSnapshotAnalysis({
   analysis.status = "success";
   analysis.error = undefined;
 
-  updateSnapshotAnalysis(organization.id, snapshot.id, analysis);
+  updateSnapshotAnalysis({
+    organization: organization.id,
+    id: snapshot.id,
+    analysis,
+    context,
+  });
 }
 
 function getExperimentMetric(
@@ -929,6 +946,7 @@ export function toSnapshotApiInterface(
             const data = v.metrics[m];
             return {
               variationId: variationIds[i],
+              users: v.users,
               analyses: [
                 {
                   engine:
@@ -1801,8 +1819,9 @@ export function postExperimentApiPayloadToInterface(
     activationMetric: "",
     segment: "",
     queryFilter: "",
-    skipPartialData: false,
-    attributionModel: "firstExposure",
+    skipPartialData: payload.inProgressConversions === "strict",
+    attributionModel: payload.attributionModel || "firstExposure",
+    ...(payload.statsEngine ? { statsEngine: payload.statsEngine } : {}),
     variations:
       payload.variations.map((v) => ({
         ...v,
@@ -1855,6 +1874,9 @@ export function updateExperimentApiPayloadToInterface(
     variations,
     releasedVariationId,
     excludeFromPayload,
+    inProgressConversions,
+    attributionModel,
+    statsEngine,
   } = payload;
   return {
     ...(trackingKey ? { trackingKey } : {}),
@@ -1873,6 +1895,11 @@ export function updateExperimentApiPayloadToInterface(
     ...(status ? { status } : {}),
     ...(releasedVariationId !== undefined ? { releasedVariationId } : {}),
     ...(excludeFromPayload !== undefined ? { excludeFromPayload } : {}),
+    ...(inProgressConversions !== undefined
+      ? { skipPartialData: inProgressConversions === "strict" }
+      : {}),
+    ...(attributionModel !== undefined ? { attributionModel } : {}),
+    ...(statsEngine !== undefined ? { statsEngine } : {}),
     ...(variations
       ? {
           variations: variations?.map((v) => ({
@@ -1922,19 +1949,15 @@ export function updateExperimentApiPayloadToInterface(
   };
 }
 
-export async function getRegressionAdjustmentInfo(
+export async function getSettingsForSnapshotMetrics(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
 ): Promise<{
   regressionAdjustmentEnabled: boolean;
-  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
+  settingsForSnapshotMetrics: MetricSnapshotSettings[];
 }> {
   let regressionAdjustmentEnabled = false;
-  const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
-
-  if (!experiment.regressionAdjustmentEnabled) {
-    return { regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses };
-  }
+  const settingsForSnapshotMetrics: MetricSnapshotSettings[] = [];
 
   const metricMap = await getMetricMap(context);
 
@@ -1955,9 +1978,7 @@ export async function getRegressionAdjustmentInfo(
 
   for (const metric of allExperimentMetrics) {
     if (!metric) continue;
-    const {
-      metricRegressionAdjustmentStatus,
-    } = getRegressionAdjustmentsForMetric({
+    const { metricSnapshotSettings } = getMetricSnapshotSettings({
       metric: metric,
       denominatorMetrics: denominatorMetrics,
       experimentRegressionAdjustmentEnabled:
@@ -1966,15 +1987,15 @@ export async function getRegressionAdjustmentInfo(
       organizationSettings: context.org.settings,
       metricOverrides: experiment.metricOverrides,
     });
-    if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {
+    if (metricSnapshotSettings.regressionAdjustmentEnabled) {
       regressionAdjustmentEnabled = true;
     }
-    metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
+    settingsForSnapshotMetrics.push(metricSnapshotSettings);
   }
   if (!experiment.regressionAdjustmentEnabled) {
     regressionAdjustmentEnabled = false;
   }
-  return { regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses };
+  return { regressionAdjustmentEnabled, settingsForSnapshotMetrics };
 }
 
 export function visualChangesetsHaveChanges({

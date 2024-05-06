@@ -83,6 +83,7 @@ const experimentSchema = new mongoose.Schema({
   observations: String,
   hypothesis: String,
   metrics: [String],
+  pastNotifications: [String],
   metricOverrides: [
     {
       _id: false,
@@ -92,6 +93,10 @@ const experimentSchema = new mongoose.Schema({
       delayHours: Number,
       winRisk: Number,
       loseRisk: Number,
+      properPriorOverride: Boolean,
+      properPriorEnabled: Boolean,
+      properPriorMean: Number,
+      properPriorStdDev: Number,
       regressionAdjustmentOverride: Boolean,
       regressionAdjustmentEnabled: Boolean,
       regressionAdjustmentDays: Number,

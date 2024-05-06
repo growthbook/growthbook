@@ -5,6 +5,8 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import React from "react";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
+import { StatsEngine } from "@back-end/types/stats";
 import {
   capitalizeFirstLetter,
   isNullUndefinedOrEmpty,
@@ -19,6 +21,7 @@ import MetricName from "./MetricName";
 interface MetricToolTipCompProps {
   metric: ExperimentMetricInterface;
   row?: ExperimentTableRow;
+  statsEngine?: StatsEngine;
   reportRegressionAdjustmentEnabled?: boolean;
 }
 
@@ -32,6 +35,7 @@ interface MetricInfo {
 const MetricTooltipBody = ({
   metric,
   row,
+  statsEngine,
   reportRegressionAdjustmentEnabled,
 }: MetricToolTipCompProps): React.ReactElement => {
   function validMetricDescription(description: string): boolean {
@@ -129,13 +133,35 @@ const MetricTooltipBody = ({
     },
   ];
 
+  if (statsEngine === "bayesian") {
+    metricInfo.push({
+      show: true,
+      label: "Bayesian Prior",
+      body: (
+        <>
+          {row?.metricSnapshotSettings?.properPrior
+            ? `Mean: ${
+                row?.metricSnapshotSettings?.properPriorMean ?? 0
+              }, Std. Dev.: ${
+                row?.metricSnapshotSettings?.properPriorStdDev ??
+                DEFAULT_PROPER_PRIOR_STDDEV
+              }`
+            : "disabled"}
+          {metricOverrideFields.includes("prior") ? (
+            <small className="text-purple ml-1">(override)</small>
+          ) : null}
+        </>
+      ),
+    });
+  }
+
   if (reportRegressionAdjustmentEnabled && row) {
     metricInfo.push({
       show: true,
       label: "CUPED",
       body: (
         <>
-          {row?.regressionAdjustmentStatus?.regressionAdjustmentEnabled
+          {row?.metricSnapshotSettings?.regressionAdjustmentEnabled
             ? "Enabled"
             : "Disabled"}
           {metricOverrideFields.includes("regressionAdjustmentEnabled") ? (
@@ -144,13 +170,13 @@ const MetricTooltipBody = ({
         </>
       ),
     });
-    if (row?.regressionAdjustmentStatus?.regressionAdjustmentEnabled) {
+    if (row?.metricSnapshotSettings?.regressionAdjustmentEnabled) {
       metricInfo.push({
         show: true,
         label: "CUPED Lookback (days)",
         body: (
           <>
-            {row?.regressionAdjustmentStatus?.regressionAdjustmentDays}
+            {row?.metricSnapshotSettings?.regressionAdjustmentDays}
             {metricOverrideFields.includes("regressionAdjustmentDays") ? (
               <small className="text-purple ml-1">(override)</small>
             ) : null}
