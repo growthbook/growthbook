@@ -31,6 +31,9 @@ export class Permissions {
   }
 
   //Global Permissions
+  public canReadAllProjects = (): boolean => {
+    return this.checkGlobalPermission("readData");
+  };
   public canCreatePresentation = (): boolean => {
     return this.checkGlobalPermission("createPresentations");
   };
@@ -398,6 +401,15 @@ export class Permissions {
     factTable: Pick<FactTableInterface, "projects">
   ): boolean => {
     return this.checkProjectFilterPermission(factTable, "manageFactTables");
+  };
+
+  public canReadMetric = (
+    metric: Pick<MetricInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: metric.projects || [] },
+      "readData"
+    );
   };
 
   public canCreateMetric = (

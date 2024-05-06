@@ -17,17 +17,13 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import ExpandableQuery from "@/components/Queries/ExpandableQuery";
-import usePermissions from "@/hooks/usePermissions";
 
 const DataSourceQueries = (): React.ReactElement => {
-  const permissions = usePermissions();
   const [modalData, setModalData] = useState<QueryInterface | null>(null);
   const router = useRouter();
   const { did } = router.query as { did: string };
   const { getDatasourceById, ready, error: datasourceError } = useDefinitions();
   const d = getDatasourceById(did);
-
-  const canView = d && permissions.check("readData", d.projects || []);
 
   const { data, error: queriesError } = useApi<{
     queries: QueryInterface[];
@@ -41,16 +37,6 @@ const DataSourceQueries = (): React.ReactElement => {
     localStorageKey: "datasourceQueries",
     searchFields: ["status", "queryType", "externalId"],
   });
-
-  if (!canView) {
-    return (
-      <div className="container pagecontents">
-        <div className="alert alert-danger">
-          You do not have access to view this page.
-        </div>
-      </div>
-    );
-  }
 
   if (datasourceError || queriesError) {
     return (

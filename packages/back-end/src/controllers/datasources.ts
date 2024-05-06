@@ -548,11 +548,6 @@ export async function getDataSourceQueries(
     throw new Error("Could not find datasource");
   }
 
-  req.checkPermissions(
-    "readData",
-    datasourceObj?.projects?.length ? datasourceObj.projects : []
-  );
-
   const queries = await getQueriesByDatasource(context.org.id, id);
 
   res.status(200).json({
