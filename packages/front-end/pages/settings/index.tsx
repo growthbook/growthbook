@@ -259,9 +259,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
     // Make sure the feature key example is valid
     if (
-      !(transformedOrgSettings.featureKeyExample ?? "").match(
-        /^[a-zA-Z0-9_.:|-]+$/
-      )
+      transformedOrgSettings.featureKeyExample &&
+      transformedOrgSettings.featureKeyExample.length > 0 &&
+      !transformedOrgSettings.featureKeyExample.match(/^[a-zA-Z0-9_.:|-]+$/)
     ) {
       throw new Error(
         "Feature key examples can only include letters, numbers, hyphens, and underscores."
