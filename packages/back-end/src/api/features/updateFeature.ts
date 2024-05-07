@@ -96,7 +96,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     ) {
       if (
         !req.context.permissions.canPublishFeature(
-          feature,
+          updates,
           Array.from(
             getEnabledEnvironments(
               {

@@ -1095,7 +1095,12 @@ export async function postFeatureSync(
     context.permissions.throwPermissionError();
   }
 
-  if (!context.permissions.canPublishFeature(feature, environments)) {
+  if (
+    !context.permissions.canPublishFeature(
+      feature,
+      Array.from(getEnabledEnvironments(feature, environments))
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -1213,7 +1218,12 @@ export async function postFeatureExperimentRefRule(
     context.permissions.throwPermissionError();
   }
 
-  if (!context.permissions.canPublishFeature(feature, environments)) {
+  if (
+    !context.permissions.canPublishFeature(
+      feature,
+      Array.from(getEnabledEnvironments(feature, environments))
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -1541,8 +1551,8 @@ export async function postFeatureToggle(
   }
 
   if (
-    !context.permissions.canPublishFeature(feature, [environment]) ||
-    !context.permissions.canUpdateFeature(feature, {})
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canPublishFeature(feature, [environment])
   ) {
     context.permissions.throwPermissionError();
   }
@@ -1853,11 +1863,8 @@ export async function postFeatureEvaluate(
   const { id, version } = req.params;
   const context = getContextFromReq(req);
   const { org } = context;
-  const {
-    attributes,
-    scrubPrerequisites,
-    skipRulesWithPrerequisites,
-  } = req.body;
+  const { attributes, scrubPrerequisites, skipRulesWithPrerequisites } =
+    req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
