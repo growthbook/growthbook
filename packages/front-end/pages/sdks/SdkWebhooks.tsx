@@ -20,7 +20,8 @@ export default function SdkWebhooks({ sdkid }) {
     `/webhooks/sdk/${sdkid}`
   );
   const [
-    createWebhookModalOpen, setCreateWebhookModalOpen
+    createWebhookModalOpen,
+    setCreateWebhookModalOpen,
   ] = useState<null | Partial<WebhookInterface>>(null);
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
