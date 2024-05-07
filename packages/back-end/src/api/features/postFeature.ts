@@ -22,7 +22,8 @@ export type ApiFeatureEnvSettings = NonNullable<
   z.infer<typeof postFeatureValidator.bodySchema>["environments"]
 >;
 
-export type ApiFeatureEnvSettingsRules = ApiFeatureEnvSettings[keyof ApiFeatureEnvSettings]["rules"];
+export type ApiFeatureEnvSettingsRules =
+  ApiFeatureEnvSettings[keyof ApiFeatureEnvSettings]["rules"];
 
 export const validateEnvKeys = (
   orgEnvKeys: string[],
@@ -114,17 +115,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
     // ensure default value matches value type
     feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
 
-    if (
-      !req.context.permissions.canPublishFeature(
-        feature,
-        Array.from(
-          getEnabledEnvironments(
-            feature,
-            orgEnvs.map((e) => e.id)
-          )
-        )
-      )
-    ) {
+    if (!req.context.permissions.canPublishFeature(req.context, feature)) {
       req.context.permissions.throwPermissionError();
     }
 

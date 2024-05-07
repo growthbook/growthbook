@@ -454,12 +454,7 @@ export async function postFeatures(
     )
   );
 
-  if (
-    !context.permissions.canPublishFeature(
-      feature,
-      Array.from(getEnabledEnvironments(feature, environmentIds))
-    )
-  ) {
+  if (!context.permissions.canPublishFeature(context, feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -758,12 +753,7 @@ export async function postFeaturePublish(
 
   // If changing the default value, it affects all enabled environments
   if (mergeResult.result.defaultValue !== undefined) {
-    if (
-      !context.permissions.canPublishFeature(
-        feature,
-        Array.from(getEnabledEnvironments(feature, environmentIds))
-      )
-    ) {
+    if (!context.permissions.canPublishFeature(context, feature)) {
       context.permissions.throwPermissionError();
     }
   }
@@ -771,12 +761,8 @@ export async function postFeaturePublish(
   else {
     const changedEnvs = Object.keys(mergeResult.result.rules || {});
     if (changedEnvs.length > 0) {
-      if (
-        !context.permissions.canPublishFeature(
-          feature,
-          Array.from(getEnabledEnvironments(feature, changedEnvs))
-        )
-      ) {
+      //MKTODO: I don't think this logic is correct.
+      if (!context.permissions.canPublishFeature(context, feature)) {
         context.permissions.throwPermissionError();
       }
     }
@@ -1853,11 +1839,8 @@ export async function postFeatureEvaluate(
   const { id, version } = req.params;
   const context = getContextFromReq(req);
   const { org } = context;
-  const {
-    attributes,
-    scrubPrerequisites,
-    skipRulesWithPrerequisites,
-  } = req.body;
+  const { attributes, scrubPrerequisites, skipRulesWithPrerequisites } =
+    req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {

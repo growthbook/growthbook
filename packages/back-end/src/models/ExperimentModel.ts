@@ -216,7 +216,7 @@ export const ExperimentModel = mongoose.model<ExperimentInterface>(
 const toInterface = (doc: ExperimentDocument): ExperimentInterface => {
   const experiment = omit(doc.toJSON(), ["__v", "_id"]);
   return upgradeExperimentDoc(
-    (experiment as unknown) as LegacyExperimentInterface
+    experiment as unknown as LegacyExperimentInterface
   );
 };
 
@@ -1198,6 +1198,7 @@ export const getAllURLRedirectExperiments = async (
   return exps;
 };
 
+//MKTODO: This is getPayloadKeysForAllEnvs and takes in an org and projects
 export function getPayloadKeysForAllEnvs(
   context: ReqContext | ApiReqContext,
   projects: string[]
