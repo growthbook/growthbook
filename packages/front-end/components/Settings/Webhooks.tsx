@@ -107,7 +107,7 @@ const Webhooks: FC = () => {
                     )}
                   </td>
                   <td>
-                    {permissionsUtil.canUpdateWebhook() ? (
+                    {permissionsUtil.canUpdateSDKWebhook() ? (
                       <a
                         href="#"
                         className="tr-hover text-primary mr-3"
@@ -120,7 +120,7 @@ const Webhooks: FC = () => {
                         <FaPencilAlt />
                       </a>
                     ) : null}
-                    {permissionsUtil.canDeleteWebhook() ? (
+                    {permissionsUtil.canDeleteSDKWebhook() ? (
                       <DeleteButton
                         link={true}
                         className={"tr-hover text-primary"}
@@ -150,7 +150,7 @@ const Webhooks: FC = () => {
           </tbody>
         </table>
       )}
-      {permissionsUtil.canCreateWebhook() ? (
+      {permissionsUtil.canCreateSDKWebhook() ? (
         <button
           className="btn btn-primary"
           onClick={(e) => {

@@ -27,9 +27,9 @@ export default function SdkWebhooks({ sdkid }) {
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature } = useUser();
 
-  const canCreateWebhooks = permissionsUtil.canCreateWebhook();
-  const canUpdateWebhook = permissionsUtil.canUpdateWebhook();
-  const canDeleteWebhook = permissionsUtil.canDeleteWebhook();
+  const canCreateWebhooks = permissionsUtil.canCreateSDKWebhook();
+  const canUpdateWebhook = permissionsUtil.canUpdateSDKWebhook();
+  const canDeleteWebhook = permissionsUtil.canDeleteSDKWebhook();
   const hasWebhooks = !!data?.webhooks?.length;
   const disableWebhookCreate =
     hasWebhooks && !hasCommercialFeature("multiple-sdk-webhooks");
@@ -90,7 +90,7 @@ export default function SdkWebhooks({ sdkid }) {
                 <DeleteButton
                   className="dropdown-item"
                   displayName="SDK Connection"
-                  text="Delete"
+                  text="Delete from SDK Webhook"
                   useIcon={false}
                   onClick={async () => {
                     await apiCall(`/webhook/${webhook.id}`, {

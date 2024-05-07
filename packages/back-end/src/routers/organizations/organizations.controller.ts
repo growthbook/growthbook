@@ -1676,7 +1676,7 @@ export async function postWebhook(
 ) {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canCreateWebhook()) {
+  if (!context.permissions.canCreateSDKWebhook()) {
     context.permissions.throwPermissionError();
   }
   const { name, endpoint, project, environment } = req.body;
@@ -1718,7 +1718,7 @@ export async function postWebhookSDK(
   const context = getContextFromReq(req);
   const { org } = context;
 
-  if (!context.permissions.canCreateWebhook()) {
+  if (!context.permissions.canCreateSDKWebhook()) {
     context.permissions.throwPermissionError();
   }
   const { name, endpoint, sdkid, sendPayload, headers, httpMethod } = req.body;
@@ -1752,11 +1752,12 @@ export async function putWebhook(
 ) {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canUpdateWebhook()) {
+  if (!context.permissions.canUpdateSDKWebhook()) {
     context.permissions.throwPermissionError();
   }
 
   const { id } = req.params;
+  const { name, endpoint, project, environment } = req.body;
   const webhook = await WebhookModel.findOne({
     id,
   });
@@ -1768,7 +1769,6 @@ export async function putWebhook(
     throw new Error("You don't have access to that webhook");
   }
 
-  const { name, endpoint, project, environment } = req.body;
   if (!name || !endpoint) {
     throw new Error("Missing required properties");
   }
@@ -1792,7 +1792,7 @@ export async function deleteWebhook(
 ) {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canDeleteWebhook()) {
+  if (!context.permissions.canDeleteSDKWebhook()) {
     context.permissions.throwPermissionError();
   }
   const { id } = req.params;
@@ -1813,7 +1813,7 @@ export async function deleteWebhookSDK(
 ) {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canDeleteWebhook()) {
+  if (!context.permissions.canDeleteSDKWebhook()) {
     context.permissions.throwPermissionError();
   }
   const { id } = req.params;

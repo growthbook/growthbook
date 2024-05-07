@@ -7,9 +7,9 @@ const WebhooksPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
 
   const canManageWebhooks =
-    permissionsUtil.canCreateWebhook() ||
-    permissionsUtil.canUpdateWebhook() ||
-    permissionsUtil.canDeleteWebhook();
+    permissionsUtil.canCreateEventWebhook() ||
+    permissionsUtil.canUpdateEventWebhook() ||
+    permissionsUtil.canDeleteEventWebhook();
 
   if (!canManageWebhooks) {
     return (

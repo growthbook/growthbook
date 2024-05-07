@@ -100,7 +100,7 @@ export const createEventWebHook = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canCreateWebhook()) {
+  if (!context.permissions.canCreateEventWebhook()) {
     context.permissions.throwPermissionError();
   }
   const {
@@ -177,7 +177,7 @@ export const deleteEventWebHook = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canDeleteWebhook()) {
+  if (!context.permissions.canDeleteEventWebhook()) {
     context.permissions.throwPermissionError();
   }
 
@@ -223,7 +223,7 @@ export const putEventWebHook = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canUpdateWebhook()) {
+  if (!context.permissions.canUpdateEventWebhook()) {
     context.permissions.throwPermissionError();
   }
 
@@ -262,7 +262,7 @@ export const createTestEventWebHook = async (
 ) => {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canCreateWebhook()) {
+  if (!context.permissions.canCreateEventWebhook()) {
     context.permissions.throwPermissionError();
   }
   const {
