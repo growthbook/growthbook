@@ -299,8 +299,14 @@ export async function queueGlobalWebhooks(
   payloadKeys: SDKPayloadKey[]
 ) {
   for (const webhook of WEBHOOKS) {
-    const { url, signingKey, method, headers, sendPayload, webhookId } =
-      webhook;
+    const {
+      url,
+      signingKey,
+      method,
+      headers,
+      sendPayload,
+      webhookId,
+    } = webhook;
     if (!payloadKeys.length) return;
 
     const connections = await findSDKConnectionsByOrganization(context);
