@@ -1,6 +1,6 @@
 import React, { FC, Fragment, useState } from "react";
 import { WebhookInterface } from "back-end/types/webhook";
-import { FaCheck, FaBolt, FaPencilAlt } from "react-icons/fa";
+import { FaCheck, FaPencilAlt } from "react-icons/fa";
 import { ago } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
@@ -8,6 +8,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import WebhooksModal from "./WebhooksModal";
 
 const Webhooks: FC = () => {
@@ -133,9 +134,13 @@ const Webhooks: FC = () => {
                 {webhook.error && (
                   <tr>
                     <td colSpan={6} className="border-0">
-                      <pre className="text-danger mb-0 pb-0">
+                      <OverflowText
+                        className="text-danger mb-0 pb-0"
+                        maxWidth={400}
+                        title={webhook.error}
+                      >
                         {webhook.error}
-                      </pre>
+                      </OverflowText>
                     </td>
                   </tr>
                 )}
@@ -144,16 +149,6 @@ const Webhooks: FC = () => {
           </tbody>
         </table>
       )}
-
-      <button
-        className="btn btn-primary"
-        onClick={(e) => {
-          e.preventDefault();
-          setOpen({});
-        }}
-      >
-        <FaBolt /> Create New SDK Webhook
-      </button>
     </div>
   );
 };
