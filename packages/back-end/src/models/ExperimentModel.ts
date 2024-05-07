@@ -3,7 +3,6 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
-import { hasReadAccess } from "shared/permissions";
 import {
   Changeset,
   ExperimentInterface,
@@ -216,7 +215,7 @@ export const ExperimentModel = mongoose.model<ExperimentInterface>(
 const toInterface = (doc: ExperimentDocument): ExperimentInterface => {
   const experiment = omit(doc.toJSON(), ["__v", "_id"]);
   return upgradeExperimentDoc(
-    (experiment as unknown) as LegacyExperimentInterface
+    experiment as unknown as LegacyExperimentInterface
   );
 };
 
@@ -236,7 +235,7 @@ async function findExperiments(
   const experiments = (await cursor).map(toInterface);
 
   return experiments.filter((exp) =>
-    hasReadAccess(context.readAccessFilter, exp.project)
+    context.permissions.canReadData(exp.project)
   );
 }
 
@@ -253,7 +252,7 @@ export async function getExperimentById(
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
+  return context.permissions.canReadData(experiment.project)
     ? experiment
     : null;
 }
@@ -286,7 +285,7 @@ export async function getExperimentByTrackingKey(
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
+  return context.permissions.canReadData(experiment.project)
     ? experiment
     : null;
 }
@@ -469,7 +468,7 @@ export async function getExperimentByIdea(
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
+  return context.permissions.canReadData(experiment.project)
     ? experiment
     : null;
 }
@@ -564,7 +563,7 @@ export async function getPastExperimentsByDatasource(
   );
 
   const experimentsUserCanAccess = experiments.filter((exp) =>
-    hasReadAccess(context.readAccessFilter, exp.project)
+    context.permissions.canReadData(exp.project)
   );
 
   return experimentsUserCanAccess.map((exp) => ({
@@ -661,7 +660,7 @@ export async function getExperimentsForActivityFeed(
   );
 
   const filteredExperiments = experiments.filter((exp) =>
-    hasReadAccess(context.readAccessFilter, exp.project)
+    context.permissions.canReadData(exp.project)
   );
 
   return filteredExperiments.map((exp) => ({
@@ -688,7 +687,7 @@ const findExperiment = async ({
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
+  return context.permissions.canReadData(experiment.project)
     ? experiment
     : null;
 };

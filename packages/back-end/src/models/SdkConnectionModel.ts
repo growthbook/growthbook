@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
 import { omit } from "lodash";
-import { hasReadAccess } from "shared/permissions";
 import { ApiSdkConnection } from "../../types/openapi";
 import {
   CreateSDKConnectionParams,
@@ -114,7 +113,7 @@ export async function findSDKConnectionById(
   if (!doc) return null;
 
   const connection = toInterface(doc);
-  return hasReadAccess(context.readAccessFilter, connection.projects || [])
+  return context.permissions.canReadData(connection.projects)
     ? connection
     : null;
 }
@@ -128,7 +127,7 @@ export async function findSDKConnectionsByOrganization(
 
   const connections = docs.map(toInterface);
   return connections.filter((conn) =>
-    hasReadAccess(context.readAccessFilter, conn.projects || [])
+    context.permissions.canReadData(conn.projects)
   );
 }
 
@@ -174,12 +173,8 @@ function generateSDKConnectionKey() {
 }
 
 export async function createSDKConnection(params: CreateSDKConnectionParams) {
-  const {
-    proxyEnabled,
-    proxyHost,
-    languages,
-    ...otherParams
-  } = createSDKConnectionValidator.parse(params);
+  const { proxyEnabled, proxyHost, languages, ...otherParams } =
+    createSDKConnectionValidator.parse(params);
 
   // TODO: if using a proxy, try to validate the connection
   const connection: SDKConnectionInterface = {
@@ -239,11 +234,8 @@ export async function editSDKConnection(
   connection: SDKConnectionInterface,
   updates: EditSDKConnectionParams
 ) {
-  const {
-    proxyEnabled,
-    proxyHost,
-    ...otherChanges
-  } = editSDKConnectionValidator.parse(updates);
+  const { proxyEnabled, proxyHost, ...otherChanges } =
+    editSDKConnectionValidator.parse(updates);
 
   let newProxy = {
     ...connection.proxy,

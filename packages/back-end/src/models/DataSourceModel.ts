@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
-import { hasReadAccess } from "shared/permissions";
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -85,7 +84,7 @@ export async function getDataSourcesByOrganization(
   const datasources = docs.map(toInterface);
 
   return datasources.filter((ds) =>
-    hasReadAccess(context.readAccessFilter, ds.projects || [])
+    context.permissions.canReadData(ds.projects)
   );
 }
 
@@ -109,7 +108,7 @@ export async function getDataSourceById(
 
   const datasource = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, datasource.projects)
+  return context.permissions.canReadData(datasource.projects)
     ? datasource
     : null;
 }
