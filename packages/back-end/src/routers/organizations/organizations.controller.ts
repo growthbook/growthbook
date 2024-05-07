@@ -307,12 +307,8 @@ export async function putMemberRole(
     context.permissions.throwPermissionError();
   }
   const { org, userId } = context;
-  const {
-    role,
-    limitAccessByEnvironment,
-    environments,
-    projectRoles,
-  } = req.body;
+  const { role, limitAccessByEnvironment, environments, projectRoles } =
+    req.body;
   const { id } = req.params;
 
   if (id === userId) {
@@ -558,12 +554,8 @@ export async function putInviteRole(
   }
 
   const { org } = context;
-  const {
-    role,
-    limitAccessByEnvironment,
-    environments,
-    projectRoles,
-  } = req.body;
+  const { role, limitAccessByEnvironment, environments, projectRoles } =
+    req.body;
   const { key } = req.params;
   const originalInvites: Invite[] = cloneDeep(org.invites);
 
@@ -1029,13 +1021,8 @@ export async function postInvite(
   }
 
   const { org } = context;
-  const {
-    email,
-    role,
-    limitAccessByEnvironment,
-    environments,
-    projectRoles,
-  } = req.body;
+  const { email, role, limitAccessByEnvironment, environments, projectRoles } =
+    req.body;
 
   const license = getLicense();
   if (
@@ -1674,13 +1661,15 @@ export async function postWebhook(
   }>,
   res: Response
 ) {
-  req.checkPermissions("manageWebhooks");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canCreateSDKWebhook()) {
+    context.permissions.throwPermissionError();
+  }
   const { name, endpoint, project, environment } = req.body;
 
   const webhook = await createWebhook({
-    organization: org.id,
+    organization: context.org.id,
     name,
     endpoint,
     project,
@@ -1713,9 +1702,12 @@ export async function postWebhookSDK(
   }>,
   res: Response
 ) {
-  req.checkPermissions("manageWebhooks");
+  const context = getContextFromReq(req);
+  const { org } = context;
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canCreateSDKWebhook()) {
+    context.permissions.throwPermissionError();
+  }
   const { name, endpoint, sdkid, sendPayload, headers, httpMethod } = req.body;
   const webhookcount = await countWebhooksByOrg(org.id);
   const canAddMultipleSdkWebhooks = orgHasPremiumFeature(
@@ -1745,10 +1737,14 @@ export async function putWebhook(
   req: AuthRequest<WebhookInterface, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageWebhooks");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canUpdateSDKWebhook()) {
+    context.permissions.throwPermissionError();
+  }
+
   const { id } = req.params;
+  const { name, endpoint, project, environment } = req.body;
   const webhook = await WebhookModel.findOne({
     id,
   });
@@ -1756,11 +1752,10 @@ export async function putWebhook(
   if (!webhook) {
     throw new Error("Could not find webhook");
   }
-  if (webhook.organization !== org.id) {
+  if (webhook.organization !== context.org.id) {
     throw new Error("You don't have access to that webhook");
   }
 
-  const { name, endpoint, project, environment } = req.body;
   if (!name || !endpoint) {
     throw new Error("Missing required properties");
   }
@@ -1782,13 +1777,15 @@ export async function deleteWebhook(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageWebhooks");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canDeleteSDKWebhook()) {
+    context.permissions.throwPermissionError();
+  }
   const { id } = req.params;
 
   await WebhookModel.deleteOne({
-    organization: org.id,
+    organization: context.org.id,
     id,
   });
 
@@ -1801,13 +1798,15 @@ export async function deleteWebhookSDK(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageWebhooks");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canDeleteSDKWebhook()) {
+    context.permissions.throwPermissionError();
+  }
   const { id } = req.params;
 
   await WebhookModel.deleteOne({
-    organization: org.id,
+    organization: context.org.id,
     id,
   });
 
@@ -1906,12 +1905,8 @@ export async function addOrphanedUser(
   const { org } = getContextFromReq(req);
 
   const { id } = req.params;
-  const {
-    role,
-    environments,
-    limitAccessByEnvironment,
-    projectRoles,
-  } = req.body;
+  const { role, environments, limitAccessByEnvironment, projectRoles } =
+    req.body;
 
   // Make sure user exists
   const user = await findUserById(id);
