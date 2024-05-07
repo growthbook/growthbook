@@ -1,13 +1,10 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { MetricInterface } from "back-end/types/metric";
-import { SDKPayloadKey } from "back-end/types/sdk-payload";
-import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import {
   EnvScopedPermission,
   GlobalPermission,
   Permission,
   ProjectScopedPermission,
-  ReqContext,
   SDKAttribute,
   UserPermissions,
 } from "back-end/types/organization";
@@ -18,7 +15,6 @@ import {
 } from "back-end/types/fact-table";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { DataSourceInterface } from "back-end/types/datasource";
-import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
 class PermissionError extends Error {
   constructor(message: string) {
@@ -562,28 +558,15 @@ export class Permissions {
   };
 
   // ENV_SCOPED_PERMISSIONS
-  // public canPublishFeature = (
-  //   feature: Pick<FeatureInterface, "project">,
-  //   environments: string[]
-  // ): boolean => {
-  //   return this.checkEnvFilterPermission(
-  //     {
-  //       projects: feature.project ? [feature.project] : [],
-  //     },
-  //     environments,
-  //     "publishFeatures"
-  //   );
-  // };
-
   public canPublishFeature = (
-    context: ReqContext,
-    feature: FeatureInterface
+    feature: Pick<FeatureInterface, "project">,
+    environments: string[]
   ): boolean => {
-    return this.canUpdateSDKPayloads(
-      getAffectedSDKPayloadKeys(
-        [feature],
-        getEnvironmentIdsFromOrg(context.org)
-      ),
+    return this.checkEnvFilterPermission(
+      {
+        projects: feature.project ? [feature.project] : [],
+      },
+      environments,
       "publishFeatures"
     );
   };
@@ -654,15 +637,6 @@ export class Permissions {
       this.hasPermission(permission, project, envs)
     );
   }
-
-  public canUpdateSDKPayloads = (
-    keys: SDKPayloadKey[],
-    permissionToCheck: "publishFeatures" | "runExperiments"
-  ): boolean => {
-    return keys.every(({ environment, project }) => {
-      return this.hasPermission(permissionToCheck, project, [environment]);
-    });
-  };
 
   private hasPermission(
     permissionToCheck: Permission,
