@@ -1,16 +1,17 @@
 import { FC } from "react";
 import { UseFormRegisterReturn } from "react-hook-form";
 import Field from "@/components/Forms/Field";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 const FeatureKeyField: FC<{
   keyField: UseFormRegisterReturn;
-  placeHolder: string;
-}> = ({ keyField, placeHolder }) => (
+}> = ({ keyField }) => (
+
   <Field
     label="Feature Key"
     {...keyField}
     pattern="^[a-zA-Z0-9_.:|-]+$"
-    placeholder={placeHolder}
+    placeholder={useOrgSettings().featureKeyExample || "my-feature"}
     required
     title="Only letters, numbers, and the characters '_-.:|' allowed. No spaces."
     helpText={

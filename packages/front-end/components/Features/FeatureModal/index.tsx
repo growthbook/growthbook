@@ -23,7 +23,6 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -147,7 +146,6 @@ export default function FeatureModal({
   const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
-  const orgSettings = useOrgSettings();
 
   const defaultValues = genFormDefaultValues({
     environments,
@@ -249,7 +247,6 @@ export default function FeatureModal({
 
       <FeatureKeyField
         keyField={form.register("id")}
-        placeHolder={orgSettings.featureKeyExample || "my-feature"}
       />
       {showTags ? (
         <TagsField
