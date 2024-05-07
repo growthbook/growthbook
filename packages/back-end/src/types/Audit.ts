@@ -6,6 +6,7 @@ export const EntityType = [
   "comment",
   "user",
   "organization",
+  "project",
   "savedGroup",
   "archetype",
   "team",

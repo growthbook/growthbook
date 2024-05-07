@@ -1,6 +1,7 @@
+import { statsEngines } from "../src/util/constants";
 import type { MetricStats } from "./metric";
 
-export type StatsEngine = "bayesian" | "frequentist";
+export type StatsEngine = typeof statsEngines[number];
 
 export type PValueCorrection = null | "benjamini-hochberg" | "holm-bonferroni";
 

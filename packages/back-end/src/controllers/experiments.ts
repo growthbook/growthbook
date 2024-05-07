@@ -82,10 +82,6 @@ import {
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { ApiReqContext, PrivateApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
-import {
-  findAllProjectsByOrganization,
-  findProjectById,
-} from "../models/ProjectModel";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "../queryRunners/PastExperimentsQueryRunner";
 import {
@@ -136,7 +132,7 @@ export async function getExperimentsFrequencyMonth(
     project = req.query.project;
   }
 
-  const allProjects = await findAllProjectsByOrganization(context);
+  const allProjects = await context.models.projects.getAll();
   const { num } = req.params;
   const experiments = await getAllExperiments(context, project);
 
@@ -1790,7 +1786,7 @@ async function createExperimentSnapshot({
 }) {
   let project = null;
   if (experiment.project) {
-    project = await findProjectById(context, experiment.project);
+    project = await context.models.projects.getById(experiment.project);
   }
 
   const { org } = context;
@@ -1908,7 +1904,7 @@ export async function postSnapshot(
 
     let project = null;
     if (experiment.project) {
-      project = await findProjectById(context, experiment.project);
+      project = await context.models.projects.getById(experiment.project);
     }
     const { settings } = getScopedSettings({
       organization: org,
