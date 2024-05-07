@@ -20,7 +20,6 @@ import ConfirmButton from "@/components/Modal/ConfirmButton";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import TabButtons from "@/components/Tabs/TabButtons";
 import TabButton from "@/components/Tabs/TabButton";
-import usePermissions from "@/hooks/usePermissions";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Modal from "@/components/Modal";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
