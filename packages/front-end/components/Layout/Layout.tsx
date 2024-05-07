@@ -189,9 +189,7 @@ const navlinks: SidebarLinkProps[] = [
         href: "/settings/webhooks",
         path: /^settings\/webhooks/,
         filter: ({ permissionsUtils }) =>
-          permissionsUtils.canCreateEventWebhook() ||
-          permissionsUtils.canUpdateEventWebhook() ||
-          permissionsUtils.canDeleteEventWebhook(),
+          permissionsUtils.canViewEventWebhook(),
       },
       {
         name: "Logs",

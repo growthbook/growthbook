@@ -55,6 +55,10 @@ export class Permissions {
     return this.checkGlobalPermission("createDimensions");
   };
 
+  public canViewEventWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
   public canCreateEventWebhook = (): boolean => {
     return this.checkGlobalPermission("manageWebhooks");
   };

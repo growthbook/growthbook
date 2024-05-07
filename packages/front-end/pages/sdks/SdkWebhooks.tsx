@@ -58,9 +58,7 @@ export default function SdkWebhooks({ sdkid }) {
           <Button
             color="link"
             className="btn-sm"
-            disabled={
-              !canCreateWebhooks || !canUpdateWebhook || !canDeleteWebhook
-            }
+            disabled={!canUpdateWebhook}
             onClick={async () => {
               await apiCall(`/webhook/test/${webhook.id}`, {
                 method: "get",
@@ -90,7 +88,7 @@ export default function SdkWebhooks({ sdkid }) {
                 <DeleteButton
                   className="dropdown-item"
                   displayName="SDK Connection"
-                  text="Delete from SDK Webhook"
+                  text="Delete"
                   useIcon={false}
                   onClick={async () => {
                     await apiCall(`/webhook/${webhook.id}`, {

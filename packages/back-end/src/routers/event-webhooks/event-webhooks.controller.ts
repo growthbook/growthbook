@@ -33,9 +33,13 @@ export const getEventWebHooks = async (
   req: GetEventWebHooksRequest,
   res: Response<GetEventWebHooks>
 ) => {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
 
-  const eventWebHooks = await EventWebHook.getAllEventWebHooks(org.id);
+  if (!context.permissions.canViewEventWebhook()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const eventWebHooks = await EventWebHook.getAllEventWebHooks(context.org.id);
 
   return res.json({ eventWebHooks });
 };
@@ -55,6 +59,11 @@ export const getEventWebHook = async (
   res: Response<GetEventWebHookByIdResponse | PrivateApiErrorResponse>
 ) => {
   const context = getContextFromReq(req);
+
+  if (!context.permissions.canViewEventWebhook()) {
+    context.permissions.throwPermissionError();
+  }
+
   const { eventWebHookId } = req.params;
 
   const eventWebHook = await getEventWebHookById(
@@ -150,10 +159,14 @@ export const getEventWebHookLogs = async (
   req: GetEventWebHookLogsRequest,
   res: Response<GetEventWebHookLogsResponse | PrivateApiErrorResponse>
 ) => {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canViewEventWebhook()) {
+    context.permissions.throwPermissionError();
+  }
 
   const eventWebHookLogs = await EventWebHookLog.getLatestRunsForWebHook(
-    org.id,
+    context.org.id,
     req.params.eventWebHookId,
     50
   );
