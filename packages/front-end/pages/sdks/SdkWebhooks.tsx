@@ -19,8 +19,10 @@ export default function SdkWebhooks({ sdkid }) {
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
     `/webhooks/sdk/${sdkid}`
   );
-  const [createWebhookModalOpen, setCreateWebhookModalOpen] =
-    useState<null | Partial<WebhookInterface>>(null);
+  const [
+    createWebhookModalOpen,
+    setCreateWebhookModalOpen,
+  ] = useState<null | Partial<WebhookInterface>>(null);
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature } = useUser();

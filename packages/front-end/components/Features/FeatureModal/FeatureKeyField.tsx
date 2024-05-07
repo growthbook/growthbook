@@ -6,7 +6,6 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 const FeatureKeyField: FC<{
   keyField: UseFormRegisterReturn;
 }> = ({ keyField }) => (
-
   <Field
     label="Feature Key"
     {...keyField}
