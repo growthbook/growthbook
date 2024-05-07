@@ -43,7 +43,8 @@ export function powerStandardError(
   variance: number,
   mean: number,
   nPerVariation: number,
-  effectSize: number
+  effectSize: number,
+  relative: boolean
 ): number {
   return Math.sqrt(
     frequentistVariance(
@@ -53,7 +54,7 @@ export function powerStandardError(
       variance,
       mean * (1 + effectSize),
       nPerVariation,
-      true
+      relative
     )
   );
 }
@@ -96,7 +97,8 @@ export function sequentialPowerStandardError(
   nVariations: number,
   effectSize: number,
   alpha: number,
-  sequentialTuningParameter: number
+  sequentialTuningParameter: number,
+  relative: boolean
 ): number {
   const v_rel = frequentistVariance(
     variance,
@@ -105,7 +107,7 @@ export function sequentialPowerStandardError(
     variance,
     mean * (1.0 + effectSize),
     n / nVariations,
-    true
+    relative
   );
   return Math.sqrt(
     sequentialPowerSequentialVariance(
@@ -152,14 +154,16 @@ export function powerEst(
       nVariations,
       effectSize,
       alpha,
-      sequentialTuningParameter
+      sequentialTuningParameter,
+      true
     );
   } else {
     standardError = powerStandardError(
       variance,
       mean,
       n / nVariations,
-      effectSize
+      effectSize,
+      true
     );
   }
   const standardizedEffectSize = effectSize / standardError;
@@ -339,4 +343,145 @@ export function powerMetricWeeks(
     ...(duration !== 999 ? { weekThreshold: duration } : {}),
   };
   return results;
+}
+
+/*******************/
+export function calculatePriorMean(
+  priorMeanRel: number,
+  mean: number,
+  relative: boolean
+): number {
+  return relative ? priorMeanRel : priorMeanRel * Math.abs(mean);
+}
+
+export function calculatePriorVariance(
+  priorVarianceRel: number,
+  mean: number,
+  relative: boolean
+): number {
+  return relative ? priorVarianceRel : priorVarianceRel * Math.pow(mean, 2);
+}
+
+// Function to estimate variance of tau hat conditional on tau
+function estimateTauHatVariance(
+  mean: number,
+  effectSize: number,
+  variance: number,
+  nPerVariation: number,
+  relative: boolean
+): number {
+  const effectSizeAbs = effectSize * mean;
+  const s = powerStandardError(
+    variance,
+    mean,
+    nPerVariation,
+    effectSizeAbs,
+    relative
+  );
+  return Math.pow(s, 2);
+}
+
+// Function to calculate marginal variance of tau hat
+function getMarginalVarianceTauHat(
+  priorVarianceRelDGP: number,
+  mean: number,
+  effectSize: number,
+  variance: number,
+  nPerVariation: number,
+  relative: boolean
+): number {
+  const priorVarianceDGP = calculatePriorVariance(
+    priorVarianceRelDGP,
+    mean,
+    relative
+  );
+  const tauHatVariance = estimateTauHatVariance(
+    mean,
+    effectSize,
+    variance,
+    nPerVariation,
+    relative
+  );
+  return tauHatVariance + priorVarianceDGP;
+}
+
+// Function to calculate posterior precision
+function getPosteriorPrecision(
+  priorVarianceRelSpecified: number,
+  mean: number,
+  effectSize: number,
+  variance: number,
+  nPerVariation: number,
+  relative: boolean
+): number {
+  const priorVarianceSpecified = calculatePriorVariance(
+    priorVarianceRelSpecified,
+    mean,
+    relative
+  );
+  const tauHatVariance = estimateTauHatVariance(
+    mean,
+    effectSize,
+    variance,
+    nPerVariation,
+    relative
+  );
+  return 1 / tauHatVariance + 1 / priorVarianceSpecified;
+}
+
+// Function to calculate upper cutpoint
+export function getCutpoint(
+  alpha: number,
+  effectSize: number,
+  priorVarianceRelDGP: number,
+  priorMeanRelSpecified: number,
+  priorVarianceRelSpecified: number,
+  mean: number,
+  variance: number,
+  nPerVariation: number,
+  relative: boolean,
+  upper: boolean
+): number {
+  const priorMeanSpecified = calculatePriorMean(
+    priorMeanRelSpecified,
+    mean,
+    relative
+  );
+  const priorVarianceSpecified = calculatePriorVariance(
+    priorVarianceRelSpecified,
+    mean,
+    relative
+  );
+  const priorMeanDGP = calculatePriorMean(effectSize, mean, relative);
+  const tauHatVariance = estimateTauHatVariance(
+    mean,
+    effectSize,
+    variance,
+    nPerVariation,
+    relative
+  );
+  const posteriorPrecision = getPosteriorPrecision(
+    priorVarianceRelSpecified,
+    mean,
+    effectSize,
+    variance,
+    nPerVariation,
+    relative
+  );
+  const marginalVarianceTauHat = getMarginalVarianceTauHat(
+    priorVarianceRelDGP,
+    mean,
+    effectSize,
+    variance,
+    nPerVariation,
+    relative
+  );
+  const zStar = normal.quantile(1.0 - 0.5 * alpha, 0, 1);
+  const upperSign = upper ? 1 : -1;
+  const numerator =
+    upperSign * tauHatVariance * Math.sqrt(posteriorPrecision) * zStar -
+    (tauHatVariance * priorMeanSpecified) / priorVarianceSpecified -
+    priorMeanDGP;
+  const denominator = Math.sqrt(marginalVarianceTauHat);
+  return numerator / denominator;
 }
