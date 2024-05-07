@@ -55,6 +55,62 @@ export class Permissions {
     return this.checkGlobalPermission("createDimensions");
   };
 
+  public canViewEventWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canCreateEventWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canUpdateEventWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canDeleteEventWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canCreateSDKWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canUpdateSDKWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canDeleteSDKWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canCreateAndUpdateTag = (): boolean => {
+    return this.checkGlobalPermission("manageTags");
+  };
+
+  public canDeleteTag = (): boolean => {
+    return this.checkGlobalPermission("manageTags");
+  };
+
+  public canManageBilling = (): boolean => {
+    return this.checkGlobalPermission("manageBilling");
+  };
+
+  public canManageIntegrations = (): boolean => {
+    return this.checkGlobalPermission("manageIntegrations");
+  };
+
+  public canCreateApiKey = (): boolean => {
+    return this.checkGlobalPermission("manageApiKeys");
+  };
+
+  public canDeleteApiKey = (): boolean => {
+    return this.checkGlobalPermission("manageApiKeys");
+  };
+
+  public canManageTeam = (): boolean => {
+    return this.checkGlobalPermission("manageTeam");
+  };
+
   public canCreateSegment = (): boolean => {
     return this.checkGlobalPermission("createSegments");
   };
@@ -67,8 +123,56 @@ export class Permissions {
     return this.checkGlobalPermission("createSegments");
   };
 
+  public canManageOrgSettings = (): boolean => {
+    return this.checkGlobalPermission("organizationSettings");
+  };
+
+  public canSuperDeleteReport = (): boolean => {
+    return this.checkGlobalPermission("superDeleteReport");
+  };
+
   public canManageNorthStarMetric = (): boolean => {
     return this.checkGlobalPermission("manageNorthStarMetric");
+  };
+
+  public canViewEvents = (): boolean => {
+    return this.checkGlobalPermission("viewEvents");
+  };
+
+  public canCreateArchetype = (): boolean => {
+    return this.checkGlobalPermission("manageArchetype");
+  };
+
+  public canUpdateArchetype = (): boolean => {
+    return this.checkGlobalPermission("manageArchetype");
+  };
+
+  public canDeleteArchetype = (): boolean => {
+    return this.checkGlobalPermission("manageArchetype");
+  };
+
+  public canCreateSavedGroup = (): boolean => {
+    return this.checkGlobalPermission("manageSavedGroups");
+  };
+
+  public canUpdateSavedGroup = (): boolean => {
+    return this.checkGlobalPermission("manageSavedGroups");
+  };
+
+  public canDeleteSavedGroup = (): boolean => {
+    return this.checkGlobalPermission("manageSavedGroups");
+  };
+
+  public canCreateNamespace = (): boolean => {
+    return this.checkGlobalPermission("manageNamespaces");
+  };
+
+  public canUpdateNamespace = (): boolean => {
+    return this.checkGlobalPermission("manageNamespaces");
+  };
+
+  public canDeleteNamespace = (): boolean => {
+    return this.checkGlobalPermission("manageNamespaces");
   };
 
   //Project Permissions

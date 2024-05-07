@@ -1,12 +1,12 @@
 import React from "react";
 import { NextPage } from "next";
 import { SlackIntegrationsListViewContainer } from "@/components/SlackIntegrations/SlackIntegrationsListView/SlackIntegrationsListView";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const SlackIntegrationsPage: NextPage = () => {
-  const permissions = usePermissions();
+  const permissionsUtils = usePermissionsUtil();
 
-  if (!permissions.manageIntegrations) {
+  if (!permissionsUtils.canManageIntegrations()) {
     return (
       <div className="container-fluid pagecontents">
         <div className="alert alert-danger">
