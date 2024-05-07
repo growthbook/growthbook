@@ -106,7 +106,7 @@ export default function FeaturesSettings() {
           <Field
             id="featureKeyExample"
             {...form.register("featureKeyExample")}
-            placeholder="growth-20240531-newFeature"
+            placeholder="my-feature"
           />
           <p>
             <small className="text-muted mb-3">
@@ -123,7 +123,7 @@ export default function FeaturesSettings() {
           <Field
             id="featureRegexValidator"
             {...form.register("featureRegexValidator")}
-            placeholder="^.*-\d{8}-.*$"
+            placeholder=""
           />
           <p>
             <small className="text-muted mb-3">
