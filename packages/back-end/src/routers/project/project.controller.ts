@@ -53,7 +53,7 @@ export const postProject = async (
   res: Response<
     CreateProjectResponse | ApiErrorResponse,
     EventAuditUserForResponseLocals
-  >
+  >,
 ) => {
   const context = getContextFromReq(req);
 
@@ -99,7 +99,7 @@ export const putProject = async (
   res: Response<
     PutProjectResponse | ApiErrorResponse,
     EventAuditUserForResponseLocals
-  >
+  >,
 ) => {
   const { id } = req.params;
 
@@ -162,7 +162,7 @@ export const deleteProject = async (
   res: Response<
     DeleteProjectResponse | ApiErrorResponse,
     EventAuditUserForResponseLocals
-  >
+  >,
 ) => {
   const { id } = req.params;
   const {
@@ -312,7 +312,7 @@ type PutProjectSettingsResponse = {
 };
 export const putProjectSettings = async (
   req: PutProjectSettingsRequest,
-  res: Response<PutProjectSettingsResponse | ApiErrorResponse>
+  res: Response<PutProjectSettingsResponse | ApiErrorResponse>,
 ) => {
   const { id } = req.params;
 

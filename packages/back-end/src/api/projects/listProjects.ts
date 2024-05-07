@@ -13,12 +13,12 @@ export const listProjects = createApiRequestHandler(listProjectsValidator)(
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
       projects.sort((a, b) => a.id.localeCompare(b.id)),
-      req.query
+      req.query,
     );
 
     return {
       projects: filtered.map((project) => toProjectApiInterface(project)),
       ...returnFields,
     };
-  }
+  },
 );

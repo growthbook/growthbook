@@ -22,7 +22,7 @@ dimensionSchema.index({ id: 1, organization: 1 }, { unique: true });
 type DimensionDocument = mongoose.Document & DimensionInterface;
 const DimensionModel = mongoose.model<DimensionInterface>(
   "Dimension",
-  dimensionSchema
+  dimensionSchema,
 );
 
 function toInterface(doc: DimensionDocument): DimensionInterface {
@@ -55,29 +55,29 @@ export async function findDimensionById(id: string, organization: string) {
 
 export async function findDimensionsByDataSource(
   datasource: string,
-  organization: string
+  organization: string,
 ) {
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
     return getConfigDimensions(organization).filter(
-      (d) => d.datasource === datasource
+      (d) => d.datasource === datasource,
     );
   }
 
   return (await DimensionModel.find({ datasource, organization })).map(
-    toInterface
+    toInterface,
   );
 }
 
 export async function updateDimension(
   id: string,
   organization: string,
-  updates: Partial<DimensionInterface>
+  updates: Partial<DimensionInterface>,
 ) {
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
     throw new Error(
-      "Cannot update. Dimensions are being managed by config.yml"
+      "Cannot update. Dimensions are being managed by config.yml",
     );
   }
 
@@ -88,7 +88,7 @@ export async function deleteDimensionById(id: string, organization: string) {
   // If using config.yml, immediately throw error
   if (usingFileConfig()) {
     throw new Error(
-      "Cannot delete. Dimensions are being managed by config.yml"
+      "Cannot delete. Dimensions are being managed by config.yml",
     );
   }
 
@@ -99,7 +99,7 @@ export async function deleteDimensionById(id: string, organization: string) {
 }
 
 export function toDimensionApiInterface(
-  dimension: DimensionInterface
+  dimension: DimensionInterface,
 ): ApiDimension {
   return {
     id: dimension.id,

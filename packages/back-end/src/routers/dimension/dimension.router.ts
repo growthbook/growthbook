@@ -24,7 +24,7 @@ router.post(
       })
       .strict(),
   }),
-  dimensionController.postDimension
+  dimensionController.postDimension,
 );
 
 router.put(
@@ -46,7 +46,7 @@ router.put(
       })
       .strict(),
   }),
-  dimensionController.putDimension
+  dimensionController.putDimension,
 );
 
 router.delete(
@@ -58,7 +58,7 @@ router.delete(
       })
       .strict(),
   }),
-  dimensionController.deleteDimension
+  dimensionController.deleteDimension,
 );
 
 export { router as dimensionRouter };

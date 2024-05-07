@@ -64,7 +64,7 @@ export function PreLaunchChecklist({
     permissionsUtil.canViewExperimentModal(experiment.project);
 
   const { data } = useApi<{ checklist: ExperimentLaunchChecklistInterface }>(
-    "/experiments/launch-checklist"
+    "/experiments/launch-checklist",
   );
   const { data: sdkConnections } = useSDKConnections();
   const connections = sdkConnections?.connections || [];
@@ -74,7 +74,7 @@ export function PreLaunchChecklist({
     function isChecklistItemComplete(
       // Some items we check completion for automatically, others require users to manually check an item as complete
       type: "auto" | "manual",
-      key: string
+      key: string,
     ): boolean {
       if (type === "auto") {
         if (!key) return false;
@@ -138,8 +138,8 @@ export function PreLaunchChecklist({
           f.state === "draft" ||
           (f.state === "live" &&
             !Object.values(f.environmentStates || {}).some(
-              (s) => s === "active"
-            ))
+              (s) => s === "active",
+            )),
       );
       items.push({
         status: hasFeatureFlagsErrors ? "incomplete" : "complete",
@@ -169,7 +169,7 @@ export function PreLaunchChecklist({
     // No empty visual changesets
     if (visualChangesets.length > 0) {
       const hasSomeVisualChanges = visualChangesets.some((vc) =>
-        hasVisualChanges(vc.visualChanges)
+        hasVisualChanges(vc.visualChanges),
       );
       items.push({
         display: (
@@ -302,13 +302,13 @@ export function PreLaunchChecklist({
     if (!key) return;
     setUpdatingChecklist(true);
     const updatedManualChecklistStatus = Array.isArray(
-      experiment.manualLaunchChecklist
+      experiment.manualLaunchChecklist,
     )
       ? [...experiment.manualLaunchChecklist]
       : [];
 
     const index = updatedManualChecklistStatus.findIndex(
-      (task) => task.key === key
+      (task) => task.key === key,
     );
     if (index === -1) {
       updatedManualChecklistStatus.push({
@@ -339,7 +339,7 @@ export function PreLaunchChecklist({
   useEffect(() => {
     if (data && checklist.length > 0) {
       setChecklistItemsRemaining(
-        checklist.filter((item) => item.status === "incomplete").length
+        checklist.filter((item) => item.status === "incomplete").length,
       );
     }
   }, [checklist, data, setChecklistItemsRemaining]);
@@ -469,7 +469,7 @@ export function PreLaunchChecklist({
             <div
               className={clsx(
                 "alert alert-danger",
-                !checkListOpen ? "mt-2 pt-2" : ""
+                !checkListOpen ? "mt-2 pt-2" : "",
               )}
             >
               <strong>

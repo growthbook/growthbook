@@ -24,12 +24,12 @@ type GroupMapValue = GroupMap extends Map<any, infer I> ? I : never;
 function getSavedGroupCondition(
   group: GroupMapValue,
   groupMap: GroupMap,
-  include: boolean
+  include: boolean,
 ): null | ConditionInterface {
   if (group.type === "condition") {
     try {
       const cond = JSON.parse(
-        replaceSavedGroupsInCondition(group.condition || "{}", groupMap)
+        replaceSavedGroupsInCondition(group.condition || "{}", groupMap),
       );
       return include ? cond : { $not: cond };
     } catch (e) {
@@ -47,13 +47,13 @@ function getSavedGroupCondition(
 export function getParsedCondition(
   groupMap: GroupMap,
   condition?: string,
-  savedGroups?: SavedGroupTargeting[]
+  savedGroups?: SavedGroupTargeting[],
 ) {
   const conditions: ConditionInterface[] = [];
   if (condition && condition !== "{}") {
     try {
       const cond = JSON.parse(
-        replaceSavedGroupsInCondition(condition, groupMap)
+        replaceSavedGroupsInCondition(condition, groupMap),
       );
       if (cond) conditions.push(cond);
     } catch (e) {
@@ -125,7 +125,7 @@ export function getParsedCondition(
 
 export function replaceSavedGroupsInCondition(
   condition: string,
-  groupMap: GroupMap
+  groupMap: GroupMap,
 ) {
   const newString = condition.replace(
     // Ex: replace { $inGroup: "sdf8sd9f87s0dfs09d8" } with { $in: ["123, 345, 678, 910"]}
@@ -134,7 +134,7 @@ export function replaceSavedGroupsInCondition(
       const newOperator = operator === "inGroup" ? "$in" : "$nin";
       const ids: (string | number)[] = groupMap.get(groupId)?.values ?? [];
       return `"${newOperator}": ${JSON.stringify(ids)}`;
-    }
+    },
   );
 
   return newString;
@@ -162,7 +162,7 @@ export function isRuleEnabled(rule: FeatureRule): boolean {
 export function getEnabledEnvironments(
   features: FeatureInterface | FeatureInterface[],
   allowedEnvs: string[],
-  ruleFilter?: (rule: FeatureRule) => boolean | unknown
+  ruleFilter?: (rule: FeatureRule) => boolean | unknown,
 ): Set<string> {
   if (!Array.isArray(features)) features = [features];
 
@@ -187,7 +187,7 @@ export function getEnabledEnvironments(
 
 export function getSDKPayloadKeys(
   environments: Set<string>,
-  projects: Set<string>
+  projects: Set<string>,
 ) {
   const keys: SDKPayloadKey[] = [];
 
@@ -206,7 +206,7 @@ export function getSDKPayloadKeys(
 export function getSDKPayloadKeysByDiff(
   originalFeature: FeatureInterface,
   updatedFeature: FeatureInterface,
-  allowedEnvs: string[]
+  allowedEnvs: string[],
 ): SDKPayloadKey[] {
   const environments = new Set<string>();
 
@@ -226,12 +226,12 @@ export function getSDKPayloadKeysByDiff(
 
   if (
     allEnvKeys.some(
-      (k) => !isEqual(originalFeature[k] ?? null, updatedFeature[k] ?? null)
+      (k) => !isEqual(originalFeature[k] ?? null, updatedFeature[k] ?? null),
     )
   ) {
     getEnabledEnvironments(
       [originalFeature, updatedFeature],
-      allowedEnvs
+      allowedEnvs,
     ).forEach((e) => environments.add(e));
   }
 
@@ -265,7 +265,7 @@ export function getSDKPayloadKeysByDiff(
 export function getAffectedSDKPayloadKeys(
   features: FeatureInterface[],
   allowedEnvs: string[],
-  ruleFilter?: (rule: FeatureRule) => boolean | unknown
+  ruleFilter?: (rule: FeatureRule) => boolean | unknown,
 ): SDKPayloadKey[] {
   const keys: SDKPayloadKey[] = [];
 
@@ -273,7 +273,7 @@ export function getAffectedSDKPayloadKeys(
     const environments = getEnabledEnvironments(
       feature,
       allowedEnvs,
-      ruleFilter
+      ruleFilter,
     );
     const projects = new Set(["", feature.project || ""]);
     keys.push(...getSDKPayloadKeys(environments, projects));
@@ -357,7 +357,7 @@ export function getFeatureDefinition({
     .filter(Boolean) as FeatureDefinitionRule[];
 
   const isRule = (
-    rule: FeatureDefinitionRule | null
+    rule: FeatureDefinitionRule | null,
   ): rule is FeatureDefinitionRule => !!rule;
 
   const defRules = [
@@ -384,7 +384,7 @@ export function getFeatureDefinition({
           const condition = getParsedCondition(
             groupMap,
             phase.condition,
-            phase.savedGroups
+            phase.savedGroups,
           );
           if (condition) {
             rule.condition = condition;
@@ -429,7 +429,7 @@ export function getFeatureDefinition({
           // Stopped experiment
           if (exp.status === "stopped") {
             const variation = r.variations.find(
-              (v) => v.variationId === exp.releasedVariationId
+              (v) => v.variationId === exp.releasedVariationId,
             );
             if (!variation) return null;
 
@@ -440,7 +440,7 @@ export function getFeatureDefinition({
           else {
             rule.variations = exp.variations.map((v) => {
               const variation = r.variations.find(
-                (ruleVariation) => v.id === ruleVariation.variationId
+                (ruleVariation) => v.id === ruleVariation.variationId,
               );
               return variation
                 ? getJSONValue(feature.valueType, variation.value)
@@ -462,7 +462,7 @@ export function getFeatureDefinition({
         const condition = getParsedCondition(
           groupMap,
           r.condition,
-          r.savedGroups
+          r.savedGroups,
         );
         if (condition) {
           rule.condition = condition;
@@ -486,7 +486,7 @@ export function getFeatureDefinition({
           rule.force = getJSONValue(feature.valueType, r.value);
         } else if (r.type === "experiment") {
           rule.variations = r.values.map((v) =>
-            getJSONValue(feature.valueType, v.value)
+            getJSONValue(feature.valueType, v.value),
           );
 
           rule.coverage = r.coverage;

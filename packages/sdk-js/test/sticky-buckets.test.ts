@@ -41,7 +41,7 @@ async function sleep(ms: number) {
 function mockApi(
   data: FeatureApiResponse | null,
   supportSSE: boolean = false,
-  delay: number = 50
+  delay: number = 50,
 ) {
   // eslint-disable-next-line
   const f = jest.fn((url: string, resp: any) => {
@@ -79,7 +79,7 @@ function mockApi(
 function mockRemoteEvalApi(
   data: FeatureApiResponse | null,
   supportSSE: boolean = false,
-  delay: number = 50
+  delay: number = 50,
 ) {
   // eslint-disable-next-line
   const f = jest.fn((url: string, resp: any) => {
@@ -110,7 +110,7 @@ function mockRemoteEvalApi(
                     forcedFeatures: new Map(forcedFeaturesArray),
                     url: evalUrl,
                     ctx: { enableStickyBucketing: true }, // non-standard property for testing purposes
-                  })
+                  }),
                 )
               : Promise.reject("Fetch error");
           },
@@ -425,7 +425,8 @@ describe("sticky-buckets", () => {
       .split(";")
       .forEach(
         (cookie) =>
-          (document.cookie = cookie + "=; expires=" + new Date(0).toUTCString())
+          (document.cookie =
+            cookie + "=; expires=" + new Date(0).toUTCString()),
       );
     // console.log("cookie D", document.cookie);
   });

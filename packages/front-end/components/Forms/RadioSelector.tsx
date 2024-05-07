@@ -91,7 +91,7 @@ const RadioSelector: FC<{
               </div>
             </label>
           </div>
-        )
+        ),
       )}
     </div>
   );

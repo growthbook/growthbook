@@ -11,6 +11,6 @@ export default function useApi<Response = unknown>(path: string | null) {
   return useSWR<Response, Error>(key, async () =>
     apiCall<Response>(path, {
       method: "GET",
-    })
+    }),
   );
 }

@@ -11,15 +11,15 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
     const groupMap = await getSavedGroupMap(req.organization);
     const experimentMap = await getAllPayloadExperiments(
       req.context,
-      req.query.projectId
+      req.query.projectId,
     );
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
       features.sort(
-        (a, b) => a.dateCreated.getTime() - b.dateCreated.getTime()
+        (a, b) => a.dateCreated.getTime() - b.dateCreated.getTime(),
       ),
-      req.query
+      req.query,
     );
 
     return {
@@ -29,9 +29,9 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
           organization: req.organization,
           groupMap,
           experimentMap,
-        })
+        }),
       ),
       ...returnFields,
     };
-  }
+  },
 );

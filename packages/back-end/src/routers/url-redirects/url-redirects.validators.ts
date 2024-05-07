@@ -10,7 +10,7 @@ export const createUrlRedirectValidator = z
           url: z.string(),
           variation: z.string(),
         })
-        .strict()
+        .strict(),
     ),
     persistQueryString: z.boolean(),
   })

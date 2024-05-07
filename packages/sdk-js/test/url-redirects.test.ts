@@ -47,7 +47,7 @@ describe("urlRedirects", () => {
     gb.setURL("http://www.example.com/home");
     await sleep(100);
     expect(window.location.replace).toHaveBeenCalledWith(
-      "http://www.example.com/home-new"
+      "http://www.example.com/home-new",
     );
 
     gb.destroy();
@@ -100,7 +100,7 @@ describe("urlRedirects", () => {
     gb.setURL("http://www.example.com/home");
     await sleep(100);
     expect(window.location.replace).toHaveBeenCalledWith(
-      "http://www.example.com/home-new"
+      "http://www.example.com/home-new",
     );
 
     gb.destroy();

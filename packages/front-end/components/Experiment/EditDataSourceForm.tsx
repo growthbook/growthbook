@@ -21,7 +21,7 @@ const EditDataSourceForm: FC<{
         getExposureQuery(
           getDatasourceById(experiment.datasource)?.settings,
           experiment.exposureQueryId,
-          experiment.userIdType
+          experiment.userIdType,
         )?.id || "",
       trackingKey: experiment.trackingKey || "",
     },

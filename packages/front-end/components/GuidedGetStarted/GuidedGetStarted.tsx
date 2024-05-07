@@ -64,8 +64,7 @@ export default function GuidedGetStarted({
       alwaysShowHelperText: true,
       blackTitle: "Welcome to ",
       purpleTitle: "GrowthBook!",
-      text:
-        "GrowthBook is a modular platform that enables teams to create feature flags and analyze experiment results. These features can be used together, or on their own - the choice is yours.",
+      text: "GrowthBook is a modular platform that enables teams to create feature flags and analyze experiment results. These features can be used together, or on their own - the choice is yours.",
       completed:
         settings?.videoInstructionsViewed ||
         datasources.length > 0 ||
@@ -132,8 +131,7 @@ export default function GuidedGetStarted({
     {
       blackTitle: "Create a ",
       purpleTitle: "Feature Flag",
-      text:
-        "Create a feature flag within GrowthBook. Use feature flags to toggle app behavior, do gradual rollouts, and run A/B tests.",
+      text: "Create a feature flag within GrowthBook. Use feature flags to toggle app behavior, do gradual rollouts, and run A/B tests.",
       learnMoreLink: "Learn more about how to use feature flags.",
       docSection: "features",
       completed: features.length > 0 || skippedSteps["feature-flag"],
@@ -173,8 +171,7 @@ export default function GuidedGetStarted({
       alwaysShowHelperText: true,
       blackTitle: "Install an ",
       purpleTitle: "SDK",
-      text:
-        "Integrate GrowthBook into your front-end, back-end, or mobile application.",
+      text: "Integrate GrowthBook into your front-end, back-end, or mobile application.",
       learnMoreLink: "Learn more about our SDKs.",
       docSection: "sdks",
       completed:
@@ -204,8 +201,7 @@ export default function GuidedGetStarted({
     {
       blackTitle: "Add a ",
       purpleTitle: "Data Source",
-      text:
-        "GrowthBook needs read access to where your experiment and metric data lives. We support Mixpanel, Snowflake, Redshift, BigQuery, Google Analytics, and more. If you don't see yours, let us know or open a GitHub issue.",
+      text: "GrowthBook needs read access to where your experiment and metric data lives. We support Mixpanel, Snowflake, Redshift, BigQuery, Google Analytics, and more. If you don't see yours, let us know or open a GitHub issue.",
       learnMoreLink: "Learn more about how to connect to a data source.",
       docSection: "datasources",
       completed: datasources.length > 0 || skippedSteps["data-source"],
@@ -250,8 +246,7 @@ export default function GuidedGetStarted({
     {
       blackTitle: "Define a ",
       purpleTitle: "Metric",
-      text:
-        "Create a library of metrics to experiment against. You can always add more at any time, and even add them retroactively to past experiments.",
+      text: "Create a library of metrics to experiment against. You can always add more at any time, and even add them retroactively to past experiments.",
       learnMoreLink: "Learn more about how to use metrics.",
       docSection: "metrics",
       completed: metrics.length > 0 || skippedSteps["metric-definition"],
@@ -298,8 +293,7 @@ export default function GuidedGetStarted({
       blackTitle: "Great ",
       purpleTitle: "Work!",
       completed: experiments.length > 0,
-      text:
-        "Here are a few more things you can do to get the most out of your GrowthBook account.",
+      text: "Here are a few more things you can do to get the most out of your GrowthBook account.",
       render: (
         <div className="col-12 col-sm-8 col-lg-6">
           {permissionsUtil.canManageTeam() ? (

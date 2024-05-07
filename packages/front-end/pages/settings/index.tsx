@@ -38,7 +38,7 @@ export const ConnectSettingsForm = ({ children }) => {
 
 function hasChanges(
   value: OrganizationSettings,
-  existing: OrganizationSettings
+  existing: OrganizationSettings,
 ) {
   if (!existing) return true;
 
@@ -46,19 +46,13 @@ function hasChanges(
 }
 
 const GeneralSettingsPage = (): React.ReactElement => {
-  const {
-    refreshOrganization,
-    settings,
-    organization,
-    hasCommercialFeature,
-  } = useUser();
+  const { refreshOrganization, settings, organization, hasCommercialFeature } =
+    useUser();
   const [saveMsg, setSaveMsg] = useState(false);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
   const [cronString, setCronString] = useState("");
-  const [
-    codeRefsBranchesToFilterStr,
-    setCodeRefsBranchesToFilterStr,
-  ] = useState<string>("");
+  const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
+    useState<string>("");
   const displayCurrency = useCurrency();
   const { datasources } = useDefinitions();
 
@@ -105,7 +99,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
       sequentialTestingEnabled: false,
-      sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+      sequentialTestingTuningParameter:
+        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       powerCalculatorEnabled: false,
       attributionModel: "firstExposure",
       displayCurrency,
@@ -157,7 +152,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     powerCalculatorEnabled: form.watch("powerCalculatorEnabled"),
     sequentialTestingEnabled: form.watch("sequentialTestingEnabled"),
     sequentialTestingTuningParameter: form.watch(
-      "sequentialTestingTuningParameter"
+      "sequentialTestingTuningParameter",
     ),
     attributionModel: form.watch("attributionModel"),
     displayCurrency: form.watch("displayCurrency"),
@@ -180,7 +175,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       `${cronstrue.toString(cron, {
         throwExceptionOnParseError: false,
         verbose: true,
-      })} (UTC time)`
+      })} (UTC time)`,
     );
   }
 
@@ -224,7 +219,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       updateCronString(newVal.updateSchedule?.cron || "");
       if (newVal.codeRefsBranchesToFilter) {
         setCodeRefsBranchesToFilterStr(
-          newVal.codeRefsBranchesToFilter.join(", ")
+          newVal.codeRefsBranchesToFilter.join(", "),
         );
       }
     }
@@ -236,7 +231,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       codeRefsBranchesToFilterStr
         .split(",")
         .map((s) => s.trim())
-        .filter(Boolean)
+        .filter(Boolean),
     );
   }, [codeRefsBranchesToFilterStr]);
 

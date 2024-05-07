@@ -73,7 +73,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
   }
 
   const permittedSubLinks = (props.subLinks || []).filter(
-    (l) => !l.filter || l.filter(filterProps)
+    (l) => !l.filter || l.filter(filterProps),
   );
 
   if (props.subLinks && !permittedSubLinks.length) {
@@ -151,7 +151,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
                     [styles.selected]: sublinkSelected,
                     selected: sublinkSelected,
                     [styles.collapsed]: !open && !sublinkSelected,
-                  }
+                  },
                 )}
               >
                 <Link href={l.href} className="align-middle">

@@ -29,10 +29,10 @@ const ShowLicenseInfo: FC<{
     (actualPlan === "enterprise"
       ? "Enterprise"
       : actualPlan === "pro"
-      ? "Pro"
-      : actualPlan === "pro_sso"
-      ? "Pro + SSO"
-      : "Starter") + (license && license.isTrial ? " (trial)" : "");
+        ? "Pro"
+        : actualPlan === "pro_sso"
+          ? "Pro + SSO"
+          : "Starter") + (license && license.isTrial ? " (trial)" : "");
 
   // TODO: Remove this once we have migrated all organizations to use the license key
   const usesLicenseInfoOnModel =
@@ -121,7 +121,7 @@ const ShowLicenseInfo: FC<{
                             <span
                               className={`text-muted ${
                                 !["active", "trialing"].includes(
-                                  license.stripeSubscription?.status || ""
+                                  license.stripeSubscription?.status || "",
                                 )
                                   ? "alert-danger"
                                   : ""

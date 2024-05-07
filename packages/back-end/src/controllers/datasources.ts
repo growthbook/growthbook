@@ -47,7 +47,7 @@ import { DimensionSlicesQueryRunner } from "../queryRunners/DimensionSlicesQuery
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -65,7 +65,7 @@ export async function deleteDataSource(
   // Make sure this data source isn't the organizations default
   if (org.settings?.defaultDataSource === datasource.id) {
     throw new Error(
-      "Error: This is the default data source for your organization. You must select a new default data source in your Organization Settings before deleting this one."
+      "Error: This is the default data source for your organization. You must select a new default data source in your Organization Settings before deleting this one.",
     );
   }
 
@@ -73,29 +73,29 @@ export async function deleteDataSource(
   const metrics = await getMetricsByDatasource(context, datasource.id);
   if (metrics.length > 0) {
     throw new Error(
-      "Error: Please delete all metrics tied to this datasource first."
+      "Error: Please delete all metrics tied to this datasource first.",
     );
   }
 
   // Make sure there are no segments
   const segments = await findSegmentsByDataSource(
     datasource.id,
-    datasource.organization
+    datasource.organization,
   );
   if (segments.length > 0) {
     throw new Error(
-      "Error: Please delete all segments tied to this datasource first."
+      "Error: Please delete all segments tied to this datasource first.",
     );
   }
 
   // Make sure there are no dimensions
   const dimensions = await findDimensionsByDataSource(
     datasource.id,
-    datasource.organization
+    datasource.organization,
   );
   if (dimensions.length > 0) {
     throw new Error(
-      "Error: Please delete all dimensions tied to this datasource first."
+      "Error: Please delete all dimensions tied to this datasource first.",
     );
   }
 
@@ -108,7 +108,7 @@ export async function deleteDataSource(
 
     await deleteInformationSchemaTablesByInformationSchemaId(
       org.id,
-      informationSchemaId
+      informationSchemaId,
     );
   }
 
@@ -148,7 +148,7 @@ export async function getDataSources(req: AuthRequest, res: Response) {
 
 export async function getDataSource(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -177,7 +177,7 @@ export async function postDataSources(
     settings: DataSourceSettings;
     projects?: string[];
   }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { name, description, type, params, projects } = req.body;
@@ -204,7 +204,7 @@ export async function postDataSources(
       settings,
       undefined,
       description,
-      projects
+      projects,
     );
 
     res.status(200).json({
@@ -232,7 +232,7 @@ export async function putDataSource(
     },
     { id: string }
   >,
-  res: Response
+  res: Response,
 ) {
   const userId = req.userId;
 
@@ -313,7 +313,7 @@ export async function putDataSource(
       datasource.id,
       org.id,
       metricsToCreate,
-      userObj
+      userObj,
     );
   }
 
@@ -343,7 +343,7 @@ export async function putDataSource(
     ) {
       const oauth2Client = getOauth2Client();
       const { tokens } = await oauth2Client.getToken(
-        (params as GoogleAnalyticsParams).refreshToken
+        (params as GoogleAnalyticsParams).refreshToken,
       );
       (params as GoogleAnalyticsParams).refreshToken =
         tokens.refresh_token || "";
@@ -379,7 +379,7 @@ export async function updateExposureQuery(
     },
     { datasourceId: string; exposureQueryId: string }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { datasourceId, exposureQueryId } = req.params;
@@ -400,7 +400,7 @@ export async function updateExposureQuery(
 
   const copy = cloneDeep<DataSourceInterface>(dataSource);
   const exposureQueryIndex = copy.settings.queries?.exposure?.findIndex(
-    (e) => e.id === exposureQueryId
+    (e) => e.id === exposureQueryId,
   );
   if (
     exposureQueryIndex === undefined ||
@@ -441,7 +441,7 @@ export async function updateExposureQuery(
 
 export async function postGoogleOauthRedirect(
   req: AuthRequest<{ projects?: string[] }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { projects } = req.body;
@@ -469,7 +469,7 @@ export async function postGoogleOauthRedirect(
 
 export async function getQueries(
   req: AuthRequest<null, { ids: string }>,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { ids } = req.params;
@@ -491,7 +491,7 @@ export async function testLimitedQuery(
     datasourceId: string;
     templateVariables?: TemplateVariables;
   }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -509,7 +509,7 @@ export async function testLimitedQuery(
     context,
     datasource,
     query,
-    templateVariables
+    templateVariables,
   );
 
   res.status(200).json({
@@ -523,7 +523,7 @@ export async function testLimitedQuery(
 
 export async function getDataSourceMetrics(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -538,7 +538,7 @@ export async function getDataSourceMetrics(
 
 export async function getDataSourceQueries(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -550,7 +550,7 @@ export async function getDataSourceQueries(
 
   req.checkPermissions(
     "readData",
-    datasourceObj?.projects?.length ? datasourceObj.projects : []
+    datasourceObj?.projects?.length ? datasourceObj.projects : [],
   );
 
   const queries = await getQueriesByDatasource(context.org.id, id);
@@ -563,7 +563,7 @@ export async function getDataSourceQueries(
 
 export async function getDimensionSlices(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { id } = req.params;
@@ -578,7 +578,7 @@ export async function getDimensionSlices(
 
 export async function getLatestDimensionSlicesForDatasource(
   req: AuthRequest<null, { datasourceId: string; exposureQueryId: string }>,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { datasourceId, exposureQueryId } = req.params;
@@ -586,7 +586,7 @@ export async function getLatestDimensionSlicesForDatasource(
   const dimensionSlices = await getLatestDimensionSlices(
     org.id,
     datasourceId,
-    exposureQueryId
+    exposureQueryId,
   );
 
   res.status(200).json({
@@ -601,7 +601,7 @@ export async function postDimensionSlices(
     queryId: string;
     lookbackDays: number;
   }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -610,7 +610,7 @@ export async function postDimensionSlices(
   const integration = await getIntegrationFromDatasourceId(
     context,
     dataSourceId,
-    true
+    true,
   );
 
   const model = await createDimensionSlices({
@@ -622,7 +622,7 @@ export async function postDimensionSlices(
   const queryRunner = new DimensionSlicesQueryRunner(
     context,
     model,
-    integration
+    integration,
   );
   const outputmodel = await queryRunner.startAnalysis({
     exposureQueryId: queryId,
@@ -636,7 +636,7 @@ export async function postDimensionSlices(
 
 export async function cancelDimensionSlices(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -649,13 +649,13 @@ export async function cancelDimensionSlices(
   const integration = await getIntegrationFromDatasourceId(
     context,
     dimensionSlices.datasource,
-    true
+    true,
   );
 
   const queryRunner = new DimensionSlicesQueryRunner(
     context,
     dimensionSlices,
-    integration
+    integration,
   );
   await queryRunner.cancelQueries();
 
@@ -670,7 +670,7 @@ export async function fetchBigQueryDatasets(
     client_email: string;
     private_key: string;
   }>,
-  res: Response
+  res: Response,
 ) {
   const { projectId, client_email, private_key } = req.body;
 

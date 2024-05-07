@@ -58,7 +58,7 @@ const MarkdownInput: FC<{
         const { fileURL } = await uploadFile(apiCall, file);
 
         toAdd[i] = `![${name}](${fileURL})`;
-      })
+      }),
     );
 
     promises

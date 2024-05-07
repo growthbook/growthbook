@@ -67,8 +67,8 @@ export default function NamespaceTableRow({
           {percentFormatter.format(
             findGaps(usage, namespace.name).reduce(
               (sum, range) => sum + (range.end - range.start),
-              0
-            )
+              0,
+            ),
           )}
         </td>
         <td>

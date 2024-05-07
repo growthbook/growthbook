@@ -159,7 +159,7 @@ export default function FeaturesHeader({
                     permissions.check(
                       "publishFeatures",
                       projectId,
-                      enabledEnvs
+                      enabledEnvs,
                     ) && (
                       <a
                         className="dropdown-item"
@@ -176,7 +176,7 @@ export default function FeaturesHeader({
                     permissions.check(
                       "publishFeatures",
                       projectId,
-                      enabledEnvs
+                      enabledEnvs,
                     ) && (
                       <Tooltip
                         shouldDisplay={dependents > 0}
@@ -237,7 +237,7 @@ export default function FeaturesHeader({
                     permissions.check(
                       "publishFeatures",
                       projectId,
-                      enabledEnvs
+                      enabledEnvs,
                     ) && (
                       <Tooltip
                         shouldDisplay={dependents > 0}
@@ -309,7 +309,7 @@ export default function FeaturesHeader({
                     permissions.check(
                       "publishFeatures",
                       projectId,
-                      enabledEnvs
+                      enabledEnvs,
                     ) && (
                       <Tooltip
                         shouldDisplay={dependents > 0}

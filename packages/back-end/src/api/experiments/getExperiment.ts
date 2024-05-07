@@ -13,10 +13,10 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
 
     const apiExperiment = await toExperimentApiInterface(
       req.context,
-      experiment
+      experiment,
     );
     return {
       experiment: apiExperiment,
     };
-  }
+  },
 );

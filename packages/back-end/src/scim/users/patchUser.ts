@@ -14,7 +14,7 @@ async function removeUserFromOrg(org: OrganizationInterface, user: Member) {
 
   if (userIsAdmin) {
     const numberOfAdmins = org.members.filter(
-      (member) => member.role === "admin"
+      (member) => member.role === "admin",
     );
 
     if (numberOfAdmins.length === 1) {
@@ -31,7 +31,7 @@ async function removeUserFromOrg(org: OrganizationInterface, user: Member) {
 
 export async function patchUser(
   req: ScimPatchRequest,
-  res: Response<ScimUser | ScimError>
+  res: Response<ScimUser | ScimError>,
 ) {
   const { Operations } = req.body;
   const { id: userId } = req.params;
@@ -60,7 +60,7 @@ export async function patchUser(
 
   const updatedScimUser: ScimUser = expandedMembertoScimUser(
     expandedMember[0],
-    false
+    false,
   );
 
   for (const operation of Operations) {

@@ -52,7 +52,7 @@ export const useDemoDataSourceProject = (): UseDemoDataSourceProject => {
 
     return (
       datasources.find(
-        (d) => d.projects?.length === 1 && d.projects[0] === demoProjectId
+        (d) => d.projects?.length === 1 && d.projects[0] === demoProjectId,
       ) || null
     );
   }, [datasources, demoProjectId]);

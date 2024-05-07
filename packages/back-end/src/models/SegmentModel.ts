@@ -55,18 +55,18 @@ export async function findSegmentsByOrganization(organization: string) {
 
 export async function findSegmentsByDataSource(
   datasource: string,
-  organization: string
+  organization: string,
 ) {
   // If using config.yml & the org doesn't have the env variable STORE_SEGMENTS_IN_MONGO,
   // immediately return the list from there
   if (usingFileConfigForSegments()) {
     return getConfigSegments(organization).filter(
-      (s) => s.datasource === datasource
+      (s) => s.datasource === datasource,
     );
   }
 
   return (await SegmentModel.find({ datasource, organization })).map(
-    toInterface
+    toInterface,
   );
 }
 
@@ -83,7 +83,7 @@ export async function deleteSegmentById(id: string, organization: string) {
 export async function updateSegment(
   id: string,
   organization: string,
-  updates: Partial<SegmentInterface>
+  updates: Partial<SegmentInterface>,
 ) {
   // If using config.yml & the org doesn't have the env variable STORE_SEGMENTS_IN_MONGO,
   // immediately return the list from there

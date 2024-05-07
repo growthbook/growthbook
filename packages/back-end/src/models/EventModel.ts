@@ -72,7 +72,7 @@ const eventSchema = new mongoose.Schema({
               error: JSON.stringify(errorString, null, 2),
               result: JSON.stringify(result, null, 2),
             },
-            "Invalid Event data"
+            "Invalid Event data",
           );
         }
 
@@ -94,14 +94,14 @@ type EventDocument<T> = mongoose.Document & EventInterface<T>;
  * @returns
  */
 const toInterface = <T>(doc: EventDocument<T>): EventInterface<T> =>
-  omit(
-    doc.toJSON<EventInterface<T>>({ flattenMaps: true }),
-    ["__v", "_id"]
-  ) as EventInterface<T>;
+  omit(doc.toJSON<EventInterface<T>>({ flattenMaps: true }), [
+    "__v",
+    "_id",
+  ]) as EventInterface<T>;
 
 const EventModel = mongoose.model<EventInterface<unknown>>(
   "Event",
-  eventSchema
+  eventSchema,
 );
 
 /**
@@ -113,7 +113,7 @@ const EventModel = mongoose.model<EventInterface<unknown>>(
  */
 export const createEvent = async (
   organizationId: string,
-  data: NotificationEvent
+  data: NotificationEvent,
 ): Promise<EventInterface<NotificationEvent> | null> => {
   try {
     const eventId = `event-${randomUUID()}`;
@@ -138,7 +138,7 @@ export const createEvent = async (
  * @param eventId
  */
 export const getEvent = async (
-  eventId: string
+  eventId: string,
 ): Promise<EventInterface<NotificationEvent> | null> => {
   const doc = await EventModel.findOne({ id: eventId });
   return !doc ? null : (toInterface(doc) as EventInterface<NotificationEvent>);
@@ -151,7 +151,7 @@ export const getEvent = async (
  */
 export const getEventForOrganization = async (
   eventId: string,
-  organizationId: string
+  organizationId: string,
 ): Promise<EventInterface<NotificationEvent> | null> => {
   const doc = await EventModel.findOne({ id: eventId, organizationId });
   return !doc ? null : (toInterface(doc) as EventInterface<NotificationEvent>);
@@ -165,7 +165,7 @@ export const getEventForOrganization = async (
  */
 export const getLatestEventsForOrganization = async (
   organizationId: string,
-  limit: number = 50
+  limit: number = 50,
 ): Promise<EventInterface<unknown>[]> => {
   const docs = await EventModel.find({ organizationId })
     .sort([["dateCreated", -1]])

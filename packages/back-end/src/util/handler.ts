@@ -13,7 +13,7 @@ type ApiRequest<
   ResponseType = never,
   ParamsSchema extends Schema = Schema<never>,
   BodySchema extends Schema = Schema<never>,
-  QuerySchema extends Schema = Schema<never>
+  QuerySchema extends Schema = Schema<never>,
 > = ApiRequestLocals &
   Request<
     z.infer<ParamsSchema>,
@@ -24,7 +24,7 @@ type ApiRequest<
 
 function validate<T>(
   schema: Schema<T>,
-  value: unknown
+  value: unknown,
 ):
   | {
       success: true;
@@ -53,7 +53,7 @@ function validate<T>(
 export function createApiRequestHandler<
   ParamsSchema extends Schema = Schema<never>,
   BodySchema extends Schema = Schema<never>,
-  QuerySchema extends Schema = Schema<never>
+  QuerySchema extends Schema = Schema<never>,
 >({
   paramsSchema,
   bodySchema,
@@ -65,8 +65,8 @@ export function createApiRequestHandler<
 } = {}) {
   return <ResponseType>(
     handler: (
-      req: ApiRequest<ResponseType, ParamsSchema, BodySchema, QuerySchema>
-    ) => Promise<ResponseType>
+      req: ApiRequest<ResponseType, ParamsSchema, BodySchema, QuerySchema>,
+    ) => Promise<ResponseType>,
   ) => {
     const wrappedHandler: RequestHandler<
       z.infer<ParamsSchema>,
@@ -113,7 +113,7 @@ export function createApiRequestHandler<
               ParamsSchema,
               BodySchema,
               QuerySchema
-            >
+            >,
           );
           return res.status(200).json(result);
         } catch (e) {
@@ -167,13 +167,13 @@ export async function validateIsSuperUserRequest(req: {
 
   if (!req.user) {
     throw new Error(
-      "This endpoint requires the use of a Personal Access Token rather than an API_KEY."
+      "This endpoint requires the use of a Personal Access Token rather than an API_KEY.",
     );
   }
 
   if (!req.user.superAdmin) {
     throw new Error(
-      "This endpoint requires the Personal Access Token of a super admin."
+      "This endpoint requires the Personal Access Token of a super admin.",
     );
   }
 
@@ -186,7 +186,7 @@ export async function validateIsSuperUserRequest(req: {
 export function getPaginationReturnFields<T>(
   items: T[],
   total: number,
-  query: { limit: number; offset: number }
+  query: { limit: number; offset: number },
 ): ApiPaginationFields {
   const limit = query.limit;
   const offset = query.offset;
@@ -208,7 +208,7 @@ export function getPaginationReturnFields<T>(
  */
 export function applyPagination<T>(
   items: T[],
-  query: { limit?: number | undefined; offset?: number | undefined }
+  query: { limit?: number | undefined; offset?: number | undefined },
 ): {
   filtered: T[];
   returnFields: ApiPaginationFields;
@@ -242,7 +242,7 @@ export function applyPagination<T>(
 export function applyFilter<T>(
   queryValue: T,
   actualValue: T | T[],
-  arrayAsFilter: boolean = false
+  arrayAsFilter: boolean = false,
 ): boolean {
   // If we're not filtering on anything, return true immediately
   if (queryValue === null || queryValue === undefined) return true;

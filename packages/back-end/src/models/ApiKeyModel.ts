@@ -48,10 +48,10 @@ type ApiKeyDocument = mongoose.Document & ApiKeyInterface;
 const ApiKeyModel = mongoose.model<ApiKeyInterface>("ApiKey", apiKeySchema);
 
 const toInterface = (doc: ApiKeyDocument): ApiKeyInterface => {
-  const asJson = omit(
-    doc.toJSON<ApiKeyDocument>({ flattenMaps: true }),
-    ["__v", "_id"]
-  );
+  const asJson = omit(doc.toJSON<ApiKeyDocument>({ flattenMaps: true }), [
+    "__v",
+    "_id",
+  ]);
   const role = roleForApiKey(asJson) || undefined;
 
   return {
@@ -67,10 +67,10 @@ export async function generateEncryptionKey(): Promise<string> {
       length: 128,
     },
     true,
-    ["encrypt", "decrypt"]
+    ["encrypt", "decrypt"],
   );
   return Buffer.from(await webcrypto.subtle.exportKey("raw", key)).toString(
-    "base64"
+    "base64",
   );
 }
 
@@ -280,14 +280,14 @@ export async function deleteApiKeyByKey(organization: string, key: string) {
 export async function getApiKeyByIdOrKey(
   context: ReqContext | ApiReqContext,
   id: string | undefined,
-  key: string | undefined
+  key: string | undefined,
 ): Promise<ApiKeyInterface | null> {
   if (!id && !key) return null;
 
   const { org, readAccessFilter } = context;
 
   const doc = await ApiKeyModel.findOne(
-    id ? { organization: org.id, id } : { organization: org.id, key }
+    id ? { organization: org.id, id } : { organization: org.id, key },
   );
 
   if (!doc) return null;
@@ -299,7 +299,7 @@ export async function getApiKeyByIdOrKey(
 
 export async function getVisualEditorApiKey(
   organization: string,
-  userId: string
+  userId: string,
 ): Promise<ApiKeyInterface | null> {
   const doc = await ApiKeyModel.findOne({
     organization,
@@ -310,7 +310,7 @@ export async function getVisualEditorApiKey(
 }
 
 export async function lookupOrganizationByApiKey(
-  key: string
+  key: string,
 ): Promise<Partial<ApiKeyInterface>> {
   // If self-hosting on a single org and using a hardcoded secret key
   if (!IS_MULTI_ORG && SECRET_API_KEY && key === SECRET_API_KEY) {
@@ -335,7 +335,7 @@ export async function lookupOrganizationByApiKey(
 }
 
 export async function getAllApiKeysByOrganization(
-  context: ReqContext
+  context: ReqContext,
 ): Promise<ApiKeyInterface[]> {
   const { org, readAccessFilter } = context;
 
@@ -343,7 +343,7 @@ export async function getAllApiKeysByOrganization(
     {
       organization: org.id,
     },
-    { encryptionKey: 0 }
+    { encryptionKey: 0 },
   );
   const keys = docs.map((k) => {
     const json = toInterface(k);
@@ -358,7 +358,7 @@ export async function getAllApiKeysByOrganization(
 
 export async function getFirstPublishableApiKey(
   organization: string,
-  environment: string
+  environment: string,
 ): Promise<null | PublishableApiKey> {
   const doc = await ApiKeyModel.findOne(
     {
@@ -368,7 +368,7 @@ export async function getFirstPublishableApiKey(
         $ne: true,
       },
     },
-    { encryptionKey: 0 }
+    { encryptionKey: 0 },
   );
 
   if (!doc) return null;
@@ -378,7 +378,7 @@ export async function getFirstPublishableApiKey(
 
 export async function getUnredactedSecretKey(
   organization: string,
-  id: string
+  id: string,
 ): Promise<SecretApiKey | null> {
   const doc = await ApiKeyModel.findOne({
     organization,

@@ -93,7 +93,7 @@ function getFeatureComp(existing: PartialFeature, incoming: PartialFeature) {
       rules: Object.fromEntries(
         Object.entries(envSettings1)
           .filter(([e]) => envs.includes(e))
-          .map(([e, v]) => [e, v.rules])
+          .map(([e, v]) => [e, v.rules]),
       ),
     },
     {
@@ -104,7 +104,7 @@ function getFeatureComp(existing: PartialFeature, incoming: PartialFeature) {
       rules: Object.fromEntries(
         Object.entries(envSettings2)
           .filter(([e]) => envs.includes(e))
-          .map(([e, v]) => [e, v.rules])
+          .map(([e, v]) => [e, v.rules]),
       ),
     },
   ];
@@ -139,7 +139,7 @@ async function buildImportedData(
   existingProjects: Map<string, ProjectInterface>,
   existingEnvs: Set<string>,
   features: FeatureInterface[],
-  callback: (data: ImportData) => void
+  callback: (data: ImportData) => void,
 ): Promise<void> {
   const featuresMap = new Map(features.map((f) => [f.id, f]));
 
@@ -163,7 +163,7 @@ async function buildImportedData(
   // Get projects
   const ldProjects = await getLDProjects(apiToken);
   const projects: ProjectImport[] = transformLDProjectsToGBProject(
-    ldProjects
+    ldProjects,
   ).map((p) => {
     const existing = existingProjects.get(p.name);
     if (existing) {
@@ -258,7 +258,7 @@ async function buildImportedData(
                 const feature = transformLDFeatureFlag(
                   def,
                   p.key,
-                  featureVarMap
+                  featureVarMap,
                 );
 
                 // Check if anything substantial has changed
@@ -314,7 +314,7 @@ async function runImport(
   data: ImportData,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   apiCall: ApiCallType<any>,
-  callback: (data: ImportData) => void
+  callback: (data: ImportData) => void,
 ) {
   // We will mutate this shared object and sync it back to the component periodically
   data = cloneDeep(data);
@@ -347,7 +347,7 @@ async function runImport(
                 name: p.project?.name,
                 description: p.project?.description,
               }),
-            }
+            },
           );
           p.status = "completed";
           p.project = res.project;
@@ -421,7 +421,7 @@ async function runImport(
                   ...f.feature,
                   project: projectId,
                 }),
-              }
+              },
             );
             f.status = "completed";
             f.existing = res.feature;
@@ -455,10 +455,10 @@ function ImportStatusDisplay({
   const color = ["failed", "invalid"].includes(data.status)
     ? "danger"
     : data.status === "completed"
-    ? "success"
-    : data.status === "skipped"
-    ? "secondary"
-    : "purple";
+      ? "success"
+      : data.status === "skipped"
+        ? "secondary"
+        : "purple";
 
   return (
     <Tooltip
@@ -594,10 +594,13 @@ function ImportHeader({
   name: string;
   items: { status: ImportStatus }[];
 }) {
-  const countsByStatus = items.reduce((acc, item) => {
-    acc[item.status] = (acc[item.status] || 0) + 1;
-    return acc;
-  }, {} as Record<ImportStatus, number>);
+  const countsByStatus = items.reduce(
+    (acc, item) => {
+      acc[item.status] = (acc[item.status] || 0) + 1;
+      return acc;
+    },
+    {} as Record<ImportStatus, number>,
+  );
 
   return (
     <div className="bg-light p-3 border-bottom">
@@ -651,19 +654,19 @@ export default function ImportFromLaunchDarkly() {
 
   const existingEnvironments = useMemo(
     () => new Set(environments.map((e) => e.id)),
-    [environments]
+    [environments],
   );
   const existingProjects = useMemo(
     () => new Map(projects.map((p) => [p.name, p])),
-    [projects]
+    [projects],
   );
   const { apiCall } = useAuth();
 
   const step = ["init", "loading", "error"].includes(data.status)
     ? 1
     : data.status === "ready"
-    ? 2
-    : 3;
+      ? 2
+      : 3;
 
   return (
     <div>
@@ -708,7 +711,7 @@ export default function ImportFromLaunchDarkly() {
                     existingProjects,
                     existingEnvironments,
                     features,
-                    (d) => setData(d)
+                    (d) => setData(d),
                   );
                 } catch (e) {
                   setData({

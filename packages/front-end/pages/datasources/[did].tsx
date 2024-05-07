@@ -46,12 +46,8 @@ const DataSourcePage: FC = () => {
   const [viewSchema, setViewSchema] = useState(false);
   const router = useRouter();
 
-  const {
-    getDatasourceById,
-    mutateDefinitions,
-    ready,
-    error,
-  } = useDefinitions();
+  const { getDatasourceById, mutateDefinitions, ready, error } =
+    useDefinitions();
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
   const { apiCall } = useAuth();
@@ -100,7 +96,7 @@ const DataSourcePage: FC = () => {
       }
       await mutateDefinitions({});
     },
-    [mutateDefinitions, apiCall, d]
+    [mutateDefinitions, apiCall, d],
   );
 
   if (error) {
@@ -136,7 +132,7 @@ const DataSourcePage: FC = () => {
       />
 
       {d.projects?.includes(
-        getDemoDatasourceProjectIdForOrganization(organization.id)
+        getDemoDatasourceProjectIdForOrganization(organization.id),
       ) && (
         <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
           <div className="flex-1">
@@ -287,13 +283,13 @@ const growthbook = new GrowthBook({
   ...,
   trackingCallback: function(experiment, result) {
     mixpanel.track(${JSON.stringify(
-      d.settings?.events?.experimentEvent || "$experiment_started"
+      d.settings?.events?.experimentEvent || "$experiment_started",
     )}, {
       ${quotePropertyName(
-        d.settings?.events?.experimentIdProperty || "Experiment name"
+        d.settings?.events?.experimentIdProperty || "Experiment name",
       )}: experiment.key,
       ${quotePropertyName(
-        d.settings?.events?.variationIdProperty || "Variant name"
+        d.settings?.events?.variationIdProperty || "Variant name",
       )}:  result.variationId,
       $source: 'growthbook'
     })

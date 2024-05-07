@@ -95,7 +95,7 @@ export const PersonalAccessTokensContainer = () => {
       }
       return res.key.key;
     },
-    [apiCall]
+    [apiCall],
   );
 
   const onDelete = useCallback(
@@ -110,7 +110,7 @@ export const PersonalAccessTokensContainer = () => {
       });
       mutate();
     },
-    [mutate, apiCall]
+    [mutate, apiCall],
   );
 
   return (

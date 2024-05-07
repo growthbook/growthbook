@@ -22,13 +22,13 @@ const sdkPayloadSchema = new mongoose.Schema({
 });
 sdkPayloadSchema.index(
   { organization: 1, environment: 1, schemaVersion: 1 },
-  { unique: true }
+  { unique: true },
 );
 type SDKPayloadDocument = mongoose.Document & SDKStringifiedPayloadInterface;
 
 const SDKPayloadModel = mongoose.model<SDKStringifiedPayloadInterface>(
   "SdkPayloadCache",
-  sdkPayloadSchema
+  sdkPayloadSchema,
 );
 
 function toInterface(doc: SDKPayloadDocument): SDKPayloadInterface | null {
@@ -96,6 +96,6 @@ export async function updateSDKPayload({
     },
     {
       upsert: true,
-    }
+    },
   );
 }

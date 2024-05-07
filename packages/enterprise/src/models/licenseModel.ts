@@ -62,7 +62,7 @@ export function toInterface(doc: LicenseDocument): LicenseInterface {
 }
 
 export async function getLicenseByKey(
-  key: string
+  key: string,
 ): Promise<LicenseInterface | null> {
   const doc = await LicenseModel.findOne({ id: key });
   return doc ? toInterface(doc) : null;

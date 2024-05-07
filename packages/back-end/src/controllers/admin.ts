@@ -4,7 +4,7 @@ import { findAllOrganizations } from "../models/OrganizationModel";
 
 export async function getOrganizations(
   req: AuthRequest<never, never, { page?: string; search?: string }>,
-  res: Response
+  res: Response,
 ) {
   if (!req.superAdmin) {
     return res.status(403).json({
@@ -17,7 +17,7 @@ export async function getOrganizations(
 
   const { organizations, total } = await findAllOrganizations(
     parseInt(page || "") || 1,
-    search || ""
+    search || "",
   );
 
   return res.status(200).json({

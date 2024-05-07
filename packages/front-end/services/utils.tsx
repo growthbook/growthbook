@@ -17,12 +17,12 @@ export function formatTrafficSplit(weights: number[], decimals = 0): string {
 // observed and expected weights
 export function getSRMNeededPrecisionP1(
   observed: number[],
-  expected: number[]
+  expected: number[],
 ): number {
   const observedpct = trafficSplitPercentages(observed);
   const expectedpct = trafficSplitPercentages(expected);
   const maxDiff = Math.max(
-    ...observedpct.map((o, i) => Math.abs(o - expectedpct[i] || 0))
+    ...observedpct.map((o, i) => Math.abs(o - expectedpct[i] || 0)),
   );
   return (maxDiff ? -1 * Math.floor(Math.log10(maxDiff)) : 0) + 1;
 }
@@ -76,7 +76,7 @@ export function getEqualWeights(n: number, precision: number = 4): number[] {
 
 export function distributeWeights(
   weights: number[],
-  customSplit: boolean
+  customSplit: boolean,
 ): number[] {
   // Always just use equal weights if we're not customizing them
   if (!customSplit) return getEqualWeights(weights.length);
@@ -114,7 +114,7 @@ export function rebalance(
   weights: number[],
   i: number,
   newValue: number,
-  precision: number = 4
+  precision: number = 4,
 ): number[] {
   // Clamp new value
   if (newValue > 1) newValue = 1;
@@ -127,7 +127,7 @@ export function rebalance(
   // Current sum of weights
   const currentTotal = floatRound(
     weights.reduce((sum, w) => sum + w, 0),
-    precision
+    precision,
   );
   // The sum is too low, increment the next variation's weight
   if (currentTotal < 1) {
@@ -135,7 +135,7 @@ export function rebalance(
     const nextValue = floatRound(weights[nextIndex], precision);
     weights[(i + 1) % weights.length] = floatRound(
       nextValue + (1 - currentTotal),
-      precision
+      precision,
     );
   } else if (currentTotal > 1) {
     // The sum is too high, loop through the other variations and decrement weights
@@ -165,7 +165,7 @@ export function isNullUndefinedOrEmpty(x): boolean {
 
 export function appendQueryParamsToURL(
   url: string,
-  params: Record<string, string | number | undefined>
+  params: Record<string, string | number | undefined>,
 ): string {
   const [_root, hash] = url.split("#");
   const [root, query] = _root.split("?");
@@ -174,7 +174,7 @@ export function appendQueryParamsToURL(
     { ...parsed, ...params },
     {
       sort: false,
-    }
+    },
   );
   return `${root}?${queryParams}${hash ? `#${hash}` : ""}`;
 }
@@ -194,7 +194,7 @@ export async function sha256(str): Promise<string> {
   try {
     const buffer = await crypto.subtle.digest(
       "SHA-256",
-      new TextEncoder().encode(str)
+      new TextEncoder().encode(str),
     );
     const hashArray = Array.from(new Uint8Array(buffer));
     return hashArray.map((byte) => byte.toString(16).padStart(2, "0")).join("");

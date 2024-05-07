@@ -4,11 +4,11 @@ import { SettingsResolver, Settings, ScopeDefinition } from "../types";
 import { getConversionWindowHours } from "../../experiments";
 
 export default function genMetricOverrideResolver(
-  fieldName: keyof Omit<MetricOverride, "id">
+  fieldName: keyof Omit<MetricOverride, "id">,
 ): SettingsResolver<Settings[keyof Settings]> {
   return (ctx) => {
     const metricOverride = ctx.scopes?.experiment?.metricOverrides?.find(
-      (mo) => mo.id === ctx.scopes?.metric?.id
+      (mo) => mo.id === ctx.scopes?.metric?.id,
     );
 
     let metricValue:

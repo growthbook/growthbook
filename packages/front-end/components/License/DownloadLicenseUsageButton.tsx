@@ -37,18 +37,18 @@ const DownloadLicenseUsageButton: FC = () => {
               inviteEmailCodes: res.inviteEmailCodes,
               activeSeatsUsed: res.userEmailCodes.length,
               seatsUsed: new Set(
-                res.userEmailCodes.concat(res.inviteEmailCodes)
+                res.userEmailCodes.concat(res.inviteEmailCodes),
               ).size,
               signature: res.signature,
               timestamp: res.timestamp,
             },
             null,
-            2
+            2,
           ),
         ],
         {
           type: "application/json",
-        }
+        },
       );
       const href = window.URL.createObjectURL(blob);
       const link = document.createElement("a");

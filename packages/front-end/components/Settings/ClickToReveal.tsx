@@ -19,7 +19,7 @@ export default function ClickToReveal({ getValue, valueWhenHidden }: Props) {
     <div
       className={clsx(
         styles.wrapper,
-        value && "d-flex flex-column align-items-baseline"
+        value && "d-flex flex-column align-items-baseline",
       )}
     >
       {value ? (
@@ -32,7 +32,7 @@ export default function ClickToReveal({ getValue, valueWhenHidden }: Props) {
           "btn btn-sm btn-outline-secondary",
           styles.button,
           value && "mt-2",
-          !value && styles.buttonLeft
+          !value && styles.buttonLeft,
         )}
         onClick={async () => {
           if (!value) {

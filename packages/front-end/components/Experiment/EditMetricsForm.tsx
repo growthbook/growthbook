@@ -30,7 +30,7 @@ export interface EditMetricsFormInterface {
 export function getDefaultMetricOverridesFormValue(
   overrides: MetricOverride[],
   getExperimentMetricById: (id: string) => ExperimentMetricInterface | null,
-  settings: OrganizationSettings
+  settings: OrganizationSettings,
 ) {
   const defaultMetricOverrides = cloneDeep(overrides);
   for (let i = 0; i < defaultMetricOverrides.length; i++) {
@@ -49,7 +49,7 @@ export function getDefaultMetricOverridesFormValue(
     }
     if (defaultMetricOverrides[i].regressionAdjustmentDays === undefined) {
       const metricDefinition = getExperimentMetricById(
-        defaultMetricOverrides[i].id
+        defaultMetricOverrides[i].id,
       );
       if (metricDefinition?.regressionAdjustmentOverride) {
         defaultMetricOverrides[i].regressionAdjustmentDays =
@@ -95,9 +95,8 @@ const EditMetricsForm: FC<{
   mutate: () => void;
 }> = ({ experiment, cancel, mutate }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(
-    false
-  );
+  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] =
+    useState(false);
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
@@ -107,7 +106,7 @@ const EditMetricsForm: FC<{
   const defaultMetricOverrides = getDefaultMetricOverridesFormValue(
     experiment.metricOverrides || [],
     getExperimentMetricById,
-    settings
+    settings,
   );
 
   const form = useForm<EditMetricsFormInterface>({

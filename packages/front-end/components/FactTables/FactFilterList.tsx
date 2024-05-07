@@ -126,7 +126,7 @@ export default function FactFilterList({ factTable }: Props) {
                               `/fact-tables/${factTable.id}/filter/${filter.id}`,
                               {
                                 method: "DELETE",
-                              }
+                              },
                             );
                             mutateDefinitions();
                           }}

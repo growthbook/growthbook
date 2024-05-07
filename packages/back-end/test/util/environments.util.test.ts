@@ -33,7 +33,7 @@ describe("environment utils", () => {
 
       const result = addEnvironmentToOrganizationEnvironments(
         input,
-        existingEnvironments
+        existingEnvironments,
       );
 
       expect(result).toEqual([
@@ -68,7 +68,7 @@ describe("environment utils", () => {
         const result = addEnvironmentToOrganizationEnvironments(
           input,
           existingEnvironments,
-          true
+          true,
         );
 
         expect(result).toEqual([
@@ -96,7 +96,7 @@ describe("environment utils", () => {
         const result = addEnvironmentToOrganizationEnvironments(
           input,
           existingEnvironments,
-          false
+          false,
         );
 
         expect(result).toEqual([
@@ -119,7 +119,7 @@ describe("environment utils", () => {
         it("should not replace the existing environment", () => {
           const result = addEnvironmentToOrganizationEnvironments(
             input,
-            existingEnvironments
+            existingEnvironments,
           );
 
           expect(result).toEqual([

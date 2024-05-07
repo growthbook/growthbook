@@ -23,7 +23,7 @@ export default function NamespaceSelector({
   trackingKey = "",
 }: Props) {
   const { data, error } = useApi<NamespaceApiResponse>(
-    `/organization/namespaces`
+    `/organization/namespaces`,
   );
   const { namespaces } = useOrgSettings();
 
@@ -72,16 +72,16 @@ export default function NamespaceSelector({
                   data?.namespaces || {},
                   v,
                   featureId,
-                  trackingKey
+                  trackingKey,
                 ).sort((a, b) => b.end - b.start - (a.end - a.start))[0];
 
                 form.setValue(
                   `${formPrefix}namespace.range.0`,
-                  largestGap?.start || 0
+                  largestGap?.start || 0,
                 );
                 form.setValue(
                   `${formPrefix}namespace.range.1`,
-                  largestGap?.end || 0
+                  largestGap?.end || 0,
                 );
               }}
               placeholder="Choose a namespace..."

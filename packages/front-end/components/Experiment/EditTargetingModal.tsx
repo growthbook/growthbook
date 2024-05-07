@@ -76,13 +76,11 @@ export default function EditTargetingModal({
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
-    experiment.project
+    experiment.project,
   );
 
-  const [
-    prerequisiteTargetingSdkIssues,
-    setPrerequisiteTargetingSdkIssues,
-  ] = useState(false);
+  const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
+    useState(false);
 
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
@@ -559,8 +557,8 @@ function TargetingForm({
             changeType === "traffic"
               ? "Traffic Percentage"
               : changeType === "weights"
-              ? "Variation Weights"
-              : "Traffic Percentage & Variation Weights"
+                ? "Variation Weights"
+                : "Traffic Percentage & Variation Weights"
           }
           customSplitOn={true}
         />

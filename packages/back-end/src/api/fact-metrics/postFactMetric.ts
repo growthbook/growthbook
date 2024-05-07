@@ -20,7 +20,7 @@ import { OrganizationInterface } from "../../../types/organization";
 export async function getCreateMetricPropsFromBody(
   body: z.infer<typeof postFactMetricValidator.bodySchema>,
   organization: OrganizationInterface,
-  getFactTable: (id: string) => Promise<FactTableInterface | null>
+  getFactTable: (id: string) => Promise<FactTableInterface | null>,
 ): Promise<CreateFactMetricProps> {
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -149,7 +149,7 @@ export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
     const data = await getCreateMetricPropsFromBody(
       req.body,
       req.organization,
-      lookupFactTable
+      lookupFactTable,
     );
 
     const factMetric = await req.context.models.factMetrics.create(data);
@@ -157,5 +157,5 @@ export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
     return {
       factMetric: req.context.models.factMetrics.toApiInterface(factMetric),
     };
-  }
+  },
 );

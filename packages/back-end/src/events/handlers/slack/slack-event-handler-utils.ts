@@ -29,7 +29,7 @@ type DataForNotificationEvent = {
 
 export const getSlackMessageForNotificationEvent = async (
   event: NotificationEvent,
-  eventId: string
+  eventId: string,
 ): Promise<SlackMessage | null> => {
   let invalidEvent: never;
 
@@ -72,7 +72,7 @@ export const getSlackMessageForNotificationEvent = async (
 
 export const getSlackDataForNotificationEvent = async (
   event: NotificationEvent,
-  eventId: string
+  eventId: string,
 ): Promise<DataForNotificationEvent | null> => {
   if (event.event === "webhook.test") return null;
 
@@ -81,7 +81,7 @@ export const getSlackDataForNotificationEvent = async (
 
   const slackMessage = await getSlackMessageForNotificationEvent(
     event,
-    eventId
+    eventId,
   );
   if (!slackMessage) return null;
 
@@ -99,7 +99,7 @@ export const getSlackDataForNotificationEvent = async (
  * @param slackIntegration
  */
 export const getSlackIntegrationContextBlock = (
-  slackIntegration: SlackIntegrationInterface
+  slackIntegration: SlackIntegrationInterface,
 ): KnownBlock => {
   return {
     type: "context",
@@ -135,14 +135,14 @@ const getEventUserFormatted = async (eventId: string) => {
 
   if (event.data.user.type === "api_key")
     return `an API request with key ending in ...${event.data.user.apiKey.slice(
-      -4
+      -4,
     )}`;
   return `${event.data.user.name} (${event.data.user.email})`;
 };
 
 const buildSlackMessageForFeatureCreatedEvent = async (
   featureEvent: FeatureCreatedNotificationEvent,
-  eventId: string
+  eventId: string,
 ): Promise<SlackMessage> => {
   const { id: featureId } = featureEvent.data.current;
   const eventUser = await getEventUserFormatted(eventId);
@@ -168,7 +168,7 @@ const buildSlackMessageForFeatureCreatedEvent = async (
 
 const buildSlackMessageForFeatureUpdatedEvent = async (
   featureEvent: FeatureUpdatedNotificationEvent,
-  eventId: string
+  eventId: string,
 ): Promise<SlackMessage> => {
   const {
     current: { id: featureId },
@@ -196,7 +196,7 @@ const buildSlackMessageForFeatureUpdatedEvent = async (
 
 const buildSlackMessageForFeatureDeletedEvent = async (
   featureEvent: FeatureDeletedNotificationEvent,
-  eventId: string
+  eventId: string,
 ): Promise<SlackMessage> => {
   const {
     previous: { id: featureId },
@@ -229,7 +229,7 @@ const getExperimentUrlFormatted = (experimentId: string): string =>
 
 const buildSlackMessageForExperimentCreatedEvent = (
   experimentEvent: ExperimentCreatedNotificationEvent,
-  eventId: string
+  eventId: string,
 ): SlackMessage => {
   const experimentId = experimentEvent.data.current.id;
   const experimentName = experimentEvent.data.current.name;
@@ -254,7 +254,7 @@ const buildSlackMessageForExperimentCreatedEvent = (
 
 const buildSlackMessageForExperimentUpdatedEvent = (
   experimentEvent: ExperimentUpdatedNotificationEvent,
-  eventId: string
+  eventId: string,
 ): SlackMessage => {
   const experimentId = experimentEvent.data.previous.id;
   const experimentName = experimentEvent.data.previous.name;
@@ -278,7 +278,7 @@ const buildSlackMessageForExperimentUpdatedEvent = (
 };
 
 const buildSlackMessageForWebhookTestEvent = (
-  webhookId: string
+  webhookId: string,
 ): SlackMessage => ({
   text: `This is a test event for webhook ${webhookId}`,
   blocks: [
@@ -294,7 +294,7 @@ const buildSlackMessageForWebhookTestEvent = (
 
 const buildSlackMessageForExperimentDeletedEvent = (
   experimentEvent: ExperimentDeletedNotificationEvent,
-  eventId: string
+  eventId: string,
 ): SlackMessage => {
   const experimentName = experimentEvent.data.previous.name;
   const text = `The experiment ${experimentName} has been deleted`;
@@ -349,9 +349,9 @@ const buildSlackMessageForExperimentWarningEvent = ({
 
       const text = (experimentName: string) =>
         `Multiple Exposures Warning for experiment ${experimentName}: ${numberFormatter(
-          data.usersCount
+          data.usersCount,
         )} users (${percentFormatter(
-          data.percent
+          data.percent,
         )}%) saw multiple variations and were automatically removed from results.`;
 
       return {
@@ -413,7 +413,7 @@ export type SlackMessage = {
  */
 export const sendSlackMessage = async (
   slackMessage: SlackMessage,
-  webHookEndpoint: string
+  webHookEndpoint: string,
 ): Promise<boolean> => {
   try {
     const { stringBody, responseWithoutBody } = await cancellableFetch(
@@ -425,7 +425,7 @@ export const sendSlackMessage = async (
       {
         maxTimeMs: 15000,
         maxContentSize: 500,
-      }
+      },
     );
 
     if (!responseWithoutBody.ok) {

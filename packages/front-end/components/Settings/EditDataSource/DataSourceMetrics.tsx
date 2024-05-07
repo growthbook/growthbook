@@ -29,10 +29,8 @@ export default function DataSourceMetrics({
   canEdit,
 }: DataSourceMetricsProps) {
   const permissionsUtil = usePermissionsUtil();
-  const [
-    showAutoGenerateMetricsModal,
-    setShowAutoGenerateMetricsModal,
-  ] = useState(false);
+  const [showAutoGenerateMetricsModal, setShowAutoGenerateMetricsModal] =
+    useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);
   const [modalData, setModalData] = useState<{
     current: Partial<MetricInterface>;
@@ -59,9 +57,8 @@ export default function DataSourceMetrics({
   });
 
   // Auto-generated metrics inherit the data source's projects, so check that the user has createMetric permission for all of them
-  const canCreateMetricsInAllDataSourceProjects = permissionsUtil.canCreateMetric(
-    { projects: dataSource.projects }
-  );
+  const canCreateMetricsInAllDataSourceProjects =
+    permissionsUtil.canCreateMetric({ projects: dataSource.projects });
 
   return (
     <>
@@ -188,7 +185,7 @@ export default function DataSourceMetrics({
                                   {
                                     "text-muted": metric.status === "archived",
                                   },
-                                  "pr-3"
+                                  "pr-3",
                                 )}
                               >
                                 <strong>Owner: </strong>
@@ -199,7 +196,7 @@ export default function DataSourceMetrics({
                                   {
                                     "text-muted": metric.status === "archived",
                                   },
-                                  "pr-3"
+                                  "pr-3",
                                 )}
                               >
                                 <strong>Projects: </strong>
@@ -217,7 +214,7 @@ export default function DataSourceMetrics({
                                         "text-muted":
                                           metric.status === "archived",
                                       },
-                                      "badge-ellipsis align-middle"
+                                      "badge-ellipsis align-middle",
                                     )}
                                   />
                                 )}
@@ -230,7 +227,7 @@ export default function DataSourceMetrics({
                                       "text-muted":
                                         metric.status === "archived",
                                     },
-                                    "d-none d-md-table-cell"
+                                    "d-none d-md-table-cell",
                                   )}
                                 >
                                   <strong>Last Updated: </strong>

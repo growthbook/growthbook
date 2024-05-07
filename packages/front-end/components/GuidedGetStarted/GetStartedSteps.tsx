@@ -21,7 +21,7 @@ export default function GetStartedSteps({
       <div
         className={clsx(
           "d-flex flex-row justify-content-between col-10 p-2",
-          styles.bubbleWrapper
+          styles.bubbleWrapper,
         )}
       >
         {steps.map((step, index) => (
@@ -35,7 +35,7 @@ export default function GetStartedSteps({
               styles.stepBubble,
               step.completed && styles.completed,
               currentStep == index && styles.selected,
-              "p-3 d-flex justify-content-center align-items-center"
+              "p-3 d-flex justify-content-center align-items-center",
             )}
           >
             {step.completed ? <FaCheck /> : index + 1}

@@ -196,7 +196,7 @@ export default function ResultsTableTooltip({
   ) {
     denomFormatter = getColumnRefFormatter(
       data.metric.denominator,
-      getFactTableById
+      getFactTableById,
     );
   }
   const quantileMetric = quantileMetricType(data.metric);
@@ -232,10 +232,10 @@ export default function ResultsTableTooltip({
     data.layoutX === "element-right"
       ? "3%"
       : data.layoutX === "element-left"
-      ? "97%"
-      : data.layoutX === "element-center"
-      ? "50%"
-      : "50%";
+        ? "97%"
+        : data.layoutX === "element-center"
+          ? "50%"
+          : "50%";
 
   return (
     <div
@@ -350,7 +350,7 @@ export default function ResultsTableTooltip({
           <div
             className={clsx(
               "results-overview mt-1 px-3 pb-2 rounded position-relative",
-              data.rowResults.resultsStatus
+              data.rowResults.resultsStatus,
             )}
             style={{ paddingTop: 12 }}
           >
@@ -362,7 +362,7 @@ export default function ResultsTableTooltip({
                   data.rowResults.resultsStatus,
                   {
                     "non-significant": !data.rowResults.significant,
-                  }
+                  },
                 )}
               >
                 <Tooltip
@@ -401,7 +401,7 @@ export default function ResultsTableTooltip({
             <div
               className={clsx(
                 "results-change d-flex",
-                data.rowResults.directionalStatus
+                data.rowResults.directionalStatus,
               )}
             >
               <div className="label mr-2">{effectLabel}:</div>
@@ -426,7 +426,7 @@ export default function ResultsTableTooltip({
                 <span className="expected bold">
                   {deltaFormatter(
                     data.stats.expected ?? 0,
-                    deltaFormatterOptions
+                    deltaFormatterOptions,
                   )}
                 </span>
               </div>
@@ -435,7 +435,7 @@ export default function ResultsTableTooltip({
             <div
               className={clsx(
                 "results-ci d-flex mt-1",
-                data.rowResults.resultsStatus
+                data.rowResults.resultsStatus,
               )}
             >
               <div className="label mr-2">
@@ -458,7 +458,7 @@ export default function ResultsTableTooltip({
             <div
               className={clsx(
                 "results-chance d-flex mt-1",
-                data.rowResults.resultsStatus
+                data.rowResults.resultsStatus,
               )}
             >
               <div className="label mr-2">
@@ -507,7 +507,7 @@ export default function ResultsTableTooltip({
 
                 {data.rowResults.riskMeta.showRisk &&
                 ["warning", "danger"].includes(
-                  data.rowResults.riskMeta.riskStatus
+                  data.rowResults.riskMeta.riskStatus,
                 ) &&
                 data.rowResults.resultsStatus !== "lost" ? (
                   <Tooltip
@@ -517,7 +517,7 @@ export default function ResultsTableTooltip({
                     <div
                       className={clsx(
                         "flagged d-flex border rounded p-1 flagged-risk",
-                        data.rowResults.riskMeta.riskStatus
+                        data.rowResults.riskMeta.riskStatus,
                       )}
                     >
                       <HiOutlineExclamationCircle
@@ -559,7 +559,7 @@ export default function ResultsTableTooltip({
                   >
                     <div
                       className={clsx(
-                        "flagged d-flex border rounded p-1 flagged-guardrail-warning warning"
+                        "flagged d-flex border rounded p-1 flagged-guardrail-warning warning",
                       )}
                     >
                       <HiOutlineExclamationCircle
@@ -649,7 +649,7 @@ export default function ResultsTableTooltip({
                           {getExperimentMetricFormatter(
                             data.metric,
                             getFactTableById,
-                            true
+                            true,
                           )(row.value, { currency: displayCurrency })}
                         </td>
                       ) : null}

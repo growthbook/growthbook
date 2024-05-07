@@ -17,7 +17,7 @@ export default function PercentField({
   ...fieldProps
 }: Props) {
   const [actualValue, setActualValue] = useState<number | undefined>(
-    value !== undefined ? Number(formatter.format(value * 100)) : value
+    value !== undefined ? Number(formatter.format(value * 100)) : value,
   );
 
   return (

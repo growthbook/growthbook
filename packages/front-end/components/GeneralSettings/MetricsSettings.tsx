@@ -11,9 +11,9 @@ export default function MetricsSettings() {
     metricAnalysisDays && metricAnalysisDays > 365
       ? "Using more historical data will slow down metric analysis queries"
       : "";
-  const currencyOptions = Object.entries(
-    supportedCurrencies
-  ).map(([value, label]) => ({ value, label }));
+  const currencyOptions = Object.entries(supportedCurrencies).map(
+    ([value, label]) => ({ value, label }),
+  );
   return (
     <div className="row">
       <div className="col-sm-3">

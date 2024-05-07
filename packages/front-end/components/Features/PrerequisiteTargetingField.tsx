@@ -75,7 +75,7 @@ export default function PrerequisiteTargetingField({
 
   const { hasCommercialFeature } = useUser();
   const hasPrerequisitesCommercialFeature = hasCommercialFeature(
-    "prerequisite-targeting"
+    "prerequisite-targeting",
   );
 
   useEffect(() => {
@@ -100,25 +100,23 @@ export default function PrerequisiteTargetingField({
     }
   }, [valueStr]);
 
-  const prereqStatesArr: (Record<
-    string,
-    PrerequisiteStateResult
-  > | null)[] = useMemo(() => {
-    const featuresMap = new Map(features.map((f) => [f.id, f]));
-    return value.map((v) => {
-      const parentFeature = featuresMap.get(v.id);
-      if (!parentFeature) return null;
-      const states: Record<string, PrerequisiteStateResult> = {};
-      environments.forEach((env) => {
-        states[env] = evaluatePrerequisiteState(
-          parentFeature,
-          featuresMap,
-          env
-        );
+  const prereqStatesArr: (Record<string, PrerequisiteStateResult> | null)[] =
+    useMemo(() => {
+      const featuresMap = new Map(features.map((f) => [f.id, f]));
+      return value.map((v) => {
+        const parentFeature = featuresMap.get(v.id);
+        if (!parentFeature) return null;
+        const states: Record<string, PrerequisiteStateResult> = {};
+        environments.forEach((env) => {
+          states[env] = evaluatePrerequisiteState(
+            parentFeature,
+            featuresMap,
+            env,
+          );
+        });
+        return states;
       });
-      return states;
-    });
-  }, [valueStr, features, envsStr]);
+    }, [valueStr, features, envsStr]);
 
   const [featuresStates, wouldBeCyclicStates] = useMemo(() => {
     const featuresStates: Record<
@@ -166,7 +164,7 @@ export default function PrerequisiteTargetingField({
           newFeature,
           featuresMap,
           newRevision,
-          environments
+          environments,
         )[0];
       }
       wouldBeCyclicStates[f.id] = wouldBeCyclic;
@@ -179,7 +177,7 @@ export default function PrerequisiteTargetingField({
       const prereqStates = prereqStatesArr[i];
       if (!prereqStates) continue;
       const hasConditionalState = Object.values(prereqStates).some(
-        (s) => s.state === "conditional"
+        (s) => s.state === "conditional",
       );
       if (!hasSDKWithPrerequisites && hasConditionalState) {
         return true;
@@ -196,14 +194,14 @@ export default function PrerequisiteTargetingField({
     .filter((f) => f.id !== feature?.id)
     .filter(
       (f) =>
-        (f.project || "") === ((feature ? feature?.project : project) || "")
+        (f.project || "") === ((feature ? feature?.project : project) || ""),
     )
     .map((f) => {
       const conditional = Object.values(featuresStates[f.id]).some(
-        (s) => s.state === "conditional"
+        (s) => s.state === "conditional",
       );
       const cyclic = Object.values(featuresStates[f.id]).some(
-        (s) => s.state === "cyclic"
+        (s) => s.state === "cyclic",
       );
       const wouldBeCyclic = wouldBeCyclicStates[f.id];
       const disabled =
@@ -233,7 +231,7 @@ export default function PrerequisiteTargetingField({
             const parentFeature = features.find((f) => f.id === v.id);
             const prereqStates = prereqStatesArr[i];
             const hasConditionalState = Object.values(prereqStates || {}).some(
-              (s) => s.state === "conditional"
+              (s) => s.state === "conditional",
             );
 
             return (
@@ -268,8 +266,9 @@ export default function PrerequisiteTargetingField({
                       }))}
                       value={v.id}
                       onChange={(v) => {
-                        const meta = featureOptions.find((o) => o.value === v)
-                          ?.meta;
+                        const meta = featureOptions.find(
+                          (o) => o.value === v,
+                        )?.meta;
                         if (meta?.disabled) return;
                         setValue([
                           ...value.slice(0, i),
@@ -284,7 +283,7 @@ export default function PrerequisiteTargetingField({
                       sort={false}
                       formatOptionLabel={({ value, label }) => {
                         const meta = featureOptions.find(
-                          (o) => o.value === value
+                          (o) => o.value === value,
                         )?.meta;
                         return (
                           <div

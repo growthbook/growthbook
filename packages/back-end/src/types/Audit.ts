@@ -11,4 +11,4 @@ export const EntityType = [
   "team",
 ] as const;
 
-export type EntityType = typeof EntityType[number];
+export type EntityType = (typeof EntityType)[number];

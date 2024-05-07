@@ -76,23 +76,22 @@ export default function ConfigureReport({
   });
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
-  const hasSequentialTestingFeature = hasCommercialFeature(
-    "sequential-testing"
-  );
+  const hasSequentialTestingFeature =
+    hasCommercialFeature("sequential-testing");
 
   const allExperimentMetricIds = uniq([
     ...report.args.metrics,
     ...(report.args.guardrails ?? []),
   ]);
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
-    getExperimentMetricById(m)
+    getExperimentMetricById(m),
   );
   const denominatorMetricIds = uniq(
     allExperimentMetrics
       .map((m) => m?.denominator)
-      .filter((m) => m && typeof m === "string") as string[]
+      .filter((m) => m && typeof m === "string") as string[],
   );
   const denominatorMetrics: MetricInterface[] = useMemo(() => {
     return denominatorMetricIds
@@ -109,7 +108,7 @@ export default function ConfigureReport({
         getExposureQuery(
           datasource?.settings,
           report.args.exposureQueryId,
-          report.args.userIdType
+          report.args.userIdType,
         )?.id || "",
       attributionModel:
         report.args.attributionModel ||
@@ -137,20 +136,20 @@ export default function ConfigureReport({
 
   // CUPED adjustments
   const metricRegressionAdjustmentStatuses = useMemo(() => {
-    const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
+    const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] =
+      [];
     for (const metric of allExperimentMetrics) {
       if (!metric) continue;
-      const {
-        metricRegressionAdjustmentStatus,
-      } = getRegressionAdjustmentsForMetric({
-        metric: metric,
-        denominatorMetrics: denominatorMetrics,
-        experimentRegressionAdjustmentEnabled: !!form.watch(
-          `regressionAdjustmentEnabled`
-        ),
-        organizationSettings: orgSettings,
-        metricOverrides: report.args.metricOverrides,
-      });
+      const { metricRegressionAdjustmentStatus } =
+        getRegressionAdjustmentsForMetric({
+          metric: metric,
+          denominatorMetrics: denominatorMetrics,
+          experimentRegressionAdjustmentEnabled: !!form.watch(
+            `regressionAdjustmentEnabled`,
+          ),
+          organizationSettings: orgSettings,
+          metricOverrides: report.args.metricOverrides,
+        });
       metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
     }
     return metricRegressionAdjustmentStatuses;
@@ -163,7 +162,7 @@ export default function ConfigureReport({
   ]);
 
   const filteredSegments = segments.filter(
-    (s) => s.datasource === report.args.datasource
+    (s) => s.datasource === report.args.datasource,
   );
 
   const datasourceProperties = datasource?.properties;
@@ -177,7 +176,7 @@ export default function ConfigureReport({
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
   const userIdType = exposureQueries.find(
-    (e) => e.id === form.getValues("exposureQueryId")
+    (e) => e.id === form.getValues("exposureQueryId"),
   )?.userIdType;
 
   return (
@@ -194,7 +193,8 @@ export default function ConfigureReport({
         };
 
         if (value.regressionAdjustmentEnabled) {
-          args.metricRegressionAdjustmentStatuses = metricRegressionAdjustmentStatuses;
+          args.metricRegressionAdjustmentStatuses =
+            metricRegressionAdjustmentStatuses;
         }
 
         const res = await apiCall<{ updatedReport: ReportInterface }>(
@@ -204,13 +204,13 @@ export default function ConfigureReport({
             body: JSON.stringify({
               args,
             }),
-          }
+          },
         );
         trackReport(
           "update",
           "SaveAndRunButton",
           datasource?.type || null,
-          res.updatedReport
+          res.updatedReport,
         );
         mutate();
         viewResults();
@@ -230,7 +230,7 @@ export default function ConfigureReport({
             <div
               className={`col-${Math.max(
                 Math.round(12 / variations.fields.length),
-                3
+                3,
               )} mb-2`}
               key={i}
             >
@@ -255,7 +255,7 @@ export default function ConfigureReport({
             <div
               className={`col-${Math.max(
                 Math.round(12 / variations.fields.length),
-                3
+                3,
               )} mb-2`}
               key={i}
             >

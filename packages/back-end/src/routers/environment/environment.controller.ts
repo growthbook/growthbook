@@ -24,7 +24,7 @@ export const putEnvironments = async (
   }>,
   res: Response<{
     environments: Environment[];
-  }>
+  }>,
 ) => {
   const { org } = getContextFromReq(req);
   const environments = req.body.environments;
@@ -32,7 +32,7 @@ export const putEnvironments = async (
   req.checkPermissions(
     "manageEnvironments",
     "",
-    environments.map((e) => e.id)
+    environments.map((e) => e.id),
   );
 
   // Add each environment to the list if it doesn't exist yet
@@ -62,7 +62,7 @@ export const postEnvironment = async (
   res: Response<
     CreateEnvironmentResponse | PrivateApiErrorResponse,
     EventAuditUserForResponseLocals
-  >
+  >,
 ) => {
   // TODO: Migrate this endpoint to use the new data modelling - https://github.com/growthbook/growthbook/issues/1391
   const { environment } = req.body;
@@ -81,7 +81,7 @@ export const postEnvironment = async (
   const updatedEnvironments = addEnvironmentToOrganizationEnvironments(
     environment,
     getEnvironments(org),
-    false
+    false,
   );
 
   try {

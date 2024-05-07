@@ -11,13 +11,13 @@ const ArchetypeController = wrapController(rawArchetypeController);
 router.get(
   "/",
   validateRequestMiddleware({}),
-  ArchetypeController.getArchetype
+  ArchetypeController.getArchetype,
 );
 
 router.get(
   "/eval/:id/:version",
   validateRequestMiddleware({}),
-  ArchetypeController.getArchetypeAndEval
+  ArchetypeController.getArchetypeAndEval,
 );
 
 router.post(
@@ -30,7 +30,7 @@ router.post(
       attributes: z.string(),
     }),
   }),
-  ArchetypeController.postArchetype
+  ArchetypeController.postArchetype,
 );
 
 router.put(
@@ -48,7 +48,7 @@ router.put(
       attributes: z.string(),
     }),
   }),
-  ArchetypeController.putArchetype
+  ArchetypeController.putArchetype,
 );
 
 router.delete(
@@ -60,7 +60,7 @@ router.delete(
       })
       .strict(),
   }),
-  ArchetypeController.deleteArchetype
+  ArchetypeController.deleteArchetype,
 );
 
 export { router as ArchetypeRouter };

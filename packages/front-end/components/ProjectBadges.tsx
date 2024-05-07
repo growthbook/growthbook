@@ -38,7 +38,7 @@ export default function ProjectBadges({
         key="All projects"
         className={clsx(
           !project ? "badge-primary bg-purple" : "badge-gray",
-          className
+          className,
         )}
         skipMargin={true}
       />
@@ -46,7 +46,7 @@ export default function ProjectBadges({
   }
 
   let filteredProjects = projectIds.map((pid) =>
-    projects.find((p) => p.id === pid)
+    projects.find((p) => p.id === pid),
   );
   if (!filteredProjects.length) return null;
   if (sort) {
@@ -86,7 +86,7 @@ export default function ProjectBadges({
             key={p.name}
             className={clsx(
               project === p?.id ? "badge-primary bg-purple" : "badge-gray",
-              className
+              className,
             )}
             skipMargin={i === 0}
           />

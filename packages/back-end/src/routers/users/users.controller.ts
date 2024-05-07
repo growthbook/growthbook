@@ -85,7 +85,7 @@ export async function getUser(req: AuthRequest, res: Response) {
 
 export async function putUserName(
   req: AuthRequest<{ name: string }>,
-  res: Response
+  res: Response,
 ) {
   const { name } = req.body;
   const { userId } = getContextFromReq(req);
@@ -99,7 +99,7 @@ export async function putUserName(
         $set: {
           name,
         },
-      }
+      },
     );
     res.status(200).json({
       status: 200,
@@ -131,7 +131,7 @@ export async function getWatchedItems(req: AuthRequest, res: Response) {
 
 export async function postWatchItem(
   req: AuthRequest<null, { type: string; id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -176,7 +176,7 @@ export async function postWatchItem(
 
 export async function postUnwatchItem(
   req: AuthRequest<null, { type: string; id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { org, userId } = getContextFromReq(req);
   const { type, id } = req.params;
@@ -219,7 +219,7 @@ export async function getRecommendedOrg(req: AuthRequest, res: Response) {
   const org = await findVerifiedOrgForNewUser(email);
   if (org) {
     const currentUserIsPending = !!org?.pendingMembers?.find(
-      (m) => m.id === user.id
+      (m) => m.id === user.id,
     );
     return res.status(200).json({
       organization: {

@@ -22,10 +22,10 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { ExperimentTab } from "./TabbedPage";
 
 const BreakDownResults = dynamic(
-  () => import("@/components/Experiment/BreakDownResults")
+  () => import("@/components/Experiment/BreakDownResults"),
 );
 const CompactResults = dynamic(
-  () => import("@/components/Experiment/CompactResults")
+  () => import("@/components/Experiment/CompactResults"),
 );
 
 const Results: FC<{
@@ -130,10 +130,10 @@ const Results: FC<{
       reason: m.computedSettings?.regressionAdjustmentReason || "",
       regressionAdjustmentDays:
         m.computedSettings?.regressionAdjustmentDays || 0,
-      regressionAdjustmentEnabled: !!m.computedSettings
-        ?.regressionAdjustmentEnabled,
-      regressionAdjustmentAvailable: !!m.computedSettings
-        ?.regressionAdjustmentAvailable,
+      regressionAdjustmentEnabled:
+        !!m.computedSettings?.regressionAdjustmentEnabled,
+      regressionAdjustmentAvailable:
+        !!m.computedSettings?.regressionAdjustmentAvailable,
     })) || [];
 
   const showCompactResults =
@@ -280,7 +280,7 @@ const Results: FC<{
               "create",
               "VariationIdWarning",
               getDatasourceById(experiment.datasource)?.type || null,
-              res.snapshot
+              res.snapshot,
             );
 
             mutateExperiment();
@@ -437,7 +437,7 @@ export type ResultsMetricFilters = {
 };
 export function sortAndFilterMetricsByTags(
   metrics: ExperimentMetricInterface[],
-  filters?: ResultsMetricFilters
+  filters?: ResultsMetricFilters,
 ): string[] {
   let { tagOrder, filterByTag, tagFilter } = filters || {};
   // normalize input

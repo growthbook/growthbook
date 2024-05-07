@@ -88,7 +88,7 @@ export default function ExpandablePhaseSummary({ i, phase, editPhase }: Props) {
               <td>
                 {hasNamespace ? (
                   `${phase.namespace.name} (${percentFormatter.format(
-                    namespaceRange
+                    namespaceRange,
                   )})`
                 ) : (
                   <em>none</em>

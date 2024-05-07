@@ -19,17 +19,13 @@ const DimensionForm: FC<{
 }> = ({ close, current }) => {
   const { apiCall } = useAuth();
   const { memberUsernameOptions } = useMembers();
-  const {
-    getDatasourceById,
-    datasources,
-    mutateDefinitions,
-    project,
-  } = useDefinitions();
+  const { getDatasourceById, datasources, mutateDefinitions, project } =
+    useDefinitions();
 
   const validDatasources = datasources.filter(
     (d) =>
       d.id === current.datasource ||
-      isProjectListValidForProject(d.projects, project)
+      isProjectListValidForProject(d.projects, project),
   );
 
   const form = useForm({
@@ -86,7 +82,7 @@ const DimensionForm: FC<{
             {
               method: current.id ? "PUT" : "POST",
               body: JSON.stringify(value),
-            }
+            },
           );
           mutateDefinitions();
         })}

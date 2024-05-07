@@ -109,7 +109,7 @@ export default function SubscriptionInfo() {
                 `/subscription/manage`,
                 {
                   method: "POST",
-                }
+                },
               );
               if (res && res.url) {
                 await redirectWithTimeout(res.url);
@@ -147,7 +147,7 @@ export default function SubscriptionInfo() {
               : "removed"
           } ${Math.abs(
             // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
-            activeAndInvitedUsers - quote.currentSeatsPaidFor
+            activeAndInvitedUsers - quote.currentSeatsPaidFor,
           )} seats. `}
           These changes will be applied to your subscription soon.
         </div>

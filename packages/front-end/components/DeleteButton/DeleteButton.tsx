@@ -89,7 +89,7 @@ const DeleteButton: FC<{
           link
             ? "text-danger"
             : ["btn", outline ? "btn-outline-danger" : "btn-danger"],
-          className
+          className,
         )}
         title={title}
         href="#"

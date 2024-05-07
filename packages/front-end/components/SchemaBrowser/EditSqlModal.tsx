@@ -53,10 +53,8 @@ export default function EditSqlModal({
   templateVariables,
   setTemplateVariables,
 }: Props) {
-  const [
-    testQueryResults,
-    setTestQueryResults,
-  ] = useState<TestQueryResults | null>(null);
+  const [testQueryResults, setTestQueryResults] =
+    useState<TestQueryResults | null>(null);
   const [testQueryBeforeSaving, setTestQueryBeforeSaving] = useState(true);
   const form = useForm({
     defaultValues: {
@@ -76,12 +74,12 @@ export default function EditSqlModal({
 
       const requiredColumnsArray = Array.from(requiredColumns);
       const missingColumns = requiredColumnsArray.filter(
-        (col) => !((col as string) in result)
+        (col) => !((col as string) in result),
       );
 
       if (missingColumns.length > 0) {
         throw new Error(
-          `You are missing the following columns: ${missingColumns.join(", ")}`
+          `You are missing the following columns: ${missingColumns.join(", ")}`,
         );
       }
     },
@@ -120,7 +118,7 @@ export default function EditSqlModal({
       validateResponseOverride,
       // eslint-disable-next-line
       JSON.stringify(templateVariables),
-    ]
+    ],
   );
 
   const handleTestQuery = useCallback(async () => {

@@ -10,9 +10,8 @@ export default class Databricks extends SqlIntegration {
   requiresDatabase = true;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<DatabricksConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<DatabricksConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
     // sql-formatter doesn't support databricks explicitly yet, so using their generic formatter instead
@@ -32,7 +31,7 @@ export default class Databricks extends SqlIntegration {
     col: string,
     unit: "hour" | "minute",
     sign: "+" | "-",
-    amount: number
+    amount: number,
   ): string {
     return `timestampadd(${unit},${sign === "-" ? "-" : ""}${amount},${col})`;
   }

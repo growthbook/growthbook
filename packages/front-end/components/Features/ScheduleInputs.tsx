@@ -103,7 +103,7 @@ export default function ScheduleInputs(props: Props) {
                         onChange(
                           format(new Date(), "yyyy-MM-dd'T'HH:mm"),
                           "timestamp",
-                          0
+                          0,
                         );
                       } else {
                         onChange(null, "timestamp", 0);
@@ -121,7 +121,7 @@ export default function ScheduleInputs(props: Props) {
                         type="datetime-local"
                         value={format(
                           new Date(rules[0].timestamp),
-                          "yyyy-MM-dd'T'HH:mm"
+                          "yyyy-MM-dd'T'HH:mm",
                         )}
                         onChange={(e) => {
                           onChange(e.target.value, "timestamp", 0);
@@ -155,7 +155,7 @@ export default function ScheduleInputs(props: Props) {
                         onChange(
                           format(new Date(), "yyyy-MM-dd'T'HH:mm"),
                           "timestamp",
-                          1
+                          1,
                         );
                       } else {
                         onChange(null, "timestamp", 1);
@@ -174,7 +174,7 @@ export default function ScheduleInputs(props: Props) {
                         className={clsx(dateErrors && styles.error)}
                         value={format(
                           new Date(rules[1].timestamp),
-                          "yyyy-MM-dd'T'HH:mm"
+                          "yyyy-MM-dd'T'HH:mm",
                         )}
                         onChange={(e) => {
                           setDateErrors("");
@@ -184,7 +184,7 @@ export default function ScheduleInputs(props: Props) {
                               new Date(rules[0].timestamp)
                           ) {
                             setDateErrors(
-                              "End date must be greater than the previous rule date."
+                              "End date must be greater than the previous rule date.",
                             );
                             return;
                           }

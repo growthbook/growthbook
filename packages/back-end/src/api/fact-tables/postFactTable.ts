@@ -29,7 +29,7 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
     }
     const datasource = await getDataSourceById(
       req.context,
-      req.body.datasource
+      req.body.datasource,
     );
     if (!datasource) {
       throw new Error("Could not find datasource");
@@ -51,7 +51,7 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
       for (const userIdType of req.body.userIdTypes) {
         if (
           !datasource.settings?.userIdTypes?.some(
-            (t) => t.userIdType === userIdType
+            (t) => t.userIdType === userIdType,
           )
         ) {
           throw new Error(`Invalid userIdType: ${userIdType}`);
@@ -69,5 +69,5 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
     return {
       factTable: toFactTableApiInterface(factTable),
     };
-  }
+  },
 );

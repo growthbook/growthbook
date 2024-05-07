@@ -39,7 +39,7 @@ const fireWebhooks = trackJob(
       return;
     }
     await queueSingleWebhookById(webhookId);
-  }
+  },
 );
 
 let agenda: Agenda;
@@ -67,7 +67,7 @@ export default function addSdkWebhooksJob(ag: Agenda) {
       job.attrs.data.retryCount++;
       job.attrs.nextRunAt = new Date(nextRunAt);
       await job.save();
-    }
+    },
   );
 }
 async function singleWebhooksJob(webhook: WebhookInterface) {
@@ -89,7 +89,7 @@ export async function queueSingleWebhookJob(sdk: SDKConnectionInterface) {
 }
 export async function queueWebhookUpdate(
   context: ReqContext | ApiReqContext,
-  payloadKeys: SDKPayloadKey[]
+  payloadKeys: SDKPayloadKey[],
 ) {
   if (!CRON_ENABLED) return;
   if (!payloadKeys.length) return;
@@ -192,7 +192,7 @@ export async function fireWebhook({
     {
       maxTimeMs: requestTimeout,
       maxContentSize: maxContentSize,
-    }
+    },
   ).catch((e) => {
     createSdkWebhookLog({
       webhookId,
@@ -240,16 +240,16 @@ export async function queueSingleWebhookById(webhookId: string) {
     }
 
     const context = await getContextForAgendaJobByOrgId(
-      connection.organization
+      connection.organization,
     );
 
     const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === connection.environment
+      (e) => e.id === connection.environment,
     );
     const filteredProjects = filterProjectsByEnvironmentWithNull(
       connection.projects,
       environmentDoc,
-      true
+      true,
     );
 
     const defs = await getFeatureDefinitions({
@@ -296,17 +296,11 @@ export async function queueSingleWebhookById(webhookId: string) {
 
 export async function queueGlobalWebhooks(
   context: ReqContext | ApiReqContext,
-  payloadKeys: SDKPayloadKey[]
+  payloadKeys: SDKPayloadKey[],
 ) {
   for (const webhook of WEBHOOKS) {
-    const {
-      url,
-      signingKey,
-      method,
-      headers,
-      sendPayload,
-      webhookId,
-    } = webhook;
+    const { url, signingKey, method, headers, sendPayload, webhookId } =
+      webhook;
     if (!payloadKeys.length) return;
 
     const connections = await findSDKConnectionsByOrganization(context);
@@ -316,12 +310,12 @@ export async function queueGlobalWebhooks(
       const connection = connections[i];
 
       const environmentDoc = context.org?.settings?.environments?.find(
-        (e) => e.id === connection.environment
+        (e) => e.id === connection.environment,
       );
       const filteredProjects = filterProjectsByEnvironmentWithNull(
         connection.projects,
         environmentDoc,
-        true
+        true,
       );
 
       // Skip if this SDK Connection isn't affected by the changes
@@ -329,7 +323,7 @@ export async function queueGlobalWebhooks(
         payloadKeys.some(
           (key: { environment: string; project: string }) =>
             key.environment === connection.environment &&
-            (!filteredProjects || filteredProjects.includes(key.project))
+            (!filteredProjects || filteredProjects.includes(key.project)),
         )
       ) {
         const defs = await getFeatureDefinitions({

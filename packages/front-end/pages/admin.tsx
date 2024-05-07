@@ -180,7 +180,7 @@ const Admin: FC = () => {
 
       setLoading(false);
     },
-    [apiCall]
+    [apiCall],
   );
 
   useEffect(() => {

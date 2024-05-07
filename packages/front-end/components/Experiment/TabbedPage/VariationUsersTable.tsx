@@ -60,7 +60,7 @@ export default function VariationUsersTable({ variations, users, srm }: Props) {
                 </td>
                 <td className="border-right">
                   {numberFormatter.format(
-                    totalUsers * (v.weight / totalWeight) || 0
+                    totalUsers * (v.weight / totalWeight) || 0,
                   )}
                 </td>
                 <td>

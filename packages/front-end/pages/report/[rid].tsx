@@ -52,7 +52,7 @@ export default function ReportPage() {
 
   const { getDatasourceById } = useDefinitions();
   const { data, error, mutate } = useApi<{ report: ReportInterface }>(
-    `/report/${rid}`
+    `/report/${rid}`,
   );
   const { data: experimentData } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -61,7 +61,7 @@ export default function ReportPage() {
   }>(
     data?.report?.experimentId
       ? `/experiment/${data.report.experimentId}`
-      : null
+      : null,
   );
 
   const { userId, getUserDisplay, hasCommercialFeature } = useUser();
@@ -76,7 +76,7 @@ export default function ReportPage() {
     : false;
 
   const canDeleteReport = permissionsUtil.canDeleteReport(
-    experimentData?.experiment || {}
+    experimentData?.experiment || {},
   );
 
   // todo: move to report args
@@ -84,11 +84,10 @@ export default function ReportPage() {
   const pValueCorrection = orgSettings?.pValueCorrection;
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
-  const hasSequentialTestingFeature = hasCommercialFeature(
-    "sequential-testing"
-  );
+  const hasSequentialTestingFeature =
+    hasCommercialFeature("sequential-testing");
 
   const form = useForm({
     defaultValues: {
@@ -214,40 +213,42 @@ export default function ReportPage() {
               Go to experiment results
             </Link>
           )}
-          {canDeleteReport && (userId === report?.userId || !report?.userId) && (
-            <DeleteButton
-              displayName="Custom Report"
-              link={false}
-              className="float-right btn-sm"
-              text="delete"
-              useIcon={true}
-              onClick={async () => {
-                await apiCall<{ status: number; message?: string }>(
-                  `/report/${report.id}`,
-                  {
-                    method: "DELETE",
-                  }
-                );
-                trackReport(
-                  "delete",
-                  "DeleteButton",
-                  datasource?.type || null,
-                  report
-                );
-                router.push(`/experiment/${report.experimentId}#results`);
-              }}
-            />
-          )}
+          {canDeleteReport &&
+            (userId === report?.userId || !report?.userId) && (
+              <DeleteButton
+                displayName="Custom Report"
+                link={false}
+                className="float-right btn-sm"
+                text="delete"
+                useIcon={true}
+                onClick={async () => {
+                  await apiCall<{ status: number; message?: string }>(
+                    `/report/${report.id}`,
+                    {
+                      method: "DELETE",
+                    },
+                  );
+                  trackReport(
+                    "delete",
+                    "DeleteButton",
+                    datasource?.type || null,
+                    report,
+                  );
+                  router.push(`/experiment/${report.experimentId}#results`);
+                }}
+              />
+            )}
           <h1 className="mb-0 mt-2">
             {report.title}{" "}
-            {canUpdateReport && (userId === report?.userId || !report?.userId) && (
-              <a
-                className="ml-2 cursor-pointer"
-                onClick={() => setEditModalOpen(true)}
-              >
-                <GBEdit />
-              </a>
-            )}
+            {canUpdateReport &&
+              (userId === report?.userId || !report?.userId) && (
+                <a
+                  className="ml-2 cursor-pointer"
+                  onClick={() => setEditModalOpen(true)}
+                >
+                  <GBEdit />
+                </a>
+              )}
           </h1>
           <div className="mb-1">
             <small className="text-muted">
@@ -354,7 +355,7 @@ export default function ReportPage() {
                             "update",
                             "RefreshData",
                             datasource?.type || null,
-                            res.report
+                            res.report,
                           );
                           mutate();
                           setRefreshError("");
@@ -385,13 +386,13 @@ export default function ReportPage() {
                           `/report/${report.id}/refresh?force=true`,
                           {
                             method: "POST",
-                          }
+                          },
                         );
                         trackReport(
                           "update",
                           "ForceRefreshData",
                           datasource?.type || null,
-                          res.report
+                          res.report,
                         );
                         mutate();
                       } catch (e) {
@@ -515,13 +516,13 @@ export default function ReportPage() {
                       body: JSON.stringify({
                         args,
                       }),
-                    }
+                    },
                   );
                   trackReport(
                     "update",
                     "VariationIdWarning",
                     datasource?.type || null,
-                    res.updatedReport
+                    res.updatedReport,
                   );
                   mutate();
                 }}
@@ -541,7 +542,7 @@ export default function ReportPage() {
                     queryStatusData={queryStatusData}
                     reportDate={report.dateCreated}
                     startDate={getValidDate(
-                      report.args.startDate
+                      report.args.startDate,
                     ).toISOString()}
                     isLatestPhase={true}
                     status={"stopped"}

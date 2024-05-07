@@ -68,7 +68,7 @@ export const EventWebHookLogsContainer = () => {
   const { data, error } = useEventWebhookLogs(`${eventWebHookId}`);
 
   const [activeLog, setActiveLog] = useState<EventWebHookLogInterface | null>(
-    null
+    null,
   );
 
   const logLookup: Record<string, EventWebHookLogInterface> = useMemo(() => {
@@ -80,7 +80,7 @@ export const EventWebHookLogsContainer = () => {
       const logToHighlight = logLookup[logId] || null;
       setActiveLog(logToHighlight);
     },
-    [logLookup]
+    [logLookup],
   );
 
   useEffect(
@@ -92,7 +92,7 @@ export const EventWebHookLogsContainer = () => {
 
       setActiveLog(data.eventWebHookLogs[0] || null);
     },
-    [data]
+    [data],
   );
 
   if (error) {

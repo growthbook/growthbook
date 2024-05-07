@@ -60,10 +60,10 @@ function genUUID() {
   if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
   return ("" + 1e7 + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) =>
     (
-      ((c as unknown) as number) ^
+      (c as unknown as number) ^
       (crypto.getRandomValues(new Uint8Array(1))[0] &
-        (15 >> (((c as unknown) as number) / 4)))
-    ).toString(16)
+        (15 >> ((c as unknown as number) / 4)))
+    ).toString(16),
   );
 }
 
@@ -156,7 +156,7 @@ function getDataLayerVariables() {
 
 function getAutoAttributes(
   dataContext: DOMStringMap,
-  windowContext: WindowContext
+  windowContext: WindowContext,
 ) {
   const useCookies = dataContext.noAutoCookies == null;
 
@@ -165,12 +165,12 @@ function getAutoAttributes(
   const browser = ua.match(/Edg/)
     ? "edge"
     : ua.match(/Chrome/)
-    ? "chrome"
-    : ua.match(/Firefox/)
-    ? "firefox"
-    : ua.match(/Safari/)
-    ? "safari"
-    : "unknown";
+      ? "chrome"
+      : ua.match(/Firefox/)
+        ? "firefox"
+        : ua.match(/Safari/)
+          ? "safari"
+          : "unknown";
 
   const _uuid = getUUID(useCookies);
   if (

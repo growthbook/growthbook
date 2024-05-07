@@ -218,7 +218,11 @@ const ShareModal = ({
     }
   }, [existing?.slides]);
 
-  const { items: experiments, searchInputProps, isFiltered } = useSearch({
+  const {
+    items: experiments,
+    searchInputProps,
+    isFiltered,
+  } = useSearch({
     items: allExperiments || [],
     defaultSortField: "id",
     localStorageKey: "experiments-share",
@@ -345,7 +349,7 @@ const ShareModal = ({
     }
     form.setValue(
       "slides",
-      reorder(value.slides, result.source.index, result.destination.index)
+      reorder(value.slides, result.source.index, result.destination.index),
     );
   };
   const grid = 4;
@@ -391,11 +395,11 @@ const ShareModal = ({
                 .sort(
                   (a, b) =>
                     getValidDate(
-                      b.phases[b.phases.length - 1]?.dateEnded
+                      b.phases[b.phases.length - 1]?.dateEnded,
                     ).getTime() -
                     getValidDate(
-                      a.phases[a.phases.length - 1]?.dateEnded
-                    ).getTime()
+                      a.phases[a.phases.length - 1]?.dateEnded,
+                    ).getTime(),
                 )
                 .map((e: ExperimentInterfaceStringDates) => {
                   const phase = e.phases[e.phases.length - 1];
@@ -472,7 +476,7 @@ const ShareModal = ({
             No {isFiltered ? "matching" : ""} {status} experiments
           </div>
         )}
-      </Tab>
+      </Tab>,
     );
     // end of the byStatus loop
   });
@@ -493,7 +497,7 @@ const ShareModal = ({
             className="shared-exp-div"
             style={getItemStyle(
               snapshot.isDragging,
-              provided.draggableProps.style
+              provided.draggableProps.style,
             )}
           >
             <div className="d-flex align-items-center">
@@ -515,7 +519,7 @@ const ShareModal = ({
             </div>
           </div>
         )}
-      </Draggable>
+      </Draggable>,
     );
     // adding options for each experiment... disabled for now
     // expOptionsList.push(
@@ -649,8 +653,8 @@ const ShareModal = ({
                   byStatus.stopped.length > 0
                     ? "Stopped"
                     : byStatus.running.length > 0
-                    ? "Running"
-                    : null
+                      ? "Running"
+                      : null
                 }
               >
                 {tabContents.map((con) => {
@@ -852,7 +856,7 @@ const ShareModal = ({
                     // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                     backgroundColor={value.customTheme.backgroundColor.replace(
                       "#",
-                      ""
+                      "",
                     )}
                     // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                     textColor={value.customTheme.textColor.replace("#", "")}

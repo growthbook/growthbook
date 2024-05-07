@@ -47,7 +47,7 @@ const ImportExperimentList: FC<{
 
   const { status } = getQueryStatus(
     data?.experiments?.queries || [],
-    data?.experiments?.error
+    data?.experiments?.error,
   );
   const pastExpArr = useAddComputedFields(
     data?.experiments?.experiments,
@@ -56,22 +56,22 @@ const ImportExperimentList: FC<{
         ? getExposureQuery(datasource?.settings, item.exposureQueryId)?.name
         : "experiments",
     }),
-    [datasource]
+    [datasource],
   );
   const { pastExperimentsMinLength, defaultDataSource } = useOrgSettings();
 
   const [minUsersFilter, setMinUsersFilter] = useLocalStorage(
     "pastImportNumUsersFilter",
-    "100"
+    "100",
   );
   const [minLengthFilter, setMinLengthFilter] = useLocalStorage(
     "pastImportMinLengthFilter",
-    `${pastExperimentsMinLength || 2}`
+    `${pastExperimentsMinLength || 2}`,
   );
   const [alreadyImportedFilter, setAlreadyImportedFilter] = useState(true);
   const [dedupeFilter, setDedupeFilter] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"" | "running" | "stopped">(
-    ""
+    "",
   );
 
   const [minVariationsFilter, setMinVariationsFilter] = useState("2");
@@ -117,7 +117,7 @@ const ImportExperimentList: FC<{
 
       // Group by trackingKey insteadd of trackingKey/exposureQueryId
       if (dedupeFilter) {
-        const deduped = new Map<string, typeof rows[0]>();
+        const deduped = new Map<string, (typeof rows)[0]>();
         rows.forEach((e) => {
           const key = e.trackingKey;
           if (!deduped.has(key)) {
@@ -139,18 +139,21 @@ const ImportExperimentList: FC<{
       minUsersFilter,
       minVariationsFilter,
       statusFilter,
-    ]
+    ],
   );
-  const { items, searchInputProps, clear: clearSearch, SortableTH } = useSearch(
-    {
-      items: pastExpArr,
-      searchFields: ["trackingKey", "experimentName", "exposureQueryName"],
-      defaultSortField: "startDate",
-      defaultSortDir: -1,
-      localStorageKey: "past-experiments",
-      filterResults,
-    }
-  );
+  const {
+    items,
+    searchInputProps,
+    clear: clearSearch,
+    SortableTH,
+  } = useSearch({
+    items: pastExpArr,
+    searchFields: ["trackingKey", "experimentName", "exposureQueryName"],
+    defaultSortField: "startDate",
+    defaultSortDir: -1,
+    localStorageKey: "past-experiments",
+    filterResults,
+  });
 
   if (!importId) {
     return <LoadingOverlay />;
@@ -167,7 +170,7 @@ const ImportExperimentList: FC<{
     .filter(
       (d) =>
         d.id === data?.experiments?.datasource ||
-        isProjectListValidForProject(d.projects, project)
+        isProjectListValidForProject(d.projects, project),
     );
 
   function clearFilters() {
@@ -226,31 +229,34 @@ const ImportExperimentList: FC<{
             </div>
           </div>
         )}
-        {datasource && permissionsUtil.canRunPastExperimentQueries(datasource) && (
-          <div className="col-auto">
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                await apiCall<{ id: string }>("/experiments/import", {
-                  method: "POST",
-                  body: JSON.stringify({
-                    datasource: data.experiments.datasource,
-                    force: true,
-                  }),
-                });
-                await mutate();
-              }}
-            >
-              <RunQueriesButton
-                cta={data.experiments.latestData ? "Get New Data" : "Run Query"}
-                cancelEndpoint={`/experiments/import/${data.experiments.id}/cancel`}
-                mutate={mutate}
-                model={data.experiments}
-                icon="refresh"
-              />
-            </form>
-          </div>
-        )}
+        {datasource &&
+          permissionsUtil.canRunPastExperimentQueries(datasource) && (
+            <div className="col-auto">
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  await apiCall<{ id: string }>("/experiments/import", {
+                    method: "POST",
+                    body: JSON.stringify({
+                      datasource: data.experiments.datasource,
+                      force: true,
+                    }),
+                  });
+                  await mutate();
+                }}
+              >
+                <RunQueriesButton
+                  cta={
+                    data.experiments.latestData ? "Get New Data" : "Run Query"
+                  }
+                  cancelEndpoint={`/experiments/import/${data.experiments.id}/cancel`}
+                  mutate={mutate}
+                  model={data.experiments}
+                  icon="refresh"
+                />
+              </form>
+            </div>
+          )}
       </div>
       {hasStarted && status === "failed" && (
         <>
@@ -427,7 +433,7 @@ const ImportExperimentList: FC<{
                 value={statusFilter}
                 onChange={(e) => {
                   setStatusFilter(
-                    (e.target.value as "" | "stopped" | "running") || ""
+                    (e.target.value as "" | "stopped" | "running") || "",
                   );
                 }}
               />
@@ -520,57 +526,58 @@ const ImportExperimentList: FC<{
                           className={`btn btn-primary`}
                           onClick={(ev) => {
                             ev.preventDefault();
-                            const importObj: Partial<ExperimentInterfaceStringDates> = {
-                              name: e.experimentName || e.trackingKey,
-                              trackingKey: e.trackingKey,
-                              datasource: data?.experiments?.datasource,
-                              exposureQueryId: e.exposureQueryId || "",
-                              variations: e.variationKeys.map((vKey, i) => {
-                                let vName = e.variationNames?.[i] || vKey;
-                                // If the name is an integer, rename 0 to "Control" and anything else to "Variation {name}"
-                                if (vName.match(/^[0-9]{1,2}$/)) {
-                                  vName =
-                                    vName === "0"
-                                      ? "Control"
-                                      : `Variation ${vName}`;
-                                }
-                                return {
-                                  name: vName,
-                                  screenshots: [],
-                                  description: "",
-                                  key: vKey,
-                                  id: generateVariationId(),
-                                };
-                              }),
-                              phases: [
-                                {
-                                  coverage: 1,
-                                  name: "Main",
-                                  reason: "",
-                                  variationWeights: e.weights,
-                                  dateStarted:
-                                    getValidDate(e.startDate)
-                                      .toISOString()
-                                      .substr(0, 10) + "T00:00:00Z",
-                                  dateEnded:
-                                    getValidDate(e.endDate)
-                                      .toISOString()
-                                      .substr(0, 10) + "T23:59:59Z",
-                                  condition: "",
-                                  namespace: {
-                                    enabled: false,
-                                    name: "",
-                                    range: [0, 1],
+                            const importObj: Partial<ExperimentInterfaceStringDates> =
+                              {
+                                name: e.experimentName || e.trackingKey,
+                                trackingKey: e.trackingKey,
+                                datasource: data?.experiments?.datasource,
+                                exposureQueryId: e.exposureQueryId || "",
+                                variations: e.variationKeys.map((vKey, i) => {
+                                  let vName = e.variationNames?.[i] || vKey;
+                                  // If the name is an integer, rename 0 to "Control" and anything else to "Variation {name}"
+                                  if (vName.match(/^[0-9]{1,2}$/)) {
+                                    vName =
+                                      vName === "0"
+                                        ? "Control"
+                                        : `Variation ${vName}`;
+                                  }
+                                  return {
+                                    name: vName,
+                                    screenshots: [],
+                                    description: "",
+                                    key: vKey,
+                                    id: generateVariationId(),
+                                  };
+                                }),
+                                phases: [
+                                  {
+                                    coverage: 1,
+                                    name: "Main",
+                                    reason: "",
+                                    variationWeights: e.weights,
+                                    dateStarted:
+                                      getValidDate(e.startDate)
+                                        .toISOString()
+                                        .substr(0, 10) + "T00:00:00Z",
+                                    dateEnded:
+                                      getValidDate(e.endDate)
+                                        .toISOString()
+                                        .substr(0, 10) + "T23:59:59Z",
+                                    condition: "",
+                                    namespace: {
+                                      enabled: false,
+                                      name: "",
+                                      range: [0, 1],
+                                    },
                                   },
-                                },
-                              ],
-                              // Default to stopped if the last data was more than 3 days ago
-                              status:
-                                getValidDate(e.endDate).getTime() <
-                                Date.now() - 72 * 60 * 60 * 1000
-                                  ? "stopped"
-                                  : "running",
-                            };
+                                ],
+                                // Default to stopped if the last data was more than 3 days ago
+                                status:
+                                  getValidDate(e.endDate).getTime() <
+                                  Date.now() - 72 * 60 * 60 * 1000
+                                    ? "stopped"
+                                    : "running",
+                              };
                             onImport(importObj);
                           }}
                         >

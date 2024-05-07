@@ -38,7 +38,7 @@ export function dateStringArrayBetweenDates(
   start: Date,
   end: Date,
   truncate: boolean = true,
-  dayInterval: number = 1
+  dayInterval: number = 1,
 ): string[] {
   const dateArray: string[] = [];
   let startTruncate = new Date(start);
@@ -53,7 +53,7 @@ export function dateStringArrayBetweenDates(
 
 export function getValidDate(
   dateStr: string | Date | null | number | undefined,
-  fallback?: Date
+  fallback?: Date,
 ): Date {
   fallback = fallback || new Date();
 

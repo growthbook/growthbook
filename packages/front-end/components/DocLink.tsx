@@ -117,8 +117,8 @@ export function DocLink({
   const docsPath = docSections[docSection]
     ? docSections[docSection]
     : docSections[fallBackSection]
-    ? docSections[fallBackSection]
-    : "";
+      ? docSections[fallBackSection]
+      : "";
   const docUrl = docsOrigin + docsPath;
 
   return (

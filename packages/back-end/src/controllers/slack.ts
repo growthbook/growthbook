@@ -10,14 +10,14 @@ export async function postIdeas(req: Request, res: Response) {
 
     const { id, name } = await getUserInfoBySlackId(
       req.body.user_id,
-      organization
+      organization,
     );
 
     const text: string = req.body.text;
 
     if (text.length < 3) {
       throw new Error(
-        "Idea cannot be empty. Example usage: `/idea this is my cool idea`"
+        "Idea cannot be empty. Example usage: `/idea this is my cool idea`",
       );
     }
 
@@ -33,7 +33,7 @@ export async function postIdeas(req: Request, res: Response) {
     });
 
     res.json(
-      formatTextResponse(`Idea created! <${APP_ORIGIN}/idea/${idea.id}>`)
+      formatTextResponse(`Idea created! <${APP_ORIGIN}/idea/${idea.id}>`),
     );
   } catch (e) {
     res.json(formatTextResponse(`*Error:* ${e.message}`));

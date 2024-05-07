@@ -71,7 +71,7 @@ export default function ExperimentSummary({
               <div className="mt-5">
                 <Link
                   href={`/experiments/?featureExperiment=${encodeURIComponent(
-                    JSON.stringify(expDefinition)
+                    JSON.stringify(expDefinition),
                   )}`}
                   className="btn btn-primary"
                 >

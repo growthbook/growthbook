@@ -88,12 +88,12 @@ export function getNewExperimentDatasourceDefaults(
   datasources: DataSourceInterfaceWithParams[],
   settings: OrganizationSettings,
   project?: string,
-  initialValue?: Partial<ExperimentInterfaceStringDates>
+  initialValue?: Partial<ExperimentInterfaceStringDates>,
 ): Pick<ExperimentInterfaceStringDates, "datasource" | "exposureQueryId"> {
   const validDatasources = datasources.filter(
     (d) =>
       d.id === initialValue?.datasource ||
-      isProjectListValidForProject(d.projects, project)
+      isProjectListValidForProject(d.projects, project),
   );
 
   if (!validDatasources.length) return { datasource: "", exposureQueryId: "" };
@@ -110,7 +110,7 @@ export function getNewExperimentDatasourceDefaults(
       getExposureQuery(
         initialDatasource.settings,
         initialValue?.exposureQueryId,
-        initialValue?.userIdType
+        initialValue?.userIdType,
       )?.id || "",
   };
 }
@@ -132,26 +132,19 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 }) => {
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
-  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
-    false
-  );
+  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
+    useState(false);
 
   const [autoRefreshResults, setAutoRefreshResults] = useState(true);
 
-  const {
-    datasources,
-    getDatasourceById,
-    refreshTags,
-    project,
-  } = useDefinitions();
+  const { datasources, getDatasourceById, refreshTags, project } =
+    useDefinitions();
 
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
 
-  const [
-    prerequisiteTargetingSdkIssues,
-    setPrerequisiteTargetingSdkIssues,
-  ] = useState(false);
+  const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
+    useState(false);
 
   const settings = useOrgSettings();
   const { refreshWatching } = useWatching();
@@ -159,7 +152,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
-    project
+    project,
   );
 
   useEffect(() => {
@@ -182,7 +175,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         datasources,
         settings,
         initialValue?.project || project || "",
-        initialValue
+        initialValue,
       ),
       name: initialValue?.name || "",
       hypothesis: initialValue?.hypothesis || "",
@@ -206,7 +199,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           ? {
               coverage: initialValue.phases?.[0].coverage || 1,
               dateStarted: getValidDate(
-                initialValue.phases?.[0]?.dateStarted ?? ""
+                initialValue.phases?.[0]?.dateStarted ?? "",
               )
                 .toISOString()
                 .substr(0, 16),
@@ -218,7 +211,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               variationWeights:
                 initialValue.phases?.[0].variationWeights ||
                 getEqualWeights(
-                  initialValue.variations ? initialValue.variations.length : 2
+                  initialValue.variations ? initialValue.variations.length : 2,
                 ),
             }
           : {
@@ -305,7 +298,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     if ("duplicateTrackingKey" in res) {
       setAllowDuplicateTrackingKey(true);
       throw new Error(
-        "Warning: An experiment with that id already exists. To continue anyway, click 'Save' again."
+        "Warning: An experiment with that id already exists. To continue anyway, click 'Save' again.",
       );
     }
 
@@ -328,7 +321,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.getValues("exposureQueryId");
   const userIdType = exposureQueries.find(
-    (e) => e.id === form.getValues("exposureQueryId")
+    (e) => e.id === form.getValues("exposureQueryId"),
   )?.userIdType;
   const status = form.watch("status");
 
@@ -556,11 +549,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     // use value as key if provided to maintain backwards compatibility
                     key: data.value || `${i}` || "",
                   };
-                })
+                }),
               );
               form.setValue(
                 "phases.0.variationWeights",
-                v.map((v) => v.weight)
+                v.map((v) => v.weight),
               );
             }}
             variations={

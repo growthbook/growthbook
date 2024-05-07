@@ -65,8 +65,7 @@ metrics["revenue"] = {
     windowUnit: "hours",
   },
   denominator: "",
-  sql:
-    "SELECT\n  userid user_id,\n  anonymousid anonymous_id,\n  timestamp,\n  amount as value\nFROM\n  orders",
+  sql: "SELECT\n  userid user_id,\n  anonymousid anonymous_id,\n  timestamp,\n  amount as value\nFROM\n  orders",
   aggregation: "",
   queryFormat: "sql",
   status: "active",
@@ -121,8 +120,7 @@ metrics["conversions"] = {
     windowValue: 72,
     windowUnit: "hours",
   },
-  sql:
-    "SELECT\n  userid user_id,\n  anonymousid anonymous_id,\n  timestamp\nFROM\n  orders",
+  sql: "SELECT\n  userid user_id,\n  anonymousid anonymous_id,\n  timestamp\nFROM\n  orders",
   aggregation: "",
   queryFormat: "sql",
   status: "active",
@@ -177,8 +175,7 @@ metrics["testvar"] = {
     windowValue: 72,
     windowUnit: "hours",
   },
-  sql:
-    "SELECT\n  userid user_id,\n  anonymousid anonymous_id,\n  1 value,\n  timestamp\nFROM\n  orders",
+  sql: "SELECT\n  userid user_id,\n  anonymousid anonymous_id,\n  1 value,\n  timestamp\nFROM\n  orders",
   aggregation: "COUNT(value) + 1",
   queryFormat: "sql",
   status: "active",

@@ -30,7 +30,7 @@ if (!IS_CLOUD) {
   redactPaths.push(
     'req.headers["if-none-match"]',
     'req.headers["cache-control"]',
-    "res.headers.etag"
+    "res.headers.etag",
   );
 }
 
@@ -59,14 +59,9 @@ export function getCustomLogProps(req: Request) {
 }
 
 const isValidLevel = (input: unknown): input is Level => {
-  return ([
-    "fatal",
-    "error",
-    "warn",
-    "info",
-    "debug",
-    "trace",
-  ] as const).includes(input as Level);
+  return (
+    ["fatal", "error", "warn", "info", "debug", "trace"] as const
+  ).includes(input as Level);
 };
 
 export const httpLogger = pinoHttp({

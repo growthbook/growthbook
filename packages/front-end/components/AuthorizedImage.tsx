@@ -53,7 +53,7 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
         // This way they can lock their bucket down to only allow access from the proxy.
         const withoutDomain = src.replace(
           "https://storage.googleapis.com/",
-          ""
+          "",
         );
         const parts = withoutDomain.split("/");
         parts.shift(); // remove bucket name

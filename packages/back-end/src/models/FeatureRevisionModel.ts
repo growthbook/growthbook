@@ -41,7 +41,7 @@ const featureRevisionSchema = new mongoose.Schema({
 
 featureRevisionSchema.index(
   { organization: 1, featureId: 1, version: 1 },
-  { unique: true }
+  { unique: true },
 );
 featureRevisionSchema.index({ organization: 1, status: 1 });
 
@@ -49,7 +49,7 @@ type FeatureRevisionDocument = mongoose.Document & FeatureRevisionInterface;
 
 const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
   "FeatureRevision",
-  featureRevisionSchema
+  featureRevisionSchema,
 );
 
 function toInterface(doc: FeatureRevisionDocument): FeatureRevisionInterface {
@@ -80,7 +80,7 @@ function toInterface(doc: FeatureRevisionDocument): FeatureRevisionInterface {
 
 export async function getRevisions(
   organization: string,
-  featureId: string
+  featureId: string,
 ): Promise<FeatureRevisionInterface[]> {
   const docs: FeatureRevisionDocument[] = await FeatureRevisionModel.find({
     organization,
@@ -99,7 +99,7 @@ export async function getRevisions(
 export async function hasDraft(
   organization: string,
   feature: FeatureInterface,
-  excludeVersions: number[] = []
+  excludeVersions: number[] = [],
 ): Promise<boolean> {
   const doc = await FeatureRevisionModel.findOne({
     organization,
@@ -114,7 +114,7 @@ export async function hasDraft(
 export async function getRevision(
   organization: string,
   featureId: string,
-  version: number
+  version: number,
 ) {
   const doc = await FeatureRevisionModel.findOne({
     organization,
@@ -127,7 +127,7 @@ export async function getRevision(
 
 export async function getRevisionsByStatus(
   context: ReqContext,
-  statuses: string[]
+  statuses: string[],
 ) {
   const revisions = await FeatureRevisionModel.find({
     organization: context.org.id,
@@ -146,7 +146,7 @@ export async function createInitialRevision(
   feature: FeatureInterface,
   user: EventAuditUser | null,
   environments: string[],
-  date?: Date
+  date?: Date,
 ) {
   const rules: Record<string, FeatureRule[]> = {};
   environments.forEach((env) => {
@@ -293,7 +293,7 @@ export async function updateRevision(
     >
   >,
   log: Omit<RevisionLog, "timestamp">,
-  resetReview: boolean
+  resetReview: boolean,
 ) {
   let status = revision.status;
 
@@ -331,14 +331,14 @@ export async function updateRevision(
           timestamp: new Date(),
         },
       },
-    }
+    },
   );
 }
 
 export async function markRevisionAsPublished(
   revision: FeatureRevisionInterface,
   user: EventAuditUser,
-  comment?: string
+  comment?: string,
 ) {
   const action = revision.status === "draft" ? "publish" : "re-publish";
 
@@ -366,14 +366,14 @@ export async function markRevisionAsPublished(
       $push: {
         log,
       },
-    }
+    },
   );
 }
 
 export async function markRevisionAsReviewRequested(
   revision: FeatureRevisionInterface,
   user: EventAuditUser,
-  comment?: string
+  comment?: string,
 ) {
   const action = "Review Requested";
 
@@ -400,7 +400,7 @@ export async function markRevisionAsReviewRequested(
       $push: {
         log,
       },
-    }
+    },
   );
 }
 
@@ -408,7 +408,7 @@ export async function submitReviewAndComments(
   revision: FeatureRevisionInterface,
   user: EventAuditUser,
   reviewSubmittedType: ReviewSubmittedType,
-  comment?: string
+  comment?: string,
 ) {
   const action = reviewSubmittedType;
   let status = "pending-review";
@@ -446,13 +446,13 @@ export async function submitReviewAndComments(
       $push: {
         log,
       },
-    }
+    },
   );
 }
 
 export async function discardRevision(
   revision: FeatureRevisionInterface,
-  user: EventAuditUser
+  user: EventAuditUser,
 ) {
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error(`Can not discard ${revision.status} revisions`);
@@ -477,13 +477,13 @@ export async function discardRevision(
       $push: {
         log,
       },
-    }
+    },
   );
 }
 
 export async function getFeatureRevisionsByFeatureIds(
   organization: string,
-  featureIds: string[]
+  featureIds: string[],
 ): Promise<Record<string, FeatureRevisionInterface[]>> {
   const revisionsByFeatureId: Record<string, FeatureRevisionInterface[]> = {};
 
@@ -504,7 +504,7 @@ export async function getFeatureRevisionsByFeatureIds(
 
 export async function deleteAllRevisionsForFeature(
   organization: string,
-  featureId: string
+  featureId: string,
 ) {
   await FeatureRevisionModel.deleteMany({
     organization,
@@ -515,7 +515,7 @@ export async function deleteAllRevisionsForFeature(
 export async function cleanUpPreviousRevisions(
   organization: string,
   featureId: string,
-  date: Date
+  date: Date,
 ) {
   await FeatureRevisionModel.deleteMany({
     organization,

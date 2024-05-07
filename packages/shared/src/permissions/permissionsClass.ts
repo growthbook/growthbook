@@ -177,20 +177,20 @@ export class Permissions {
 
   //Project Permissions
   public canCreateVisualChange = (
-    experiment: Pick<ExperimentInterface, "project">
+    experiment: Pick<ExperimentInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       { projects: experiment.project ? [experiment.project] : [] },
-      "manageVisualChanges"
+      "manageVisualChanges",
     );
   };
 
   public canUpdateVisualChange = (
-    experiment: Pick<ExperimentInterface, "project">
+    experiment: Pick<ExperimentInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       { projects: experiment.project ? [experiment.project] : [] },
-      "manageVisualChanges"
+      "manageVisualChanges",
     );
   };
 
@@ -200,31 +200,31 @@ export class Permissions {
   };
 
   public canCreateAttribute = (
-    attribute: Pick<SDKAttribute, "projects">
+    attribute: Pick<SDKAttribute, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       attribute,
-      "manageTargetingAttributes"
+      "manageTargetingAttributes",
     );
   };
 
   public canUpdateAttribute = (
     existing: Pick<SDKAttribute, "projects">,
-    updates: Pick<SDKAttribute, "projects">
+    updates: Pick<SDKAttribute, "projects">,
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
       existing,
       updates,
-      "manageTargetingAttributes"
+      "manageTargetingAttributes",
     );
   };
 
   public canDeleteAttribute = (
-    attribute: Pick<SDKAttribute, "projects">
+    attribute: Pick<SDKAttribute, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       attribute,
-      "manageTargetingAttributes"
+      "manageTargetingAttributes",
     );
   };
 
@@ -234,40 +234,40 @@ export class Permissions {
       {
         projects: project ? [project] : [],
       },
-      "manageFeatures"
+      "manageFeatures",
     );
   };
 
   public canCreateFeature = (
-    feature: Pick<FeatureInterface, "project">
+    feature: Pick<FeatureInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       {
         projects: feature.project ? [feature.project] : [],
       },
-      "manageFeatures"
+      "manageFeatures",
     );
   };
 
   public canUpdateFeature = (
     existing: Pick<FeatureInterface, "project">,
-    updated: Pick<FeatureInterface, "project">
+    updated: Pick<FeatureInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
       { projects: existing.project ? [existing.project] : [] },
       "project" in updated ? { projects: [updated.project || ""] } : {},
-      "manageFeatures"
+      "manageFeatures",
     );
   };
 
   public canDeleteFeature = (
-    feature: Pick<FeatureInterface, "project">
+    feature: Pick<FeatureInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       {
         projects: feature.project ? [feature.project] : [],
       },
-      "manageFeatures"
+      "manageFeatures",
     );
   };
 
@@ -277,38 +277,38 @@ export class Permissions {
       {
         projects: project ? [project] : [],
       },
-      "createAnalyses"
+      "createAnalyses",
     );
   };
 
   public canCreateExperiment = (
-    experiment: Pick<ExperimentInterface, "project">
+    experiment: Pick<ExperimentInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       {
         projects: experiment.project ? [experiment.project] : [],
       },
-      "createAnalyses"
+      "createAnalyses",
     );
   };
 
   public canUpdateExperiment = (
     existing: Pick<ExperimentInterface, "project">,
-    updated: Pick<ExperimentInterface, "project">
+    updated: Pick<ExperimentInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
       { projects: existing.project ? [existing.project] : [] },
       "project" in updated ? { projects: [updated.project || ""] } : {},
-      "createAnalyses"
+      "createAnalyses",
     );
   };
 
   public canDeleteExperiment = (
-    experiment: Pick<ExperimentInterface, "project">
+    experiment: Pick<ExperimentInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       { projects: experiment.project ? [experiment.project] : [] },
-      "createAnalyses"
+      "createAnalyses",
     );
   };
 
@@ -318,12 +318,12 @@ export class Permissions {
       {
         projects: project ? [project] : [],
       },
-      "createAnalyses"
+      "createAnalyses",
     );
   };
   // reports don't have projects, but their connected experiments do
   public canCreateReport = (
-    connectedExperiment: Pick<ExperimentInterface, "project">
+    connectedExperiment: Pick<ExperimentInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       {
@@ -331,13 +331,13 @@ export class Permissions {
           ? [connectedExperiment.project]
           : [],
       },
-      "createAnalyses"
+      "createAnalyses",
     );
   };
 
   // reports don't have projects, but their connected experiments do
   public canUpdateReport = (
-    connectedExperiment: Pick<ExperimentInterface, "project">
+    connectedExperiment: Pick<ExperimentInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       {
@@ -345,13 +345,13 @@ export class Permissions {
           ? [connectedExperiment.project]
           : [],
       },
-      "createAnalyses"
+      "createAnalyses",
     );
   };
 
   // reports don't have projects, but their connected experiments do
   public canDeleteReport = (
-    connectedExperiment: Pick<ExperimentInterface, "project">
+    connectedExperiment: Pick<ExperimentInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       {
@@ -359,7 +359,7 @@ export class Permissions {
           ? [connectedExperiment.project]
           : [],
       },
-      "createAnalyses"
+      "createAnalyses",
     );
   };
 
@@ -373,25 +373,25 @@ export class Permissions {
       {
         projects: idea.project ? [idea.project] : [],
       },
-      "createIdeas"
+      "createIdeas",
     );
   };
 
   public canUpdateIdea = (
     existing: Pick<IdeaInterface, "project">,
-    updated: Pick<IdeaInterface, "project">
+    updated: Pick<IdeaInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
       { projects: existing.project ? [existing.project] : [] },
       "project" in updated ? { projects: [updated.project || ""] } : {},
-      "createIdeas"
+      "createIdeas",
     );
   };
 
   public canDeleteIdea = (idea: Pick<IdeaInterface, "project">): boolean => {
     return this.checkProjectFilterPermission(
       { projects: idea.project ? [idea.project] : [] },
-      "createIdeas"
+      "createIdeas",
     );
   };
 
@@ -400,81 +400,81 @@ export class Permissions {
     return this.canCreateFactTable({ projects: project ? [project] : [] });
   };
   public canViewEditFactTableModal = (
-    factTable: Pick<FactTableInterface, "projects">
+    factTable: Pick<FactTableInterface, "projects">,
   ): boolean => {
     return this.canUpdateFactTable(factTable, {});
   };
 
   public canCreateFactTable = (
-    factTable: Pick<FactTableInterface, "projects">
+    factTable: Pick<FactTableInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(factTable, "manageFactTables");
   };
 
   public canUpdateFactTable = (
     existing: Pick<FactTableInterface, "projects">,
-    updates: UpdateFactTableProps
+    updates: UpdateFactTableProps,
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
       existing,
       updates,
-      "manageFactTables"
+      "manageFactTables",
     );
   };
 
   public canDeleteFactTable = (
-    factTable: Pick<FactTableInterface, "projects">
+    factTable: Pick<FactTableInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(factTable, "manageFactTables");
   };
 
   public canCreateMetric = (
-    metric: Pick<MetricInterface, "projects">
+    metric: Pick<MetricInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(metric, "createMetrics");
   };
 
   public canUpdateMetric = (
     existing: Pick<MetricInterface, "projects">,
-    updates: Pick<MetricInterface, "projects">
+    updates: Pick<MetricInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
       existing,
       updates,
-      "createMetrics"
+      "createMetrics",
     );
   };
 
   public canDeleteMetric = (
-    metric: Pick<MetricInterface, "projects">
+    metric: Pick<MetricInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(metric, "createMetrics");
   };
 
   public canManageFeatureDrafts = (
-    feature: Pick<FeatureInterface, "project">
+    feature: Pick<FeatureInterface, "project">,
   ) => {
     return this.checkProjectFilterPermission(
       { projects: feature.project ? [feature.project] : [] },
-      "manageFeatureDrafts"
+      "manageFeatureDrafts",
     );
   };
 
   public canReviewFeatureDrafts = (
-    feature: Pick<FeatureInterface, "project">
+    feature: Pick<FeatureInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       { projects: feature.project ? [feature.project] : [] },
-      "canReview"
+      "canReview",
     );
   };
 
   public canBypassApprovalChecks = (
-    feature: Pick<FeatureInterface, "project">
+    feature: Pick<FeatureInterface, "project">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       { projects: feature.project ? [feature.project] : [] },
-      "bypassApprovalChecks"
+      "bypassApprovalChecks",
     );
   };
 
@@ -485,7 +485,7 @@ export class Permissions {
   public canCreateProjects = (): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [] },
-      "manageProjects"
+      "manageProjects",
     );
   };
 
@@ -493,21 +493,21 @@ export class Permissions {
     // TODO: loop through all projects and check if the user has permission to update at least one
     return this.checkProjectFilterPermission(
       { projects: [] },
-      "manageProjects"
+      "manageProjects",
     );
   };
 
   public canUpdateProject = (project: string): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [project] },
-      "manageProjects"
+      "manageProjects",
     );
   };
 
   public canDeleteProject = (project: string): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [project] },
-      "manageProjects"
+      "manageProjects",
     );
   };
 
@@ -516,77 +516,77 @@ export class Permissions {
   };
 
   public canCreateDataSource = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "createDatasources");
   };
 
   public canUpdateDataSourceParams = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "createDatasources");
   };
 
   public canUpdateDataSourceSettings = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(
       datasource,
-      "editDatasourceSettings"
+      "editDatasourceSettings",
     );
   };
 
   public canDeleteDataSource = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "createDatasources");
   };
 
   public canRunExperimentQueries = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
   public canRunPastExperimentQueries = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
   public canRunFactQueries = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
   public canRunTestQueries = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
   public canRunSchemaQueries = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
   public canRunHealthQueries = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
   public canRunMetricQueries = (
-    datasource: Pick<DataSourceInterface, "projects">
+    datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
   public throwPermissionError(): void {
     throw new PermissionError(
-      "You do not have permission to perform this action"
+      "You do not have permission to perform this action",
     );
   }
 
@@ -600,7 +600,7 @@ export class Permissions {
 
   private checkProjectFilterPermission(
     obj: { projects?: string[] },
-    permission: ProjectScopedPermission
+    permission: ProjectScopedPermission,
   ): boolean {
     const projects = obj.projects?.length ? obj.projects : [""];
 
@@ -613,7 +613,7 @@ export class Permissions {
         projects.push(...Object.keys(this.userPermissions.projects));
       }
       return projects.some((project) =>
-        this.hasPermission(permission, project)
+        this.hasPermission(permission, project),
       );
     }
     return projects.every((project) => this.hasPermission(permission, project));
@@ -622,7 +622,7 @@ export class Permissions {
   private checkProjectFilterUpdatePermission(
     existing: { projects?: string[] },
     updates: { projects?: string[] },
-    permission: ProjectScopedPermission
+    permission: ProjectScopedPermission,
   ): boolean {
     // check if the user has permission to update based on the existing projects
     if (!this.checkProjectFilterPermission(existing, permission)) {
@@ -642,7 +642,7 @@ export class Permissions {
   private hasPermission(
     permissionToCheck: Permission,
     project: string,
-    envs?: string[]
+    envs?: string[],
   ) {
     if (this.superAdmin) {
       return true;
@@ -659,7 +659,7 @@ export class Permissions {
       return true;
     }
     return envs.every((env) =>
-      usersPermissionsToCheck.environments.includes(env)
+      usersPermissionsToCheck.environments.includes(env),
     );
   }
 }

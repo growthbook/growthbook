@@ -21,7 +21,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 
 const featureTabs = ["overview", "stats"] as const;
-export type FeatureTab = typeof featureTabs[number];
+export type FeatureTab = (typeof featureTabs)[number];
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -57,7 +57,7 @@ export default function FeaturePage() {
 
   const [tab, setTab] = useLocalStorage<FeatureTab>(
     `tabbedPageTab__${data?.feature?.id}`,
-    "overview"
+    "overview",
   );
 
   const setTabAndScroll = (tab: FeatureTab) => {
@@ -102,7 +102,7 @@ export default function FeaturePage() {
         r.status === "draft" ||
         r.status === "approved" ||
         r.status === "changes-requested" ||
-        r.status === "pending-review"
+        r.status === "pending-review",
     );
     setVersion(draft ? draft.version : baseFeatureVersion);
   }, [revisions, version, router.query, baseFeatureVersion]);
@@ -112,7 +112,7 @@ export default function FeaturePage() {
       baseFeature
         ? filterEnvironmentsByFeature(allEnvironments, baseFeature)
         : [],
-    [allEnvironments, baseFeature]
+    [allEnvironments, baseFeature],
   );
   const envs = environments.map((e) => e.id);
 
@@ -152,7 +152,7 @@ export default function FeaturePage() {
       ? mergeRevision(
           baseFeature,
           revision,
-          environments.map((e) => e.id)
+          environments.map((e) => e.id),
         )
       : baseFeature;
   }, [baseFeature, revision, environments]);

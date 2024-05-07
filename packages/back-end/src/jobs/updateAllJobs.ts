@@ -23,7 +23,7 @@ export const triggerWebhookJobs = async (
   payloadKeys: SDKPayloadKey[],
   environments: string[],
   isProxyEnabled: boolean,
-  isFeature = true
+  isFeature = true,
 ) => {
   queueWebhookUpdate(context, payloadKeys);
   queueGlobalWebhooks(context, payloadKeys);
@@ -40,7 +40,7 @@ export const triggerSingleSDKWebhookJobs = async (
   connection: SDKConnectionInterface,
   otherChanges: Partial<SDKConnectionInterface>,
   newProxy: ProxyConnection,
-  isUsingProxy: boolean
+  isUsingProxy: boolean,
 ) => {
   queueSingleWebhookJob(connection);
   if (isUsingProxy) {

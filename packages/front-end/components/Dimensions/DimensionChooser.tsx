@@ -19,7 +19,7 @@ export interface Props {
   setBaselineRow?: (baselineRow: number) => void;
   setDifferenceType?: (differenceType: DifferenceType) => void;
   setAnalysisSettings?: (
-    settings: ExperimentSnapshotAnalysisSettings | null
+    settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
   disabled?: boolean;
 }
@@ -68,7 +68,7 @@ export default function DimensionChooser({
   const exposureQuery = getExposureQuery(
     datasource.settings,
     exposureQueryId,
-    userIdType
+    userIdType,
   );
   // Add experiment dimensions based on the selected exposure query
   if (exposureQuery) {

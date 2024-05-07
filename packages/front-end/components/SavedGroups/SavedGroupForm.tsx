@@ -145,7 +145,7 @@ const SavedGroupForm: FC<{
                 setRawText(e.target.value);
                 form.setValue(
                   "values",
-                  e.target.value.split(",").map((val) => val.trim())
+                  e.target.value.split(",").map((val) => val.trim()),
                 );
               }}
             />

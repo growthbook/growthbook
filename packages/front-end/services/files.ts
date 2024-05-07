@@ -3,7 +3,7 @@ import { getApiHost } from "./env";
 
 export async function uploadFile(
   apiCall: ApiCallType<{ fileURL: string }>,
-  file: File
+  file: File,
 ) {
   let fileURL = "";
   try {

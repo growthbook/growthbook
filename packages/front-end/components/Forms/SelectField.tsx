@@ -25,7 +25,7 @@ export type SelectFieldProps = Omit<
   createable?: boolean;
   formatOptionLabel?: (
     value: SingleValue,
-    meta: FormatOptionLabelMeta<SingleValue>
+    meta: FormatOptionLabelMeta<SingleValue>,
   ) => ReactNode;
   formatGroupLabel?: (value: GroupedValue) => ReactNode;
   isSearchable?: boolean;
@@ -36,7 +36,7 @@ export type SelectFieldProps = Omit<
 export function useSelectOptions(
   options: (SingleValue | GroupedValue)[],
   initialOption?: string,
-  sort?: boolean
+  sort?: boolean,
 ) {
   return useMemo(() => {
     const m = new Map<string, SingleValue>();
@@ -192,7 +192,7 @@ const SelectField: FC<SelectFieldProps> = ({
             className={clsx(
               "gb-select-wrapper position-relative",
               disabled ? "disabled" : "",
-              className
+              className,
             )}
           >
             {createable ? (

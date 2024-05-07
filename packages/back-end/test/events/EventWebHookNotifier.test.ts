@@ -41,7 +41,7 @@ describe("EventWebHookNotifier", () => {
         },
         method: "POST",
       },
-      { maxContentSize: 1000, maxTimeMs: 30000 }
+      { maxContentSize: 1000, maxTimeMs: 30000 },
     );
   });
 
@@ -79,7 +79,7 @@ describe("EventWebHookNotifier", () => {
         },
         method: "POST",
       },
-      { maxContentSize: 1000, maxTimeMs: 30000 }
+      { maxContentSize: 1000, maxTimeMs: 30000 },
     );
   });
 
@@ -114,7 +114,7 @@ describe("EventWebHookNotifier", () => {
         },
         method: "PATCH",
       },
-      { maxContentSize: 1000, maxTimeMs: 30000 }
+      { maxContentSize: 1000, maxTimeMs: 30000 },
     );
   });
 
@@ -150,7 +150,7 @@ describe("EventWebHookNotifier", () => {
         },
         method: "POST",
       },
-      { maxContentSize: 1000, maxTimeMs: 30000 }
+      { maxContentSize: 1000, maxTimeMs: 30000 },
     );
   });
 });

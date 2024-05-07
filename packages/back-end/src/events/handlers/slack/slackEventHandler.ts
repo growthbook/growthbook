@@ -35,7 +35,7 @@ export const slackEventHandler: NotificationEventHandler = async ({
       projects,
     })) || []
   ).filter(({ environments }) =>
-    filterEventForEnvironments({ event: data, environments })
+    filterEventForEnvironments({ event: data, environments }),
   );
 
   slackIntegrations.forEach((slackIntegration) => {
@@ -43,12 +43,12 @@ export const slackEventHandler: NotificationEventHandler = async ({
 
     // Add the GrowthBook Slack integration context to all messages
     slackMessageWithContext.blocks.push(
-      getSlackIntegrationContextBlock(slackIntegration)
+      getSlackIntegrationContextBlock(slackIntegration),
     );
 
     sendSlackMessage(
       slackMessageWithContext,
-      slackIntegration.slackIncomingWebHook
+      slackIntegration.slackIncomingWebHook,
     ).then((isSuccessful) => {
       if (!isSuccessful) {
         logger.warn("Failed to notify for Slack integration", {

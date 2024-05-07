@@ -18,15 +18,15 @@ export const listSegments = createApiRequestHandler(listSegmentsValidator)(
     const { filtered, returnFields } = applyPagination(
       segments
         .filter((segment) =>
-          applyFilter(req.query.datasourceId, segment.datasource)
+          applyFilter(req.query.datasourceId, segment.datasource),
         )
         .sort((a, b) => a.id.localeCompare(b.id)),
-      req.query
+      req.query,
     );
 
     return {
       segments: filtered.map((segment) => toSegmentApiInterface(segment)),
       ...returnFields,
     };
-  }
+  },
 );

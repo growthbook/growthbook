@@ -31,7 +31,7 @@ import { updateOrganization } from "../models/OrganizationModel";
 import { initializeLicenseForOrg } from "../services/licenseData";
 
 function withLicenseServerErrorHandling<T>(
-  fn: (req: AuthRequest<T>, res: Response) => Promise<void>
+  fn: (req: AuthRequest<T>, res: Response) => Promise<void>,
 ) {
   return async (req: AuthRequest<T>, res: Response) => {
     try {
@@ -52,7 +52,7 @@ function withLicenseServerErrorHandling<T>(
 export const postNewProTrialSubscription = withLicenseServerErrorHandling(
   async function (
     req: AuthRequest<{ name: string; email?: string }>,
-    res: Response
+    res: Response,
   ) {
     const { name: nameFromForm, email: emailFromForm } = req.body;
 
@@ -71,7 +71,7 @@ export const postNewProTrialSubscription = withLicenseServerErrorHandling(
       org.name,
       nameFromForm || userName,
       emailFromForm || email,
-      qty
+      qty,
     );
     if (!org.licenseKey) {
       await updateOrganization(org.id, { licenseKey: result.license.id });
@@ -83,7 +83,7 @@ export const postNewProTrialSubscription = withLicenseServerErrorHandling(
     }
 
     res.status(200).json(result);
-  }
+  },
 );
 
 export const postNewProSubscription = withLicenseServerErrorHandling(
@@ -110,12 +110,12 @@ export const postNewProSubscription = withLicenseServerErrorHandling(
       org.ownerEmail,
       userName,
       qty,
-      returnUrl
+      returnUrl,
     );
     await updateOrganization(org.id, { licenseKey: result.license.id });
 
     res.status(200).json(result);
-  }
+  },
 );
 
 export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
@@ -206,13 +206,13 @@ export const postCreateBillingSession = withLicenseServerErrorHandling(
       status: status,
       url,
     });
-  }
+  },
 );
 
 export const postSubscriptionSuccess = withLicenseServerErrorHandling(
   async function (
     req: AuthRequest<{ checkoutSessionId: string }>,
-    res: Response
+    res: Response,
   ) {
     const context = getContextFromReq(req);
 
@@ -222,7 +222,7 @@ export const postSubscriptionSuccess = withLicenseServerErrorHandling(
 
     const { org } = context;
     const result = await postNewSubscriptionSuccessToLicenseServer(
-      req.body.checkoutSessionId
+      req.body.checkoutSessionId,
     );
     org.licenseKey = result.id;
     await updateOrganization(org.id, { licenseKey: result.id });
@@ -233,7 +233,7 @@ export const postSubscriptionSuccess = withLicenseServerErrorHandling(
     res.status(200).json({
       status: 200,
     });
-  }
+  },
 );
 
 export async function postWebhook(req: Request, res: Response) {
@@ -247,7 +247,7 @@ export async function postWebhook(req: Request, res: Response) {
     const event = stripe.webhooks.constructEvent(
       payload,
       sig,
-      STRIPE_WEBHOOK_SECRET
+      STRIPE_WEBHOOK_SECRET,
     );
 
     switch (event.type) {
@@ -296,7 +296,7 @@ export async function postWebhook(req: Request, res: Response) {
 
         if (!endDate) {
           logger.error(
-            "No trial end date found for subscription: " + subscription.id
+            "No trial end date found for subscription: " + subscription.id,
           );
           return;
         }

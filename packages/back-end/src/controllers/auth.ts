@@ -94,7 +94,7 @@ export async function postOAuthCallback(req: Request, res: Response) {
     const { idToken, refreshToken, expiresIn } = await auth.processCallback(
       req,
       res,
-      null
+      null,
     );
 
     if (!idToken) {
@@ -119,12 +119,12 @@ export async function postOAuthCallback(req: Request, res: Response) {
 async function sendLocalSuccessResponse(
   req: Request,
   res: Response,
-  user: UserInterface
+  user: UserInterface,
 ) {
   const { idToken, refreshToken, expiresIn } = await auth.processCallback(
     req,
     res,
-    user
+    user,
   );
   if (!idToken) {
     return res.status(400).json({
@@ -160,7 +160,7 @@ export async function postLogout(req: Request, res: Response) {
 export async function postLogin(
   // eslint-disable-next-line
   req: Request<any, any, { email: unknown; password: unknown }>,
-  res: Response
+  res: Response,
 ) {
   const { email, password } = req.body;
 
@@ -194,7 +194,7 @@ export async function postLogin(
 export async function postRegister(
   // eslint-disable-next-line
   req: Request<any, any, { email: unknown; name: unknown; password: unknown }>,
-  res: Response
+  res: Response,
 ) {
   const { email, name, password } = req.body;
 
@@ -242,13 +242,13 @@ export async function postFirstTimeRegister(
       companyname: unknown;
     }
   >,
-  res: Response
+  res: Response,
 ) {
   // Only allow this API endpoint when it's a brand-new installation with no users yet
   const newInstallation = await isNewInstallation();
   if (!newInstallation) {
     throw new Error(
-      "An organization is already configured. Please refresh the page and try again."
+      "An organization is already configured. Please refresh the page and try again.",
     );
   }
 
@@ -290,7 +290,7 @@ export async function postFirstTimeRegister(
 export async function postForgotPassword(
   // eslint-disable-next-line
   req: Request<any, any, { email: unknown }>,
-  res: Response
+  res: Response,
 ) {
   const { email } = req.body;
   if (!email || typeof email !== "string") {
@@ -306,7 +306,7 @@ export async function postForgotPassword(
 
 export async function getResetPassword(
   req: Request<{ token: unknown }>,
-  res: Response
+  res: Response,
 ) {
   const { token } = req.params;
   if (!token || typeof token !== "string") {
@@ -349,7 +349,7 @@ export async function getSSOConnectionFromDomain(req: Request, res: Response) {
 export async function postResetPassword(
   // eslint-disable-next-line
   req: Request<{ token: unknown }, any, { password: unknown }>,
-  res: Response
+  res: Response,
 ) {
   const { token } = req.params;
   const { password } = req.body;
@@ -393,7 +393,7 @@ export async function postChangePassword(
     currentPassword: string;
     newPassword: string;
   }>,
-  res: Response
+  res: Response,
 ) {
   const { currentPassword, newPassword } = req.body;
   const { userId } = getContextFromReq(req);

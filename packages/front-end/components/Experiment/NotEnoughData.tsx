@@ -49,7 +49,7 @@ export default function NotEnoughData({
               <span className="nowrap">
                 {formatDistance(
                   0,
-                  rowResults.enoughDataMeta.timeRemainingMs ?? 0
+                  rowResults.enoughDataMeta.timeRemainingMs ?? 0,
                 )}
               </span>{" "}
               left

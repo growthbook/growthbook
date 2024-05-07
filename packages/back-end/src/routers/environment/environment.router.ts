@@ -21,12 +21,12 @@ router.put(
               toggleOnList: z.boolean().optional(),
               defaultState: z.boolean().optional(),
             })
-            .strict()
+            .strict(),
         ),
       })
       .strict(),
   }),
-  environmentController.putEnvironments
+  environmentController.putEnvironments,
 );
 
 router.post(
@@ -43,7 +43,7 @@ router.post(
       })
       .strict(),
   }),
-  environmentController.postEnvironment
+  environmentController.postEnvironment,
 );
 
 export { router as environmentRouter };

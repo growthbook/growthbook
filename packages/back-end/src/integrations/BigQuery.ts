@@ -21,9 +21,8 @@ export default class BigQuery extends SqlIntegration {
   params: BigQueryConnectionParams;
   requiresEscapingPath = true;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<BigQueryConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<BigQueryConnectionParams>(encryptedParams);
   }
   isWritingTablesSupported(): boolean {
     return true;
@@ -58,14 +57,14 @@ export default class BigQuery extends SqlIntegration {
     const [apiResult] = await job.cancel();
     logger.debug(
       `Cancelled BigQuery job ${externalId} - ${JSON.stringify(
-        apiResult.job?.status
-      )}`
+        apiResult.job?.status,
+      )}`,
     );
   }
 
   async runQuery(
     sql: string,
-    setExternalId?: ExternalIdCallback
+    setExternalId?: ExternalIdCallback,
   ): Promise<QueryResponse> {
     const client = this.getClient();
 
@@ -83,7 +82,7 @@ export default class BigQuery extends SqlIntegration {
     const [metadata] = await job.getMetadata();
     const statistics = {
       executionDurationMs: Number(
-        metadata?.statistics?.finalExecutionDurationMs
+        metadata?.statistics?.finalExecutionDurationMs,
       ),
       totalSlotMs: Number(metadata?.statistics?.totalSlotMs),
       bytesProcessed: Number(metadata?.statistics?.totalBytesProcessed),
@@ -99,7 +98,7 @@ export default class BigQuery extends SqlIntegration {
 
   createUnitsTableOptions() {
     return bigQueryCreateTableOptions(
-      this.datasource.settings.pipelineSettings ?? {}
+      this.datasource.settings.pipelineSettings ?? {},
     );
   }
 
@@ -107,7 +106,7 @@ export default class BigQuery extends SqlIntegration {
     col: string,
     unit: "hour" | "minute",
     sign: "+" | "-",
-    amount: number
+    amount: number,
   ): string {
     return `DATETIME_${
       sign === "+" ? "ADD" : "SUB"
@@ -122,7 +121,7 @@ export default class BigQuery extends SqlIntegration {
       | bq.BigQueryDatetime
       | bq.BigQueryTimestamp
       | bq.BigQueryDate
-      | undefined
+      | undefined,
   ) {
     if (!fromDB?.value) return getValidDate(null);
 
@@ -169,7 +168,7 @@ export default class BigQuery extends SqlIntegration {
     return this.generateTablePath(
       "INFORMATION_SCHEMA.COLUMNS",
       schema,
-      database
+      database,
     );
   }
 
@@ -210,7 +209,7 @@ export default class BigQuery extends SqlIntegration {
 
       try {
         const { rows: datasetResults } = await this.runQuery(
-          format(query, this.getFormatDialect())
+          format(query, this.getFormatDialect()),
         );
 
         if (datasetResults.length > 0) {
@@ -219,7 +218,7 @@ export default class BigQuery extends SqlIntegration {
       } catch (e) {
         logger.error(
           `Error fetching information schema data for dataset: ${datasetName}`,
-          e
+          e,
         );
       }
     }
@@ -230,7 +229,7 @@ export default class BigQuery extends SqlIntegration {
 
     return formatInformationSchema(
       results as RawInformationSchema[],
-      this.datasource.type
+      this.datasource.type,
     );
   }
 }

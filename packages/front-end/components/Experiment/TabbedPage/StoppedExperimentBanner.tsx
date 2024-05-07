@@ -30,7 +30,7 @@ export default function StoppedExperimentBanner({
 
   const hasLiveLinkedChanges = includeExperimentInPayload(
     experiment,
-    linkedFeatures.map((f) => f.feature)
+    linkedFeatures.map((f) => f.feature),
   );
 
   if (experiment.status !== "stopped") return null;
@@ -41,8 +41,8 @@ export default function StoppedExperimentBanner({
     (result === "lost"
       ? experiment.variations[0]?.name
       : result === "won"
-      ? experiment.variations[experiment.winner || 1]?.name
-      : "") || "";
+        ? experiment.variations[experiment.winner || 1]?.name
+        : "") || "";
 
   const releasedVariation =
     experiment.variations.find((v) => v.id === experiment.releasedVariationId)

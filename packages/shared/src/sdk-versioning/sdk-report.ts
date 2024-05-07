@@ -54,13 +54,13 @@ function updateInfo(lang: string, { versions, capabilities }: Info) {
   const defaultCaps = getSDKCapabilities(sdkLang, defaultVersion);
   const latestCaps = difference(
     getSDKCapabilities(sdkLang, latestVersion),
-    defaultCaps
+    defaultCaps,
   );
   defaultCaps.forEach(
-    (cap) => (versions[versionKey(lang, cap)] = defaultVersion)
+    (cap) => (versions[versionKey(lang, cap)] = defaultVersion),
   );
   latestCaps.forEach(
-    (cap) => (versions[versionKey(lang, cap)] = latestVersion)
+    (cap) => (versions[versionKey(lang, cap)] = latestVersion),
   );
   capabilities.push(...defaultCaps);
   capabilities.push(...latestCaps);
@@ -68,15 +68,15 @@ function updateInfo(lang: string, { versions, capabilities }: Info) {
 
 function captable(languages: string[]) {
   const defaultVersions = languages.map((lang) =>
-    getDefaultSDKVersion(lang as SDKLanguage)
+    getDefaultSDKVersion(lang as SDKLanguage),
   );
   const latestVersions = languages.map((lang) =>
-    getLatestSDKVersion(lang as SDKLanguage)
+    getLatestSDKVersion(lang as SDKLanguage),
   );
   const info = getInfo(languages);
   const capsRows = info.capabilities.map((capability) => {
     const langVersions = languages.map(
-      (lang) => info.versions[versionKey(lang, capability)] || ""
+      (lang) => info.versions[versionKey(lang, capability)] || "",
     );
     return [capability, ...langVersions];
   });

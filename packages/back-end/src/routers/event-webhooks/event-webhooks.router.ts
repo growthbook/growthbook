@@ -41,7 +41,7 @@ router.post(
       })
       .strict(),
   }),
-  eventWebHooksController.createEventWebHook
+  eventWebHooksController.createEventWebHook,
 );
 
 /**
@@ -57,7 +57,7 @@ router.get(
       })
       .strict(),
   }),
-  eventWebHooksController.getEventWebHookLogs
+  eventWebHooksController.getEventWebHookLogs,
 );
 
 /**
@@ -73,7 +73,7 @@ router.get(
       })
       .strict(),
   }),
-  eventWebHooksController.getEventWebHook
+  eventWebHooksController.getEventWebHook,
 );
 
 /**
@@ -89,7 +89,7 @@ router.delete(
       })
       .strict(),
   }),
-  eventWebHooksController.deleteEventWebHook
+  eventWebHooksController.deleteEventWebHook,
 );
 
 /**
@@ -119,7 +119,7 @@ router.put(
       })
       .strict(),
   }),
-  eventWebHooksController.putEventWebHook
+  eventWebHooksController.putEventWebHook,
 );
 
 router.post(
@@ -131,7 +131,7 @@ router.post(
       })
       .strict(),
   }),
-  eventWebHooksController.createTestEventWebHook
+  eventWebHooksController.createTestEventWebHook,
 );
 
 export { router as eventWebHooksRouter };

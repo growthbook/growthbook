@@ -13,7 +13,7 @@ type GetEventsResponse = {
 
 export const getEvents = async (
   req: GetEventsRequest,
-  res: Response<GetEventsResponse | ApiErrorResponse>
+  res: Response<GetEventsResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -34,7 +34,7 @@ type GetEventResponse = {
 
 export const getEventById = async (
   req: GetEventRequest,
-  res: Response<GetEventResponse | ApiErrorResponse>
+  res: Response<GetEventResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -44,7 +44,7 @@ export const getEventById = async (
 
   const event = await Event.getEventForOrganization(
     req.params.id,
-    context.org.id
+    context.org.id,
   );
   if (!event) {
     return res.status(404).json({ message: "Not Found" });

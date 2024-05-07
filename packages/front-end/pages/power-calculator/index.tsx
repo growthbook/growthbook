@@ -46,12 +46,8 @@ const PowerCalculationPage = (): React.ReactElement => {
     FullModalPowerCalculationParams | undefined
   >(initialParams.powerCalculationParams);
 
-  const [
-    settingsModalParams,
-    setSettingsModalParams,
-  ] = useState<PartialPowerCalculationParams>(
-    initialParams.settingsModalParams
-  );
+  const [settingsModalParams, setSettingsModalParams] =
+    useState<PartialPowerCalculationParams>(initialParams.settingsModalParams);
 
   const [variations, setVariations] = useState(initialParams.variations);
 
@@ -62,7 +58,7 @@ const PowerCalculationPage = (): React.ReactElement => {
         ? orgSettings.sequentialTestingTuningParameter ||
           DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
         : false,
-    }
+    },
   );
 
   useEffect(() => {
@@ -73,7 +69,7 @@ const PowerCalculationPage = (): React.ReactElement => {
         settingsModalParams,
         variations,
         statsEngine,
-      })
+      }),
     );
   }, [powerCalculationParams, settingsModalParams, variations, statsEngine]);
 

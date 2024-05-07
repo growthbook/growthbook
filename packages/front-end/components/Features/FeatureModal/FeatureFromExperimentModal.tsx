@@ -48,7 +48,7 @@ export type Props = {
 
 function parseDefaultValue(
   defaultValue: string,
-  valueType: FeatureValueType
+  valueType: FeatureValueType,
 ): string {
   if (valueType === "boolean") {
     return defaultValue === "true" ? "true" : "false";
@@ -141,7 +141,7 @@ export default function FeatureFromExperimentModal({
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByExperiment(
     allEnvironments,
-    experiment
+    experiment,
   );
   const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
@@ -168,10 +168,10 @@ export default function FeatureFromExperimentModal({
   const form = useForm({ defaultValues });
 
   const [showTags, setShowTags] = useState(
-    experiment.tags && experiment.tags.length > 0
+    experiment.tags && experiment.tags.length > 0,
   );
   const [showDescription, setShowDescription] = useState(
-    experiment.description && experiment.description.length > 0
+    experiment.description && experiment.description.length > 0,
   );
 
   const { apiCall } = useAuth();
@@ -221,7 +221,7 @@ export default function FeatureFromExperimentModal({
       form.watch("variations").map((v) => ({
         ...v,
         value: transformValue(v.value),
-      }))
+      })),
     );
   }
 
@@ -264,7 +264,7 @@ export default function FeatureFromExperimentModal({
         if (newRule) {
           form.setValue(
             "variations",
-            (newRule as ExperimentRefRule).variations
+            (newRule as ExperimentRefRule).variations,
           );
           hasChanges = true;
         }
@@ -273,7 +273,7 @@ export default function FeatureFromExperimentModal({
           const newDefaultValue = validateFeatureValue(
             feature as FeatureInterface,
             feature.defaultValue,
-            "Value"
+            "Value",
           );
           if (newDefaultValue !== feature.defaultValue) {
             form.setValue("defaultValue", newDefaultValue);
@@ -283,7 +283,7 @@ export default function FeatureFromExperimentModal({
 
         if (hasChanges) {
           throw new Error(
-            "We fixed some errors in the feature. If it looks correct, submit again."
+            "We fixed some errors in the feature. If it looks correct, submit again.",
           );
         }
 
@@ -295,19 +295,19 @@ export default function FeatureFromExperimentModal({
               body: JSON.stringify({
                 rule: rule,
               }),
-            }
+            },
           );
         } else {
           featureToCreate.defaultValue = parseDefaultValue(
             values.defaultValue,
-            valueType
+            valueType,
           );
 
           // Add experiment rule to all environments
           Object.values(featureToCreate.environmentSettings).forEach(
             (settings) => {
               settings.rules.push(rule);
-            }
+            },
           );
 
           await apiCall<{ feature: FeatureInterface }>(`/feature`, {

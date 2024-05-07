@@ -16,7 +16,7 @@ router.delete("/:id", sdkConnectionController.deleteSDKConnection);
 
 router.post(
   "/:id/check-proxy",
-  sdkConnectionController.checkSDKConnectionProxyStatus
+  sdkConnectionController.checkSDKConnectionProxyStatus,
 );
 
 export { router as sdkConnectionRouter };

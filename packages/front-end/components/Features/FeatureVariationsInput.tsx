@@ -59,7 +59,7 @@ export default function FeatureVariationsInput({
   const weights = variations.map((v) => v.weight);
   const isEqualWeights = weights.every((w) => w === weights[0]);
   const [customSplit, setCustomSplit] = useState(
-    customSplitOn ?? !isEqualWeights
+    customSplitOn ?? !isEqualWeights,
   );
 
   const setEqualWeights = () => {
@@ -202,7 +202,7 @@ export default function FeatureVariationsInput({
 
                             const newWeights = distributeWeights(
                               [...weights, 0],
-                              customSplit
+                              customSplit,
                             );
 
                             // Add a new value and update weights

@@ -131,7 +131,7 @@ export default function PrerequisiteModal({
         newFeature,
         featuresMap,
         revision,
-        envs
+        envs,
       )[0];
     }
     return [featuresStates, wouldBeCyclicStates];
@@ -154,16 +154,16 @@ export default function PrerequisiteModal({
     .filter(
       (f) =>
         !prerequisites.map((p) => p.id).includes(f.id) ||
-        f.id === prerequisite?.id
+        f.id === prerequisite?.id,
     )
     .filter((f) => (f.project || "") === (feature?.project || ""))
     .filter((f) => f.valueType === "boolean")
     .map((f) => {
       const conditional = Object.values(featuresStates[f.id]).some(
-        (s) => s.state === "conditional"
+        (s) => s.state === "conditional",
       );
       const cyclic = Object.values(featuresStates[f.id]).some(
-        (s) => s.state === "cyclic"
+        (s) => s.state === "cyclic",
       );
       const wouldBeCyclic = wouldBeCyclicStates[f.id];
       const disabled =
@@ -207,7 +207,7 @@ export default function PrerequisiteModal({
               prerequisite: values,
               i,
             }),
-          }
+          },
         );
         mutate();
       })}

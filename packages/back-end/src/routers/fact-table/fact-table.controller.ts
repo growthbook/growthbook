@@ -32,7 +32,7 @@ import { runRefreshColumnsQuery } from "../../jobs/refreshFactTableColumns";
 
 export const getFactTables = async (
   req: AuthRequest,
-  res: Response<{ status: 200; factTables: FactTableInterface[] }>
+  res: Response<{ status: 200; factTables: FactTableInterface[] }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -48,7 +48,7 @@ async function testFilterQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   factTable: FactTableInterface,
-  filter: string
+  filter: string,
 ): Promise<FactFilterTestResults> {
   if (!context.permissions.canRunTestQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -67,7 +67,7 @@ async function testFilterQuery(
     ) f WHERE ${filter}`,
     {
       eventName: factTable.eventName,
-    }
+    },
   );
 
   try {
@@ -86,7 +86,7 @@ async function testFilterQuery(
 
 export const postFactTable = async (
   req: AuthRequest<CreateFactTableProps>,
-  res: Response<{ status: 200; factTable: FactTableInterface }>
+  res: Response<{ status: 200; factTable: FactTableInterface }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -106,7 +106,7 @@ export const postFactTable = async (
   data.columns = await runRefreshColumnsQuery(
     context,
     datasource,
-    data as FactTableInterface
+    data as FactTableInterface,
   );
   if (!data.columns.length) {
     throw new Error("SQL did not return any rows");
@@ -125,7 +125,7 @@ export const postFactTable = async (
 
 export const putFactTable = async (
   req: AuthRequest<UpdateFactTableProps, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -166,7 +166,7 @@ export const putFactTable = async (
 
 export const deleteFactTable = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -187,7 +187,7 @@ export const deleteFactTable = async (
 
 export const putColumn = async (
   req: AuthRequest<UpdateColumnProps, { id: string; column: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -213,7 +213,7 @@ export const postFactFilterTest = async (
   res: Response<{
     status: 200;
     result: FactFilterTestResults;
-  }>
+  }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -236,7 +236,7 @@ export const postFactFilterTest = async (
     context,
     datasource,
     factTable,
-    data.value
+    data.value,
   );
 
   res.status(200).json({
@@ -247,7 +247,7 @@ export const postFactFilterTest = async (
 
 export const postFactFilter = async (
   req: AuthRequest<CreateFactFilterProps, { id: string }>,
-  res: Response<{ status: 200; filterId: string }>
+  res: Response<{ status: 200; filterId: string }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -276,7 +276,7 @@ export const postFactFilter = async (
 
 export const putFactFilter = async (
   req: AuthRequest<UpdateFactFilterProps, { id: string; filterId: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -299,7 +299,7 @@ export const putFactFilter = async (
 
 export const deleteFactFilter = async (
   req: AuthRequest<null, { id: string; filterId: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -320,7 +320,7 @@ export const deleteFactFilter = async (
 
 export const getFactMetrics = async (
   req: AuthRequest,
-  res: Response<{ status: 200; factMetrics: FactMetricInterface[] }>
+  res: Response<{ status: 200; factMetrics: FactMetricInterface[] }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -334,7 +334,7 @@ export const getFactMetrics = async (
 
 export const postFactMetric = async (
   req: AuthRequest<unknown>,
-  res: Response<{ status: 200; factMetric: FactMetricInterface }>
+  res: Response<{ status: 200; factMetric: FactMetricInterface }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -349,7 +349,7 @@ export const postFactMetric = async (
 
 export const putFactMetric = async (
   req: AuthRequest<unknown, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -363,7 +363,7 @@ export const putFactMetric = async (
 
 export const deleteFactMetric = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
 

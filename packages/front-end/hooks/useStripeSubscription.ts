@@ -9,7 +9,7 @@ import usePermissionsUtil from "./usePermissionsUtils";
 export default function useStripeSubscription() {
   const selfServePricingEnabled = useFeature("self-serve-billing").on;
   const showSeatOverageBanner = useFeature(
-    "self-serve-billing-overage-warning-banner"
+    "self-serve-billing-overage-warning-banner",
   ).on;
 
   const { organization, license } = useUser();
@@ -43,19 +43,19 @@ export default function useStripeSubscription() {
 
   // We will treat past_due as active so as to not interrupt users
   const hasActiveSubscription = ["active", "trialing", "past_due"].includes(
-    subscriptionStatus || ""
+    subscriptionStatus || "",
   );
 
   const nextBillDate = new Date(
-    (stripeSubscription?.current_period_end || 0) * 1000
+    (stripeSubscription?.current_period_end || 0) * 1000,
   ).toDateString();
 
   const dateToBeCanceled = new Date(
-    (stripeSubscription?.cancel_at || 0) * 1000
+    (stripeSubscription?.cancel_at || 0) * 1000,
   ).toDateString();
 
   const cancelationDate = new Date(
-    (stripeSubscription?.canceled_at || 0) * 1000
+    (stripeSubscription?.canceled_at || 0) * 1000,
   ).toDateString();
 
   const pendingCancelation =

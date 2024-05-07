@@ -29,13 +29,13 @@ const updateStaleInformationSchemaTable = trackJob(
 
     const informationSchemaTable = await getInformationSchemaTableById(
       organization,
-      informationSchemaTableId
+      informationSchemaTableId,
     );
 
     if (!informationSchemaTable) {
       logger.error(
         "Unable to find information schema table in order to refresh stale data: " +
-          informationSchemaTableId
+          informationSchemaTableId,
       );
       return;
     }
@@ -44,18 +44,18 @@ const updateStaleInformationSchemaTable = trackJob(
 
     const datasource = await getDataSourceById(
       context,
-      informationSchemaTable.datasourceId
+      informationSchemaTable.datasourceId,
     );
 
     const informationSchema = await getInformationSchemaById(
       organization,
-      informationSchemaTable.informationSchemaId
+      informationSchemaTable.informationSchemaId,
     );
 
     if (!datasource || !informationSchema) {
       logger.error(
         "Unable to find datasource or information schema in order to refresh stale data: " +
-          informationSchemaTableId
+          informationSchemaTableId,
       );
       return;
     }
@@ -65,13 +65,13 @@ const updateStaleInformationSchemaTable = trackJob(
         context,
         datasource,
         informationSchema,
-        informationSchemaTableId
+        informationSchemaTableId,
       );
 
       if (!tableData) {
         logger.error(
           "Unable to fetch table data in order to refresh stale data: " +
-            informationSchemaTableId
+            informationSchemaTableId,
         );
         return;
       }
@@ -88,7 +88,7 @@ const updateStaleInformationSchemaTable = trackJob(
               columnName: row.column_name,
             }),
           };
-        }
+        },
       );
 
       // update the information schema table
@@ -98,7 +98,7 @@ const updateStaleInformationSchemaTable = trackJob(
         {
           columns,
           dateUpdated: new Date(),
-        }
+        },
       );
     } catch (e) {
       logger.error(
@@ -106,10 +106,10 @@ const updateStaleInformationSchemaTable = trackJob(
         "Unable to refresh stale information schema table for: " +
           informationSchemaTableId +
           " Error: " +
-          e.message
+          e.message,
       );
     }
-  }
+  },
 );
 
 let agenda: Agenda;
@@ -118,13 +118,13 @@ export default function (ag: Agenda) {
 
   agenda.define(
     UPDATE_STALE_INFORMATION_SCHEMA_TABLE_JOB_NAME,
-    updateStaleInformationSchemaTable
+    updateStaleInformationSchemaTable,
   );
 }
 
 export async function queueUpdateStaleInformationSchemaTable(
   organization: string,
-  informationSchemaTableId: string
+  informationSchemaTableId: string,
 ) {
   if (!informationSchemaTableId || !organization) return;
 

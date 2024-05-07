@@ -14,7 +14,7 @@ router.put(
     type: "image/*",
     limit: "10mb",
   }),
-  uploadController.putUpload
+  uploadController.putUpload,
 );
 
 export { router as uploadRouter };

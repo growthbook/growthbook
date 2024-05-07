@@ -12,9 +12,8 @@ export default class ClickHouse extends SqlIntegration {
   requiresDatabase = false;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<ClickHouseConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<ClickHouseConnectionParams>(encryptedParams);
 
     if (this.params.user) {
       this.params.username = this.params.user;
@@ -40,7 +39,7 @@ export default class ClickHouse extends SqlIntegration {
       clickhouse_settings: {
         max_execution_time: Math.min(
           this.params.maxExecutionTime ?? 1800,
-          3600
+          3600,
         ),
       },
     });
@@ -68,7 +67,7 @@ export default class ClickHouse extends SqlIntegration {
     col: string,
     unit: "hour" | "minute",
     sign: "+" | "-",
-    amount: number
+    amount: number,
   ): string {
     return `date${sign === "+" ? "Add" : "Sub"}(${unit}, ${amount}, ${col})`;
   }
@@ -100,7 +99,7 @@ export default class ClickHouse extends SqlIntegration {
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)
       throw new Error(
-        "No database name provided in ClickHouse connection. Please add a database by editing the connection settings."
+        "No database name provided in ClickHouse connection. Please add a database by editing the connection settings.",
       );
     return `table_schema IN ('${this.params.database}')`;
   }

@@ -95,7 +95,7 @@ export function getFactMetricGroups(
   metrics: ExperimentMetricInterface[],
   settings: ExperimentSnapshotSettings,
   integration: SourceIntegrationInterface,
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
 ): GroupedMetrics {
   const defaultReturn: GroupedMetrics = {
     groups: [],
@@ -163,8 +163,8 @@ export const startExperimentResultQueries = async (
   integration: SourceIntegrationInterface,
   organization: OrganizationInterface,
   startQuery: (
-    params: StartQueryParams<RowsType, ProcessedRowsType>
-  ) => Promise<QueryPointer>
+    params: StartQueryParams<RowsType, ProcessedRowsType>,
+  ) => Promise<QueryPointer>,
 ): Promise<Queries> => {
   const snapshotSettings = params.snapshotSettings;
   const queryParentId = params.queryParentId;
@@ -182,8 +182,8 @@ export const startExperimentResultQueries = async (
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
   const selectedMetrics = Array.from(
     new Set(
-      snapshotSettings.goalMetrics.concat(snapshotSettings.guardrailMetrics)
-    )
+      snapshotSettings.goalMetrics.concat(snapshotSettings.guardrailMetrics),
+    ),
   )
     .map((m) => metricMap.get(m))
     .filter((m) => m) as ExperimentMetricInterface[];
@@ -195,19 +195,19 @@ export const startExperimentResultQueries = async (
   if (snapshotSettings.segment) {
     segmentObj = await findSegmentById(
       snapshotSettings.segment,
-      organization.id
+      organization.id,
     );
   }
 
   const settings = integration.datasource.settings;
 
   const exposureQuery = (settings?.queries?.exposure || []).find(
-    (q) => q.id === snapshotSettings.exposureQueryId
+    (q) => q.id === snapshotSettings.exposureQueryId,
   );
 
   const dimensionObj = await parseDimensionId(
     snapshotSettings.dimensions[0]?.id,
-    organization.id
+    organization.id,
   );
 
   const queries: Queries = [];
@@ -226,7 +226,7 @@ export const startExperimentResultQueries = async (
           `growthbook_tmp_units_${queryParentId}`,
           settings.pipelineSettings?.writeDataset,
           "",
-          true
+          true,
         )
       : "";
 
@@ -257,7 +257,7 @@ export const startExperimentResultQueries = async (
     // The Mixpanel integration does not support writing tables
     if (!integration.generateTablePath) {
       throw new Error(
-        "Unable to generate table; table path generator not specified."
+        "Unable to generate table; table path generator not specified.",
       );
     }
     unitQuery = await startQuery({
@@ -276,7 +276,7 @@ export const startExperimentResultQueries = async (
     selectedMetrics,
     params.snapshotSettings,
     integration,
-    organization
+    organization,
   );
 
   const singlePromises = singles.map(async (m) => {
@@ -285,10 +285,10 @@ export const startExperimentResultQueries = async (
       denominatorMetrics.push(
         ...expandDenominatorMetrics(
           m.denominator,
-          metricMap as Map<string, MetricInterface>
+          metricMap as Map<string, MetricInterface>,
         )
           .map((m) => metricMap.get(m) as MetricInterface)
-          .filter(Boolean)
+          .filter(Boolean),
       );
     }
     const queryParams: ExperimentMetricQueryParams = {
@@ -311,7 +311,7 @@ export const startExperimentResultQueries = async (
           integration.runExperimentMetricQuery(query, setExternalId),
         process: (rows) => rows,
         queryType: "experimentMetric",
-      })
+      }),
     );
   });
 
@@ -342,11 +342,11 @@ export const startExperimentResultQueries = async (
         run: (query, setExternalId) =>
           (integration as SqlIntegration).runExperimentFactMetricsQuery(
             query,
-            setExternalId
+            setExternalId,
           ),
         process: (rows) => rows,
         queryType: "experimentMultiMetric",
-      })
+      }),
     );
   });
 
@@ -382,7 +382,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
-      this.integration.datasource
+      this.integration.datasource,
     );
   }
 
@@ -396,7 +396,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         params,
         this.integration,
         this.context.org,
-        this.startQuery.bind(this)
+        this.startQuery.bind(this),
       );
     } else {
       return this.startLegacyQueries(params);
@@ -472,8 +472,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         status === "running"
           ? "running"
           : status === "failed"
-          ? "error"
-          : "success",
+            ? "error"
+            : "success",
     };
     await updateSnapshot({
       organization: this.model.organization,
@@ -488,7 +488,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   private async startLegacyQueries(
-    params: ExperimentResultsQueryParams
+    params: ExperimentResultsQueryParams,
   ): Promise<Queries> {
     const snapshotSettings = params.snapshotSettings;
     const metricMap = params.metricMap;
@@ -500,8 +500,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     // Only include metrics tied to this experiment (both goal and guardrail metrics)
     const selectedMetrics = Array.from(
       new Set(
-        snapshotSettings.goalMetrics.concat(snapshotSettings.guardrailMetrics)
-      )
+        snapshotSettings.goalMetrics.concat(snapshotSettings.guardrailMetrics),
+      ),
     )
       .map((m) => metricMap.get(m))
       .filter((m) => m) as ExperimentMetricInterface[];
@@ -511,7 +511,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
 
     const dimensionObj = await parseDimensionId(
       snapshotSettings.dimensions[0]?.id,
-      this.model.organization
+      this.model.organization,
     );
 
     const dimension =
@@ -520,7 +520,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       snapshotSettings,
       selectedMetrics,
       activationMetric,
-      dimension
+      dimension,
     );
 
     return [
@@ -534,7 +534,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
             snapshotSettings,
             selectedMetrics,
             activationMetric,
-            dimension
+            dimension,
             // eslint-disable-next-line
           )) as any[];
           return { rows: rows };
@@ -547,7 +547,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
 
   private processLegacyExperimentResultsResponse(
     snapshotSettings: ExperimentSnapshotSettings,
-    rows: ExperimentQueryResponses
+    rows: ExperimentQueryResponses,
   ): ExperimentResults {
     const ret: ExperimentResults = {
       dimensions: [],

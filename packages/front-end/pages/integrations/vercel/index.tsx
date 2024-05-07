@@ -19,12 +19,11 @@ export default function VercelIntegrationPage() {
   const permissionsUtil = usePermissionsUtil();
 
   const { data } = useApi<{ hasToken: boolean }>("/vercel/has-token");
-  const [integrationAlreadyExists, setIntegrationAlreadyExists] = useState(
-    false
-  );
+  const [integrationAlreadyExists, setIntegrationAlreadyExists] =
+    useState(false);
 
   const [envModalOpen, setEnvModalOpen] = useState<Partial<Environment> | null>(
-    null
+    null,
   );
   const [gbVercelEnvMap, setGbVercelEnvMap] = useState<GbVercelEnvMap>([
     { vercel: "production", gb: "" },

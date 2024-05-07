@@ -38,10 +38,10 @@ export default function RuleStatusPill({
           <strong>Skip Rule: </strong>
           <span className="badge badge-info">
             {`Disabled by a schedule on ${new Date(
-              lastRule.timestamp
+              lastRule.timestamp,
             ).toLocaleDateString()} at ${formatTimeZone(
               new Date(lastRule.timestamp),
-              "h:mm a z"
+              "h:mm a z",
             )}`}
           </span>
         </div>
@@ -57,10 +57,10 @@ export default function RuleStatusPill({
           {`Will be ${
             upcomingScheduleRule.enabled ? "enabled" : "disabled"
           } on ${new Date(
-            upcomingScheduleRule.timestamp
+            upcomingScheduleRule.timestamp,
           ).toLocaleDateString()} at ${formatTimeZone(
             new Date(upcomingScheduleRule.timestamp),
-            "h:mm a z"
+            "h:mm a z",
           )}`}
         </span>
       </div>

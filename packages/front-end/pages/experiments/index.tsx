@@ -42,24 +42,22 @@ const NUM_PER_PAGE = 20;
 const ExperimentsPage = (): React.ReactElement => {
   const growthbook = useGrowthBook<AppFeatures>();
 
-  const {
-    ready,
-    project,
-    getExperimentMetricById,
-    getProjectById,
-  } = useDefinitions();
+  const { ready, project, getExperimentMetricById, getProjectById } =
+    useDefinitions();
 
   const { orgId } = useAuth();
 
-  const { experiments: allExperiments, error, loading } = useExperiments(
-    project
-  );
+  const {
+    experiments: allExperiments,
+    error,
+    loading,
+  } = useExperiments(project);
 
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
   const tagsFilter = useTagsFilter("experiments");
   const [showMineOnly, setShowMineOnly] = useLocalStorage(
     "showMyExperimentsOnly",
-    false
+    false,
   );
   const router = useRouter();
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
@@ -88,19 +86,19 @@ const ExperimentsPage = (): React.ReactElement => {
         tab: exp.archived
           ? "archived"
           : exp.status === "draft"
-          ? "drafts"
-          : exp.status,
+            ? "drafts"
+            : exp.status,
         date:
           (exp.archived
             ? exp.dateUpdated
             : exp.status === "running"
-            ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
-            : exp.status === "stopped"
-            ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
-            : exp.dateCreated) ?? "",
+              ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
+              : exp.status === "stopped"
+                ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
+                : exp.dateCreated) ?? "",
       };
     },
-    [getExperimentMetricById, getProjectById]
+    [getExperimentMetricById, getProjectById],
   );
 
   const demoExperimentId = useMemo(() => {
@@ -115,14 +113,14 @@ const ExperimentsPage = (): React.ReactElement => {
       if (showMineOnly) {
         items = items.filter(
           (item) =>
-            item.owner === userId || watchedExperiments.includes(item.id)
+            item.owner === userId || watchedExperiments.includes(item.id),
         );
       }
       items = filterByTags(items, tagsFilter.tags);
 
       return items;
     },
-    [showMineOnly, userId, tagsFilter.tags, watchedExperiments]
+    [showMineOnly, userId, tagsFilter.tags, watchedExperiments],
   );
 
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
@@ -190,7 +188,7 @@ const ExperimentsPage = (): React.ReactElement => {
   }
 
   const hasExperiments = experiments.some(
-    (e) => !e.id.match(/^exp_sample/) && e.id !== demoExperimentId
+    (e) => !e.id.match(/^exp_sample/) && e.id !== demoExperimentId,
   );
 
   if (!hasExperiments) {
@@ -299,10 +297,10 @@ const ExperimentsPage = (): React.ReactElement => {
                       active && tabs.length > 1
                         ? `Hide ${tab} experiments`
                         : active
-                        ? `Remove filter`
-                        : tabs.length === 0
-                        ? `View only ${tab} experiments`
-                        : `Include ${tab} experiments`
+                          ? `Remove filter`
+                          : tabs.length === 0
+                            ? `View only ${tab} experiments`
+                            : `Include ${tab} experiments`
                     }
                   >
                     <span className="mr-1">
@@ -447,12 +445,12 @@ const ExperimentsPage = (): React.ReactElement => {
                       {e.tab === "running"
                         ? "started"
                         : e.tab === "drafts"
-                        ? "created"
-                        : e.tab === "stopped"
-                        ? "ended"
-                        : e.tab === "archived"
-                        ? "updated"
-                        : ""}{" "}
+                          ? "created"
+                          : e.tab === "stopped"
+                            ? "ended"
+                            : e.tab === "archived"
+                              ? "updated"
+                              : ""}{" "}
                       {ago(e.date)}
                     </td>
                     <td className="nowrap" data-title="Summary:">

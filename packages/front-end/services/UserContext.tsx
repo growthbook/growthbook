@@ -61,11 +61,11 @@ export interface PermissionFunctions {
   check(
     permission: EnvScopedPermission,
     project: string[] | string | undefined,
-    envs: string[]
+    envs: string[],
   ): boolean;
   check(
     permission: ProjectScopedPermission,
-    project: string[] | string | undefined
+    project: string[] | string | undefined,
   ): boolean;
 }
 
@@ -160,7 +160,7 @@ export const UserContext = createContext<UserContextValue>({
       },
       projects: {},
     },
-    false
+    false,
   ),
 });
 
@@ -232,7 +232,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           }
           return res;
         },
-        []
+        [],
       );
       return { ...team, members: hydratedMembers };
     });
@@ -318,7 +318,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     (
       permission: Permission,
       project?: string[] | string,
-      envs?: string[]
+      envs?: string[],
     ): boolean => {
       if (!currentOrg?.currentUserPermissions || !currentOrg || !data?.userId)
         return false;
@@ -328,10 +328,10 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         currentOrg.currentUserPermissions,
         permission,
         project,
-        envs ? [...envs] : undefined
+        envs ? [...envs] : undefined,
       );
     },
-    [currentOrg, data?.superAdmin, data?.userId]
+    [currentOrg, data?.superAdmin, data?.userId],
   );
 
   const permissions = useMemo(() => {
@@ -364,7 +364,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       },
       projects: {},
     },
-    data?.superAdmin || false
+    data?.superAdmin || false,
   );
 
   return (

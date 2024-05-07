@@ -19,17 +19,17 @@ describe("backend", () => {
 
     // Skip empty weights
     expect(+checkSrm([1000, 1200, 900], [0.5, 0.5, 0]).toFixed(9)).toEqual(
-      0.000020079
+      0.000020079,
     );
 
     // Skip empty users
     expect(+checkSrm([0, 505, 500], [0.34, 0.33, 0.33]).toFixed(9)).toEqual(
-      0.874677381
+      0.874677381,
     );
 
     // More than 2 variations
     expect(+checkSrm([500, 500, 600], [0.34, 0.33, 0.33]).toFixed(9)).toEqual(
-      0.000592638
+      0.000592638,
     );
 
     // Completely equal

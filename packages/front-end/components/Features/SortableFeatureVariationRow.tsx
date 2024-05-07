@@ -54,14 +54,14 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       setWeight,
       ...props
     },
-    ref
+    ref,
   ) => {
     const weights = variations.map((v) => v.weight);
 
     const rebalanceAndUpdate = (
       i: number,
       newValue: number,
-      precision: number = 4
+      precision: number = 4,
     ) => {
       if (!setWeight) return;
       rebalance(weights, i, newValue, precision).forEach((w, j) => {
@@ -150,7 +150,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                         i,
                         e.target.value === ""
                           ? 0
-                          : percentToDecimal(e.target.value)
+                          : percentToDecimal(e.target.value),
                       );
                       if (e.target.value === "") {
                         // I hate this, but not is also the easiest
@@ -191,7 +191,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                       disabled={variations.length <= 2}
                       className={clsx(
                         "dropdown-item",
-                        variations.length > 2 && "text-danger"
+                        variations.length > 2 && "text-danger",
                       )}
                       onClick={(e) => {
                         e.preventDefault();
@@ -201,7 +201,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
 
                         const newWeights = distributeWeights(
                           newValues.map((v) => v.weight),
-                          customSplit
+                          customSplit,
                         );
 
                         newValues.forEach((v, j) => {
@@ -221,19 +221,14 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
         </td>
       </tr>
     );
-  }
+  },
 );
 
 VariationRow.displayName = "VariationRow";
 
 export function SortableFeatureVariationRow(props: SortableProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: props.variation.id });
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: props.variation.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),

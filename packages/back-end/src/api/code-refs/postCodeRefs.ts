@@ -21,7 +21,7 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
           codeRefs: refs,
           organization: req.context.org,
         });
-      })
+      }),
     );
 
     return {
@@ -34,5 +34,5 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
         })
       ).map((f) => f.feature),
     };
-  }
+  },
 );

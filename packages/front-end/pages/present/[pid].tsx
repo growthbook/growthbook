@@ -12,7 +12,7 @@ const DynamicPresentation = dynamic(
   {
     ssr: false,
     //loading: () => (<p>Loading...</p>) // this causes a lint error
-  }
+  },
 );
 
 const PresentPage = (): React.ReactElement => {

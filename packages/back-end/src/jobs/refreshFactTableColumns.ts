@@ -42,7 +42,7 @@ const refreshFactTableColumns = trackJob(
       const columns = await runRefreshColumnsQuery(
         context,
         datasource,
-        factTable
+        factTable,
       );
       updates.columns = columns;
       updates.columnsError = null;
@@ -51,13 +51,13 @@ const refreshFactTableColumns = trackJob(
     }
 
     await updateFactTableColumns(factTable, updates);
-  }
+  },
 );
 
 export async function runRefreshColumnsQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
-  factTable: Pick<FactTableInterface, "sql" | "eventName" | "columns">
+  factTable: Pick<FactTableInterface, "sql" | "eventName" | "columns">,
 ): Promise<ColumnInterface[]> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -133,7 +133,7 @@ export default function (ag: Agenda) {
 }
 
 export async function queueFactTableColumnsRefresh(
-  factTable: FactTableInterface
+  factTable: FactTableInterface,
 ) {
   const job = agenda.create(JOB_NAME, {
     organization: factTable.organization,

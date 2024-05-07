@@ -31,10 +31,10 @@ export function getLatestDimensionSlices(
   metadataId: string | undefined,
   apiCall: <T>(
     url: string | null,
-    options?: RequestInit | undefined
+    options?: RequestInit | undefined,
   ) => Promise<T>,
   setId: (id: string) => void,
-  mutate: () => void
+  mutate: () => void,
 ): void {
   if (!dataSourceId || !exposureQueryId) return;
   if (metadataId) {
@@ -43,7 +43,7 @@ export function getLatestDimensionSlices(
     return;
   } else {
     apiCall<{ dimensionSlices: DimensionSlicesInterface }>(
-      `/dimension-slices/datasource/${dataSourceId}/${exposureQueryId}`
+      `/dimension-slices/datasource/${dataSourceId}/${exposureQueryId}`,
     )
       .then((res) => {
         if (res?.dimensionSlices?.id) {
@@ -64,15 +64,12 @@ type UpdateDimensionMetadataModalProps = {
   onSave: (exposureQuery: ExposureQuery) => void;
 };
 
-export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps> = ({
-  exposureQuery,
-  dataSource,
-  close,
-  onSave,
-}) => {
+export const UpdateDimensionMetadataModal: FC<
+  UpdateDimensionMetadataModalProps
+> = ({ exposureQuery, dataSource, close, onSave }) => {
   const { apiCall } = useAuth();
   const [id, setId] = useState<string | null>(
-    exposureQuery.dimensionSlicesId || null
+    exposureQuery.dimensionSlicesId || null,
   );
   const { data, error, mutate } = useApi<{
     dimensionSlices: DimensionSlicesInterface;
@@ -91,9 +88,9 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
         metadataId,
         apiCall,
         setId,
-        mutate
+        mutate,
       ),
-    [dataSourceId, exposureQueryId, metadataId, setId, apiCall, mutate]
+    [dataSourceId, exposureQueryId, metadataId, setId, apiCall, mutate],
   );
 
   if (error) {
@@ -101,7 +98,7 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
   }
   const { status } = getQueryStatus(
     data?.dimensionSlices?.queries || [],
-    data?.dimensionSlices?.error
+    data?.dimensionSlices?.error,
   );
 
   const saveEnabled =
@@ -388,7 +385,7 @@ export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
         <tbody>
           {dimensions.map((r) => {
             const dimensionValueResult = dimensionSlices?.results.find(
-              (d) => d.dimension === r
+              (d) => d.dimension === r,
             );
             let totalPercent = 0;
             return (
@@ -409,7 +406,7 @@ export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
                                 </code>
                               </Fragment>
                               <span>{` (${smallPercentFormatter.format(
-                                d.percent / 100.0
+                                d.percent / 100.0,
                               )})`}</span>
                             </>
                           );
@@ -423,7 +420,7 @@ export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
                           <code key={`${r}-code-_other_`}>__Other__</code>
                         </Fragment>
                         <span>{` (${smallPercentFormatter.format(
-                          (100.0 - totalPercent) / 100.0
+                          (100.0 - totalPercent) / 100.0,
                         )})`}</span>
                       </div>
                     </>
@@ -433,11 +430,11 @@ export const DimensionSlicesResults: FC<DimensionSlicesProps> = ({
                       (!dimensionSlices || !dimensionValueResult)
                         ? "Run dimension slices query to populate"
                         : status === "succeeded" &&
-                          dimensionSlices?.results?.length === 0
-                        ? "No data found"
-                        : status === "running"
-                        ? "Updating data"
-                        : ""}
+                            dimensionSlices?.results?.length === 0
+                          ? "No data found"
+                          : status === "running"
+                            ? "Updating data"
+                            : ""}
                     </div>
                   )}
                 </td>

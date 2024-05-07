@@ -99,7 +99,7 @@ const MetricTooltipBody = ({
         (metric.windowSettings.windowValue !== 0 ||
           metricOverrideFields.includes("windowHours")),
       label: `${capitalizeFirstLetter(
-        metric.windowSettings.type || "no"
+        metric.windowSettings.type || "no",
       )} Window`,
       body: (
         <>

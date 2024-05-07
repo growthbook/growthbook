@@ -39,7 +39,7 @@ type CreateSavedGroupResponse = {
  */
 export const postSavedGroup = async (
   req: CreateSavedGroupRequest,
-  res: Response<CreateSavedGroupResponse>
+  res: Response<CreateSavedGroupResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org, userName } = context;
@@ -109,7 +109,7 @@ type PutSavedGroupResponse = {
  */
 export const putSavedGroup = async (
   req: PutSavedGroupRequest,
-  res: Response<PutSavedGroupResponse | ApiErrorResponse>
+  res: Response<PutSavedGroupResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -220,7 +220,7 @@ type DeleteSavedGroupResponse =
  */
 export const deleteSavedGroup = async (
   req: DeleteSavedGroupRequest,
-  res: Response<DeleteSavedGroupResponse>
+  res: Response<DeleteSavedGroupResponse>,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);

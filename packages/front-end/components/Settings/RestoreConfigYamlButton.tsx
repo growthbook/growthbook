@@ -49,13 +49,8 @@ export default function RestoreConfigYamlButton({
   settings?: OrganizationSettings;
   mutate: () => void;
 }) {
-  const {
-    datasources,
-    metrics,
-    dimensions,
-    mutateDefinitions,
-    segments,
-  } = useDefinitions();
+  const { datasources, metrics, dimensions, mutateDefinitions, segments } =
+    useDefinitions();
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
@@ -206,7 +201,7 @@ export default function RestoreConfigYamlButton({
         Object.keys(origConfig.datasources).forEach((k) => {
           sanitizeSecrets(
             // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-            origConfig.datasources[k] as DataSourceInterfaceWithParams
+            origConfig.datasources[k] as DataSourceInterfaceWithParams,
           );
         });
       }
@@ -222,7 +217,7 @@ export default function RestoreConfigYamlButton({
         dump(newConfig, { skipInvalid: true }),
         "",
         "",
-        { context: 10 }
+        { context: 10 },
       );
 
       setDiffHTML(html(patch, {}));

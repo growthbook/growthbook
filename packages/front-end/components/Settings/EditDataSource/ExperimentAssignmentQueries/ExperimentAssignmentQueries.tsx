@@ -18,25 +18,21 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 type UIMode = "view" | "edit" | "add" | "dimension";
-export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> = ({
-  dataSource,
-  onSave,
-  onCancel,
-  canEdit = true,
-}) => {
+export const ExperimentAssignmentQueries: FC<
+  ExperimentAssignmentQueriesProps
+> = ({ dataSource, onSave, onCancel, canEdit = true }) => {
   const router = useRouter();
   let intitialOpenIndexes: boolean[] = [];
   if (router.query.openAll === "1") {
     intitialOpenIndexes = Array.from(
-      Array(dataSource.settings?.queries?.exposure?.length || 0)
+      Array(dataSource.settings?.queries?.exposure?.length || 0),
     ).fill(true);
   }
 
   const [uiMode, setUiMode] = useState<UIMode>("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
-  const [openIndexes, setOpenIndexes] = useState<boolean[]>(
-    intitialOpenIndexes
-  );
+  const [openIndexes, setOpenIndexes] =
+    useState<boolean[]>(intitialOpenIndexes);
 
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
@@ -49,7 +45,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
       setOpenIndexes(updatedOpenIndexes);
     },
-    [openIndexes]
+    [openIndexes],
   );
 
   const handleCancel = useCallback(() => {
@@ -62,7 +58,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     () => dataSource.settings?.queries.exposure || [],
     // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    [dataSource.settings?.queries.exposure]
+    [dataSource.settings?.queries.exposure],
   );
 
   const handleAdd = useCallback(() => {
@@ -75,7 +71,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
       setEditingIndex(idx);
       setUiMode(uiMode);
     },
-    []
+    [],
   );
 
   const handleActionDeleteClicked = useCallback(
@@ -87,7 +83,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
       await onSave(copy);
     },
-    [onSave, dataSource]
+    [onSave, dataSource],
   );
 
   const handleSave = useCallback(
@@ -97,7 +93,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
       copy.settings.queries.exposure[idx] = exposureQuery;
       await onSave(copy);
     },
-    [dataSource, onSave]
+    [dataSource, onSave],
   );
 
   const [validatingQuery, setValidatingQuery] = useState(false);
@@ -110,7 +106,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
       await onSave(copy);
       setValidatingQuery(false);
     },
-    [dataSource, onSave]
+    [dataSource, onSave],
   );
 
   if (!dataSource) {

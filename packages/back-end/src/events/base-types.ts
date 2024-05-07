@@ -20,7 +20,7 @@ export const notificationEventNames = [
   "webhook.test",
 ] as const;
 
-export type NotificationEventName = typeof notificationEventNames[number];
+export type NotificationEventName = (typeof notificationEventNames)[number];
 
 /**
  * Supported resources for event notifications
@@ -32,7 +32,8 @@ export const notificationEventResources = [
   "webhook",
 ] as const;
 
-export type NotificationEventResource = typeof notificationEventResources[number];
+export type NotificationEventResource =
+  (typeof notificationEventResources)[number];
 
 /**
  * Event Notification payload
@@ -41,7 +42,7 @@ export type NotificationEventPayload<
   EventName extends NotificationEventName &
     (ResourceType extends string ? `${ResourceType}.${string}` : unknown),
   ResourceType extends NotificationEventResource | unknown,
-  DataType
+  DataType,
 > = {
   event: EventName;
   object: ResourceType;

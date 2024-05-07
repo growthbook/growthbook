@@ -42,12 +42,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       req.checkPermissions(
         "publishFeatures",
         feature.project,
-        getEnabledEnvironments(feature, orgEnvs)
+        getEnabledEnvironments(feature, orgEnvs),
       );
       req.checkPermissions(
         "publishFeatures",
         project,
-        getEnabledEnvironments(feature, orgEnvs)
+        getEnabledEnvironments(feature, orgEnvs),
       );
     }
 
@@ -66,7 +66,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       req.body.environments != null
         ? updateInterfaceEnvSettingsFromApiEnvSettings(
             feature,
-            req.body.environments
+            req.body.environments,
           )
         : null;
 
@@ -100,8 +100,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             ...feature,
             ...updates,
           },
-          orgEnvs
-        )
+          orgEnvs,
+        ),
       );
       addIdsToRules(updates.environmentSettings, feature.id);
     }
@@ -127,7 +127,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             if (
               !isEqual(
                 settings.rules,
-                feature.environmentSettings?.[env]?.rules || []
+                feature.environmentSettings?.[env]?.rules || [],
               )
             ) {
               hasChanges = true;
@@ -135,7 +135,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
               revisionChanges.rules = revisionChanges.rules || {};
               revisionChanges.rules[env] = settings.rules;
             }
-          }
+          },
         );
       }
 
@@ -144,12 +144,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           feature,
           changedEnvironments,
           defaultValueChanged,
-          req.organization.settings
+          req.organization.settings,
         );
         if (reviewRequired) {
           if (!req.context.permissions.canBypassApprovalChecks(feature)) {
             throw new Error(
-              "This feature requires a review and the API key being used does not have permission to bypass reviews."
+              "This feature requires a review and the API key being used does not have permission to bypass reviews.",
             );
           }
         }
@@ -172,13 +172,13 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     const updatedFeature = await updateFeatureToDb(
       req.context,
       feature,
-      updates
+      updates,
     );
 
     await addTagsDiff(
       req.organization.id,
       feature.tags || [],
-      updates.tags || []
+      updates.tags || [],
     );
 
     await req.audit({
@@ -194,7 +194,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const experimentMap = await getExperimentMapForFeature(
       req.context,
-      feature.id
+      feature.id,
     );
 
     return {
@@ -205,5 +205,5 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
         experimentMap,
       }),
     };
-  }
+  },
 );

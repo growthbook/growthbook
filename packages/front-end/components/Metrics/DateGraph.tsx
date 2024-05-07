@@ -50,7 +50,7 @@ function getTooltipDataFromDatapoint(
   datapoint: Datapoint,
   data: Datapoint[],
   innerWidth: number,
-  yScale: ScaleLinear<unknown, unknown, never>
+  yScale: ScaleLinear<unknown, unknown, never>,
 ) {
   const index = data.indexOf(datapoint);
   if (index === -1) {
@@ -66,13 +66,13 @@ function getDateFromX(
   data: Datapoint[],
   width: number,
   marginLeft: number,
-  marginRight: number
+  marginRight: number,
 ) {
   const innerWidth = width - marginRight - marginLeft + width / data.length - 1;
   const px = x / innerWidth;
   const index = Math.max(
     Math.min(Math.round(px * data.length), data.length - 1),
-    0
+    0,
   );
   const datapoint = data[index];
   return getValidDate(datapoint.d).getTime();
@@ -83,7 +83,7 @@ function getTooltipContents(
   type: MetricType,
   method: "sum" | "avg",
   smoothBy: "day" | "week",
-  displayCurrency?: string
+  displayCurrency?: string,
 ) {
   if (!d || d.oor) return null;
   const formatter = getMetricFormatter(type);
@@ -128,7 +128,7 @@ function addStddev(
   value?: number,
   stddev?: number,
   num: number = 1,
-  add: boolean = true
+  add: boolean = true,
 ) {
   value = value ?? 0;
   stddev = stddev ?? 0;
@@ -226,7 +226,7 @@ const DateGraph: FC<DateGraphProps> = ({
         return ret;
       }),
 
-    [dates, smoothBy, method]
+    [dates, smoothBy, method],
   );
 
   const toolTipDelay = 600;
@@ -351,7 +351,7 @@ const DateGraph: FC<DateGraphProps> = ({
         range: [0, xMax],
         round: true,
       }),
-    [min, max, xMax]
+    [min, max, xMax],
   );
 
   const yScale = useMemo(
@@ -364,7 +364,7 @@ const DateGraph: FC<DateGraphProps> = ({
         range: [graphHeight, 0],
         round: true,
       }),
-    [data, graphHeight]
+    [data, graphHeight],
   );
 
   const {
@@ -380,10 +380,8 @@ const DateGraph: FC<DateGraphProps> = ({
     undefined | ReturnType<typeof setTimeout>
   >();
 
-  const [
-    highlightExp,
-    setHighlightExp,
-  ] = useState<null | ExperimentDisplayData>(null);
+  const [highlightExp, setHighlightExp] =
+    useState<null | ExperimentDisplayData>(null);
 
   useEffect(() => {
     if (!hoverDate) {
@@ -401,7 +399,7 @@ const DateGraph: FC<DateGraphProps> = ({
       datapoint,
       data,
       innerWidth,
-      yScale
+      yScale,
     );
     if (!tooltipData) {
       hideTooltip();
@@ -429,7 +427,7 @@ const DateGraph: FC<DateGraphProps> = ({
         const xMax = width - marginRight - marginLeft;
 
         const handlePointerMove = (
-          event: React.PointerEvent<HTMLDivElement>
+          event: React.PointerEvent<HTMLDivElement>,
         ) => {
           // coordinates should be relative to the container in which Tooltip is rendered
           const containerX =
@@ -439,7 +437,7 @@ const DateGraph: FC<DateGraphProps> = ({
             data,
             width,
             marginLeft,
-            marginRight
+            marginRight,
           );
           if (onHover) {
             onHover({ d: date });
@@ -491,7 +489,7 @@ const DateGraph: FC<DateGraphProps> = ({
                         type,
                         method,
                         smoothBy,
-                        displayCurrency
+                        displayCurrency,
                       )}
                   </TooltipWithBounds>
                 </>
@@ -539,7 +537,7 @@ const DateGraph: FC<DateGraphProps> = ({
                             onMouseLeave={() => {
                               clearTimeout(toolTipTimer);
                               setToolTipTimer(
-                                setTimeout(setHighlightExp, toolTipDelay, null)
+                                setTimeout(setHighlightExp, toolTipDelay, null),
                               );
                             }}
                           />
@@ -716,7 +714,7 @@ const DateGraph: FC<DateGraphProps> = ({
                         onMouseLeave={() => {
                           clearTimeout(toolTipTimer);
                           setToolTipTimer(
-                            setTimeout(setHighlightExp, toolTipDelay, null)
+                            setTimeout(setHighlightExp, toolTipDelay, null),
                           );
                         }}
                       />
@@ -741,7 +739,7 @@ const DateGraph: FC<DateGraphProps> = ({
                 onMouseLeave={() => {
                   clearTimeout(toolTipTimer);
                   setToolTipTimer(
-                    setTimeout(setHighlightExp, toolTipDelay, null)
+                    setTimeout(setHighlightExp, toolTipDelay, null),
                   );
                 }}
               >

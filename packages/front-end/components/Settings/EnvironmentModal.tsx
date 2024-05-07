@@ -44,10 +44,10 @@ export default function EnvironmentModal({
 
   const selectedProjects = form.watch("projects") ?? [];
   const removedProjects = (existing?.projects ?? []).filter(
-    (p) => !selectedProjects.includes(p)
+    (p) => !selectedProjects.includes(p),
   );
   const addedProjects = selectedProjects.filter(
-    (p) => !(existing?.projects ?? []).includes(p)
+    (p) => !(existing?.projects ?? []).includes(p),
   );
   const hasMoreSpecificProjectFilter =
     (removedProjects.length > 0 && selectedProjects.length > 0) ||
@@ -84,7 +84,7 @@ export default function EnvironmentModal({
         } else {
           if (!value.id?.match(/^[A-Za-z][A-Za-z0-9_-]*$/)) {
             throw new Error(
-              "Environment id is invalid. Must start with a letter and can only contain letters, numbers, hyphens, and underscores."
+              "Environment id is invalid. Must start with a letter and can only contain letters, numbers, hyphens, and underscores.",
             );
           }
           if (newEnvs.find((e) => e.id === value.id)) {

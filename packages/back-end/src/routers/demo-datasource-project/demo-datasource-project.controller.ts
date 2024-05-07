@@ -79,8 +79,7 @@ const DEMO_METRICS: Pick<
     name: "Purchases - Total Revenue (72 hour window)",
     description: "The total amount of USD spent aggregated at the user level",
     type: "revenue",
-    sql:
-      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM orders",
+    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM orders",
     windowSettings: CONVERSION_WINDOW_SETTINGS,
   },
   {
@@ -94,8 +93,7 @@ const DEMO_METRICS: Pick<
     name: DENOMINATOR_METRIC_NAME,
     description: "Total number of discrete orders placed by a user",
     type: "count",
-    sql:
-      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\n1 AS value\nFROM orders",
+    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\n1 AS value\nFROM orders",
     windowSettings: CONVERSION_WINDOW_SETTINGS,
   },
   {
@@ -109,8 +107,7 @@ const DEMO_METRICS: Pick<
       windowUnit: "days",
       windowValue: 13,
     },
-    sql:
-      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM pages WHERE path = '/'",
+    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM pages WHERE path = '/'",
   },
   {
     name: "Days Active in Next 7 Days",
@@ -124,8 +121,7 @@ const DEMO_METRICS: Pick<
       windowValue: 7,
     },
     aggregation: "COUNT(DISTINCT value)",
-    sql:
-      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\nDATE_TRUNC('day', timestamp) AS value\nFROM pages WHERE path = '/'",
+    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\nDATE_TRUNC('day', timestamp) AS value\nFROM pages WHERE path = '/'",
   },
 ];
 
@@ -137,8 +133,7 @@ const DEMO_RATIO_METRIC: Pick<
   description:
     "The average value of purchases made in the 72 hours after exposure divided by the total number of purchases",
   type: "revenue",
-  sql:
-    "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM orders",
+  sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM orders",
 };
 
 // endregion Constants for Demo Datasource
@@ -164,7 +159,7 @@ export const postDemoDatasourceProject = async (
   res: Response<
     CreateDemoDatasourceProjectResponse | PrivateApiErrorResponse,
     EventAuditUserForResponseLocals
-  >
+  >,
 ) => {
   const context = getContextFromReq(req);
 
@@ -186,13 +181,13 @@ export const postDemoDatasourceProject = async (
 
   const existingDemoProject: ProjectInterface | null = await findProjectById(
     context,
-    demoProjId
+    demoProjId,
   );
 
   if (existingDemoProject) {
     const existingExperiments = await getAllExperiments(
       context,
-      existingDemoProject.id
+      existingDemoProject.id,
     );
 
     res.status(200).json({
@@ -216,7 +211,7 @@ export const postDemoDatasourceProject = async (
       DEMO_DATASOURCE_SETTINGS,
       undefined,
       "",
-      [project.id]
+      [project.id],
     );
 
     // Create metrics
@@ -232,11 +227,11 @@ export const postDemoDatasourceProject = async (
           projects: [project.id],
           tags: DEMO_TAGS,
         });
-      })
+      }),
     );
 
     const denominatorMetricId = metrics.find(
-      (m) => m.name === DENOMINATOR_METRIC_NAME
+      (m) => m.name === DENOMINATOR_METRIC_NAME,
     )?.id;
     const ratioMetric = denominatorMetricId
       ? await createMetric({

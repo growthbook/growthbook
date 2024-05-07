@@ -21,10 +21,8 @@ export interface Props {
 }
 
 export default function ConditionGroups({ groups, mutate }: Props) {
-  const [
-    savedGroupForm,
-    setSavedGroupForm,
-  ] = useState<null | Partial<SavedGroupInterface>>(null);
+  const [savedGroupForm, setSavedGroupForm] =
+    useState<null | Partial<SavedGroupInterface>>(null);
   const permissionsUtil = usePermissionsUtil();
   const canCreate = permissionsUtil.canCreateSavedGroup();
   const canUpdate = permissionsUtil.canUpdateSavedGroup();
@@ -173,7 +171,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                                     mutate();
                                   }}
                                   getConfirmationContent={getSavedGroupMessage(
-                                    savedGroupFeatureIds[s.id]
+                                    savedGroupFeatureIds[s.id],
                                   )}
                                   canDelete={
                                     (savedGroupFeatureIds[s.id]?.size || 0) ===

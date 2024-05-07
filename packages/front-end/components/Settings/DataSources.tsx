@@ -20,25 +20,18 @@ const DataSources: FC = () => {
 
   const router = useRouter();
 
-  const {
-    datasources,
-    project,
-    error,
-    mutateDefinitions,
-    ready,
-  } = useDefinitions();
+  const { datasources, project, error, mutateDefinitions, ready } =
+    useDefinitions();
   const filteredDatasources = project
     ? datasources.filter((ds) =>
-        isProjectListValidForProject(ds.projects, project)
+        isProjectListValidForProject(ds.projects, project),
       )
     : datasources;
 
   const permissionsUtil = usePermissionsUtil();
 
-  const {
-    exists: demoDataSourceExists,
-    currentProjectIsDemo,
-  } = useDemoDataSourceProject();
+  const { exists: demoDataSourceExists, currentProjectIsDemo } =
+    useDemoDataSourceProject();
   const buttonTitle = currentProjectIsDemo
     ? "You cannot create a datasource under the demo project"
     : "";

@@ -119,14 +119,14 @@ export default function ExperimentReportsList({
                           `/report/${report.id}`,
                           {
                             method: "DELETE",
-                          }
+                          },
                         );
                         trackReport(
                           "delete",
                           "ExperimentReportsList",
                           getDatasourceById(report.args.datasource)?.type ||
                             null,
-                          report
+                          report,
                         );
                         mutate();
                       }}

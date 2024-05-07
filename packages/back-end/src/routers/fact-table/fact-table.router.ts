@@ -28,7 +28,7 @@ router.post(
   validateRequestMiddleware({
     body: createFactTablePropsValidator,
   }),
-  factTableController.postFactTable
+  factTableController.postFactTable,
 );
 
 router.put(
@@ -37,7 +37,7 @@ router.put(
     params: factTableParams,
     body: updateFactTablePropsValidator,
   }),
-  factTableController.putFactTable
+  factTableController.putFactTable,
 );
 
 router.delete(
@@ -45,7 +45,7 @@ router.delete(
   validateRequestMiddleware({
     params: factTableParams,
   }),
-  factTableController.deleteFactTable
+  factTableController.deleteFactTable,
 );
 
 router.put(
@@ -54,7 +54,7 @@ router.put(
     params: columnParams,
     body: updateColumnPropsValidator,
   }),
-  factTableController.putColumn
+  factTableController.putColumn,
 );
 
 router.post(
@@ -63,7 +63,7 @@ router.post(
     params: factTableParams,
     body: createFactFilterPropsValidator,
   }),
-  factTableController.postFactFilter
+  factTableController.postFactFilter,
 );
 
 router.put(
@@ -72,7 +72,7 @@ router.put(
     params: filterParams,
     body: updateFactFilterPropsValidator,
   }),
-  factTableController.putFactFilter
+  factTableController.putFactFilter,
 );
 
 router.post(
@@ -81,7 +81,7 @@ router.post(
     params: factTableParams,
     body: testFactFilterPropsValidator,
   }),
-  factTableController.postFactFilterTest
+  factTableController.postFactFilterTest,
 );
 
 router.delete(
@@ -89,7 +89,7 @@ router.delete(
   validateRequestMiddleware({
     params: filterParams,
   }),
-  factTableController.deleteFactFilter
+  factTableController.deleteFactFilter,
 );
 
 router.post("/fact-metrics", factTableController.postFactMetric);
@@ -99,7 +99,7 @@ router.put(
   validateRequestMiddleware({
     params: factMetricParams,
   }),
-  factTableController.putFactMetric
+  factTableController.putFactMetric,
 );
 
 router.delete(
@@ -107,7 +107,7 @@ router.delete(
   validateRequestMiddleware({
     params: factMetricParams,
   }),
-  factTableController.deleteFactMetric
+  factTableController.deleteFactMetric,
 );
 
 export { router as factTableRouter };

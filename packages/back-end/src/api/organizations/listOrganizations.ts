@@ -11,26 +11,24 @@ import {
 import { listOrganizationsValidator } from "../../validators/openapi";
 
 export const listOrganizations = createApiRequestHandler(
-  listOrganizationsValidator
-)(
-  async (req): Promise<ListOrganizationsResponse> => {
-    await validateIsSuperUserRequest(req);
+  listOrganizationsValidator,
+)(async (req): Promise<ListOrganizationsResponse> => {
+  await validateIsSuperUserRequest(req);
 
-    const organizations = await findAllOrganizations(
-      1 + req.query.offset / req.query.limit,
-      req.query.search || "",
-      req.query.limit
-    );
+  const organizations = await findAllOrganizations(
+    1 + req.query.offset / req.query.limit,
+    req.query.search || "",
+    req.query.limit,
+  );
 
-    return {
-      organizations: organizations.organizations.map((organization) =>
-        toOrganizationApiInterface(organization)
-      ),
-      ...getPaginationReturnFields(
-        organizations.organizations,
-        organizations.total,
-        req.query
-      ),
-    };
-  }
-);
+  return {
+    organizations: organizations.organizations.map((organization) =>
+      toOrganizationApiInterface(organization),
+    ),
+    ...getPaginationReturnFields(
+      organizations.organizations,
+      organizations.total,
+      req.query,
+    ),
+  };
+});

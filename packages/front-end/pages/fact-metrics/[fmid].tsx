@@ -146,10 +146,10 @@ function ColumnRefSQL({
     id === "$$count"
       ? "COUNT(*)"
       : id === "$$distinctUsers"
-      ? `COUNT(DISTINCT \`User Identifier\`)`
-      : quantileType === "event"
-      ? `\`${name || columnRef.column}\``
-      : `SUM(\`${name || columnRef.column}\`)`;
+        ? `COUNT(DISTINCT \`User Identifier\`)`
+        : quantileType === "event"
+          ? `\`${name || columnRef.column}\``
+          : `SUM(\`${name || columnRef.column}\`)`;
 
   const from = showFrom ? `\nFROM \`${factTable.name}\`` : "";
 
@@ -390,7 +390,7 @@ export default function FactMetricPage() {
                 <strong className="mr-2" style={{ width: 120 }}>
                   {factMetric.metricType === "quantile"
                     ? `${capitalizeFirstLetter(
-                        quantileMetricType(factMetric)
+                        quantileMetricType(factMetric),
                       )} Quantile`
                     : "Numerator"}
                 </strong>
@@ -399,7 +399,7 @@ export default function FactMetricPage() {
                     <div className="mb-1">
                       {factMetric.metricType === "quantile"
                         ? `${getPercentileLabel(
-                            factMetric.quantileSettings?.quantile ?? 0.5
+                            factMetric.quantileSettings?.quantile ?? 0.5,
                           )} ${
                             factMetric.quantileSettings?.ignoreZeros
                               ? ", ignoring zeros, "
@@ -535,7 +535,7 @@ export default function FactMetricPage() {
                         <li className="mb-2">
                           <span className="uppercase-title lg">
                             {capitalizeFirstLetter(
-                              factMetric.cappingSettings.type
+                              factMetric.cappingSettings.type,
                             )}
                             {" capping"}
                           </span>

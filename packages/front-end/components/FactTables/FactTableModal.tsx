@@ -28,21 +28,15 @@ export interface Props {
 }
 
 export default function FactTableModal({ existing, close }: Props) {
-  const {
-    datasources,
-    project,
-    getDatasourceById,
-    mutateDefinitions,
-  } = useDefinitions();
+  const { datasources, project, getDatasourceById, mutateDefinitions } =
+    useDefinitions();
   const settings = useOrgSettings();
   const router = useRouter();
 
   const [sqlOpen, setSqlOpen] = useState(false);
 
-  const [
-    showAdditionalColumnMessage,
-    setShowAdditionalColumnMessage,
-  ] = useState(false);
+  const [showAdditionalColumnMessage, setShowAdditionalColumnMessage] =
+    useState(false);
 
   const { apiCall } = useAuth();
 
@@ -72,7 +66,7 @@ export default function FactTableModal({ existing, close }: Props) {
 
     const [userIdTypes, sql] = getInitialMetricQuery(
       selectedDataSource,
-      "binomial"
+      "binomial",
     );
 
     form.setValue("userIdTypes", userIdTypes);
@@ -83,7 +77,7 @@ export default function FactTableModal({ existing, close }: Props) {
   const isNew = !existing;
   useEffect(() => {
     track(
-      isNew ? "Viewed Create Fact Table Modal" : "Viewed Edit Fact Table Modal"
+      isNew ? "Viewed Create Fact Table Modal" : "Viewed Edit Fact Table Modal",
     );
   }, [isNew]);
 
@@ -201,7 +195,7 @@ export default function FactTableModal({ existing, close }: Props) {
               ({ userIdType }) => ({
                 value: userIdType,
                 label: userIdType,
-              })
+              }),
             )}
             label="Identifier Types Supported"
           />

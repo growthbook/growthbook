@@ -49,7 +49,7 @@ export interface TrackSnapshotProps {
 let jitsu: JitsuClient;
 export default function track(
   event: string,
-  props: TrackEventProps = {}
+  props: TrackEventProps = {},
 ): void {
   // Only run client-side, not during SSR
   if (typeof window === "undefined") return;
@@ -109,7 +109,7 @@ export function trackSnapshot(
   event: "create" | "update" | "delete",
   source: string,
   datasourceType: string | null,
-  snapshot: ExperimentSnapshotInterface
+  snapshot: ExperimentSnapshotInterface,
 ): void {
   const trackingProps = snapshot
     ? getTrackingPropsFromSnapshot(snapshot, source, datasourceType)
@@ -124,7 +124,7 @@ export function trackReport(
   event: "create" | "update" | "delete",
   source: string,
   datasourceType: string | null,
-  report: ExperimentReportInterface
+  report: ExperimentReportInterface,
 ): void {
   const trackingProps = report
     ? getTrackingPropsFromReport(report, source, datasourceType)
@@ -138,10 +138,10 @@ export function trackReport(
 function getTrackingPropsFromSnapshot(
   snapshot: ExperimentSnapshotInterface,
   source: string,
-  datasourceType: string | null
+  datasourceType: string | null,
 ): TrackSnapshotProps {
   const parsedDim = parseSnapshotDimension(
-    snapshot.settings.dimensions.map((d) => d.id).join(", ") || ""
+    snapshot.settings.dimensions.map((d) => d.id).join(", ") || "",
   );
   const analysis = snapshot.analyses?.[0] as
     | ExperimentSnapshotAnalysis
@@ -152,8 +152,8 @@ function getTrackingPropsFromSnapshot(
     experiment: snapshot.experiment ? md5(snapshot.experiment) : "",
     engine: analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
     datasource_type: datasourceType,
-    regression_adjustment_enabled: !!snapshot.settings
-      .regressionAdjustmentEnabled,
+    regression_adjustment_enabled:
+      !!snapshot.settings.regressionAdjustmentEnabled,
     sequential_testing_enabled: !!analysis?.settings?.sequentialTesting,
     sequential_testing_tuning_parameter:
       analysis?.settings?.sequentialTestingTuningParameter ?? -99,
@@ -169,7 +169,7 @@ function getTrackingPropsFromSnapshot(
 function getTrackingPropsFromReport(
   report: ExperimentReportInterface,
   source: string,
-  datasourceType: string | null
+  datasourceType: string | null,
 ): TrackSnapshotProps {
   const parsedDim = parseSnapshotDimension(report.args.dimension ?? "");
   return {
@@ -191,9 +191,10 @@ function getTrackingPropsFromReport(
   };
 }
 
-export function parseSnapshotDimension(
-  dimension: string
-): { type: string; id: string } {
+export function parseSnapshotDimension(dimension: string): {
+  type: string;
+  id: string;
+} {
   if (!dimension) {
     return { type: "none", id: "" };
   }

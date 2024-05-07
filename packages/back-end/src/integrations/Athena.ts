@@ -11,9 +11,8 @@ export default class Athena extends SqlIntegration {
   params: AthenaConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<AthenaConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<AthenaConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
     return "trino";
@@ -26,7 +25,7 @@ export default class Athena extends SqlIntegration {
   }
   runQuery(
     sql: string,
-    setExternalId: ExternalIdCallback
+    setExternalId: ExternalIdCallback,
   ): Promise<QueryResponse> {
     return runAthenaQuery(this.params, sql, setExternalId);
   }
@@ -37,7 +36,7 @@ export default class Athena extends SqlIntegration {
     col: string,
     unit: "hour" | "minute",
     sign: "+" | "-",
-    amount: number
+    amount: number,
   ): string {
     return `${col} ${sign} INTERVAL '${amount}' ${unit}`;
   }

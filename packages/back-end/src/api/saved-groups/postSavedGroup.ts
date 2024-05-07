@@ -29,7 +29,7 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
     if (type === "condition") {
       if (attributeKey || values) {
         throw new Error(
-          "Cannot specify attributeKey or values for condition groups"
+          "Cannot specify attributeKey or values for condition groups",
         );
       }
 
@@ -45,7 +45,7 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
     else if (type === "list") {
       if (!attributeKey || !values) {
         throw new Error(
-          "Must specify an attributeKey and values for list groups"
+          "Must specify an attributeKey and values for list groups",
         );
       }
       if (condition) {
@@ -67,5 +67,5 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
     return {
       savedGroup: toSavedGroupApiInterface(savedGroup),
     };
-  }
+  },
 );

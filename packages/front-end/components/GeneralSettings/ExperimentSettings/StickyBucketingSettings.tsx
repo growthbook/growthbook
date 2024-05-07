@@ -40,7 +40,7 @@ export default function StickyBucketingSettings() {
                   setValue={(value) => {
                     setValue(
                       "useStickyBucketing",
-                      hasCommercialFeature("sticky-bucketing") ? value : false
+                      hasCommercialFeature("sticky-bucketing") ? value : false,
                     );
                   }}
                   disabled={

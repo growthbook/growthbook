@@ -10,9 +10,8 @@ export default class Redshift extends SqlIntegration {
   // @ts-expect-error
   params: PostgresConnectionParams;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<PostgresConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<PostgresConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
     return "redshift";

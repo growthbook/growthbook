@@ -23,12 +23,8 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function FactTablesPage() {
-  const {
-    factTables,
-    getDatasourceById,
-    project,
-    factMetrics,
-  } = useDefinitions();
+  const { factTables, getDatasourceById, project, factMetrics } =
+    useDefinitions();
 
   const router = useRouter();
 
@@ -53,7 +49,7 @@ export default function FactTablesPage() {
 
   const filteredFactTables = project
     ? factTables.filter((t) =>
-        isProjectListValidForProject(t.projects, project)
+        isProjectListValidForProject(t.projects, project),
       )
     : factTables;
 
@@ -72,7 +68,7 @@ export default function FactTablesPage() {
         userIdTypes: sortedUserIdTypes,
       };
     },
-    [getDatasourceById]
+    [getDatasourceById],
   );
 
   const tagsFilter = useTagsFilter("facttables");
@@ -81,7 +77,7 @@ export default function FactTablesPage() {
       items = filterByTags(items, tagsFilter.tags);
       return items;
     },
-    [tagsFilter.tags]
+    [tagsFilter.tags],
   );
 
   const { items, searchInputProps, isFiltered, SortableTH, clear } = useSearch({

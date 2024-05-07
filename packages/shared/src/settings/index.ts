@@ -50,7 +50,7 @@ export const resolvers: Record<
       project: "settings.multipleExposureMinPercent",
       experiment: true,
       report: true,
-    }
+    },
   ),
   defaultRole: genDefaultResolver("defaultRole"),
   statsEngine: genDefaultResolver(
@@ -62,7 +62,7 @@ export const resolvers: Record<
     },
     {
       bypassEmpty: true,
-    }
+    },
   ),
   pValueThreshold: genDefaultResolver("pValueThreshold", {
     project: "settings.pValueThreshold",
@@ -89,7 +89,7 @@ export const resolvers: Record<
 
 const scopeSettings = (
   baseSettings: ScopedSettings,
-  scopes: ScopeDefinition
+  scopes: ScopeDefinition,
 ): {
   settings: ScopedSettings;
   scopeSettings: ScopeSettingsFn;
@@ -107,7 +107,7 @@ const scopeSettings = (
       acc[fieldName as keyof Settings] = resolver(ctx);
       return acc;
     },
-    {} as ScopedSettings
+    {} as ScopedSettings,
   );
 
   return {
@@ -119,7 +119,7 @@ const scopeSettings = (
 // todo: currently for org-level interface
 // turns an InputSettings into ScopedSettings
 const normalizeInputSettings = (
-  inputSettings: InputSettings
+  inputSettings: InputSettings,
 ): ScopedSettings => {
   const scopedSettings: ScopedSettings = {} as ScopedSettings;
   const baseSettings = genDefaultSettings();
@@ -141,7 +141,7 @@ const normalizeInputSettings = (
 };
 
 export const getScopedSettings = (
-  scopes: ScopeDefinition
+  scopes: ScopeDefinition,
 ): ScopedSettingsReturn => {
   const settings = normalizeInputSettings(scopes.organization.settings || {});
 

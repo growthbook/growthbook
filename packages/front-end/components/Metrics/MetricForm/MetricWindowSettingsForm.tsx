@@ -26,7 +26,7 @@ export function MetricWindowSettingsForm({ form }) {
           onChange={(value) => {
             form.setValue(
               "windowSettings.windowUnit",
-              value as "days" | "hours" | "weeks"
+              value as "days" | "hours" | "weeks",
             );
           }}
           sort={false}
@@ -57,7 +57,7 @@ export function MetricWindowSettingsForm({ form }) {
           onChange={(value) => {
             form.setValue(
               "windowSettings.type",
-              value as "conversion" | "lookback" | ""
+              value as "conversion" | "lookback" | "",
             );
           }}
           sort={false}

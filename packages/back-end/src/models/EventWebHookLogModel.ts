@@ -49,7 +49,7 @@ const toInterface = (doc: EventWebHookLogDocument): EventWebHookLogDocument =>
 
 const EventWebHookLogModel = mongoose.model<EventWebHookLogInterface>(
   "EventWebHookLog",
-  eventWebHookLogSchema
+  eventWebHookLogSchema,
 );
 
 type CreateEventWebHookLogOptions = {
@@ -106,7 +106,7 @@ export const createEventWebHookLog = async ({
 export const getLatestRunsForWebHook = async (
   organizationId: string,
   eventWebHookId: string,
-  limit: number = 10
+  limit: number = 10,
 ): Promise<EventWebHookLogInterface[]> => {
   const docs = await EventWebHookLogModel.find({
     eventWebHookId,

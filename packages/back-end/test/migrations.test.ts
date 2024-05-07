@@ -251,7 +251,7 @@ describe("Metric Migration", () => {
         capping: "percentile",
         capValue: 0.99,
         cap: 35,
-      })
+      }),
     ).toEqual({
       ...baseMetric,
       cappingSettings: {
@@ -261,7 +261,7 @@ describe("Metric Migration", () => {
     });
 
     expect(
-      upgradeMetricDoc({ ...baseMetric, capping: "", capValue: 0.99, cap: 35 })
+      upgradeMetricDoc({ ...baseMetric, capping: "", capValue: 0.99, cap: 35 }),
     ).toEqual({
       ...baseMetric,
       cappingSettings: {
@@ -277,7 +277,7 @@ describe("Metric Migration", () => {
         capValue: 0.99,
         capping: "absolute",
         cap: 35,
-      })
+      }),
     ).toEqual({
       ...baseMetric,
       cappingSettings: {
@@ -454,7 +454,7 @@ describe("Datasource Migration", () => {
       upgradeDatasourceObject({
         ...baseDatasource,
         settings: { ...noUserIdTypes },
-      }).settings
+      }).settings,
     ).toEqual({
       userIdTypes: [
         {
@@ -480,7 +480,7 @@ describe("Datasource Migration", () => {
       upgradeDatasourceObject({
         ...baseDatasource,
         settings: { ...userIdTypes },
-      }).settings
+      }).settings,
     ).toEqual({
       ...userIdTypes,
     });
@@ -676,7 +676,7 @@ describe("Feature Migration", () => {
         ...origFeature,
         environments: ["dev"],
         rules: [rule],
-      })
+      }),
     ).toEqual(expected);
   });
 
@@ -721,7 +721,7 @@ describe("Feature Migration", () => {
             description: "",
           },
         ],
-      })
+      }),
     ).toEqual(origFeature);
   });
 
@@ -1015,7 +1015,8 @@ describe("Experiment Migration", () => {
       },
     ],
     sequentialTestingEnabled: false,
-    sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    sequentialTestingTuningParameter:
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   };
 
   it("upgrades experiment objects", () => {
@@ -1027,7 +1028,7 @@ describe("Experiment Migration", () => {
         ...exp,
         status: "stopped",
         results: "dnf",
-      })
+      }),
     ).toEqual({
       ...upgraded,
       status: "stopped",
@@ -1040,7 +1041,7 @@ describe("Experiment Migration", () => {
         ...exp,
         status: "stopped",
         results: "lost",
-      })
+      }),
     ).toEqual({
       ...upgraded,
       status: "stopped",
@@ -1054,7 +1055,7 @@ describe("Experiment Migration", () => {
         ...exp,
         status: "stopped",
         results: "won",
-      })
+      }),
     ).toEqual({
       ...upgraded,
       status: "stopped",
@@ -1069,7 +1070,7 @@ describe("Experiment Migration", () => {
         status: "stopped",
         results: "won",
         winner: 2,
-      })
+      }),
     ).toEqual({
       ...upgraded,
       status: "stopped",
@@ -1083,7 +1084,7 @@ describe("Experiment Migration", () => {
       upgradeExperimentDoc({
         ...exp,
         attributionModel: "firstExposure",
-      })
+      }),
     ).toEqual({
       ...upgraded,
       attributionModel: "firstExposure",
@@ -1103,7 +1104,7 @@ describe("Experiment Migration", () => {
             };
           }),
         ],
-      })
+      }),
     ).toEqual({
       ...upgraded,
       phases: [
@@ -1135,7 +1136,7 @@ describe("Organization Migration", () => {
     expect(
       upgradeOrganizationDoc({
         ...org,
-      })
+      }),
     ).toEqual({
       ...org,
       settings: {
@@ -1353,7 +1354,7 @@ describe("Snapshot Migration", () => {
     };
 
     expect(
-      migrateSnapshot(initial as LegacyExperimentSnapshotInterface)
+      migrateSnapshot(initial as LegacyExperimentSnapshotInterface),
     ).toEqual(result);
   });
 
@@ -1409,14 +1410,14 @@ describe("Snapshot Migration", () => {
     };
 
     expect(
-      migrateSnapshot(initial as LegacyExperimentSnapshotInterface)
+      migrateSnapshot(initial as LegacyExperimentSnapshotInterface),
     ).toEqual(result);
 
     initial.error = "foo";
     result.error = "foo";
     result.status = "error";
     expect(
-      migrateSnapshot(initial as LegacyExperimentSnapshotInterface)
+      migrateSnapshot(initial as LegacyExperimentSnapshotInterface),
     ).toEqual(result);
   });
 
@@ -1531,7 +1532,7 @@ describe("Snapshot Migration", () => {
     };
 
     expect(
-      migrateSnapshot(initial as LegacyExperimentSnapshotInterface)
+      migrateSnapshot(initial as LegacyExperimentSnapshotInterface),
     ).toEqual(result);
   });
 });
@@ -1552,7 +1553,7 @@ describe("saved group migrations", () => {
         ...baseSavedGroup,
         attributeKey: "foo",
         values: ["a", "b"],
-      })
+      }),
     ).toEqual({
       ...baseSavedGroup,
       attributeKey: "foo",
@@ -1568,7 +1569,7 @@ describe("saved group migrations", () => {
         attributeKey: "foo",
         values: ["a", "b"],
         source: "inline",
-      })
+      }),
     ).toEqual({
       ...baseSavedGroup,
       attributeKey: "foo",
@@ -1584,7 +1585,7 @@ describe("saved group migrations", () => {
         attributeKey: "foo",
         values: [],
         source: "runtime",
-      })
+      }),
     ).toEqual({
       ...baseSavedGroup,
       attributeKey: "foo",
@@ -1602,7 +1603,7 @@ describe("saved group migrations", () => {
         values: ["a", "b"],
         source: "inline",
         type: "list",
-      })
+      }),
     ).toEqual({
       ...baseSavedGroup,
       attributeKey: "foo",
@@ -1620,7 +1621,7 @@ describe("saved group migrations", () => {
         source: "runtime",
         type: "condition",
         condition: JSON.stringify({ id: { $eq: "123" } }),
-      })
+      }),
     ).toEqual({
       ...baseSavedGroup,
       attributeKey: "foo",

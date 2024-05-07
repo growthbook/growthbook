@@ -48,7 +48,7 @@ export const MetricsSelectorTooltip = ({
 export function isMetricJoinable(
   metricIdTypes: string[],
   userIdType: string,
-  settings: DataSourceSettings
+  settings: DataSourceSettings,
 ): boolean {
   if (metricIdTypes.includes(userIdType)) return true;
 
@@ -57,7 +57,7 @@ export function isMetricJoinable(
       settings.queries.identityJoins.some(
         (j) =>
           j.ids.includes(userIdType) &&
-          j.ids.some((jid) => metricIdTypes.includes(jid))
+          j.ids.some((jid) => metricIdTypes.includes(jid)),
       )
     ) {
       return true;
@@ -94,12 +94,8 @@ const MetricsSelector: FC<{
   autoFocus,
   includeFacts,
 }) => {
-  const {
-    metrics,
-    factMetrics,
-    factTables,
-    getDatasourceById,
-  } = useDefinitions();
+  const { metrics, factMetrics, factTables, getDatasourceById } =
+    useDefinitions();
 
   const options: MetricOption[] = [
     ...metrics.map((m) => ({
@@ -138,7 +134,7 @@ const MetricsSelector: FC<{
     ? getDatasourceById(datasource)?.settings
     : undefined;
   const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === exposureQueryId
+    (e) => e.id === exposureQueryId,
   )?.userIdType;
 
   const filteredOptions = options
@@ -146,7 +142,7 @@ const MetricsSelector: FC<{
     .filter((m) =>
       userIdType && m.userIdTypes.length
         ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
-        : true
+        : true,
     )
     .filter((m) => isProjectListValidForProject(m.projects, project));
 

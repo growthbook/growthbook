@@ -41,23 +41,20 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     },
   });
   const [successfulInvites, setSuccessfulInvites] = useState<InviteResult[]>(
-    []
+    [],
   );
   const [failedInvites, setFailedInvites] = useState<InviteResult[]>([]);
   const { apiCall } = useAuth();
-  const {
-    freeSeats,
-    canSubscribe,
-    activeAndInvitedUsers,
-  } = useStripeSubscription();
+  const { freeSeats, canSubscribe, activeAndInvitedUsers } =
+    useStripeSubscription();
   const [showUpgradeModal, setShowUpgradeModal] = useState(
     isCloud() && canSubscribe && activeAndInvitedUsers >= freeSeats
       ? "Whoops! You reached your free seat limit."
-      : ""
+      : "",
   );
 
   const [showContactSupport, setShowContactSupport] = useState(
-    license && license.hardCap && license.seats <= seatsInUse
+    license && license.hardCap && license.seats <= seatsInUse,
   );
 
   // Hit their free limit and needs to upgrade to invite more team members
@@ -233,7 +230,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
               const parsedEmails: string[] = [];
               emails.forEach((em) => {
                 parsedEmails.push(
-                  ...em.split(/[\s,]/g).filter((e) => e.trim().length > 0)
+                  ...em.split(/[\s,]/g).filter((e) => e.trim().length > 0),
                 );
               });
               // dedup:

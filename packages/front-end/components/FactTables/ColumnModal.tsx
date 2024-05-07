@@ -25,7 +25,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
   const { apiCall } = useAuth();
 
   const [showDescription, setShowDescription] = useState(
-    !!existing?.description?.length
+    !!existing?.description?.length,
   );
 
   const { mutateDefinitions } = useDefinitions();
@@ -61,7 +61,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             {
               method: "PUT",
               body: JSON.stringify(data),
-            }
+            },
           );
         } else {
           await apiCall(`/fact-tables/${factTable.id}/column`, {

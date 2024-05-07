@@ -57,14 +57,14 @@ export default function PrerequisiteStatusRow({
         states[env] = evaluatePrerequisiteState(
           parentFeature,
           featuresMap,
-          env
+          env,
         );
         defaultValues[env] = parentFeature.defaultValue;
       });
       return { states, defaultValues };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [parentFeature, features, envsStr]
+    [parentFeature, features, envsStr],
   );
 
   return (
@@ -122,7 +122,7 @@ export default function PrerequisiteStatusRow({
                       {
                         method: "DELETE",
                         body: JSON.stringify({ i }),
-                      }
+                      },
                     );
                     mutate();
                   }}

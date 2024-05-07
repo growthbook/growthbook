@@ -62,7 +62,7 @@ router.use(
     message: {
       message: `Too many requests, limit to ${API_RATE_LIMIT_MAX} per minute`,
     },
-  })
+  }),
 );
 
 // Index health check route

@@ -35,7 +35,7 @@ const SortableMultiValue = SortableElement(
     const innerProps = { ...props.innerProps, onMouseDown };
     // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ innerProps: { onMouseDown: MouseEventHandl... Remove this comment to see the full error message
     return <components.MultiValue {...props} innerProps={innerProps} />;
-  }
+  },
 );
 
 // eslint-disable-next-line
@@ -46,7 +46,7 @@ const SortableMultiValueLabel = SortableHandle<any>(
       return <div title={props.data.tooltip}>{label}</div>;
     }
     return label;
-  }
+  },
 );
 
 const OptionWithTitle = (props: OptionProps<SingleValue>) => {
@@ -63,7 +63,7 @@ const SortableSelect = SortableContainer(ReactSelect) as React.ComponentClass<
 >;
 
 const SortableCreatableSelect = SortableContainer(
-  CreatableSelect
+  CreatableSelect,
 ) as React.ComponentClass<Props<SingleValue, true> & SortableContainerProps>;
 
 const Input = (props: InputProps) => {
@@ -121,8 +121,8 @@ const MultiSelectField: FC<
         // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         selected.map((v) => v.value),
         oldIndex,
-        newIndex
-      )
+        newIndex,
+      ),
     );
   };
   const mergeStyles = customStyles ? { styles: customStyles } : {};

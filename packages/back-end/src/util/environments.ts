@@ -11,10 +11,10 @@ import { Environment } from "../../types/organization";
 export const addEnvironmentToOrganizationEnvironments = (
   env: Environment,
   orgEnvironments: Environment[],
-  shouldReplace: boolean = false
+  shouldReplace: boolean = false,
 ): Environment[] => {
   const existingMatchingEnvIndex = orgEnvironments.findIndex(
-    (e) => e.id === env.id
+    (e) => e.id === env.id,
   );
 
   if (existingMatchingEnvIndex === -1) {

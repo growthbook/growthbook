@@ -6,7 +6,7 @@ import { BaseScimRequest, ScimError } from "../../../types/scim";
 export default function scimMiddleware(
   req: BaseScimRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Response<ScimError> | undefined {
   const acceptHeader = req.get("Accept");
 

@@ -25,7 +25,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
     req.checkPermissions(
       "publishFeatures",
       feature.project,
-      Object.keys(req.body.environments)
+      Object.keys(req.body.environments),
     );
 
     const toggles: Record<string, boolean> = {};
@@ -41,7 +41,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
     const updatedFeature = await toggleMultipleEnvironments(
       req.context,
       feature,
-      toggles
+      toggles,
     );
 
     if (updatedFeature !== feature) {
@@ -59,7 +59,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
     const groupMap = await getSavedGroupMap(req.organization);
     const experimentMap = await getExperimentMapForFeature(
       req.context,
-      updatedFeature.id
+      updatedFeature.id,
     );
     return {
       feature: getApiFeatureObj({
@@ -69,5 +69,5 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
         experimentMap,
       }),
     };
-  }
+  },
 );

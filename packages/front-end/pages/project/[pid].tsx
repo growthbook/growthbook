@@ -38,7 +38,7 @@ const ProjectPage: FC = () => {
   const { apiCall } = useAuth();
 
   const [modalOpen, setModalOpen] = useState<Partial<ProjectInterface> | null>(
-    null
+    null,
   );
   const [saveMsg, setSaveMsg] = useState(false);
   const [originalValue, setOriginalValue] = useState<ProjectSettings>({});

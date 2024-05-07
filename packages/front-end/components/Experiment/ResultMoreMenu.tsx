@@ -97,7 +97,7 @@ export default function ResultMoreMenu({
               `/experiments/report/${id}`,
               {
                 method: "POST",
-              }
+              },
             );
 
             if (!res.report) {
@@ -107,7 +107,7 @@ export default function ResultMoreMenu({
               "create",
               "AdhocReportButton",
               getDatasourceById(res.report.args.datasource)?.type || null,
-              res.report
+              res.report,
             );
 
             await router.push(`/report/${res.report.id}`);
@@ -133,7 +133,7 @@ export default function ResultMoreMenu({
             const url = URL.createObjectURL(
               new Blob([res.notebook], {
                 type: "application/json",
-              })
+              }),
             );
 
             const name = notebookFilename

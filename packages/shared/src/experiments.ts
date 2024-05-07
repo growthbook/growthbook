@@ -28,7 +28,7 @@ export function isFactMetricId(id: string): boolean {
 }
 
 export function isFactMetric(
-  m: ExperimentMetricInterface
+  m: ExperimentMetricInterface,
 ): m is FactMetricInterface {
   return "metricType" in m;
 }
@@ -36,7 +36,7 @@ export function isFactMetric(
 export function getMetricTemplateVariables(
   m: ExperimentMetricInterface,
   factTableMap: FactTableMap,
-  useDenominator?: boolean
+  useDenominator?: boolean,
 ): TemplateVariables {
   if (isFactMetric(m)) {
     const columnRef = useDenominator ? m.denominator : m.numerator;
@@ -60,14 +60,14 @@ export function isBinomialMetric(m: ExperimentMetricInterface) {
 
 export function isRatioMetric(
   m: ExperimentMetricInterface,
-  denominatorMetric?: ExperimentMetricInterface
+  denominatorMetric?: ExperimentMetricInterface,
 ): boolean {
   if (isFactMetric(m)) return m.metricType === "ratio";
   return !!denominatorMetric && !isBinomialMetric(denominatorMetric);
 }
 
 export function quantileMetricType(
-  m: ExperimentMetricInterface
+  m: ExperimentMetricInterface,
 ): "" | MetricQuantileSettings["type"] {
   if (isFactMetric(m) && m.metricType === "quantile") {
     return m.quantileSettings?.type || "";
@@ -77,7 +77,7 @@ export function quantileMetricType(
 
 export function isFunnelMetric(
   m: ExperimentMetricInterface,
-  denominatorMetric?: ExperimentMetricInterface
+  denominatorMetric?: ExperimentMetricInterface,
 ): boolean {
   if (isFactMetric(m)) return false;
   return !!denominatorMetric && isBinomialMetric(denominatorMetric);
@@ -85,7 +85,7 @@ export function isFunnelMetric(
 
 export function isRegressionAdjusted(
   m: ExperimentMetricInterface,
-  denominatorMetric?: ExperimentMetricInterface
+  denominatorMetric?: ExperimentMetricInterface,
 ) {
   return (
     (m.regressionAdjustmentDays ?? 0) > 0 &&
@@ -96,7 +96,7 @@ export function isRegressionAdjusted(
 }
 
 export function getConversionWindowHours(
-  windowSettings: MetricWindowSettings
+  windowSettings: MetricWindowSettings,
 ): number {
   const value = windowSettings.windowValue;
   if (windowSettings.windowUnit === "hours") return value;
@@ -110,13 +110,13 @@ export function getConversionWindowHours(
 export function getUserIdTypes(
   metric: ExperimentMetricInterface,
   factTableMap: FactTableMap,
-  useDenominator?: boolean
+  useDenominator?: boolean,
 ): string[] {
   if (isFactMetric(metric)) {
     const factTable = factTableMap.get(
       useDenominator
         ? metric.denominator?.factTableId || ""
-        : metric.numerator.factTableId
+        : metric.numerator.factTableId,
     );
     return factTable?.userIdTypes || [];
   }
@@ -130,7 +130,7 @@ export function getMetricLink(id: string): string {
 }
 
 export function getRegressionAdjustmentsForMetric<
-  T extends ExperimentMetricInterface
+  T extends ExperimentMetricInterface,
 >({
   metric,
   denominatorMetrics,
@@ -181,7 +181,8 @@ export function getRegressionAdjustmentsForMetric<
   if (metricOverrides) {
     const metricOverride = metricOverrides.find((mo) => mo.id === metric.id);
     if (metricOverride?.regressionAdjustmentOverride) {
-      regressionAdjustmentEnabled = !!metricOverride?.regressionAdjustmentEnabled;
+      regressionAdjustmentEnabled =
+        !!metricOverride?.regressionAdjustmentEnabled;
       regressionAdjustmentDays =
         metricOverride?.regressionAdjustmentDays ?? regressionAdjustmentDays;
       if (!regressionAdjustmentEnabled) {
@@ -215,7 +216,7 @@ export function getRegressionAdjustmentsForMetric<
     if (metric?.denominator) {
       // is this a classic "ratio" metric (denominator unsupported type)?
       const denominator = denominatorMetrics.find(
-        (m) => m.id === metric?.denominator
+        (m) => m.id === metric?.denominator,
       );
       if (denominator && !isBinomialMetric(denominator)) {
         regressionAdjustmentEnabled = false;
@@ -268,7 +269,8 @@ export function getAllMetricRegressionAdjustmentStatuses({
   datasourceType?: DataSourceInterfaceWithParams["type"];
   hasRegressionAdjustmentFeature: boolean;
 }) {
-  const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
+  const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] =
+    [];
   let regressionAdjustmentAvailable = true;
   let regressionAdjustmentEnabled = true;
   let regressionAdjustmentHasValidMetrics = false;
@@ -277,17 +279,16 @@ export function getAllMetricRegressionAdjustmentStatuses({
   }
   for (const metric of allExperimentMetrics) {
     if (!metric) continue;
-    const {
-      metricRegressionAdjustmentStatus,
-    } = getRegressionAdjustmentsForMetric({
-      metric: metric,
-      denominatorMetrics: denominatorMetrics,
-      experimentRegressionAdjustmentEnabled:
-        experimentRegressionAdjustmentEnabled ??
-        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-      organizationSettings: orgSettings,
-      metricOverrides: experimentMetricOverrides,
-    });
+    const { metricRegressionAdjustmentStatus } =
+      getRegressionAdjustmentsForMetric({
+        metric: metric,
+        denominatorMetrics: denominatorMetrics,
+        experimentRegressionAdjustmentEnabled:
+          experimentRegressionAdjustmentEnabled ??
+          DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+        organizationSettings: orgSettings,
+        metricOverrides: experimentMetricOverrides,
+      });
     if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {
       regressionAdjustmentEnabled = true;
     }
@@ -325,7 +326,7 @@ export function getAllMetricRegressionAdjustmentStatuses({
 
 export function isExpectedDirection(
   stats: SnapshotMetric,
-  metric: { inverse?: boolean }
+  metric: { inverse?: boolean },
 ): boolean {
   const expected: number = stats?.expected ?? 0;
   if (metric.inverse) {
@@ -363,7 +364,7 @@ export function shouldHighlight({
 export function getMetricSampleSize(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
-  metric: ExperimentMetricInterface
+  metric: ExperimentMetricInterface,
 ): { baselineValue?: number; variationValue?: number } {
   return quantileMetricType(metric)
     ? {
@@ -377,12 +378,12 @@ export function hasEnoughData(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: ExperimentMetricInterface,
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
 ): boolean {
   const { baselineValue, variationValue } = getMetricSampleSize(
     baseline,
     stats,
-    metric
+    metric,
   );
   if (!baselineValue || !variationValue) return false;
 
@@ -396,7 +397,7 @@ export function isSuspiciousUplift(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: { maxPercentChange?: number },
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
 ): boolean {
   if (!baseline?.cr || !stats?.cr) return false;
 
@@ -410,7 +411,7 @@ export function isBelowMinChange(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: { minPercentChange?: number },
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
 ): boolean {
   if (!baseline?.cr || !stats?.cr) return false;
 
@@ -449,7 +450,7 @@ export function getMetricResultStatus({
     baseline,
     stats,
     metric,
-    metricDefaults
+    metricDefaults,
   );
   const _shouldHighlight = shouldHighlight({
     metric,
@@ -475,7 +476,7 @@ export function getMetricResultStatus({
   } else {
     significant = isStatSig(
       stats.pValueAdjusted ?? stats.pValue ?? 1,
-      pValueThreshold
+      pValueThreshold,
     );
     significantUnadjusted = isStatSig(stats.pValue ?? 1, pValueThreshold);
   }

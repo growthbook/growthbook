@@ -5,7 +5,7 @@ import { expandOrgMembers } from "../../services/organizations";
 
 export const expandedMembertoScimUser = (
   member: ExpandedMember,
-  active: boolean = true
+  active: boolean = true,
 ): ScimUser => {
   return {
     schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
@@ -18,7 +18,7 @@ export const expandedMembertoScimUser = (
 
 export async function getUser(
   req: ScimGetRequest,
-  res: Response<ScimUser | ScimError>
+  res: Response<ScimUser | ScimError>,
 ) {
   const userId = req.params.id;
 

@@ -150,7 +150,7 @@ export const EventWebHookListContainer = () => {
         handleCreateError("Unknown error");
       }
     },
-    [mutate, apiCall]
+    [mutate, apiCall],
   );
 
   return (

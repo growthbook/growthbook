@@ -29,7 +29,7 @@ export default function EditPhasesModal({
     !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
 
   const [editPhase, setEditPhase] = useState<number | null>(
-    isDraft && !isMultiPhase ? 0 : null
+    isDraft && !isMultiPhase ? 0 : null,
   );
   const { apiCall } = useAuth();
 

@@ -47,9 +47,7 @@ export interface ScopeDefinition {
   report?: ReportInterface;
 }
 
-export type ScopeSettingsFn = (
-  scopes: ScopeDefinition
-) => {
+export type ScopeSettingsFn = (scopes: ScopeDefinition) => {
   settings: ScopedSettings;
   scopeSettings: ScopeSettingsFn;
 };

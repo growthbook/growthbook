@@ -25,7 +25,7 @@ type ArchetypeDocument = mongoose.Document & ArchetypeInterface;
 
 const ArchetypeModel = mongoose.model<ArchetypeInterface>(
   "archetype",
-  archetypeSchema
+  archetypeSchema,
 );
 
 type CreateArchetypeProps = Omit<
@@ -39,10 +39,7 @@ type UpdateArchetypeProps = Omit<
 >;
 
 const toInterface = (doc: ArchetypeDocument): ArchetypeInterface =>
-  omit(
-    doc.toJSON<ArchetypeDocument>({ flattenMaps: true }),
-    ["__v", "_id"]
-  );
+  omit(doc.toJSON<ArchetypeDocument>({ flattenMaps: true }), ["__v", "_id"]);
 
 export function parseArchetypeString(list: string) {
   const values = list
@@ -54,7 +51,7 @@ export function parseArchetypeString(list: string) {
 }
 
 export async function createArchetype(
-  user: CreateArchetypeProps
+  user: CreateArchetypeProps,
 ): Promise<ArchetypeInterface> {
   const newUser = await ArchetypeModel.create({
     ...user,
@@ -67,7 +64,7 @@ export async function createArchetype(
 
 export async function getAllArchetypes(
   organization: string,
-  owner: string
+  owner: string,
 ): Promise<ArchetypeInterface[]> {
   const archetype: ArchetypeDocument[] = await ArchetypeModel.find({
     organization,
@@ -81,7 +78,7 @@ export async function getAllArchetypes(
 
 export async function getArchetypeById(
   archetypeId: string,
-  organization: string
+  organization: string,
 ): Promise<ArchetypeInterface | null> {
   const archetype = await ArchetypeModel.findOne({
     id: archetypeId,
@@ -94,7 +91,7 @@ export async function getArchetypeById(
 export async function updateArchetypeById(
   archetypeId: string,
   organization: string,
-  user: UpdateArchetypeProps
+  user: UpdateArchetypeProps,
 ): Promise<UpdateArchetypeProps> {
   const changes = {
     ...user,
@@ -106,7 +103,7 @@ export async function updateArchetypeById(
       id: archetypeId,
       organization: organization,
     },
-    changes
+    changes,
   );
 
   return changes;

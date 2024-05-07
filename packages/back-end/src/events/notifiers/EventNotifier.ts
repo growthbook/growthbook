@@ -23,20 +23,23 @@ export interface NotificationEventHandler {
 export class EventNotifier implements Notifier {
   private readonly eventId: string;
 
-  constructor(eventId: string, private agenda: Agenda = getAgendaInstance()) {
+  constructor(
+    eventId: string,
+    private agenda: Agenda = getAgendaInstance(),
+  ) {
     this.eventId = eventId;
 
     if (jobDefined) return;
 
     this.agenda.define<EventNotificationData>(
       "eventCreated",
-      EventNotifier.jobHandler
+      EventNotifier.jobHandler,
     );
     jobDefined = true;
   }
 
   private static async jobHandler(
-    job: Job<EventNotificationData>
+    job: Job<EventNotificationData>,
   ): Promise<void> {
     const { eventId } = job.attrs.data;
 

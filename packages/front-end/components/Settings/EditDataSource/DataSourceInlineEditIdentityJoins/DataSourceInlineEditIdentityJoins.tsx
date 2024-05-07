@@ -12,14 +12,12 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
-type DataSourceInlineEditIdentityJoinsProps = DataSourceQueryEditingModalBaseProps;
+type DataSourceInlineEditIdentityJoinsProps =
+  DataSourceQueryEditingModalBaseProps;
 
-export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJoinsProps> = ({
-  dataSource,
-  onSave,
-  onCancel,
-  canEdit = true,
-}) => {
+export const DataSourceInlineEditIdentityJoins: FC<
+  DataSourceInlineEditIdentityJoinsProps
+> = ({ dataSource, onSave, onCancel, canEdit = true }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
 
@@ -42,16 +40,17 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
 
       setOpenIndexes(updatedOpenIndexes);
     },
-    [openIndexes]
+    [openIndexes],
   );
 
-  const userIdTypes = useMemo(() => dataSource.settings?.userIdTypes || [], [
-    dataSource.settings?.userIdTypes,
-  ]);
+  const userIdTypes = useMemo(
+    () => dataSource.settings?.userIdTypes || [],
+    [dataSource.settings?.userIdTypes],
+  );
   const addIsDisabled = userIdTypes.length < 2;
   const identityJoins = useMemo(
     () => dataSource?.settings?.queries?.identityJoins || [],
-    [dataSource?.settings?.queries?.identityJoins]
+    [dataSource?.settings?.queries?.identityJoins],
   );
 
   const handleAdd = useCallback(() => {
@@ -64,7 +63,7 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
       setEditingIndex(idx);
       setUiMode("edit");
     },
-    []
+    [],
   );
 
   const handleActionDeleteClicked = useCallback(
@@ -76,7 +75,7 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
 
       await onSave(copy);
     },
-    [onSave, dataSource]
+    [onSave, dataSource],
   );
 
   const handleSave = useCallback(
@@ -86,7 +85,7 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
       copy.settings.queries.identityJoins[idx] = identityJoin;
       await onSave(copy);
     },
-    [dataSource, onSave]
+    [dataSource, onSave],
   );
 
   if (!dataSource) {
@@ -158,7 +157,7 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
                           useIcon
                           displayName={identityJoin.ids.join(" ↔ ")}
                           deleteMessage={`Are you sure you want to delete identifier join ${identityJoin.ids.join(
-                            " ↔ "
+                            " ↔ ",
                           )}?`}
                           title="Delete"
                           text="Delete"

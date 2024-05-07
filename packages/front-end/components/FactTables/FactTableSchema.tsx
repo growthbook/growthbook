@@ -18,8 +18,8 @@ export default function FactTableSchema({ factTable }: Props) {
                 {col.datatype === "date"
                   ? "date / datetime"
                   : !col.datatype
-                  ? "unknown"
-                  : col.datatype}
+                    ? "unknown"
+                    : col.datatype}
               </em>
             </td>
           </tr>

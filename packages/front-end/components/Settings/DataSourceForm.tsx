@@ -88,7 +88,7 @@ const DataSourceForm: FC<{
           {
             method: "PUT",
             body: JSON.stringify(datasource),
-          }
+          },
         );
         if (res.status > 200) {
           throw new Error(res.message);
@@ -103,7 +103,7 @@ const DataSourceForm: FC<{
             settings: {
               ...getInitialSettings(
                 "custom",
-                ensureAndReturn(datasource.params)
+                ensureAndReturn(datasource.params),
               ),
               ...(datasource.settings || {}),
             },
@@ -130,7 +130,7 @@ const DataSourceForm: FC<{
   };
 
   const onChange: ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement> = (
-    e
+    e,
   ) => {
     setDatasource({
       ...datasource,

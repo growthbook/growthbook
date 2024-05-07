@@ -24,7 +24,7 @@ const EnvironmentsPage: FC = () => {
   const environments = useEnvironments();
   const filteredEnvironments = project
     ? environments.filter((ds) =>
-        isProjectListValidForProject(ds.projects, project)
+        isProjectListValidForProject(ds.projects, project),
       )
     : environments;
 
@@ -179,7 +179,7 @@ const EnvironmentsPage: FC = () => {
                           onClick={(e) => {
                             e.preventDefault();
                             setShowConnections(
-                              showConnections !== i ? i : null
+                              showConnections !== i ? i : null,
                             );
                           }}
                         >
@@ -287,7 +287,7 @@ const EnvironmentsPage: FC = () => {
                                   body: JSON.stringify({
                                     settings: {
                                       environments: environments.filter(
-                                        (env) => env.id !== e.id
+                                        (env) => env.id !== e.id,
                                       ),
                                     },
                                   }),

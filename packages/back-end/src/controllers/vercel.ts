@@ -31,7 +31,7 @@ export async function getHasToken(req: AuthRequest, res: Response) {
 
 export async function postToken(
   req: AuthRequest<{ code: string; configurationId: string; teamId: string }>,
-  res: Response
+  res: Response,
 ) {
   const { code, configurationId, teamId } = req.body;
   const context = getContextFromReq(req);
@@ -71,7 +71,7 @@ export async function postToken(
     },
     details: auditDetailsUpdate(
       { connections: { vercel: { ...orig, token: "*********" } } },
-      { connections: { vercel: { ...updatePayload, token: "*********" } } }
+      { connections: { vercel: { ...updatePayload, token: "*********" } } },
     ),
   });
 
@@ -80,7 +80,7 @@ export async function postToken(
 
 export async function postEnvVars(
   req: AuthRequest<{ gbVercelEnvMap: GbVercelEnvMap }>,
-  res: Response
+  res: Response,
 ) {
   const { gbVercelEnvMap } = req.body;
   const context = getContextFromReq(req);
@@ -143,12 +143,12 @@ export async function getConfig(req: AuthRequest, res: Response) {
     const vercelEnvVars: VercelEnvVar[] = await getEnvVars(
       token,
       project.id,
-      teamId
+      teamId,
     );
     vercelEnvVars.forEach((vercelEnvVar) => {
       //gb API keys don't have a 'value' prop, so the gb key 'key' prop is used to compared to the vercel key 'value' prop
       const gbKey = liveGbKeys.find(
-        (liveGbKey) => liveGbKey.key === vercelEnvVar.value
+        (liveGbKey) => liveGbKey.key === vercelEnvVar.value,
       );
       if (gbKey) {
         apiKeyRowList.push({

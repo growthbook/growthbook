@@ -22,7 +22,7 @@ export const getSDKConnections = async (
   res: Response<{
     status: 200;
     connections: SDKConnectionInterface[];
-  }>
+  }>,
 ) => {
   const context = getContextFromReq(req);
   const connections = await findSDKConnectionsByOrganization(context);
@@ -37,7 +37,7 @@ export const postSDKConnection = async (
   res: Response<{
     status: 200;
     connection: SDKConnectionInterface;
-  }>
+  }>,
 ) => {
   const { org } = getContextFromReq(req);
   const params = req.body;
@@ -82,7 +82,7 @@ export const postSDKConnection = async (
 
 export const putSDKConnection = async (
   req: AuthRequest<EditSDKConnectionParams, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -101,7 +101,7 @@ export const putSDKConnection = async (
   let encryptPayload = req.body.encryptPayload || false;
   const encryptionPermitted = orgHasPremiumFeature(
     context.org,
-    "encrypt-features-endpoint"
+    "encrypt-features-endpoint",
   );
   const changingFromUnencryptedToEncrypted =
     !connection.encryptPayload && encryptPayload;
@@ -138,7 +138,7 @@ export const putSDKConnection = async (
 
 export const deleteSDKConnection = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -164,7 +164,7 @@ export const checkSDKConnectionProxyStatus = async (
   res: Response<{
     status: 200;
     result: ProxyTestResult;
-  }>
+  }>,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);

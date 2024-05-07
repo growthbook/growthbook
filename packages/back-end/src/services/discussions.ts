@@ -10,7 +10,7 @@ import { getIdeaById } from "./ideas";
 export async function getDiscussionByParent(
   organization: string,
   parentType: DiscussionParentType,
-  parentId: string
+  parentId: string,
 ) {
   return await DiscussionModel.findOne({
     organization,
@@ -28,7 +28,7 @@ export async function getAllDiscussionsByOrg(organization: string) {
 export async function getProjectsByParentId(
   context: ReqContext,
   parentType: DiscussionParentType,
-  parentId: string
+  parentId: string,
 ): Promise<string[]> {
   switch (parentType) {
     case "experiment": {
@@ -75,7 +75,7 @@ export async function getProjectsByParentId(
 
 export async function getAllDiscussionsByOrgFromDate(
   organization: string,
-  date: Date
+  date: Date,
 ) {
   return await DiscussionModel.find({
     organization,
@@ -96,7 +96,7 @@ export async function addComment(
   parentType: DiscussionParentType,
   parentId: string,
   user: { id: string; email: string; name: string },
-  comment: string
+  comment: string,
 ) {
   const newComment: Comment = {
     content: comment,
@@ -109,7 +109,7 @@ export async function addComment(
   const discussion = await getDiscussionByParent(
     organization,
     parentType,
-    parentId
+    parentId,
   );
   // Comment thread already exists
   if (discussion && discussion.id) {

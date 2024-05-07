@@ -36,21 +36,19 @@ const ExperimentsGetStarted = (): React.ReactElement => {
   const { organization } = useUser();
 
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-    organization?.id || ""
+    organization?.id || "",
   );
 
   const hasDataSource = datasources.some(
-    (d) => !d.projects?.includes(demoProjectId)
+    (d) => !d.projects?.includes(demoProjectId),
   );
   const hasMetrics = metrics.some(
-    (m) => !m.id.match(/^met_sample/) && !m.projects?.includes(demoProjectId)
+    (m) => !m.id.match(/^met_sample/) && !m.projects?.includes(demoProjectId),
   );
   const currentStep = hasMetrics ? 3 : hasDataSource ? 2 : 1;
 
-  const {
-    projectId: demoDataSourceProjectId,
-    demoExperimentId,
-  } = useDemoDataSourceProject();
+  const { projectId: demoDataSourceProjectId, demoExperimentId } =
+    useDemoDataSourceProject();
 
   const { apiCall } = useAuth();
 
@@ -191,8 +189,8 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                       !(hasDataSource
                         ? datasources.some((datasource) =>
                             permissionsUtil.canUpdateDataSourceSettings(
-                              datasource
-                            )
+                              datasource,
+                            ),
                           )
                         : permissionsUtil.canViewCreateDataSourceModal(project))
                     }

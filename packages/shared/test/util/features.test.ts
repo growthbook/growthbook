@@ -265,7 +265,7 @@ describe("autoMerge", () => {
     expect(
       autoMerge(live, base, revision, ["dev", "prod"], {
         "rules.prod": "discard",
-      })
+      }),
     ).toEqual({
       success: false,
       conflicts: [
@@ -283,7 +283,7 @@ describe("autoMerge", () => {
       autoMerge(live, base, revision, ["dev", "prod"], {
         "rules.prod": "discard",
         defaultValue: "discard",
-      })
+      }),
     ).toEqual({
       success: true,
       conflicts: [
@@ -307,7 +307,7 @@ describe("autoMerge", () => {
       autoMerge(live, base, revision, ["dev", "prod"], {
         "rules.prod": "discard",
         defaultValue: "overwrite",
-      })
+      }),
     ).toEqual({
       success: true,
       conflicts: [
@@ -332,7 +332,7 @@ describe("autoMerge", () => {
       autoMerge(live, base, revision, ["dev", "prod"], {
         "rules.prod": "overwrite",
         defaultValue: "overwrite",
-      })
+      }),
     ).toEqual({
       success: true,
       conflicts: [
@@ -446,7 +446,7 @@ describe("validateFeatureValue", () => {
     });
     it('returns "false" if value is "false"', () => {
       expect(validateFeatureValue(feature, "false", "testVal")).toEqual(
-        "false"
+        "false",
       );
     });
   });
@@ -464,7 +464,7 @@ describe("validateFeatureValue", () => {
     it("throws an error if value is not a valid number", () => {
       const value = "not-a-number";
       expect(() =>
-        validateFeatureValue(feature, value, "testVal")
+        validateFeatureValue(feature, value, "testVal"),
       ).toThrowError();
     });
   });
@@ -477,25 +477,25 @@ describe("validateFeatureValue", () => {
     it("parses json and returns in string format", () => {
       const value = '{ "test": 123 }';
       expect(validateFeatureValue(feature, value, "testVal")).toEqual(
-        '{"test": 123}'
+        '{"test": 123}',
       );
     });
 
     it('parses json that is "slightly" invalid', () => {
       let value = "{ technically: 'not valid' }";
       expect(validateFeatureValue(feature, value, "testVal")).toEqual(
-        '{"technically": "not valid"}'
+        '{"technically": "not valid"}',
       );
       value = "this is not jsonbruv";
       expect(validateFeatureValue(feature, value, "testVal")).toEqual(
-        `"${value}"`
+        `"${value}"`,
       );
     });
 
     it("throws an error with invalid json", () => {
       const value = "{ not-an-object }";
       expect(() =>
-        validateFeatureValue(feature, value, "testVal")
+        validateFeatureValue(feature, value, "testVal"),
       ).toThrowError();
     });
   });
@@ -603,7 +603,7 @@ describe("check revision needs review", () => {
         revision,
         allEnvironments: ["prod", "dev", "staging"],
         settings,
-      })
+      }),
     ).toEqual(true);
   });
   it("should not require review", () => {
@@ -624,7 +624,7 @@ describe("check revision needs review", () => {
         revision,
         allEnvironments: ["prod", "dev", "staging"],
         settings,
-      })
+      }),
     ).toEqual(false);
   });
 
@@ -658,7 +658,7 @@ describe("check revision needs review", () => {
         revision,
         allEnvironments: ["prod", "dev", "staging"],
         settings,
-      })
+      }),
     ).toEqual(true);
   });
   it("should not require review with multi rules", () => {
@@ -691,7 +691,7 @@ describe("check revision needs review", () => {
         revision,
         allEnvironments: ["prod", "dev", "staging"],
         settings,
-      })
+      }),
     ).toEqual(false);
   });
   it("legacy rules", () => {
@@ -705,7 +705,7 @@ describe("check revision needs review", () => {
         revision,
         allEnvironments: ["prod", "dev", "staging"],
         settings,
-      })
+      }),
     ).toEqual(true);
     settings.requireReviews = false;
     expect(
@@ -715,7 +715,7 @@ describe("check revision needs review", () => {
         revision,
         allEnvironments: ["prod", "dev", "staging"],
         settings,
-      })
+      }),
     ).toEqual(false);
   });
 });
@@ -748,7 +748,7 @@ describe("reset review on change", () => {
         changedEnvironments: ["staging"],
         defaultValueChanged: false,
         settings,
-      })
+      }),
     ).toEqual(false);
     expect(
       resetReviewOnChange({
@@ -756,7 +756,7 @@ describe("reset review on change", () => {
         changedEnvironments: ["prod"],
         defaultValueChanged: false,
         settings,
-      })
+      }),
     ).toEqual(true);
     expect(
       resetReviewOnChange({
@@ -764,7 +764,7 @@ describe("reset review on change", () => {
         changedEnvironments: ["staging"],
         defaultValueChanged: false,
         settings: settingsOff,
-      })
+      }),
     ).toEqual(false);
     expect(
       resetReviewOnChange({
@@ -772,7 +772,7 @@ describe("reset review on change", () => {
         changedEnvironments: ["prod"],
         defaultValueChanged: false,
         settings: settingsOff,
-      })
+      }),
     ).toEqual(false);
   });
 
@@ -815,7 +815,7 @@ describe("reset review on change", () => {
         changedEnvironments: ["staging"],
         defaultValueChanged: false,
         settings,
-      })
+      }),
     ).toEqual(false);
     expect(
       resetReviewOnChange({
@@ -823,7 +823,7 @@ describe("reset review on change", () => {
         changedEnvironments: ["prod"],
         defaultValueChanged: false,
         settings,
-      })
+      }),
     ).toEqual(true);
     expect(
       resetReviewOnChange({
@@ -831,7 +831,7 @@ describe("reset review on change", () => {
         changedEnvironments: ["prod"],
         defaultValueChanged: false,
         settings: settingsOff,
-      })
+      }),
     ).toEqual(false);
     expect(
       resetReviewOnChange({
@@ -839,7 +839,7 @@ describe("reset review on change", () => {
         changedEnvironments: ["staging"],
         defaultValueChanged: false,
         settings: settingsOff,
-      })
+      }),
     ).toEqual(false);
   });
   it("turn off for first project", () => {
@@ -866,7 +866,7 @@ describe("reset review on change", () => {
         changedEnvironments: ["env"],
         defaultValueChanged: false,
         settings,
-      })
+      }),
     ).toEqual(false);
     feature.project = "b";
     expect(
@@ -875,7 +875,7 @@ describe("reset review on change", () => {
         changedEnvironments: ["staging"],
         defaultValueChanged: false,
         settings,
-      })
+      }),
     ).toEqual(true);
   });
 });

@@ -22,7 +22,7 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
     if (event.data.event === "webhook.test") {
       const webhook = await getEventWebHookById(
         event.data.data.webhookId,
-        event.organizationId
+        event.organizationId,
       );
 
       if (!webhook) return [];
@@ -38,7 +38,7 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
           projects,
         })) || []
       ).filter(({ environments = [] }) =>
-        filterEventForEnvironments({ event: event.data, environments })
+        filterEventForEnvironments({ event: event.data, environments }),
       );
     }
   })();

@@ -30,7 +30,7 @@ type GetDimensionsResponse = {
  */
 export const getDimensions = async (
   req: GetDimensionsRequest,
-  res: Response<GetDimensionsResponse | PrivateApiErrorResponse>
+  res: Response<GetDimensionsResponse | PrivateApiErrorResponse>,
 ) => {
   const { org } = getContextFromReq(req);
   const dimensions = await findDimensionsByOrganization(org.id);
@@ -65,7 +65,7 @@ type CreateDimensionResponse = {
  */
 export const postDimension = async (
   req: CreateDimensionRequest,
-  res: Response<CreateDimensionResponse | PrivateApiErrorResponse>
+  res: Response<CreateDimensionResponse | PrivateApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -128,7 +128,7 @@ type PutDimensionResponse = {
  */
 export const putDimension = async (
   req: PutDimensionRequest,
-  res: Response<PutDimensionResponse>
+  res: Response<PutDimensionResponse>,
 ) => {
   const context = getContextFromReq(req);
   if (!context.permissions.canUpdateDimension()) {
@@ -182,7 +182,7 @@ type DeleteDimensionResponse = {
  */
 export const deleteDimension = async (
   req: DeleteDimensionRequest,
-  res: Response<DeleteDimensionResponse | PrivateApiErrorResponse>
+  res: Response<DeleteDimensionResponse | PrivateApiErrorResponse>,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);

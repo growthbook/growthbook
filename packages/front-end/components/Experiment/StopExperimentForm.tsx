@@ -59,7 +59,7 @@ const StopExperimentForm: FC<{
       {
         method: "POST",
         body: JSON.stringify(body),
-      }
+      },
     );
 
     if (!isStopped) {
@@ -114,14 +114,14 @@ const StopExperimentForm: FC<{
               form.setValue("winner", 1);
               form.setValue(
                 "releasedVariationId",
-                experiment.variations[1]?.id || ""
+                experiment.variations[1]?.id || "",
               );
             } else if (result === "lost") {
               form.setValue("excludeFromPayload", true);
               form.setValue("winner", 0);
               form.setValue(
                 "releasedVariationId",
-                experiment.variations[0]?.id || ""
+                experiment.variations[0]?.id || "",
               );
             }
           }}
@@ -134,25 +134,26 @@ const StopExperimentForm: FC<{
             { label: "Inconclusive", value: "inconclusive" },
           ]}
         />
-        {form.watch("results") === "won" && experiment.variations.length > 2 && (
-          <SelectField
-            label="Winner"
-            containerClassName="col-lg"
-            value={form.watch("winner") + ""}
-            onChange={(v) => {
-              form.setValue("winner", parseInt(v) || 0);
+        {form.watch("results") === "won" &&
+          experiment.variations.length > 2 && (
+            <SelectField
+              label="Winner"
+              containerClassName="col-lg"
+              value={form.watch("winner") + ""}
+              onChange={(v) => {
+                form.setValue("winner", parseInt(v) || 0);
 
-              form.setValue(
-                "releasedVariationId",
-                experiment.variations[parseInt(v)]?.id ||
-                  form.watch("releasedVariationId")
-              );
-            }}
-            options={experiment.variations.slice(1).map((v, i) => {
-              return { value: i + 1 + "", label: v.name };
-            })}
-          />
-        )}
+                form.setValue(
+                  "releasedVariationId",
+                  experiment.variations[parseInt(v)]?.id ||
+                    form.watch("releasedVariationId"),
+                );
+              }}
+              options={experiment.variations.slice(1).map((v, i) => {
+                return { value: i + 1 + "", label: v.name };
+              })}
+            />
+          )}
       </div>
       {experimentHasLinkedChanges(experiment) && (
         <>

@@ -39,7 +39,7 @@ export const MembersTabView: FC = () => {
 
   // Will be set when redirected here after Stripe Checkout
   const checkoutSessionId = String(
-    router.query["subscription-success-session"] || ""
+    router.query["subscription-success-session"] || "",
   );
 
   const [justSubscribedForPro, setJustSubscribedForPro] = useState(false);

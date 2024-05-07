@@ -7,7 +7,7 @@ import { auditDetailsUpdate } from "../../services/audit";
 
 export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,
-  res: Response<{ status: number }>
+  res: Response<{ status: number }>,
 ) => {
   const {
     property,
@@ -69,7 +69,7 @@ export const postAttribute = async (
             },
           ],
         },
-      }
+      },
     ),
   });
   return res.status(200).json({
@@ -79,7 +79,7 @@ export const postAttribute = async (
 
 export const putAttribute = async (
   req: AuthRequest<SDKAttribute & { previousName?: string }>,
-  res: Response<{ status: number }>
+  res: Response<{ status: number }>,
 ) => {
   const {
     property,
@@ -98,7 +98,7 @@ export const putAttribute = async (
 
   // If the name is being changed, we need to access the attribute via its previous name
   const index = attributeSchema.findIndex(
-    (a) => a.property === (previousName ? previousName : property)
+    (a) => a.property === (previousName ? previousName : property),
   );
 
   if (index === -1) {
@@ -150,7 +150,7 @@ export const putAttribute = async (
         settings: {
           attributeSchema,
         },
-      }
+      },
     ),
   });
   return res.status(200).json({
@@ -160,7 +160,7 @@ export const putAttribute = async (
 
 export const deleteAttribute = async (
   req: AuthRequest<{ id: string }>,
-  res: Response<{ status: number }>
+  res: Response<{ status: number }>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -200,7 +200,7 @@ export const deleteAttribute = async (
         settings: {
           attributeSchema: updatedArr,
         },
-      }
+      },
     ),
   });
   return res.status(200).json({

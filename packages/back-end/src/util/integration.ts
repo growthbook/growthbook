@@ -4,12 +4,13 @@ import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 // mutates metric object itself!
 export function applyMetricOverrides(
   metric: ExperimentMetricInterface,
-  settings: ExperimentSnapshotSettings
+  settings: ExperimentSnapshotSettings,
 ): void {
   if (!metric) return;
 
-  const computed = settings.metricSettings.find((s) => s.id === metric.id)
-    ?.computedSettings;
+  const computed = settings.metricSettings.find(
+    (s) => s.id === metric.id,
+  )?.computedSettings;
   if (!computed) return;
 
   metric.windowSettings = computed.windowSettings;

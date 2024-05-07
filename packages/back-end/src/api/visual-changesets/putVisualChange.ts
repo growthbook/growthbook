@@ -7,34 +7,32 @@ import {
 import { putVisualChangeValidator } from "../../validators/openapi";
 
 export const putVisualChange = createApiRequestHandler(
-  putVisualChangeValidator
-)(
-  async (req): Promise<PutVisualChangeResponse> => {
-    const changesetId = req.params.id;
-    const visualChangeId = req.params.visualChangeId;
-    const orgId = req.organization.id;
-    const payload = req.body;
+  putVisualChangeValidator,
+)(async (req): Promise<PutVisualChangeResponse> => {
+  const changesetId = req.params.id;
+  const visualChangeId = req.params.visualChangeId;
+  const orgId = req.organization.id;
+  const payload = req.body;
 
-    const experiment = await findExperimentByVisualChangesetId(
-      req.context,
-      changesetId
-    );
+  const experiment = await findExperimentByVisualChangesetId(
+    req.context,
+    changesetId,
+  );
 
-    if (!experiment) {
-      throw new Error("Experiment not found");
-    }
-
-    if (!req.context.permissions.canUpdateVisualChange(experiment)) {
-      req.context.permissions.throwPermissionError();
-    }
-
-    const res = await updateVisualChange({
-      changesetId,
-      visualChangeId,
-      organization: orgId,
-      payload,
-    });
-
-    return res;
+  if (!experiment) {
+    throw new Error("Experiment not found");
   }
-);
+
+  if (!req.context.permissions.canUpdateVisualChange(experiment)) {
+    req.context.permissions.throwPermissionError();
+  }
+
+  const res = await updateVisualChange({
+    changesetId,
+    visualChangeId,
+    organization: orgId,
+    payload,
+  });
+
+  return res;
+});

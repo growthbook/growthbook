@@ -34,7 +34,7 @@ export default function SchemaBrowserWrapper({
           <label>
             <Tooltip
               body={`Last Updated: ${new Date(
-                informationSchema.dateUpdated
+                informationSchema.dateUpdated,
               ).toLocaleString()}`}
               tipPosition="top"
             >

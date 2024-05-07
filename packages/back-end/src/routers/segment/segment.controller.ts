@@ -44,7 +44,7 @@ type GetSegmentsResponse = {
  */
 export const getSegments = async (
   req: GetSegmentsRequest,
-  res: Response<GetSegmentsResponse, EventAuditUserForResponseLocals>
+  res: Response<GetSegmentsResponse, EventAuditUserForResponseLocals>,
 ) => {
   const { org } = getContextFromReq(req);
   const segments = await findSegmentsByOrganization(org.id);
@@ -80,7 +80,7 @@ type GetSegmentUsageResponse = {
  */
 export const getSegmentUsage = async (
   req: GetSegmentUsageRequest,
-  res: Response<GetSegmentUsageResponse, EventAuditUserForResponseLocals>
+  res: Response<GetSegmentUsageResponse, EventAuditUserForResponseLocals>,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -143,7 +143,7 @@ export const postSegment = async (
   res: Response<
     CreateSegmentResponse | ApiErrorResponse,
     EventAuditUserForResponseLocals
-  >
+  >,
 ) => {
   const { datasource, name, sql, userIdType, description } = req.body;
 
@@ -208,7 +208,7 @@ export const putSegment = async (
   res: Response<
     PutSegmentResponse | ApiErrorResponse,
     EventAuditUserForResponseLocals
-  >
+  >,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -266,7 +266,7 @@ type DeleteSegmentResponse = {
  */
 export const deleteSegment = async (
   req: DeleteSegmentRequest,
-  res: Response<DeleteSegmentResponse, EventAuditUserForResponseLocals>
+  res: Response<DeleteSegmentResponse, EventAuditUserForResponseLocals>,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -295,7 +295,7 @@ export const deleteSegment = async (
       { organization: org.id, "estimateParams.segment": id },
       {
         $unset: { "estimateParams.segment": "" },
-      }
+      },
     );
   }
 

@@ -19,7 +19,7 @@ router.get(
       })
       .strict(),
   }),
-  segmentController.getSegmentUsage
+  segmentController.getSegmentUsage,
 );
 
 router.post(
@@ -33,7 +33,7 @@ router.post(
       description: z.string(),
     }),
   }),
-  segmentController.postSegment
+  segmentController.postSegment,
 );
 
 router.put(
@@ -53,7 +53,7 @@ router.put(
       description: z.string(),
     }),
   }),
-  segmentController.putSegment
+  segmentController.putSegment,
 );
 
 router.delete(
@@ -65,7 +65,7 @@ router.delete(
       })
       .strict(),
   }),
-  segmentController.deleteSegment
+  segmentController.deleteSegment,
 );
 
 export { router as segmentRouter };

@@ -95,7 +95,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
 
   const filteredValues = useCallback(
     (values) => ({ ...values, ...forcedParams }),
-    [forcedParams]
+    [forcedParams],
   );
 
   const handleSubmit = form.handleSubmit(async (rawValues) => {
@@ -268,7 +268,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
             onChange={(selected: string[]) => {
               form.setValue(
                 "tags",
-                selected.map((item) => item)
+                selected.map((item) => item),
               );
               handleFormValidation();
             }}

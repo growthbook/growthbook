@@ -24,7 +24,7 @@ export type LDListProjectsResponse = {
  * @param data
  */
 export const transformLDProjectsToGBProject = (
-  data: LDListProjectsResponse
+  data: LDListProjectsResponse,
 ): Pick<ProjectInterface, "id" | "name" | "description">[] => {
   return uniqBy(
     data.items.map(({ key, name }) => ({
@@ -32,7 +32,7 @@ export const transformLDProjectsToGBProject = (
       name: name,
       description: "",
     })),
-    "id"
+    "id",
   );
 };
 
@@ -48,14 +48,14 @@ export type LDListEnvironmentsResponse = {
  * @param data
  */
 export const transformLDEnvironmentsToGBEnvironment = (
-  data: LDListEnvironmentsResponse
+  data: LDListEnvironmentsResponse,
 ): Environment[] => {
   return uniqBy(
     data.items.map(({ key, name }) => ({
       id: key,
       description: name,
     })),
-    "id"
+    "id",
   );
 };
 
@@ -166,7 +166,7 @@ function transformLDClause(
   key: string,
   op: LDOperator,
   values: unknown[],
-  negate: boolean
+  negate: boolean,
 ): null | ConditionInterface {
   if (!values.length) {
     throw new Error("No values in rule clause");
@@ -294,16 +294,16 @@ function transformLDClause(
 }
 
 export function getTypeAndVariations(
-  data: LDListFeatureFlagsResponse["items"][0]
+  data: LDListFeatureFlagsResponse["items"][0],
 ): { type: FeatureValueType; variations: string[] } {
   const valueType =
     data.kind === "boolean"
       ? "boolean"
       : typeof data.variations[0].value === "number"
-      ? "number"
-      : typeof data.variations[0].value === "string"
-      ? "string"
-      : "json";
+        ? "number"
+        : typeof data.variations[0].value === "string"
+          ? "string"
+          : "json";
 
   const variationValues = data.variations.map((v) => {
     if (valueType === "boolean") {
@@ -336,7 +336,7 @@ function getJSONValue(type: FeatureValueType, value: string): any {
 export const transformLDFeatureFlag = (
   data: LDListFeatureFlagsResponse["items"][0],
   project: string,
-  featureVarMap: FeatureVariationsMap = new Map()
+  featureVarMap: FeatureVariationsMap = new Map(),
 ): Omit<
   FeatureInterface,
   "dateCreated" | "dateUpdated" | "version" | "organization"
@@ -345,9 +345,8 @@ export const transformLDFeatureFlag = (
 
   const envKeys = Object.keys(environments);
 
-  const { type: valueType, variations: variationValues } = getTypeAndVariations(
-    data
-  );
+  const { type: valueType, variations: variationValues } =
+    getTypeAndVariations(data);
 
   function getFallthroughForEnvironments(envKey: string): number | null {
     const envData = environments[envKey];
@@ -398,13 +397,13 @@ export const transformLDFeatureFlag = (
 
         if (!parentFeature) {
           throw new Error(
-            `Unknown prerequisite feature ${key} (referenced from feature ${data.key})`
+            `Unknown prerequisite feature ${key} (referenced from feature ${data.key})`,
           );
         }
 
         const parentJSONValue = getJSONValue(
           parentFeature.type,
-          parentFeature.variations[variation] || ""
+          parentFeature.variations[variation] || "",
         );
 
         // Need to invert the condition since we want this rule to match if the prerequisite is not met
@@ -465,7 +464,7 @@ export const transformLDFeatureFlag = (
             clause.attribute,
             clause.op,
             clause.values,
-            clause.negate
+            clause.negate,
           );
           if (cond) {
             ands.push(cond);
@@ -477,7 +476,7 @@ export const transformLDFeatureFlag = (
         if (rule.rollout) {
           const totalWeight = rule.rollout.variations.reduce(
             (sum, v) => sum + v.weight,
-            0
+            0,
           );
           const coverage = Math.min(1, Math.max(totalWeight / 100000, 0));
 
@@ -565,7 +564,7 @@ export type FeatureVariationsMap = Map<
 
 export const transformLDFeatureFlagToGBFeature = (
   data: LDListFeatureFlagsResponse,
-  project: string
+  project: string,
 ): Omit<
   FeatureInterface,
   "organization" | "dateUpdated" | "dateCreated" | "version"
@@ -587,7 +586,7 @@ export const transformLDFeatureFlagToGBFeature = (
     // Prevent importing the same duplicate feature id multiple times
     if (alreadyImported.has(item.key)) {
       console.error(
-        `Skipping duplicate feature '${item.key}' in project '${project}'`
+        `Skipping duplicate feature '${item.key}' in project '${project}'`,
       );
       return;
     }
@@ -607,7 +606,7 @@ export const transformLDFeatureFlagToGBFeature = (
 async function getFromLD<ResType>(
   url: string,
   apiToken: string,
-  merge?: (existing: ResType, next: ResType) => ResType
+  merge?: (existing: ResType, next: ResType) => ResType,
 ): Promise<ResType> {
   // Pagination queue
   const fetchPage = async (url: string, result?: ResType) => {
@@ -641,7 +640,7 @@ async function getFromLD<ResType>(
 }
 
 export const getLDProjects = async (
-  apiToken: string
+  apiToken: string,
 ): Promise<LDListProjectsResponse> =>
   getFromLD("/api/v2/projects?limit=300", apiToken, (existing, next) => {
     existing.items = [...existing.items, ...next.items];
@@ -650,7 +649,7 @@ export const getLDProjects = async (
 
 export const getLDEnvironments = async (
   apiToken: string,
-  project: string
+  project: string,
 ): Promise<LDListEnvironmentsResponse> =>
   getFromLD(
     `/api/v2/projects/${project}/environments?limit=300`,
@@ -658,12 +657,12 @@ export const getLDEnvironments = async (
     (existing, next) => {
       existing.items = [...existing.items, ...next.items];
       return existing;
-    }
+    },
   );
 
 export const getLDFeatureFlags = async (
   apiToken: string,
-  project: string
+  project: string,
 ): Promise<LDListFeatureFlagsResponse> =>
   getFromLD(`/api/v2/flags/${project}`, apiToken, (existing, next) => {
     existing.items = [...existing.items, ...next.items];
@@ -673,7 +672,7 @@ export const getLDFeatureFlags = async (
 export const getLDFeatureFlag = async (
   apiToken: string,
   project: string,
-  key: string
+  key: string,
 ): Promise<LDListFeatureFlagsResponse["items"][0]> =>
   getFromLD(`/api/v2/flags/${project}/${key}`, apiToken);
 

@@ -50,7 +50,7 @@ export type ApiRequestLocals = PermissionFunctions & {
   organization: OrganizationInterface;
   eventAudit: EventAuditUser;
   audit: (
-    data: Omit<AuditInterface, "user" | "organization" | "dateCreated" | "id">
+    data: Omit<AuditInterface, "user" | "organization" | "dateCreated" | "id">,
   ) => Promise<void>;
   context: ApiReqContext;
 };

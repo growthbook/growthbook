@@ -34,7 +34,7 @@ const updateInformationSchema = trackJob(
 
     const informationSchema = await getInformationSchemaById(
       organization,
-      informationSchemaId
+      informationSchemaId,
     );
 
     if (!datasource || !informationSchema) return;
@@ -43,7 +43,7 @@ const updateInformationSchema = trackJob(
       await updateDatasourceInformationSchema(
         context,
         datasource,
-        informationSchema
+        informationSchema,
       );
     } catch (e) {
       const error: InformationSchemaError = {
@@ -58,7 +58,7 @@ const updateInformationSchema = trackJob(
       }
       const informationSchema = await getInformationSchemaByDatasourceId(
         datasource.id,
-        organization
+        organization,
       );
       if (informationSchema) {
         await updateInformationSchemaById(organization, informationSchema.id, {
@@ -68,7 +68,7 @@ const updateInformationSchema = trackJob(
         });
       }
     }
-  }
+  },
 );
 
 let agenda: Agenda;
@@ -78,14 +78,14 @@ export default function (ag: Agenda) {
   agenda.define(
     UPDATE_INFORMATION_SCHEMA_JOB_NAME,
 
-    updateInformationSchema
+    updateInformationSchema,
   );
 }
 
 export async function queueUpdateInformationSchema(
   datasourceId: string,
   organization: string,
-  informationSchemaId: string
+  informationSchemaId: string,
 ) {
   if (!datasourceId || !organization) return;
 

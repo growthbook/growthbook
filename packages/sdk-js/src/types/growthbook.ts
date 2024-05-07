@@ -163,13 +163,13 @@ export interface TrackingData {
 
 export type TrackingCallback = (
   experiment: Experiment<any>,
-  result: Result<any>
+  result: Result<any>,
 ) => void;
 
 export type NavigateCallback = (url: string) => void | Promise<void>;
 
 export type ApplyDomChangesCallback = (
-  changes: AutoExperimentVariation
+  changes: AutoExperimentVariation,
 ) => () => void;
 
 export type RenderFunction = () => void;
@@ -252,7 +252,7 @@ export type PrefetchOptions = Pick<
 
 export type SubscriptionFunction = (
   experiment: Experiment<any>,
-  result: Result<any>
+  result: Result<any>,
 ) => void;
 
 export type VariationRange = [number, number];
@@ -285,10 +285,10 @@ export type JSONValue =
 export type WidenPrimitives<T> = T extends string
   ? string
   : T extends number
-  ? number
-  : T extends boolean
-  ? boolean
-  : T;
+    ? number
+    : T extends boolean
+      ? boolean
+      : T;
 
 export type FeatureEvalContext = {
   id?: string;

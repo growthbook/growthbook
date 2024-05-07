@@ -3,7 +3,7 @@ import type { DataSourcePipelineSettings } from "back-end/types/datasource";
 const UNITS_TABLE_RETENTION_HOURS_DEFAULT = 24;
 
 export function bigQueryCreateTableOptions(
-  settings: DataSourcePipelineSettings
+  settings: DataSourcePipelineSettings,
 ) {
   return `OPTIONS(
         expiration_timestamp=TIMESTAMP_ADD(
@@ -17,10 +17,10 @@ export function bigQueryCreateTableOptions(
 }
 
 export function snowflakeCreateTableOptions(
-  settings: DataSourcePipelineSettings
+  settings: DataSourcePipelineSettings,
 ) {
   return `DATA_RETENTION_TIME_IN_DAYS = ${Math.ceil(
     (settings.unitsTableRetentionHours ?? UNITS_TABLE_RETENTION_HOURS_DEFAULT) /
-      24
+      24,
   )}`;
 }

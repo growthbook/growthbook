@@ -11,7 +11,7 @@ export function useExperiments(project?: string) {
 
   const experimentsMap = useMemo(
     () => new Map(experiments.map((e) => [e.id, e])),
-    [experiments]
+    [experiments],
   );
 
   return {

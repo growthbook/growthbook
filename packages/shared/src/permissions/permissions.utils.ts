@@ -66,7 +66,7 @@ export function hasPermission(
   userPermissions: UserPermissions | undefined,
   permissionToCheck: Permission,
   project?: string | undefined,
-  envs?: string[]
+  envs?: string[],
 ): boolean {
   const usersPermissionsToCheck =
     (project && userPermissions?.projects[project]) || userPermissions?.global;
@@ -82,7 +82,7 @@ export function hasPermission(
     return true;
   }
   return envs.every((env) =>
-    usersPermissionsToCheck.environments.includes(env)
+    usersPermissionsToCheck.environments.includes(env),
   );
 }
 
@@ -91,7 +91,7 @@ export const userHasPermission = (
   userPermissions: UserPermissions,
   permission: Permission,
   project?: string | (string | undefined)[] | undefined,
-  envs?: string[]
+  envs?: string[],
 ): boolean => {
   if (superAdmin) {
     return true;
@@ -115,12 +115,12 @@ export const userHasPermission = (
     }
     // Read only type permissions grant permission if the user has the permission globally or in atleast 1 project
     return checkProjects.some((p) =>
-      hasPermission(userPermissions, permission, p, envs)
+      hasPermission(userPermissions, permission, p, envs),
     );
   } else {
     // All other permissions require the user to have the permission globally or the user must have the permission in every project they have specific permissions for
     return checkProjects.every((p) =>
-      hasPermission(userPermissions, permission, p, envs)
+      hasPermission(userPermissions, permission, p, envs),
     );
   }
 };
@@ -141,7 +141,7 @@ export const FULL_ACCESS_PERMISSIONS: ReadAccessFilter = {
 };
 
 export function getApiKeyReadAccessFilter(
-  role: string | undefined
+  role: string | undefined,
 ): ReadAccessFilter {
   let readAccessFilter: ReadAccessFilter = {
     globalReadAccess: false,
@@ -168,14 +168,14 @@ export function getReadAccessFilter(userPermissions: UserPermissions) {
         id: project,
         readAccess: projectPermissions.permissions.readData || false,
       });
-    }
+    },
   );
 
   return readAccess;
 }
 export function hasReadAccess(
   filter: ReadAccessFilter,
-  projects: string | string[] | undefined
+  projects: string | string[] | undefined,
 ): boolean {
   // If the resource is available to all projects (an empty array), then everyone should have read access
   if (Array.isArray(projects) && !projects?.length) {

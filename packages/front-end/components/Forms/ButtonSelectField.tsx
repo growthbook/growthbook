@@ -30,7 +30,7 @@ export default function ButtonSelectField<T extends string>({
                 "btn",
                 value === option.value
                   ? "active btn-primary"
-                  : "btn-outline-primary"
+                  : "btn-outline-primary",
               )}
               onClick={(e) => {
                 e.preventDefault();

@@ -17,7 +17,7 @@ router.post(
   validateRequestMiddleware({
     body: postSavedGroupBodyValidator,
   }),
-  savedGroupController.postSavedGroup
+  savedGroupController.postSavedGroup,
 );
 
 router.put(
@@ -30,7 +30,7 @@ router.put(
       .strict(),
     body: putSavedGroupBodyValidator,
   }),
-  savedGroupController.putSavedGroup
+  savedGroupController.putSavedGroup,
 );
 
 router.delete(
@@ -42,7 +42,7 @@ router.delete(
       })
       .strict(),
   }),
-  savedGroupController.deleteSavedGroup
+  savedGroupController.deleteSavedGroup,
 );
 
 export { router as savedGroupRouter };

@@ -48,7 +48,7 @@ export function getRisk(
   metric: ExperimentMetricInterface,
   metricDefaults: MetricDefaults,
   // separate CR because sometimes "baseline" above is the variation
-  baselineCR: number
+  baselineCR: number,
 ): { risk: number; relativeRisk: number; showRisk: boolean } {
   const risk = stats.risk?.[1] ?? 0;
   const relativeRisk = baselineCR ? risk / baselineCR : 0;
@@ -62,7 +62,7 @@ export function getRisk(
 export function getRiskByVariation(
   riskVariation: number,
   row: ExperimentTableRow,
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
 ) {
   const baseline = row.variations[0];
 
@@ -105,7 +105,7 @@ export function hasRisk(rows: ExperimentTableRow[]) {
 
 export function useDomain(
   variations: ExperimentReportVariationWithIndex[], // must be ordered, baseline first
-  rows: ExperimentTableRow[]
+  rows: ExperimentTableRow[],
 ): [number, number] {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -144,7 +144,7 @@ export function useDomain(
 
 export function applyMetricOverrides<T extends ExperimentMetricInterface>(
   metric: T,
-  metricOverrides?: MetricOverride[]
+  metricOverrides?: MetricOverride[],
 ): {
   newMetric: T;
   overrideFields: string[];
@@ -184,10 +184,11 @@ export function applyMetricOverrides<T extends ExperimentMetricInterface>(
       // only apply RA fields if doing an override
       newMetric.regressionAdjustmentOverride =
         metricOverride.regressionAdjustmentOverride;
-      newMetric.regressionAdjustmentEnabled = !!metricOverride.regressionAdjustmentEnabled;
+      newMetric.regressionAdjustmentEnabled =
+        !!metricOverride.regressionAdjustmentEnabled;
       overrideFields.push(
         "regressionAdjustmentOverride",
-        "regressionAdjustmentEnabled"
+        "regressionAdjustmentEnabled",
       );
       if (!isNil(metricOverride?.regressionAdjustmentDays)) {
         newMetric.regressionAdjustmentDays =
@@ -214,7 +215,7 @@ export type IndexedPValue = {
 };
 
 export function adjustPValuesBenjaminiHochberg(
-  indexedPValues: IndexedPValue[]
+  indexedPValues: IndexedPValue[],
 ): IndexedPValue[] {
   const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
   const m = newIndexedPValues.length;
@@ -238,7 +239,7 @@ export function adjustPValuesBenjaminiHochberg(
 }
 
 export function adjustPValuesHolmBonferroni(
-  indexedPValues: IndexedPValue[]
+  indexedPValues: IndexedPValue[],
 ): IndexedPValue[] {
   const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
   const m = newIndexedPValues.length;
@@ -263,7 +264,7 @@ export function adjustPValuesHolmBonferroni(
 export function setAdjustedPValuesOnResults(
   results: ExperimentReportResultDimension[],
   nonGuardrailMetrics: string[],
-  adjustment: PValueCorrection
+  adjustment: PValueCorrection,
 ): void {
   if (!adjustment) {
     return;
@@ -306,11 +307,11 @@ export function setAdjustedPValuesOnResults(
 export function adjustedCI(
   adjustedPValue: number,
   uplift: { dist: string; mean?: number; stddev?: number },
-  zScore: number
+  zScore: number,
 ): [number, number] {
   if (!uplift.mean) return [uplift.mean ?? 0, uplift.mean ?? 0];
   const adjStdDev = Math.abs(
-    uplift.mean / normal.quantile(1 - adjustedPValue / 2, 0, 1)
+    uplift.mean / normal.quantile(1 - adjustedPValue / 2, 0, 1),
   );
   const width = zScore * adjStdDev;
   return [uplift.mean - width, uplift.mean + width];
@@ -318,7 +319,7 @@ export function adjustedCI(
 
 export function setAdjustedCIs(
   results: ExperimentReportResultDimension[],
-  pValueThreshold: number
+  pValueThreshold: number,
 ): void {
   const zScore = normal.quantile(1 - pValueThreshold / 2, 0, 1);
   results.forEach((r) => {
@@ -444,9 +445,9 @@ export function getRowResults({
     `The total ${
       quantileMetricType(metric) ? "sample size" : "metric value"
     } of the variation is ${compactNumberFormatter.format(
-      variationSampleSize
+      variationSampleSize,
     )} and the baseline total is ${compactNumberFormatter.format(
-      baselineSampleSize
+      baselineSampleSize,
     )}.`;
   const percentComplete =
     minSampleSize > 0
@@ -474,11 +475,11 @@ export function getRowResults({
     baseline,
     stats,
     metric,
-    metricDefaults
+    metricDefaults,
   );
   const suspiciousChangeReason = suspiciousChange
     ? `A suspicious result occurs when the percent change exceeds your maximum percent change (${percentFormatter.format(
-        metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0
+        metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0,
       )}).`
     : "";
 
@@ -487,7 +488,7 @@ export function getRowResults({
     baseline,
     metric,
     metricDefaults,
-    baseline.cr
+    baseline.cr,
   );
   const winRiskThreshold = metric.winRisk ?? DEFAULT_WIN_RISK_THRESHOLD;
   const loseRiskThreshold = metric.loseRisk ?? DEFAULT_LOSE_RISK_THRESHOLD;
@@ -496,16 +497,16 @@ export function getRowResults({
   if (relativeRisk > winRiskThreshold && relativeRisk < loseRiskThreshold) {
     riskStatus = "warning";
     riskReason = `The relative risk (${percentFormatter.format(
-      relativeRisk
+      relativeRisk,
     )}) exceeds the warning threshold (${percentFormatter.format(
-      winRiskThreshold
+      winRiskThreshold,
     )}) for this metric.`;
   } else if (relativeRisk >= loseRiskThreshold) {
     riskStatus = "danger";
     riskReason = `The relative risk (${percentFormatter.format(
-      relativeRisk
+      relativeRisk,
     )}) exceeds the danger threshold (${percentFormatter.format(
-      loseRiskThreshold
+      loseRiskThreshold,
     )}) for this metric.`;
   }
   let riskFormatted = "";
@@ -514,10 +515,10 @@ export function getRowResults({
 
   // TODO: support formatted risk for fact metrics
   if (!isBinomial) {
-    riskFormatted = `${getExperimentMetricFormatter(
-      metric,
-      getFactTableById
-    )(risk, { currency: displayCurrency })} / user`;
+    riskFormatted = `${getExperimentMetricFormatter(metric, getFactTableById)(
+      risk,
+      { currency: displayCurrency },
+    )} / user`;
   }
   const riskMeta: RiskMeta = {
     riskStatus,
@@ -548,11 +549,11 @@ export function getRowResults({
   if (!significant) {
     if (statsEngine === "bayesian") {
       significantReason = `This metric is not statistically significant. The chance to win is not less than ${percentFormatter.format(
-        ciLower
+        ciLower,
       )} or greater than ${percentFormatter.format(ciUpper)}.`;
     } else {
       significantReason = `This metric is not statistically significant. The p-value (${pValueFormatter(
-        stats.pValueAdjusted ?? stats.pValue ?? 1
+        stats.pValueAdjusted ?? stats.pValue ?? 1,
       )}) is greater than the threshold (${pValueFormatter(pValueThreshold)}).`;
     }
   }
@@ -561,11 +562,11 @@ export function getRowResults({
   if (statsEngine === "bayesian") {
     if (resultsStatus === "won") {
       resultsReason = `Significant win as the chance to win is above the ${percentFormatter.format(
-        ciUpper
+        ciUpper,
       )} threshold and the change is in the desired direction.`;
     } else if (resultsStatus === "lost") {
       resultsReason = `Significant loss as the chance to win is below the ${percentFormatter.format(
-        ciLower
+        ciLower,
       )} threshold and the change is not in the desired direction.`;
     } else if (resultsStatus === "draw") {
       resultsReason =
@@ -574,11 +575,11 @@ export function getRowResults({
   } else {
     if (resultsStatus === "won") {
       resultsReason = `Significant win as the p-value is below the ${numberFormatter.format(
-        pValueThreshold
+        pValueThreshold,
       )} threshold`;
     } else if (resultsStatus === "lost") {
       resultsReason = `Significant loss as the p-value is below the ${numberFormatter.format(
-        pValueThreshold
+        pValueThreshold,
       )} threshold`;
     } else if (resultsStatus === "draw") {
       resultsReason =

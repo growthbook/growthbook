@@ -112,7 +112,7 @@ export default function TargetingAttributeCodeSnippet({
       "utmContent",
     ];
     const additionalAttributes = Object.entries(exampleAttributes).filter(
-      ([k]) => !defaultAttributes.includes(k)
+      ([k]) => !defaultAttributes.includes(k),
     );
 
     if (additionalAttributes.length) {
@@ -130,7 +130,7 @@ export default function TargetingAttributeCodeSnippet({
 <script>
 window.growthbook_config = window.growthbook_config || {};
 window.growthbook_config.attributes = ${stringify(
-              Object.fromEntries(additionalAttributes)
+              Object.fromEntries(additionalAttributes),
             )};
 </script>
           `}
@@ -230,7 +230,7 @@ gb.setAttributes(attrs)
 gb.WithAttributes(growthbook.Attributes${JSON.stringify(
             exampleAttributes,
             null,
-            "\t"
+            "\t",
           )
             .replace(/null/g, "nil")
             .replace(/\n(\t+)\}/, ",\n$1}")})
@@ -247,7 +247,7 @@ gb.WithAttributes(growthbook.Attributes${JSON.stringify(
           language="ruby"
           code={`gb.attributes=${stringify(exampleAttributes).replace(
             /: null/g,
-            ": nil"
+            ": nil",
           )}`}
         />
       </>
@@ -260,7 +260,7 @@ gb.WithAttributes(growthbook.Attributes${JSON.stringify(
         <Code
           language="php"
           code={`$growthbook->withAttributes(${phpArrayFormat(
-            exampleAttributes
+            exampleAttributes,
           )});`}
         />
       </>
@@ -291,7 +291,7 @@ JSONObject userAttributesObj = new JSONObject();
 ${Object.entries(exampleAttributes)
   .map(([key, value]) => {
     return `userAttributesObj.put(${JSON.stringify(key)}, ${JSON.stringify(
-      value
+      value,
     )});`;
   })
   .join("\n")}

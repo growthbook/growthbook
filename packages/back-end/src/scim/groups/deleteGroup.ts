@@ -5,7 +5,7 @@ import { removeMembersFromTeam } from "../../services/organizations";
 
 export async function deleteGroup(
   req: ScimGetRequest,
-  res: Response
+  res: Response,
 ): Promise<Response<ScimError>> {
   const { id } = req.params;
 

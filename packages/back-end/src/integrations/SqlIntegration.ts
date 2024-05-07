@@ -83,30 +83,13 @@ export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
 
 const N_STAR_VALUES = [
-  100,
-  200,
-  400,
-  800,
-  1600,
-  3200,
-  6400,
-  12800,
-  25600,
-  51200,
-  102400,
-  204800,
-  409600,
-  819200,
-  1638400,
-  3276800,
-  6553600,
-  13107200,
-  26214400,
-  52428800,
+  100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 51200, 102400, 204800,
+  409600, 819200, 1638400, 3276800, 6553600, 13107200, 26214400, 52428800,
 ];
 
 export default abstract class SqlIntegration
-  implements SourceIntegrationInterface {
+  implements SourceIntegrationInterface
+{
   datasource: DataSourceInterface;
   context: ReqContext;
   decryptionError: boolean;
@@ -115,7 +98,7 @@ export default abstract class SqlIntegration
   abstract setParams(encryptedParams: string): void;
   abstract runQuery(
     sql: string,
-    setExternalId?: ExternalIdCallback
+    setExternalId?: ExternalIdCallback,
   ): Promise<QueryResponse>;
   async cancelQuery(externalId: string): Promise<void> {
     logger.debug(`Cancel query: ${externalId} - not implemented`);
@@ -222,7 +205,7 @@ export default abstract class SqlIntegration
     col: string,
     unit: "hour" | "minute",
     sign: "+" | "-",
-    amount: number
+    amount: number,
   ): string {
     return `${col} ${sign} INTERVAL '${amount} ${unit}s'`;
   }
@@ -273,7 +256,7 @@ export default abstract class SqlIntegration
 
   private getExposureQuery(
     exposureQueryId: string,
-    userIdType?: "anonymous" | "user"
+    userIdType?: "anonymous" | "user",
   ): ExposureQuery {
     if (!exposureQueryId) {
       exposureQueryId = userIdType === "user" ? "user_id" : "anonymous_id";
@@ -285,7 +268,7 @@ export default abstract class SqlIntegration
 
     if (!match) {
       throw new Error(
-        "Unknown experiment assignment table - " + exposureQueryId
+        "Unknown experiment assignment table - " + exposureQueryId,
       );
     }
 
@@ -389,14 +372,14 @@ export default abstract class SqlIntegration
     ORDER BY
       start_date DESC, experiment_id ASC, variation_id ASC
       `,
-      MAX_ROWS_PAST_EXPERIMENTS_QUERY
+      MAX_ROWS_PAST_EXPERIMENTS_QUERY,
     )}`,
-      this.getFormatDialect()
+      this.getFormatDialect(),
     );
   }
   async runPastExperimentQuery(
     query: string,
-    setExternalId: ExternalIdCallback
+    setExternalId: ExternalIdCallback,
   ): Promise<PastExperimentQueryResponse> {
     const { rows, statistics } = await this.runQuery(query, setExternalId);
 
@@ -425,14 +408,14 @@ export default abstract class SqlIntegration
         params.segment ? [params.segment.userIdType || "user_id"] : [],
       ],
       params.from,
-      params.to
+      params.to,
     );
 
     // Get rough date filter for metrics to improve performance
     const metricStart = this.getMetricStart(
       params.from,
       this.getMetricMinDelay([params.metric]),
-      0
+      0,
     );
     const metricEnd = this.getMetricEnd([params.metric], params.to);
 
@@ -448,7 +431,7 @@ export default abstract class SqlIntegration
             ? `segment as (${this.getSegmentCTE(
                 params.segment,
                 baseIdType,
-                idJoinMap
+                idJoinMap,
               )}),`
             : ""
         }
@@ -546,14 +529,14 @@ export default abstract class SqlIntegration
       }
       
       `,
-      this.getFormatDialect()
+      this.getFormatDialect(),
     );
   }
 
   getQuantileBoundsFromQueryResponse(
     // eslint-disable-next-line
     row: Record<string, any>,
-    prefix: string
+    prefix: string,
   ) {
     // Finds the lower and upper bounds that correspond to the largest
     // nstar that is smaller than the actual quantile n
@@ -593,7 +576,7 @@ export default abstract class SqlIntegration
 
   async runExperimentFactMetricsQuery(
     query: string,
-    setExternalId: ExternalIdCallback
+    setExternalId: ExternalIdCallback,
   ): Promise<ExperimentFactMetricsQueryResponse> {
     const { rows, statistics } = await this.runQuery(query, setExternalId);
 
@@ -648,7 +631,7 @@ export default abstract class SqlIntegration
 
   async runExperimentMetricQuery(
     query: string,
-    setExternalId: ExternalIdCallback
+    setExternalId: ExternalIdCallback,
   ): Promise<ExperimentMetricQueryResponse> {
     const { rows, statistics } = await this.runQuery(query, setExternalId);
     return {
@@ -691,7 +674,7 @@ export default abstract class SqlIntegration
 
   async runExperimentAggregateUnitsQuery(
     query: string,
-    setExternalId: ExternalIdCallback
+    setExternalId: ExternalIdCallback,
   ): Promise<ExperimentAggregateUnitsQueryResponse> {
     const { rows, statistics } = await this.runQuery(query, setExternalId);
     return {
@@ -709,14 +692,14 @@ export default abstract class SqlIntegration
 
   async runExperimentUnitsQuery(
     query: string,
-    setExternalId: ExternalIdCallback
+    setExternalId: ExternalIdCallback,
   ): Promise<ExperimentUnitsQueryResponse> {
     return await this.runQuery(query, setExternalId);
   }
 
   async runMetricValueQuery(
     query: string,
-    setExternalId: ExternalIdCallback
+    setExternalId: ExternalIdCallback,
   ): Promise<MetricValueQueryResponse> {
     const { rows, statistics } = await this.runQuery(query, setExternalId);
 
@@ -740,7 +723,7 @@ export default abstract class SqlIntegration
   //Test the validity of a query as cheaply as possible
   getTestValidityQuery(
     query: string,
-    templateVariables?: TemplateVariables
+    templateVariables?: TemplateVariables,
   ): string {
     return this.getTestQuery(query, templateVariables, 1);
   }
@@ -748,7 +731,7 @@ export default abstract class SqlIntegration
   getTestQuery(
     query: string,
     templateVariables?: TemplateVariables,
-    limit: number = 5
+    limit: number = 5,
   ): string {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - IMPORT_LIMIT_DAYS);
@@ -760,14 +743,14 @@ export default abstract class SqlIntegration
       {
         startDate,
         templateVariables,
-      }
+      },
     );
     return format(limitedQuery, this.getFormatDialect());
   }
 
   async runTestQuery(
     sql: string,
-    timestampCols?: string[]
+    timestampCols?: string[],
   ): Promise<TestQueryResult> {
     // Calculate the run time of the query
     const queryStartTime = Date.now();
@@ -793,11 +776,11 @@ export default abstract class SqlIntegration
     from: Date,
     to?: Date,
     forcedBaseIdType?: string,
-    experimentId?: string
+    experimentId?: string,
   ) {
     const { baseIdType, joinsRequired } = getBaseIdTypeAndJoins(
       objects,
-      forcedBaseIdType
+      forcedBaseIdType,
     );
 
     // Joins for when an object doesn't support the baseIdType
@@ -816,9 +799,9 @@ export default abstract class SqlIntegration
           idType,
           from,
           to,
-          experimentId
+          experimentId,
         )}
-      ),`
+      ),`,
       );
     });
 
@@ -837,7 +820,7 @@ export default abstract class SqlIntegration
     cumulativeDate: boolean = false,
     overrideConversionWindows: boolean = false,
     tablePrefix: string = "__denominator",
-    initialTable: string = "__experiment"
+    initialTable: string = "__experiment",
   ) {
     // Note: the aliases below are needed for clickhouse
     return `
@@ -877,7 +860,7 @@ export default abstract class SqlIntegration
               m,
               endDate,
               cumulativeDate,
-              overrideConversionWindows
+              overrideConversionWindows,
             );
           })
           .join("\n AND ")}
@@ -887,21 +870,21 @@ export default abstract class SqlIntegration
 
   private getDimensionColumn(
     baseIdType: string,
-    dimension: UserDimension | ExperimentDimension | null
+    dimension: UserDimension | ExperimentDimension | null,
   ) {
     const missingDimString = "__NULL_DIMENSION";
     if (!dimension) {
       return this.castToString("'All'");
     } else if (dimension.type === "user") {
       return `COALESCE(MAX(${this.castToString(
-        `__dim_unit_${dimension.dimension.id}.value`
+        `__dim_unit_${dimension.dimension.id}.value`,
       )}),'${missingDimString}')`;
     } else if (dimension.type === "experiment") {
       return `SUBSTRING(
         MIN(
           CONCAT(SUBSTRING(${this.formatDateTimeString("e.timestamp")}, 1, 19), 
             coalesce(${this.castToString(
-              `e.dim_${dimension.id}`
+              `e.dim_${dimension.id}`,
             )}, ${this.castToString(`'${missingDimString}'`)})
           )
         ),
@@ -919,7 +902,7 @@ export default abstract class SqlIntegration
     metric: ExperimentMetricInterface,
     endDate: Date,
     cumulativeDate: boolean,
-    overrideConversionWindows: boolean
+    overrideConversionWindows: boolean,
   ): string {
     let windowHours = getConversionWindowHours(metric.windowSettings);
     const delayHours = metric.windowSettings.delayHours ?? 0;
@@ -935,9 +918,9 @@ export default abstract class SqlIntegration
       // which can extend beyond experiment end date
       metricWindow = `${metricWindow}
         AND ${metricCol} <= ${this.addHours(
-        baseCol,
-        delayHours + windowHours
-      )}`;
+          baseCol,
+          delayHours + windowHours,
+        )}`;
     } else {
       // otherwise, it must be before the experiment end date
       metricWindow = `${metricWindow}
@@ -973,7 +956,7 @@ export default abstract class SqlIntegration
   private getMetricStart(
     initial: Date,
     minDelay: number,
-    regressionAdjustmentHours: number
+    regressionAdjustmentHours: number,
   ) {
     const metricStart = new Date(initial);
     if (minDelay < 0) {
@@ -988,7 +971,7 @@ export default abstract class SqlIntegration
   private getMetricEnd(
     metrics: ExperimentMetricInterface[],
     initial?: Date,
-    overrideConversionWindows?: boolean
+    overrideConversionWindows?: boolean,
   ): Date | null {
     if (!initial) return null;
     if (overrideConversionWindows) return initial;
@@ -1017,7 +1000,7 @@ export default abstract class SqlIntegration
   private getMaxHoursToConvert(
     funnelMetric: boolean,
     metricAndDenominatorMetrics: ExperimentMetricInterface[],
-    activationMetric: ExperimentMetricInterface | null
+    activationMetric: ExperimentMetricInterface | null,
   ): number {
     // Used to set an experiment end date to filter out users
     // who have not had enough time to convert (if experimenter
@@ -1051,7 +1034,7 @@ export default abstract class SqlIntegration
   processDimensions(
     dimensions: Dimension[],
     settings: ExperimentSnapshotSettings,
-    activationMetric: ExperimentMetricInterface | null
+    activationMetric: ExperimentMetricInterface | null,
   ): ProcessedDimensions {
     const processedDimensions: ProcessedDimensions = {
       unitDimensions: [],
@@ -1072,7 +1055,7 @@ export default abstract class SqlIntegration
             startDate: settings.startDate,
             endDate: settings.endDate,
             experimentId: settings.experimentId,
-          }
+          },
         );
         processedDimensions.unitDimensions.push(clonedDimension);
       } else if (dimension?.type === "experiment") {
@@ -1097,19 +1080,18 @@ export default abstract class SqlIntegration
       SELECT * FROM __experimentUnits
     );
     `,
-      this.getFormatDialect()
+      this.getFormatDialect(),
     );
   }
 
   processActivationMetric(
     activationMetricDoc: null | ExperimentMetricInterface,
-    settings: ExperimentSnapshotSettings
+    settings: ExperimentSnapshotSettings,
   ): null | ExperimentMetricInterface {
     let activationMetric: null | ExperimentMetricInterface = null;
     if (activationMetricDoc) {
-      activationMetric = cloneDeep<ExperimentMetricInterface>(
-        activationMetricDoc
-      );
+      activationMetric =
+        cloneDeep<ExperimentMetricInterface>(activationMetricDoc);
       applyMetricOverrides(activationMetric, settings);
     }
     return activationMetric;
@@ -1121,7 +1103,7 @@ export default abstract class SqlIntegration
         .map((v) => `'` + this.escapeStringLiteral(v) + `'`)
         .join(",")})`,
       this.castToString(dimension),
-      this.castToString(`'${AUTOMATIC_DIMENSION_OTHER_NAME}'`)
+      this.castToString(`'${AUTOMATIC_DIMENSION_OTHER_NAME}'`),
     );
   }
 
@@ -1135,13 +1117,13 @@ export default abstract class SqlIntegration
 
     const activationMetric = this.processActivationMetric(
       activationMetricDoc,
-      settings
+      settings,
     );
 
     const { experimentDimensions, unitDimensions } = this.processDimensions(
       params.dimensions,
       settings,
-      activationMetric
+      activationMetric,
     );
 
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
@@ -1157,7 +1139,7 @@ export default abstract class SqlIntegration
       settings.startDate,
       settings.endDate,
       exposureQuery.userIdType,
-      settings.experimentId
+      settings.experimentId,
     );
 
     // Get date range for experiment
@@ -1190,7 +1172,7 @@ export default abstract class SqlIntegration
             if (d.specifiedSlices?.length) {
               return `, ${this.getDimensionInStatement(
                 d.id,
-                d.specifiedSlices
+                d.specifiedSlices,
               )} AS dim_${d.id}`;
             }
             return `, e.${d.id} AS dim_${d.id}`;
@@ -1217,12 +1199,12 @@ export default abstract class SqlIntegration
             startDate: this.getMetricStart(
               settings.startDate,
               activationMetric.windowSettings.delayHours || 0,
-              0
+              0,
             ),
             endDate: this.getMetricEnd(
               [activationMetric],
               settings.endDate,
-              overrideConversionWindows
+              overrideConversionWindows,
             ),
             experimentId: settings.experimentId,
             factTableMap,
@@ -1240,7 +1222,7 @@ export default abstract class SqlIntegration
               startDate: settings.startDate,
               endDate: settings.endDate,
               experimentId: settings.experimentId,
-            }
+            },
           )})`
         : ""
     }
@@ -1250,8 +1232,8 @@ export default abstract class SqlIntegration
           `, __dim_unit_${d.dimension.id} as (${this.getDimensionCTE(
             d.dimension,
             baseIdType,
-            idJoinMap
-          )})`
+            idJoinMap,
+          )})`,
       )
       .join("\n")}
     , __experimentUnits AS (
@@ -1261,21 +1243,21 @@ export default abstract class SqlIntegration
         , ${this.ifElse(
           "count(distinct e.variation) > 1",
           "'__multiple__'",
-          "max(e.variation)"
+          "max(e.variation)",
         )} AS variation
         , MIN(${timestampColumn}) AS first_exposure_timestamp
         ${unitDimensions
           .map(
             (d) => `
           , ${this.getDimensionColumn(baseIdType, d)} AS dim_unit_${
-              d.dimension.id
-            }`
+            d.dimension.id
+          }`,
           )
           .join("\n")}
         ${experimentDimensions
           .map(
             (d) => `
-          , ${this.getDimensionColumn(baseIdType, d)} AS dim_exp_${d.id}`
+          , ${this.getDimensionColumn(baseIdType, d)} AS dim_exp_${d.id}`,
           )
           .join("\n")}
         ${
@@ -1287,10 +1269,10 @@ export default abstract class SqlIntegration
                   activationMetric,
                   settings.endDate,
                   false,
-                  overrideConversionWindows
+                  overrideConversionWindows,
                 ),
                 "a.timestamp",
-                "NULL"
+                "NULL",
               )}) AS first_activation_timestamp
             `
             : ""
@@ -1308,7 +1290,7 @@ export default abstract class SqlIntegration
             LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
               __dim_unit_${d.dimension.id}.${baseIdType} = e.${baseIdType}
             )
-          `
+          `,
           )
           .join("\n")}
         ${
@@ -1323,21 +1305,16 @@ export default abstract class SqlIntegration
   }
 
   getExperimentAggregateUnitsQuery(
-    params: ExperimentAggregateUnitsQueryParams
+    params: ExperimentAggregateUnitsQueryParams,
   ): string {
-    const {
-      activationMetric,
-      segment,
-      settings,
-      factTableMap,
-      useUnitsTable,
-    } = params;
+    const { activationMetric, segment, settings, factTableMap, useUnitsTable } =
+      params;
 
     // unitDimensions not supported yet
     const { experimentDimensions } = this.processDimensions(
       params.dimensions,
       settings,
-      activationMetric
+      activationMetric,
     );
 
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
@@ -1358,7 +1335,7 @@ export default abstract class SqlIntegration
       settings.startDate,
       settings.endDate,
       exposureQuery.userIdType,
-      settings.experimentId
+      settings.experimentId,
     );
 
     return format(
@@ -1378,7 +1355,7 @@ export default abstract class SqlIntegration
           ${baseIdType}
           , variation
           , ${this.formatDate(
-            this.dateTrunc("first_exposure_timestamp")
+            this.dateTrunc("first_exposure_timestamp"),
           )} AS dim_exposure_date
           ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join("\n")}
           ${
@@ -1386,7 +1363,7 @@ export default abstract class SqlIntegration
               ? `, ${this.ifElse(
                   `first_activation_timestamp IS NULL`,
                   "'Not Activated'",
-                  "'Activated'"
+                  "'Activated'",
                 )} AS dim_activated`
               : ""
           }
@@ -1406,17 +1383,17 @@ export default abstract class SqlIntegration
               d,
               activationMetric && d !== "dim_activated"
                 ? "WHERE dim_activated = 'Activated'"
-                : ""
-            )
+                : "",
+            ),
           )
           .join("\nUNION ALL\n")}
       )
       ${this.selectStarLimit(
         "__unitsByDimension",
-        MAX_ROWS_UNIT_AGGREGATE_QUERY
+        MAX_ROWS_UNIT_AGGREGATE_QUERY,
       )}
     `,
-      this.getFormatDialect()
+      this.getFormatDialect(),
     );
   }
 
@@ -1469,7 +1446,7 @@ export default abstract class SqlIntegration
           ${params.dimensions
             .map(
               (d) => `
-            , ${this.getDimensionColumn(baseIdType, d)} AS dim_exp_${d.id}`
+            , ${this.getDimensionColumn(baseIdType, d)} AS dim_exp_${d.id}`,
             )
             .join("\n")}
           , 1 AS variation
@@ -1520,13 +1497,13 @@ export default abstract class SqlIntegration
       WHERE 
         rn <= 20
     `,
-      this.getFormatDialect()
+      this.getFormatDialect(),
     );
   }
 
   async runDimensionSlicesQuery(
     query: string,
-    setExternalId: ExternalIdCallback
+    setExternalId: ExternalIdCallback,
   ): Promise<DimensionSlicesQueryResponse> {
     const { rows, statistics } = await this.runQuery(query, setExternalId);
     return {
@@ -1546,13 +1523,13 @@ export default abstract class SqlIntegration
     metric: ExperimentMetricInterface,
     settings: ExperimentSnapshotSettings,
     activationMetric: ExperimentMetricInterface | null,
-    alias: string
+    alias: string,
   ): FactMetricData {
     const ratioMetric = isRatioMetric(metric);
     const funnelMetric = isFunnelMetric(metric);
     const quantileMetric = quantileMetricType(metric);
     const metricQuantileSettings: MetricQuantileSettings = (isFactMetric(
-      metric
+      metric,
     ) && !!quantileMetric
       ? metric.quantileSettings
       : undefined) ?? { type: "unit", quantile: 0, ignoreZeros: false };
@@ -1579,19 +1556,19 @@ export default abstract class SqlIntegration
       `m.${alias}_value`,
       metric,
       "cap",
-      `${alias}_value_cap`
+      `${alias}_value_cap`,
     );
     const capCoalesceDenominator = this.capCoalesceValue(
       `m.${alias}_denominator`,
       metric,
       "cap",
-      `${alias}_denominator_cap`
+      `${alias}_denominator_cap`,
     );
     const capCoalesceCovariate = this.capCoalesceValue(
       `c.${alias}_value`,
       metric,
       "cap",
-      `${alias}_value_cap`
+      `${alias}_value_cap`,
     );
 
     // Get rough date filter for metrics to improve performance
@@ -1602,12 +1579,12 @@ export default abstract class SqlIntegration
     const metricStart = this.getMetricStart(
       settings.startDate,
       minMetricDelay,
-      regressionAdjustmentHours
+      regressionAdjustmentHours,
     );
     const metricEnd = this.getMetricEnd(
       orderedMetrics,
       settings.endDate,
-      overrideConversionWindows
+      overrideConversionWindows,
     );
 
     const raMetricSettings = {
@@ -1619,7 +1596,7 @@ export default abstract class SqlIntegration
     const maxHoursToConvert = this.getMaxHoursToConvert(
       funnelMetric,
       [metric],
-      activationMetric
+      activationMetric,
     );
 
     return {
@@ -1647,7 +1624,7 @@ export default abstract class SqlIntegration
 
   getFactMetricQuantileData(
     metricData: FactMetricData[],
-    quantileType: MetricQuantileSettings["type"]
+    quantileType: MetricQuantileSettings["type"],
   ) {
     const quantileData: {
       alias: string;
@@ -1669,7 +1646,7 @@ export default abstract class SqlIntegration
   }
 
   getExperimentFactMetricsQuery(
-    params: ExperimentFactMetricsQueryParams
+    params: ExperimentFactMetricsQueryParams,
   ): string {
     const { settings, segment } = params;
 
@@ -1677,7 +1654,7 @@ export default abstract class SqlIntegration
     const metrics = cloneDeep(params.metrics);
     const activationMetric = this.processActivationMetric(
       params.activationMetric,
-      settings
+      settings,
     );
 
     metrics.forEach((m) => {
@@ -1688,7 +1665,7 @@ export default abstract class SqlIntegration
     const { unitDimensions } = this.processDimensions(
       params.dimensions,
       settings,
-      activationMetric
+      activationMetric,
     );
 
     const factTableMap = params.factTableMap;
@@ -1700,7 +1677,7 @@ export default abstract class SqlIntegration
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
 
     const metricData = metrics.map((metric, i) =>
-      this.getMetricData(metric, settings, activationMetric, `m${i}`)
+      this.getMetricData(metric, settings, activationMetric, `m${i}`),
     );
 
     const raMetricSettings = metricData
@@ -1708,15 +1685,15 @@ export default abstract class SqlIntegration
       .map((m) => m.raMetricSettings);
 
     const maxHoursToConvert = Math.max(
-      ...metricData.map((m) => m.maxHoursToConvert)
+      ...metricData.map((m) => m.maxHoursToConvert),
     );
     const metricStart = metricData.reduce(
       (min, d) => (d.metricStart < min ? d.metricStart : min),
-      settings.startDate
+      settings.startDate,
     );
     const metricEnd = metricData.reduce(
       (max, d) => (d.metricEnd && d.metricEnd > max ? d.metricEnd : max),
-      settings.endDate
+      settings.endDate,
     );
 
     // Get any required identity join queries
@@ -1730,7 +1707,7 @@ export default abstract class SqlIntegration
       idTypeObjects.push(
         ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
         segment ? [segment.userIdType || "user_id"] : [],
-        activationMetric ? getUserIdTypes(activationMetric, factTableMap) : []
+        activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
       );
     }
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
@@ -1738,19 +1715,19 @@ export default abstract class SqlIntegration
       settings.startDate,
       settings.endDate,
       exposureQuery.userIdType,
-      settings.experimentId
+      settings.experimentId,
     );
 
     // Get date range for experiment and analysis
     const startDate: Date = settings.startDate;
     const endDate: Date = this.getExperimentEndDate(
       settings,
-      maxHoursToConvert
+      maxHoursToConvert,
     );
 
     if (params.dimensions.length > 1) {
       throw new Error(
-        "Multiple dimensions not supported in metric analysis yet. Please contact GrowthBook."
+        "Multiple dimensions not supported in metric analysis yet. Please contact GrowthBook.",
       );
     }
     const dimension = params.dimensions[0];
@@ -1761,13 +1738,13 @@ export default abstract class SqlIntegration
       dimensionCol = `dim_unit_${dimension.dimension.id}`;
     } else if (dimension?.type === "date") {
       dimensionCol = `${this.formatDate(
-        this.dateTrunc("first_exposure_timestamp")
+        this.dateTrunc("first_exposure_timestamp"),
       )}`;
     } else if (dimension?.type === "activation") {
       dimensionCol = this.ifElse(
         `first_activation_timestamp IS NULL`,
         "'Not Activated'",
-        "'Activated'"
+        "'Activated'",
       );
     }
 
@@ -1782,7 +1759,7 @@ export default abstract class SqlIntegration
     }
     if (settings.skipPartialData) {
       distinctUsersWhere.push(
-        `${timestampColumn} <= ${this.toTimestamp(endDate)}`
+        `${timestampColumn} <= ${this.toTimestamp(endDate)}`,
       );
     }
 
@@ -1815,11 +1792,11 @@ export default abstract class SqlIntegration
 
     const eventQuantileData = this.getFactMetricQuantileData(
       metricData,
-      "event"
+      "event",
     );
 
     const regressionAdjustedMetrics = metricData.filter(
-      (m) => m.regressionAdjusted
+      (m) => m.regressionAdjusted,
     );
 
     return format(
@@ -1846,11 +1823,11 @@ export default abstract class SqlIntegration
               ? `
               , ${this.addHours(
                 "first_exposure_timestamp",
-                Math.min(...raMetricSettings.map((s) => s.minDelay - s.hours))
+                Math.min(...raMetricSettings.map((s) => s.minDelay - s.hours)),
               )} as min_preexposure_start
               , ${this.addHours(
                 "first_exposure_timestamp",
-                Math.max(...raMetricSettings.map((s) => s.minDelay))
+                Math.max(...raMetricSettings.map((s) => s.minDelay)),
               )} as max_preexposure_end
             `
               : ""
@@ -1860,12 +1837,12 @@ export default abstract class SqlIntegration
               ({ alias, hours, minDelay }) => `
               , ${this.addHours(
                 "first_exposure_timestamp",
-                minDelay
+                minDelay,
               )} AS ${alias}_preexposure_end
               , ${this.addHours(
                 "first_exposure_timestamp",
-                minDelay - hours
-              )} AS ${alias}_preexposure_start`
+                minDelay - hours,
+              )} AS ${alias}_preexposure_start`,
             )
             .join("\n")}
         FROM ${
@@ -1892,7 +1869,7 @@ export default abstract class SqlIntegration
         cumulativeDate
           ? `, __dateRange AS (
         ${this.getDateTable(
-          dateStringArrayBetweenDates(startDate, endDate || new Date())
+          dateStringArrayBetweenDates(startDate, endDate || new Date()),
         )}
       )`
           : ""
@@ -1912,7 +1889,7 @@ export default abstract class SqlIntegration
                   data.overrideConversionWindows,
                   settings.endDate,
                   cumulativeDate,
-                  data.quantileMetric ? data.metricQuantileSettings : undefined
+                  data.quantileMetric ? data.metricQuantileSettings : undefined,
                 )} as ${data.alias}_value
                 ${
                   data.ratioMetric
@@ -1921,11 +1898,11 @@ export default abstract class SqlIntegration
                         data.metric,
                         data.overrideConversionWindows,
                         settings.endDate,
-                        cumulativeDate
+                        cumulativeDate,
                       )} as ${data.alias}_denominator`
                     : ""
                 }
-                `
+                `,
             )
             .join(",")}
           
@@ -1954,8 +1931,8 @@ export default abstract class SqlIntegration
             .map((data) =>
               this.getQuantileGridColumns(
                 data.metricQuantileSettings,
-                `${data.alias}_`
-              )
+                `${data.alias}_`,
+              ),
             )
             .join("\n")}
         FROM
@@ -1980,7 +1957,7 @@ export default abstract class SqlIntegration
                   data.metric,
                   false,
                   `umj.${data.alias}_value`,
-                  `qm.${data.alias}_quantile`
+                  `qm.${data.alias}_quantile`,
                 )} AS ${data.alias}_value
                 ${
                   data.ratioMetric
@@ -1988,16 +1965,16 @@ export default abstract class SqlIntegration
                         data.metric,
                         true,
                         `umj.${data.alias}_denominator`,
-                        `qm.${data.alias}_quantile`
+                        `qm.${data.alias}_quantile`,
                       )} AS ${data.alias}_denominator`
                     : ""
-                }`
+                }`,
             )
             .join(",\n")}
           ${eventQuantileData
             .map(
               (data) =>
-                `, COUNT(umj.${data.alias}_value) AS ${data.alias}_n_events`
+                `, COUNT(umj.${data.alias}_value) AS ${data.alias}_n_events`,
             )
             .join("\n")}
         FROM
@@ -2041,9 +2018,9 @@ export default abstract class SqlIntegration
                     this.ifElse(
                       `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
                       `${metric.alias}_value`,
-                      "NULL"
-                    )
-                  )} as ${metric.alias}_value`
+                      "NULL",
+                    ),
+                  )} as ${metric.alias}_value`,
               )
               .join(",\n")}
           FROM
@@ -2079,29 +2056,29 @@ export default abstract class SqlIntegration
             }
             SUM(${data.capCoalesceMetric}) AS ${data.alias}_main_sum,
             SUM(POWER(${data.capCoalesceMetric}, 2)) AS ${
-            data.alias
-          }_main_sum_squares
+              data.alias
+            }_main_sum_squares
             ${
               data.quantileMetric === "event"
                 ? `
               , SUM(COALESCE(m.${data.alias}_n_events, 0)) AS ${
-                    data.alias
-                  }_denominator_sum
+                data.alias
+              }_denominator_sum
               , SUM(POWER(COALESCE(m.${data.alias}_n_events, 0), 2)) AS ${
-                    data.alias
-                  }_denominator_sum_squares
+                data.alias
+              }_denominator_sum_squares
               , SUM(COALESCE(m.${data.alias}_n_events, 0) * ${
-                    data.capCoalesceMetric
-                  }) AS ${data.alias}_main_denominator_sum_product
+                data.capCoalesceMetric
+              }) AS ${data.alias}_main_denominator_sum_product
               , SUM(COALESCE(m.${data.alias}_n_events, 0)) AS ${
-                    data.alias
-                  }_quantile_n
+                data.alias
+              }_quantile_n
               , MAX(qm.${data.alias}_quantile) AS ${data.alias}_quantile
                 ${N_STAR_VALUES.map(
                   (
-                    n
+                    n,
                   ) => `, MAX(qm.${data.alias}_quantile_lower_${n}) AS ${data.alias}_quantile_lower_${n}
-                        , MAX(qm.${data.alias}_quantile_upper_${n}) AS ${data.alias}_quantile_upper_${n}`
+                        , MAX(qm.${data.alias}_quantile_upper_${n}) AS ${data.alias}_quantile_upper_${n}`,
                 ).join("\n")}`
                 : ""
             }
@@ -2109,7 +2086,7 @@ export default abstract class SqlIntegration
               data.quantileMetric === "unit"
                 ? `${this.getQuantileGridColumns(
                     data.metricQuantileSettings,
-                    `${data.alias}_`
+                    `${data.alias}_`,
                   )}
                   , COUNT(m.${data.alias}_value) AS ${data.alias}_quantile_n`
                 : ""
@@ -2123,14 +2100,14 @@ export default abstract class SqlIntegration
                   : ""
               }
               SUM(${data.capCoalesceDenominator}) AS ${
-                    data.alias
-                  }_denominator_sum,
+                data.alias
+              }_denominator_sum,
               SUM(POWER(${data.capCoalesceDenominator}, 2)) AS ${
-                    data.alias
-                  }_denominator_sum_squares,
+                data.alias
+              }_denominator_sum_squares,
               SUM(${data.capCoalesceDenominator} * ${
-                    data.capCoalesceMetric
-                  }) AS ${data.alias}_main_denominator_sum_product
+                data.capCoalesceMetric
+              }) AS ${data.alias}_main_denominator_sum_product
             `
                 : ""
             }
@@ -2167,7 +2144,7 @@ export default abstract class SqlIntegration
         m.variation,
         ${cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"}
     `,
-      this.getFormatDialect()
+      this.getFormatDialect(),
     );
     // TODO cumulativeDate in more places
   }
@@ -2186,11 +2163,11 @@ export default abstract class SqlIntegration
     // clone the metrics before we mutate them
     const metric = cloneDeep<ExperimentMetricInterface>(metricDoc);
     let denominatorMetrics = cloneDeep<ExperimentMetricInterface[]>(
-      denominatorMetricsDocs
+      denominatorMetricsDocs,
     );
     const activationMetric = this.processActivationMetric(
       activationMetricDoc,
-      settings
+      settings,
     );
 
     // Fact metrics are self-contained, so they don't need to reference other metrics for the denominator
@@ -2208,7 +2185,7 @@ export default abstract class SqlIntegration
     const { unitDimensions } = this.processDimensions(
       params.dimensions,
       settings,
-      activationMetric
+      activationMetric,
     );
 
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
@@ -2226,7 +2203,7 @@ export default abstract class SqlIntegration
       throw new Error("Quantile metrics not supported by this warehouse type");
     }
     const metricQuantileSettings: MetricQuantileSettings = (isFactMetric(
-      metric
+      metric,
     ) && !!quantileMetric
       ? metric.quantileSettings
       : undefined) ?? {
@@ -2267,12 +2244,12 @@ export default abstract class SqlIntegration
     const capCoalesceDenominator = this.capCoalesceValue(
       "d.value",
       denominator,
-      "capd"
+      "capd",
     );
     const capCoalesceCovariate = this.capCoalesceValue(
       "c.value",
       metric,
-      "cap"
+      "cap",
     );
 
     // Get rough date filter for metrics to improve performance
@@ -2283,12 +2260,12 @@ export default abstract class SqlIntegration
     const metricStart = this.getMetricStart(
       settings.startDate,
       minMetricDelay,
-      regressionAdjustmentHours
+      regressionAdjustmentHours,
     );
     const metricEnd = this.getMetricEnd(
       orderedMetrics,
       settings.endDate,
-      overrideConversionWindows
+      overrideConversionWindows,
     );
 
     // Get any required identity join queries
@@ -2303,7 +2280,7 @@ export default abstract class SqlIntegration
       idTypeObjects.push(
         ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
         segment ? [segment.userIdType || "user_id"] : [],
-        activationMetric ? getUserIdTypes(activationMetric, factTableMap) : []
+        activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
       );
     }
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
@@ -2311,7 +2288,7 @@ export default abstract class SqlIntegration
       settings.startDate,
       settings.endDate,
       exposureQuery.userIdType,
-      settings.experimentId
+      settings.experimentId,
     );
 
     // Get date range for experiment and analysis
@@ -2321,13 +2298,13 @@ export default abstract class SqlIntegration
       this.getMaxHoursToConvert(
         funnelMetric,
         [metric].concat(denominatorMetrics),
-        activationMetric
-      )
+        activationMetric,
+      ),
     );
 
     if (params.dimensions.length > 1) {
       throw new Error(
-        "Multiple dimensions not supported in metric analysis yet. Please contact GrowthBook."
+        "Multiple dimensions not supported in metric analysis yet. Please contact GrowthBook.",
       );
     }
     const dimension = params.dimensions[0];
@@ -2338,13 +2315,13 @@ export default abstract class SqlIntegration
       dimensionCol = `dim_unit_${dimension.dimension.id}`;
     } else if (dimension?.type === "date") {
       dimensionCol = `${this.formatDate(
-        this.dateTrunc("first_exposure_timestamp")
+        this.dateTrunc("first_exposure_timestamp"),
       )}`;
     } else if (dimension?.type === "activation") {
       dimensionCol = this.ifElse(
         `first_activation_timestamp IS NULL`,
         "'Not Activated'",
-        "'Activated'"
+        "'Activated'",
       );
     }
 
@@ -2359,7 +2336,7 @@ export default abstract class SqlIntegration
     }
     if (settings.skipPartialData) {
       distinctUsersWhere.push(
-        `${timestampColumn} <= ${this.toTimestamp(endDate)}`
+        `${timestampColumn} <= ${this.toTimestamp(endDate)}`,
       );
     }
 
@@ -2388,11 +2365,11 @@ export default abstract class SqlIntegration
             regressionAdjusted
               ? `, ${this.addHours(
                   "first_exposure_timestamp",
-                  minMetricDelay
+                  minMetricDelay,
                 )} AS preexposure_end
                 , ${this.addHours(
                   "first_exposure_timestamp",
-                  minMetricDelay - regressionAdjustmentHours
+                  minMetricDelay - regressionAdjustmentHours,
                 )} AS preexposure_start`
               : ""
           }
@@ -2440,7 +2417,7 @@ export default abstract class SqlIntegration
               cumulativeDate,
               overrideConversionWindows,
               "__denominator",
-              "__distinctUsers"
+              "__distinctUsers",
             )})`
           : ""
       }
@@ -2448,7 +2425,7 @@ export default abstract class SqlIntegration
         cumulativeDate
           ? `, __dateRange AS (
         ${this.getDateTable(
-          dateStringArrayBetweenDates(startDate, endDate || new Date())
+          dateStringArrayBetweenDates(startDate, endDate || new Date()),
         )}
       )`
           : ""
@@ -2465,7 +2442,7 @@ export default abstract class SqlIntegration
             overrideConversionWindows,
             settings.endDate,
             cumulativeDate,
-            quantileMetric ? metricQuantileSettings : undefined
+            quantileMetric ? metricQuantileSettings : undefined,
           )} as value
         FROM
           ${funnelMetric ? "__denominatorUsers" : "__distinctUsers"} d
@@ -2507,7 +2484,7 @@ export default abstract class SqlIntegration
           ${this.getAggregateMetricColumn(
             metric,
             undefined,
-            "umj.value"
+            "umj.value",
           )} as value
           ${quantileMetric === "event" ? `, COUNT(umj.value) AS n_events` : ""}
         FROM
@@ -2541,7 +2518,7 @@ export default abstract class SqlIntegration
               "__userMetricAgg",
               `WHERE value IS NOT NULL${
                 metric.cappingSettings.ignoreZeros ? " AND value != 0" : ""
-              }`
+              }`,
             )}
         )
         `
@@ -2569,12 +2546,12 @@ export default abstract class SqlIntegration
                   denominator,
                   settings.endDate,
                   cumulativeDate,
-                  overrideConversionWindows
+                  overrideConversionWindows,
                 )}
                 ${
                   cumulativeDate
                     ? `AND ${this.castToDate(
-                        "m.timestamp"
+                        "m.timestamp",
                       )} <= dr.day AND d.first_exposure_date <= dr.day`
                     : ""
                 }
@@ -2603,7 +2580,7 @@ export default abstract class SqlIntegration
                     denominator.cappingSettings.ignoreZeros
                       ? " AND value != 0"
                       : ""
-                  }`
+                  }`,
                 )}
               )
               `
@@ -2659,7 +2636,7 @@ export default abstract class SqlIntegration
           , MAX(qm.quantile) AS quantile
             ${N_STAR_VALUES.map(
               (n) => `, MAX(qm.quantile_lower_${n}) AS quantile_lower_${n}
-                    , MAX(qm.quantile_upper_${n}) AS quantile_upper_${n}`
+                    , MAX(qm.quantile_upper_${n}) AS quantile_upper_${n}`,
             ).join("\n")}`
             : ""
         }
@@ -2732,14 +2709,14 @@ export default abstract class SqlIntegration
         m.variation,
         ${cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"}
     `,
-      this.getFormatDialect()
+      this.getFormatDialect(),
     );
   }
 
   getQuantileBoundValues(
     quantile: number,
     alpha: number,
-    nstar: number
+    nstar: number,
   ): { lower: number; upper: number } {
     const multiplier = normal.quantile(1 - alpha / 2, 0, 1);
     const binomialSE = Math.sqrt((quantile * (1 - quantile)) / nstar);
@@ -2756,7 +2733,7 @@ export default abstract class SqlIntegration
   quantileColumn(
     valueCol: string,
     outputCol: string,
-    quantile: string | number
+    quantile: string | number,
   ): string {
     // note: no need to ignore zeros in the next two methods
     // since we remove them for quantile metrics in userMetricJoin
@@ -2771,7 +2748,7 @@ export default abstract class SqlIntegration
       ignoreZeros: boolean;
     }[],
     metricTable: string,
-    where: string = ""
+    where: string = "",
   ) {
     return `
       SELECT
@@ -2792,7 +2769,7 @@ export default abstract class SqlIntegration
     valueCol: string,
     metric: ExperimentMetricInterface,
     capTablePrefix: string = "c",
-    capValueCol: string = "cap_value"
+    capValueCol: string = "cap_value",
   ): string {
     if (
       metric?.cappingSettings.type === "absolute" &&
@@ -2832,7 +2809,7 @@ export default abstract class SqlIntegration
     tableName: string,
     schema?: string,
     database?: string,
-    queryRequiresSchema?: boolean
+    queryRequiresSchema?: boolean,
   ) {
     let path = "";
     // Add database if required
@@ -2840,7 +2817,7 @@ export default abstract class SqlIntegration
       database = database || this.getDefaultDatabase();
       if (!database) {
         throw new MissingDatasourceParamsError(
-          "No database provided. Please edit the connection settings and try again."
+          "No database provided. Please edit the connection settings and try again.",
         );
       }
       path += database + ".";
@@ -2850,7 +2827,7 @@ export default abstract class SqlIntegration
     if (this.requiresSchema || queryRequiresSchema) {
       if (!schema) {
         throw new MissingDatasourceParamsError(
-          "No schema provided. Please edit the connection settings and try again."
+          "No schema provided. Please edit the connection settings and try again.",
         );
       }
       path += schema + ".";
@@ -2865,7 +2842,7 @@ export default abstract class SqlIntegration
     return this.generateTablePath(
       "information_schema.columns",
       schema,
-      database
+      database,
     );
   }
 
@@ -2892,13 +2869,13 @@ export default abstract class SqlIntegration
 
     return formatInformationSchema(
       results.rows as RawInformationSchema[],
-      this.datasource.type
+      this.datasource.type,
     );
   }
   async getTableData(
     databaseName: string,
     tableSchema: string,
-    tableName: string
+    tableName: string,
   ): Promise<{ tableData: null | unknown[] }> {
     const sql = `
   SELECT 
@@ -2931,12 +2908,12 @@ export default abstract class SqlIntegration
               `EVENTS_${
                 this.datasource.settings.schemaOptions?.projectId || `*`
               }`,
-              schema
+              schema,
             ),
           getDateLimitClause: (start: Date, end: Date) =>
             `event_time BETWEEN '${formatDate(
               start,
-              "yyyy-MM-dd"
+              "yyyy-MM-dd",
             )}' AND'${formatDate(end, "yyyy-MM-dd")}'`,
           getAdditionalEvents: () => [],
           getMetricWhereClause: (eventName: string) =>
@@ -2955,13 +2932,13 @@ export default abstract class SqlIntegration
           getDateLimitClause: (start: Date, end: Date) =>
             `((_TABLE_SUFFIX BETWEEN '${formatDate(
               start,
-              "yyyyMMdd"
+              "yyyyMMdd",
             )}' AND '${formatDate(
               end,
-              "yyyyMMdd"
+              "yyyyMMdd",
             )}') OR (_TABLE_SUFFIX BETWEEN 'intraday_${formatDate(
               start,
-              "yyyyMMdd"
+              "yyyyMMdd",
             )}' AND 'intraday_${formatDate(end, "yyyyMMdd")}'))`,
           getAdditionalEvents: () => [],
           getMetricWhereClause: (eventName: string) =>
@@ -2984,7 +2961,7 @@ AND event_name = '${eventName}'`,
           getDateLimitClause: (start: Date, end: Date) =>
             `received_at BETWEEN '${formatDate(
               start,
-              "yyyy-MM-dd"
+              "yyyy-MM-dd",
             )}' AND'${formatDate(end, "yyyy-MM-dd")}'`,
           getAdditionalEvents: () => [
             {
@@ -3008,7 +2985,7 @@ AND event_name = '${eventName}'`,
     hasUserId: boolean,
     schemaFormat: AutoMetricSchemas,
     type: MetricType,
-    schema?: string
+    schema?: string,
   ): string {
     const {
       timestampColumn,
@@ -3033,17 +3010,17 @@ AND event_name = '${eventName}'`,
   doesMetricExist(
     existingMetrics: MetricInterface[],
     sqlQuery: string,
-    type: MetricType
+    type: MetricType,
   ): boolean {
     return existingMetrics.some(
-      (metric) => metric.sql === sqlQuery && metric.type === type
+      (metric) => metric.sql === sqlQuery && metric.type === type,
     );
   }
   getMetricsToCreate(
     result: TrackedEventResponseRow,
     schemaFormat: AutoMetricSchemas,
     existingMetrics: MetricInterface[],
-    schema?: string
+    schema?: string,
   ): {
     name: string;
     type: MetricType;
@@ -3061,7 +3038,7 @@ AND event_name = '${eventName}'`,
       result.has_user_id,
       schemaFormat,
       "binomial",
-      schema
+      schema,
     );
 
     //TODO Build some logic where based on the event, we determine what metrics to create (by default, we create binomial and count) for every event
@@ -3071,7 +3048,7 @@ AND event_name = '${eventName}'`,
       exists: this.doesMetricExist(
         existingMetrics,
         binomialSqlQuery,
-        "binomial"
+        "binomial",
       ),
       sql: binomialSqlQuery,
     });
@@ -3081,7 +3058,7 @@ AND event_name = '${eventName}'`,
       result.has_user_id,
       schemaFormat,
       "count",
-      schema
+      schema,
     );
 
     metricsToCreate.push({
@@ -3102,7 +3079,7 @@ AND event_name = '${eventName}'`,
     trackedEventTableName: string,
     getDateLimitClause: (start: Date, end: Date) => string,
     schema: string,
-    groupByColumn?: string
+    groupByColumn?: string,
   ) {
     const end = new Date();
     const start = subDays(new Date(), 7);
@@ -3119,7 +3096,7 @@ AND event_name = '${eventName}'`,
           trackedEventTableName,
           schema,
           undefined,
-          !!schema
+          !!schema,
         )}
       WHERE ${getDateLimitClause(start, end)}
       AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
@@ -3129,7 +3106,7 @@ AND event_name = '${eventName}'`,
   async getEventsTrackedByDatasource(
     schemaFormat: AutoMetricSchemas,
     existingMetrics: MetricInterface[],
-    schema?: string
+    schema?: string,
   ): Promise<TrackedEventData[]> {
     const {
       trackedEventTableName,
@@ -3148,11 +3125,11 @@ AND event_name = '${eventName}'`,
       timestampColumn,
       trackedEventTableName,
       getDateLimitClause,
-      schema || ""
+      schema || "",
     );
 
     const { rows: resultRows } = await this.runQuery(
-      format(sql, this.getFormatDialect())
+      format(sql, this.getFormatDialect()),
     );
 
     const additionalEvents = getAdditionalEvents();
@@ -3166,12 +3143,12 @@ AND event_name = '${eventName}'`,
         additionalEvent.eventName,
         getDateLimitClause,
         schema || "",
-        additionalEvent.groupBy
+        additionalEvent.groupBy,
       );
 
       try {
         const { rows: additionalEventResults } = await this.runQuery(
-          format(sql, this.getFormatDialect())
+          format(sql, this.getFormatDialect()),
         );
 
         additionalEventResults.forEach((result) => {
@@ -3202,7 +3179,7 @@ AND event_name = '${eventName}'`,
           row,
           schemaFormat,
           existingMetrics,
-          schema
+          schema,
         ),
       };
       return processedEventData;
@@ -3228,35 +3205,35 @@ AND event_name = '${eventName}'`,
 
   getQuantileGridColumns(
     metricQuantileSettings: MetricQuantileSettings,
-    prefix: string
+    prefix: string,
   ) {
     return `, ${this.quantileColumn(
       `m.${prefix}value`,
       `${prefix}quantile`,
-      metricQuantileSettings.quantile
+      metricQuantileSettings.quantile,
     )}
     ${N_STAR_VALUES.map((nstar) => {
       const { lower, upper } = this.getQuantileBoundValues(
         metricQuantileSettings.quantile,
         0.05,
-        nstar
+        nstar,
       );
       return `, ${this.quantileColumn(
         `m.${prefix}value`,
         `${prefix}quantile_lower_${nstar}`,
-        lower
+        lower,
       )}
           , ${this.quantileColumn(
             `m.${prefix}value`,
             `${prefix}quantile_upper_${nstar}`,
-            upper
+            upper,
           )}`;
     }).join("\n")}`;
   }
 
   getFilterValues(
     filterIds: string[],
-    filters: FactFilterInterface[]
+    filters: FactFilterInterface[],
   ): string[] {
     const filterValues: string[] = [];
     filterIds.forEach((filterId) => {
@@ -3286,7 +3263,7 @@ AND event_name = '${eventName}'`,
     experimentId?: string;
   }) {
     const factTable = factTableMap.get(
-      metrics[0]?.numerator?.factTableId || ""
+      metrics[0]?.numerator?.factTableId || "",
     );
     if (!factTable) {
       throw new Error("Unknown fact table");
@@ -3328,7 +3305,7 @@ AND event_name = '${eventName}'`,
     metrics.forEach((m, i) => {
       if (m.numerator.factTableId !== factTable.id) {
         throw new Error(
-          "Can only combine metrics that are in the same fact table"
+          "Can only combine metrics that are in the same fact table",
         );
       }
 
@@ -3336,7 +3313,7 @@ AND event_name = '${eventName}'`,
       const value = this.getMetricColumns(m, factTableMap, "m", false).value;
       const filters = this.getFilterValues(
         m.numerator.filters,
-        factTable.filters
+        factTable.filters,
       );
 
       const column =
@@ -3351,14 +3328,14 @@ AND event_name = '${eventName}'`,
       if (isRatioMetric(m) && m.denominator) {
         if (m.denominator.factTableId !== factTable.id) {
           throw new Error(
-            `Only supports ratio metrics where the denominator is in the same fact table as the numerator: ${m.denominator.factTableId} <> ${factTable.id}`
+            `Only supports ratio metrics where the denominator is in the same fact table as the numerator: ${m.denominator.factTableId} <> ${factTable.id}`,
           );
         }
 
         const value = this.getMetricColumns(m, factTableMap, "m", true).value;
         const filters = this.getFilterValues(
           m.denominator.filters,
-          factTable.filters
+          factTable.filters,
         );
         const column =
           filters.length > 0
@@ -3382,7 +3359,7 @@ AND event_name = '${eventName}'`,
             templateVariables: getMetricTemplateVariables(
               metrics[0],
               factTableMap,
-              false
+              false,
             ),
           })}
         ) m
@@ -3414,7 +3391,7 @@ AND event_name = '${eventName}'`,
       metric,
       factTableMap,
       "m",
-      useDenominator
+      useDenominator,
     );
 
     // Determine the identifier column to select from
@@ -3519,14 +3496,14 @@ AND event_name = '${eventName}'`,
                 templateVariables: getMetricTemplateVariables(
                   metric,
                   factTableMap,
-                  useDenominator
+                  useDenominator,
                 ),
               })}
             )`
             : !isFact
-            ? (schema && !metric.table?.match(/\./) ? schema + "." : "") +
-              (metric.table || "")
-            : ""
+              ? (schema && !metric.table?.match(/\./) ? schema + "." : "") +
+                (metric.table || "")
+              : ""
         } m
         ${join}
         ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
@@ -3536,19 +3513,19 @@ AND event_name = '${eventName}'`,
   // Only include users who entered the experiment before this timestamp
   private getExperimentEndDate(
     settings: ExperimentSnapshotSettings,
-    conversionWindowHours: number
+    conversionWindowHours: number,
   ): Date {
     // If we need to wait until users have had a chance to fully convert
     if (settings.skipPartialData) {
       // The last date allowed to give enough time for users to convert
       const conversionWindowEndDate = new Date();
       conversionWindowEndDate.setHours(
-        conversionWindowEndDate.getHours() - conversionWindowHours
+        conversionWindowEndDate.getHours() - conversionWindowHours,
       );
 
       // Use the earliest of either the conversion end date or the phase end date
       return new Date(
-        Math.min(settings.endDate.getTime(), conversionWindowEndDate.getTime())
+        Math.min(settings.endDate.getTime(), conversionWindowEndDate.getTime()),
       );
     }
 
@@ -3560,7 +3537,7 @@ AND event_name = '${eventName}'`,
     segment: SegmentInterface,
     baseIdType: string,
     idJoinMap: Record<string, string>,
-    sqlVars?: SQLVars
+    sqlVars?: SQLVars,
   ) {
     // replace template variables
     const segmentSql = sqlVars
@@ -3603,7 +3580,7 @@ AND event_name = '${eventName}'`,
   private getDimensionCTE(
     dimension: DimensionInterface,
     baseIdType: string,
-    idJoinMap: Record<string, string>
+    idJoinMap: Record<string, string>,
   ) {
     const userIdType = dimension.userIdType || "user_id";
 
@@ -3632,7 +3609,7 @@ AND event_name = '${eventName}'`,
     overrideConversionWindows: boolean,
     endDate: Date,
     cumulativeDate: boolean,
-    metricQuantileSettings?: MetricQuantileSettings
+    metricQuantileSettings?: MetricQuantileSettings,
   ): string {
     return `${this.ifElse(
       `${this.getConversionWindowClause(
@@ -3641,7 +3618,7 @@ AND event_name = '${eventName}'`,
         metric,
         endDate,
         cumulativeDate,
-        overrideConversionWindows
+        overrideConversionWindows,
       )}
         ${metricQuantileSettings?.ignoreZeros ? `AND ${col} != 0` : ""}
         ${
@@ -3649,7 +3626,7 @@ AND event_name = '${eventName}'`,
         }
       `,
       `${col}`,
-      `NULL`
+      `NULL`,
     )}`;
   }
 
@@ -3657,7 +3634,7 @@ AND event_name = '${eventName}'`,
     metric: ExperimentMetricInterface,
     useDenominator?: boolean,
     valueColumn: string = "value",
-    quantileColumn: string = "qm.quantile"
+    quantileColumn: string = "qm.quantile",
   ) {
     // Fact Metrics
     if (isFactMetric(metric)) {
@@ -3676,7 +3653,7 @@ AND event_name = '${eventName}'`,
         return `SUM(${this.ifElse(
           `${valueColumn} <= ${quantileColumn}`,
           "1",
-          "0"
+          "0",
         )})`;
       } else if (
         metric.metricType === "quantile" &&
@@ -3734,14 +3711,14 @@ AND event_name = '${eventName}'`,
     metric: ExperimentMetricInterface,
     factTableMap: FactTableMap,
     alias = "m",
-    useDenominator?: boolean
+    useDenominator?: boolean,
   ) {
     if (isFactMetric(metric)) {
       const userIds: Record<string, string> = {};
       getUserIdTypes(metric, factTableMap, useDenominator).forEach(
         (userIdType) => {
           userIds[userIdType] = `${alias}.${userIdType}`;
-        }
+        },
       );
 
       const columnRef = useDenominator ? metric.denominator : metric.numerator;
@@ -3805,7 +3782,7 @@ AND event_name = '${eventName}'`,
     id2: string,
     from: Date,
     to: Date | undefined,
-    experimentId?: string
+    experimentId?: string,
   ) {
     if (settings?.queries?.identityJoins) {
       for (let i = 0; i < settings.queries.identityJoins.length; i++) {

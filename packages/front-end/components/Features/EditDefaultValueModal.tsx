@@ -35,12 +35,12 @@ export default function EditDefaultValueModal({
         const newDefaultValue = validateFeatureValue(
           feature,
           value?.defaultValue ?? "",
-          ""
+          "",
         );
         if (newDefaultValue !== value.defaultValue) {
           form.setValue("defaultValue", newDefaultValue);
           throw new Error(
-            "We fixed some errors in the value. If it looks correct, submit again."
+            "We fixed some errors in the value. If it looks correct, submit again.",
           );
         }
 
@@ -49,7 +49,7 @@ export default function EditDefaultValueModal({
           {
             method: "POST",
             body: JSON.stringify(value),
-          }
+          },
         );
         await mutate();
         res.version && setVersion(res.version);

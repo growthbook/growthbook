@@ -53,7 +53,7 @@ export default function RuleList({
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   if (!items.length) {
@@ -117,7 +117,7 @@ export default function RuleList({
                 from: oldIndex,
                 to: newIndex,
               }),
-            }
+            },
           );
           await mutate();
           res.version && setVersion(res.version);

@@ -41,11 +41,11 @@ export default function ExperimentLookupPage() {
   useEffect(() => {
     apiCall<{ experimentId: string | null }>(
       `/experiments/tracking-key?trackingKey=${encodeURIComponent(
-        trackingKey + ""
+        trackingKey + "",
       )}`,
       {
         method: "GET",
-      }
+      },
     )
       .then((res) => {
         if (res.experimentId) {

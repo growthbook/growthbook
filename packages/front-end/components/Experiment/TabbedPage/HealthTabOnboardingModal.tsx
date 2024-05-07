@@ -35,7 +35,7 @@ export type HealthTabConfigParams = {
   refreshOrganization: () => void;
   mutateSnapshot: () => void;
   setAnalysisSettings: (
-    analysisSettings: ExperimentSnapshotAnalysisSettings | null
+    analysisSettings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
   setLoading: (loading: boolean) => void;
   resetResultsSettings: () => void;
@@ -105,7 +105,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
         {
           method: "PUT",
           body: JSON.stringify({ updates }),
-        }
+        },
       );
     }
     if (setupChoice === "refresh") {
@@ -117,14 +117,14 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
           body: JSON.stringify({
             phase,
           }),
-        }
+        },
       )
         .then((res) => {
           trackSnapshot(
             "create",
             "HealthTabOnboarding",
             dataSource?.type || null,
-            res.snapshot
+            res.snapshot,
           );
 
           setAnalysisSettings(null);
@@ -147,9 +147,9 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
         metadataId,
         apiCall,
         setId,
-        mutate
+        mutate,
       ),
-    [dataSourceId, exposureQueryId, metadataId, setId, apiCall, mutate]
+    [dataSourceId, exposureQueryId, metadataId, setId, apiCall, mutate],
   );
 
   if (error) {
@@ -157,7 +157,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   }
   const { status } = getQueryStatus(
     data?.dimensionSlices?.queries || [],
-    data?.dimensionSlices?.error
+    data?.dimensionSlices?.error,
   );
 
   // exit modal

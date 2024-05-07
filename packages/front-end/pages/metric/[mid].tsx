@@ -94,11 +94,11 @@ const MetricPage: FC = () => {
   const storageKeySum = `metric_smoothBy_sum`;
   const [smoothByAvg, setSmoothByAvg] = useLocalStorage<"day" | "week">(
     storageKeyAvg,
-    "day"
+    "day",
   );
   const [smoothBySum, setSmoothBySum] = useLocalStorage<"day" | "week">(
     storageKeySum,
-    "day"
+    "day",
   );
 
   const [hoverDate, setHoverDate] = useState<number | null>(null);
@@ -202,17 +202,17 @@ const MetricPage: FC = () => {
             refs.push(
               res.experiments.length === 1
                 ? "1 experiment"
-                : res.experiments.length + " experiments"
+                : res.experiments.length + " experiments",
             );
             res.experiments.forEach((e) => {
               experimentLinks.push(
-                <Link href={`/experiment/${e.id}`}>{e.name}</Link>
+                <Link href={`/experiment/${e.id}`}>{e.name}</Link>,
               );
             });
           }
           if (res.ideas && res.ideas.length) {
             refs.push(
-              res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas"
+              res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas",
             );
             res.ideas.forEach((i) => {
               ideaLinks.push(<Link href={`/idea/${i.id}`}>{i.text}</Link>);
@@ -383,7 +383,7 @@ const MetricPage: FC = () => {
       )}
 
       {metric.projects?.includes(
-        getDemoDatasourceProjectIdForOrganization(organization.id)
+        getDemoDatasourceProjectIdForOrganization(organization.id),
       ) && (
         <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
           <div className="flex-1">
@@ -593,7 +593,7 @@ const MetricPage: FC = () => {
                                     `/metric/${metric.id}/analysis`,
                                     {
                                       method: "POST",
-                                    }
+                                    },
                                   );
                                   mutate();
                                 } catch (e) {
@@ -673,7 +673,7 @@ const MetricPage: FC = () => {
                                   analysis.average,
                                   {
                                     currency: displayCurrency,
-                                  }
+                                  },
                                 )}
                               </div>
                               <div className="pb-2 ml-1">average</div>
@@ -742,7 +742,7 @@ const MetricPage: FC = () => {
                                         setSmoothByAvg(
                                           smoothByAvg === "week"
                                             ? "day"
-                                            : "week"
+                                            : "week",
                                         )
                                       }
                                       id="toggle-group-by-avg"
@@ -818,7 +818,7 @@ const MetricPage: FC = () => {
                                   value={smoothBySum === "week"}
                                   setValue={() =>
                                     setSmoothBySum(
-                                      smoothBySum === "week" ? "day" : "week"
+                                      smoothBySum === "week" ? "day" : "week",
                                     )
                                   }
                                   id="toggle-group-by-sum"
@@ -1057,7 +1057,7 @@ const MetricPage: FC = () => {
                       {metric.conditions && metric.conditions.length > 0 && (
                         <RightRailSectionGroup title="Conditions" type="list">
                           {metric.conditions.map(
-                            (c) => `${c.column} ${c.operator} "${c.value}"`
+                            (c) => `${c.column} ${c.operator} "${c.value}"`,
                           )}
                         </RightRailSectionGroup>
                       )}
@@ -1134,32 +1134,33 @@ const MetricPage: FC = () => {
                       <span className="font-weight-bold">Inverse</span>
                     </li>
                   )}
-                  {metric.cappingSettings.type && metric.cappingSettings.value && (
-                    <>
-                      <li className="mb-2">
-                        <span className="uppercase-title lg">
-                          {capitalizeFirstLetter(metric.cappingSettings.type)}
-                          {" capping"}
-                        </span>
-                      </li>
-                      <li>
-                        <span className="font-weight-bold">
-                          {metric.cappingSettings.value}
-                        </span>{" "}
-                        {metric.cappingSettings.type === "percentile" ? (
-                          <span className="text-gray">{`(${
-                            100 * metric.cappingSettings.value
-                          } pctile${
-                            metric.cappingSettings.ignoreZeros
-                              ? ", ignoring zeros"
-                              : ""
-                          })`}</span>
-                        ) : (
-                          ""
-                        )}{" "}
-                      </li>
-                    </>
-                  )}
+                  {metric.cappingSettings.type &&
+                    metric.cappingSettings.value && (
+                      <>
+                        <li className="mb-2">
+                          <span className="uppercase-title lg">
+                            {capitalizeFirstLetter(metric.cappingSettings.type)}
+                            {" capping"}
+                          </span>
+                        </li>
+                        <li>
+                          <span className="font-weight-bold">
+                            {metric.cappingSettings.value}
+                          </span>{" "}
+                          {metric.cappingSettings.type === "percentile" ? (
+                            <span className="text-gray">{`(${
+                              100 * metric.cappingSettings.value
+                            } pctile${
+                              metric.cappingSettings.ignoreZeros
+                                ? ", ignoring zeros"
+                                : ""
+                            })`}</span>
+                          ) : (
+                            ""
+                          )}{" "}
+                        </li>
+                      </>
+                    )}
                   {metric.ignoreNulls && (
                     <li className="mb-2">
                       <span className="text-gray">Converted users only:</span>{" "}

@@ -11,7 +11,7 @@ import { isRoleValid } from "../users/createUser";
 
 export async function createGroup(
   req: ScimGroupPostRequest,
-  res: Response
+  res: Response,
 ): Promise<Response<ScimGroup | ScimError>> {
   const { displayName, members, growthbookRole } = req.body;
 

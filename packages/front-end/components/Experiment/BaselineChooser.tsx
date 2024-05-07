@@ -21,7 +21,7 @@ export interface Props {
   snapshot?: ExperimentSnapshotInterface;
   analysis?: ExperimentSnapshotAnalysis;
   setAnalysisSettings: (
-    settings: ExperimentSnapshotAnalysisSettings | null
+    settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
   loading: boolean;
   mutate: () => void;
@@ -171,7 +171,7 @@ export default function BaselineChooser({
               analysis,
               snapshot,
               apiCall,
-              setPostLoading
+              setPostLoading,
             ).then((status) => {
               if (status === "success") {
                 setBaselineRow(variation.index);

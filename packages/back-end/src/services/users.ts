@@ -46,7 +46,7 @@ export async function getUserLicenseCodes() {
   return Promise.all(
     users.map(async (user) => {
       return md5(user.email).slice(0, 8);
-    })
+    }),
   );
 }
 
@@ -73,14 +73,14 @@ async function hash(password: string): Promise<string> {
   const derivedKey = await (scrypt(
     password,
     salt,
-    HASH_LEN
+    HASH_LEN,
   ) as Promise<Buffer>);
   return salt + ":" + derivedKey.toString("hex");
 }
 
 export async function verifyPassword(
   user: UserDocument,
-  password: string
+  password: string,
 ): Promise<boolean> {
   if (!user.passwordHash) return false;
   const [salt, key] = user.passwordHash.split(":");
@@ -88,7 +88,7 @@ export async function verifyPassword(
   const derivedKey = await (scrypt(
     password,
     salt,
-    HASH_LEN
+    HASH_LEN,
   ) as Promise<Buffer>);
   return crypto.timingSafeEqual(keyBuffer, derivedKey);
 }
@@ -105,7 +105,7 @@ export async function updatePassword(userId: string, password: string) {
       $set: {
         passwordHash,
       },
-    }
+    },
   );
 }
 
@@ -113,7 +113,7 @@ export async function createUser(
   name: string,
   email: string,
   password?: string,
-  verified: boolean = false
+  verified: boolean = false,
 ) {
   let passwordHash = "";
 
@@ -136,7 +136,7 @@ export async function createUser(
  * @param req
  */
 export const getAuditableUserPropertiesFromRequest = (
-  req: Request
+  req: Request,
 ): Pick<UserLoginAuditableProperties, "userAgent" | "device" | "ip" | "os"> => {
   const userAgent = (req.headers["user-agent"] as string) || "";
   const device = (req.headers["sec-ch-ua"] as string) || "";
@@ -208,7 +208,7 @@ export async function trackLoginForUser({
   try {
     // Create a login event for all of a user's organizations
     const eventCreatePromises = organizationIds.map((organizationId) =>
-      createEvent(organizationId, event)
+      createEvent(organizationId, event),
     );
     await Promise.all(eventCreatePromises);
   } catch (e) {

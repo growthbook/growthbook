@@ -112,7 +112,7 @@ export const useOrganizationMetricDefaults = (): OrganizationMetricDefaults => {
       ...METRIC_DEFAULTS,
       ...(orgSettings?.metricDefaults || {}),
     }),
-    [orgSettings]
+    [orgSettings],
   );
 
   /**
@@ -125,7 +125,7 @@ export const useOrganizationMetricDefaults = (): OrganizationMetricDefaults => {
 
       return metricDefaults.maxPercentageChange;
     },
-    [metricDefaults]
+    [metricDefaults],
   );
 
   /**
@@ -138,7 +138,7 @@ export const useOrganizationMetricDefaults = (): OrganizationMetricDefaults => {
 
       return metricDefaults.minPercentageChange;
     },
-    [metricDefaults]
+    [metricDefaults],
   );
 
   /**
@@ -151,7 +151,7 @@ export const useOrganizationMetricDefaults = (): OrganizationMetricDefaults => {
 
       return metricDefaults.minimumSampleSize;
     },
-    [metricDefaults]
+    [metricDefaults],
   );
 
   return {

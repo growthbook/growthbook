@@ -201,7 +201,7 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
     const experimentIds = Array.from(new Set(docs.map((d) => d.entity.id)));
     const experiments = await getExperimentsForActivityFeed(
       context,
-      experimentIds
+      experimentIds,
     );
 
     res.status(200).json({
@@ -219,7 +219,7 @@ export async function getActivityFeed(req: AuthRequest, res: Response) {
 
 export async function getAllHistory(
   req: AuthRequest<null, { type: string }>,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { type } = req.params;
@@ -259,7 +259,7 @@ export async function getAllHistory(
 
 export async function getHistory(
   req: AuthRequest<null, { type: string; id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { type, id } = req.params;
@@ -299,7 +299,7 @@ export async function getHistory(
 
 export async function putMemberRole(
   req: AuthRequest<MemberRoleWithProjects, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -365,7 +365,7 @@ export async function putMember(
   req: AuthRequest<{
     orgId: string;
   }>,
-  res: Response
+  res: Response,
 ) {
   if (!req.userId || !req.email) {
     throw new Error("Must be logged in");
@@ -395,7 +395,7 @@ export async function putMember(
 
   try {
     const invite: Invite | undefined = organization.invites.find(
-      (inv) => inv.email === req.email
+      (inv) => inv.email === req.email,
     );
     if (invite) {
       // if user already invited, accept invite
@@ -424,7 +424,7 @@ export async function putMember(
           req.email || "",
           organization.name,
           organization.ownerEmail,
-          teamUrl
+          teamUrl,
         );
       } catch (e) {
         req.log.error(e, "Failed to send pending member email");
@@ -442,7 +442,7 @@ export async function putMember(
         req.name || "",
         req.email || "",
         organization.name,
-        organization.ownerEmail
+        organization.ownerEmail,
       );
     } catch (e) {
       req.log.error(e, "Failed to send new member email");
@@ -462,7 +462,7 @@ export async function putMember(
 
 export async function postMemberApproval(
   req: AuthRequest<unknown, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -503,7 +503,7 @@ export async function postMemberApproval(
       pendingMember.name || "",
       pendingMember.email || "",
       org.name,
-      url
+      url,
     );
   } catch (e) {
     req.log.error(e, "Failed to send pending member approval email");
@@ -517,7 +517,7 @@ export async function postMemberApproval(
 
 export async function postAutoApproveMembers(
   req: AuthRequest<{ state: boolean }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -545,7 +545,7 @@ export async function postAutoApproveMembers(
 
 export async function putInviteRole(
   req: AuthRequest<MemberRoleWithProjects, { key: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -590,7 +590,7 @@ export async function putInviteRole(
       },
       details: auditDetailsUpdate(
         { invites: originalInvites },
-        { invites: org.invites }
+        { invites: org.invites },
       ),
     });
     return res.status(200).json({
@@ -645,7 +645,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   }
 
   const filteredAttributes = settings?.attributeSchema?.filter((attribute) =>
-    hasReadAccess(context.readAccessFilter, attribute.projects || [])
+    hasReadAccess(context.readAccessFilter, attribute.projects || []),
   );
 
   // Some other global org data needed by the front-end
@@ -733,7 +733,7 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
             r.enabled &&
             r.type === "experiment" &&
             r.namespace &&
-            r.namespace.enabled
+            r.namespace.enabled,
         )
         .forEach((r: ExperimentRule) => {
           const { name, range } = r.namespace as NamespaceValue;
@@ -798,7 +798,7 @@ export async function postNamespaces(
     description: string;
     status: "active" | "inactive";
   }>,
-  res: Response
+  res: Response,
 ) {
   const { name, description, status } = req.body;
   const context = getContextFromReq(req);
@@ -835,7 +835,7 @@ export async function postNamespaces(
         settings: {
           namespaces: [...namespaces, { name, description, status }],
         },
-      }
+      },
     ),
   });
 
@@ -853,7 +853,7 @@ export async function putNamespaces(
     },
     { name: string }
   >,
-  res: Response
+  res: Response,
 ) {
   const { name, description, status } = req.body;
   const originalName = req.params.name;
@@ -893,7 +893,7 @@ export async function putNamespaces(
     },
     details: auditDetailsUpdate(
       { settings: { namespaces } },
-      { settings: { namespaces: updatedNamespaces } }
+      { settings: { namespaces: updatedNamespaces } },
     ),
   });
 
@@ -904,7 +904,7 @@ export async function putNamespaces(
 
 export async function deleteNamespace(
   req: AuthRequest<null, { name: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -939,7 +939,7 @@ export async function deleteNamespace(
     },
     details: auditDetailsUpdate(
       { settings: { namespaces } },
-      { settings: { namespaces: updatedNamespaces } }
+      { settings: { namespaces: updatedNamespaces } },
     ),
   });
 
@@ -950,7 +950,7 @@ export async function deleteNamespace(
 
 export async function getInviteInfo(
   req: AuthRequest<unknown, { key: string }>,
-  res: ResponseWithStatusAndError<{ organization: string; role: MemberRole }>
+  res: ResponseWithStatusAndError<{ organization: string; role: MemberRole }>,
 ) {
   const { key } = req.params;
 
@@ -984,7 +984,7 @@ export async function getInviteInfo(
 
 export async function postInviteAccept(
   req: AuthRequest<{ key: string }>,
-  res: Response
+  res: Response,
 ) {
   const { key } = req.body;
 
@@ -1012,7 +1012,7 @@ export async function postInvite(
       email: string;
     } & MemberRoleWithProjects
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -1031,7 +1031,7 @@ export async function postInvite(
     getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
   ) {
     throw new Error(
-      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit."
+      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit.",
     );
   }
 
@@ -1058,7 +1058,7 @@ interface SignupBody {
 
 export async function deleteMember(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -1085,7 +1085,7 @@ export async function deleteMember(
 
 export async function postInviteResend(
   req: AuthRequest<{ key: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -1115,7 +1115,7 @@ export async function postInviteResend(
 
 export async function deleteInvite(
   req: AuthRequest<{ key: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -1150,7 +1150,7 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
   if (IS_MULTI_ORG) {
     if (orgs && !ALLOW_SELF_ORG_CREATION && !req.superAdmin) {
       throw new Error(
-        "You are not allowed to create an organization.  Ask your site admin."
+        "You are not allowed to create an organization.  Ask your site admin.",
       );
     }
     // if the owner is verified, try to infer a verified domain
@@ -1199,7 +1199,7 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
 
 export async function putOrganization(
   req: AuthRequest<Partial<OrganizationInterface>>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1222,7 +1222,7 @@ export async function putOrganization(
         existingEnvironments.forEach((env) => {
           const oldHash = JSON.stringify(env);
           const newHash = JSON.stringify(
-            settings[k]?.find((e) => e.id === env.id)
+            settings[k]?.find((e) => e.id === env.id),
           );
           if (oldHash !== newHash) {
             affectedEnvs.add(env.id);
@@ -1256,13 +1256,13 @@ export async function putOrganization(
         req.checkPermissions(
           "manageEnvironments",
           "",
-          Array.from(affectedEnvs)
+          Array.from(affectedEnvs),
         );
       } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
         req.checkPermissions("manageEnvironments", "", []);
       } else if (k === "attributeSchema") {
         throw new Error(
-          "Not supported: Updating organization attributes not supported via this route."
+          "Not supported: Updating organization attributes not supported via this route.",
         );
       } else if (k === "northStar") {
         if (!context.permissions.canManageNorthStarMetric()) {
@@ -1270,7 +1270,7 @@ export async function putOrganization(
         }
       } else if (k === "namespaces") {
         throw new Error(
-          "Not supported: Updating namespaces not supported via this route."
+          "Not supported: Updating namespaces not supported via this route.",
         );
       } else {
         if (!context.permissions.canManageOrgSettings()) {
@@ -1350,7 +1350,7 @@ export async function putOrganization(
         connection,
         {},
         connection.proxy,
-        isUsingProxy
+        isUsingProxy,
       );
     }
 
@@ -1367,7 +1367,7 @@ export async function putOrganization(
 
 export const autoAddGroupsAttribute = async (
   req: AuthRequest<never>,
-  res: Response<{ status: 200; added: boolean }>
+  res: Response<{ status: 200; added: boolean }>,
 ) => {
   // Add missing `$groups` attribute automatically if it's being referenced by a Saved Group
   const context = getContextFromReq(req);
@@ -1446,7 +1446,7 @@ export async function postApiKey(
     secret: boolean;
     encryptSDK: boolean;
   }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -1489,7 +1489,7 @@ export async function postApiKey(
   if (type === "user") {
     if (!userId) {
       throw new Error(
-        "Cannot create user personal access token without a user ID"
+        "Cannot create user personal access token without a user ID",
       );
     }
     const key = await createUserPersonalAccessApiKey({
@@ -1539,7 +1539,7 @@ export async function postApiKey(
 
 export async function deleteApiKey(
   req: AuthRequest<{ key?: string; id?: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { userId, org } = context;
@@ -1552,7 +1552,7 @@ export async function deleteApiKey(
   const keyObj = await getApiKeyByIdOrKey(
     context,
     id || undefined,
-    key || undefined
+    key || undefined,
   );
   if (!keyObj) {
     throw new Error("Could not find API key to delete");
@@ -1585,7 +1585,7 @@ export async function deleteApiKey(
 
 export async function postApiKeyReveal(
   req: AuthRequest<{ id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1630,14 +1630,14 @@ export async function getWebhooks(req: AuthRequest, res: Response) {
   res.status(200).json({
     status: 200,
     webhooks: webhooks.filter((webhook) =>
-      hasReadAccess(context.readAccessFilter, webhook.project)
+      hasReadAccess(context.readAccessFilter, webhook.project),
     ),
   });
 }
 
 export async function getWebhooksSDK(
   req: AuthRequest<Record<string, unknown>, { sdkid: string }>,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { sdkid } = req.params;
@@ -1659,7 +1659,7 @@ export async function postWebhook(
     project?: string;
     environment: string;
   }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -1683,7 +1683,7 @@ export async function postWebhook(
 }
 export async function getTestWebhook(
   req: AuthRequest<Record<string, unknown>, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const webhookId = req.params.id;
   await queueSingleWebhookById(webhookId);
@@ -1700,7 +1700,7 @@ export async function postWebhookSDK(
     headers?: string;
     httpMethod: WebhookMethod;
   }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1712,7 +1712,7 @@ export async function postWebhookSDK(
   const webhookcount = await countWebhooksByOrg(org.id);
   const canAddMultipleSdkWebhooks = orgHasPremiumFeature(
     org,
-    "multiple-sdk-webhooks"
+    "multiple-sdk-webhooks",
   );
   if (!canAddMultipleSdkWebhooks && webhookcount > 0) {
     throw new Error("your webhook limit has been reached");
@@ -1735,7 +1735,7 @@ export async function postWebhookSDK(
 
 export async function putWebhook(
   req: AuthRequest<WebhookInterface, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -1775,7 +1775,7 @@ export async function putWebhook(
 
 export async function deleteWebhook(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -1796,7 +1796,7 @@ export async function deleteWebhook(
 
 export async function deleteWebhookSDK(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -1819,7 +1819,7 @@ export async function postImportConfig(
   req: AuthRequest<{
     contents: string;
   }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -1854,7 +1854,7 @@ export async function getOrphanedUsers(req: AuthRequest, res: Response) {
 
   if (IS_MULTI_ORG && !req.superAdmin) {
     throw new Error(
-      "Only super admins get orphaned users on multi-org deployments"
+      "Only super admins get orphaned users on multi-org deployments",
     );
   }
 
@@ -1884,7 +1884,7 @@ export async function getOrphanedUsers(req: AuthRequest, res: Response) {
 
 export async function addOrphanedUser(
   req: AuthRequest<MemberRoleWithProjects, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -1898,7 +1898,7 @@ export async function addOrphanedUser(
 
   if (IS_MULTI_ORG && !req.superAdmin) {
     throw new Error(
-      "Only super admins can add orphaned users on multi-org deployments"
+      "Only super admins can add orphaned users on multi-org deployments",
     );
   }
 
@@ -1933,7 +1933,7 @@ export async function addOrphanedUser(
     getNumberOfUniqueMembersAndInvites(org) >= (license.seats || 0)
   ) {
     throw new Error(
-      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit."
+      "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit.",
     );
   }
 
@@ -1953,7 +1953,7 @@ export async function addOrphanedUser(
 
 export async function deleteOrphanedUser(
   req: AuthRequest<unknown, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -1967,7 +1967,7 @@ export async function deleteOrphanedUser(
 
   if (IS_MULTI_ORG && !req.superAdmin) {
     throw new Error(
-      "Only super admins delete orphaned users on multi-org deployments"
+      "Only super admins delete orphaned users on multi-org deployments",
     );
   }
 
@@ -2007,7 +2007,7 @@ export async function putAdminResetUserPassword(
       id: string;
     }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -2025,7 +2025,7 @@ export async function putAdminResetUserPassword(
 
   const { org } = getContextFromReq(req);
   const isUserToUpdateInSameOrg = org.members.find(
-    (member) => member.id === userToUpdateId
+    (member) => member.id === userToUpdateId,
   );
 
   // Only update the password if the member we're updating is in the same org as the requester
@@ -2034,7 +2034,7 @@ export async function putAdminResetUserPassword(
     const orgs = await findOrganizationsByMemberId(userToUpdateId);
     if (orgs.length > 0) {
       throw new Error(
-        "Cannot change password of users outside your organization."
+        "Cannot change password of users outside your organization.",
       );
     }
   }
@@ -2049,7 +2049,7 @@ export async function putAdminResetUserPassword(
 async function setLicenseKey(org: OrganizationInterface, licenseKey: string) {
   if (!IS_CLOUD && IS_MULTI_ORG) {
     throw new Error(
-      "You must use the LICENSE_KEY environmental variable on multi org sites."
+      "You must use the LICENSE_KEY environmental variable on multi org sites.",
     );
   }
 
@@ -2069,7 +2069,7 @@ async function setLicenseKey(org: OrganizationInterface, licenseKey: string) {
 
 export async function putLicenseKey(
   req: AuthRequest<{ licenseKey: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -2105,7 +2105,7 @@ export async function putLicenseKey(
 
 export async function putDefaultRole(
   req: AuthRequest<{ defaultRole: MemberRole }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -2115,7 +2115,7 @@ export async function putDefaultRole(
 
   if (!commercialFeatures.includes("sso")) {
     throw new Error(
-      "Must have a commercial License Key to update the organization's default role."
+      "Must have a commercial License Key to update the organization's default role.",
     );
   }
 

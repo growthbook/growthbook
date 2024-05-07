@@ -19,7 +19,7 @@ router.get(
       })
       .strict(),
   }),
-  eventsController.getEventById
+  eventsController.getEventById,
 );
 
 export { router as eventsRouter };

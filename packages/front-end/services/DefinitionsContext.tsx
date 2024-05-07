@@ -87,15 +87,14 @@ const defaultValue: DefinitionContextValue = {
   getExperimentMetricById: () => null,
 };
 
-export const DefinitionsContext = createContext<DefinitionContextValue>(
-  defaultValue
-);
+export const DefinitionsContext =
+  createContext<DefinitionContextValue>(defaultValue);
 
 interface IndexableItem {
   id: string;
 }
 function useGetById<T extends IndexableItem>(
-  items?: T[]
+  items?: T[],
 ): (id: string) => T | null {
   return useMemo(() => {
     if (!items) {
@@ -123,7 +122,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const { data, error, mutate } = useApi<Definitions & { status: 200 }>(
-    "/organization/definitions"
+    "/organization/definitions",
   );
 
   const [project, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
@@ -159,7 +158,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       }
       return getMetricById(id);
     },
-    [getMetricById, getFactMetricById]
+    [getMetricById, getFactMetricById],
   );
 
   let value: DefinitionContextValue;
@@ -209,10 +208,10 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
                   id: t,
                   color: "#029dd1",
                   description: "",
-                }))
+                })),
               ),
             },
-            false
+            false,
           );
         }
       },

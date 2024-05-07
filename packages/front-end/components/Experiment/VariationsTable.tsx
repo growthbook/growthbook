@@ -46,7 +46,7 @@ const ScreenshotCarousel: FC<{
 
               if (status >= 400) {
                 throw new Error(
-                  message || "There was an error deleting the image"
+                  message || "There was an error deleting the image",
                 );
               }
 

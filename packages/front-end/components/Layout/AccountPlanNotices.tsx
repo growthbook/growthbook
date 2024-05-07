@@ -258,7 +258,7 @@ export default function AccountPlanNotices() {
       // Cache is good for a week from the first failed fetch date
       const cachedDataGoodUntil = new Date(
         new Date(license.firstFailedFetchDate).getTime() +
-          7 * 24 * 60 * 60 * 1000
+          7 * 24 * 60 * 60 * 1000,
       );
 
       const daysLeftInCache = daysLeft(cachedDataGoodUntil.toDateString());

@@ -43,7 +43,7 @@ export function getValidation(feature: FeatureInterface) {
 export function mergeRevision(
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
-  environments: string[]
+  environments: string[],
 ) {
   const newFeature = cloneDeep(feature);
 
@@ -63,7 +63,7 @@ export function mergeRevision(
 export function validateJSONFeatureValue(
   // eslint-disable-next-line
   value: any,
-  feature: FeatureInterface
+  feature: FeatureInterface,
 ) {
   const { jsonSchema, validationEnabled } = getValidation(feature);
   if (!validationEnabled) {
@@ -119,7 +119,7 @@ export function validateJSONFeatureValue(
 export function validateFeatureValue(
   feature: FeatureInterface,
   value: string,
-  label?: string
+  label?: string,
 ): string {
   const type = feature.valueType;
   const prefix = label ? label + ": " : "";
@@ -163,7 +163,7 @@ const isForceRule = (rule: FeatureRule): rule is ForceRule =>
   rule.type === "force";
 
 const areRulesOneSided = (
-  rules: FeatureRule[] // can assume all rules are enabled
+  rules: FeatureRule[], // can assume all rules are enabled
 ) => {
   const rolloutRules = rules.filter(isRolloutRule);
   const forceRules = rules.filter(isForceRule);
@@ -171,7 +171,7 @@ const areRulesOneSided = (
   const rolloutRulesOnesided =
     !rolloutRules.length ||
     rolloutRules.every(
-      (r) => r.coverage === 1 && !r.condition && !r.savedGroups?.length
+      (r) => r.coverage === 1 && !r.condition && !r.savedGroups?.length,
     );
 
   const forceRulesOnesided =
@@ -214,7 +214,7 @@ export function isFeatureStale({
   }
 
   const visit = (
-    feature: FeatureInterface
+    feature: FeatureInterface,
   ): { stale: boolean; reason?: StaleFeatureReason } => {
     if (visitedFeatures.has(feature.id)) {
       return { stale: false };
@@ -242,7 +242,7 @@ export function isFeatureStale({
         const dependentFeatures = getDependentFeatures(
           feature,
           features,
-          environments
+          environments,
         );
         const hasNonStaleDependentFeatures = dependentFeatures.some((id) => {
           const f = featuresMap.get(id);
@@ -255,10 +255,10 @@ export function isFeatureStale({
       }
       const dependentExperiments = getDependentExperiments(
         feature,
-        experiments
+        experiments,
       );
       const hasNonStaleDependentExperiments = dependentExperiments.some((e) =>
-        includeExperimentInPayload(e)
+        includeExperimentInPayload(e),
       );
       if (dependentExperiments.length && hasNonStaleDependentExperiments) {
         return { stale: false };
@@ -333,7 +333,7 @@ export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
 export function listChangedEnvironments(
   base: RulesAndValues,
   revision: RulesAndValues,
-  allEnviroments: string[]
+  allEnviroments: string[],
 ) {
   const environmentsList: string[] = [];
   allEnviroments?.forEach((env) => {
@@ -352,7 +352,7 @@ export function autoMerge(
   base: RulesAndValues,
   revision: RulesAndValues,
   environments: string[],
-  strategies: Record<string, MergeStrategy>
+  strategies: Record<string, MergeStrategy>,
 ): AutoMergeResult {
   const result: {
     defaultValue?: string;
@@ -530,7 +530,7 @@ export function validateCondition(condition?: string): ValidateConditionReturn {
 export function validateAndFixCondition(
   condition: string | undefined,
   applySuggestion: (suggestion: string) => void,
-  throwOnSuggestion: boolean = true
+  throwOnSuggestion: boolean = true,
 ): ValidateConditionReturn {
   const res = validateCondition(condition);
   if (res.success) return res;
@@ -538,14 +538,14 @@ export function validateAndFixCondition(
     applySuggestion(res.suggestedValue);
     if (!throwOnSuggestion) return res;
     throw new Error(
-      "We fixed some syntax errors in your targeting condition JSON. Please verify the changes and save again."
+      "We fixed some syntax errors in your targeting condition JSON. Please verify the changes and save again.",
     );
   }
   throw new Error("Invalid targeting condition JSON: " + res.error);
 }
 
 export function getDefaultPrerequisiteCondition(
-  parentFeature?: FeatureInterface
+  parentFeature?: FeatureInterface,
 ) {
   const valueType = parentFeature?.valueType || "boolean";
   if (valueType === "boolean") {
@@ -558,7 +558,7 @@ export function isFeatureCyclic(
   feature: FeatureInterface,
   featuresMap: Map<string, FeatureInterface>,
   revision?: FeatureRevisionInterface,
-  envs?: string[]
+  envs?: string[],
 ): [boolean, string | null] {
   const visited = new Set<string>();
   const stack = new Set<string>();
@@ -618,7 +618,7 @@ export function evaluatePrerequisiteState(
   featuresMap: Map<string, FeatureInterface>,
   env: string,
   skipRootConditions: boolean = false,
-  skipCyclicCheck: boolean = false
+  skipCyclicCheck: boolean = false,
 ): PrerequisiteStateResult {
   let isTopLevel = true;
   if (!skipCyclicCheck) {
@@ -676,13 +676,12 @@ export function evaluatePrerequisiteState(
         value = null;
         break;
       }
-      const { state: prerequisiteState, value: prerequisiteValue } = visit(
-        prerequisiteFeature
-      );
+      const { state: prerequisiteState, value: prerequisiteValue } =
+        visit(prerequisiteFeature);
       if (prerequisiteState === "deterministic") {
         const evaled = evalDeterministicPrereqValue(
           prerequisiteValue ?? null,
-          prerequisite.condition
+          prerequisite.condition,
         );
         if (evaled === "fail") {
           state = "deterministic";
@@ -704,7 +703,7 @@ export function evaluatePrerequisiteState(
 export function evalDeterministicPrereqValue(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any,
-  condition: string
+  condition: string,
 ): "pass" | "fail" {
   const parsedCondition = getParsedPrereqCondition(condition);
   if (!parsedCondition) return "fail";
@@ -716,7 +715,7 @@ export function evalDeterministicPrereqValue(
 export function getDependentFeatures(
   feature: FeatureInterface,
   features: FeatureInterface[],
-  environments: string[]
+  environments: string[],
 ): string[] {
   const dependentFeatures = features.filter((f) => {
     const prerequisites = f.prerequisites || [];
@@ -724,7 +723,7 @@ export function getDependentFeatures(
       f,
       (r) =>
         !!r.enabled && (r.prerequisites || []).some((p) => p.id === feature.id),
-      environments
+      environments,
     );
 
     return prerequisites.some((p) => p.id === feature.id) || rules.length > 0;
@@ -734,7 +733,7 @@ export function getDependentFeatures(
 
 export function getDependentExperiments(
   feature: FeatureInterface,
-  experiments: ExperimentInterfaceStringDates[]
+  experiments: ExperimentInterfaceStringDates[],
 ): ExperimentInterfaceStringDates[] {
   return experiments.filter((e) => {
     const phase = e.phases.slice(-1)?.[0] ?? null;
@@ -764,7 +763,7 @@ export type ResetReviewOnChange = {
 };
 export function getReviewSetting(
   requireReviewSettings: RequireReview[],
-  feature: FeatureInterface
+  feature: FeatureInterface,
 ): RequireReview | undefined {
   // check projects
   for (const reviewSetting of requireReviewSettings) {
@@ -780,7 +779,7 @@ export function getReviewSetting(
 
 export function checkEnvironmentsMatch(
   environments: string[],
-  reviewSetting: RequireReview
+  reviewSetting: RequireReview,
 ) {
   for (const env of reviewSetting.environments) {
     if (environments.includes(env)) {
@@ -793,7 +792,7 @@ export function featureRequiresReview(
   feature: FeatureInterface,
   changedEnvironments: string[],
   defaultValueChanged: boolean,
-  settings?: OrganizationSettings
+  settings?: OrganizationSettings,
 ) {
   const requiresReviewSettings = settings?.requireReviews;
   //legacy check
@@ -860,7 +859,7 @@ export function checkIfRevisionNeedsReview({
   const changedEnvironments = listChangedEnvironments(
     baseRevision,
     revision,
-    allEnvironments
+    allEnvironments,
   );
   const defaultValueChanged =
     baseRevision.defaultValue !== revision.defaultValue;
@@ -869,14 +868,14 @@ export function checkIfRevisionNeedsReview({
     feature,
     changedEnvironments,
     defaultValueChanged,
-    settings
+    settings,
   );
 }
 
 export function filterProjectsByEnvironment(
   projects: string[],
   environment?: Environment,
-  applyEnvironmentProjectsToAll: boolean = false
+  applyEnvironmentProjectsToAll: boolean = false,
 ): string[] {
   if (!environment) return projects;
   const environmentHasProjects = (environment?.projects?.length ?? 0) > 0;
@@ -896,12 +895,12 @@ export function filterProjectsByEnvironment(
 export function filterProjectsByEnvironmentWithNull(
   projects: string[],
   environment?: Environment,
-  applyEnvironmentProjectsToAll: boolean = false
+  applyEnvironmentProjectsToAll: boolean = false,
 ): string[] | null {
   let filteredProjects: string[] | null = filterProjectsByEnvironment(
     projects,
     environment,
-    applyEnvironmentProjectsToAll
+    applyEnvironmentProjectsToAll,
   );
   // If projects were scrubbed by environment and nothing is left, then we should
   // return null (no projects) instead of [] (all projects)
@@ -913,51 +912,51 @@ export function filterProjectsByEnvironmentWithNull(
 
 export function featureHasEnvironment(
   feature: FeatureInterface,
-  environment: Environment
+  environment: Environment,
 ): boolean {
   const featureProjects = feature.project ? [feature.project] : [];
   if (featureProjects.length === 0) return true;
   const filteredProjects = filterProjectsByEnvironment(
     featureProjects,
     environment,
-    true
+    true,
   );
   return filteredProjects.length > 0;
 }
 
 export function filterEnvironmentsByExperiment(
   environments: Environment[],
-  experiment: ExperimentInterfaceStringDates
+  experiment: ExperimentInterfaceStringDates,
 ): Environment[] {
   return environments.filter((env) =>
-    experimentHasEnvironment(experiment, env)
+    experimentHasEnvironment(experiment, env),
   );
 }
 
 export function experimentHasEnvironment(
   experiment: ExperimentInterfaceStringDates,
-  environment: Environment
+  environment: Environment,
 ): boolean {
   const experimentProjects = experiment.project ? [experiment.project] : [];
   if (experimentProjects.length === 0) return true;
   const filteredProjects = filterProjectsByEnvironment(
     experimentProjects,
     environment,
-    true
+    true,
   );
   return filteredProjects.length > 0;
 }
 
 export function filterEnvironmentsByFeature(
   environments: Environment[],
-  feature: FeatureInterface
+  feature: FeatureInterface,
 ): Environment[] {
   return environments.filter((env) => featureHasEnvironment(feature, env));
 }
 
 export function getDisallowedProjectIds(
   projects: string[],
-  environment?: Environment
+  environment?: Environment,
 ) {
   if (!environment) return [];
   return projects.filter((p) => {
@@ -970,9 +969,9 @@ export function getDisallowedProjectIds(
 export function getDisallowedProjects(
   allProjects: ProjectInterface[],
   projects: string[],
-  environment?: Environment
+  environment?: Environment,
 ) {
   return allProjects.filter((p) =>
-    getDisallowedProjectIds(projects, environment).includes(p.id)
+    getDisallowedProjectIds(projects, environment).includes(p.id),
   );
 }

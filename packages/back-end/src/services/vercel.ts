@@ -61,7 +61,7 @@ export function reduceGbVercelEnvMap(gbVercelEnvMap: GbVercelEnvMap) {
 
 export async function createOrgGbKeys(
   orgId: string,
-  gbVercelEnvMap: { gb: string; vercel: VercelTarget[] }[]
+  gbVercelEnvMap: { gb: string; vercel: VercelTarget[] }[],
 ) {
   const orgGbKeys = [];
   for (const envMapEntry of gbVercelEnvMap) {
@@ -86,7 +86,7 @@ export async function createOrgGbKeys(
 
 export async function getGbRelatedVercelProjects(
   token: string,
-  teamId: string | null
+  teamId: string | null,
 ): Promise<VercelProject[]> {
   const json = await vercelApiCall<{ projects: VercelProject[] }>({
     token,
@@ -123,7 +123,7 @@ export async function postEnvVar({
 export async function getEnvVars(
   token: string,
   projectId: string,
-  teamId: string | null
+  teamId: string | null,
 ): Promise<VercelEnvVar[]> {
   const json = await vercelApiCall<{ envs: VercelEnvVar[] }>({
     token,

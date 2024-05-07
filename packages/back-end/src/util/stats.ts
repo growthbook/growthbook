@@ -36,7 +36,7 @@ function returnZeroIfNotFinite(x: number): number {
 export function sumSquaresFromStats(
   sum: number,
   variance: number,
-  n: number
+  n: number,
 ): number {
   return returnZeroIfNotFinite(variance * (n - 1) + Math.pow(sum, 2) / n);
 }
@@ -44,7 +44,7 @@ export function sumSquaresFromStats(
 export function meanVarianceFromSums(
   sum: number,
   sum_squares: number,
-  n: number
+  n: number,
 ): number {
   const variance = (sum_squares - Math.pow(sum, 2) / n) / (n - 1);
   return returnZeroIfNotFinite(variance);

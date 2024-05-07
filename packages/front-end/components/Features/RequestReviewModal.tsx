@@ -60,7 +60,7 @@ export default function RequestReviewModal({
     permissionsUtil.canReviewFeatureDrafts(feature);
   const approved = revision?.status === "approved" || adminPublish;
   const baseRevision = revisions.find(
-    (r) => r.version === revision?.baseVersion
+    (r) => r.version === revision?.baseVersion,
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
 
@@ -71,7 +71,7 @@ export default function RequestReviewModal({
       baseRevision,
       revision,
       environments.map((e) => e.id),
-      {}
+      {},
     );
   }, [revision, baseRevision, liveRevision, environments]);
 
@@ -224,7 +224,7 @@ export default function RequestReviewModal({
                     `/feature/${feature.id}/${revision.version}/discard`,
                     {
                       method: "POST",
-                    }
+                    },
                   );
                 } catch (e) {
                   await mutate();
@@ -313,7 +313,7 @@ export default function RequestReviewModal({
                             body: JSON.stringify({
                               comment,
                             }),
-                          }
+                          },
                         );
                       } catch (e) {
                         await mutate();
@@ -355,7 +355,7 @@ export default function RequestReviewModal({
                   comment: data.comment,
                   review: data.reviewStatus,
                 }),
-              }
+              },
             );
           } catch (e) {
             mutate();

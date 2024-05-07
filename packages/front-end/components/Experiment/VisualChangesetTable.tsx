@@ -91,7 +91,7 @@ const drawChange = ({
                     <div className="uppercase-title mt-1">Simple:</div>
                   )}
                   {simpleUrlPatterns.map((p, j) =>
-                    drawUrlPattern(p, j, vc.urlPatterns.length)
+                    drawUrlPattern(p, j, vc.urlPatterns.length),
                   )}
                 </>
               )}
@@ -99,7 +99,7 @@ const drawChange = ({
                 <>
                   <div className="uppercase-title mt-1">Regex:</div>
                   {regexUrlPatterns.map((p, j) =>
-                    drawUrlPattern(p, j, vc.urlPatterns.length)
+                    drawUrlPattern(p, j, vc.urlPatterns.length),
                   )}
                 </>
               )}
@@ -212,7 +212,7 @@ const drawChange = ({
 const drawUrlPattern = (
   p: VisualChangesetURLPattern,
   j: number,
-  total: number
+  total: number,
 ) => (
   <span key={j}>
     <code>{p.pattern}</code>
@@ -237,10 +237,8 @@ export const VisualChangesetTable: FC<Props> = ({
   const { hasCommercialFeature } = useUser();
   const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
 
-  const [
-    editingVisualChangeset,
-    setEditingVisualChangeset,
-  ] = useState<VisualChangesetInterface | null>(null);
+  const [editingVisualChangeset, setEditingVisualChangeset] =
+    useState<VisualChangesetInterface | null>(null);
 
   const [editingVisualChange, setEditingVisualChange] = useState<{
     visualChangeset: VisualChangesetInterface;
@@ -258,7 +256,7 @@ export const VisualChangesetTable: FC<Props> = ({
         source: "visual-editor-ui",
       });
     },
-    [apiCall, mutate]
+    [apiCall, mutate],
   );
 
   const updateVisualChange = useCallback(
@@ -274,7 +272,7 @@ export const VisualChangesetTable: FC<Props> = ({
       const newVisualChangeset: VisualChangesetInterface = {
         ...visualChangeset,
         visualChanges: visualChangeset.visualChanges.map((c, i) =>
-          i === index ? visualChange : c
+          i === index ? visualChange : c,
         ),
       };
       await apiCall(`/visual-changesets/${visualChangeset.id}`, {
@@ -286,7 +284,7 @@ export const VisualChangesetTable: FC<Props> = ({
         source: "visual-editor-ui",
       });
     },
-    [apiCall, mutate]
+    [apiCall, mutate],
   );
 
   return (
@@ -333,7 +331,7 @@ export const VisualChangesetTable: FC<Props> = ({
         const visualChangeTypesDict: string[] = ["Copy", "CSS", "Javascript"];
         const visualChangeTypes: string[] = [...visualChangeTypesSet].sort(
           (a, b) =>
-            visualChangeTypesDict.indexOf(a) - visualChangeTypesDict.indexOf(b)
+            visualChangeTypesDict.indexOf(a) - visualChangeTypesDict.indexOf(b),
         );
 
         return (

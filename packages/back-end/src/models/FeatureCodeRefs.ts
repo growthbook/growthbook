@@ -25,14 +25,14 @@ const featureCodeRefsSchema = new mongoose.Schema({
 
 featureCodeRefsSchema.index(
   { organization: 1, repo: 1, branch: 1, feature: 1 },
-  { unique: true }
+  { unique: true },
 );
 
 type FeatureCodeRefsDocument = mongoose.Document & FeatureCodeRefsInterface;
 
 const FeatureCodeRefsModel = mongoose.model<FeatureCodeRefsInterface>(
   "FeatureCodeRefs",
-  featureCodeRefsSchema
+  featureCodeRefsSchema,
 );
 
 function toInterface(doc: FeatureCodeRefsDocument): FeatureCodeRefsInterface {
@@ -67,7 +67,7 @@ export const upsertFeatureCodeRefs = async ({
       platform,
       dateUpdated: new Date(),
     },
-    { upsert: true }
+    { upsert: true },
   );
 
   return await FeatureCodeRefsModel.find({

@@ -132,14 +132,14 @@ const CompactResults: FC<{
       if (!metric) return null;
       const { newMetric, overrideFields } = applyMetricOverrides(
         metric,
-        metricOverrides
+        metricOverrides,
       );
       let regressionAdjustmentStatus:
         | MetricRegressionAdjustmentStatus
         | undefined;
       if (regressionAdjustmentEnabled && metricRegressionAdjustmentStatuses) {
         regressionAdjustmentStatus = metricRegressionAdjustmentStatuses.find(
-          (s) => s.metric === metricId
+          (s) => s.metric === metricId,
         );
       }
       return {
@@ -173,7 +173,7 @@ const CompactResults: FC<{
       .filter(Boolean) as ExperimentMetricInterface[];
     const sortedFilteredMetrics = sortAndFilterMetricsByTags(
       metricDefs,
-      metricFilter
+      metricFilter,
     );
 
     const guardrailDefs = guardrails
@@ -181,7 +181,7 @@ const CompactResults: FC<{
       .filter(Boolean) as ExperimentMetricInterface[];
     const sortedFilteredGuardrails = sortAndFilterMetricsByTags(
       guardrailDefs,
-      metricFilter
+      metricFilter,
     );
 
     const retMetrics = sortedFilteredMetrics
@@ -304,7 +304,7 @@ const CompactResults: FC<{
             pValueCorrection={pValueCorrection}
             differenceType={differenceType}
             renderLabelColumn={getRenderLabelColumn(
-              regressionAdjustmentEnabled
+              regressionAdjustmentEnabled,
             )}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
@@ -327,7 +327,7 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
     label: string,
     metric: ExperimentMetricInterface,
     row: ExperimentTableRow,
-    maxRows?: number
+    maxRows?: number,
   ) {
     const metricLink = (
       <Tooltip

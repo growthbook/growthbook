@@ -138,7 +138,7 @@ export default function ExperimentGraph({
     data.byProject.all.forEach((d, i) => {
       projects.forEach((p) => {
         const projectData = data.byProject[p.id].find(
-          (pd) => pd.date === d.date
+          (pd) => pd.date === d.date,
         );
         if (projectData) {
           graphData[i][p.id] = projectData.numExp;
@@ -201,7 +201,7 @@ export default function ExperimentGraph({
           const yMax = height - margin[0] - margin[2];
           const xMax = width - margin[1] - margin[3];
           const maxYValue = Math.ceil(
-            Math.max(...graphData.map((d) => d.numExp), 1)
+            Math.max(...graphData.map((d) => d.numExp), 1),
           );
 
           const barWidth = 35;
@@ -237,7 +237,7 @@ export default function ExperimentGraph({
               Math.abs((curr?.xcord ?? 0) - xCoord) <
               Math.abs((prev?.xcord ?? 0) - xCoord)
                 ? curr
-                : prev
+                : prev,
             );
 
             let barHeight = yMax - (yScale(closestBar.numExp) ?? 0);
@@ -282,8 +282,8 @@ export default function ExperimentGraph({
                                 {projectMap.has(k)
                                   ? projectMap.get(k)
                                   : k === "all"
-                                  ? "All projects"
-                                  : k}
+                                    ? "All projects"
+                                    : k}
                               </div>
                               <div className={styles.tooltipValue}>
                                 {tooltipData?.[k] ?? 0}
@@ -461,8 +461,8 @@ export default function ExperimentGraph({
                           {projectMap.has(k)
                             ? projectMap.get(k)
                             : k === "all"
-                            ? "All projects"
-                            : k}
+                              ? "All projects"
+                              : k}
                         </div>
                       </div>
                     ))}

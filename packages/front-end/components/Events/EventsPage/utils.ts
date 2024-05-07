@@ -19,42 +19,42 @@ export const getEventText = (
       NotificationEventResource,
       unknown
     >
-  >
+  >,
 ): string => {
   switch (event.data.event) {
     case "user.login":
       return getTitleForUserLogin(
-        (event.data as unknown) as UserLoginNotificationEvent
+        event.data as unknown as UserLoginNotificationEvent,
       );
 
     case "experiment.created":
       return getTitleForExperimentCreated(
-        (event.data as unknown) as ExperimentCreatedNotificationEvent
+        event.data as unknown as ExperimentCreatedNotificationEvent,
       );
 
     case "experiment.updated":
       return getTitleForExperimentUpdated(
-        (event.data as unknown) as ExperimentUpdatedNotificationEvent
+        event.data as unknown as ExperimentUpdatedNotificationEvent,
       );
 
     case "experiment.deleted":
       return getTitleForExperimentDeleted(
-        (event.data as unknown) as ExperimentDeletedNotificationEvent
+        event.data as unknown as ExperimentDeletedNotificationEvent,
       );
 
     case "feature.created":
       return getTitleForFeatureCreated(
-        (event.data as unknown) as FeatureCreatedNotificationEvent
+        event.data as unknown as FeatureCreatedNotificationEvent,
       );
 
     case "feature.updated":
       return getTitleForFeatureUpdated(
-        (event.data as unknown) as FeatureUpdatedNotificationEvent
+        event.data as unknown as FeatureUpdatedNotificationEvent,
       );
 
     case "feature.deleted":
       return getTitleForFeatureDeleted(
-        (event.data as unknown) as FeatureDeletedNotificationEvent
+        event.data as unknown as FeatureDeletedNotificationEvent,
       );
 
     default:

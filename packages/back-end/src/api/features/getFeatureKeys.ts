@@ -8,5 +8,5 @@ export const getFeatureKeys = createApiRequestHandler(getFeatureKeysValidator)(
     const features = await getAllFeatures(req.context, req.query.projectId);
 
     return features.map((f) => f.id);
-  }
+  },
 );

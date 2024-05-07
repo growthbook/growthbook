@@ -39,7 +39,7 @@ const toInterface = (doc: ReportDocument): ReportInterface => {
 
 export async function createReport(
   organization: string,
-  initialValue: Partial<ReportInterface>
+  initialValue: Partial<ReportInterface>,
 ): Promise<ReportInterface> {
   const report = await ReportModel.create({
     status: "private",
@@ -55,7 +55,7 @@ export async function createReport(
 
 export async function getReportById(
   organization: string,
-  id: string
+  id: string,
 ): Promise<ReportInterface | null> {
   const report = await ReportModel.findOne({
     organization,
@@ -67,17 +67,17 @@ export async function getReportById(
 
 export async function getReportsByOrg(
   context: ReqContext | ApiReqContext,
-  project: string
+  project: string,
 ): Promise<ReportInterface[]> {
-  let reports = (
-    await ReportModel.find({ organization: context.org.id })
-  ).map((r) => toInterface(r));
+  let reports = (await ReportModel.find({ organization: context.org.id })).map(
+    (r) => toInterface(r),
+  );
   // filter by project assigned to the experiment:
   if (reports.length > 0 && project) {
     const allExperiments = await getAllExperiments(context, project);
     const expIds = new Set(allExperiments.map((e) => e.id));
     reports = reports.filter(
-      (r) => r.experimentId && expIds.has(r.experimentId)
+      (r) => r.experimentId && expIds.has(r.experimentId),
     );
   }
   return reports;
@@ -85,10 +85,10 @@ export async function getReportsByOrg(
 
 export async function getReportsByExperimentId(
   organization: string,
-  experimentId: string
+  experimentId: string,
 ): Promise<ReportInterface[]> {
   return (await ReportModel.find({ organization, experimentId })).map((r) =>
-    toInterface(r)
+    toInterface(r),
   );
 }
 
@@ -109,7 +109,7 @@ export async function findReportsByQueryId(ids: string[]) {
 export async function updateReport(
   organization: string,
   id: string,
-  updates: Partial<ReportInterface>
+  updates: Partial<ReportInterface>,
 ) {
   await ReportModel.updateOne(
     {
@@ -121,7 +121,7 @@ export async function updateReport(
         ...updates,
         dateUpdated: new Date(),
       },
-    }
+    },
   );
 }
 

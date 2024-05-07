@@ -67,7 +67,7 @@ const getTooltipContents = (
   statsEngine: StatsEngine,
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
   formatterOptions?: Intl.NumberFormatOptions,
-  hasStats: boolean = true
+  hasStats: boolean = true,
 ) => {
   const { d, yaxis } = data;
   return (
@@ -132,12 +132,12 @@ const getTooltipContents = (
                               [
                               {formatter(
                                 variation?.ci?.[0] ?? 0,
-                                formatterOptions
+                                formatterOptions,
                               )}
                               ,{" "}
                               {formatter(
                                 variation?.ci?.[1] ?? 0,
-                                formatterOptions
+                                formatterOptions,
                               )}
                               ]
                             </>
@@ -175,19 +175,19 @@ const getTooltipData = (
   datapoints: ExperimentDateGraphDataPoint[],
   yScale: ScaleLinear<number, number, never>,
   xScale,
-  yaxis: "users" | "effect"
+  yaxis: "users" | "effect",
 ): TooltipData => {
   const innerWidth =
     width - margin[1] - margin[3] + width / datapoints.length - 1;
   const px = mx / innerWidth;
   const index = Math.max(
     Math.min(Math.round(px * datapoints.length), datapoints.length - 1),
-    0
+    0,
   );
   const d = datapoints[index];
   const x = xScale(d.d);
   const y = d.variations.map(
-    (variation) => yScale(getYVal(variation, yaxis)) ?? 0
+    (variation) => yScale(getYVal(variation, yaxis)) ?? 0,
   );
   return { x, y, d, yaxis };
 };
@@ -232,31 +232,31 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   const yDomain = useMemo<[number, number]>(() => {
     const minValue = Math.min(
       ...datapoints.map((d) =>
-        Math.min(...d.variations.map((variation) => getYVal(variation, yaxis)))
-      )
+        Math.min(...d.variations.map((variation) => getYVal(variation, yaxis))),
+      ),
     );
     const maxValue = Math.max(
       ...datapoints.map((d) =>
-        Math.max(...d.variations.map((variation) => getYVal(variation, yaxis)))
-      )
+        Math.max(...d.variations.map((variation) => getYVal(variation, yaxis))),
+      ),
     );
     const minError = Math.min(
       ...datapoints.map((d) =>
         Math.min(
           ...d.variations.map((variation) =>
-            variation.ci?.[0] ? variation.ci[0] : getYVal(variation, yaxis)
-          )
-        )
-      )
+            variation.ci?.[0] ? variation.ci[0] : getYVal(variation, yaxis),
+          ),
+        ),
+      ),
     );
     const maxError = Math.max(
       ...datapoints.map((d) =>
         Math.max(
           ...d.variations.map((variation) =>
-            variation.ci?.[1] ? variation.ci[1] : getYVal(variation, yaxis)
-          )
-        )
-      )
+            variation.ci?.[1] ? variation.ci[1] : getYVal(variation, yaxis),
+          ),
+        ),
+      ),
     );
 
     // The error bars can be huge sometimes, so limit the domain to at most twice the min/max value
@@ -313,7 +313,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
             datapoints,
             yScale,
             xScale,
-            yaxis
+            yaxis,
           );
           showTooltip({
             tooltipLeft: data.x,
@@ -337,7 +337,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   statsEngine,
                   formatter,
                   formatterOptions,
-                  hasStats
+                  hasStats,
                 )}
               </TooltipWithBounds>
             )}

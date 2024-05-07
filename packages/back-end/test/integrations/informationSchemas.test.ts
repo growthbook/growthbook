@@ -86,23 +86,23 @@ describe("formatInformationSchema", () => {
     ];
     const formattedResults = formatInformationSchema(
       rawInformationSchema,
-      "bigquery"
+      "bigquery",
     );
 
     expect(formattedResults[0].databaseName).toEqual("adept-arbor-354914");
     expect(formattedResults[0].path).toEqual("`adept-arbor-354914`");
     expect(formattedResults[0].schemas[0].path).toEqual(
-      "`adept-arbor-354914.a_second_data_set`"
+      "`adept-arbor-354914.a_second_data_set`",
     );
     expect(formattedResults[0].schemas[0].schemaName).toEqual(
-      "a_second_data_set"
+      "a_second_data_set",
     );
     expect(formattedResults[0].schemas[0].tables[0].path).toEqual(
-      "`adept-arbor-354914.a_second_data_set.experiment-assignments`"
+      "`adept-arbor-354914.a_second_data_set.experiment-assignments`",
     );
     expect(formattedResults[0].schemas[0].tables[0].numOfColumns).toEqual(3);
     expect(formattedResults[0].schemas[0].tables[0].tableName).toEqual(
-      "experiment-assignments"
+      "experiment-assignments",
     );
   });
 
@@ -183,23 +183,23 @@ describe("formatInformationSchema", () => {
     ];
     const formattedResults = formatInformationSchema(
       rawInformationSchema,
-      "postgres"
+      "postgres",
     );
 
     expect(formattedResults[0].databaseName).toEqual("adept-arbor-354914");
     expect(formattedResults[0].path).toEqual("adept-arbor-354914");
     expect(formattedResults[0].schemas[0].path).toEqual(
-      "adept-arbor-354914.a_second_data_set"
+      "adept-arbor-354914.a_second_data_set",
     );
     expect(formattedResults[0].schemas[0].schemaName).toEqual(
-      "a_second_data_set"
+      "a_second_data_set",
     );
     expect(formattedResults[0].schemas[0].tables[0].path).toEqual(
-      "adept-arbor-354914.a_second_data_set.experiment-assignments"
+      "adept-arbor-354914.a_second_data_set.experiment-assignments",
     );
     expect(formattedResults[0].schemas[0].tables[0].numOfColumns).toEqual(3);
     expect(formattedResults[0].schemas[0].tables[0].tableName).toEqual(
-      "experiment-assignments"
+      "experiment-assignments",
     );
   });
 
@@ -280,21 +280,21 @@ describe("formatInformationSchema", () => {
     ];
     const formattedResults = formatInformationSchema(
       rawInformationSchema,
-      "mysql"
+      "mysql",
     );
 
     expect(formattedResults[0].databaseName).toEqual("adept-arbor-354914");
     expect(formattedResults[0].path).toEqual("");
     expect(formattedResults[0].schemas[0].path).toEqual("a_second_data_set");
     expect(formattedResults[0].schemas[0].schemaName).toEqual(
-      "a_second_data_set"
+      "a_second_data_set",
     );
     expect(formattedResults[0].schemas[0].tables[0].path).toEqual(
-      "a_second_data_set.experiment-assignments"
+      "a_second_data_set.experiment-assignments",
     );
     expect(formattedResults[0].schemas[0].tables[0].numOfColumns).toEqual(3);
     expect(formattedResults[0].schemas[0].tables[0].tableName).toEqual(
-      "experiment-assignments"
+      "experiment-assignments",
     );
   });
 });
@@ -312,8 +312,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
             tables: [
               {
                 tableName: "sample_table_name",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "sample_table_id-1",
                 numOfColumns: 3,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -321,8 +320,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "sample_table_name-with-no-id",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 4,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -330,8 +328,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "sample_table-3",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "sample_table_id-3",
                 numOfColumns: 8,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -357,8 +354,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
             tables: [
               {
                 tableName: "sample_table_name",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 3,
                 dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
@@ -366,8 +362,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "sample_table_name-with-no-id",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 4,
                 dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
@@ -375,8 +370,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "sample_table-3",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 8,
                 dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
@@ -384,8 +378,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "newly-added-table",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 16,
                 dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
@@ -404,7 +397,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
     const mergedInformationSchema = await mergeStaleInformationSchemaWithUpdate(
       staleInformationSchema,
       updatedInformationSchema,
-      "sample_org_id"
+      "sample_org_id",
     );
 
     expect(mergedInformationSchema).toEqual([
@@ -418,8 +411,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
             tables: [
               {
                 tableName: "sample_table_name",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "sample_table_id-1",
                 numOfColumns: 3,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -427,8 +419,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "sample_table_name-with-no-id",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 4,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -436,8 +427,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "sample_table-3",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "sample_table_id-3",
                 numOfColumns: 8,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -445,8 +435,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "newly-added-table",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 16,
                 dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
@@ -475,8 +464,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
             tables: [
               {
                 tableName: "sample_table_name",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "sample_table_id-1",
                 numOfColumns: 3,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -484,8 +472,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "sample_table_name-with-no-id",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 4,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -493,8 +480,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "sample_table-3",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "sample_table_id-3",
                 numOfColumns: 8,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -502,8 +488,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "table-with-new-column-added",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 16,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -529,8 +514,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
             tables: [
               {
                 tableName: "sample_table_name",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 3,
                 dateCreated: new Date("2023-03-19T15:00:00.000+00:00"),
@@ -538,8 +522,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "sample_table_name-with-no-id",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 4,
                 dateCreated: new Date("2023-03-19T15:00:00.000+00:00"),
@@ -547,8 +530,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "sample_table-3",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 8,
                 dateCreated: new Date("2023-03-19T15:00:00.000+00:00"),
@@ -556,8 +538,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "table-with-new-column-added",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 100,
                 dateCreated: new Date("2023-03-19T15:00:00.000+00:00"),
@@ -576,7 +557,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
     const mergedInformationSchema = await mergeStaleInformationSchemaWithUpdate(
       staleInformationSchema,
       updatedInformationSchema,
-      "sample_org_id"
+      "sample_org_id",
     );
 
     expect(mergedInformationSchema).toEqual([
@@ -590,8 +571,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
             tables: [
               {
                 tableName: "sample_table_name",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "sample_table_id-1",
                 numOfColumns: 3,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -599,8 +579,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "sample_table_name-with-no-id",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 4,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -608,8 +587,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "sample_table-3",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "sample_table_id-3",
                 numOfColumns: 8,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -617,8 +595,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "table-with-new-column-added",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 100,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -647,8 +624,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
             tables: [
               {
                 tableName: "sample_table_name",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "sample_table_id-1",
                 numOfColumns: 3,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -656,8 +632,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "sample_table_name-with-no-id",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 4,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -665,8 +640,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "sample_table-3",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "sample_table_id-3",
                 numOfColumns: 8,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -674,8 +648,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "table-to-be-deleted",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 16,
                 dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
@@ -701,8 +674,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
             tables: [
               {
                 tableName: "sample_table_name",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 3,
                 dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
@@ -710,8 +682,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "sample_table_name-with-no-id",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 4,
                 dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
@@ -719,8 +690,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "sample_table-3",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 8,
                 dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
@@ -739,7 +709,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
     const mergedInformationSchema = await mergeStaleInformationSchemaWithUpdate(
       staleInformationSchema,
       updatedInformationSchema,
-      "sample_org_id"
+      "sample_org_id",
     );
 
     expect(mergedInformationSchema).toEqual([
@@ -753,8 +723,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
             tables: [
               {
                 tableName: "sample_table_name",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "sample_table_id-1",
                 numOfColumns: 3,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -762,8 +731,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "sample_table_name-with-no-id",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 4,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -771,8 +739,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
               },
               {
                 tableName: "sample_table-3",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "sample_table_id-3",
                 numOfColumns: 8,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -803,8 +770,7 @@ describe("removeRecentlyDeletedTables", () => {
             tables: [
               {
                 tableName: "sample_table_name",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "sample_table_id-1",
                 numOfColumns: 3,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -812,8 +778,7 @@ describe("removeRecentlyDeletedTables", () => {
               },
               {
                 tableName: "sample_table_name-with-no-id",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 4,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -821,8 +786,7 @@ describe("removeRecentlyDeletedTables", () => {
               },
               {
                 tableName: "sample_table-3",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "sample_table_id-3",
                 numOfColumns: 8,
                 dateCreated: new Date("2023-03-17T15:46:59.039+00:00"),
@@ -830,8 +794,7 @@ describe("removeRecentlyDeletedTables", () => {
               },
               {
                 tableName: "table-to-be-deleted",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "table_id_to_be_deleted-1234",
                 numOfColumns: 16,
                 dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
@@ -857,8 +820,7 @@ describe("removeRecentlyDeletedTables", () => {
             tables: [
               {
                 tableName: "sample_table_name",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 3,
                 dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
@@ -866,8 +828,7 @@ describe("removeRecentlyDeletedTables", () => {
               },
               {
                 tableName: "sample_table_name-with-no-id",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 4,
                 dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
@@ -875,8 +836,7 @@ describe("removeRecentlyDeletedTables", () => {
               },
               {
                 tableName: "sample_table-3",
-                path:
-                  "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
+                path: "sample_org_id.sample_database_name.sample_schema_name.sample_table_name",
                 id: "",
                 numOfColumns: 8,
                 dateCreated: new Date("2023-03-18T15:00:00.000+00:00"),
@@ -893,7 +853,10 @@ describe("removeRecentlyDeletedTables", () => {
     ];
 
     expect(
-      getRecentlyDeletedTables(staleInformationSchema, updatedInformationSchema)
+      getRecentlyDeletedTables(
+        staleInformationSchema,
+        updatedInformationSchema,
+      ),
     ).toEqual(["table_id_to_be_deleted-1234"]);
   });
 });

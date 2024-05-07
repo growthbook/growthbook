@@ -22,7 +22,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
 
   const organizationSecretKeys = useMemo(
     () => keys.filter((k) => k.secret && !k.userId),
-    [keys]
+    [keys],
   );
 
   const onReveal = useCallback(
@@ -40,7 +40,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
       }
       return res.key.key;
     },
-    [apiCall]
+    [apiCall],
   );
 
   const onDelete = useCallback(
@@ -55,7 +55,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
       });
       mutate();
     },
-    [mutate, apiCall]
+    [mutate, apiCall],
   );
 
   return (

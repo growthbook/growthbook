@@ -14,7 +14,7 @@ const RefreshMetricButton: FC<{
       `/metric/${metric}/analysis`,
       {
         method: "POST",
-      }
+      },
     );
 
     if (res.status !== 200) {

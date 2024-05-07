@@ -114,11 +114,11 @@ export function getAnalysisSettingsForStatsEngine(
   settings: ExperimentSnapshotAnalysisSettings,
   variations: ExperimentReportVariation[],
   coverage: number,
-  phaseLengthDays: number
+  phaseLengthDays: number,
 ) {
   const sortedVariations = putBaselineVariationFirst(
     variations,
-    settings.baselineVariationIndex ?? 0
+    settings.baselineVariationIndex ?? 0,
   );
 
   const sequentialTestingTuningParameterNumber =
@@ -148,7 +148,7 @@ export function getAnalysisSettingsForStatsEngine(
 }
 
 export async function analyzeExperimentMetric(
-  params: ExperimentMetricAnalysisParams
+  params: ExperimentMetricAnalysisParams,
 ): Promise<ExperimentMetricAnalysis> {
   const {
     variations,
@@ -169,8 +169,8 @@ export async function analyzeExperimentMetric(
         a,
         variations,
         coverage,
-        phaseLengthDays
-      )
+        phaseLengthDays,
+      ),
     ),
   };
 
@@ -194,7 +194,7 @@ print(json.dumps({
   'results': results,
   'time': time.time() - start
 }, allow_nan=False))`,
-    {}
+    {},
   );
 
   try {
@@ -205,10 +205,10 @@ print(json.dumps({
 
     logger.debug(`StatsEngine: Python time: ${parsed.time}`);
     logger.debug(
-      `StatsEngine: Typescript time: ${(Date.now() - start) / 1000}`
+      `StatsEngine: Typescript time: ${(Date.now() - start) / 1000}`,
     );
     logger.debug(
-      `StatsEngine: Average CPU: ${JSON.stringify(getAvgCPU(cpus, os.cpus()))}`
+      `StatsEngine: Average CPU: ${JSON.stringify(getAvgCPU(cpus, os.cpus()))}`,
     );
 
     return parsed.results;
@@ -221,7 +221,7 @@ print(json.dumps({
 export function getMetricSettingsForStatsEngine(
   metricDoc: ExperimentMetricInterface,
   metricMap: Map<string, ExperimentMetricInterface>,
-  settings: ExperimentSnapshotSettings
+  settings: ExperimentSnapshotSettings,
 ): MetricSettingsForStatsEngine {
   const metric = cloneDeep<ExperimentMetricInterface>(metricDoc);
   applyMetricOverrides(metric, settings);
@@ -244,8 +244,8 @@ export function getMetricSettingsForStatsEngine(
   const mainMetricType = quantileMetric
     ? "quantile"
     : isBinomialMetric(metric)
-    ? "binomial"
-    : "count";
+      ? "binomial"
+      : "count";
   // Fact ratio metrics contain denominator
   if (isFactMetric(metric) && ratioMetric) {
     denominator = metric;
@@ -258,12 +258,12 @@ export function getMetricSettingsForStatsEngine(
       quantileMetric === "unit"
         ? "quantile_unit"
         : quantileMetric === "event"
-        ? "quantile_event"
-        : ratioMetric
-        ? "ratio"
-        : regressionAdjusted
-        ? "mean_ra"
-        : "mean",
+          ? "quantile_event"
+          : ratioMetric
+            ? "ratio"
+            : regressionAdjusted
+              ? "mean_ra"
+              : "mean",
     main_metric_type: mainMetricType,
     ...(denominator && {
       denominator_metric_type: isBinomialMetric(denominator)
@@ -280,7 +280,7 @@ export function getMetricSettingsForStatsEngine(
 export function getMetricsAndQueryDataForStatsEngine(
   queryData: QueryMap,
   metricMap: Map<string, ExperimentMetricInterface>,
-  settings: ExperimentSnapshotSettings
+  settings: ExperimentSnapshotSettings,
 ) {
   const queryResults: QueryResultsForStatsEngine[] = [];
   const metricSettings: Record<string, MetricSettingsForStatsEngine> = {};
@@ -306,7 +306,7 @@ export function getMetricsAndQueryDataForStatsEngine(
           metricSettings[metric] = getMetricSettingsForStatsEngine(
             metricInterface,
             metricMap,
-            settings
+            settings,
           );
           byMetric[metric].push({
             dimension: row.dimension,
@@ -347,7 +347,7 @@ export function getMetricsAndQueryDataForStatsEngine(
             metricSettings[metricId] = getMetricSettingsForStatsEngine(
               metric,
               metricMap,
-              settings
+              settings,
             );
           } else {
             metricIds.push(null);
@@ -367,7 +367,7 @@ export function getMetricsAndQueryDataForStatsEngine(
       metricSettings[key] = getMetricSettingsForStatsEngine(
         metric,
         metricMap,
-        settings
+        settings,
       );
       queryResults.push({
         metrics: [key],
@@ -399,7 +399,7 @@ export async function analyzeExperimentResults({
   const mdat = getMetricsAndQueryDataForStatsEngine(
     queryData,
     metricMap,
-    snapshotSettings
+    snapshotSettings,
   );
   const { queryResults, metricSettings } = mdat;
   let { unknownVariations } = mdat;
@@ -408,7 +408,7 @@ export async function analyzeExperimentResults({
     coverage: snapshotSettings.coverage ?? 1,
     phaseLengthHours: Math.max(
       hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
-      1
+      1,
     ),
     variations: snapshotSettings.variations.map((v, i) => ({
       ...v,
@@ -423,16 +423,14 @@ export async function analyzeExperimentResults({
   const multipleExposures = Math.max(
     ...queryResults.map(
       (q) =>
-        q.rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0
-    )
+        q.rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0,
+    ),
   );
 
   const ret: ExperimentReportResults[] = [];
   analysisSettings.forEach((_, i) => {
-    const dimensionMap: Map<
-      string,
-      ExperimentReportResultDimension
-    > = new Map();
+    const dimensionMap: Map<string, ExperimentReportResultDimension> =
+      new Map();
 
     results.forEach(({ metric, analyses }) => {
       const result = analyses[i];
@@ -476,7 +474,7 @@ export async function analyzeExperimentResults({
         // Calculate SRM
         dimension.srm = checkSrm(
           dimension.variations.map((v) => v.users),
-          snapshotSettings.variations.map((v) => v.weight)
+          snapshotSettings.variations.map((v) => v.weight),
         );
       });
     }
@@ -553,7 +551,7 @@ export function analyzeExperimentTraffic({
     const dimTraffic: Map<string, ExperimentSnapshotTrafficDimension> =
       dimTrafficResults.get(r.dimension_name) ?? new Map();
     const dimValueTraffic: ExperimentSnapshotTrafficDimension = dimTraffic.get(
-      r.dimension_value
+      r.dimension_value,
     ) || {
       name: r.dimension_value,
       srm: 0,
@@ -572,13 +570,13 @@ export function analyzeExperimentTraffic({
   });
   trafficResults.overall.srm = checkSrm(
     trafficResults.overall.variationUnits,
-    variationWeights
+    variationWeights,
   );
   for (const [dimName, dimTraffic] of dimTrafficResults) {
     for (const dimValueTraffic of dimTraffic.values()) {
       dimValueTraffic.srm = checkSrm(
         dimValueTraffic.variationUnits,
-        variationWeights
+        variationWeights,
       );
       if (dimName in trafficResults.dimension) {
         trafficResults.dimension[dimName].push(dimValueTraffic);

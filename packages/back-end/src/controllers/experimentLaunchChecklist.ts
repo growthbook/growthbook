@@ -15,7 +15,7 @@ import { auditDetailsUpdate } from "../services/audit";
 
 export async function postExperimentLaunchChecklist(
   req: AuthRequest<{ tasks: ChecklistTask[]; projectId?: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -28,13 +28,13 @@ export async function postExperimentLaunchChecklist(
 
   if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
     throw new Error(
-      "Must have a commercial License Key to customize the organization's pre-launch checklist."
+      "Must have a commercial License Key to customize the organization's pre-launch checklist.",
     );
   }
 
   const existingChecklist = await getExperimentLaunchChecklist(
     org.id,
-    projectId || ""
+    projectId || "",
   );
 
   if (existingChecklist) {
@@ -50,7 +50,7 @@ export async function postExperimentLaunchChecklist(
     org.id,
     userId,
     tasks,
-    projectId || ""
+    projectId || "",
   );
 
   return res.status(200).json({
@@ -61,7 +61,7 @@ export async function postExperimentLaunchChecklist(
 
 export async function getExperimentCheckListByOrg(
   req: AuthRequest,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
 
@@ -84,7 +84,7 @@ export async function getExperimentCheckListByOrg(
 
 export async function putExperimentLaunchChecklist(
   req: AuthRequest<{ tasks: ChecklistTask[] }, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   if (!context.permissions.canManageOrgSettings()) {
@@ -97,7 +97,7 @@ export async function putExperimentLaunchChecklist(
 
   if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
     throw new Error(
-      "Must have a commercial License Key to update the organization's pre-launch checklist."
+      "Must have a commercial License Key to update the organization's pre-launch checklist.",
     );
   }
 
@@ -122,7 +122,7 @@ export async function putManualLaunchChecklist(
     { checklist: { key: string; status: "complete" | "incomplete" }[] },
     { id: string }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 

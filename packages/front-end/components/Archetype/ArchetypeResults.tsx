@@ -22,19 +22,16 @@ const ArchetypeResults: FC<{
 }> = ({ feature, archetype, featureResults, onChange }) => {
   const { apiCall } = useAuth();
   const enableAdvDebug = false;
-  const [showExpandedResults, setShowExpandedResults] = useState<boolean>(
-    false
-  );
+  const [showExpandedResults, setShowExpandedResults] =
+    useState<boolean>(false);
   const [showExpandedResultsId, setShowExpandedResultsId] = useState<
     string | null
   >(null);
   const [showExpandedResultsEnv, setShowExpandedResultsEnv] = useState<
     string | null
   >(null);
-  const [
-    editArchetype,
-    setEditArchetype,
-  ] = useState<Partial<ArchetypeInterface> | null>(null);
+  const [editArchetype, setEditArchetype] =
+    useState<Partial<ArchetypeInterface> | null>(null);
 
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -55,7 +52,7 @@ const ArchetypeResults: FC<{
       const debugLog: string[] = [];
       if (tr?.result?.ruleId && tr?.featureDefinition?.rules) {
         matchedRule = tr.featureDefinition.rules.find(
-          (r) => r.id === tr?.result?.ruleId
+          (r) => r.id === tr?.result?.ruleId,
         );
       }
       let matchedRuleName = "";
@@ -83,13 +80,13 @@ const ArchetypeResults: FC<{
           const reason = log[0];
           if (reason === "Skip rule because of condition") {
             debugLog.push(
-              `Skipped because user did not match the rule conditions`
+              `Skipped because user did not match the rule conditions`,
             );
           } else if (
             reason === "Skip rule because user not included in rollout"
           ) {
             debugLog.push(
-              `Skipped rule because the user is not included in rollout`
+              `Skipped rule because the user is not included in rollout`,
             );
           } else if (reason === "In experiment") {
             debugLog.push(`Included user in experiment rule`);
@@ -200,7 +197,7 @@ const ArchetypeResults: FC<{
                   code={JSON.stringify(
                     JSON.parse(details.archetype.attributes),
                     null,
-                    2
+                    2,
                   )}
                 />
               </div>
@@ -212,7 +209,7 @@ const ArchetypeResults: FC<{
                     code={JSON.stringify(
                       details.results.result.experimentResult,
                       null,
-                      2
+                      2,
                     )}
                   />
                 </div>
@@ -233,7 +230,7 @@ const ArchetypeResults: FC<{
                   code={JSON.stringify(
                     details.results?.featureDefinition,
                     null,
-                    2
+                    2,
                   )}
                 />
               </div>
@@ -285,7 +282,7 @@ const ArchetypeResults: FC<{
                           code={JSON.stringify(
                             JSON.parse(archetype.attributes),
                             null,
-                            2
+                            2,
                           )}
                           language="json"
                         />
@@ -351,7 +348,7 @@ const ArchetypeResults: FC<{
                                     <strong>
                                       {
                                         detailsMap.get(
-                                          archetype.id + result.env
+                                          archetype.id + result.env,
                                         ).matchedRuleName
                                       }
                                     </strong>
@@ -370,12 +367,12 @@ const ArchetypeResults: FC<{
                                       >
                                         <div className="col-2">
                                           {detailsMap.get(
-                                            archetype.id + result.env
+                                            archetype.id + result.env,
                                           )?.results?.result?.source ===
                                             "defaultValue" &&
                                           i ===
                                             detailsMap.get(
-                                              archetype.id + result.env
+                                              archetype.id + result.env,
                                             ).debugLog.length -
                                               1 ? (
                                             <></>
@@ -409,7 +406,7 @@ const ArchetypeResults: FC<{
                                     typeof result.result?.value === "string"
                                       ? result.result.value
                                       : JSON.stringify(
-                                          result.result?.value ?? null
+                                          result.result?.value ?? null,
                                         )
                                   }
                                   type={feature.valueType}
@@ -429,7 +426,7 @@ const ArchetypeResults: FC<{
                         <span className="text-muted">disabled</span>
                       )}
                     </td>
-                  )
+                  ),
                 )}
                 <td className={styles.showOnHover}>
                   <MoreMenu>
@@ -465,8 +462,8 @@ const ArchetypeResults: FC<{
                   <>
                     {expandedResults(
                       detailsMap.get(
-                        showExpandedResultsId + showExpandedResultsEnv
-                      )
+                        showExpandedResultsId + showExpandedResultsEnv,
+                      ),
                     )}
                   </>
                 )}

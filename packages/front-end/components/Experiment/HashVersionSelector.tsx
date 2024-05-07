@@ -37,7 +37,7 @@ export default function HashVersionSelector({
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
-    project
+    project,
   );
 
   return (
@@ -80,7 +80,7 @@ export default function HashVersionSelector({
 
 export function allConnectionsSupportBucketingV2(
   connections?: SDKConnectionInterface[],
-  project?: string
+  project?: string,
 ) {
   if (!connections?.length) {
     // Don't warn if they haven't set up their SDK Connections yet

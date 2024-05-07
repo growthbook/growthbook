@@ -74,8 +74,8 @@ import { useFeatureValue } from "@growthbook/growthbook-react";
 
 function MyComponent() {
   const value = useFeatureValue(${JSON.stringify(featureId)}, ${getDefaultValue(
-          valueType
-        )});
+    valueType,
+  )});
   return (
     <div>{value}</div>
   )
@@ -118,7 +118,7 @@ println(feature.value ?: ${getDefaultValue(valueType)})
         language="swift"
         code={`
 var value = gb.getFeatureValue(${JSON.stringify(featureId)}, ${getDefaultValue(
-          valueType
+          valueType,
         )})
 print(value)
     `.trim()}
@@ -131,7 +131,7 @@ print(value)
         language="go"
         code={`
 value := gb.Feature(${JSON.stringify(
-          featureId
+          featureId,
         )}).GetValueWithDefault(${getDefaultValue(valueType)})
 fmt.Println(value)
             `.trim()}
@@ -144,7 +144,7 @@ fmt.Println(value)
         language="ruby"
         code={`
 value = gb.feature_value(${rubySymbol(featureId)}, ${getDefaultValue(
-          valueType
+          valueType,
         )})
 puts(value)
             `.trim()}
@@ -158,7 +158,7 @@ puts(value)
         code={`
 $value = $growthbook->getValue(${JSON.stringify(featureId)}, ${getDefaultValue(
           valueType,
-          "[]"
+          "[]",
         )});
 echo $value;
             `.trim()}
@@ -171,7 +171,7 @@ echo $value;
         language="python"
         code={`
 value = gb.get_feature_value(${JSON.stringify(featureId)}, ${getDefaultValue(
-          valueType
+          valueType,
         )})
 print(value)
             `.trim()}
@@ -184,7 +184,7 @@ print(value)
         language="java"
         code={`
 ${javaType(valueType)} value = growthBook.getFeatureValue(${JSON.stringify(
-          featureId
+          featureId,
         )}, ${javaDefaultValue(valueType)});
             `.trim()}
       />
@@ -207,7 +207,7 @@ Println(feature.value)
         language="csharp"
         code={`
 var value = gb.GetFeatureValue<string>(${JSON.stringify(
-          featureId
+          featureId,
         )}, ${getDefaultValue(valueType)});
 Console.WriteLine(value);
     `.trim()}

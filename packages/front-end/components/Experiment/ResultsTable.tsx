@@ -81,7 +81,7 @@ export type ResultsTableProps = {
     label: string,
     metric: ExperimentMetricInterface,
     row: ExperimentTableRow,
-    maxRows?: number
+    maxRows?: number,
   ) => string | ReactElement;
   dateCreated: Date;
   hasRisk: boolean;
@@ -142,10 +142,8 @@ export default function ResultsTable({
 
   const { getFactTableById } = useDefinitions();
 
-  const {
-    metricDefaults,
-    getMinSampleSizeForMetric,
-  } = useOrganizationMetricDefaults();
+  const { metricDefaults, getMinSampleSizeForMetric } =
+    useOrganizationMetricDefaults();
   const { ciUpper, ciLower } = useConfidenceLevels();
   const pValueThreshold = usePValueThreshold();
   const displayCurrency = useCurrency();
@@ -161,7 +159,7 @@ export default function ResultsTable({
     if (!tableContainerRef?.current?.clientWidth) return;
     const tableWidth = tableContainerRef.current?.clientWidth as number;
     const firstRowCells = tableContainerRef.current?.querySelectorAll(
-      "#main-results thead tr:first-child th:not(.graph-cell)"
+      "#main-results thead tr:first-child th:not(.graph-cell)",
     );
     let totalCellWidth = 0;
     for (let i = 0; i < firstRowCells.length; i++) {
@@ -179,25 +177,26 @@ export default function ResultsTable({
   useLayoutEffect(onResize, []);
   useEffect(onResize, [isTabActive]);
 
-  const orderedVariations: ExperimentReportVariationWithIndex[] = useMemo(() => {
-    const sorted = variations
-      .map<ExperimentReportVariationWithIndex>((v, i) => ({ ...v, index: i }))
-      .sort((a, b) => {
-        if (a.index === baselineRow) return -1;
-        return a.index - b.index;
-      });
-    // fix browser .sort() quirks. manually move the control row to top:
-    const baselineIndex = sorted.findIndex((v) => v.index === baselineRow);
-    if (baselineIndex > -1) {
-      const baseline = sorted[baselineIndex];
-      sorted.splice(baselineIndex, 1);
-      sorted.unshift(baseline);
-    }
-    return sorted;
-  }, [variations, baselineRow]);
+  const orderedVariations: ExperimentReportVariationWithIndex[] =
+    useMemo(() => {
+      const sorted = variations
+        .map<ExperimentReportVariationWithIndex>((v, i) => ({ ...v, index: i }))
+        .sort((a, b) => {
+          if (a.index === baselineRow) return -1;
+          return a.index - b.index;
+        });
+      // fix browser .sort() quirks. manually move the control row to top:
+      const baselineIndex = sorted.findIndex((v) => v.index === baselineRow);
+      if (baselineIndex > -1) {
+        const baseline = sorted[baselineIndex];
+        sorted.splice(baselineIndex, 1);
+        sorted.unshift(baseline);
+      }
+      return sorted;
+    }, [variations, baselineRow]);
 
   const filteredVariations = orderedVariations.filter(
-    (v) => !variationFilter?.includes(v.index)
+    (v) => !variationFilter?.includes(v.index),
   );
   const compactResults = filteredVariations.length <= 2;
 
@@ -282,19 +281,15 @@ export default function ResultsTable({
 
   const noMetrics = rows.length === 0;
 
-  const {
-    showTooltip,
-    hideTooltip,
-    tooltipOpen,
-    tooltipData,
-  } = useTooltip<TooltipData>();
+  const { showTooltip, hideTooltip, tooltipOpen, tooltipData } =
+    useTooltip<TooltipData>();
   const { containerRef, containerBounds } = useTooltipInPortal({
     scroll: true,
     detectBounds: false,
   });
   const [hoveredMetricRow, setHoveredMetricRow] = useState<number | null>(null);
   const [hoveredVariationRow, setHoveredVariationRow] = useState<number | null>(
-    null
+    null,
   );
   const [hoveredX, setHoveredX] = useState<number | null>(null);
   const [hoveredY, setHoveredY] = useState<number | null>(null);
@@ -313,7 +308,7 @@ export default function ResultsTable({
     metricRow: number,
     variationRow: number,
     event: React.PointerEvent<HTMLElement>,
-    settings?: TooltipHoverSettings
+    settings?: TooltipHoverSettings,
   ) => {
     if (noTooltip) return;
     if (
@@ -359,13 +354,13 @@ export default function ResultsTable({
       (layoutX === "element-left"
         ? (target.getBoundingClientRect()?.left ?? 0) - TOOLTIP_WIDTH + 25
         : layoutX === "element-right"
-        ? (target.getBoundingClientRect()?.right ?? 0) - 25
-        : layoutX === "element-center"
-        ? ((target.getBoundingClientRect()?.left ?? 0) +
-            (target.getBoundingClientRect()?.right ?? 0)) /
-            2 -
-          TOOLTIP_WIDTH / 2
-        : event.clientX + 10) + offsetX;
+          ? (target.getBoundingClientRect()?.right ?? 0) - 25
+          : layoutX === "element-center"
+            ? ((target.getBoundingClientRect()?.left ?? 0) +
+                (target.getBoundingClientRect()?.right ?? 0)) /
+                2 -
+              TOOLTIP_WIDTH / 2
+            : event.clientX + 10) + offsetX;
 
     // Prevent tooltip from going off the screen (x-axis)
     if (targetLeft < 10) {
@@ -611,7 +606,7 @@ export default function ResultsTable({
                                 pValueCorrection ?? null,
                                 orgSettings.pValueThreshold ??
                                   DEFAULT_P_VALUE_THRESHOLD,
-                                tableRowAxis
+                                tableRowAxis,
                               )}
                             </div>
                           }
@@ -665,7 +660,7 @@ export default function ResultsTable({
                                 hasRisk,
                                 !!sequentialTestingEnabled,
                                 pValueCorrection ?? null,
-                                pValueThreshold
+                                pValueThreshold,
                               )}
                             </div>
                           }
@@ -728,7 +723,7 @@ export default function ResultsTable({
                                   {renderLabelColumn(
                                     row.label,
                                     row.metric,
-                                    row
+                                    row,
                                   )}
                                 </div>
                               ) : null}
@@ -757,12 +752,12 @@ export default function ResultsTable({
                       {
                         "non-significant": !rowResults.significant,
                         hover: isHovered,
-                      }
+                      },
                     );
 
                     const onPointerMove = (
                       e,
-                      settings?: TooltipHoverSettings
+                      settings?: TooltipHoverSettings,
                     ) => {
                       // No hover tooltip if the screen is too narrow. Clicks still work.
                       if (e?.type === "mousemove" && window.innerWidth < 900) {
@@ -842,7 +837,7 @@ export default function ResultsTable({
                               showGuardrailWarning={metricsAsGuardrails}
                               className={clsx(
                                 "results-ctw",
-                                resultsHighlightClassname
+                                resultsHighlightClassname,
                               )}
                               onMouseMove={onPointerMove}
                               onMouseLeave={onPointerLeave}
@@ -866,7 +861,7 @@ export default function ResultsTable({
                               showGuardrailWarning={metricsAsGuardrails}
                               className={clsx(
                                 "results-pval",
-                                resultsHighlightClassname
+                                resultsHighlightClassname,
                               )}
                               onMouseMove={onPointerMove}
                               onMouseLeave={onPointerLeave}
@@ -905,7 +900,7 @@ export default function ResultsTable({
                               percent={differenceType === "relative"}
                               className={clsx(
                                 resultsHighlightClassname,
-                                "overflow-hidden"
+                                "overflow-hidden",
                               )}
                               rowStatus={
                                 statsEngine === "frequentist"
@@ -1030,7 +1025,7 @@ function getChangeTooltip(
   hasRisk: boolean,
   sequentialTestingEnabled: boolean,
   pValueCorrection: PValueCorrection,
-  pValueThreshold: number
+  pValueThreshold: number,
 ) {
   let changeText =
     "The uplift comparing the variation to the baseline, in percent change from the baseline value.";
@@ -1100,7 +1095,7 @@ function getPValueTooltip(
   sequentialTestingEnabled: boolean,
   pValueCorrection: PValueCorrection,
   pValueThreshold: number,
-  tableRowAxis: "dimension" | "metric"
+  tableRowAxis: "dimension" | "metric",
 ) {
   return (
     <>

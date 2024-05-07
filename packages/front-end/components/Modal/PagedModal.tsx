@@ -160,7 +160,7 @@ const PagedModal: FC<Props> = (props) => {
                     active: step === i,
                     completed: i < step,
                     disabled: !enabled,
-                  }
+                  },
                 )}
                 key={i}
               >

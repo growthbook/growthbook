@@ -79,8 +79,8 @@ export default function AutoGenerateMetricsModal({
     selectedDatasource?.type === "bigquery"
       ? "Dataset"
       : selectedDatasource?.type === "athena"
-      ? "Catalog"
-      : "Schema";
+        ? "Catalog"
+        : "Schema";
 
   const submit = form.handleSubmit(async (data) => {
     track("Generating Auto Metrics For User", {
@@ -88,7 +88,7 @@ export default function AutoGenerateMetricsModal({
         countMetrics: data.metricsToCreate.filter((m) => m.type === "count")
           .length,
         binomialMetrics: data.metricsToCreate.filter(
-          (m) => m.type === "binomial"
+          (m) => m.type === "binomial",
         ).length,
       },
       source,
@@ -126,7 +126,7 @@ export default function AutoGenerateMetricsModal({
         !datasourceObj.settings?.schemaOptions?.projectId
       ) {
         setAutoMetricError(
-          "Missing Amplitude Project Id - Click the 'Edit Connection Info' button at the top of this page to add your project id."
+          "Missing Amplitude Project Id - Click the 'Edit Connection Info' button at the top of this page to add your project id.",
         );
         return;
       }
@@ -178,7 +178,7 @@ export default function AutoGenerateMetricsModal({
         setAutoMetricError(e.message);
       }
     },
-    [apiCall, selectedSchema, source]
+    [apiCall, selectedSchema, source],
   );
 
   useEffect(() => {
@@ -243,7 +243,7 @@ export default function AutoGenerateMetricsModal({
       } else if (retryCount > 8) {
         setRefreshingSchema(false);
         setRefreshingSchemaError(
-          "This query is taking quite a while. We're building this in the background. Feel free to leave this page and check back in a few minutes."
+          "This query is taking quite a while. We're building this in the background. Feel free to leave this page and check back in a few minutes.",
         );
         setRetryCount(1);
       } else {

@@ -50,10 +50,8 @@ const MetricsPage = (): React.ReactElement => {
     edit: boolean;
     duplicate: boolean;
   } | null>(null);
-  const [
-    showAutoGenerateMetricsModal,
-    setShowAutoGenerateMetricsModal,
-  ] = useState(false);
+  const [showAutoGenerateMetricsModal, setShowAutoGenerateMetricsModal] =
+    useState(false);
 
   const {
     getDatasourceById,
@@ -74,7 +72,7 @@ const MetricsPage = (): React.ReactElement => {
 
   const [showArchived, setShowArchived] = useState(false);
   const [recentlyArchived, setRecentlyArchived] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
 
   const combinedMetrics = [
@@ -102,7 +100,7 @@ const MetricsPage = (): React.ReactElement => {
             setRecentlyArchived((set) => new Set([...set, m.id]));
           } else {
             setRecentlyArchived(
-              (set) => new Set([...set].filter((id) => id !== m.id))
+              (set) => new Set([...set].filter((id) => id !== m.id)),
             );
           }
         },
@@ -147,7 +145,7 @@ const MetricsPage = (): React.ReactElement => {
         : undefined,
       ownerName: getUserDisplay(m.owner),
     }),
-    [getDatasourceById]
+    [getDatasourceById],
   );
   const filteredMetrics = project
     ? metrics.filter((m) => isProjectListValidForProject(m.projects, project))
@@ -164,7 +162,7 @@ const MetricsPage = (): React.ReactElement => {
       items = filterByTags(items, tagsFilter.tags);
       return items;
     },
-    [showArchived, recentlyArchived, tagsFilter.tags]
+    [showArchived, recentlyArchived, tagsFilter.tags],
   );
 
   const editMetricsPermissions: {
@@ -397,7 +395,7 @@ const MetricsPage = (): React.ReactElement => {
                   }}
                 >
                   <FaRegCopy /> Duplicate
-                </button>
+                </button>,
               );
             }
 
@@ -417,7 +415,7 @@ const MetricsPage = (): React.ReactElement => {
                   }}
                 >
                   <FaArchive /> {metric.archived ? "Unarchive" : "Archive"}
-                </button>
+                </button>,
               );
             }
 

@@ -46,18 +46,15 @@ export type URLRedirectDocument = mongoose.Document & URLRedirectInterface;
 
 export const URLRedirectModel = mongoose.model<URLRedirectInterface>(
   "URLRedirect",
-  urlRedirectSchema
+  urlRedirectSchema,
 );
 
 const toInterface = (doc: URLRedirectDocument): URLRedirectInterface =>
-  omit(
-    doc.toJSON<URLRedirectDocument>({ flattenMaps: true }),
-    ["__v", "_id"]
-  );
+  omit(doc.toJSON<URLRedirectDocument>({ flattenMaps: true }), ["__v", "_id"]);
 
 export async function findURLRedirectById(
   id: string,
-  organization: string
+  organization: string,
 ): Promise<URLRedirectInterface | null> {
   const doc = await URLRedirectModel.findOne({
     organization,
@@ -68,7 +65,7 @@ export async function findURLRedirectById(
 
 export async function findURLRedirectsByExperiment(
   experiment: string,
-  organization: string
+  organization: string,
 ): Promise<URLRedirectInterface[]> {
   const docs = await URLRedirectModel.find({
     experiment,
@@ -78,7 +75,7 @@ export async function findURLRedirectsByExperiment(
 }
 
 export async function findURLRedirects(
-  organization: string
+  organization: string,
 ): Promise<URLRedirectInterface[]> {
   return (
     await URLRedirectModel.find({
@@ -110,7 +107,7 @@ export const createURLRedirect = async ({
       persistQueryString,
       dateCreated: new Date(),
       dateUpdated: new Date(),
-    })
+    }),
   );
 
   // mark the experiment as having a url redirect
@@ -155,7 +152,7 @@ export const updateURLRedirect = async ({
       $set: {
         ...updates,
       },
-    }
+    },
   );
 
   // double-check that the experiment is marked as having url redirects
@@ -210,7 +207,7 @@ const onURLRedirectUpdate = async ({
   if (
     isEqual(
       omit(oldURLRedirect, "dateUpdated"),
-      omit(newURLRedirect, "dateUpdated")
+      omit(newURLRedirect, "dateUpdated"),
     )
   ) {
     return;
@@ -218,7 +215,7 @@ const onURLRedirectUpdate = async ({
 
   const experiment = await getExperimentById(
     context,
-    newURLRedirect.experiment
+    newURLRedirect.experiment,
   );
 
   if (!experiment) return;
@@ -291,7 +288,7 @@ export const deleteURLRedirectById = async ({
   // if experiment has no more url redirects, update experiment
   const remaining = await findURLRedirectsByExperiment(
     urlRedirect.experiment,
-    context.org.id
+    context.org.id,
   );
   if (remaining.length === 0) {
     if (experiment && experiment.hasURLRedirects) {

@@ -102,7 +102,7 @@ const AlignedGraph: FC<Props> = ({
       y: -10,
       fontFamily: "sans-serif",
       textAnchor: "middle",
-    } as const);
+    }) as const;
 
   // add some spacing around the graph
   const domainPadding = (domain[1] - domain[0]) * 0.1;
@@ -118,8 +118,8 @@ const AlignedGraph: FC<Props> = ({
     return !percent
       ? numberFormatter.format(v)
       : domainWidth < 0.05
-      ? smallPercentFormatter.format(v)
-      : percentFormatter.format(v);
+        ? smallPercentFormatter.format(v)
+        : percentFormatter.format(v);
   };
 
   // rough number of columns:
@@ -151,10 +151,10 @@ const AlignedGraph: FC<Props> = ({
     barFillType === "gradient"
       ? `url(#${gradientId})`
       : significant
-      ? (expected ?? 0) > 0
-        ? sigBarColorPos
-        : sigBarColorNeg
-      : barColor;
+        ? (expected ?? 0) > 0
+          ? sigBarColorPos
+          : sigBarColorNeg
+        : barColor;
 
   // forced color state (nothing needed for non-significant):
   if (barFillType === "significant") {
@@ -179,7 +179,7 @@ const AlignedGraph: FC<Props> = ({
     <div
       className={clsx(
         "d-flex aligned-graph align-items-center aligned-graph-row position-relative",
-        className
+        className,
       )}
     >
       <ParentSize className="graph-container" debounceTime={1000}>
@@ -290,29 +290,18 @@ const AlignedGraph: FC<Props> = ({
                       width={barThickness}
                       left={xScale(ci?.[0] ?? 0)}
                       data={[
-                        0.025,
-                        0.05,
-                        0.1,
-                        0.2,
-                        0.3,
-                        0.4,
-                        0.5,
-                        0.6,
-                        0.7,
-                        0.8,
-                        0.9,
-                        0.95,
-                        0.975,
+                        0.025, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8,
+                        0.9, 0.95, 0.975,
                       ].map((n) => {
                         let x = normal.quantile(
                           n,
                           uplift?.mean || 0,
-                          uplift?.stddev || 0
+                          uplift?.stddev || 0,
                         );
                         const y = normal.pdf(
                           x,
                           uplift?.mean || 0,
-                          uplift?.stddev || 0
+                          uplift?.stddev || 0,
                         );
 
                         if (uplift?.dist === "lognormal") {

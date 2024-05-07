@@ -170,7 +170,7 @@ export default function Code({
             ? {
                 wrapLines: true,
                 lineProps: (
-                  lineNumber: number
+                  lineNumber: number,
                 ): React.HTMLProps<HTMLElement> => {
                   const style: React.CSSProperties = {};
                   if (errorLine && lineNumber === errorLine) {
@@ -185,7 +185,7 @@ export default function Code({
             ? {
                 wrapLines: true,
                 lineProps: (
-                  lineNumber: number
+                  lineNumber: number,
                 ): React.HTMLProps<HTMLElement> => {
                   const style: React.CSSProperties = {};
                   if (highlightLine && lineNumber === highlightLine) {

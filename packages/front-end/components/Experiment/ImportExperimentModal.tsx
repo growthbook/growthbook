@@ -24,12 +24,10 @@ const ImportExperimentModal: FC<{
 }) => {
   const settings = useOrgSettings();
   const { datasources, project } = useDefinitions();
-  const [
-    selected,
-    setSelected,
-  ] = useState<null | Partial<ExperimentInterfaceStringDates>>(
-    initialValue ?? null
-  );
+  const [selected, setSelected] =
+    useState<null | Partial<ExperimentInterfaceStringDates>>(
+      initialValue ?? null,
+    );
   const [error, setError] = useState<string | null>(null);
   const [importModal, setImportModal] = useState<boolean>(importMode);
   const [datasourceId, setDatasourceId] = useState(() => {
@@ -41,7 +39,7 @@ const ImportExperimentModal: FC<{
 
     if (settings?.defaultDataSource) {
       const ds = validDatasources.find(
-        (d) => d.id === settings.defaultDataSource
+        (d) => d.id === settings.defaultDataSource,
       );
       if (ds) {
         return ds.id;
@@ -69,7 +67,7 @@ const ImportExperimentModal: FC<{
         }
       } catch (e) {
         setError(
-          e.message ?? "An error occurred. Please refresh and try again."
+          e.message ?? "An error occurred. Please refresh and try again.",
         );
         console.error(e);
       }

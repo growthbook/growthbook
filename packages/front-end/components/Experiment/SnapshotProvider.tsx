@@ -21,7 +21,7 @@ const snapshotContext = React.createContext<{
   setPhase: (phase: number) => void;
   setDimension: (dimension: string) => void;
   setAnalysisSettings: (
-    analysisSettings: ExperimentSnapshotAnalysisSettings | null
+    analysisSettings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
   loading?: boolean;
   error?: Error;
@@ -57,14 +57,14 @@ export default function SnapshotProvider({
     latest?: ExperimentSnapshotInterface;
   }>(
     `/experiment/${experiment.id}/snapshot/${phase}` +
-      (dimension ? "/" + dimension : "")
+      (dimension ? "/" + dimension : ""),
   );
 
   const defaultAnalysisSettings = data?.snapshot
     ? getSnapshotAnalysis(data?.snapshot)?.settings
     : null;
   const [analysisSettings, setAnalysisSettings] = useState(
-    defaultAnalysisSettings
+    defaultAnalysisSettings,
   );
   return (
     <snapshotContext.Provider

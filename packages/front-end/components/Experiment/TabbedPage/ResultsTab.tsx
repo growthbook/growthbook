@@ -101,7 +101,7 @@ export default function ResultsTab({
   const statsEngine = scopedSettings.statsEngine.value;
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
 
   const allExperimentMetricIds = uniq([
@@ -109,12 +109,12 @@ export default function ResultsTab({
     ...(experiment.guardrails ?? []),
   ]);
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
-    getExperimentMetricById(m)
+    getExperimentMetricById(m),
   );
   const denominatorMetricIds = uniq<string>(
     allExperimentMetrics
       .map((m) => m?.denominator)
-      .filter((d) => d && typeof d === "string") as string[]
+      .filter((d) => d && typeof d === "string") as string[],
   );
   const denominatorMetrics = denominatorMetricIds
     .map((m) => getMetricById(m as string))
@@ -289,7 +289,7 @@ export default function ResultsTab({
                     `/experiments/report/${snapshot.id}`,
                     {
                       method: "POST",
-                    }
+                    },
                   );
                   if (!res.report) {
                     throw new Error("Failed to create report");

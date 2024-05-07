@@ -38,10 +38,8 @@ const SegmentPage: FC = () => {
     canStoreSegmentsInMongo = true;
   }
 
-  const [
-    segmentForm,
-    setSegmentForm,
-  ] = useState<null | Partial<SegmentInterface>>(null);
+  const [segmentForm, setSegmentForm] =
+    useState<null | Partial<SegmentInterface>>(null);
 
   const { apiCall } = useAuth();
 
@@ -73,19 +71,19 @@ const SegmentPage: FC = () => {
             refs.push(
               res.metrics.length === 1
                 ? "1 metric"
-                : res.metrics.length + " metrics"
+                : res.metrics.length + " metrics",
             );
             res.metrics.forEach((m) => {
               metricLinks.push(
                 <Link href={`/metric/${m.id}`} className="">
                   {m.name}
-                </Link>
+                </Link>,
               );
             });
           }
           if (res.ideas && res.ideas.length) {
             refs.push(
-              res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas"
+              res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas",
             );
             res.ideas.forEach((i) => {
               ideaLinks.push(<Link href={`/idea/${i.id}`}>{i.text}</Link>);
@@ -95,7 +93,7 @@ const SegmentPage: FC = () => {
             refs.push(
               res.experiments.length === 1
                 ? "1 experiment"
-                : res.experiments.length + " Experiments"
+                : res.experiments.length + " Experiments",
             );
             res.experiments.forEach((e) => {
               expLinks.push(<Link href={`/experiment/${e.id}`}>{e.name}</Link>);
@@ -177,7 +175,7 @@ const SegmentPage: FC = () => {
   };
 
   const hasValidDataSources = !!datasources.filter(
-    (d) => d.properties?.segments
+    (d) => d.properties?.segments,
   )[0];
 
   if (!hasValidDataSources) {

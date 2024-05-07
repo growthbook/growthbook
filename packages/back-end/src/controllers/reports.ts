@@ -27,7 +27,7 @@ import { getFactTableMap } from "../models/FactTableModel";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -102,7 +102,7 @@ export async function getReports(
       project?: string;
     }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   let project = "";
@@ -135,7 +135,7 @@ export async function getReports(
 
 export async function getReportsOnExperiment(
   req: AuthRequest<unknown, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { id } = req.params;
@@ -150,7 +150,7 @@ export async function getReportsOnExperiment(
 
 export async function getReport(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
 
@@ -168,7 +168,7 @@ export async function getReport(
 
 export async function deleteReport(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -187,7 +187,7 @@ export async function deleteReport(
 
   const connectedExperiment = await getExperimentById(
     context,
-    report.experimentId || ""
+    report.experimentId || "",
   );
 
   if (!context.permissions.canDeleteReport(connectedExperiment || {})) {
@@ -203,7 +203,7 @@ export async function deleteReport(
 
 export async function refreshReport(
   req: AuthRequest<null, { id: string }, { force?: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -229,13 +229,13 @@ export async function refreshReport(
   const integration = await getIntegrationFromDatasourceId(
     context,
     report.args.datasource,
-    true
+    true,
   );
   const queryRunner = new ReportQueryRunner(
     context,
     report,
     integration,
-    useCache
+    useCache,
   );
 
   const updatedReport = await queryRunner.startAnalysis({
@@ -251,7 +251,7 @@ export async function refreshReport(
 
 export async function putReport(
   req: AuthRequest<Partial<ReportInterface>, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -264,7 +264,7 @@ export async function putReport(
 
   const experiment = await getExperimentById(
     context,
-    report.experimentId || ""
+    report.experimentId || "",
   );
 
   // Reports don't have projects, but the experiment does, so check the experiment's project for permission if it exists
@@ -315,13 +315,13 @@ export async function putReport(
     const integration = await getIntegrationFromDatasourceId(
       context,
       updatedReport.args.datasource,
-      true
+      true,
     );
 
     const queryRunner = new ReportQueryRunner(
       context,
       updatedReport,
-      integration
+      integration,
     );
 
     await queryRunner.startAnalysis({
@@ -338,7 +338,7 @@ export async function putReport(
 
 export async function cancelReport(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -350,7 +350,7 @@ export async function cancelReport(
 
   const integration = await getIntegrationFromDatasourceId(
     context,
-    report.args.datasource
+    report.args.datasource,
   );
 
   const queryRunner = new ReportQueryRunner(context, report, integration);
@@ -361,7 +361,7 @@ export async function cancelReport(
 
 export async function postNotebook(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;

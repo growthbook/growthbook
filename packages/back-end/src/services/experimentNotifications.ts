@@ -18,7 +18,8 @@ import { IfEqual } from "../util/types";
 // This ensures that the two types remain equal.
 
 // TODO: extend with experiment info
-type ExperimentNotificationFromCode = ExperimentWarningNotificationPayload["type"];
+type ExperimentNotificationFromCode =
+  ExperimentWarningNotificationPayload["type"];
 
 type ExperimentWarningNotificationData = IfEqual<
   ExperimentNotificationFromCode,
@@ -29,7 +30,7 @@ type ExperimentWarningNotificationData = IfEqual<
 
 const dispatchEvent = async (
   context: Context,
-  data: ExperimentWarningNotificationData
+  data: ExperimentWarningNotificationData,
 ) => {
   const payload: ExperimentWarningNotificationEvent = {
     event: "experiment.warning",
@@ -119,7 +120,7 @@ const notifyMultipleExposures = async ({
 }) => {
   const totalsUsers = results.variations.reduce(
     (totalUsersCount, { users }) => totalUsersCount + users,
-    0
+    0,
   );
   const percent = snapshot.multipleExposures / totalsUsers;
   const multipleExposureMinPercent =

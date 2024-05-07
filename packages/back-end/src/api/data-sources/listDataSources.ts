@@ -11,26 +11,24 @@ import {
 import { listDataSourcesValidator } from "../../validators/openapi";
 
 export const listDataSources = createApiRequestHandler(
-  listDataSourcesValidator
-)(
-  async (req): Promise<ListDataSourcesResponse> => {
-    const dataSources = await getDataSourcesByOrganization(req.context);
+  listDataSourcesValidator,
+)(async (req): Promise<ListDataSourcesResponse> => {
+  const dataSources = await getDataSourcesByOrganization(req.context);
 
-    // TODO: Move sorting/limiting to the database query for better performance
-    const { filtered, returnFields } = applyPagination(
-      dataSources
-        .filter((datasource) =>
-          applyFilter(req.query.projectId, datasource.projects, true)
-        )
-        .sort((a, b) => a.id.localeCompare(b.id)),
-      req.query
-    );
+  // TODO: Move sorting/limiting to the database query for better performance
+  const { filtered, returnFields } = applyPagination(
+    dataSources
+      .filter((datasource) =>
+        applyFilter(req.query.projectId, datasource.projects, true),
+      )
+      .sort((a, b) => a.id.localeCompare(b.id)),
+    req.query,
+  );
 
-    return {
-      dataSources: filtered.map((dataSource) =>
-        toDataSourceApiInterface(dataSource)
-      ),
-      ...returnFields,
-    };
-  }
-);
+  return {
+    dataSources: filtered.map((dataSource) =>
+      toDataSourceApiInterface(dataSource),
+    ),
+    ...returnFields,
+  };
+});

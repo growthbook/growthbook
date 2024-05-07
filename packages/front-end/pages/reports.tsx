@@ -39,7 +39,7 @@ const ReportsPage = (): React.ReactElement => {
       experimentName: r.experimentId ? experimentNames.get(r.experimentId) : "",
       status: r.status === "private" ? "private" : "published",
     }),
-    [experimentNames]
+    [experimentNames],
   );
 
   const filterResults = useCallback(
@@ -53,7 +53,7 @@ const ReportsPage = (): React.ReactElement => {
         }
       });
     },
-    [onlyMyReports, userId]
+    [onlyMyReports, userId],
   );
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: reports,
@@ -195,8 +195,8 @@ const ReportsPage = (): React.ReactElement => {
                 {isFiltered
                   ? "No matching reports"
                   : onlyMyReports
-                  ? "You have no reports"
-                  : "No reports"}
+                    ? "You have no reports"
+                    : "No reports"}
               </td>
             </tr>
           )}

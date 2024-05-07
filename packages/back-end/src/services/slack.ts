@@ -11,7 +11,7 @@ const web = new WebClient();
 export function verifySlackRequestSignature(
   req: IncomingMessage,
   res: ServerResponse,
-  buf: Buffer
+  buf: Buffer,
 ) {
   const rawTimestamp = req.headers["x-slack-request-timestamp"];
   if (!rawTimestamp || typeof rawTimestamp !== "string") {
@@ -37,7 +37,7 @@ export function verifySlackRequestSignature(
 
 export async function getUserInfoBySlackId(
   slackUserId: string,
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
 ): Promise<{ id: null | string; name: null | string }> {
   try {
     const res = await web.users.info({

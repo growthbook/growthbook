@@ -206,7 +206,7 @@ type ExperimentDocument = mongoose.Document & ExperimentInterface;
 
 export const ExperimentModel = mongoose.model<ExperimentInterface>(
   "Experiment",
-  experimentSchema
+  experimentSchema,
 );
 
 /**
@@ -216,7 +216,7 @@ export const ExperimentModel = mongoose.model<ExperimentInterface>(
 const toInterface = (doc: ExperimentDocument): ExperimentInterface => {
   const experiment = omit(doc.toJSON(), ["__v", "_id"]);
   return upgradeExperimentDoc(
-    (experiment as unknown) as LegacyExperimentInterface
+    experiment as unknown as LegacyExperimentInterface,
   );
 };
 
@@ -224,7 +224,7 @@ async function findExperiments(
   context: ReqContext | ApiReqContext,
   query: FilterQuery<ExperimentDocument>,
   limit?: number,
-  sortBy?: SortFilter
+  sortBy?: SortFilter,
 ): Promise<ExperimentInterface[]> {
   let cursor = ExperimentModel.find(query);
   if (limit) {
@@ -236,13 +236,13 @@ async function findExperiments(
   const experiments = (await cursor).map(toInterface);
 
   return experiments.filter((exp) =>
-    hasReadAccess(context.readAccessFilter, exp.project)
+    hasReadAccess(context.readAccessFilter, exp.project),
   );
 }
 
 export async function getExperimentById(
   context: ReqContext | ApiReqContext,
-  id: string
+  id: string,
 ): Promise<ExperimentInterface | null> {
   const doc = await ExperimentModel.findOne({
     organization: context.org.id,
@@ -260,7 +260,7 @@ export async function getExperimentById(
 
 export async function getAllExperiments(
   context: ReqContext | ApiReqContext,
-  project?: string
+  project?: string,
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
@@ -275,7 +275,7 @@ export async function getAllExperiments(
 
 export async function getExperimentByTrackingKey(
   context: ReqContext | ApiReqContext,
-  trackingKey: string
+  trackingKey: string,
 ): Promise<ExperimentInterface | null> {
   const doc = await ExperimentModel.findOne({
     organization: context.org.id,
@@ -293,7 +293,7 @@ export async function getExperimentByTrackingKey(
 
 export async function getExperimentsByIds(
   context: ReqContext | ApiReqContext,
-  ids: string[]
+  ids: string[],
 ): Promise<ExperimentInterface[]> {
   if (!ids.length) return [];
   return await findExperiments(context, {
@@ -304,7 +304,7 @@ export async function getExperimentsByIds(
 
 export async function getExperimentsByTrackingKeys(
   context: ReqContext | ApiReqContext,
-  trackingKeys: string[]
+  trackingKeys: string[],
 ): Promise<ExperimentInterface[]> {
   return await findExperiments(context, {
     trackingKey: { $in: trackingKeys },
@@ -313,7 +313,7 @@ export async function getExperimentsByTrackingKeys(
 }
 
 export async function getSampleExperiment(
-  organization: string
+  organization: string,
 ): Promise<ExperimentInterface | null> {
   const exp = await ExperimentModel.findOne({
     organization,
@@ -349,7 +349,7 @@ export async function createExperiment({
   }
 
   const nextUpdate = determineNextDate(
-    context.org.settings?.updateSchedule || null
+    context.org.settings?.updateSchedule || null,
   );
 
   const exp = await ExperimentModel.create({
@@ -393,7 +393,7 @@ export async function updateExperiment({
     },
     {
       $set: changes,
-    }
+    },
   );
 
   const updated = { ...experiment, ...changes };
@@ -410,7 +410,7 @@ export async function updateExperiment({
 
 export async function getExperimentsByMetric(
   context: ReqContext | ApiReqContext,
-  metricId: string
+  metricId: string,
 ): Promise<{ id: string; name: string }[]> {
   const experiments: {
     id: string;
@@ -458,7 +458,7 @@ export async function getExperimentsByMetric(
 
 export async function getExperimentByIdea(
   context: ReqContext | ApiReqContext,
-  idea: IdeaDocument
+  idea: IdeaDocument,
 ): Promise<ExperimentInterface | null> {
   const doc = await ExperimentModel.findOne({
     organization: context.org.id,
@@ -475,7 +475,7 @@ export async function getExperimentByIdea(
 }
 
 export async function getExperimentsToUpdate(
-  ids: string[]
+  ids: string[],
 ): Promise<Pick<ExperimentInterface, "id" | "organization">[]> {
   const experiments = await ExperimentModel.find(
     {
@@ -500,7 +500,7 @@ export async function getExperimentsToUpdate(
     {
       limit: 100,
       sort: { nextSnapshotAttempt: 1 },
-    }
+    },
   );
   return experiments.map((exp) => ({
     id: exp.id,
@@ -509,7 +509,7 @@ export async function getExperimentsToUpdate(
 }
 
 export async function getExperimentsToUpdateLegacy(
-  latestDate: Date
+  latestDate: Date,
 ): Promise<Pick<ExperimentInterface, "id" | "organization">[]> {
   const experiments = await ExperimentModel.find(
     {
@@ -535,7 +535,7 @@ export async function getExperimentsToUpdateLegacy(
       sort: {
         nextSnapshotAttempt: 1,
       },
-    }
+    },
   );
   return experiments.map((exp) => ({
     id: exp.id,
@@ -545,7 +545,7 @@ export async function getExperimentsToUpdateLegacy(
 
 export async function getPastExperimentsByDatasource(
   context: ReqContext | ApiReqContext,
-  datasource: string
+  datasource: string,
 ): Promise<
   Pick<ExperimentInterface, "id" | "trackingKey" | "exposureQueryId">[]
 > {
@@ -560,11 +560,11 @@ export async function getPastExperimentsByDatasource(
       trackingKey: true,
       exposureQueryId: true,
       project: true,
-    }
+    },
   );
 
   const experimentsUserCanAccess = experiments.filter((exp) =>
-    hasReadAccess(context.readAccessFilter, exp.project)
+    hasReadAccess(context.readAccessFilter, exp.project),
   );
 
   return experimentsUserCanAccess.map((exp) => ({
@@ -576,7 +576,7 @@ export async function getPastExperimentsByDatasource(
 
 export async function getRecentExperimentsUsingMetric(
   context: ReqContext | ApiReqContext,
-  metricId: string
+  metricId: string,
 ): Promise<
   Pick<
     ExperimentInterface,
@@ -600,7 +600,7 @@ export async function getRecentExperimentsUsingMetric(
       },
     },
     10,
-    { _id: -1 }
+    { _id: -1 },
   );
 
   return experiments.map((exp) => ({
@@ -615,7 +615,7 @@ export async function getRecentExperimentsUsingMetric(
 
 export async function deleteExperimentSegment(
   context: ReqContext | ApiReqContext,
-  segment: string
+  segment: string,
 ): Promise<void> {
   const exps = await getExperimentsUsingSegment(context, segment);
 
@@ -625,7 +625,7 @@ export async function deleteExperimentSegment(
     { organization: context.org.id, segment },
     {
       $set: { segment: "" },
-    }
+    },
   );
 
   exps.forEach((previous) => {
@@ -643,7 +643,7 @@ export async function deleteExperimentSegment(
 
 export async function getExperimentsForActivityFeed(
   context: ReqContext | ApiReqContext,
-  ids: string[]
+  ids: string[],
 ): Promise<Pick<ExperimentInterface, "id" | "name">[]> {
   const experiments = await ExperimentModel.find(
     {
@@ -657,11 +657,11 @@ export async function getExperimentsForActivityFeed(
       id: true,
       name: true,
       project: true,
-    }
+    },
   );
 
   const filteredExperiments = experiments.filter((exp) =>
-    hasReadAccess(context.readAccessFilter, exp.project)
+    hasReadAccess(context.readAccessFilter, exp.project),
   );
 
   return filteredExperiments.map((exp) => ({
@@ -702,7 +702,7 @@ const findExperiment = async ({
  */
 const logExperimentCreated = async (
   context: ReqContext | ApiReqContext,
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
 ): Promise<string | undefined> => {
   const { org: organization } = context;
   const apiExperiment = await toExperimentApiInterface(context, experiment);
@@ -738,11 +738,11 @@ const logExperimentUpdated = async ({
 }): Promise<string | undefined> => {
   const previousApiExperimentPromise = toExperimentApiInterface(
     context,
-    previous
+    previous,
   );
   const currentApiExperimentPromise = toExperimentApiInterface(
     context,
-    current
+    current,
   );
   const [previousApiExperiment, currentApiExperiment] = await Promise.all([
     previousApiExperimentPromise,
@@ -773,7 +773,7 @@ const logExperimentUpdated = async ({
  */
 export async function deleteExperimentByIdForOrganization(
   context: ReqContext | ApiReqContext,
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
 ) {
   try {
     await ExperimentModel.deleteOne({
@@ -841,7 +841,7 @@ export const removeTagFromExperiments = async ({
 
 export async function removeMetricFromExperiments(
   context: ReqContext | ApiReqContext,
-  metricId: string
+  metricId: string,
 ) {
   const oldExperiments: Record<
     string,
@@ -920,7 +920,7 @@ export async function removeMetricFromExperiments(
 
 export async function removeProjectFromExperiments(
   context: ReqContext | ApiReqContext,
-  project: string
+  project: string,
 ) {
   const query = { organization: context.org.id, project };
   const previousExperiments = await findExperiments(context, query);
@@ -937,7 +937,7 @@ export async function addLinkedFeatureToExperiment(
   context: ReqContext | ApiReqContext,
   experimentId: string,
   featureId: string,
-  experiment?: ExperimentInterface | null
+  experiment?: ExperimentInterface | null,
 ) {
   if (!experiment) {
     experiment = await findExperiment({
@@ -959,7 +959,7 @@ export async function addLinkedFeatureToExperiment(
       $addToSet: {
         linkedFeatures: featureId,
       },
-    }
+    },
   );
 
   onExperimentUpdate({
@@ -975,7 +975,7 @@ export async function addLinkedFeatureToExperiment(
 export async function removeLinkedFeatureFromExperiment(
   context: ReqContext | ApiReqContext,
   experimentId: string,
-  featureId: string
+  featureId: string,
 ) {
   const experiment = await findExperiment({
     experimentId,
@@ -995,7 +995,7 @@ export async function removeLinkedFeatureFromExperiment(
       $pull: {
         linkedFeatures: featureId,
       },
-    }
+    },
   );
 
   onExperimentUpdate({
@@ -1004,7 +1004,7 @@ export async function removeLinkedFeatureFromExperiment(
     newExperiment: {
       ...experiment,
       linkedFeatures: (experiment.linkedFeatures || []).filter(
-        (f) => f !== featureId
+        (f) => f !== featureId,
       ),
     },
   });
@@ -1013,7 +1013,7 @@ export async function removeLinkedFeatureFromExperiment(
 function logAllChanges(
   context: ReqContext | ApiReqContext,
   previousExperiments: ExperimentInterface[],
-  applyChanges: (exp: ExperimentInterface) => ExperimentInterface | null
+  applyChanges: (exp: ExperimentInterface) => ExperimentInterface | null,
 ) {
   previousExperiments.forEach((previous) => {
     const current = applyChanges(cloneDeep(previous));
@@ -1028,7 +1028,7 @@ function logAllChanges(
 
 export async function getExperimentsUsingSegment(
   context: ReqContext | ApiReqContext,
-  id: string
+  id: string,
 ) {
   return await findExperiments(context, {
     organization: context.org.id,
@@ -1043,7 +1043,7 @@ export async function getExperimentsUsingSegment(
  */
 export const logExperimentDeleted = async (
   context: ReqContext | ApiReqContext,
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
 ): Promise<string | undefined> => {
   const apiExperiment = await toExperimentApiInterface(context, experiment);
   const payload: ExperimentDeletedNotificationEvent = {
@@ -1064,12 +1064,12 @@ export const logExperimentDeleted = async (
 
 // type guard
 const _isValidVisualExperiment = (
-  e: Partial<VisualExperiment>
+  e: Partial<VisualExperiment>,
 ): e is VisualExperiment => !!e.experiment && !!e.visualChangeset;
 
 export async function getExperimentMapForFeature(
   context: ReqContext | ApiReqContext,
-  featureId: string
+  featureId: string,
 ): Promise<Map<string, ExperimentInterface>> {
   const experiments = await findExperiments(context, {
     organization: context.org.id,
@@ -1080,13 +1080,13 @@ export async function getExperimentMapForFeature(
   return new Map(
     experiments
       .filter((e) => includeExperimentInPayload(e))
-      .map((e) => [e.id, e])
+      .map((e) => [e.id, e]),
   );
 }
 
 export async function getAllPayloadExperiments(
   context: ReqContext | ApiReqContext,
-  project?: string
+  project?: string,
 ): Promise<Map<string, ExperimentInterface>> {
   const experiments = await findExperiments(context, {
     organization: context.org.id,
@@ -1108,13 +1108,13 @@ export async function getAllPayloadExperiments(
   return new Map(
     experiments
       .filter((e) => includeExperimentInPayload(e))
-      .map((e) => [e.id, e])
+      .map((e) => [e.id, e]),
   );
 }
 
 export const getAllVisualExperiments = async (
   context: ReqContext | ApiReqContext,
-  experimentMap: Map<string, ExperimentInterface>
+  experimentMap: Map<string, ExperimentInterface>,
 ): Promise<Array<VisualExperiment>> => {
   const visualChangesets = await findVisualChangesets(context.org.id);
 
@@ -1130,12 +1130,12 @@ export const getAllVisualExperiments = async (
 
   const hasVisualChangesForVariation = (
     experimentId: string,
-    variationId: string
+    variationId: string,
   ): boolean => {
     const changes = visualChangesByExperimentId[experimentId];
     if (!changes) return false;
     return hasVisualChanges(
-      changes.filter((vc) => vc.variation === variationId)
+      changes.filter((vc) => vc.variation === variationId),
     );
   };
 
@@ -1154,7 +1154,7 @@ export const getAllVisualExperiments = async (
         e.experiment.status === "stopped" &&
         !hasVisualChangesForVariation(
           e.experiment.id,
-          e.experiment.releasedVariationId
+          e.experiment.releasedVariationId,
         )
       ) {
         return false;
@@ -1165,7 +1165,7 @@ export const getAllVisualExperiments = async (
 
 export const getAllURLRedirectExperiments = async (
   context: ReqContext | ApiReqContext,
-  experimentMap: Map<string, ExperimentInterface>
+  experimentMap: Map<string, ExperimentInterface>,
 ): Promise<Array<URLRedirectExperiment>> => {
   const redirects = await findURLRedirects(context.org.id);
 
@@ -1183,7 +1183,7 @@ export const getAllURLRedirectExperiments = async (
     // Exclude experiments that are stopped and the released variation doesn’t have a destination URL
     if (experiment.status === "stopped") {
       const destination = r.destinationURLs.find(
-        (d) => d.variation === experiment.releasedVariationId
+        (d) => d.variation === experiment.releasedVariationId,
       );
       if (!destination || !destination.url) return;
     }
@@ -1200,7 +1200,7 @@ export const getAllURLRedirectExperiments = async (
 
 export function getPayloadKeysForAllEnvs(
   context: ReqContext | ApiReqContext,
-  projects: string[]
+  projects: string[],
 ) {
   const uniqueProjects = new Set(projects);
 
@@ -1221,7 +1221,7 @@ export function getPayloadKeysForAllEnvs(
 export const getPayloadKeys = (
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
-  linkedFeatures?: FeatureInterface[]
+  linkedFeatures?: FeatureInterface[],
 ): SDKPayloadKey[] => {
   // If experiment is not included in the SDK payload
   if (!includeExperimentInPayload(experiment, linkedFeatures)) {
@@ -1253,7 +1253,7 @@ export const getPayloadKeys = (
       (rule) =>
         rule.type === "experiment-ref" &&
         rule.experimentId === experiment.id &&
-        rule.enabled !== false
+        rule.enabled !== false,
     );
   }
 
@@ -1262,7 +1262,7 @@ export const getPayloadKeys = (
 };
 
 const getExperimentChanges = (
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
 ): Omit<ExperimentInterface, "variations"> & {
   variations: Partial<Variation>[];
 } => {
@@ -1284,14 +1284,14 @@ const getExperimentChanges = (
   return {
     ...pick(experiment, importantKeys),
     variations: experiment.variations.map((v) =>
-      pick(v, ["id", "name", "key"])
+      pick(v, ["id", "name", "key"]),
     ),
   };
 };
 
 const hasChangesForSDKPayloadRefresh = (
   oldExperiment: ExperimentInterface,
-  newExperiment: ExperimentInterface
+  newExperiment: ExperimentInterface,
 ): boolean => {
   // Skip experiments that don't have linked changes
   if (
@@ -1354,11 +1354,11 @@ const onExperimentUpdate = async ({
     const newPayloadKeys = getPayloadKeys(
       context,
       newExperiment,
-      linkedFeatures
+      linkedFeatures,
     );
     const payloadKeys = uniqWith(
       [...oldPayloadKeys, ...newPayloadKeys],
-      isEqual
+      isEqual,
     );
 
     refreshSDKPayloadCache(context, payloadKeys);
@@ -1367,7 +1367,7 @@ const onExperimentUpdate = async ({
 
 const onExperimentDelete = async (
   context: ReqContext | ApiReqContext,
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
 ) => {
   await logExperimentDeleted(context, experiment);
 

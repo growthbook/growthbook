@@ -155,7 +155,7 @@ function ColumnRefSelector({
       (col) =>
         !col.deleted &&
         col.column !== "timestamp" &&
-        !factTable?.userIdTypes?.includes(col.column)
+        !factTable?.userIdTypes?.includes(col.column),
     )
     .filter((col) => col.datatype === "number")
     .map((col) => ({
@@ -359,7 +359,7 @@ export default function FactMetricModal({
           project,
           initialFactTable
             ? { datasource: getFactTableById(initialFactTable)?.datasource }
-            : {}
+            : {},
         ).datasource,
       inverse: existing?.inverse || false,
       cappingSettings: existing?.cappingSettings || {
@@ -398,7 +398,7 @@ export default function FactMetricModal({
   const selectedDataSource = getDatasourceById(form.watch("datasource"));
 
   const [advancedOpen, setAdvancedOpen] = useState(
-    showAdvancedSettings || false
+    showAdvancedSettings || false,
   );
 
   const type = form.watch("metricType");
@@ -409,7 +409,7 @@ export default function FactMetricModal({
       : "";
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
   let regressionAdjustmentAvailableForMetric = true;
   let regressionAdjustmentAvailableForMetricReason = <></>;
@@ -433,8 +433,8 @@ export default function FactMetricModal({
     regressionAdjustmentDays > 28
       ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
       : regressionAdjustmentDays < 7
-      ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
-      : "";
+        ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
+        : "";
 
   const isNew = !existing;
   const initialType = existing?.metricType;
@@ -462,12 +462,12 @@ export default function FactMetricModal({
     quantileMetricFlag && hasCommercialFeature("quantile-metrics");
 
   const numeratorFactTable = getFactTableById(
-    form.watch("numerator.factTableId")
+    form.watch("numerator.factTableId"),
   );
   // Must have at least one numeric column to use event-level quantile metrics
   // For user-level quantiles, there is the option to count rows so it's always available
   const canUseEventQuantile = numeratorFactTable?.columns?.some(
-    (c) => c.datatype === "number"
+    (c) => c.datatype === "number",
   );
 
   return (
@@ -509,17 +509,17 @@ export default function FactMetricModal({
             values.numerator.column === "$$count"
               ? "count"
               : values.numerator.column === "$$distinctUsers"
-              ? "distinct_users"
-              : "sum",
+                ? "distinct_users"
+                : "sum",
           numerator_filters: values.numerator.filters.length,
           denominator_agg:
             values.denominator?.column === "$$count"
               ? "count"
               : values.denominator?.column === "$$distinctUsers"
-              ? "distinct_users"
-              : values.denominator?.column
-              ? "sum"
-              : "none",
+                ? "distinct_users"
+                : values.denominator?.column
+                  ? "sum"
+                  : "none",
           denominator_filters: values.denominator?.filters?.length || 0,
           ratio_same_fact_table:
             values.metricType === "ratio" &&
@@ -763,7 +763,7 @@ export default function FactMetricModal({
                       form.watch("numerator")?.column?.startsWith("$$")
                     ) {
                       const column = numeratorFactTable?.columns?.find(
-                        (c) => c.datatype === "number"
+                        (c) => c.datatype === "number",
                       );
                       form.setValue("numerator", {
                         ...form.watch("numerator"),
@@ -976,7 +976,7 @@ export default function FactMetricModal({
                             setValue={(value) => {
                               form.setValue(
                                 "regressionAdjustmentEnabled",
-                                value
+                                value,
                               );
                             }}
                             disabled={!hasRegressionAdjustmentFeature}
@@ -1001,10 +1001,13 @@ export default function FactMetricModal({
                             label="Pre-exposure lookback period (days)"
                             type="number"
                             style={{
-                              borderColor: regressionAdjustmentDaysHighlightColor,
-                              backgroundColor: regressionAdjustmentDaysHighlightColor
-                                ? regressionAdjustmentDaysHighlightColor + "15"
-                                : "",
+                              borderColor:
+                                regressionAdjustmentDaysHighlightColor,
+                              backgroundColor:
+                                regressionAdjustmentDaysHighlightColor
+                                  ? regressionAdjustmentDaysHighlightColor +
+                                    "15"
+                                  : "",
                             }}
                             className="ml-2"
                             containerClassName="mb-0 form-inline"
@@ -1082,10 +1085,12 @@ export default function FactMetricModal({
                     {type === "proportion"
                       ? "number of conversions"
                       : type === "quantile"
-                      ? `number of ${
-                          quantileSettings.type === "unit" ? "users" : "events"
-                        }`
-                      : `total value`}{" "}
+                        ? `number of ${
+                            quantileSettings.type === "unit"
+                              ? "users"
+                              : "events"
+                          }`
+                        : `total value`}{" "}
                     required in an experiment variation before showing results
                     (default{" "}
                     {type === "proportion"

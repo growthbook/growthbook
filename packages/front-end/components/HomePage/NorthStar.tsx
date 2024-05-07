@@ -25,7 +25,7 @@ const NorthStar: FC<{
   const smoothByStorageKey = `northstar_metrics_smoothBy`;
   const [smoothBy, setSmoothBy] = useLocalStorage<"day" | "week">(
     smoothByStorageKey,
-    "week"
+    "week",
   );
 
   const form = useForm<{
@@ -44,7 +44,7 @@ const NorthStar: FC<{
   const [openNorthStarModal, setOpenNorthStarModal] = useState(false);
 
   const [northstarHoverDate, setNorthstarHoverDate] = useState<number | null>(
-    null
+    null,
   );
   const onNorthstarHoverCallback = (ret: { d: number | null }) => {
     setNorthstarHoverDate(ret.d);

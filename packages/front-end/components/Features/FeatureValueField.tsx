@@ -61,11 +61,11 @@ export default function FeatureValueField({
             max: "any",
           }
         : valueType === "json"
-        ? { minRows: 4, textarea: true }
-        : {
-            textarea: true,
-            minRows: 1,
-          })}
+          ? { minRows: 4, textarea: true }
+          : {
+              textarea: true,
+              minRows: 1,
+            })}
       helpText={helpText}
     />
   );

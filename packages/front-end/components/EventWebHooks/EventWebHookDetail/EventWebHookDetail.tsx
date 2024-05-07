@@ -311,9 +311,9 @@ export const EventWebHookDetailContainer = () => {
                 "environments",
                 "method",
                 "headers",
-              ])
+              ]),
             ),
-          }
+          },
         );
 
         if (response.error) {
@@ -326,7 +326,7 @@ export const EventWebHookDetailContainer = () => {
         handleUpdateError("Unknown error");
       }
     },
-    [mutate, apiCall, eventWebHookId]
+    [mutate, apiCall, eventWebHookId],
   );
 
   const handleDelete = useCallback(async () => {

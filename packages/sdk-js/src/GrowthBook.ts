@@ -64,7 +64,7 @@ const SDK_VERSION = loadSDKVersion();
 
 export class GrowthBook<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  AppFeatures extends Record<string, any> = Record<string, any>
+  AppFeatures extends Record<string, any> = Record<string, any>,
 > {
   // context is technically private, but some tools depend on it so we can't mangle the name
   // _ctx below is a clone of this property that we use internally
@@ -143,7 +143,7 @@ export class GrowthBook<
       let isGbHost = false;
       try {
         isGbHost = !!new URL(context.apiHost || "").hostname.match(
-          /growthbook\.io$/i
+          /growthbook\.io$/i,
         );
       } catch (e) {
         // ignore invalid URLs
@@ -221,7 +221,7 @@ export class GrowthBook<
       !this._ctx.stickyBucketAssignmentDocs
     ) {
       throw new Error(
-        "initSync requires you to pass stickyBucketAssignmentDocs into the GrowthBook constructor"
+        "initSync requires you to pass stickyBucketAssignmentDocs into the GrowthBook constructor",
       );
     }
 
@@ -301,7 +301,7 @@ export class GrowthBook<
   }
 
   public async refreshFeatures(
-    options?: RefreshFeaturesOptions
+    options?: RefreshFeaturesOptions,
   ): Promise<void> {
     const res = await this._refresh({
       ...(options || {}),
@@ -326,7 +326,7 @@ export class GrowthBook<
       apiHost: defaultHost.replace(/\/*$/, ""),
       streamingHost: (this._ctx.streamingHost || defaultHost).replace(
         /\/*$/,
-        ""
+        "",
       ),
       apiRequestHeaders: this._ctx.apiHostRequestHeaders,
       streamingHostRequestHeaders: this._ctx.streamingHostRequestHeaders,
@@ -398,15 +398,15 @@ export class GrowthBook<
   public async setEncryptedFeatures(
     encryptedString: string,
     decryptionKey?: string,
-    subtle?: SubtleCrypto
+    subtle?: SubtleCrypto,
   ): Promise<void> {
     const featuresJSON = await decrypt(
       encryptedString,
       decryptionKey || this._ctx.decryptionKey,
-      subtle
+      subtle,
     );
     this.setFeatures(
-      JSON.parse(featuresJSON) as Record<string, FeatureDefinition>
+      JSON.parse(featuresJSON) as Record<string, FeatureDefinition>,
     );
   }
 
@@ -421,12 +421,12 @@ export class GrowthBook<
   public async setEncryptedExperiments(
     encryptedString: string,
     decryptionKey?: string,
-    subtle?: SubtleCrypto
+    subtle?: SubtleCrypto,
   ): Promise<void> {
     const experimentsJSON = await decrypt(
       encryptedString,
       decryptionKey || this._ctx.decryptionKey,
-      subtle
+      subtle,
     );
     this.setExperiments(JSON.parse(experimentsJSON) as AutoExperiment[]);
   }
@@ -434,7 +434,7 @@ export class GrowthBook<
   public async decryptPayload(
     data: FeatureApiResponse,
     decryptionKey?: string,
-    subtle?: SubtleCrypto
+    subtle?: SubtleCrypto,
   ): Promise<FeatureApiResponse> {
     data = { ...data };
     if (data.encryptedFeatures) {
@@ -442,8 +442,8 @@ export class GrowthBook<
         await decrypt(
           data.encryptedFeatures,
           decryptionKey || this._ctx.decryptionKey,
-          subtle
-        )
+          subtle,
+        ),
       );
       delete data.encryptedFeatures;
     }
@@ -452,8 +452,8 @@ export class GrowthBook<
         await decrypt(
           data.encryptedExperiments,
           decryptionKey || this._ctx.decryptionKey,
-          subtle
-        )
+          subtle,
+        ),
       );
       delete data.encryptedExperiments;
     }
@@ -698,7 +698,7 @@ export class GrowthBook<
             "Skipping redirect because original URL matches redirect URL",
             {
               id: experiment.key,
-            }
+            },
           );
           return result;
         }
@@ -839,7 +839,7 @@ export class GrowthBook<
             {
               cache: "no-cache",
               mode: "no-cors",
-            }
+            },
           )
           .catch(() => {
             // TODO: retry in case of network errors?
@@ -854,7 +854,7 @@ export class GrowthBook<
     source: FeatureResultSource,
     ruleId?: string,
     experiment?: Experiment<T>,
-    result?: Result<T>
+    result?: Result<T>,
   ): FeatureResult<T> {
     const ret: FeatureResult = {
       value,
@@ -882,7 +882,7 @@ export class GrowthBook<
 
   public getFeatureValue<
     V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
+    K extends string & keyof AppFeatures = string,
   >(key: K, defaultValue: V): WidenPrimitives<V> {
     const value = this.evalFeature<WidenPrimitives<V>, K>(key).value;
     return value === null ? (defaultValue as WidenPrimitives<V>) : value;
@@ -895,21 +895,21 @@ export class GrowthBook<
   // eslint-disable-next-line
   public feature<
     V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
+    K extends string & keyof AppFeatures = string,
   >(id: K): FeatureResult<V | null> {
     return this.evalFeature(id);
   }
 
   public evalFeature<
     V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
+    K extends string & keyof AppFeatures = string,
   >(id: K): FeatureResult<V | null> {
     return this._evalFeature(id);
   }
 
   private _evalFeature<
     V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
+    K extends string & keyof AppFeatures = string,
   >(id: K, evalCtx?: FeatureEvalContext): FeatureResult<V | null> {
     evalCtx = evalCtx || { evaluatedFeatures: new Set() };
 
@@ -917,7 +917,7 @@ export class GrowthBook<
       process.env.NODE_ENV !== "production" &&
         this.log(
           `evalFeature: circular dependency detected: ${evalCtx.id} -> ${id}`,
-          { from: evalCtx.id, to: id }
+          { from: evalCtx.id, to: id },
         );
       return this._getFeatureResult(id, null, "cyclicPrerequisite");
     }
@@ -934,7 +934,7 @@ export class GrowthBook<
       return this._getFeatureResult(
         id,
         this._forcedFeatureValues.get(id),
-        "override"
+        "override",
       );
     }
 
@@ -963,7 +963,7 @@ export class GrowthBook<
             const evalObj = { value: parentResult.value };
             const evaled = evalCondition(
               evalObj,
-              parentCondition.condition || {}
+              parentCondition.condition || {},
             );
             if (!evaled) {
               // blocking prerequisite eval failed: feature evaluation fails
@@ -1015,7 +1015,7 @@ export class GrowthBook<
                 : undefined,
               rule.range,
               rule.coverage,
-              rule.hashVersion
+              rule.hashVersion,
             )
           ) {
             process.env.NODE_ENV !== "production" &&
@@ -1087,7 +1087,7 @@ export class GrowthBook<
             "experiment",
             rule.id,
             exp,
-            res
+            res,
           );
         }
       }
@@ -1103,7 +1103,7 @@ export class GrowthBook<
     return this._getFeatureResult(
       id,
       feature.defaultValue === undefined ? null : feature.defaultValue,
-      "defaultValue"
+      "defaultValue",
     );
   }
 
@@ -1113,7 +1113,7 @@ export class GrowthBook<
     fallbackAttribute: string | undefined,
     range: VariationRange | undefined,
     coverage: number | undefined,
-    hashVersion: number | undefined
+    hashVersion: number | undefined,
   ): boolean {
     if (!range && coverage === undefined) return true;
 
@@ -1121,7 +1121,7 @@ export class GrowthBook<
 
     const { hashValue } = this._getHashAttribute(
       hashAttribute,
-      fallbackAttribute
+      fallbackAttribute,
     );
     if (!hashValue) {
       return false;
@@ -1133,8 +1133,8 @@ export class GrowthBook<
     return range
       ? inRange(n, range)
       : coverage !== undefined
-      ? n <= coverage
-      : true;
+        ? n <= coverage
+        : true;
   }
 
   private _conditionPasses(condition: ConditionInterface): boolean {
@@ -1153,7 +1153,7 @@ export class GrowthBook<
 
   private _run<T>(
     experiment: Experiment<T>,
-    featureId: string | null
+    featureId: string | null,
   ): Result<T> {
     const key = experiment.key;
     const numVariations = experiment.variations.length;
@@ -1191,7 +1191,7 @@ export class GrowthBook<
     const qsOverride = getQueryStringOverride(
       key,
       this._getContextUrl(),
-      numVariations
+      numVariations,
     );
     if (qsOverride !== null) {
       process.env.NODE_ENV !== "production" &&
@@ -1227,7 +1227,7 @@ export class GrowthBook<
       experiment.hashAttribute,
       this._ctx.stickyBucketService && !experiment.disableStickyBucketing
         ? experiment.fallbackAttribute
-        : undefined
+        : undefined,
     );
     if (!hashValue) {
       process.env.NODE_ENV !== "production" &&
@@ -1344,7 +1344,7 @@ export class GrowthBook<
     const n = hash(
       experiment.seed || key,
       hashValue,
-      experiment.hashVersion || 1
+      experiment.hashVersion || 1,
     );
     if (n === null) {
       process.env.NODE_ENV !== "production" &&
@@ -1360,7 +1360,7 @@ export class GrowthBook<
         getBucketRanges(
           numVariations,
           experiment.coverage === undefined ? 1 : experiment.coverage,
-          experiment.weights
+          experiment.weights,
         );
       assigned = chooseVariation(n, ranges);
     }
@@ -1394,7 +1394,7 @@ export class GrowthBook<
         experiment,
         experiment.force === undefined ? -1 : experiment.force,
         false,
-        featureId
+        featureId,
       );
     }
 
@@ -1423,7 +1423,7 @@ export class GrowthBook<
       true,
       featureId,
       n,
-      foundStickyBucket
+      foundStickyBucket,
     );
 
     // 13.5. Persist sticky bucket
@@ -1438,9 +1438,9 @@ export class GrowthBook<
         {
           [this._getStickyBucketExperimentKey(
             experiment.key,
-            experiment.bucketVersion
+            experiment.bucketVersion,
           )]: result.key,
-        }
+        },
       );
       if (changed) {
         // update local docs
@@ -1485,7 +1485,7 @@ export class GrowthBook<
         .filter((c) => c && c.experiment && c.result)
         .map((c) => {
           return [this._getTrackKey(c.experiment, c.result), c];
-        })
+        }),
     );
   }
 
@@ -1510,7 +1510,7 @@ export class GrowthBook<
 
   private _getTrackKey(
     experiment: Experiment<unknown>,
-    result: Result<unknown>
+    result: Result<unknown>,
   ) {
     return (
       result.hashAttribute +
@@ -1594,7 +1594,7 @@ export class GrowthBook<
     hashUsed: boolean,
     featureId: string | null,
     bucket?: number,
-    stickyBucketUsed?: boolean
+    stickyBucketUsed?: boolean,
   ): Result<T> {
     let inExperiment = true;
     // If assigned variation is not valid, use the baseline and mark the user as not in the experiment
@@ -1607,7 +1607,7 @@ export class GrowthBook<
       experiment.hashAttribute,
       this._ctx.stickyBucketService && !experiment.disableStickyBucketing
         ? experiment.fallbackAttribute
-        : undefined
+        : undefined,
     );
 
     const meta: Partial<VariationMeta> = experiment.meta
@@ -1657,7 +1657,7 @@ export class GrowthBook<
   }
 
   private _isAutoExperimentBlockedByContext(
-    experiment: AutoExperiment
+    experiment: AutoExperiment,
   ): boolean {
     const changeType = getAutoExperimentChangeType(experiment);
     if (changeType === "visual") {
@@ -1800,26 +1800,22 @@ export class GrowthBook<
   public async refreshStickyBuckets(data?: FeatureApiResponse) {
     if (this._ctx.stickyBucketService) {
       const attributes = this._getStickyBucketAttributes(data);
-      this._ctx.stickyBucketAssignmentDocs = await this._ctx.stickyBucketService.getAllAssignments(
-        attributes
-      );
+      this._ctx.stickyBucketAssignmentDocs =
+        await this._ctx.stickyBucketService.getAllAssignments(attributes);
     }
   }
 
   private _getStickyBucketAssignments(
     expHashAttribute: string,
-    expFallbackAttribute?: string
+    expFallbackAttribute?: string,
   ): StickyAssignments {
     if (!this._ctx.stickyBucketAssignmentDocs) return {};
-    const { hashAttribute, hashValue } = this._getHashAttribute(
-      expHashAttribute
-    );
+    const { hashAttribute, hashValue } =
+      this._getHashAttribute(expHashAttribute);
     const hashKey = `${hashAttribute}||${toString(hashValue)}`;
 
-    const {
-      hashAttribute: fallbackAttribute,
-      hashValue: fallbackValue,
-    } = this._getHashAttribute(expFallbackAttribute);
+    const { hashAttribute: fallbackAttribute, hashValue: fallbackValue } =
+      this._getHashAttribute(expFallbackAttribute);
     const fallbackKey = fallbackValue
       ? `${fallbackAttribute}||${toString(fallbackValue)}`
       : null;
@@ -1828,13 +1824,13 @@ export class GrowthBook<
     if (fallbackKey && this._ctx.stickyBucketAssignmentDocs[fallbackKey]) {
       Object.assign(
         assignments,
-        this._ctx.stickyBucketAssignmentDocs[fallbackKey].assignments || {}
+        this._ctx.stickyBucketAssignmentDocs[fallbackKey].assignments || {},
       );
     }
     if (this._ctx.stickyBucketAssignmentDocs[hashKey]) {
       Object.assign(
         assignments,
-        this._ctx.stickyBucketAssignmentDocs[hashKey].assignments || {}
+        this._ctx.stickyBucketAssignmentDocs[hashKey].assignments || {},
       );
     }
     return assignments;
@@ -1865,7 +1861,7 @@ export class GrowthBook<
     const id = this._getStickyBucketExperimentKey(expKey, expBucketVersion);
     const assignments = this._getStickyBucketAssignments(
       expHashAttribute,
-      expFallbackAttribute
+      expFallbackAttribute,
     );
 
     // users with any blocked bucket version (0 to minExperimentBucketVersion) are excluded from the test
@@ -1894,14 +1890,14 @@ export class GrowthBook<
 
   private _getStickyBucketExperimentKey(
     experimentKey: string,
-    experimentBucketVersion?: number
+    experimentBucketVersion?: number,
   ): StickyExperimentKey {
     experimentBucketVersion = experimentBucketVersion || 0;
     return `${experimentKey}__${experimentBucketVersion}`;
   }
 
   private _getStickyBucketAttributes(
-    data?: FeatureApiResponse
+    data?: FeatureApiResponse,
   ): Record<string, string> {
     const attributes: Record<string, string> = {};
     this._ctx.stickyBucketIdentifierAttributes = !this._ctx
@@ -1918,7 +1914,7 @@ export class GrowthBook<
   private _generateStickyBucketAssignmentDoc(
     attributeName: string,
     attributeValue: string,
-    assignments: StickyAssignments
+    assignments: StickyAssignments,
   ): {
     key: StickyAttributeKey;
     doc: StickyAssignmentsDocument;

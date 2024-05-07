@@ -97,9 +97,8 @@ export default function RuleModal({
 
   const { experiments, experimentsMap, mutateExperiments } = useExperiments();
 
-  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
-    false
-  );
+  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
+    useState(false);
 
   const [showTargetingModal, setShowTargetingModal] = useState(false);
 
@@ -120,16 +119,16 @@ export default function RuleModal({
       getMatchingRules(
         f,
         (r) => r.type === "experiment",
-        environments.map((e) => e.id)
-      ).length > 0
+        environments.map((e) => e.id),
+      ).length > 0,
   );
   const hasNewExperimentRules = features.some(
     (f) =>
       getMatchingRules(
         f,
         (r) => r.type === "experiment-ref",
-        environments.map((e) => e.id)
-      ).length > 0
+        environments.map((e) => e.id),
+      ).length > 0,
   );
 
   const defaultValues = {
@@ -139,8 +138,8 @@ export default function RuleModal({
 
   const [scheduleToggleEnabled, setScheduleToggleEnabled] = useState(
     (defaultValues.scheduleRules || []).some(
-      (scheduleRule) => scheduleRule.timestamp !== null
-    )
+      (scheduleRule) => scheduleRule.timestamp !== null,
+    ),
   );
 
   const form = useForm<FeatureRule | NewExperimentRefRule>({
@@ -159,7 +158,7 @@ export default function RuleModal({
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
-    feature.project
+    feature.project,
   );
 
   const prerequisites = form.watch("prerequisites") || [];
@@ -189,10 +188,8 @@ export default function RuleModal({
     i,
   ]);
 
-  const [
-    prerequisiteTargetingSdkIssues,
-    setPrerequisiteTargetingSdkIssues,
-  ] = useState(false);
+  const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
+    useState(false);
   const canSubmit = !isCyclic && !prerequisiteTargetingSdkIssues;
 
   if (showUpgradeModal) {
@@ -225,7 +222,7 @@ export default function RuleModal({
         e.id === experimentId ||
         (!e.archived &&
           e.status !== "stopped" &&
-          (e.project || "") === (feature.project || ""))
+          (e.project || "") === (feature.project || "")),
     )
     .sort((a, b) => b.dateCreated.localeCompare(a.dateCreated))
     .map((e) => ({
@@ -308,7 +305,7 @@ export default function RuleModal({
               return;
             }
             scheduleRule.timestamp = new Date(
-              scheduleRule.timestamp
+              scheduleRule.timestamp,
             ).toISOString();
           });
 
@@ -329,7 +326,7 @@ export default function RuleModal({
                 ...values,
                 type: "experiment",
               },
-              feature
+              feature,
             );
             if (newRule) {
               form.reset({
@@ -338,7 +335,7 @@ export default function RuleModal({
                 name: values.name,
               });
               throw new Error(
-                "We fixed some errors in the rule. If it looks correct, submit again."
+                "We fixed some errors in the rule. If it looks correct, submit again.",
               );
             }
 
@@ -359,7 +356,7 @@ export default function RuleModal({
               ...getNewExperimentDatasourceDefaults(
                 datasources,
                 settings,
-                feature.project || ""
+                feature.project || "",
               ),
               hashAttribute: values.hashAttribute,
               metrics: [],
@@ -414,13 +411,13 @@ export default function RuleModal({
               {
                 method: "POST",
                 body: JSON.stringify(exp),
-              }
+              },
             );
 
             if ("duplicateTrackingKey" in res) {
               setAllowDuplicateTrackingKey(true);
               throw new Error(
-                "Warning: An experiment with that tracking key already exists. To continue anyway, click 'Save' again."
+                "Warning: An experiment with that tracking key already exists. To continue anyway, click 'Save' again.",
               );
             }
 
@@ -448,7 +445,7 @@ export default function RuleModal({
 
             const valuesByIndex = values.variations.map((v) => v.value);
             const valuesByVariationId = new Map(
-              values.variations.map((v) => [v.variationId, v.value])
+              values.variations.map((v) => [v.variationId, v.value]),
             );
 
             values.variations = exp.variations.map((v, i) => {
@@ -477,7 +474,7 @@ export default function RuleModal({
           if (correctedRule) {
             form.reset(correctedRule);
             throw new Error(
-              "We fixed some errors in the rule. If it looks correct, submit again."
+              "We fixed some errors in the rule. If it looks correct, submit again.",
             );
           }
 
@@ -501,7 +498,7 @@ export default function RuleModal({
                 environment,
                 i,
               }),
-            }
+            },
           );
           await mutate();
           res.version && setVersion(res.version);
@@ -592,7 +589,7 @@ export default function RuleModal({
                     exp.variations.map((v, i) => ({
                       variationId: v.id,
                       value: i ? variationValue : controlValue,
-                    }))
+                    })),
                   );
                 }
               }}

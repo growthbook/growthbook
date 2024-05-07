@@ -29,7 +29,7 @@ export default function ExperimentCheckListModal({
     ChecklistTask[]
   >([]);
   const [newTaskInput, setNewTaskInput] = useState<ChecklistTask | undefined>(
-    undefined
+    undefined,
   );
 
   async function handleSubmit() {

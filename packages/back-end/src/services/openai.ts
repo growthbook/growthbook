@@ -52,7 +52,7 @@ const numTokensFromMessages = (messages: ChatCompletionRequestMessage[]) => {
     encoding = encoding_for_model(MODEL);
   } catch (e) {
     logger.warn(
-      `services/openai - Could not find encoding for model "${MODEL}"`
+      `services/openai - Could not find encoding for model "${MODEL}"`,
     );
     encoding = get_encoding("cl100k_base");
   }
@@ -72,11 +72,10 @@ const numTokensFromMessages = (messages: ChatCompletionRequestMessage[]) => {
 };
 
 export const hasExceededUsageQuota = async (
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
 ) => {
-  const { numTokensUsed, dailyLimit } = await getTokensUsedByOrganization(
-    organization
-  );
+  const { numTokensUsed, dailyLimit } =
+    await getTokensUsedByOrganization(organization);
   return numTokensUsed > dailyLimit;
 };
 
@@ -118,12 +117,12 @@ export const simpleCompletion = async ({
   const numTokens = numTokensFromMessages(messages);
   if (maxTokens != null && numTokens > maxTokens) {
     throw new Error(
-      `Number of tokens (${numTokens}) exceeds maxTokens (${maxTokens})`
+      `Number of tokens (${numTokens}) exceeds maxTokens (${maxTokens})`,
     );
   }
   if (numTokens > MESSAGE_TOKEN_LIMIT) {
     throw new Error(
-      `Number of tokens (${numTokens}) exceeds MESSAGE_TOKEN_LIMIT (${MESSAGE_TOKEN_LIMIT})`
+      `Number of tokens (${numTokens}) exceeds MESSAGE_TOKEN_LIMIT (${MESSAGE_TOKEN_LIMIT})`,
     );
   }
 

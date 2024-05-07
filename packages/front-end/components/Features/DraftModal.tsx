@@ -85,7 +85,7 @@ export default function DraftModal({
 
   const revision = revisions.find((r) => r.version === version);
   const baseRevision = revisions.find(
-    (r) => r.version === revision?.baseVersion
+    (r) => r.version === revision?.baseVersion,
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
 
@@ -96,7 +96,7 @@ export default function DraftModal({
       baseRevision,
       revision,
       environments.map((e) => e.id),
-      {}
+      {},
     );
   }, [revision, baseRevision, liveRevision]);
 
@@ -138,7 +138,7 @@ export default function DraftModal({
   const hasPermission = permissions.check(
     "publishFeatures",
     feature.project,
-    getAffectedRevisionEnvs(feature, revision, environments)
+    getAffectedRevisionEnvs(feature, revision, environments),
   );
 
   const hasChanges = mergeResultHasChanges(mergeResult);
@@ -159,7 +159,7 @@ export default function DraftModal({
                       mergeResultSerialized: JSON.stringify(mergeResult),
                       comment,
                     }),
-                  }
+                  },
                 );
               } catch (e) {
                 await mutate();
@@ -185,7 +185,7 @@ export default function DraftModal({
                   `/feature/${feature.id}/${revision.version}/discard`,
                   {
                     method: "POST",
-                  }
+                  },
                 );
               } catch (e) {
                 await mutate();

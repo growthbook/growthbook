@@ -81,7 +81,7 @@ function validateMetricSQL(
   templateVariables?: {
     valueColumn?: string;
     eventName?: string;
-  }
+  },
 ) {
   // Require specific columns to be selected
   const requiredCols = ["timestamp", ...userIdTypes];
@@ -116,7 +116,7 @@ function validateQuerySettings(
       valueColumn?: string;
       eventName?: string;
     };
-  }
+  },
 ) {
   if (!datasourceSettingsSupport) {
     return;
@@ -126,7 +126,7 @@ function validateQuerySettings(
       value.sql,
       value.type,
       value.userIdTypes,
-      value.templateVariables
+      value.templateVariables,
     );
   } else {
     if (value.table.length < 1) {
@@ -234,19 +234,17 @@ const MetricForm: FC<MetricFormProps> = ({
   // Only set the default to true for new metrics with no sql or an edited or
   // duplicated one where the sql matches the default.
   const [allowAutomaticSqlReset, setAllowAutomaticSqlReset] = useState(
-    !current || !current?.sql || current?.sql === currentDefaultSql
+    !current || !current?.sql || current?.sql === currentDefaultSql,
   );
 
   // Keeps track if the queryFormat is "builder" because it is the default, or
   // if it is "builder" because the user manually changed it to that.
   const [usingDefaultQueryFormat, setUsingDefaultQueryFormat] = useState(
-    !current?.queryFormat && !current?.sql
+    !current?.queryFormat && !current?.sql,
   );
 
-  const [
-    showSqlResetConfirmationModal,
-    setShowSqlResetConfirmationModal,
-  ] = useState(false);
+  const [showSqlResetConfirmationModal, setShowSqlResetConfirmationModal] =
+    useState(false);
 
   const displayCurrency = useCurrency();
 
@@ -260,7 +258,7 @@ const MetricForm: FC<MetricFormProps> = ({
   const validDatasources = datasources.filter(
     (d) =>
       d.id === current.datasource ||
-      isProjectListValidForProject(d.projects, project)
+      isProjectListValidForProject(d.projects, project),
   );
 
   useEffect(() => {
@@ -330,8 +328,8 @@ const MetricForm: FC<MetricFormProps> = ({
         source === "datasource-detail" || edit || duplicate
           ? current.projects || []
           : project
-          ? [project]
-          : [],
+            ? [project]
+            : [],
       winRisk: (current.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100,
       loseRisk: (current.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100,
       maxPercentChange: getMaxPercentageChangeForMetric(current) * 100,
@@ -438,7 +436,7 @@ const MetricForm: FC<MetricFormProps> = ({
   const customizeUserIds = supportsSQL;
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
   let regressionAdjustmentAvailableForMetric = true;
   let regressionAdjustmentAvailableForMetricReason = <></>;
@@ -549,8 +547,8 @@ const MetricForm: FC<MetricFormProps> = ({
     value.regressionAdjustmentDays > 28
       ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
       : value.regressionAdjustmentDays < 7
-      ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
-      : "";
+        ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
+        : "";
 
   const customAggregationWarningMsg = value.aggregation
     ? "When using a custom aggregation, it is safest to COALESCE values in your SQL so that the `value` column has no NULL values."
@@ -572,7 +570,7 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const { setTableId, tableOptions, columnOptions } = useSchemaFormOptions(
     // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'DataSourceInterfaceWithParams | ... Remove this comment to see the full error message
-    selectedDataSource
+    selectedDataSource,
   );
 
   let ctaEnabled = true;
@@ -774,7 +772,7 @@ const MetricForm: FC<MetricFormProps> = ({
             validateQuerySettings(
               datasourceSettingsSupport,
               supportsSQL && value.queryFormat === "sql",
-              value
+              value,
             );
           }}
         >
@@ -791,7 +789,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   onChange={(e) =>
                     form.setValue(
                       "queryFormat",
-                      e.target.checked ? "sql" : "builder"
+                      e.target.checked ? "sql" : "builder",
                     )
                   }
                 />
@@ -810,7 +808,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   onChange={(e) =>
                     form.setValue(
                       "queryFormat",
-                      e.target.checked ? "builder" : "sql"
+                      e.target.checked ? "builder" : "sql",
                     )
                   }
                 />
@@ -1009,7 +1007,7 @@ const MetricForm: FC<MetricFormProps> = ({
                               onChange={(v) =>
                                 form.setValue(
                                   `conditions.${i}.operator`,
-                                  v as Operator
+                                  v as Operator,
                                 )
                               }
                               options={(() => {
@@ -1262,7 +1260,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   {value.type === "binomial"
                     ? metricDefaults.minimumSampleSize
                     : getMetricFormatter(value.type)(
-                        metricDefaults.minimumSampleSize
+                        metricDefaults.minimumSampleSize,
                       )}
                   )
                 </small>
@@ -1359,9 +1357,10 @@ const MetricForm: FC<MetricFormProps> = ({
                           type="number"
                           style={{
                             borderColor: regressionAdjustmentDaysHighlightColor,
-                            backgroundColor: regressionAdjustmentDaysHighlightColor
-                              ? regressionAdjustmentDaysHighlightColor + "15"
-                              : "",
+                            backgroundColor:
+                              regressionAdjustmentDaysHighlightColor
+                                ? regressionAdjustmentDaysHighlightColor + "15"
+                                : "",
                           }}
                           className="ml-2"
                           containerClassName="mb-0 form-inline"

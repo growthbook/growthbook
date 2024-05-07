@@ -26,7 +26,7 @@ export default function FeaturesGetStarted({ features }: Props) {
 
   const { organization } = useUser();
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-    organization?.id || ""
+    organization?.id || "",
   );
 
   const { data } = useSDKConnections();

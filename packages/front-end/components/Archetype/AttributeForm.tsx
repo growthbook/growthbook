@@ -26,7 +26,7 @@ export default function AttributeForm({
 }: Props) {
   const [formValues, setFormValues] = useState({});
   const [jsonAttributes, setJsonAttributes] = useState<string>(
-    JSON.stringify(formValues)
+    JSON.stringify(formValues),
   );
   const [jsonErrors, setJsonErrors] = useState<string | null>();
   const [tab, setTab] = useState<"simple" | "adv">("simple");
@@ -38,7 +38,7 @@ export default function AttributeForm({
       ...attributeSchema.filter((o) => !o.archived),
       ...attributeSchema.filter((o) => o.archived),
     ],
-    [attributeSchema]
+    [attributeSchema],
   );
 
   const attributesMap = new Map();
@@ -49,8 +49,8 @@ export default function AttributeForm({
       const defaultValue = initialValues[attr.property]
         ? initialValues[attr.property]
         : attr.datatype === "boolean"
-        ? false
-        : undefined;
+          ? false
+          : undefined;
       return { ...list, [attr.property]: defaultValue };
     }, {});
 
@@ -203,7 +203,7 @@ export default function AttributeForm({
               </div>
               {orderedAttributes.length ? (
                 orderedAttributes.map((attribute, i) =>
-                  attributeInput(attribute, i)
+                  attributeInput(attribute, i),
                 )
               ) : (
                 <>No attributes defined yet</>

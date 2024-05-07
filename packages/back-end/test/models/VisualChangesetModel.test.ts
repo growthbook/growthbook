@@ -77,7 +77,7 @@ describe("updateVisualChangeset", () => {
               ...updates,
               visualChanges: visualChangeset.visualChanges,
             },
-          }
+          },
         );
       });
     });
@@ -129,7 +129,7 @@ describe("updateVisualChangeset", () => {
             $set: {
               ...updates,
             },
-          }
+          },
         );
       });
     });

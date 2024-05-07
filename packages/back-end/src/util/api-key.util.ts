@@ -8,7 +8,7 @@ import { ApiKeyInterface } from "../../types/apikey";
  */
 export const isApiKeyForUserInOrganization = (
   { userId }: Partial<ApiKeyInterface>,
-  organization: Partial<OrganizationInterface>
+  organization: Partial<OrganizationInterface>,
 ): boolean => {
   if (!userId) return false;
 
@@ -19,7 +19,7 @@ export const isApiKeyForUserInOrganization = (
 };
 
 export const roleForApiKey = (
-  apiKey: Pick<ApiKeyInterface, "role" | "userId" | "secret">
+  apiKey: Pick<ApiKeyInterface, "role" | "userId" | "secret">,
 ): string | null => {
   // This role stuff is only for secret keys, not SDK keys
   if (!apiKey.secret) return null;

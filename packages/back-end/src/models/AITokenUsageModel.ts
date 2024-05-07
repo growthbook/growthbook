@@ -20,7 +20,7 @@ aiTokenUsageSchema.index({ organization: 1 }, { unique: true });
 
 const AITokenUsageModel = mongoose.model<AITokenUsageDocument>(
   "AITokenUsage",
-  aiTokenUsageSchema
+  aiTokenUsageSchema,
 );
 
 const toInterface = (doc: AITokenUsageDocument): AITokenUsageInterface =>
@@ -60,7 +60,7 @@ export const updateTokenUsage = async ({
 };
 
 export const getTokensUsedByOrganization = async (
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
 ): Promise<Pick<AITokenUsageInterface, "numTokensUsed" | "dailyLimit">> => {
   const { numTokensUsed, dailyLimit } = await updateTokenUsage({
     organization,

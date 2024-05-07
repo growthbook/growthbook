@@ -26,7 +26,7 @@ export const ThemeToggler: FC = () => {
       setTheme(theme);
       setThemeDropdownOpen(false);
     },
-    [setTheme]
+    [setTheme],
   );
 
   const activeIcon = useMemo(() => {

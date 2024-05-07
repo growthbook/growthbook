@@ -35,7 +35,7 @@ export class FactMetricModel extends BaseClass {
   }
   protected canUpdate(
     existing: FactMetricInterface,
-    updates: UpdateProps<FactMetricInterface>
+    updates: UpdateProps<FactMetricInterface>,
   ): boolean {
     return this.context.permissions.canUpdateMetric(existing, updates);
   }
@@ -44,7 +44,7 @@ export class FactMetricModel extends BaseClass {
   }
 
   public static upgradeFactMetricDoc(
-    doc: LegacyFactMetricInterface
+    doc: LegacyFactMetricInterface,
   ): FactMetricInterface {
     const newDoc: FactMetricInterface = { ...doc };
 
@@ -70,14 +70,14 @@ export class FactMetricModel extends BaseClass {
 
   protected migrate(legacyDoc: unknown): FactMetricInterface {
     return FactMetricModel.upgradeFactMetricDoc(
-      legacyDoc as LegacyFactMetricInterface
+      legacyDoc as LegacyFactMetricInterface,
     );
   }
 
   protected async beforeCreate(doc: FactMetricInterface) {
     if (!doc.id.match(/^fact__[-a-zA-Z0-9_]+$/)) {
       throw new Error(
-        "Fact metric ids MUST start with 'fact__' and contain only letters, numbers, underscores, and dashes"
+        "Fact metric ids MUST start with 'fact__' and contain only letters, numbers, underscores, and dashes",
       );
     }
   }
@@ -125,14 +125,14 @@ export class FactMetricModel extends BaseClass {
       }
       if (data.denominator.factTableId !== data.numerator.factTableId) {
         const denominatorFactTable = factTableMap.get(
-          data.denominator.factTableId
+          data.denominator.factTableId,
         );
         if (!denominatorFactTable) {
           throw new Error("Could not find denominator fact table");
         }
         if (denominatorFactTable.datasource !== numeratorFactTable.datasource) {
           throw new Error(
-            "Numerator and denominator must be in the same datasource"
+            "Numerator and denominator must be in the same datasource",
           );
         }
 
@@ -158,13 +158,13 @@ export class FactMetricModel extends BaseClass {
     }
     if (data.loseRisk < data.winRisk) {
       throw new Error(
-        `riskThresholdDanger (${data.loseRisk}) must be greater than riskThresholdSuccess (${data.winRisk})`
+        `riskThresholdDanger (${data.loseRisk}) must be greater than riskThresholdSuccess (${data.winRisk})`,
       );
     }
 
     if (data.minPercentChange >= data.maxPercentChange) {
       throw new Error(
-        `maxPercentChange (${data.maxPercentChange}) must be greater than minPercentChange (${data.minPercentChange})`
+        `maxPercentChange (${data.maxPercentChange}) must be greater than minPercentChange (${data.minPercentChange})`,
       );
     }
   }

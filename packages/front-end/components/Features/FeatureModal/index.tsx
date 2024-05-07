@@ -40,7 +40,7 @@ export type Props = {
 
 function parseDefaultValue(
   defaultValue: string,
-  valueType: FeatureValueType
+  valueType: FeatureValueType,
 ): string {
   if (valueType === "boolean") {
     return defaultValue === "true" ? "true" : "false";
@@ -158,7 +158,7 @@ export default function FeatureModal({
 
   const [showTags, setShowTags] = useState(!!featureToDuplicate?.tags?.length);
   const [showDescription, setShowDescription] = useState(
-    !!featureToDuplicate?.description?.length
+    !!featureToDuplicate?.description?.length,
   );
 
   const { apiCall } = useAuth();
@@ -204,7 +204,7 @@ export default function FeatureModal({
         const newDefaultValue = validateFeatureValue(
           passedFeature,
           defaultValue,
-          "Value"
+          "Value",
         );
         let hasChanges = false;
         if (newDefaultValue !== defaultValue) {
@@ -214,7 +214,7 @@ export default function FeatureModal({
 
         if (hasChanges) {
           throw new Error(
-            "We fixed some errors in the feature. If it looks correct, submit again."
+            "We fixed some errors in the feature. If it looks correct, submit again.",
           );
         }
 

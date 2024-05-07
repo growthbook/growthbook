@@ -93,13 +93,13 @@ export default function SDKConnectionsList() {
                 (!hasProxy || connection.proxy.connected);
 
               const environment = environments.find(
-                (e) => e.id === connection.environment
+                (e) => e.id === connection.environment,
               );
               const envProjects = environment?.projects ?? [];
               const filteredProjectIds = filterProjectsByEnvironment(
                 connection.projects,
                 environment,
-                true
+                true,
               );
               const showAllEnvironmentProjects =
                 connection.projects.length === 0 &&
@@ -107,7 +107,7 @@ export default function SDKConnectionsList() {
               const disallowedProjects = getDisallowedProjects(
                 projects,
                 connection?.projects ?? [],
-                environment
+                environment,
               );
               const disallowedProjectIds = disallowedProjects.map((p) => p.id);
               const filteredProjectIdsWithDisallowed = [

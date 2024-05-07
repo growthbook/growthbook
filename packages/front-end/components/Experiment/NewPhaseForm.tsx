@@ -57,7 +57,7 @@ const NewPhaseForm: FC<{
   // Make sure variation weights add up to 1 (allow for a little bit of rounding error)
   const totalWeights = variationWeights.reduce(
     (total: number, weight: number) => total + weight,
-    0
+    0,
   );
   const isValid = totalWeights > 0.99 && totalWeights < 1.01;
 
@@ -78,7 +78,7 @@ const NewPhaseForm: FC<{
       {
         method: "POST",
         body: JSON.stringify(value),
-      }
+      },
     );
     mutate();
     refreshWatching();

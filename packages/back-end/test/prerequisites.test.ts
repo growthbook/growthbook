@@ -553,7 +553,7 @@ describe("Prerequisite reduction in SDK Payload", () => {
     const parent1State = evaluatePrerequisiteState(
       features[1],
       featuresMap,
-      "production"
+      "production",
     );
     expect(parent1State.state).toEqual("conditional");
 

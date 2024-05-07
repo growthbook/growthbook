@@ -128,8 +128,7 @@ const config = {
                 rel: null,
               },
               {
-                href:
-                  "https://github.com/growthbook/growthbook/issues/new/choose",
+                href: "https://github.com/growthbook/growthbook/issues/new/choose",
                 label: "Open an issue",
                 target: "_blank",
                 rel: null,

@@ -35,7 +35,7 @@ export function getPath(dataSourceType: DataSourceType, path: RowType): string {
 
 export function formatInformationSchema(
   results: RawInformationSchema[],
-  datasourceType: DataSourceType
+  datasourceType: DataSourceType,
 ): InformationSchema[] {
   const databases = new Map<string, InformationSchema>();
   const schemas = new Map<string, Schema>();
@@ -94,7 +94,7 @@ export function formatInformationSchema(
       };
       tables.set(tablePath, table);
       const schemaIndex = database.schemas.findIndex(
-        (schema) => schema.schemaName === row.table_schema
+        (schema) => schema.schemaName === row.table_schema,
       );
       database.schemas[schemaIndex].tables.push(table);
     }

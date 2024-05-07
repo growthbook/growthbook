@@ -44,7 +44,7 @@ export function transformDimensionData(
     [dimension: string]: ExperimentSnapshotTrafficDimension[];
   },
   variations: ExperimentReportVariation[],
-  srmThreshold: number
+  srmThreshold: number,
 ): DimensionWithIssues[] {
   return Object.entries(dimensionData).flatMap(
     ([dimensionName, dimensionSlices]) => {
@@ -56,7 +56,7 @@ export function transformDimensionData(
       const dimensionSlicesWithIssues = dimensionSlices.filter((item) => {
         const totalDimUsers = item.variationUnits.reduce(
           (acc, a) => acc + a,
-          0
+          0,
         );
         return (
           srmHealthCheck({
@@ -76,7 +76,7 @@ export function transformDimensionData(
         label: dimensionName.replace(EXPERIMENT_DIMENSION_PREFIX, ""),
         issues: issueNames,
       };
-    }
+    },
   );
 }
 
@@ -96,11 +96,11 @@ export const DimensionIssues = ({
   const availableDimensions = transformDimensionData(
     dimensionData,
     variations,
-    srmThreshold
+    srmThreshold,
   ).sort((a, b) => b.issues.length - a.issues.length);
 
   const [selectedDimension, setSelectedDimension] = useState(
-    availableDimensions[0]?.value
+    availableDimensions[0]?.value,
   );
 
   const [issues, dimensionSlicesWithHealth] = useMemo(() => {
@@ -132,7 +132,7 @@ export const DimensionIssues = ({
 
         return acc;
       },
-      ([] as IssueValue[]) ?? []
+      ([] as IssueValue[]) ?? [],
     );
 
     return [dimensionSlicesWithIssues, dimensionSlicesWithHealth];
@@ -189,7 +189,7 @@ export const DimensionIssues = ({
                     id={d.name}
                     title={d.name}
                     helpText={`${numberFormatter.format(
-                      d.totalUsers
+                      d.totalUsers,
                     )} total units`}
                     status={d.health}
                     key={d.name}

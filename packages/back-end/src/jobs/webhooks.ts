@@ -52,7 +52,7 @@ export default function (ag: Agenda) {
     if (!webhook.featuresOnly) {
       const { overrides, expIdMapping } = await getExperimentOverrides(
         context,
-        webhook.project
+        webhook.project,
       );
       body.overrides = overrides;
       body.experiments = expIdMapping;
@@ -121,14 +121,14 @@ export default function (ag: Agenda) {
       job.attrs.data.retryCount++;
       job.attrs.nextRunAt = new Date(nextRunAt);
       await job.save();
-    }
+    },
   );
 }
 
 export async function queueWebhook(
   orgId: string,
   payloadKeys: SDKPayloadKey[],
-  isFeature?: boolean
+  isFeature?: boolean,
 ) {
   if (!CRON_ENABLED) return;
   if (!payloadKeys.length) return;
@@ -148,7 +148,7 @@ export async function queueWebhook(
       !payloadKeys.some(
         (key) =>
           key.project === (webhook.project || "") &&
-          key.environment === (webhook.environment || "production")
+          key.environment === (webhook.environment || "production"),
       )
     ) {
       continue;

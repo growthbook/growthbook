@@ -57,7 +57,7 @@ export default function SDKEndpointSelector({ apiKey, setApiKey }: Props) {
           project: proj,
           secret: false,
         }),
-      }
+      },
     );
     return res.key?.key || "";
   };

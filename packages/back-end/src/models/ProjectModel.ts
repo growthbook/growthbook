@@ -42,7 +42,7 @@ interface CreateProjectProps {
 
 export async function createProject(
   organization: string,
-  data: CreateProjectProps
+  data: CreateProjectProps,
 ) {
   const doc = await ProjectModel.create({
     organization: organization,
@@ -55,7 +55,7 @@ export async function createProject(
   return toInterface(doc);
 }
 export async function findAllProjectsByOrganization(
-  context: ReqContext | ApiReqContext
+  context: ReqContext | ApiReqContext,
 ) {
   const { org, readAccessFilter } = context;
   const docs = await ProjectModel.find({
@@ -67,7 +67,7 @@ export async function findAllProjectsByOrganization(
 }
 export async function findProjectById(
   context: ReqContext | ApiReqContext,
-  projectId: string
+  projectId: string,
 ) {
   const { org, readAccessFilter } = context;
   const doc = await ProjectModel.findOne({
@@ -89,7 +89,7 @@ export async function deleteProjectById(id: string, organization: string) {
 export async function updateProject(
   id: string,
   organization: string,
-  update: Partial<ProjectInterface>
+  update: Partial<ProjectInterface>,
 ) {
   await ProjectModel.updateOne(
     {
@@ -98,14 +98,14 @@ export async function updateProject(
     },
     {
       $set: update,
-    }
+    },
   );
 }
 
 export async function updateProjectSettings(
   id: string,
   organization: string,
-  settings: Partial<ProjectSettings>
+  settings: Partial<ProjectSettings>,
 ) {
   const update = {
     $set: {
@@ -118,7 +118,7 @@ export async function updateProjectSettings(
       id,
       organization,
     },
-    update
+    update,
   );
 }
 

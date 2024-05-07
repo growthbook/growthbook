@@ -37,12 +37,8 @@ const MetricSelector: FC<
   onPaste,
   ...selectProps
 }) => {
-  const {
-    metrics,
-    factMetrics,
-    factTables,
-    getDatasourceById,
-  } = useDefinitions();
+  const { metrics, factMetrics, factTables, getDatasourceById } =
+    useDefinitions();
 
   const options: MetricOption[] = [
     ...metrics.map((m) => ({
@@ -83,7 +79,7 @@ const MetricSelector: FC<
     ? getDatasourceById(datasource)?.settings
     : undefined;
   const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === exposureQueryId
+    (e) => e.id === exposureQueryId,
   )?.userIdType;
 
   const filteredOptions = options
@@ -93,7 +89,7 @@ const MetricSelector: FC<
     .filter((m) =>
       userIdType && m.userIdTypes.length
         ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
-        : true
+        : true,
     )
     .filter((m) => isProjectListValidForProject(m.projects, project));
 

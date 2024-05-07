@@ -22,10 +22,8 @@ export interface Props {
 }
 
 export default function IdLists({ groups, mutate }: Props) {
-  const [
-    savedGroupForm,
-    setSavedGroupForm,
-  ] = useState<null | Partial<SavedGroupInterface>>(null);
+  const [savedGroupForm, setSavedGroupForm] =
+    useState<null | Partial<SavedGroupInterface>>(null);
   const permissionsUtil = usePermissionsUtil();
   const canCreate = permissionsUtil.canCreateSavedGroup();
   const canUpdate = permissionsUtil.canUpdateSavedGroup();
@@ -53,7 +51,7 @@ export default function IdLists({ groups, mutate }: Props) {
             rule.condition?.includes(group.id) ||
             rule.savedGroups?.some((g) => g.ids.includes(group.id)) ||
             false,
-          environments.map((e) => e.id)
+          environments.map((e) => e.id),
         );
 
         if (matches.length > 0) {
@@ -176,7 +174,7 @@ export default function IdLists({ groups, mutate }: Props) {
                                     mutate();
                                   }}
                                   getConfirmationContent={getSavedGroupMessage(
-                                    savedGroupFeatureIds[s.id]
+                                    savedGroupFeatureIds[s.id],
                                   )}
                                   canDelete={
                                     (savedGroupFeatureIds[s.id]?.size || 0) ===

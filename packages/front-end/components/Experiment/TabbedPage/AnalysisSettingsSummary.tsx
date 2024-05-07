@@ -55,17 +55,14 @@ export default function AnalysisSettingsSummary({
   setBaselineRow,
   setDifferenceType,
 }: Props) {
-  const {
-    getDatasourceById,
-    getSegmentById,
-    getExperimentMetricById,
-  } = useDefinitions();
+  const { getDatasourceById, getSegmentById, getExperimentMetricById } =
+    useDefinitions();
   const orgSettings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
 
   const { hasCommercialFeature } = useUser();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
   const hasSequentialFeature = hasCommercialFeature("sequential-testing");
 
@@ -106,17 +103,17 @@ export default function AnalysisSettingsSummary({
     statsEngine,
     hasRegressionAdjustmentFeature,
     hasSequentialFeature,
-    phase
+    phase,
   );
 
   const ds = getDatasourceById(experiment.datasource);
   const assignmentQuery = ds?.settings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId
+    (e) => e.id === experiment.exposureQueryId,
   );
   const segment = getSegmentById(experiment.segment || "");
 
   const activationMetric = getExperimentMetricById(
-    experiment.activationMetric || ""
+    experiment.activationMetric || "",
   );
 
   const goals: string[] = [];
@@ -343,14 +340,14 @@ export default function AnalysisSettingsSummary({
                           phase,
                           dimension,
                         }),
-                      }
+                      },
                     )
                       .then((res) => {
                         trackSnapshot(
                           "create",
                           "RunQueriesButton",
                           datasource?.type || null,
-                          res.snapshot
+                          res.snapshot,
                         );
 
                         setAnalysisSettings(null);
@@ -412,7 +409,7 @@ export default function AnalysisSettingsSummary({
                     "outline-danger":
                       status === "failed" || status === "partially-succeeded",
                   },
-                  " "
+                  " ",
                 )}
                 display={null}
                 status={status}
@@ -451,7 +448,7 @@ export default function AnalysisSettingsSummary({
                           phase,
                           dimension,
                         }),
-                      }
+                      },
                     )
                       .then((res) => {
                         setAnalysisSettings(null);
@@ -464,7 +461,7 @@ export default function AnalysisSettingsSummary({
                           "create",
                           "ForceRerunQueriesButton",
                           datasource?.type || null,
-                          res.snapshot
+                          res.snapshot,
                         );
                         mutateSnapshot();
                       })

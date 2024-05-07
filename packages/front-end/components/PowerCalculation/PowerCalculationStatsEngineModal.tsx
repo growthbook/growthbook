@@ -105,7 +105,8 @@ export default function PowerCalculationStatsEngineModal({
                                 ...currentParams,
                                 ...(value
                                   ? {
-                                      sequentialTesting: sequentialTestingTuningParameter,
+                                      sequentialTesting:
+                                        sequentialTestingTuningParameter,
                                     }
                                   : { sequentialTesting: false }),
                               })

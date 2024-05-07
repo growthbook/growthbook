@@ -12,7 +12,7 @@ import HistoryTable from "@/components/HistoryTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export const getSavedGroupMessage = (
-  featuresUsingSavedGroups: Set<string> | undefined
+  featuresUsingSavedGroups: Set<string> | undefined,
 ) => {
   return async () => {
     if (featuresUsingSavedGroups && featuresUsingSavedGroups?.size > 0) {
@@ -65,7 +65,7 @@ export default function SavedGroupsPage() {
     // Not using $groups attribute in a any saved groups
     if (
       !savedGroups?.some(
-        (g) => g.type === "condition" && g.condition?.includes("$groups")
+        (g) => g.type === "condition" && g.condition?.includes("$groups"),
       )
     ) {
       return;

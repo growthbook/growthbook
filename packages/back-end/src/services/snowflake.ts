@@ -27,7 +27,7 @@ function getProxySettings(): ProxyOptions {
 // eslint-disable-next-line
 export async function runSnowflakeQuery<T extends Record<string, any>>(
   conn: SnowflakeConnectionParams,
-  sql: string
+  sql: string,
 ): Promise<QueryResponse<T[]>> {
   //remove out the .us-west-2 from the account name
   const account = conn.account.replace(/\.us-west-2$/, "");
@@ -94,7 +94,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
   // Need to lowercase them here so they match other data sources
   const lowercase = res.map((row) => {
     return Object.fromEntries(
-      Object.entries(row).map(([k, v]) => [k.toLowerCase(), v])
+      Object.entries(row).map(([k, v]) => [k.toLowerCase(), v]),
     ) as T;
   });
 

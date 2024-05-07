@@ -58,7 +58,7 @@ async function getUserFromJWT(token: IdToken): Promise<null | UserInterface> {
   if (!usingOpenId() && user.minTokenDate && token.iat) {
     if (token.iat < Math.floor(user.minTokenDate.getTime() / 1000)) {
       throw new Error(
-        "Your session has been revoked. Please refresh the page and login."
+        "Your session has been revoked. Please refresh the page and login.",
       );
     }
   }
@@ -77,7 +77,7 @@ export async function processJWT(
   // eslint-disable-next-line
   req: AuthRequest & { user: IdToken },
   res: Response<unknown, EventAuditUserForResponseLocals>,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   const { email, name, verified } = getInitialDataFromJWT(req.user);
 
@@ -91,14 +91,14 @@ export async function processJWT(
   req.checkPermissions = (
     permission: Permission,
     project?: string | string[],
-    envs?: string[] | Set<string>
+    envs?: string[] | Set<string>,
   ) => {
     if (!req.userId || !req.organization) return false;
 
     const userPermissions = getUserPermissions(
       req.userId,
       req.organization,
-      req.teams
+      req.teams,
     );
 
     if (
@@ -107,7 +107,7 @@ export async function processJWT(
         userPermissions,
         permission,
         project,
-        envs ? [...envs] : undefined
+        envs ? [...envs] : undefined,
       )
     ) {
       throw new Error("You do not have permission to complete that action.");
@@ -156,7 +156,7 @@ export async function processJWT(
         }
 
         const memberRecord = req.organization.members.find(
-          (m) => m.id === req.userId
+          (m) => m.id === req.userId,
         );
         if (memberRecord) {
           const lastLoginDate = memberRecord.lastLoginDate;
@@ -213,7 +213,10 @@ export async function processJWT(
     res.locals.eventAudit = eventAudit;
 
     req.audit = async (
-      data: Omit<AuditInterface, "user" | "organization" | "dateCreated" | "id">
+      data: Omit<
+        AuditInterface,
+        "user" | "organization" | "dateCreated" | "id"
+      >,
     ) => {
       await insertAudit({
         ...data,

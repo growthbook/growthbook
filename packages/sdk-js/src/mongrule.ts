@@ -15,7 +15,7 @@ const _regexCache: { [key: string]: RegExp } = {};
 // The top-level condition evaluation function
 export function evalCondition(
   obj: TestedObj,
-  condition: ConditionInterface
+  condition: ConditionInterface,
 ): boolean {
   // Recursive condition
   if ("$or" in condition) {
@@ -87,7 +87,7 @@ function evalConditionValue(condition: ConditionValue, value: any) {
       !evalOperatorCondition(
         op as Operator,
         value,
-        condition[op as keyof OperatorConditionValue]
+        condition[op as keyof OperatorConditionValue],
       )
     ) {
       return false;
@@ -141,7 +141,7 @@ function isIn(actual: any, expected: Array<any>): boolean {
 function evalOperatorCondition(
   operator: Operator,
   actual: any,
-  expected: any
+  expected: any,
 ): boolean {
   switch (operator) {
     case "$veq":

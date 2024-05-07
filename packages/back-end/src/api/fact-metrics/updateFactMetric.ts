@@ -9,7 +9,7 @@ import { updateFactMetricValidator } from "../../validators/openapi";
 
 export function getUpdateFactMetricPropsFromBody(
   body: z.infer<typeof updateFactMetricValidator.bodySchema>,
-  factMetric: FactMetricInterface
+  factMetric: FactMetricInterface,
 ): UpdateFactMetricProps {
   const {
     numerator,
@@ -71,7 +71,8 @@ export function getUpdateFactMetricPropsFromBody(
       regressionAdjustmentSettings.override;
 
     if (regressionAdjustmentSettings.override) {
-      updates.regressionAdjustmentEnabled = !!regressionAdjustmentSettings.enabled;
+      updates.regressionAdjustmentEnabled =
+        !!regressionAdjustmentSettings.enabled;
       if (regressionAdjustmentSettings.days) {
         updates.regressionAdjustmentDays = regressionAdjustmentSettings.days;
       }
@@ -82,24 +83,22 @@ export function getUpdateFactMetricPropsFromBody(
 }
 
 export const updateFactMetric = createApiRequestHandler(
-  updateFactMetricValidator
-)(
-  async (req): Promise<UpdateFactMetricResponse> => {
-    const factMetric = await req.context.models.factMetrics.getById(
-      req.params.id
-    );
-    if (!factMetric) {
-      throw new Error("Could not find factMetric with that id");
-    }
-    const updates = getUpdateFactMetricPropsFromBody(req.body, factMetric);
-
-    const newFactMetric = await req.context.models.factMetrics.update(
-      factMetric,
-      updates
-    );
-
-    return {
-      factMetric: req.context.models.factMetrics.toApiInterface(newFactMetric),
-    };
+  updateFactMetricValidator,
+)(async (req): Promise<UpdateFactMetricResponse> => {
+  const factMetric = await req.context.models.factMetrics.getById(
+    req.params.id,
+  );
+  if (!factMetric) {
+    throw new Error("Could not find factMetric with that id");
   }
-);
+  const updates = getUpdateFactMetricPropsFromBody(req.body, factMetric);
+
+  const newFactMetric = await req.context.models.factMetrics.update(
+    factMetric,
+    updates,
+  );
+
+  return {
+    factMetric: req.context.models.factMetrics.toApiInterface(newFactMetric),
+  };
+});

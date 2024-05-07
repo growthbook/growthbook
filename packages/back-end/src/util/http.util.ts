@@ -31,7 +31,7 @@ export function getHttpOptions() {
 export const cancellableFetch = async (
   url: RequestInfo,
   fetchOptions: RequestInit,
-  abortOptions: CancellableFetchCriteria
+  abortOptions: CancellableFetchCriteria,
 ): Promise<CancellableFetchReturn> => {
   const abortController: AbortController = new AbortController();
 

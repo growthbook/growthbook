@@ -28,22 +28,16 @@ export default function UpgradeModal({ close, source }: Props) {
   const [showSHProTrial, setShowSHProTrial] = useState(false);
   const [showSHProTrialSuccess, setShowSHProTrialSuccess] = useState(false);
   const [showSHEnterpriseTrial, setShowSHEnterpriseTrial] = useState(false);
-  const [
-    showSHEnterpriseTrialSuccess,
-    setShowSHEnterpriseTrialSuccess,
-  ] = useState(false);
+  const [showSHEnterpriseTrialSuccess, setShowSHEnterpriseTrialSuccess] =
+    useState(false);
 
-  const [showCloudEnterpriseTrial, setShowCloudEnterpriseTrial] = useState(
-    false
-  );
-  const [
-    showCloudEnterpriseTrialSuccess,
-    setShowCloudEnterpriseTrialSuccess,
-  ] = useState(false);
+  const [showCloudEnterpriseTrial, setShowCloudEnterpriseTrial] =
+    useState(false);
+  const [showCloudEnterpriseTrialSuccess, setShowCloudEnterpriseTrialSuccess] =
+    useState(false);
   const [showCloudProTrial, setShowCloudProTrial] = useState(false);
-  const [showCloudProTrialSuccess, setShowCloudProTrialSuccess] = useState(
-    false
-  );
+  const [showCloudProTrialSuccess, setShowCloudProTrialSuccess] =
+    useState(false);
 
   const { name, email, accountPlan, license, effectiveAccountPlan } = useUser();
 
@@ -58,10 +52,10 @@ export default function UpgradeModal({ close, source }: Props) {
     (accountPlan === "enterprise"
       ? "Enterprise"
       : accountPlan === "pro"
-      ? "Pro"
-      : accountPlan === "pro_sso"
-      ? "Pro + SSO"
-      : "Starter") + (license && license.isTrial ? " trial" : "");
+        ? "Pro"
+        : accountPlan === "pro_sso"
+          ? "Pro + SSO"
+          : "Starter") + (license && license.isTrial ? " trial" : "");
 
   // When signing up to pro, but not finishing the checkout process a license gets generated and saved but has no plan.
   const freeTrialAvailable =
@@ -109,7 +103,7 @@ export default function UpgradeModal({ close, source }: Props) {
         if (res && res.url) {
           track(
             "Start Stripe Checkout For Pro With Existing Subscription",
-            trackContext
+            trackContext,
           );
           await redirectWithTimeout(res.url);
         } else {
@@ -130,7 +124,7 @@ export default function UpgradeModal({ close, source }: Props) {
         if (resp.session?.url) {
           track(
             "Start Stripe Checkout For Pro Without Existing Subscription",
-            trackContext
+            trackContext,
           );
           await redirectWithTimeout(resp.session.url);
         } else {
@@ -149,7 +143,7 @@ export default function UpgradeModal({ close, source }: Props) {
       ? "Inquiry about Enterprise Plan for " + organization.name
       : "Inquiry about Enterprise Plan";
     const mailtoLink = `mailto:sales@growthbook.io?subject=${encodeURIComponent(
-      subject
+      subject,
     )}`;
     const newWindow = window.open(mailtoLink, "_blank", "noreferrer");
     if (newWindow) newWindow.opener = null;
@@ -186,7 +180,7 @@ export default function UpgradeModal({ close, source }: Props) {
         ...trackContext,
       });
       setError(
-        `There was a server error: ${txt}. Please try again later, or contact us at sales@growthbook.io`
+        `There was a server error: ${txt}. Please try again later, or contact us at sales@growthbook.io`,
       );
     }
   };
@@ -232,17 +226,17 @@ export default function UpgradeModal({ close, source }: Props) {
       switch (txt) {
         case "active license exists":
           setError(
-            "You already have an active license key. Contact us at sales@growthbook.io for more information."
+            "You already have an active license key. Contact us at sales@growthbook.io for more information.",
           );
           break;
         case "expired license exists":
           setError(
-            "Your license key has already expired. Please contact us at sales@growthbook.io for more information."
+            "Your license key has already expired. Please contact us at sales@growthbook.io for more information.",
           );
           break;
         default:
           setError(
-            `There was a server error: ${txt}. Please try again later, or contact us at sales@growthbook.io`
+            `There was a server error: ${txt}. Please try again later, or contact us at sales@growthbook.io`,
           );
       }
     }
@@ -329,7 +323,7 @@ export default function UpgradeModal({ close, source }: Props) {
             <div
               className={clsx(
                 "container-fluid dashboard p-3 ",
-                styles.upgradeModal
+                styles.upgradeModal,
               )}
             >
               {!license?.isTrial &&
@@ -383,8 +377,8 @@ export default function UpgradeModal({ close, source }: Props) {
                     daysToGo <= 3
                       ? "alert-danger"
                       : daysToGo <= 7
-                      ? "bg-muted-yellow"
-                      : "bg-main-color"
+                        ? "bg-muted-yellow"
+                        : "bg-main-color"
                   }`}
                 >
                   {(daysToGo >= 0 && (

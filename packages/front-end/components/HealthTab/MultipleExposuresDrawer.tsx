@@ -74,9 +74,9 @@ export default function MultipleExposuresDrawer({
                 <b>Multiple exposures were not detected.</b>
               ) : (
                 `${numberFormatter.format(
-                  multipleExposures
+                  multipleExposures,
                 )} multiple exposures detected, but that is below your threshold of ${percentFormatter.format(
-                  MIN_PERCENT
+                  MIN_PERCENT,
                 )}`
               )}
             </div>
@@ -85,7 +85,7 @@ export default function MultipleExposuresDrawer({
               <strong>Multiple Exposures Warning</strong>.{" "}
               {numberFormatter.format(multipleExposures)} users (
               {percentFormatter.format(
-                multipleExposures / (multipleExposures + totalUsers)
+                multipleExposures / (multipleExposures + totalUsers),
               )}
               ) saw multiple variations and were automatically removed from
               results. Check for bugs in your implementation, event tracking, or

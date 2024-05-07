@@ -156,14 +156,14 @@ const DateResults: FC<{
 
                   const v_formatted = getExperimentMetricFormatter(
                     metric,
-                    getFactTableById
+                    getFactTableById,
                   )(
                     cumulative
                       ? totalUsers[i]
                         ? totalValue[i] / totalUsers[i]
                         : 0
                       : stats?.cr || 0,
-                    { currency: displayCurrency }
+                    { currency: displayCurrency },
                   );
 
                   const p = stats?.pValueAdjusted ?? stats?.pValue ?? 1;
@@ -186,7 +186,7 @@ const DateResults: FC<{
                     if (statsEngine === "frequentist" && statSig) {
                       const expectedDirection = isExpectedDirection(
                         stats,
-                        metric
+                        metric,
                       );
                       if (expectedDirection) {
                         className = "won";
@@ -216,7 +216,7 @@ const DateResults: FC<{
                   };
                 }),
               };
-            }
+            },
           );
 
           return {

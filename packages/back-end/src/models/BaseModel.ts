@@ -46,11 +46,9 @@ export interface ModelConfig<T extends BaseSchema> {
   skipDateUpdatedFields?: (keyof z.infer<T>)[];
   readonlyFields?: (keyof z.infer<T>)[];
   additionalIndexes?: {
-    fields: Partial<
-      {
-        [key in keyof z.infer<T>]: 1 | -1;
-      }
-    >;
+    fields: Partial<{
+      [key in keyof z.infer<T>]: 1 | -1;
+    }>;
     unique?: boolean;
   }[];
 }
@@ -77,7 +75,7 @@ export abstract class BaseModel<T extends BaseSchema> {
   protected abstract canUpdate(
     existing: z.infer<T>,
     updates: UpdateProps<z.infer<T>>,
-    newDoc: z.infer<T>
+    newDoc: z.infer<T>,
   ): boolean;
   protected abstract canDelete(existing: z.infer<T>): boolean;
 
@@ -99,14 +97,14 @@ export abstract class BaseModel<T extends BaseSchema> {
   protected async beforeUpdate(
     existing: z.infer<T>,
     updates: UpdateProps<z.infer<T>>,
-    newDoc: z.infer<T>
+    newDoc: z.infer<T>,
   ) {
     // Do nothing by default
   }
   protected async afterUpdate(
     existing: z.infer<T>,
     updates: UpdateProps<z.infer<T>>,
-    newDoc: z.infer<T>
+    newDoc: z.infer<T>,
   ) {
     // Do nothing by default
   }
@@ -140,7 +138,7 @@ export abstract class BaseModel<T extends BaseSchema> {
     return this._find(
       this.config.projectScoping === "single"
         ? { project }
-        : { projects: project }
+        : { projects: project },
     );
   }
   public create(props: unknown | CreateProps<z.infer<T>>): Promise<z.infer<T>> {
@@ -148,13 +146,13 @@ export abstract class BaseModel<T extends BaseSchema> {
   }
   public update(
     existing: z.infer<T>,
-    updates: unknown | UpdateProps<z.infer<T>>
+    updates: unknown | UpdateProps<z.infer<T>>,
   ): Promise<z.infer<T>> {
     return this._updateOne(existing, updates);
   }
   public async updateById(
     id: string,
-    updates: unknown | UpdateProps<z.infer<T>>
+    updates: unknown | UpdateProps<z.infer<T>>,
   ): Promise<z.infer<T>> {
     const existing = await this.getById(id);
     if (!existing) {
@@ -187,14 +185,12 @@ export abstract class BaseModel<T extends BaseSchema> {
       limit,
       skip,
     }: {
-      sort?: Partial<
-        {
-          [key in keyof Omit<z.infer<T>, "organization">]: 1 | -1;
-        }
-      >;
+      sort?: Partial<{
+        [key in keyof Omit<z.infer<T>, "organization">]: 1 | -1;
+      }>;
       limit?: number;
       skip?: number;
-    } = {}
+    } = {},
   ) {
     const queryWithOrg = {
       organization: this.context.org.id,
@@ -206,7 +202,7 @@ export abstract class BaseModel<T extends BaseSchema> {
       cursor.sort(
         sort as {
           [key: string]: 1 | -1;
-        }
+        },
       );
 
     // If there's no project field, we can apply the range filter in the query
@@ -241,7 +237,7 @@ export abstract class BaseModel<T extends BaseSchema> {
   }
 
   protected async _findOne(
-    query: FilterQuery<Omit<z.infer<T>, "organization">>
+    query: FilterQuery<Omit<z.infer<T>, "organization">>,
   ) {
     const doc = await this._dangerousGetCollection().findOne({
       ...query,
@@ -316,7 +312,7 @@ export abstract class BaseModel<T extends BaseSchema> {
     } catch (e) {
       this.context.logger.error(
         e,
-        `Error creating audit log for ${this.config.auditLog.createEvent}`
+        `Error creating audit log for ${this.config.auditLog.createEvent}`,
       );
     }
 
@@ -335,7 +331,7 @@ export abstract class BaseModel<T extends BaseSchema> {
     rawUpdates: unknown | UpdateProps<z.infer<T>>,
     options?: {
       auditEvent?: EventType;
-    }
+    },
   ) {
     let updates = this.config.schema
       .omit({
@@ -361,11 +357,11 @@ export abstract class BaseModel<T extends BaseSchema> {
     // Make sure the updates don't include any fields that shouldn't be updated
     if (
       ["id", "organization", "dateCreated", "dateUpdated"].some(
-        (k) => k in updates
+        (k) => k in updates,
       )
     ) {
       throw new Error(
-        "Cannot update id, organization, dateCreated, or dateUpdated"
+        "Cannot update id, organization, dateCreated, or dateUpdated",
       );
     }
 
@@ -373,14 +369,14 @@ export abstract class BaseModel<T extends BaseSchema> {
       const readonlyFields = new Set(this.config.readonlyFields);
       if (updatedFields.some((field) => readonlyFields.has(field))) {
         throw new Error(
-          "Cannot update readonly fields: " + [...readonlyFields].join(", ")
+          "Cannot update readonly fields: " + [...readonlyFields].join(", "),
         );
       }
     }
 
     // Only set dateUpdated if at least one important field has changed
     const setDateUpdated = updatedFields.some(
-      (field) => !this.config.skipDateUpdatedFields?.includes(field)
+      (field) => !this.config.skipDateUpdatedFields?.includes(field),
     );
 
     const allUpdates = {
@@ -407,7 +403,7 @@ export abstract class BaseModel<T extends BaseSchema> {
       },
       {
         $set: allUpdates,
-      }
+      },
     );
 
     const auditEvent = options?.auditEvent || this.config.auditLog.updateEvent;
@@ -428,7 +424,7 @@ export abstract class BaseModel<T extends BaseSchema> {
     } catch (e) {
       this.context.logger.error(
         e,
-        `Error creating audit log for ${auditEvent}`
+        `Error creating audit log for ${auditEvent}`,
       );
     }
 
@@ -466,7 +462,7 @@ export abstract class BaseModel<T extends BaseSchema> {
     } catch (e) {
       this.context.logger.error(
         e,
-        `Error creating audit log for ${this.config.auditLog.deleteEvent}`
+        `Error creating audit log for ${this.config.auditLog.deleteEvent}`,
       );
     }
 
@@ -478,7 +474,7 @@ export abstract class BaseModel<T extends BaseSchema> {
     if (!this._collection) {
       // TODO: don't use Mongoose, use the native Mongo Driver instead
       this._collection = mongoose.connection.db.collection(
-        this.config.collectionName
+        this.config.collectionName,
       );
     }
     return this._collection;
@@ -497,7 +493,7 @@ export abstract class BaseModel<T extends BaseSchema> {
       .catch((err) => {
         logger.error(
           `Error creating org/id unique index for ${this.config.collectionName}`,
-          err
+          err,
         );
       });
 
@@ -508,7 +504,7 @@ export abstract class BaseModel<T extends BaseSchema> {
         .catch((err) => {
           logger.error(
             `Error creating id unique index for ${this.config.collectionName}`,
-            err
+            err,
           );
         });
     }
@@ -524,7 +520,7 @@ export abstract class BaseModel<T extends BaseSchema> {
             `Error creating ${Object.keys(index.fields).join("/")} ${
               index.unique ? "unique " : ""
             }index for ${this.config.collectionName}`,
-            err
+            err,
           );
         });
     });
@@ -544,7 +540,7 @@ export abstract class BaseModel<T extends BaseSchema> {
         const projects = await this.context.getProjects();
         if (
           !obj.projects.every((p: string) =>
-            projects.some((proj) => proj.id === p)
+            projects.some((proj) => proj.id === p),
           )
         ) {
           throw new Error("Invalid project");
@@ -560,7 +556,7 @@ export abstract class BaseModel<T extends BaseSchema> {
 }
 
 export const MakeModelClass = <T extends BaseSchema>(
-  config: ModelConfig<T>
+  config: ModelConfig<T>,
 ) => {
   abstract class Model extends BaseModel<T> {
     getConfig() {

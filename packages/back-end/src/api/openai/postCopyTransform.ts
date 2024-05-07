@@ -34,47 +34,47 @@ const behavior = `You are an assistant whose job is to take a sentence from a we
 
 const getPrompt = (
   text: string,
-  mode: typeof transformModes[number]
+  mode: (typeof transformModes)[number],
 ) => `Improve the following text, delimited by hypens, into a version that is more ${mode}. Keep the length of the sentence same.
 ---
 ${text}
 ---
 `;
 
-export const postCopyTransform = createApiRequestHandler(validation)(
-  async (req): Promise<PostCopyTransformResponse> => {
-    if (!OPENAI_ENABLED) throw new Error("OPENAI_API_KEY not defined");
+export const postCopyTransform = createApiRequestHandler(validation)(async (
+  req,
+): Promise<PostCopyTransformResponse> => {
+  if (!OPENAI_ENABLED) throw new Error("OPENAI_API_KEY not defined");
 
-    const { copy, mode, visualChangesetId } = req.body;
+  const { copy, mode, visualChangesetId } = req.body;
 
-    const visualChangeset = await findVisualChangesetById(
-      visualChangesetId,
-      req.organization.id
-    );
+  const visualChangeset = await findVisualChangesetById(
+    visualChangesetId,
+    req.organization.id,
+  );
 
-    if (!visualChangeset) throw new Error("Visual Changeset not found");
+  if (!visualChangeset) throw new Error("Visual Changeset not found");
 
-    if (await hasExceededUsageQuota(req.organization)) {
-      return {
-        visualChangeset: toVisualChangesetApiInterface(visualChangeset),
-        original: copy,
-        transformed: undefined,
-        dailyLimitReached: true,
-      };
-    }
-
-    const transformed = await simpleCompletion({
-      behavior,
-      prompt: getPrompt(copy, mode),
-      organization: req.organization,
-      temperature: 0.8,
-    });
-
+  if (await hasExceededUsageQuota(req.organization)) {
     return {
       visualChangeset: toVisualChangesetApiInterface(visualChangeset),
       original: copy,
-      transformed,
-      dailyLimitReached: false,
+      transformed: undefined,
+      dailyLimitReached: true,
     };
   }
-);
+
+  const transformed = await simpleCompletion({
+    behavior,
+    prompt: getPrompt(copy, mode),
+    organization: req.organization,
+    temperature: 0.8,
+  });
+
+  return {
+    visualChangeset: toVisualChangesetApiInterface(visualChangeset),
+    original: copy,
+    transformed,
+    dailyLimitReached: false,
+  };
+});

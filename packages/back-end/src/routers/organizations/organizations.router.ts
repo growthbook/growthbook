@@ -16,25 +16,25 @@ router.post("/organization", organizationsController.signup);
 router.put("/organization", organizationsController.putOrganization);
 router.post(
   "/organization/config/import",
-  organizationsController.postImportConfig
+  organizationsController.postImportConfig,
 );
 router.post(
   "/organization/autoApproveMembers",
-  organizationsController.postAutoApproveMembers
+  organizationsController.postAutoApproveMembers,
 );
 router.get("/organization/namespaces", organizationsController.getNamespaces);
 router.post("/organization/namespaces", organizationsController.postNamespaces);
 router.put(
   "/organization/namespaces/:name",
-  organizationsController.putNamespaces
+  organizationsController.putNamespaces,
 );
 router.delete(
   "/organization/namespaces/:name",
-  organizationsController.deleteNamespace
+  organizationsController.deleteNamespace,
 );
 router.post(
   "/organization/auto-groups-attribute",
-  organizationsController.autoAddGroupsAttribute
+  organizationsController.autoAddGroupsAttribute,
 );
 router.get("/invite/:key", organizationsController.getInviteInfo);
 router.post("/invite/accept", organizationsController.postInviteAccept);
@@ -48,12 +48,12 @@ router.delete("/member/:id", organizationsController.deleteMember);
 router.put("/member/:id/role", organizationsController.putMemberRole);
 router.put(
   "/member/:id/admin-password-reset",
-  organizationsController.putAdminResetUserPassword
+  organizationsController.putAdminResetUserPassword,
 );
 router.put("/organization/license", organizationsController.putLicenseKey);
 router.put(
   "/organization/default-role",
-  organizationsController.putDefaultRole
+  organizationsController.putDefaultRole,
 );
 
 // API keys
@@ -78,11 +78,11 @@ if (!IS_CLOUD) {
   router.get("/orphaned-users", organizationsController.getOrphanedUsers);
   router.post(
     "/orphaned-users/:id/delete",
-    organizationsController.deleteOrphanedUser
+    organizationsController.deleteOrphanedUser,
   );
   router.post(
     "/orphaned-users/:id/add",
-    organizationsController.addOrphanedUser
+    organizationsController.addOrphanedUser,
   );
 }
 

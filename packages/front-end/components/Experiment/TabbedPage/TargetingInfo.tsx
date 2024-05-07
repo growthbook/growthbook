@@ -155,7 +155,8 @@ export default function TargetingInfo({
                   <div className="d-flex">
                     <div
                       className={clsx("d-flex", {
-                        "text-danger font-weight-bold mw-50": hasSavedGroupsChanges,
+                        "text-danger font-weight-bold mw-50":
+                          hasSavedGroupsChanges,
                       })}
                     >
                       {hasSavedGroupsChanges && (
@@ -198,7 +199,8 @@ export default function TargetingInfo({
                   <div className="d-flex">
                     <div
                       className={clsx("d-flex", {
-                        "text-danger font-weight-bold mw-50": hasConditionChanges,
+                        "text-danger font-weight-bold mw-50":
+                          hasConditionChanges,
                       })}
                     >
                       {hasConditionChanges && (
@@ -237,7 +239,8 @@ export default function TargetingInfo({
                   <div className="d-flex">
                     <div
                       className={clsx("d-flex", {
-                        "text-danger font-weight-bold mw-50": hasPrerequisiteChanges,
+                        "text-danger font-weight-bold mw-50":
+                          hasPrerequisiteChanges,
                       })}
                     >
                       {hasPrerequisiteChanges && (
@@ -369,7 +372,7 @@ export default function TargetingInfo({
                         {Math.floor(phase.coverage * 100)}% included,{" "}
                         {formatTrafficSplit(
                           phase.variationWeights,
-                          showDecimals ? 2 : 0
+                          showDecimals ? 2 : 0,
                         )}{" "}
                         split
                       </div>
@@ -384,7 +387,7 @@ export default function TargetingInfo({
                           included,{" "}
                           {formatTrafficSplit(
                             changes?.variationWeights ?? [],
-                            showDecimals ? 2 : 0
+                            showDecimals ? 2 : 0,
                           )}{" "}
                           split
                         </div>
@@ -440,7 +443,8 @@ export default function TargetingInfo({
                     <div className="d-flex">
                       <div
                         className={clsx("d-flex", {
-                          "text-danger font-weight-bold": hasVariationWeightsChanges,
+                          "text-danger font-weight-bold":
+                            hasVariationWeightsChanges,
                         })}
                       >
                         {hasVariationWeightsChanges && (
@@ -451,7 +455,7 @@ export default function TargetingInfo({
                         <div>
                           {formatTrafficSplit(
                             phase.variationWeights,
-                            showDecimals ? 2 : 0
+                            showDecimals ? 2 : 0,
                           )}
                         </div>
                       </div>
@@ -463,7 +467,7 @@ export default function TargetingInfo({
                           <div>
                             {formatTrafficSplit(
                               changes?.variationWeights ?? [],
-                              showDecimals ? 2 : 0
+                              showDecimals ? 2 : 0,
                             )}
                           </div>
                         </div>

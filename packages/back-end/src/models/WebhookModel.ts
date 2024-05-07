@@ -33,11 +33,11 @@ export type WebhookDocument = mongoose.Document & WebhookInterface;
 
 export const WebhookModel = mongoose.model<WebhookInterface>(
   "Webhook",
-  webhookSchema
+  webhookSchema,
 );
 
 export async function findWebhooksBySdks(
-  sdkKeys: string[]
+  sdkKeys: string[],
 ): Promise<WebhookInterface[]> {
   return (
     await WebhookModel.find({

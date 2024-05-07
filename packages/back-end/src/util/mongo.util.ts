@@ -29,7 +29,7 @@
  *  - logger: still exists but is marked as deprecated.
  */
 export const getConnectionStringWithDeprecatedKeysMigratedForV3to4 = (
-  uri: string
+  uri: string,
 ): ResultDeprecatedKeysMigrationV3to4 => {
   const unsupportedV3FieldsInV4 = [
     "autoReconnect",

@@ -36,7 +36,7 @@ const SDKEndpoints: FC<{
     if (k.environment) {
       envCounts.set(
         k.environment,
-        envCounts.has(k.environment) ? envCounts.get(k.environment) + 1 : 1
+        envCounts.has(k.environment) ? envCounts.get(k.environment) + 1 : 1,
       );
     }
   });

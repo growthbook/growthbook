@@ -80,7 +80,7 @@ export default function SDKLanguageSelector({
   const filterLanguages = (languages: SDKLanguage[]): SDKLanguage[] => {
     if (includeAll) return languages;
     return languages.filter(
-      (language) => !limitLanguages || limitLanguages.includes(language)
+      (language) => !limitLanguages || limitLanguages.includes(language),
     );
   };
 
@@ -178,19 +178,20 @@ export default function SDKLanguageSelector({
             </div>
           </div>
         )}
-        {includeOther && (!limitLanguages || limitLanguages.includes("other")) && (
-          <div className="col-auto">
-            <small>
-              <strong>Other</strong>
-            </small>
-            <LanguageOption
-              language={"other"}
-              setValue={setValue}
-              selected={selected}
-              multiple={multiple}
-            />
-          </div>
-        )}
+        {includeOther &&
+          (!limitLanguages || limitLanguages.includes("other")) && (
+            <div className="col-auto">
+              <small>
+                <strong>Other</strong>
+              </small>
+              <LanguageOption
+                language={"other"}
+                setValue={setValue}
+                selected={selected}
+                multiple={multiple}
+              />
+            </div>
+          )}
         {!includeAll && limitLanguages && (
           <div className="col-auto align-self-center" style={{ marginTop: 10 }}>
             <a

@@ -86,10 +86,8 @@ import { GrowthBook } from "@growthbook/growthbook";
 const growthbook = new GrowthBook({
   apiHost: ${JSON.stringify(apiHost)},
   clientKey: ${JSON.stringify(apiKey)},${
-            encryptionKey
-              ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
-              : ""
-          }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
+    encryptionKey ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},` : ""
+  }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
   enableDevMode: true,${!useInit ? `\n  subscribeToChanges: true,` : ""}
   trackingCallback: (experiment, result) => {
     // ${trackingComment}
@@ -124,10 +122,8 @@ import { GrowthBook } from "@growthbook/growthbook-react";
 const growthbook = new GrowthBook({
   apiHost: ${JSON.stringify(apiHost)},
   clientKey: ${JSON.stringify(apiKey)},${
-            encryptionKey
-              ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
-              : ""
-          }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
+    encryptionKey ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},` : ""
+  }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
   enableDevMode: true,${!useInit ? `\n  subscribeToChanges: true,` : ""}
   trackingCallback: (experiment, result) => {
     // ${trackingComment}
@@ -210,10 +206,10 @@ app.use(function(req, res, next) {
   req.growthbook = new GrowthBook({
     apiHost: ${JSON.stringify(apiHost)},
     clientKey: ${JSON.stringify(apiKey)},${
-            encryptionKey
-              ? `\n    decryptionKey: ${JSON.stringify(encryptionKey)},`
-              : ""
-          }
+      encryptionKey
+        ? `\n    decryptionKey: ${JSON.stringify(encryptionKey)},`
+        : ""
+    }
     trackingCallback: (experiment, result) => {
       // ${trackingComment}
       console.log("Viewed Experiment", {
@@ -270,8 +266,8 @@ val gb = GBSDKBuilder(
           code={`
 var gb: GrowthBookSDK = GrowthBookBuilder(
   url: "${featuresEndpoint}",${
-            encryptionKey ? `\n  encryptionKey: "${encryptionKey}",` : ""
-          }
+    encryptionKey ? `\n  encryptionKey: "${encryptionKey}",` : ""
+  }
   trackingCallback: { experiment, experimentResult in 
     // ${trackingComment}
     print("Viewed Experiment")
@@ -364,11 +360,11 @@ require 'growthbook'
 # You should cache this in Redis or similar in production
 features_repository = Growthbook::FeatureRepository.new(
   endpoint: '${featuresEndpoint}'${
-            encryptionKey
-              ? `,
+    encryptionKey
+      ? `,
   decryption_key: '${encryptionKey}'`
-              : ""
-          }
+      : ""
+  }
 )
 features = features_repository.fetch
             `.trim()}
@@ -434,11 +430,11 @@ $growthbook->withCache($cache);
 $growthbook->loadFeatures(
   "${apiKey || "MY_SDK_KEY"}", // Client Key
   "${apiHost}"${
-            encryptionKey
-              ? `, // API Host
+    encryptionKey
+      ? `, // API Host
   "${encryptionKey}" // Decryption Key`
-              : " // API Host"
-          }
+      : " // API Host"
+  }
 );
             `.trim()}
         />
@@ -468,11 +464,11 @@ from growthbook import GrowthBook
 gb = GrowthBook(
   api_host = "${apiHost}",
   client_key = "${apiKey || "MY_SDK_KEY"}",${
-            encryptionKey
-              ? `
+    encryptionKey
+      ? `
   decryption_key = "${encryptionKey}",`
-              : ""
-          }
+      : ""
+  }
   on_experiment_viewed = on_experiment_viewed
 )
 

@@ -49,7 +49,7 @@ const toInterface = (doc: TeamDocument): TeamInterface => {
 };
 
 export async function createTeam(
-  data: CreateTeamProps
+  data: CreateTeamProps,
 ): Promise<TeamInterface> {
   const teamDoc = await TeamModel.create({
     ...data,
@@ -62,7 +62,7 @@ export async function createTeam(
 
 export async function findTeamById(
   id: string,
-  orgId: string
+  orgId: string,
 ): Promise<TeamInterface | null> {
   const teamDoc = await TeamModel.findOne({ id, organization: orgId });
   return teamDoc ? toInterface(teamDoc) : null;
@@ -70,7 +70,7 @@ export async function findTeamById(
 
 export async function findTeamByName(
   name: string,
-  orgId: string
+  orgId: string,
 ): Promise<TeamInterface | null> {
   const teamDoc = await TeamModel.findOne({
     name: { $regex: name, $options: "i" },
@@ -80,7 +80,7 @@ export async function findTeamByName(
 }
 
 export async function getTeamsForOrganization(
-  orgId: string
+  orgId: string,
 ): Promise<TeamInterface[]> {
   const teamDocs = await TeamModel.find({
     organization: orgId,
@@ -91,7 +91,7 @@ export async function getTeamsForOrganization(
 export async function updateTeamMetadata(
   id: string,
   orgId: string,
-  update: UpdateTeamProps
+  update: UpdateTeamProps,
 ): Promise<UpdateTeamProps> {
   const changes = {
     ...update,
@@ -105,7 +105,7 @@ export async function updateTeamMetadata(
     },
     {
       $set: changes,
-    }
+    },
   );
 
   return changes;

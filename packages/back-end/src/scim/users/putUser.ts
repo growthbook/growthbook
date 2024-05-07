@@ -9,7 +9,7 @@ import { isRoleValid } from "./createUser";
 async function updateUserRole(
   org: OrganizationInterface,
   userId: string,
-  newRole: MemberRole
+  newRole: MemberRole,
 ) {
   const updatedOrgMembers = cloneDeep(org.members);
 
@@ -26,7 +26,7 @@ async function updateUserRole(
 
 export async function putUser(
   req: ScimUserPutRequest,
-  res: Response<ScimUser | ScimError>
+  res: Response<ScimUser | ScimError>,
 ) {
   const userId = req.params.id;
 

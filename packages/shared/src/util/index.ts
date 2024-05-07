@@ -36,7 +36,7 @@ export function getAffectedEnvsForExperiment({
 
 export function getSnapshotAnalysis(
   snapshot: ExperimentSnapshotInterface,
-  analysisSettings?: ExperimentSnapshotAnalysisSettings | null
+  analysisSettings?: ExperimentSnapshotAnalysisSettings | null,
 ): ExperimentSnapshotAnalysis | null {
   // TODO make it so order doesn't matter
   return (
@@ -48,7 +48,7 @@ export function getSnapshotAnalysis(
 
 export function putBaselineVariationFirst(
   variations: ExperimentReportVariation[],
-  baselineVariationIndex: number | null
+  baselineVariationIndex: number | null,
 ): ExperimentReportVariation[] {
   if (baselineVariationIndex === null) return variations;
 
@@ -60,7 +60,7 @@ export function putBaselineVariationFirst(
 
 export function isAnalysisAllowed(
   snapshotSettings: ExperimentSnapshotSettings,
-  analysisSettings: ExperimentSnapshotAnalysisSettings
+  analysisSettings: ExperimentSnapshotAnalysisSettings,
 ): boolean {
   // Analysis dimensions must be subset of snapshot dimensions
   const snapshotDimIds = snapshotSettings.dimensions.map((d) => d.id);
@@ -84,7 +84,7 @@ export function generateVariationId() {
 }
 
 export function experimentHasLinkedChanges(
-  exp: ExperimentInterface | ExperimentInterfaceStringDates
+  exp: ExperimentInterface | ExperimentInterfaceStringDates,
 ): boolean {
   if (exp.hasVisualChangesets) return true;
   if (exp.hasURLRedirects) return true;
@@ -94,7 +94,7 @@ export function experimentHasLinkedChanges(
 
 export function includeExperimentInPayload(
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
-  linkedFeatures: FeatureInterface[] = []
+  linkedFeatures: FeatureInterface[] = [],
 ): boolean {
   // Archived experiments are always excluded
   if (exp.archived) return false;
@@ -128,7 +128,7 @@ export function includeExperimentInPayload(
       const rules = getMatchingRules(
         feature,
         (r) => r.type === "experiment-ref" && r.experimentId === exp.id,
-        Object.keys(feature.environmentSettings)
+        Object.keys(feature.environmentSettings),
       );
       return rules.some((r) => {
         if (!r.environmentEnabled) return false;
@@ -147,7 +147,7 @@ export function includeExperimentInPayload(
 
 export function isValidEnvironment(
   env: string,
-  environments: string[]
+  environments: string[],
 ): boolean {
   return environments.includes(env);
 }
@@ -166,7 +166,7 @@ export function getMatchingRules(
   feature: FeatureInterface,
   filter: (rule: FeatureRule) => boolean,
   environments: string[],
-  revision?: FeatureRevisionInterface
+  revision?: FeatureRevisionInterface,
 ): MatchingRule[] {
   const matches: MatchingRule[] = [];
 
@@ -189,7 +189,7 @@ export function getMatchingRules(
             }
           });
         }
-      }
+      },
     );
   }
 
@@ -198,7 +198,7 @@ export function getMatchingRules(
 
 export function isProjectListValidForProject(
   projects?: string[],
-  project?: string
+  project?: string,
 ) {
   // If project list is empty, it's always valid no matter what
   if (!projects || !projects.length) return true;
@@ -212,7 +212,7 @@ export function isProjectListValidForProject(
 
 export function stringToBoolean(
   value: string | undefined,
-  defaultValue = false
+  defaultValue = false,
 ): boolean {
   if (value === undefined) return defaultValue;
   if (["true", "yes", "on", "1"].includes(value.toLowerCase())) return true;

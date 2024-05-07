@@ -19,7 +19,7 @@ router.post(
       })
       .strict(),
   }),
-  tagController.postTag
+  tagController.postTag,
 );
 
 router.delete(
@@ -31,7 +31,7 @@ router.delete(
       })
       .strict(),
   }),
-  tagController.deleteTag
+  tagController.deleteTag,
 );
 
 export { router as tagRouter };

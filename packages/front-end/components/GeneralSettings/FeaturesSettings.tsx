@@ -12,10 +12,8 @@ import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 export default function FeaturesSettings() {
-  const [
-    codeRefsBranchesToFilterStr,
-    setCodeRefsBranchesToFilterStr,
-  ] = useState<string>("");
+  const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
+    useState<string>("");
 
   const { hasCommercialFeature } = useUser();
   const environments = useEnvironments();
@@ -23,7 +21,7 @@ export default function FeaturesSettings() {
   const { projects } = useDefinitions();
 
   const hasSecureAttributesFeature = hasCommercialFeature(
-    "hash-secure-attributes"
+    "hash-secure-attributes",
   );
   const hasRequireApprovals = hasCommercialFeature("require-approvals");
 
@@ -44,7 +42,7 @@ export default function FeaturesSettings() {
       codeRefsBranchesToFilterStr
         .split(",")
         .map((s) => s.trim())
-        .filter(Boolean)
+        .filter(Boolean),
     );
   }, [form, codeRefsBranchesToFilterStr]);
 
@@ -132,7 +130,7 @@ export default function FeaturesSettings() {
                     setValue={(value) => {
                       form.setValue(
                         `requireReviews.${i}.requireReviewOn`,
-                        value
+                        value,
                       );
                     }}
                   />
@@ -168,7 +166,7 @@ export default function FeaturesSettings() {
                       onChange={(environments) => {
                         form.setValue(
                           `requireReviews.${i}.environments`,
-                          environments
+                          environments,
                         );
                       }}
                       options={environments.map((e) => {
@@ -193,7 +191,7 @@ export default function FeaturesSettings() {
                       setValue={(value) => {
                         form.setValue(
                           `requireReviews.${i}.resetReviewOnChange`,
-                          value
+                          value,
                         );
                       }}
                     />

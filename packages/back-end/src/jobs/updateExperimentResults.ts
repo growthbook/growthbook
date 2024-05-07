@@ -55,7 +55,7 @@ export default async function (agenda: Agenda) {
     for (let i = 0; i < experiments.length; i++) {
       await queueExperimentUpdate(
         experiments[i].organization,
-        experiments[i].id
+        experiments[i].id,
       );
     }
   });
@@ -64,7 +64,7 @@ export default async function (agenda: Agenda) {
     UPDATE_SINGLE_EXP,
     // This job queries a datasource, which may be slow. Give it 30 minutes to complete.
     { lockLifetime: 30 * 60 * 1000 },
-    updateSingleExperiment
+    updateSingleExperiment,
   );
 
   // Update experiment results
@@ -79,7 +79,7 @@ export default async function (agenda: Agenda) {
     for (let i = 0; i < experiments.length; i++) {
       await queueExperimentUpdate(
         experiments[i].organization,
-        experiments[i].id
+        experiments[i].id,
       );
     }
 
@@ -95,7 +95,7 @@ export default async function (agenda: Agenda) {
 
   async function queueExperimentUpdate(
     organization: string,
-    experimentId: string
+    experimentId: string,
   ) {
     const job = agenda.create(UPDATE_SINGLE_EXP, {
       organization,
@@ -139,26 +139,24 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     logger.info("Start Refreshing Results for experiment " + experimentId);
     const datasource = await getDataSourceById(
       context,
-      experiment.datasource || ""
+      experiment.datasource || "",
     );
     if (!datasource) {
       throw new Error("Error refreshing experiment, could not find datasource");
     }
     const lastSnapshot = await getLatestSnapshot(
       experiment.id,
-      experiment.phases.length - 1
+      experiment.phases.length - 1,
     );
 
-    const {
-      regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatuses,
-    } = await getRegressionAdjustmentInfo(context, experiment);
+    const { regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses } =
+      await getRegressionAdjustmentInfo(context, experiment);
 
     const analysisSettings = getDefaultExperimentAnalysisSettings(
       experiment.statsEngine || scopedSettings.statsEngine.value,
       experiment,
       organization,
-      regressionAdjustmentEnabled
+      regressionAdjustmentEnabled,
     );
 
     const metricMap = await getMetricMap(context);
@@ -171,7 +169,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       defaultAnalysisSettings: analysisSettings,
       additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
         analysisSettings,
-        experiment
+        experiment,
       ),
       metricRegressionAdjustmentStatuses:
         metricRegressionAdjustmentStatuses || [],
@@ -183,7 +181,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     const currentSnapshot = queryRunner.model;
 
     logger.info(
-      "Successfully Refreshed Results for experiment " + experimentId
+      "Successfully Refreshed Results for experiment " + experimentId,
     );
 
     if (lastSnapshot) {
@@ -191,7 +189,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
         context,
         experiment,
         lastSnapshot,
-        currentSnapshot
+        currentSnapshot,
       );
     }
   } catch (e) {
@@ -218,17 +216,17 @@ async function sendSignificanceEmail(
   context: ApiReqContext,
   experiment: ExperimentInterface,
   lastSnapshot: ExperimentSnapshotInterface,
-  currentSnapshot: ExperimentSnapshotInterface
+  currentSnapshot: ExperimentSnapshotInterface,
 ) {
   // If email is not configured, there's nothing else to do
   if (!isEmailEnabled()) {
     return;
   }
 
-  const currentVariations = getSnapshotAnalysis(currentSnapshot)?.results?.[0]
-    ?.variations;
-  const lastVariations = getSnapshotAnalysis(lastSnapshot)?.results?.[0]
-    ?.variations;
+  const currentVariations =
+    getSnapshotAnalysis(currentSnapshot)?.results?.[0]?.variations;
+  const lastVariations =
+    getSnapshotAnalysis(lastSnapshot)?.results?.[0]?.variations;
 
   if (!currentVariations || !lastVariations) {
     return;
@@ -237,7 +235,7 @@ async function sendSignificanceEmail(
   try {
     // get the org confidence level settings:
     const { ciUpper, ciLower } = await getConfidenceLevelsForOrg(
-      experiment.organization
+      experiment.organization,
     );
 
     // check this and the previous snapshot to see if anything changed:
@@ -269,7 +267,7 @@ async function sendSignificanceEmail(
                 experiment.variations[i].name +
                 " has reached a " +
                 (curMetric.chanceToWin * 100).toFixed(1) +
-                "% chance to beat baseline"
+                "% chance to beat baseline",
             );
           } else if (
             curMetric.chanceToWin < ciLower &&
@@ -283,7 +281,7 @@ async function sendSignificanceEmail(
                 experiment.variations[i].name +
                 " has dropped to a " +
                 (curMetric.chanceToWin * 100).toFixed(1) +
-                " chance to beat the baseline"
+                " chance to beat the baseline",
             );
           }
         }
@@ -294,7 +292,7 @@ async function sendSignificanceEmail(
       // send an email to any subscribers on this test:
       const watchers = await getExperimentWatchers(
         experiment.id,
-        experiment.organization
+        experiment.organization,
       );
       const userIds = watchers.map((w) => w.userId);
 
@@ -302,7 +300,7 @@ async function sendSignificanceEmail(
         userIds,
         experiment.id,
         experiment.name,
-        experimentChanges
+        experimentChanges,
       );
     }
   } catch (e) {

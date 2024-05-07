@@ -39,11 +39,11 @@ export default function AutoMetricCard({
     sqlPreview && event.metricsToCreate.findIndex((s) => s.sql === sqlPreview);
 
   const binomialIndex = event.metricsToCreate.findIndex(
-    (metric) => metric.type === "binomial"
+    (metric) => metric.type === "binomial",
   );
 
   const countIndex = event.metricsToCreate.findIndex(
-    (metric) => metric.type === "count"
+    (metric) => metric.type === "count",
   );
 
   return (

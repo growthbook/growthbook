@@ -47,7 +47,7 @@ const createInformationSchema = trackJob(
       }
       const informationSchema = await getInformationSchemaByDatasourceId(
         datasource.id,
-        organization
+        organization,
       );
       if (informationSchema) {
         await updateInformationSchemaById(organization, informationSchema.id, {
@@ -57,7 +57,7 @@ const createInformationSchema = trackJob(
         });
       }
     }
-  }
+  },
 );
 
 let agenda: Agenda;
@@ -68,7 +68,7 @@ export default function (ag: Agenda) {
 
 export async function queueCreateInformationSchema(
   datasourceId: string,
-  organization: string
+  organization: string,
 ) {
   if (!datasourceId || !organization) return;
 

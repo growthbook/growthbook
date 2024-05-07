@@ -15,7 +15,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 export function useAddComputedFields<T, ExtraFields>(
   items: T[] | undefined,
   add: (item: T) => ExtraFields,
-  dependencies: unknown[] = []
+  dependencies: unknown[] = [],
 ): (T & ExtraFields)[] {
   return useMemo(() => {
     return (items || []).map((item) => ({
@@ -208,7 +208,7 @@ export function removeEnvFromSearchTerm(searchTerm: string) {
 export function filterFeaturesByEnvironment(
   filtered: FeatureInterface[],
   searchTerm: string,
-  environments: string[]
+  environments: string[],
 ) {
   // Determine which environments (if any) are being filtered by the search term
   const environmentFilter: Map<string, boolean> = new Map();

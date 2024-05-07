@@ -62,14 +62,10 @@ export default function FeaturesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showArchived, setShowArchived] = useState(false);
   const [showSteps, setShowSteps] = useState(false);
-  const [
-    featureToDuplicate,
-    setFeatureToDuplicate,
-  ] = useState<FeatureInterface | null>(null);
-  const [
-    featureToToggleStaleDetection,
-    setFeatureToToggleStaleDetection,
-  ] = useState<FeatureInterface | null>(null);
+  const [featureToDuplicate, setFeatureToDuplicate] =
+    useState<FeatureInterface | null>(null);
+  const [featureToToggleStaleDetection, setFeatureToToggleStaleDetection] =
+    useState<FeatureInterface | null>(null);
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
@@ -84,7 +80,7 @@ export default function FeaturesPage() {
   const { usage, usageDomain } = useRealtimeData(
     features,
     !!router?.query?.mockdata,
-    showGraphs
+    showGraphs,
   );
 
   // Show steps if coming from get started page
@@ -104,12 +100,12 @@ export default function FeaturesPage() {
       items = filterFeaturesByEnvironment(
         items,
         originalQuery,
-        environments.map((e) => e.id)
+        environments.map((e) => e.id),
       );
       items = filterByTags(items, tagsFilter.tags);
       return items;
     },
-    [showArchived, tagsFilter.tags, environments]
+    [showArchived, tagsFilter.tags, environments],
   );
 
   const renderFeaturesTable = () => {
@@ -181,7 +177,7 @@ export default function FeaturesPage() {
               {featureItems.map((feature) => {
                 let rules: FeatureRule[] = [];
                 environments.forEach(
-                  (e) => (rules = rules.concat(getRules(feature, e.id)))
+                  (e) => (rules = rules.concat(getRules(feature, e.id))),
                 );
 
                 // When showing a summary of rules, prefer experiments to rollouts to force rules
@@ -208,7 +204,7 @@ export default function FeaturesPage() {
                   feature.prerequisites?.length || 0;
                 const prerequisiteRules = rules.reduce(
                   (acc, rule) => acc + (rule.prerequisites?.length || 0),
-                  0
+                  0,
                 );
                 const totalPrerequisites =
                   topLevelPrerequisites + prerequisiteRules;
@@ -337,7 +333,7 @@ export default function FeaturesPage() {
                           onClick={() => {
                             if (
                               permissionsUtil.canViewFeatureModal(
-                                feature.project
+                                feature.project,
                               )
                             )
                               setFeatureToToggleStaleDetection(feature);
@@ -408,7 +404,7 @@ export default function FeaturesPage() {
     featureItems.forEach((feature) => {
       const featureEnvironments = filterEnvironmentsByFeature(
         environments,
-        feature
+        feature,
       );
       const envs = featureEnvironments.map((e) => e.id);
       staleFeatures[feature.id] = isFeatureStale({
@@ -455,7 +451,7 @@ export default function FeaturesPage() {
   const hasFeatures = features.some(
     (f) =>
       f.project !==
-      getDemoDatasourceProjectIdForOrganization(organization.id || "")
+      getDemoDatasourceProjectIdForOrganization(organization.id || ""),
   );
 
   const toggleEnvs = environments.filter((en) => en.toggleOnList);

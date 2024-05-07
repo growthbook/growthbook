@@ -34,7 +34,7 @@ const ImpactModal: FC<{
 
   const possibleMetrics = metrics.filter(
     // TODO: support non-binomial and manual metrics
-    (m) => m.type === "binomial" && m.datasource
+    (m) => m.type === "binomial" && m.datasource,
   );
 
   const metric = getMetricById(form.watch("metric"));
@@ -63,14 +63,14 @@ const ImpactModal: FC<{
                 segment: value.segment || null,
                 ideaId: idea?.id || null,
               }),
-            }
+            },
           );
           est = res.estimate;
         }
 
         if (!est) {
           throw new Error(
-            "Failed to get user and page data from the data source"
+            "Failed to get user and page data from the data source",
           );
         }
 

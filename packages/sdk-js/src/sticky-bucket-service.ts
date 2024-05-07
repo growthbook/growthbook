@@ -17,7 +17,7 @@ export interface JsCookiesCompat<T = string> {
   set(
     name: string,
     value: string | T,
-    options?: CookieAttributes
+    options?: CookieAttributes,
   ): string | undefined;
   get(name: string): string | T | undefined;
   get(): { [key: string]: string };
@@ -37,7 +37,7 @@ export interface ResponseCompat {
   cookie(
     name: string,
     value: string,
-    options?: CookieAttributes
+    options?: CookieAttributes,
   ): ResponseCompat;
   [key: string]: unknown;
 }
@@ -48,7 +48,7 @@ export interface ResponseCompat {
 export abstract class StickyBucketService {
   abstract getAssignments(
     attributeName: string,
-    attributeValue: string
+    attributeValue: string,
   ): Promise<StickyAssignmentsDocument | null>;
 
   abstract saveAssignments(doc: StickyAssignmentsDocument): Promise<unknown>;
@@ -59,14 +59,14 @@ export abstract class StickyBucketService {
    * instances (i.e. Redis) will instead perform a multi-query inside getAllAssignments instead.
    */
   async getAllAssignments(
-    attributes: Record<string, string>
+    attributes: Record<string, string>,
   ): Promise<Record<StickyAttributeKey, StickyAssignmentsDocument>> {
     const docs: Record<string, StickyAssignmentsDocument> = {};
     (
       await Promise.all(
         Object.entries(attributes).map(([attributeName, attributeValue]) =>
-          this.getAssignments(attributeName, attributeValue)
-        )
+          this.getAssignments(attributeName, attributeValue),
+        ),
       )
     ).forEach((doc) => {
       if (doc) {
@@ -168,7 +168,7 @@ export class ExpressCookieStickyBucketService extends StickyBucketService {
     this.res.cookie(
       encodeURIComponent(this.prefix + key),
       encodeURIComponent(str),
-      this.cookieAttributes
+      this.cookieAttributes,
     );
   }
 }
@@ -230,11 +230,12 @@ export class RedisStickyBucketService extends StickyBucketService {
   }
 
   async getAllAssignments(
-    attributes: Record<string, string>
+    attributes: Record<string, string>,
   ): Promise<Record<StickyAttributeKey, StickyAssignmentsDocument>> {
     const docs: Record<StickyAttributeKey, StickyAssignmentsDocument> = {};
     const keys = Object.entries(attributes).map(
-      ([attributeName, attributeValue]) => `${attributeName}||${attributeValue}`
+      ([attributeName, attributeValue]) =>
+        `${attributeName}||${attributeValue}`,
     );
     if (!this.redis) return docs;
     await this.redis.mget(...keys).then((values) => {

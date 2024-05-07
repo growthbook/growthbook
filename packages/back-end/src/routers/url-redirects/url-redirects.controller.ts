@@ -32,18 +32,18 @@ async function _validateRedirect(
   destinations: DestinationURL[],
   context: ReqContext,
   experiment: ExperimentInterface,
-  urlRedirectId?: string
+  urlRedirectId?: string,
 ) {
   const payloadExperiments = await getAllPayloadExperiments(context);
   const urlRedirects = await getAllURLRedirectExperiments(
     context,
-    payloadExperiments
+    payloadExperiments,
   );
   // TODO:
   const originUrl = origin;
 
   const existingRedirects = urlRedirects.filter(
-    (r) => r.urlRedirect.id !== urlRedirectId
+    (r) => r.urlRedirect.id !== urlRedirectId,
   );
 
   existingRedirects.forEach((existing) => {
@@ -69,7 +69,7 @@ async function _validateRedirect(
         ])
       ) {
         throw new Error(
-          "Origin URL targets the destination url of an existing redirect."
+          "Origin URL targets the destination url of an existing redirect.",
         );
       }
     });
@@ -84,12 +84,12 @@ async function _validateRedirect(
         ])
       ) {
         const variationName = experiment?.variations.find(
-          (v) => v.id === dest.variation
+          (v) => v.id === dest.variation,
         )?.name;
         throw new Error(
           variationName
             ? `Origin URL of an existing redirect targets the destination URL for "${variationName}" in this redirect.`
-            : "Origin URL of an existing redirect targets a destination URL in this redirect."
+            : "Origin URL of an existing redirect targets a destination URL in this redirect.",
         );
       }
     });
@@ -102,7 +102,7 @@ export const postURLRedirect = async (
     null,
     { circularDependencyCheck?: string }
   >,
-  res: Response<{ status: 200; urlRedirect: URLRedirectInterface }>
+  res: Response<{ status: 200; urlRedirect: URLRedirectInterface }>,
 ) => {
   const data = createUrlRedirectValidator.parse(req.body);
   const context = getContextFromReq(req);
@@ -121,7 +121,7 @@ export const postURLRedirect = async (
   const reqVariationIds = data.destinationURLs.map((r) => r.variation);
 
   const areValidVariations = variationIds?.every((v) =>
-    reqVariationIds.includes(v)
+    reqVariationIds.includes(v),
   );
   if (!areValidVariations) {
     throw new Error("Invalid variation IDs for urlRedirects");
@@ -160,7 +160,7 @@ export const putURLRedirect = async (
     { id: string },
     { circularDependencyCheck?: string }
   >,
-  res: Response<{ status: 200; urlRedirect: URLRedirectInterface }>
+  res: Response<{ status: 200; urlRedirect: URLRedirectInterface }>,
 ) => {
   const data = updateUrlRedirectValidator.parse(req.body);
   const context = getContextFromReq(req);
@@ -187,7 +187,7 @@ export const putURLRedirect = async (
       destinations,
       context,
       experiment,
-      urlRedirect.id
+      urlRedirect.id,
     );
   }
 
@@ -215,7 +215,7 @@ export const putURLRedirect = async (
 
 export const deleteURLRedirect = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;

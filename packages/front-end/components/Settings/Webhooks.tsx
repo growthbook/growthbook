@@ -13,7 +13,7 @@ import WebhooksModal from "./WebhooksModal";
 
 const Webhooks: FC = () => {
   const { data, error, mutate } = useApi<{ webhooks: WebhookInterface[] }>(
-    "/webhooks"
+    "/webhooks",
   );
   const { getProjectById, projects } = useDefinitions();
   const { apiCall } = useAuth();

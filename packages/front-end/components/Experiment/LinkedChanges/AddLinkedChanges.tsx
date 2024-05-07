@@ -50,13 +50,8 @@ const AddLinkedChangeRow = ({
   hasFeature: boolean;
   experiment: ExperimentInterfaceStringDates;
 }) => {
-  const {
-    header,
-    cta,
-    description,
-    commercialFeature,
-    sdkCapabilityKey,
-  } = LINKED_CHANGES[type];
+  const { header, cta, description, commercialFeature, sdkCapabilityKey } =
+    LINKED_CHANGES[type];
   const { component: Icon, color } = ICON_PROPERTIES[type];
   const { data: sdkConnectionsData } = useSDKConnections();
 
@@ -207,8 +202,8 @@ export default function AddLinkedChanges({
                   s === "visual-editor"
                     ? hasVisualEditorFeature
                     : s === "redirects"
-                    ? hasURLRedirectsFeature
-                    : true
+                      ? hasURLRedirectsFeature
+                      : true
                 }
                 experiment={experiment}
               />

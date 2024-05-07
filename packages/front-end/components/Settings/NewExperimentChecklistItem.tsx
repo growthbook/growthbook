@@ -62,7 +62,7 @@ export default function NewExperimentChecklistItem({
           className="pb-3"
           options={autoChecklistOptions.filter((option) => {
             return !experimentLaunchChecklist.some(
-              (index) => index.task === option.value
+              (index) => index.task === option.value,
             );
           })}
           placeholder="Choose from pre-defined tasks or create your own custom task"

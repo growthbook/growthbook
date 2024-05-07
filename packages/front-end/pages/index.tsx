@@ -29,7 +29,7 @@ export default function Home(): React.ReactElement {
     }
 
     const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-      organization.id || ""
+      organization.id || "",
     );
 
     const hasFeatures = features.some((f) => f.project !== demoProjectId);

@@ -45,7 +45,7 @@ export type TaskResult<ResultData> =
  * If the task fails and you do not want to retry, return {@link FailedTaskResult}
  */
 export type PerformTaskFunc<DataType, ResultData> = (
-  data: DataType
+  data: DataType,
 ) => Promise<TaskResult<ResultData>>;
 
 /**
@@ -57,7 +57,7 @@ export type PerformTaskFunc<DataType, ResultData> = (
  */
 export type OnProgressFunc<ResultData> = (
   id: string,
-  result: TaskResult<ResultData>
+  result: TaskResult<ResultData>,
 ) => void;
 
 /**
@@ -115,7 +115,7 @@ export async function enqueueTasks<DataType, ResultData>(
   {
     delayMs = DEFAULT_INTERVAL_DELAY,
     retryCount = DEFAULT_RETRY_COUNT,
-  }: EnqueueOptions = newDefaultEnqueueOptions()
+  }: EnqueueOptions = newDefaultEnqueueOptions(),
 ): Promise<QueueResult<ResultData>> {
   if (!tasks.length) {
     return {
@@ -127,7 +127,7 @@ export async function enqueueTasks<DataType, ResultData>(
   const taskIds = tasks.map((t) => t.id);
   if (tasks.length !== uniq(taskIds).length) {
     throw new Error(
-      `all task identifiers must be unique: ${taskIds.join(", ")}`
+      `all task identifiers must be unique: ${taskIds.join(", ")}`,
     );
   }
 
@@ -149,7 +149,7 @@ export async function enqueueTasks<DataType, ResultData>(
   const handleFailure = (
     task: QueueTask<DataType>,
     result: TaskResult<ResultData>,
-    { retry }: { retry: boolean }
+    { retry }: { retry: boolean },
   ) => {
     const taskRetryCount = retries.get(task.id) || 0;
 
@@ -194,7 +194,7 @@ export async function enqueueTasks<DataType, ResultData>(
       handleFailure(
         task,
         { status: "fail", error: e.message },
-        { retry: true }
+        { retry: true },
       );
     }
   }

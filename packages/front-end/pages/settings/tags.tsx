@@ -15,7 +15,7 @@ const TagsPage: FC = () => {
   const { tags, mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
   const [modalOpen, setModalOpen] = useState<Partial<TagInterface> | null>(
-    null
+    null,
   );
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: tags || [],

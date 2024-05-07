@@ -58,7 +58,7 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
         <div className="form-inline flex-column align-items-start mb-4 mt-4">
           <Field
             label={`Destination ${dataSourceSchemaName(
-              dataSource.type
+              dataSource.type,
             )} with write permissions`}
             className="ml-2"
             containerClassName="mb-2"

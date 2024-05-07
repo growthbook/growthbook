@@ -16,5 +16,5 @@ export const getFactTable = createApiRequestHandler(getFactTableValidator)(
     return {
       factTable: toFactTableApiInterface(factTable),
     };
-  }
+  },
 );

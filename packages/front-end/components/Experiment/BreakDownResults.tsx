@@ -115,7 +115,7 @@ const BreakDownResults: FC<{
       .filter(Boolean) as ExperimentMetricInterface[];
     const sortedFilteredMetrics = sortAndFilterMetricsByTags(
       metricDefs,
-      metricFilter
+      metricFilter,
     );
 
     return Array.from(new Set(sortedFilteredMetrics))
@@ -131,7 +131,7 @@ const BreakDownResults: FC<{
           | undefined;
         if (regressionAdjustmentEnabled && metricRegressionAdjustmentStatuses) {
           regressionAdjustmentStatus = metricRegressionAdjustmentStatuses.find(
-            (s) => s.metric === metricId
+            (s) => s.metric === metricId,
           );
         }
 
@@ -165,7 +165,7 @@ const BreakDownResults: FC<{
   ]);
 
   const _hasRisk = hasRisk(
-    ([] as ExperimentTableRow[]).concat(...tables.map((t) => t.rows))
+    ([] as ExperimentTableRow[]).concat(...tables.map((t) => t.rows)),
   );
 
   return (
@@ -221,7 +221,7 @@ const BreakDownResults: FC<{
                   {getRenderLabelColumn(regressionAdjustmentEnabled)(
                     table.metric.name,
                     table.metric,
-                    table.rows[0]
+                    table.rows[0],
                   )}
                 </div>
               }

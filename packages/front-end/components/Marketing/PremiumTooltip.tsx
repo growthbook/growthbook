@@ -43,7 +43,7 @@ export default function PremiumTooltip({
             <p
               className={clsx(
                 body ? "mb-2" : "mb-0",
-                !hasFeature ? "premium" : ""
+                !hasFeature ? "premium" : "",
               )}
             >
               <GBPremiumBadge className="mr-1" />

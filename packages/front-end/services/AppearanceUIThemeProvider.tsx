@@ -51,10 +51,8 @@ export const useAppearanceUITheme = (): AppearanceUIThemeContextType =>
 export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
   children,
 }) => {
-  const [
-    preferredTheme,
-    setPreferredTheme,
-  ] = useState<PreferredAppearanceUITheme>("system");
+  const [preferredTheme, setPreferredTheme] =
+    useState<PreferredAppearanceUITheme>("system");
 
   const [systemTheme, setSystemTheme] = useState<AppearanceUITheme>("light");
 
@@ -128,12 +126,12 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
         // We are unable to persist the theme changes due to the browser's privacy settings
       }
     },
-    []
+    [],
   );
 
   const theme: AppearanceUITheme = useMemo(
     () => (preferredTheme === "system" ? systemTheme : preferredTheme),
-    [systemTheme, preferredTheme]
+    [systemTheme, preferredTheme],
   );
 
   return (

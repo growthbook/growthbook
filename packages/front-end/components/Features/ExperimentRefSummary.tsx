@@ -16,7 +16,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 
 export function isExperimentRefRuleSkipped(
-  experiment: ExperimentInterfaceStringDates
+  experiment: ExperimentInterfaceStringDates,
 ) {
   if (experiment.status === "draft") return true;
   return !includeExperimentInPayload(experiment);
@@ -99,7 +99,7 @@ export default function ExperimentRefSummary({
   const releasedValue =
     experiment.status === "stopped" && !experiment.excludeFromPayload
       ? rule.variations.find(
-          (v) => v.variationId === experiment.releasedVariationId
+          (v) => v.variationId === experiment.releasedVariationId,
         )
       : null;
 

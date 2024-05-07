@@ -32,7 +32,7 @@ export default function TestConnectionResults({
             <FaCheck
               className={clsx(
                 "align-self-center mb-4 p-3",
-                styles.connectedBubble
+                styles.connectedBubble,
               )}
             />
           </div>

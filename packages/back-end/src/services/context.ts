@@ -131,14 +131,14 @@ export class ReqContextClass {
   public hasPermission(
     permission: Permission,
     project?: string | (string | undefined)[] | undefined,
-    envs?: string[] | Set<string>
+    envs?: string[] | Set<string>,
   ) {
     return userHasPermission(
       this.superAdmin,
       this.userPermissions,
       permission,
       project,
-      envs ? [...envs] : undefined
+      envs ? [...envs] : undefined,
     );
   }
 
@@ -146,7 +146,7 @@ export class ReqContextClass {
   public requirePermission(
     permission: Permission,
     project?: string | (string | undefined)[] | undefined,
-    envs?: string[] | Set<string>
+    envs?: string[] | Set<string>,
   ) {
     if (!this.hasPermission(permission, project, envs)) {
       throw new Error("You do not have permission to complete that action.");
@@ -159,7 +159,7 @@ export class ReqContextClass {
 
   // Record an audit log entry
   public async auditLog(
-    data: Omit<AuditInterface, "user" | "id" | "organization" | "dateCreated">
+    data: Omit<AuditInterface, "user" | "id" | "organization" | "dateCreated">,
   ) {
     const auditUser = this.userId
       ? {
@@ -168,10 +168,10 @@ export class ReqContextClass {
           name: this.userName || "",
         }
       : this.apiKey
-      ? {
-          apiKey: this.apiKey,
-        }
-      : null;
+        ? {
+            apiKey: this.apiKey,
+          }
+        : null;
     if (!auditUser) {
       throw new Error("Must have user or apiKey in context to audit log");
     }

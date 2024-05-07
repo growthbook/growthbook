@@ -29,11 +29,11 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
   const { apiCall } = useAuth();
 
   const [showDescription, setShowDescription] = useState(
-    !!existing?.description?.length
+    !!existing?.description?.length,
   );
 
   const [testResult, setTestResult] = useState<null | FactFilterTestResults>(
-    null
+    null,
   );
 
   const [testBeforeSave, setTestBeforeSave] = useState(true);
@@ -53,7 +53,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
   const isNew = !existing;
   useEffect(() => {
     track(
-      isNew ? "View Create Fact Filter Modal" : "View Edit Fact Filter Modal"
+      isNew ? "View Create Fact Filter Modal" : "View Edit Fact Filter Modal",
     );
   }, [isNew]);
 

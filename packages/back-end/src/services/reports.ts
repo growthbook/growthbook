@@ -29,7 +29,7 @@ import {
 
 export function getReportVariations(
   experiment: ExperimentInterface,
-  phase: ExperimentPhase
+  phase: ExperimentPhase,
 ): ExperimentReportVariation[] {
   return experiment.variations.map((v, i) => {
     return {
@@ -42,7 +42,7 @@ export function getReportVariations(
 
 function getMetricRegressionAdjustmentStatusesFromSnapshot(
   snapshotSettings: ExperimentSnapshotSettings,
-  analysisSettings: ExperimentSnapshotAnalysisSettings
+  analysisSettings: ExperimentSnapshotAnalysisSettings,
 ): MetricRegressionAdjustmentStatus[] {
   return snapshotSettings.metricSettings.map((m) => {
     return {
@@ -64,7 +64,7 @@ function getMetricRegressionAdjustmentStatusesFromSnapshot(
 export function reportArgsFromSnapshot(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
-  analysisSettings: ExperimentSnapshotAnalysisSettings
+  analysisSettings: ExperimentSnapshotAnalysisSettings,
 ): ExperimentReportArgs {
   const phase = experiment.phases[snapshot.phase];
   if (!phase) {
@@ -89,10 +89,11 @@ export function reportArgsFromSnapshot(
     attributionModel: snapshot.settings.attributionModel,
     statsEngine: analysisSettings.statsEngine,
     regressionAdjustmentEnabled: analysisSettings.regressionAdjusted,
-    metricRegressionAdjustmentStatuses: getMetricRegressionAdjustmentStatusesFromSnapshot(
-      snapshot.settings,
-      analysisSettings
-    ),
+    metricRegressionAdjustmentStatuses:
+      getMetricRegressionAdjustmentStatusesFromSnapshot(
+        snapshot.settings,
+        analysisSettings,
+      ),
     sequentialTestingEnabled: analysisSettings.sequentialTesting,
     sequentialTestingTuningParameter:
       analysisSettings.sequentialTestingTuningParameter,
@@ -101,7 +102,7 @@ export function reportArgsFromSnapshot(
 }
 
 export function getAnalysisSettingsFromReportArgs(
-  args: ExperimentReportArgs
+  args: ExperimentReportArgs,
 ): ExperimentSnapshotAnalysisSettings {
   return {
     dimensions: args.dimension ? [args.dimension] : [],
@@ -117,7 +118,7 @@ export function getAnalysisSettingsFromReportArgs(
 }
 export function getSnapshotSettingsFromReportArgs(
   args: ExperimentReportArgs,
-  metricMap: Map<string, ExperimentMetricInterface>
+  metricMap: Map<string, ExperimentMetricInterface>,
 ): {
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -131,8 +132,8 @@ export function getSnapshotSettingsFromReportArgs(
           m,
           metricMap,
           args.metricRegressionAdjustmentStatuses,
-          args.metricOverrides
-        )
+          args.metricOverrides,
+        ),
       )
       .filter(Boolean) as MetricForSnapshot[],
     activationMetric: args.activationMetric || null,
@@ -165,14 +166,14 @@ export function getMetricForSnapshot(
   id: string | null | undefined,
   metricMap: Map<string, ExperimentMetricInterface>,
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[],
-  metricOverrides?: MetricOverride[]
+  metricOverrides?: MetricOverride[],
 ): MetricForSnapshot | null {
   if (!id) return null;
   const metric = metricMap.get(id);
   if (!metric) return null;
   const overrides = metricOverrides?.find((o) => o.id === id);
   const regressionAdjustmentStatus = metricRegressionAdjustmentStatuses?.find(
-    (s) => s.metric === id
+    (s) => s.metric === id,
   );
   return {
     id,

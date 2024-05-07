@@ -19,7 +19,7 @@ export const stripe = new Stripe(STRIPE_SECRET || "", {
  * @description This function updates the subscription in the database. (organization.subscription)
  */
 export async function updateSubscriptionInDb(
-  subscription: string | Stripe.Subscription
+  subscription: string | Stripe.Subscription,
 ): Promise<{
   organization: OrganizationInterface;
   subscription: Stripe.Subscription;
@@ -28,7 +28,7 @@ export async function updateSubscriptionInDb(
   // Always get the latest subscription data from the API
   subscription = await stripe.subscriptions.retrieve(
     typeof subscription === "string" ? subscription : subscription.id,
-    { expand: ["plan"] }
+    { expand: ["plan"] },
   );
 
   if ("ignore_webhooks" in subscription.metadata) {
@@ -116,7 +116,7 @@ const discountData: {
   [key: string]: Stripe.Coupon;
 } = {};
 export async function getCoupon(
-  discountCode?: string
+  discountCode?: string,
 ): Promise<Stripe.Coupon | null> {
   if (!discountCode) return null;
   if (discountData[discountCode]) return discountData[discountCode];

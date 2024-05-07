@@ -30,7 +30,7 @@ export function getPresentationById(id: string) {
 export async function getPresentationSnapshots(
   context: ReqContext | ApiReqContext,
   expIds: string[],
-  req: AuthRequest
+  req: AuthRequest,
 ) {
   const experiments = await getExperimentsByIds(context, expIds);
 
@@ -66,11 +66,11 @@ export async function removeExperimentFromPresentations(experiment: string) {
   await Promise.all(
     presentations.map(async (presentation) => {
       presentation.slides = presentation.slides.filter(
-        (obj) => obj.id !== experiment || obj.type !== "experiment"
+        (obj) => obj.id !== experiment || obj.type !== "experiment",
       );
       presentation.markModified("slides");
       await presentation.save();
-    })
+    }),
   );
 }
 

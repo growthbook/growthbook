@@ -13,7 +13,7 @@ export type FilterDataForNotificationEvent = {
 };
 
 export const getFilterDataForNotificationEvent = (
-  event: NotificationEvent
+  event: NotificationEvent,
 ): FilterDataForNotificationEvent | null => {
   let invalidEvent: never;
 
@@ -32,15 +32,17 @@ export const getFilterDataForNotificationEvent = (
     case "feature.updated":
       return {
         tags: uniq(
-          (event.data.current.tags || []).concat(event.data.previous.tags || [])
+          (event.data.current.tags || []).concat(
+            event.data.previous.tags || [],
+          ),
         ),
         projects: uniq(
           (event.data.current.project
             ? [event.data.current.project]
             : []
           ).concat(
-            event.data.previous.project ? [event.data.previous.project] : []
-          )
+            event.data.previous.project ? [event.data.previous.project] : [],
+          ),
         ),
       };
 
@@ -63,15 +65,17 @@ export const getFilterDataForNotificationEvent = (
     case "experiment.updated":
       return {
         tags: uniq(
-          (event.data.current.tags || []).concat(event.data.previous.tags || [])
+          (event.data.current.tags || []).concat(
+            event.data.previous.tags || [],
+          ),
         ),
         projects: uniq(
           (event.data.current.project
             ? [event.data.current.project]
             : []
           ).concat(
-            event.data.previous.project ? [event.data.previous.project] : []
-          )
+            event.data.previous.project ? [event.data.previous.project] : [],
+          ),
         ),
       };
 

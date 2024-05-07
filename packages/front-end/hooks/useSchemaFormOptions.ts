@@ -8,7 +8,7 @@ import { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
 import useApi from "./useApi";
 
 export default function useSchemaFormOptions(
-  datasource: DataSourceInterfaceWithParams
+  datasource: DataSourceInterfaceWithParams,
 ) {
   const [tableId, setTableId] = useState("");
 
@@ -20,7 +20,7 @@ export default function useSchemaFormOptions(
   }>(
     supportsInformationSchema && datasource?.id
       ? `/datasource/${datasource.id}/schema`
-      : null
+      : null,
   );
 
   const tableGroups: Map<string, GroupedValue> = new Map();
@@ -53,7 +53,7 @@ export default function useSchemaFormOptions(
   }>(
     tableId && datasource?.id
       ? `/datasource/${datasource.id}/schema/table/${tableId}`
-      : null
+      : null,
   );
 
   const columnOptions: SingleValue[] = [];

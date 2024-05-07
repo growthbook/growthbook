@@ -36,7 +36,7 @@ const proxyUpdate = trackJob(
     if (!connectionId) {
       logger.error(
         "proxyUpdate: No connectionId provided for proxy update job",
-        { connectionId, useCloudProxy }
+        { connectionId, useCloudProxy },
       );
       return;
     }
@@ -61,12 +61,12 @@ const proxyUpdate = trackJob(
     }
 
     const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === connection.environment
+      (e) => e.id === connection.environment,
     );
     const filteredProjects = filterProjectsByEnvironmentWithNull(
       connection.projects,
       environmentDoc,
-      true
+      true,
     );
 
     const defs = await getFeatureDefinitions({
@@ -109,7 +109,7 @@ const proxyUpdate = trackJob(
     }
 
     await clearProxyError(connection);
-  }
+  },
 );
 
 let agenda: Agenda;
@@ -138,14 +138,14 @@ export default function addProxyUpdateJob(ag: Agenda) {
       job.attrs.data.retryCount++;
       job.attrs.nextRunAt = new Date(nextRunAt);
       await job.save();
-    }
+    },
   );
 }
 
 export async function queueSingleProxyUpdate(
   orgId: string,
   connection: SDKConnectionInterface,
-  useCloudProxy: boolean = false
+  useCloudProxy: boolean = false,
 ) {
   if (!connectionSupportsProxyUpdate(connection, useCloudProxy)) return;
 
@@ -165,7 +165,7 @@ export async function queueSingleProxyUpdate(
 
 export async function queueProxyUpdate(
   context: ReqContext | ApiReqContext,
-  payloadKeys: SDKPayloadKey[]
+  payloadKeys: SDKPayloadKey[],
 ) {
   if (!CRON_ENABLED) return;
   if (!payloadKeys.length) return;
@@ -183,7 +183,7 @@ export async function queueProxyUpdate(
         (key) =>
           key.environment === connection.environment &&
           (!connection.projects.length ||
-            connection.projects.includes(key.project))
+            connection.projects.includes(key.project)),
       )
     ) {
       continue;
@@ -200,7 +200,7 @@ export async function queueProxyUpdate(
 
 function connectionSupportsProxyUpdate(
   connection: SDKConnectionInterface,
-  useCloudProxy: boolean
+  useCloudProxy: boolean,
 ) {
   if (useCloudProxy) {
     return IS_CLOUD;
@@ -233,7 +233,7 @@ async function fireProxyWebhook({
     {
       maxContentSize: 500,
       maxTimeMs: 5000,
-    }
+    },
   );
 
   return res;

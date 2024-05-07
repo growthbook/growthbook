@@ -20,5 +20,5 @@ export const deleteMetricHandler = createApiRequestHandler(getMetricValidator)(
     return {
       deletedId: req.params.id,
     };
-  }
+  },
 );

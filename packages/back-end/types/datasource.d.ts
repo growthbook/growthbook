@@ -72,11 +72,11 @@ export interface SchemaInterface {
   getExperimentSQL(
     tablePrefix: string,
     userId: string,
-    options?: Record<string, string | number>
+    options?: Record<string, string | number>,
   ): string;
   getIdentitySQL(
     tablePrefix: string,
-    options?: Record<string, string | number>
+    options?: Record<string, string | number>,
   ): IdentityJoinQuery[];
   experimentDimensions: string[];
   userIdTypes: string[];

@@ -37,15 +37,15 @@ export async function getLicenseMetaData() {
       new Set(
         (await findAllSDKConnections())
           .map((connection) => connection.languages)
-          .flat()
-      )
+          .flat(),
+      ),
     );
 
     const dataSources = await getInstallationDatasources();
     dataSourceTypes = Array.from(new Set(dataSources.map((ds) => ds.type)));
 
     eventTrackers = Array.from(
-      new Set(dataSources.map((ds) => ds.settings?.schemaFormat ?? "custom"))
+      new Set(dataSources.map((ds) => ds.settings?.schemaFormat ?? "custom")),
     );
   }
 
@@ -62,7 +62,7 @@ export async function getLicenseMetaData() {
 
 export async function initializeLicenseForOrg(
   org?: OrganizationInterface,
-  forceRefresh = false
+  forceRefresh = false,
 ) {
   const key = org?.licenseKey || process.env.LICENSE_KEY;
 
@@ -75,7 +75,7 @@ export async function initializeLicenseForOrg(
     if (IS_CLOUD && org) {
       const memberIds = org.members.map((member) => member.id);
       const memberEmails = (await getUsersByIds(memberIds)).map(
-        (user) => user.email
+        (user) => user.email,
       );
       const inviteEmails = org.invites.map((invite) => invite.email);
       const membersAndInviteEmails = memberEmails.concat(inviteEmails);
@@ -106,7 +106,7 @@ export async function initializeLicenseForOrg(
       const userEmailCodes = await Promise.all(
         users.map(async (user) => {
           return md5(user.email).slice(0, 8);
-        })
+        }),
       );
 
       const inviteEmails = await getAllInviteEmailsInDb();
@@ -115,7 +115,7 @@ export async function initializeLicenseForOrg(
       });
 
       userLicenseCodes = Array.from(
-        new Set(userEmailCodes.concat(inviteEmailCodes))
+        new Set(userEmailCodes.concat(inviteEmailCodes)),
       );
     }
 

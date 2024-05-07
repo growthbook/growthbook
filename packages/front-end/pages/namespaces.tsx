@@ -16,7 +16,7 @@ export type NamespaceApiResponse = {
 
 const NamespacesPage: FC = () => {
   const { data, error } = useApi<NamespaceApiResponse>(
-    `/organization/namespaces`
+    `/organization/namespaces`,
   );
 
   const permissionsUtil = usePermissionsUtil();

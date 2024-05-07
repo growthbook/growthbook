@@ -50,7 +50,7 @@ describe("async queue", () => {
       [string, TaskResult<MyMockResultType>]
     >((taskId, result) => {
       console.log(
-        `task '${taskId}' completed with result: '${JSON.stringify(result)}'`
+        `task '${taskId}' completed with result: '${JSON.stringify(result)}'`,
       );
     });
 
@@ -159,7 +159,7 @@ describe("async queue", () => {
         [string, TaskResult<MyMockResultType>]
       >((taskId, result) => {
         console.log(
-          `task '${taskId}' completed with result: '${JSON.stringify(result)}'`
+          `task '${taskId}' completed with result: '${JSON.stringify(result)}'`,
         );
       });
 
@@ -172,7 +172,7 @@ describe("async queue", () => {
         {
           retryCount: 2,
           delayMs: 100,
-        }
+        },
       );
 
       // correct results
@@ -271,7 +271,7 @@ describe("async queue", () => {
         [string, TaskResult<MyMockResultType>]
       >((taskId, result) => {
         console.log(
-          `task '${taskId}' completed with result: '${JSON.stringify(result)}'`
+          `task '${taskId}' completed with result: '${JSON.stringify(result)}'`,
         );
       });
 
@@ -284,7 +284,7 @@ describe("async queue", () => {
         {
           retryCount: 3,
           delayMs: 100,
-        }
+        },
       );
 
       expect(result.completed).toEqual([

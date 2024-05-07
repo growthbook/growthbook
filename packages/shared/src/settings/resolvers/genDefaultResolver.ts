@@ -16,7 +16,7 @@ export default function genDefaultResolver(
     | undefined = {},
   options?: {
     bypassEmpty?: boolean;
-  }
+  },
 ): SettingsResolver<Settings[keyof Settings]> {
   const filteredScopes = scopeOrder
     .filter((s) => scopesToApply?.[s])
@@ -50,7 +50,7 @@ export default function genDefaultResolver(
           scopeApplied: "organization",
           reason: "org-level setting applied",
         },
-      }
+      },
     );
   };
 }

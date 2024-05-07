@@ -82,7 +82,7 @@ export default function ResultsDownloadButton({
           const { relativeRisk } = getRiskByVariation(
             index,
             row,
-            metricDefaults
+            metricDefaults,
           );
           csvRows.push({
             ...(dimensionName && { [dimensionName]: result.name }),

@@ -10,9 +10,8 @@ const EditDOMMutatonsModal: FC<{
   close: () => void;
   onSave: (newVisualChange: VisualChange) => void;
 }> = ({ experiment, close, visualChange, onSave }) => {
-  const [newVisualChange, setNewVisualChange] = useState<VisualChange>(
-    visualChange
-  );
+  const [newVisualChange, setNewVisualChange] =
+    useState<VisualChange>(visualChange);
 
   const deleteCustomJS = useCallback(() => {
     setNewVisualChange({
@@ -33,11 +32,11 @@ const EditDOMMutatonsModal: FC<{
       setNewVisualChange({
         ...newVisualChange,
         domMutations: newVisualChange.domMutations.filter(
-          (_m, i) => i !== index
+          (_m, i) => i !== index,
         ),
       });
     },
-    [newVisualChange, setNewVisualChange]
+    [newVisualChange, setNewVisualChange],
   );
 
   const onSubmit = () => {

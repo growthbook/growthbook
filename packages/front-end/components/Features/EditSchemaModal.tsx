@@ -48,14 +48,14 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
           }
         } catch (e) {
           throw new Error(
-            `The JSON Schema is invalid. Please check it and try again. Validator error: "${e.message}"`
+            `The JSON Schema is invalid. Please check it and try again. Validator error: "${e.message}"`,
           );
         }
 
         if (schemaString !== value.schema) {
           form.setValue("schema", schemaString);
           throw new Error(
-            "We fixed some errors in the schema. If it looks correct, save again."
+            "We fixed some errors in the schema. If it looks correct, save again.",
           );
         }
 

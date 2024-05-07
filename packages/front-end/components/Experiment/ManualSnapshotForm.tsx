@@ -156,7 +156,7 @@ const ManualSnapshotForm: FC<{
       "create",
       "ManualSnapshotForm",
       getDatasourceById(experiment.datasource)?.type || null,
-      res.snapshot
+      res.snapshot,
     );
 
     success();
@@ -196,8 +196,8 @@ const ManualSnapshotForm: FC<{
             m.type === "binomial"
               ? "Conversions"
               : isRatio(m)
-              ? "Denominator"
-              : "Included Users";
+                ? "Denominator"
+                : "Included Users";
           return (
             <div className="mb-3" key={m.id}>
               <h4>{m.name}</h4>
@@ -238,7 +238,7 @@ const ManualSnapshotForm: FC<{
                           {values.users[i] > 0 &&
                             values.metrics[m.id][i].count > 0 &&
                             getMetricFormatter(m.type)(
-                              values.metrics[m.id][i].count / values.users[i]
+                              values.metrics[m.id][i].count / values.users[i],
                             )}
                         </td>
                       ) : (

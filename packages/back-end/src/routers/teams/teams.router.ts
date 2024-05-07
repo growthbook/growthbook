@@ -33,7 +33,7 @@ router.post(
       })
       .strict(),
   }),
-  teamController.postTeam
+  teamController.postTeam,
 );
 
 router.put(
@@ -53,7 +53,7 @@ router.put(
       })
       .strict(),
   }),
-  teamController.updateTeam
+  teamController.updateTeam,
 );
 
 router.delete("/:id", teamController.deleteTeamById);

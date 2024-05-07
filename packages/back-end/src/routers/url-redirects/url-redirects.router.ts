@@ -19,7 +19,7 @@ router.post(
   validateRequestMiddleware({
     body: createUrlRedirectValidator,
   }),
-  urlRedirectController.postURLRedirect
+  urlRedirectController.postURLRedirect,
 );
 
 router.put(
@@ -28,7 +28,7 @@ router.put(
     params: idParamValidator,
     body: updateUrlRedirectValidator,
   }),
-  urlRedirectController.putURLRedirect
+  urlRedirectController.putURLRedirect,
 );
 
 router.delete(
@@ -36,7 +36,7 @@ router.delete(
   validateRequestMiddleware({
     params: idParamValidator,
   }),
-  urlRedirectController.deleteURLRedirect
+  urlRedirectController.deleteURLRedirect,
 );
 
 export { router as urlRedirectRouter };

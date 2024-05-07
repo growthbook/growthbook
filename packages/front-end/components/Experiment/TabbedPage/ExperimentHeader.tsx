@@ -132,7 +132,7 @@ export default function ExperimentHeader({
   const [showStartExperiment, setShowStartExperiment] = useState(false);
 
   const hasUpdatePermissions = permissionsUtil.canViewExperimentModal(
-    experiment.project
+    experiment.project,
   );
   const canDeleteExperiment = permissionsUtil.canDeleteExperiment(experiment);
   const canEditExperiment = !experiment.archived && hasUpdatePermissions;
@@ -433,7 +433,7 @@ export default function ExperimentHeader({
                           `/experiment/${experiment.id}/unarchive`,
                           {
                             method: "POST",
-                          }
+                          },
                         );
                         mutate();
                       } catch (e) {
@@ -464,7 +464,7 @@ export default function ExperimentHeader({
                         {
                           method: "DELETE",
                           body: JSON.stringify({ id: experiment.id }),
-                        }
+                        },
                       );
                       router.push("/experiments");
                     }}
@@ -481,7 +481,7 @@ export default function ExperimentHeader({
           "experiment-tabs bg-white px-3 border-bottom d-print-none",
           {
             pinned: headerPinned,
-          }
+          },
         )}
       >
         <div className="container-fluid pagecontents position-relative">

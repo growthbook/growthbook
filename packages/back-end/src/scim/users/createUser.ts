@@ -30,7 +30,7 @@ export function isRoleValid(role: MemberRole) {
 
 export async function createUser(
   req: ScimUserPostRequest,
-  res: Response<ScimUser | ScimError>
+  res: Response<ScimUser | ScimError>,
 ) {
   const { externalId, displayName, userName, growthbookRole } = req.body;
 
@@ -45,7 +45,7 @@ export async function createUser(
 
   const expandedMembers = await expandOrgMembers(org.members);
   const existingOrgMember = expandedMembers.find(
-    (member) => member.email === userName
+    (member) => member.email === userName,
   );
 
   const responseObj = cloneDeep(req.body);

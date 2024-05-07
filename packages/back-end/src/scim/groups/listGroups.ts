@@ -8,7 +8,7 @@ import { teamtoScimGroup } from "./getGroup";
 
 export async function listGroups(
   req: ScimListRequest,
-  res: Response
+  res: Response,
 ): Promise<Response<ScimListResponse>> {
   const { startIndex, count, filter: filterQuery } = req.query;
 
@@ -25,7 +25,7 @@ export async function listGroups(
 
   const hydratedGroups = groups.map((group) => {
     const members = expandedMembers.filter((member) =>
-      member.teams?.includes(group.id)
+      member.teams?.includes(group.id),
     );
     return {
       ...group,
@@ -47,7 +47,7 @@ export async function listGroups(
 
   const resources = filteredGroups.slice(
     correctedStartIndex,
-    correctedStartIndex + queryOptions.count
+    correctedStartIndex + queryOptions.count,
   );
 
   return res.status(200).json({

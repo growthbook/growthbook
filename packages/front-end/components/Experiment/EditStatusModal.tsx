@@ -59,21 +59,22 @@ export default function EditStatusModal({ experiment, close, mutate }: Props) {
         }}
         value={form.watch("status")}
       />
-      {form.watch("status") === "stopped" && experiment.status === "running" && (
-        <>
-          <Field
-            label="Reason for stopping the test"
-            textarea
-            {...form.register("reason")}
-            placeholder="(optional)"
-          />
-          <Field
-            label="Stop Time (UTC)"
-            type="datetime-local"
-            {...form.register("dateEnded")}
-          />
-        </>
-      )}
+      {form.watch("status") === "stopped" &&
+        experiment.status === "running" && (
+          <>
+            <Field
+              label="Reason for stopping the test"
+              textarea
+              {...form.register("reason")}
+              placeholder="(optional)"
+            />
+            <Field
+              label="Stop Time (UTC)"
+              type="datetime-local"
+              {...form.register("dateEnded")}
+            />
+          </>
+        )}
     </Modal>
   );
 }

@@ -60,10 +60,10 @@ const TagsInput: FC<{
         backgroundColor: isDisabled
           ? undefined
           : isSelected
-          ? displayColor + "20"
-          : isFocused
-          ? displayColor + "25"
-          : displayColor + "00",
+            ? displayColor + "20"
+            : isFocused
+              ? displayColor + "25"
+              : displayColor + "00",
         color: isDisabled ? "#ccc" : "#000",
         cursor: isDisabled ? "not-allowed" : "default",
         alignItems: "center",

@@ -32,7 +32,7 @@ const toInterface = (doc: WatchDocument): WatchInterface => {
 
 export async function getWatchedByUser(
   organization: string,
-  userId: string
+  userId: string,
 ): Promise<WatchInterface | null> {
   const watchDoc = await WatchModel.findOne({
     userId,
@@ -43,7 +43,7 @@ export async function getWatchedByUser(
 
 export async function getExperimentWatchers(
   experimentId: string,
-  organization: string
+  organization: string,
 ): Promise<WatchInterface[]> {
   const watchers = await WatchModel.find({
     experiments: experimentId,
@@ -70,7 +70,7 @@ export async function upsertWatch({
     },
     {
       upsert: true,
-    }
+    },
   );
 }
 
@@ -89,6 +89,6 @@ export async function deleteWatchedByEntity({
       $pull: {
         [type]: item,
       },
-    }
+    },
   );
 }

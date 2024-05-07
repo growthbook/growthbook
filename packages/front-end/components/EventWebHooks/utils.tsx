@@ -95,7 +95,7 @@ export type EventWebHookModalMode =
  * @param state
  */
 export const useIconForState = (
-  state: "none" | "success" | "error"
+  state: "none" | "success" | "error",
 ): ReactNode =>
   useMemo(() => {
     switch (state) {

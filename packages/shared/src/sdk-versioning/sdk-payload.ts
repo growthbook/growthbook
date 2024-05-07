@@ -37,7 +37,7 @@ const prerequisiteKeys = ["parentConditions"];
 
 export const scrubFeatures = (
   features: Record<string, FeatureDefinitionWithProject>,
-  capabilities: SDKCapability[]
+  capabilities: SDKCapability[],
 ): Record<string, FeatureDefinitionWithProject> => {
   const allowedFeatureKeys = [...strictFeatureKeys];
   const allowedFeatureRuleKeys = [...strictFeatureRuleKeys];
@@ -61,7 +61,7 @@ export const scrubFeatures = (
       // delete feature
       if (
         newFeatures[k]?.rules?.some((rule) =>
-          rule?.parentConditions?.some((pc) => !!pc.gate)
+          rule?.parentConditions?.some((pc) => !!pc.gate),
         )
       ) {
         delete newFeatures[k];
@@ -69,7 +69,7 @@ export const scrubFeatures = (
       }
       // delete rules
       newFeatures[k].rules = newFeatures[k].rules?.filter(
-        (rule) => (rule.parentConditions?.length ?? 0) === 0
+        (rule) => (rule.parentConditions?.length ?? 0) === 0,
       );
     }
   }
@@ -81,7 +81,7 @@ export const scrubFeatures = (
   for (const k in newFeatures) {
     newFeatures[k] = pick(
       newFeatures[k],
-      allowedFeatureKeys
+      allowedFeatureKeys,
     ) as FeatureDefinitionWithProject;
     if (newFeatures[k]?.rules) {
       newFeatures[k].rules = newFeatures[k].rules?.map((rule) => {
@@ -98,7 +98,7 @@ export const scrubFeatures = (
 
 export const scrubExperiments = (
   experiments: AutoExperimentWithProject[],
-  capabilities: SDKCapability[]
+  capabilities: SDKCapability[],
 ): AutoExperimentWithProject[] => {
   const removedExperimentKeys: string[] = [];
   const supportsPrerequisites = capabilities.includes("prerequisites");
@@ -127,7 +127,7 @@ export const scrubExperiments = (
       // Scrub fields from the experiment
       experiment = omit(
         experiment,
-        removedExperimentKeys
+        removedExperimentKeys,
       ) as AutoExperimentWithProject;
     }
 

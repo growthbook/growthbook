@@ -61,17 +61,16 @@ const NewDataSourceForm: FC<{
   const [step, setStep] = useState(0);
   const [schema, setSchema] = useState("");
   const [dataSourceId, setDataSourceId] = useState<string | null>(
-    data?.id || null
+    data?.id || null,
   );
   const [possibleTypes, setPossibleTypes] = useState(
-    dataSourceConnections.map((d) => d.type)
+    dataSourceConnections.map((d) => d.type),
   );
 
   const permissionsUtil = usePermissionsUtil();
 
-  const [datasource, setDatasource] = useState<
-    Partial<DataSourceInterfaceWithParams>
-  >(data);
+  const [datasource, setDatasource] =
+    useState<Partial<DataSourceInterfaceWithParams>>(data);
   const [lastError, setLastError] = useState("");
   const DEFAULT_DATA_SOURCE: Partial<DataSourceInterfaceWithParams> = {
     name: "My Datasource",
@@ -143,7 +142,7 @@ const NewDataSourceForm: FC<{
       !isDemoDatasourceProject({
         projectId: p.id,
         organizationId: orgId || "",
-      })
+      }),
   );
 
   if (!datasource) {
@@ -174,7 +173,7 @@ const NewDataSourceForm: FC<{
           {
             method: "PUT",
             body: JSON.stringify(datasource),
-          }
+          },
         );
         track("Updating Datasource Form", {
           source,
@@ -195,7 +194,7 @@ const NewDataSourceForm: FC<{
               selectedSchema.value,
               // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'PostgresConnectionParams | Athen... Remove this comment to see the full error message
               datasource.params,
-              form.watch("settings.schemaOptions")
+              form.watch("settings.schemaOptions"),
             ),
             ...(datasource.settings || {}),
           },
@@ -212,7 +211,7 @@ const NewDataSourceForm: FC<{
         });
         setDataSourceId(res.id);
         setDatasource(
-          updatedDatasource as Partial<DataSourceInterfaceWithParams>
+          updatedDatasource as Partial<DataSourceInterfaceWithParams>,
         );
         return res.id;
       }
@@ -233,7 +232,7 @@ const NewDataSourceForm: FC<{
       selectedSchema.value,
       // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'PostgresConnectionParams | Athen... Remove this comment to see the full error message
       datasource.params,
-      form.watch("settings.schemaOptions")
+      form.watch("settings.schemaOptions"),
     );
     if (!dataSourceId) {
       throw new Error("Could not find existing data source id");
@@ -253,7 +252,7 @@ const NewDataSourceForm: FC<{
       {
         method: "PUT",
         body: JSON.stringify(newVal),
-      }
+      },
     );
     track("Saving Datasource Query Settings", {
       source,
@@ -264,7 +263,7 @@ const NewDataSourceForm: FC<{
   };
 
   const onChange: ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement> = (
-    e
+    e,
   ) => {
     setDatasource({
       ...datasource,
@@ -373,7 +372,7 @@ const NewDataSourceForm: FC<{
             <div
               className={clsx(
                 styles.ctaContainer,
-                !showImportSampleData && "w-50"
+                !showImportSampleData && "w-50",
               )}
               onClick={() => setStep(1)}
             >
@@ -390,7 +389,7 @@ const NewDataSourceForm: FC<{
             <div
               className={clsx(
                 styles.ctaContainer,
-                !showImportSampleData && "w-50"
+                !showImportSampleData && "w-50",
               )}
               onClick={(e) => {
                 e.preventDefault();
@@ -506,7 +505,7 @@ const NewDataSourceForm: FC<{
           value={datasource.type}
           onChange={(value) => {
             const option = dataSourceConnections.filter(
-              (o) => o.type === value
+              (o) => o.type === value,
             )[0];
             if (!option) return;
 
@@ -611,7 +610,7 @@ const NewDataSourceForm: FC<{
                 onChange={(e) => {
                   form.setValue(
                     `settings.schemaOptions.${name}`,
-                    e.target.value
+                    e.target.value,
                   );
                 }}
                 helpText={helpText}

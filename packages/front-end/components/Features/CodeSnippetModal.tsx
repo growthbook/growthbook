@@ -37,7 +37,7 @@ function trimTrailingSlash(str: string): string {
 export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
   if (connection && connection.proxy.enabled && connection.proxy.host) {
     return trimTrailingSlash(
-      connection.proxy.hostExternal || connection.proxy.host
+      connection.proxy.hostExternal || connection.proxy.host,
     );
   }
 
@@ -74,7 +74,7 @@ export default function CodeSnippetModal({
 
   useEffect(() => {
     setCurrentConnectionId(
-      currentConnectionId || sdkConnection?.id || connections?.[0]?.id || ""
+      currentConnectionId || sdkConnection?.id || connections?.[0]?.id || "",
     );
   }, [connections]);
 
@@ -85,7 +85,7 @@ export default function CodeSnippetModal({
 
   const [language, setLanguage] = useState<SDKLanguage>("javascript");
   const [version, setVersion] = useState<string>(
-    getLatestSDKVersion("javascript")
+    getLatestSDKVersion("javascript"),
   );
 
   const [configOpen, setConfigOpen] = useState(true);
@@ -126,7 +126,7 @@ export default function CodeSnippetModal({
   const hashSecureAttributes = !!currentConnection.hashSecureAttributes;
   const secureAttributes =
     attributeSchema?.filter((a) =>
-      ["secureString", "secureString[]"].includes(a.datatype)
+      ["secureString", "secureString[]"].includes(a.datatype),
     ) || [];
   const secureAttributeSalt = settings.secureAttributeSalt ?? "";
   const remoteEvalEnabled = !!currentConnection.remoteEvalEnabled;
@@ -177,11 +177,11 @@ export default function CodeSnippetModal({
                 setShowTestModal(true);
               }
             : submit
-            ? async () => {
-                submit();
-                close && close();
-              }
-            : undefined
+              ? async () => {
+                  submit();
+                  close && close();
+                }
+              : undefined
         }
         cta={cta}
       >

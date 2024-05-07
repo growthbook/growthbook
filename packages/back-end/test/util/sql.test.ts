@@ -18,10 +18,10 @@ describe("backend", () => {
       expect(
         compileSqlTemplate(
           `SELECT '{{ startDate }}' as full, '{{startYear}}' as year, '{{ startMonth}}' as month, '{{startDay }}' as day`,
-          { startDate, endDate }
-        )
+          { startDate, endDate },
+        ),
       ).toEqual(
-        "SELECT '2021-01-05 10:20:15' as full, '2021' as year, '01' as month, '05' as day"
+        "SELECT '2021-01-05 10:20:15' as full, '2021' as year, '01' as month, '05' as day",
       );
     });
 
@@ -33,8 +33,8 @@ describe("backend", () => {
             startDate,
             endDate,
             templateVariables: { eventName: "purchase", valueColumn: "amount" },
-          }
-        )
+          },
+        ),
       ).toEqual("SELECT amount as value from db.purchase");
     });
 
@@ -45,7 +45,7 @@ describe("backend", () => {
           endDate,
         });
       }).toThrowError(
-        "Error compiling SQL template: You must set eventName first."
+        "Error compiling SQL template: You must set eventName first.",
       );
     });
 
@@ -56,7 +56,7 @@ describe("backend", () => {
           endDate,
         });
       }).toThrowError(
-        "Error compiling SQL template: You must set valueColumn first."
+        "Error compiling SQL template: You must set valueColumn first.",
       );
     });
 
@@ -67,7 +67,7 @@ describe("backend", () => {
           endDate,
         });
       }).toThrowError(
-        "Unknown variable: unknown. Available variables: startDateUnix, startDateISO, startDate, startYear, startMonth, startDay, endDateUnix, endDateISO, endDate, endYear, endMonth, endDay, experimentId"
+        "Unknown variable: unknown. Available variables: startDateUnix, startDateISO, startDate, startYear, startMonth, startDay, endDateUnix, endDateISO, endDate, endYear, endMonth, endDay, experimentId",
       );
     });
 
@@ -76,7 +76,7 @@ describe("backend", () => {
         compileSqlTemplate(`SELECT {{lowercase "HELLO"}}`, {
           startDate,
           endDate,
-        })
+        }),
       ).toEqual("SELECT hello");
     });
 
@@ -96,8 +96,8 @@ describe("backend", () => {
           {
             startDate,
             endDate,
-          }
-        )
+          },
+        ),
       ).toEqual("SELECT 10 as hour, UTC as tz");
     });
 
@@ -105,10 +105,10 @@ describe("backend", () => {
       expect(
         compileSqlTemplate(
           `SELECT '{{ endDate }}' as full, '{{endYear}}' as year, '{{ endMonth}}' as month, '{{endDay }}' as day`,
-          { startDate, endDate }
-        )
+          { startDate, endDate },
+        ),
       ).toEqual(
-        "SELECT '2022-02-09 11:30:12' as full, '2022' as year, '02' as month, '09' as day"
+        "SELECT '2022-02-09 11:30:12' as full, '2022' as year, '02' as month, '09' as day",
       );
     });
 
@@ -119,8 +119,8 @@ describe("backend", () => {
           {
             startDate,
             endDate,
-          }
-        )
+          },
+        ),
       ).toEqual(`time > 1609842015 && time < 1644406212`);
     });
 
@@ -129,7 +129,7 @@ describe("backend", () => {
         compileSqlTemplate(`SELECT * WHERE expid LIKE '{{experimentId}}'`, {
           startDate,
           endDate,
-        })
+        }),
       ).toEqual(`SELECT * WHERE expid LIKE '%'`);
     });
 
@@ -139,7 +139,7 @@ describe("backend", () => {
           startDate,
           endDate,
           experimentId,
-        })
+        }),
       ).toEqual(`SELECT * WHERE expid LIKE 'my-experiment'`);
     });
   });
@@ -154,7 +154,7 @@ describe("backend", () => {
 
     it("correctly determines when no joins are required", () => {
       expect(
-        getBaseIdTypeAndJoins([["anonymous_id"], ["user_id", "anonymous_id"]])
+        getBaseIdTypeAndJoins([["anonymous_id"], ["user_id", "anonymous_id"]]),
       ).toEqual({
         baseIdType: "anonymous_id",
         joinsRequired: [],
@@ -168,7 +168,7 @@ describe("backend", () => {
           ["id2", "id3", "id4", "id5"],
           ["id3", "id4"],
           ["id4", "id5"],
-        ])
+        ]),
       ).toEqual({
         baseIdType: "id4",
         joinsRequired: [],
@@ -180,8 +180,8 @@ describe("backend", () => {
         getBaseIdTypeAndJoins([
           ["user_id"],
           [],
-          ([null, null, null] as unknown) as string[],
-        ])
+          [null, null, null] as unknown as string[],
+        ]),
       ).toEqual({
         baseIdType: "user_id",
         joinsRequired: [],
@@ -196,7 +196,7 @@ describe("backend", () => {
           ["id4", "id5"],
           ["id6", "id7"],
           ["id8"],
-        ])
+        ]),
       ).toEqual({
         baseIdType: "id2",
         joinsRequired: ["id8", "id4", "id6"],
@@ -213,7 +213,7 @@ describe("backend", () => {
           // to make id 1 most common
           ["id1", "id8"],
           ["id1", "id9"],
-        ])
+        ]),
       ).toEqual({
         baseIdType: "id1",
         joinsRequired: ["id3"],
@@ -224,8 +224,8 @@ describe("backend", () => {
       expect(
         getBaseIdTypeAndJoins(
           [["anonymous_id"], ["user_id"], ["user_id"]],
-          "anonymous_id"
-        )
+          "anonymous_id",
+        ),
       ).toEqual({
         baseIdType: "anonymous_id",
         joinsRequired: ["user_id"],
@@ -244,7 +244,7 @@ describe("backend", () => {
           e: { denominator: "c" },
           f: { denominator: "f" },
           g: { denominator: "h" },
-        })
+        }),
       );
 
       expect(expandDenominatorMetrics("a", metricMap)).toEqual(["b", "a"]);
@@ -268,7 +268,7 @@ describe("backend", () => {
     it("formats SQL correctly when a redshift is selected", () => {
       const inputSQL = `SELECT * FROM mytable`;
       expect(format(inputSQL, "redshift")).toEqual(
-        `SELECT\n  *\nFROM\n  mytable`
+        `SELECT\n  *\nFROM\n  mytable`,
       );
     });
 
@@ -283,14 +283,14 @@ from
       input => parse_json('{"a":1, "b":[77,88]}'),
       outer => true
     )
-  ) f`
+  ) f`,
       );
     });
 
     it("formats correctly when using Athena lambda syntax (->)", () => {
       const inputSQL = `SELECT transform(numbers, n -> n * n) as sq`;
       expect(format(inputSQL, "trino")).toEqual(
-        `SELECT\n  transform(numbers, n -> n * n) as sq`
+        `SELECT\n  transform(numbers, n -> n * n) as sq`,
       );
     });
 
@@ -304,7 +304,7 @@ from
   '{"a":[1,2,3],"b":[4,5,6]}'::json #>> '{a,2}' as a,
   '{"a":1,"b":2}'::json ->> 'b' as b,
   '{"a":1, "b":2}'::jsonb @> '{"b":2}'::jsonb as c,
-  '["a", {"b":1}]'::jsonb #- '{1,b}' as d`
+  '["a", {"b":1}]'::jsonb #- '{1,b}' as d`,
       );
     });
 
@@ -317,31 +317,31 @@ from
   describe("replaceCountStar", () => {
     it("can handle mixed casing", () => {
       expect(replaceCountStar("COuNt(*)", "m.user_id")).toEqual(
-        "COUNT(m.user_id)"
+        "COUNT(m.user_id)",
       );
     });
 
     it("can handle spaces around the star", () => {
       expect(replaceCountStar("count( * )", "m.user_id")).toEqual(
-        "COUNT(m.user_id)"
+        "COUNT(m.user_id)",
       );
     });
 
     it("can replace it anywhere in an expression", () => {
       expect(replaceCountStar("SUM(value) / COUNT( * )", "m.user_id")).toEqual(
-        "SUM(value) / COUNT(m.user_id)"
+        "SUM(value) / COUNT(m.user_id)",
       );
     });
 
     it("ignores COUNT that is not a count of *", () => {
       expect(replaceCountStar("COUNT(value)", "m.user_id")).toEqual(
-        "COUNT(value)"
+        "COUNT(value)",
       );
     });
 
     it("replaces multiple occurrences", () => {
       expect(
-        replaceCountStar("SUM(value) / COUNT( * ) + COUNT(*)", "m.user_id")
+        replaceCountStar("SUM(value) / COUNT( * ) + COUNT(*)", "m.user_id"),
       ).toEqual("SUM(value) / COUNT(m.user_id) + COUNT(m.user_id)");
     });
   });
@@ -359,7 +359,7 @@ from
             other: ["testing"],
             empty: null,
           },
-        ])
+        ]),
       ).toEqual([
         { column: "num", datatype: "number" },
         { column: "str", datatype: "string" },
@@ -379,7 +379,7 @@ from
           {
             col: 123,
           },
-        ])
+        ]),
       ).toEqual([{ column: "col", datatype: "number" }]);
     });
   });
@@ -389,12 +389,12 @@ describe("getHost", () => {
   it("works as expected", () => {
     expect(getHost("http://localhost", 8080)).toEqual("http://localhost:8080");
     expect(getHost("https://localhost", 8080)).toEqual(
-      "https://localhost:8080"
+      "https://localhost:8080",
     );
   });
   it("prefers port in url", () => {
     expect(getHost("http://localhost:8888", 8080)).toEqual(
-      "http://localhost:8888"
+      "http://localhost:8888",
     );
   });
   it("tries best if URL is malformed", () => {

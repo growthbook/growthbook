@@ -25,18 +25,14 @@ const SegmentForm: FC<{
 }> = ({ close, current }) => {
   const { apiCall } = useAuth();
   const { memberUsernameOptions } = useMembers();
-  const {
-    datasources,
-    getDatasourceById,
-    mutateDefinitions,
-    project,
-  } = useDefinitions();
+  const { datasources, getDatasourceById, mutateDefinitions, project } =
+    useDefinitions();
   const filteredDatasources = datasources
     .filter((d) => d.properties?.segments)
     .filter(
       (d) =>
         d.id === current.datasource ||
-        isProjectListValidForProject(d.projects, project)
+        isProjectListValidForProject(d.projects, project),
     );
   const form = useForm({
     defaultValues: {

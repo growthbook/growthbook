@@ -6,7 +6,7 @@ import { QueryResponse } from "../types/Integration";
 export function runPostgresQuery(
   conn: PostgresConnectionParams,
   sql: string,
-  values: string[] = []
+  values: string[] = [],
 ): Promise<QueryResponse> {
   return new Promise<QueryResponse>((resolve, reject) => {
     let ssl: false | ClientConfig["ssl"] = false;

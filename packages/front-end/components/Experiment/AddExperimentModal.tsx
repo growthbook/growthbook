@@ -29,7 +29,7 @@ const CreateExperimentCTA: FC<CTA> = ({
     <div
       className={clsx(
         styles.ctaContainer,
-        enabled ? styles.enabled : styles.disabled
+        enabled ? styles.enabled : styles.disabled,
       )}
       onClick={enabled ? onClick : undefined}
     >
@@ -56,7 +56,7 @@ const AddExperimentModal: FC<{
   const hasRunExperimentsPermission = permissions.check(
     "runExperiments",
     project,
-    []
+    [],
   );
 
   const [mode, setMode] = useState<"new" | "import" | null>(null);

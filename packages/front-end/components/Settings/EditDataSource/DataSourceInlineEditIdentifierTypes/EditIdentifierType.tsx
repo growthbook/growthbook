@@ -22,7 +22,7 @@ export const EditIdentifierType: FC<EditIdentifierTypeProps> = ({
   onCancel,
 }) => {
   const existingIds = (dataSource.settings?.userIdTypes || []).map(
-    (item) => item.userIdType
+    (item) => item.userIdType,
   );
 
   const form = useForm({

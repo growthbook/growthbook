@@ -21,7 +21,7 @@ const AceEditor = dynamic(
   },
   {
     ssr: false, // react-ace doesn't support server side rendering as it uses the window object.
-  }
+  },
 );
 
 export type Language = "sql" | "json" | "javascript" | "python" | "yml";
@@ -87,7 +87,7 @@ export default function CodeTextArea({
       {
         exec: onCtrlEnter,
         name: "ctrl-enter",
-      }
+      },
     );
   }, [editor, onCtrlEnter]);
 

@@ -64,7 +64,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       experimentsMap,
       ...props
     },
-    ref
+    ref,
   ) => {
     const { apiCall } = useAuth();
     const title =
@@ -189,7 +189,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         ruleIndex: i,
                         environment,
                         type: rule.type,
-                      }
+                      },
                     );
                     const res = await apiCall<{ version: number }>(
                       `/feature/${feature.id}/${version}/rule`,
@@ -203,7 +203,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           },
                           i,
                         }),
-                      }
+                      },
                     );
                     await mutate();
                     res.version && setVersion(res.version);
@@ -227,7 +227,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                               environment: en.id,
                               rule: { ...rule, id: "" },
                             }),
-                          }
+                          },
                         );
                         track("Clone Feature Rule", {
                           ruleIndex: i,
@@ -260,7 +260,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           environment,
                           i,
                         }),
-                      }
+                      },
                     );
                     await mutate();
                     res.version && setVersion(res.version);
@@ -307,7 +307,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               <ExperimentSummary
                 feature={feature}
                 experiment={Array.from(experimentsMap.values()).find(
-                  (exp) => exp.trackingKey === (rule.trackingKey || feature.id)
+                  (exp) => exp.trackingKey === (rule.trackingKey || feature.id),
                 )}
                 rule={rule}
               />
@@ -323,18 +323,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         </div>
       </div>
     );
-  }
+  },
 );
 
 export function SortableRule(props: SortableProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    active,
-  } = useSortable({ id: props.rule.id });
+  const { attributes, listeners, setNodeRef, transform, transition, active } =
+    useSortable({ id: props.rule.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),

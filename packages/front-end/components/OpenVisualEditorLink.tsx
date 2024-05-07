@@ -20,7 +20,7 @@ type OpenVisualEditorResponse =
 export async function openVisualEditor(
   vc: VisualChangesetInterface,
   apiCall: AuthContextValue["apiCall"],
-  bypassChecks: boolean = false
+  bypassChecks: boolean = false,
 ): Promise<null | OpenVisualEditorResponse> {
   let url = vc.editorUrl.trim();
   if (!url) {
@@ -39,7 +39,7 @@ export async function openVisualEditor(
 
   const apiHost = getApiHost();
   const { enabled: aiFeatureMeta } = await apiCall<{ enabled: boolean }>(
-    `/meta/ai`
+    `/meta/ai`,
   );
   const isAiFeatureEnabled = growthbook.isOn("visual-editor-ai-enabled");
 
@@ -65,7 +65,7 @@ export async function openVisualEditor(
     try {
       const res = await fetch(
         "chrome-extension://opemhndcehfgipokneipaafbglcecjia/js/logo192.png",
-        { method: "HEAD" }
+        { method: "HEAD" },
       );
       if (!res.ok) {
         throw new Error("Could not reach extension");
@@ -92,7 +92,7 @@ export async function openVisualEditor(
           apiKey,
         },
       },
-      window.location.origin
+      window.location.origin,
     );
 
     // Give time for the Chrome extension to receive the API host/key

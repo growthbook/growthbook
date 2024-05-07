@@ -7,19 +7,14 @@ import { createApiRequestHandler } from "../../util/handler";
 import { getSdkConnectionValidator } from "../../validators/openapi";
 
 export const getSdkConnection = createApiRequestHandler(
-  getSdkConnectionValidator
-)(
-  async (req): Promise<GetSdkConnectionResponse> => {
-    const sdkConnection = await findSDKConnectionById(
-      req.context,
-      req.params.id
-    );
-    if (!sdkConnection) {
-      throw new Error("Could not find sdkConnection with that id");
-    }
-
-    return {
-      sdkConnection: toApiSDKConnectionInterface(sdkConnection),
-    };
+  getSdkConnectionValidator,
+)(async (req): Promise<GetSdkConnectionResponse> => {
+  const sdkConnection = await findSDKConnectionById(req.context, req.params.id);
+  if (!sdkConnection) {
+    throw new Error("Could not find sdkConnection with that id");
   }
-);
+
+  return {
+    sdkConnection: toApiSDKConnectionInterface(sdkConnection),
+  };
+});

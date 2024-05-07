@@ -101,13 +101,13 @@ const UsersTable: FC<{
               <td>
                 {formatTrafficSplit(
                   variations.map((v) => v.weight),
-                  1
+                  1,
                 )}
               </td>
               <td>
                 {formatTrafficSplit(
                   variations.map((v, i) => r.variations[i]?.users || 0),
-                  1
+                  1,
                 )}
               </td>
               {r.srm < srmThreshold ? (

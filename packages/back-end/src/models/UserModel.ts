@@ -28,7 +28,7 @@ export async function markUserAsVerified(id: string) {
       $set: {
         verified: true,
       },
-    }
+    },
   );
 }
 
@@ -47,7 +47,7 @@ export async function deleteUser(id: string): Promise<void> {
 }
 
 export async function findVerifiedEmails(
-  emails: string[] | undefined
+  emails: string[] | undefined,
 ): Promise<string[]> {
   let users: UserDocument[] = [];
   if (emails) {
@@ -72,6 +72,6 @@ export async function resetMinTokenDate(userId: string) {
       $set: {
         minTokenDate: new Date(),
       },
-    }
+    },
   );
 }

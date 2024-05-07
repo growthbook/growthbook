@@ -42,7 +42,7 @@ const DiscussionThread: FC<{
   }
 
   const { data, error, mutate } = useApi<{ discussion: DiscussionInterface }>(
-    `/discussion/${type}/${id}`
+    `/discussion/${type}/${id}`,
   );
 
   if (error) {
@@ -109,7 +109,7 @@ const DiscussionThread: FC<{
                                   `/discussion/${type}/${id}/${i}`,
                                   {
                                     method: "DELETE",
-                                  }
+                                  },
                                 );
                                 mutate();
                               }}

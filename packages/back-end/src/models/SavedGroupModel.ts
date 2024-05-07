@@ -36,14 +36,14 @@ type SavedGroupDocument = mongoose.Document & LegacySavedGroupInterface;
 
 const SavedGroupModel = mongoose.model<LegacySavedGroupInterface>(
   "savedGroup",
-  savedGroupSchema
+  savedGroupSchema,
 );
 
 const toInterface = (doc: SavedGroupDocument): SavedGroupInterface => {
-  const legacy = omit(
-    doc.toJSON<SavedGroupDocument>({ flattenMaps: true }),
-    ["__v", "_id"]
-  );
+  const legacy = omit(doc.toJSON<SavedGroupDocument>({ flattenMaps: true }), [
+    "__v",
+    "_id",
+  ]);
 
   return migrateSavedGroup(legacy);
 };
@@ -59,7 +59,7 @@ export function parseSavedGroupString(list: string) {
 
 export async function createSavedGroup(
   organization: string,
-  group: CreateSavedGroupProps
+  group: CreateSavedGroupProps,
 ): Promise<SavedGroupInterface> {
   const newGroup = await SavedGroupModel.create({
     ...group,
@@ -72,7 +72,7 @@ export async function createSavedGroup(
 }
 
 export async function getAllSavedGroups(
-  organization: string
+  organization: string,
 ): Promise<SavedGroupInterface[]> {
   const savedGroups: SavedGroupDocument[] = await SavedGroupModel.find({
     organization,
@@ -82,7 +82,7 @@ export async function getAllSavedGroups(
 
 export async function getSavedGroupById(
   savedGroupId: string,
-  organization: string
+  organization: string,
 ): Promise<SavedGroupInterface | null> {
   const savedGroup = await SavedGroupModel.findOne({
     id: savedGroupId,
@@ -95,7 +95,7 @@ export async function getSavedGroupById(
 export async function updateSavedGroupById(
   savedGroupId: string,
   organization: string,
-  group: UpdateSavedGroupProps
+  group: UpdateSavedGroupProps,
 ): Promise<UpdateSavedGroupProps> {
   const changes = {
     ...group,
@@ -107,7 +107,7 @@ export async function updateSavedGroupById(
       id: savedGroupId,
       organization: organization,
     },
-    changes
+    changes,
   );
 
   return changes;
@@ -121,7 +121,7 @@ export async function deleteSavedGroupById(id: string, organization: string) {
 }
 
 export function toSavedGroupApiInterface(
-  savedGroup: SavedGroupInterface
+  savedGroup: SavedGroupInterface,
 ): ApiSavedGroup {
   return {
     id: savedGroup.id,

@@ -21,7 +21,7 @@ function getAthenaInstance(params: AthenaConnectionParams) {
 
 export async function cancelAthenaQuery(
   conn: AthenaConnectionParams,
-  id: string
+  id: string,
 ) {
   const athena = getAthenaInstance(conn);
   await athena
@@ -34,7 +34,7 @@ export async function cancelAthenaQuery(
 export async function runAthenaQuery(
   conn: AthenaConnectionParams,
   sql: string,
-  setExternalId: ExternalIdCallback
+  setExternalId: ExternalIdCallback,
 ): Promise<QueryResponse> {
   const athena = getAthenaInstance(conn);
 
@@ -85,7 +85,7 @@ export async function runAthenaQuery(
                 logger.debug(
                   `Athena query (${QueryExecutionId}) recovered from SlowDown error in ${
                     timeWaitingForFailure + delay
-                  }ms`
+                  }ms`,
                 );
               }
               timeWaitingForFailure = 0;
@@ -96,7 +96,7 @@ export async function runAthenaQuery(
               if (StateChangeReason?.includes("SlowDown")) {
                 if (timeWaitingForFailure === 0) {
                   logger.debug(
-                    `Athena query (${QueryExecutionId}) received SlowDown error, waiting up to ${retryWaitTime}ms for transition back to running`
+                    `Athena query (${QueryExecutionId}) received SlowDown error, waiting up to ${retryWaitTime}ms for transition back to running`,
                   );
                 }
 
@@ -104,7 +104,7 @@ export async function runAthenaQuery(
 
                 if (timeWaitingForFailure >= retryWaitTime) {
                   logger.debug(
-                    `Athena query (${QueryExecutionId}) received SlowDown error, has not recovered within ${timeWaitingForFailure}ms, failing query`
+                    `Athena query (${QueryExecutionId}) received SlowDown error, has not recovered within ${timeWaitingForFailure}ms, failing query`,
                   );
                   reject(new Error(StateChangeReason));
                 } else {

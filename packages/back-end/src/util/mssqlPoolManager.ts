@@ -4,7 +4,7 @@ const pools = new Map();
 
 export function findOrCreateConnection(
   name: string,
-  config: MssqlConnectionParams
+  config: MssqlConnectionParams,
 ) {
   if (!pools.has(name)) {
     const pool: mssql.ConnectionPool = new mssql.ConnectionPool(config);

@@ -39,7 +39,7 @@ const MemberList: FC<{
   const [roleModal, setRoleModal] = useState<string>("");
   const [passwordResetModal, setPasswordResetModal] = useState<ExpandedMember>(
     // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
-    null
+    null,
   );
   const { projects } = useDefinitions();
   const environments = useEnvironments();
@@ -57,7 +57,7 @@ const MemberList: FC<{
   const roleModalUser = users.get(roleModal);
 
   const members = Array.from(users).sort((a, b) =>
-    a[1].name.localeCompare(b[1].name)
+    a[1].name.localeCompare(b[1].name),
   );
 
   return (

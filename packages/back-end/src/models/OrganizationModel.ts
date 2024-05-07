@@ -125,7 +125,7 @@ type OrganizationDocument = mongoose.Document & OrganizationInterface;
 
 const OrganizationModel = mongoose.model<OrganizationInterface>(
   "Organization",
-  organizationSchema
+  organizationSchema,
 );
 
 function toInterface(doc: OrganizationDocument): OrganizationInterface {
@@ -202,7 +202,7 @@ export async function createOrganization({
 export async function findAllOrganizations(
   page: number,
   search: string,
-  limit: number = 50
+  limit: number = 50,
 ) {
   const regex = new RegExp(search, "i");
 
@@ -236,7 +236,7 @@ export async function findOrganizationById(id: string) {
 
 export async function updateOrganization(
   id: string,
-  update: Partial<OrganizationInterface>
+  update: Partial<OrganizationInterface>,
 ) {
   await OrganizationModel.updateOne(
     {
@@ -244,13 +244,13 @@ export async function updateOrganization(
     },
     {
       $set: update,
-    }
+    },
   );
 }
 
 export async function updateOrganizationByStripeId(
   stripeCustomerId: string,
-  update: Partial<OrganizationInterface>
+  update: Partial<OrganizationInterface>,
 ) {
   await OrganizationModel.updateOne(
     {
@@ -258,7 +258,7 @@ export async function updateOrganizationByStripeId(
     },
     {
       $set: update,
-    }
+    },
   );
 }
 
@@ -277,7 +277,7 @@ export async function getAllInviteEmailsInDb() {
 
   const organizations = await OrganizationModel.find(
     {},
-    { "invites.email": 1 }
+    { "invites.email": 1 },
   );
 
   const inviteEmails: string[] = organizations.reduce(
@@ -285,7 +285,7 @@ export async function getAllInviteEmailsInDb() {
       const orgEmails = organization.invites.map((invite) => invite.email);
       return emails.concat(orgEmails);
     },
-    []
+    [],
   );
 
   return inviteEmails;
@@ -346,7 +346,7 @@ export async function getOrganizationsWithNorthStars() {
 
 export async function removeProjectFromProjectRoles(
   project: string,
-  org: OrganizationInterface
+  org: OrganizationInterface,
 ) {
   if (!org) return;
 
@@ -385,7 +385,7 @@ export async function findOrganizationsByDomain(domain: string) {
 
 export async function setOrganizationMessages(
   orgId: string,
-  messages: OrganizationMessage[]
+  messages: OrganizationMessage[],
 ): Promise<void> {
   await OrganizationModel.updateOne(
     {
@@ -394,12 +394,12 @@ export async function setOrganizationMessages(
     { messages },
     {
       runValidators: true,
-    }
+    },
   );
 }
 
 export function toOrganizationApiInterface(
-  org: OrganizationInterface
+  org: OrganizationInterface,
 ): ApiOrganization {
   const { id, externalId, name, ownerEmail, dateCreated } = org;
   return {
@@ -414,7 +414,7 @@ export function toOrganizationApiInterface(
 export async function updateMember(
   org: OrganizationInterface,
   userId: string,
-  updates: Partial<Member>
+  updates: Partial<Member>,
 ) {
   if (updates.id) throw new Error("Cannot update member id");
 

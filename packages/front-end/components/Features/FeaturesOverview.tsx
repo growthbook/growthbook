@@ -171,14 +171,14 @@ export default function FeaturesOverview({
     if (!experiments) return new Map();
 
     return new Map<string, ExperimentInterfaceStringDates>(
-      experiments.map((exp) => [exp.id, exp])
+      experiments.map((exp) => [exp.id, exp]),
     );
   }, [experiments]);
 
   const mergeResult = useMemo(() => {
     if (!feature || !revision) return null;
     const baseRevision = revisions.find(
-      (r) => r.version === revision?.baseVersion
+      (r) => r.version === revision?.baseVersion,
     );
     const liveRevision = revisions.find((r) => r.version === feature.version);
     if (!revision || !baseRevision || !liveRevision) return null;
@@ -187,7 +187,7 @@ export default function FeaturesOverview({
       baseRevision,
       revision,
       environments.map((e) => e.id),
-      {}
+      {},
     );
   }, [revisions, revision, feature, environments]);
 
@@ -204,13 +204,13 @@ export default function FeaturesOverview({
           feature,
           featuresMap,
           env,
-          true
+          true,
         );
       });
       return states;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [feature, features, envsStr]
+    [feature, features, envsStr],
   );
 
   if (!baseFeature || !feature || !revision) {
@@ -221,15 +221,13 @@ export default function FeaturesOverview({
     prereqStates &&
     Object.values(prereqStates).some((s) => s.state === "conditional");
 
-  const hasPrerequisitesCommercialFeature = hasCommercialFeature(
-    "prerequisites"
-  );
+  const hasPrerequisitesCommercialFeature =
+    hasCommercialFeature("prerequisites");
 
   const currentVersion = version || baseFeature.version;
 
-  const { jsonSchema, validationEnabled, schemaDateUpdated } = getValidation(
-    feature
-  );
+  const { jsonSchema, validationEnabled, schemaDateUpdated } =
+    getValidation(feature);
   const baseVersion = revision?.baseVersion || feature.version;
   const baseRevision = revisions.find((r) => r.version === baseVersion);
   let requireReviews = false;
@@ -280,14 +278,14 @@ export default function FeaturesOverview({
       permissions.check(
         "publishFeatures",
         projectId,
-        getAffectedRevisionEnvs(feature, revision, environments)
+        getAffectedRevisionEnvs(feature, revision, environments),
       )) ||
     (isDraft &&
       !requireReviews &&
       permissions.check(
         "publishFeatures",
         projectId,
-        getAffectedRevisionEnvs(feature, revision, environments)
+        getAffectedRevisionEnvs(feature, revision, environments),
       ));
 
   const drafts = revisions.filter(
@@ -295,7 +293,7 @@ export default function FeaturesOverview({
       r.status === "draft" ||
       r.status === "pending-review" ||
       r.status === "changes-requested" ||
-      r.status === "approved"
+      r.status === "approved",
   );
   const isLocked =
     (revision.status === "published" || revision.status === "discarded") &&
@@ -829,7 +827,7 @@ export default function FeaturesOverview({
                             .filter(
                               (r) =>
                                 r.status === "published" &&
-                                r.version < feature.version
+                                r.version < feature.version,
                             )
                             .sort((a, b) => b.version - a.version)[0];
 
@@ -908,7 +906,7 @@ export default function FeaturesOverview({
                           href="#"
                           className={clsx(
                             "font-weight-bold",
-                            !revisionHasChanges ? "text-muted" : "text-purple"
+                            !revisionHasChanges ? "text-muted" : "text-purple",
                           )}
                           onClick={(e) => {
                             e.preventDefault();
@@ -927,8 +925,8 @@ export default function FeaturesOverview({
                           !revisionHasChanges
                             ? "Draft is identical to the live version. Make changes first before publishing"
                             : !hasDraftPublishPermission
-                            ? "You do not have permission to publish this draft."
-                            : ""
+                              ? "You do not have permission to publish this draft."
+                              : ""
                         }
                       >
                         <a
@@ -937,7 +935,7 @@ export default function FeaturesOverview({
                             "a font-weight-bold",
                             !hasDraftPublishPermission || !revisionHasChanges
                               ? "text-muted"
-                              : "link-purple"
+                              : "link-purple",
                           )}
                           onClick={(e) => {
                             e.preventDefault();
@@ -1305,7 +1303,7 @@ export default function FeaturesOverview({
             feature={baseFeature}
             revision={
               revisions.find(
-                (r) => r.version === revertIndex
+                (r) => r.version === revertIndex,
               ) as FeatureRevisionInterface
             }
             mutate={mutate}
@@ -1386,7 +1384,7 @@ export default function FeaturesOverview({
                   `/feature/${feature.id}/${revision.version}/discard`,
                   {
                     method: "POST",
-                  }
+                  },
                 );
               } catch (e) {
                 await mutate();

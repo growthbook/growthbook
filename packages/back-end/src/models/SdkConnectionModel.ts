@@ -71,7 +71,7 @@ type SDKConnectionDocument = mongoose.Document & SDKConnectionInterface;
 
 const SDKConnectionModel = mongoose.model<SDKConnectionInterface>(
   "SdkConnection",
-  sdkConnectionSchema
+  sdkConnectionSchema,
 );
 
 function addEnvProxySettings(proxy: ProxyConnection): ProxyConnection {
@@ -105,7 +105,7 @@ function toInterface(doc: SDKConnectionDocument): SDKConnectionInterface {
 
 export async function findSDKConnectionById(
   context: ReqContext | ApiReqContext,
-  id: string
+  id: string,
 ) {
   const doc = await SDKConnectionModel.findOne({
     id,
@@ -120,7 +120,7 @@ export async function findSDKConnectionById(
 }
 
 export async function findSDKConnectionsByOrganization(
-  context: ReqContext | ApiReqContext
+  context: ReqContext | ApiReqContext,
 ) {
   const docs = await SDKConnectionModel.find({
     organization: context.org.id,
@@ -128,7 +128,7 @@ export async function findSDKConnectionsByOrganization(
 
   const connections = docs.map(toInterface);
   return connections.filter((conn) =>
-    hasReadAccess(context.readAccessFilter, conn.projects || [])
+    hasReadAccess(context.readAccessFilter, conn.projects || []),
   );
 }
 
@@ -174,12 +174,8 @@ function generateSDKConnectionKey() {
 }
 
 export async function createSDKConnection(params: CreateSDKConnectionParams) {
-  const {
-    proxyEnabled,
-    proxyHost,
-    languages,
-    ...otherParams
-  } = createSDKConnectionValidator.parse(params);
+  const { proxyEnabled, proxyHost, languages, ...otherParams } =
+    createSDKConnectionValidator.parse(params);
 
   // TODO: if using a proxy, try to validate the connection
   const connection: SDKConnectionInterface = {
@@ -237,13 +233,10 @@ export const editSDKConnectionValidator = z
 export async function editSDKConnection(
   context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
-  updates: EditSDKConnectionParams
+  updates: EditSDKConnectionParams,
 ) {
-  const {
-    proxyEnabled,
-    proxyHost,
-    ...otherChanges
-  } = editSDKConnectionValidator.parse(updates);
+  const { proxyEnabled, proxyHost, ...otherChanges } =
+    editSDKConnectionValidator.parse(updates);
 
   let newProxy = {
     ...connection.proxy,
@@ -259,7 +252,7 @@ export async function editSDKConnection(
         ...connection,
         proxy: addEnvProxySettings(newProxy),
       },
-      false
+      false,
     );
     newProxy.connected = !res.error;
     newProxy.version = res.version;
@@ -300,7 +293,7 @@ export async function editSDKConnection(
         project: "",
         dateUpdated: new Date(),
       },
-    }
+    },
   );
 
   if (needsProxyUpdate) {
@@ -311,14 +304,14 @@ export async function editSDKConnection(
       connection,
       otherChanges as Partial<SDKConnectionInterface>,
       newProxy,
-      isUsingProxy
+      isUsingProxy,
     );
   }
 }
 
 export async function deleteSDKConnectionById(
   organization: string,
-  id: string
+  id: string,
 ) {
   await SDKConnectionModel.deleteOne({
     organization,
@@ -333,13 +326,13 @@ export async function markSDKConnectionUsed(key: string) {
       $set: {
         connected: true,
       },
-    }
+    },
   );
 }
 
 export async function setProxyError(
   connection: SDKConnectionInterface,
-  error: string
+  error: string,
 ) {
   await SDKConnectionModel.updateOne(
     {
@@ -352,7 +345,7 @@ export async function setProxyError(
         "proxy.connected": false,
         "proxy.lastError": new Date(),
       },
-    }
+    },
   );
 }
 
@@ -367,13 +360,13 @@ export async function clearProxyError(connection: SDKConnectionInterface) {
         "proxy.error": "",
         "proxy.connected": true,
       },
-    }
+    },
   );
 }
 
 export async function testProxyConnection(
   connection: SDKConnectionInterface,
-  updateDB: boolean = true
+  updateDB: boolean = true,
 ): Promise<ProxyTestResult> {
   const proxy = connection.proxy;
   if (!proxy || !proxy.enabled || !proxy.host) {
@@ -398,7 +391,7 @@ export async function testProxyConnection(
       {
         maxTimeMs: 5000,
         maxContentSize: 500,
-      }
+      },
     );
     statusCode = responseWithoutBody.status;
     body = stringBody;
@@ -434,7 +427,7 @@ export async function testProxyConnection(
             "proxy.connected": true,
             "proxy.version": version,
           },
-        }
+        },
       );
     }
 
@@ -457,7 +450,7 @@ export async function testProxyConnection(
 }
 
 export function toApiSDKConnectionInterface(
-  connection: SDKConnectionInterface
+  connection: SDKConnectionInterface,
 ): ApiSdkConnection {
   return {
     id: connection.id,

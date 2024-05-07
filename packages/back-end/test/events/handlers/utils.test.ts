@@ -14,7 +14,7 @@ describe("filterFeatureUpdatedNotificationEventForEnvironments", () => {
           },
         },
         environments: [],
-      })
+      }),
     ).toBe(false);
   });
 
@@ -28,7 +28,7 @@ describe("filterFeatureUpdatedNotificationEventForEnvironments", () => {
           },
         },
         environments: ["foo"],
-      })
+      }),
     );
 
     values.forEach((v) => expect(v).toBe(true));
@@ -52,7 +52,7 @@ describe("filterFeatureUpdatedNotificationEventForEnvironments", () => {
           },
         },
         environments: ["foo"],
-      })
+      }),
     ).toBe(true);
 
     expect(
@@ -72,7 +72,7 @@ describe("filterFeatureUpdatedNotificationEventForEnvironments", () => {
           },
         },
         environments: ["foo"],
-      })
+      }),
     ).toBe(true);
   });
 
@@ -94,7 +94,7 @@ describe("filterFeatureUpdatedNotificationEventForEnvironments", () => {
           },
         },
         environments: ["foo"],
-      })
+      }),
     ).toBe(false);
   });
 
@@ -118,7 +118,7 @@ describe("filterFeatureUpdatedNotificationEventForEnvironments", () => {
           },
         },
         environments: [],
-      })
+      }),
     ).toBe(true);
   });
 
@@ -142,7 +142,7 @@ describe("filterFeatureUpdatedNotificationEventForEnvironments", () => {
           },
         },
         environments: ["foo"],
-      })
+      }),
     ).toBe(false);
   });
 
@@ -164,7 +164,7 @@ describe("filterFeatureUpdatedNotificationEventForEnvironments", () => {
           },
         },
         environments: ["foo"],
-      })
+      }),
     ).toBe(false);
   });
 });

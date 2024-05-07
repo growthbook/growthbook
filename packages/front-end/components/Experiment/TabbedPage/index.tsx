@@ -39,7 +39,7 @@ import StoppedExperimentBanner from "./StoppedExperimentBanner";
 import HealthTab from "./HealthTab";
 
 const experimentTabs = ["overview", "results", "health"] as const;
-export type ExperimentTab = typeof experimentTabs[number];
+export type ExperimentTab = (typeof experimentTabs)[number];
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -83,7 +83,7 @@ export default function TabbedPage({
 }: Props) {
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
-    "overview"
+    "overview",
   );
 
   const router = useRouter();
@@ -101,16 +101,15 @@ export default function TabbedPage({
 
   // Results tab filters
   const [baselineRow, setBaselineRow] = useState<number>(0);
-  const [differenceType, setDifferenceType] = useState<DifferenceType>(
-    "relative"
-  );
+  const [differenceType, setDifferenceType] =
+    useState<DifferenceType>("relative");
   const [variationFilter, setVariationFilter] = useState<number[]>([]);
   const [metricFilter, setMetricFilter] = useLocalStorage<ResultsMetricFilters>(
     `experiment-page__${experiment.id}__metric_filter`,
     {
       tagOrder: [],
       filterByTag: false,
-    }
+    },
   );
 
   useEffect(() => {
@@ -151,7 +150,7 @@ export default function TabbedPage({
 
   const hasLiveLinkedChanges = includeExperimentInPayload(
     experiment,
-    linkedFeatures.map((f) => f.feature)
+    linkedFeatures.map((f) => f.feature),
   );
 
   const { data: sdkConnectionsData } = useSDKConnections();
@@ -160,14 +159,14 @@ export default function TabbedPage({
   const projectConnections = connections.filter(
     (connection) =>
       !connection.projects.length ||
-      connection.projects.includes(experiment.project || "")
+      connection.projects.includes(experiment.project || ""),
   );
   const matchingConnections = projectConnections.filter(
     (connection) =>
-      !visualChangesets.length || connection.includeVisualExperiments
+      !visualChangesets.length || connection.includeVisualExperiments,
   );
   const verifiedConnections = matchingConnections.filter(
-    (connection) => connection.connected
+    (connection) => connection.connected,
   );
 
   const watcherIds = useApi<{
@@ -324,7 +323,7 @@ export default function TabbedPage({
         <div
           className={clsx(
             "pt-3",
-            tab === "overview" ? "d-block" : "d-none d-print-block"
+            tab === "overview" ? "d-block" : "d-none d-print-block",
           )}
         >
           <ProjectTagBar
