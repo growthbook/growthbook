@@ -405,6 +405,15 @@ export async function postFeatures(
     throw new Error("Must specify feature key");
   }
 
+  if (org.settings?.featureRegexValidator) {
+    const regex = new RegExp(org.settings.featureRegexValidator);
+    if (!regex.test(id)) {
+      throw new Error(
+        `Feature key must match the regex validator. '${org.settings.featureRegexValidator}' Example: '${org.settings.featureKeyExample}'`
+      );
+    }
+  }
+
   if (!environmentSettings) {
     throw new Error("Feature missing initial environment toggle settings");
   }
