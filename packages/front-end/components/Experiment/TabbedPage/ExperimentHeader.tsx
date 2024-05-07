@@ -140,7 +140,7 @@ export default function ExperimentHeader({
   let hasRunExperimentsPermission = true;
   const envs = getAffectedEnvsForExperiment({ experiment });
   if (envs.length > 0) {
-    if (!permissions.check("runExperiments", experiment.project, envs)) {
+    if (!permissionsUtil.canRunExperiment(experiment, envs)) {
       hasRunExperimentsPermission = false;
     }
   }
