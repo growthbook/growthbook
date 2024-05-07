@@ -3,7 +3,6 @@ import { IconType } from "react-icons";
 import { GoBeaker, GoGraph } from "react-icons/go";
 import clsx from "clsx";
 import track from "@/services/track";
-import usePermissions from "@/hooks/usePermissions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";

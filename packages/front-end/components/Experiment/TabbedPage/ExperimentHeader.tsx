@@ -102,7 +102,6 @@ export default function ExperimentHeader({
 }: Props) {
   const { apiCall } = useAuth();
   const router = useRouter();
-  const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
   const dataSource = getDatasourceById(experiment.datasource);
