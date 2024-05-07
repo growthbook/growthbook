@@ -352,9 +352,7 @@ export default function FeatureFromExperimentModal({
 
       {!existing && (
         <>
-          <FeatureKeyField
-            keyField={form.register("id")}
-          />
+          <FeatureKeyField keyField={form.register("id")} />
 
           {showTags ? (
             <TagsField

@@ -245,9 +245,8 @@ export default function FeatureModal({
         </div>
       )}
 
-      <FeatureKeyField
-        keyField={form.register("id")}
-      />
+      <FeatureKeyField keyField={form.register("id")} />
+
       {showTags ? (
         <TagsField
           value={form.watch("tags") || []}
