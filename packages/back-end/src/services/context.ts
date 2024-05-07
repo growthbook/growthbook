@@ -17,8 +17,8 @@ import {
 } from "../util/organization.util";
 import { TeamInterface } from "../../types/team";
 import { FactMetricModel } from "../models/FactMetricModel";
+import { ProjectModel } from "../models/ProjectModel";
 import { ProjectInterface } from "../../types/project";
-import { findAllProjectsByOrganization } from "../models/ProjectModel";
 import { addTags, getAllTags } from "../models/TagModel";
 import { AuditInterface } from "../../types/audit";
 import { insertAudit } from "../models/AuditModel";
@@ -28,10 +28,12 @@ export class ReqContextClass {
   // Models
   public models!: {
     factMetrics: FactMetricModel;
+    projects: ProjectModel;
   };
   private initModels() {
     this.models = {
       factMetrics: new FactMetricModel(this),
+      projects: new ProjectModel(this),
     };
   }
 
@@ -180,7 +182,7 @@ export class ReqContextClass {
   private _projects: ProjectInterface[] | null = null;
   public async getProjects() {
     if (this._projects === null) {
-      this._projects = await findAllProjectsByOrganization(this);
+      this._projects = await this.models.projects.getAll();
     }
     return this._projects;
   }
