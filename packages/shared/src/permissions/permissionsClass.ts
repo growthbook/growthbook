@@ -689,41 +689,6 @@ export class Permissions {
     );
   };
 
-  private checkEnvFilterUpdatePermission(
-    existing: { projects?: string[]; environment?: string },
-    updates: { projects?: string[]; environment?: string },
-    permission: EnvScopedPermission
-  ): boolean {
-    const existingProjects = existing.projects?.length
-      ? existing.projects
-      : [""];
-    const existingEnv = existing.environment ? [existing.environment] : [];
-    if (
-      !existingProjects.every((project) =>
-        this.hasPermission(permission, project, existingEnv)
-      )
-    ) {
-      return false;
-    }
-
-    if ("projects" in updates) {
-      const updatedProjects = updates.projects?.length
-        ? updates.projects
-        : [""];
-
-      const updatedEnvs = updates.environment ? [updates.environment] : [];
-
-      if (
-        !updatedProjects.every((project) => {
-          this.hasPermission(permission, project, updatedEnvs);
-        })
-      ) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   public canDeleteSDKConnection = (
     sdkConnection: Pick<Environment, "projects" | "id">
   ): boolean => {
@@ -801,38 +766,40 @@ export class Permissions {
     );
   }
 
-  // private checkEnvFilterUpdatePermission(
-  //   existing: { projects?: string[]; id: string },
-  //   updates: { projects?: string[]; id: string },
-  //   // envs: string[],
-  //   permission: ProjectScopedPermission
-  // ): boolean {
-  //   const existingProjects = existing.projects?.length
-  //     ? existing.projects
-  //     : [""];
-  //   if (
-  //     !existingProjects.every((project) =>
-  //       this.hasPermission(permission, project, [existing.id])
-  //     )
-  //   ) {
-  //     return false;
-  //   }
+  private checkEnvFilterUpdatePermission(
+    existing: { projects?: string[]; environment?: string },
+    updates: { projects?: string[]; environment?: string },
+    permission: EnvScopedPermission
+  ): boolean {
+    const existingProjects = existing.projects?.length
+      ? existing.projects
+      : [""];
+    const existingEnv = existing.environment ? [existing.environment] : [];
+    if (
+      !existingProjects.every((project) =>
+        this.hasPermission(permission, project, existingEnv)
+      )
+    ) {
+      return false;
+    }
 
-  //   if ("projects" in updates) {
-  //     const updatedProjects = updates.projects?.length
-  //       ? updates.projects
-  //       : [""];
+    if ("projects" in updates) {
+      const updatedProjects = updates.projects?.length
+        ? updates.projects
+        : [""];
 
-  //     if (
-  //       !updatedProjects.every((project) => {
-  //         this.hasPermission(permission, project, envs);
-  //       })
-  //     ) {
-  //       return false;
-  //     }
-  //   }
-  //   return true;
-  // }
+      const updatedEnvs = updates.environment ? [updates.environment] : [];
+
+      if (
+        !updatedProjects.every((project) => {
+          this.hasPermission(permission, project, updatedEnvs);
+        })
+      ) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   private hasPermission(
     permissionToCheck: Permission,
