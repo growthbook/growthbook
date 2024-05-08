@@ -216,9 +216,8 @@ export default function FactMetricPage() {
   }
 
   const canEdit =
-    permissionsUtil.canUpdateFactMetric(factMetric, {
-      projects: factMetric.projects,
-    }) && !factMetric.managedBy;
+    permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
+    !factMetric.managedBy;
   const canDelete =
     permissionsUtil.canDeleteFactMetric(factMetric) && !factMetric.managedBy;
 

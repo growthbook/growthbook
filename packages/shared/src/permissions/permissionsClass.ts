@@ -16,6 +16,7 @@ import {
 } from "back-end/types/fact-table";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { DataSourceInterface } from "back-end/types/datasource";
+import { UpdateProps } from "back-end/types/models";
 import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
 class PermissionError extends Error {
   constructor(message: string) {
@@ -438,7 +439,7 @@ export class Permissions {
 
   public canUpdateFactMetric = (
     existing: Pick<FactMetricInterface, "projects">,
-    updates: Pick<FactMetricInterface, "projects">
+    updates: UpdateProps<FactMetricInterface>
   ): boolean => {
     return this.checkProjectFilterUpdatePermission(
       existing,

@@ -37,9 +37,7 @@ export class FactMetricModel extends BaseClass {
     existing: FactMetricInterface,
     updates: UpdateProps<FactMetricInterface>
   ): boolean {
-    return this.context.permissions.canUpdateFactMetric(existing, {
-      projects: updates.projects || existing.projects,
-    });
+    return this.context.permissions.canUpdateFactMetric(existing, updates);
   }
   protected canDelete(doc: FactMetricInterface): boolean {
     return this.context.permissions.canDeleteFactMetric(doc);
