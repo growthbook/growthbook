@@ -306,8 +306,12 @@ export async function putMemberRole(
     context.permissions.throwPermissionError();
   }
   const { org, userId } = context;
-  const { role, limitAccessByEnvironment, environments, projectRoles } =
-    req.body;
+  const {
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+  } = req.body;
   const { id } = req.params;
 
   if (id === userId) {
@@ -553,8 +557,12 @@ export async function putInviteRole(
   }
 
   const { org } = context;
-  const { role, limitAccessByEnvironment, environments, projectRoles } =
-    req.body;
+  const {
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+  } = req.body;
   const { key } = req.params;
   const originalInvites: Invite[] = cloneDeep(org.invites);
 
@@ -1020,8 +1028,13 @@ export async function postInvite(
   }
 
   const { org } = context;
-  const { email, role, limitAccessByEnvironment, environments, projectRoles } =
-    req.body;
+  const {
+    email,
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+  } = req.body;
 
   const license = getLicense();
   if (
@@ -1904,8 +1917,12 @@ export async function addOrphanedUser(
   const { org } = getContextFromReq(req);
 
   const { id } = req.params;
-  const { role, environments, limitAccessByEnvironment, projectRoles } =
-    req.body;
+  const {
+    role,
+    environments,
+    limitAccessByEnvironment,
+    projectRoles,
+  } = req.body;
 
   // Make sure user exists
   const user = await findUserById(id);

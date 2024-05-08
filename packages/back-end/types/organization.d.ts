@@ -198,6 +198,8 @@ export interface OrganizationSettings {
   codeRefsBranchesToFilter?: string[];
   codeRefsPlatformUrl?: string;
   powerCalculatorEnabled?: boolean;
+  featureKeyExample?: string; // Example Key of feature flag (e.g. "feature-20240201-name")
+  featureRegexValidator?: string; // Regex to validate feature flag name (e.g. ^.+-\d{8}-.+$)
 }
 
 export interface SubscriptionQuote {
