@@ -9,6 +9,7 @@ import {
 } from "back-end/types/organization";
 import { IdeaInterface } from "back-end/types/idea";
 import {
+  FactMetricInterface,
   FactTableInterface,
   UpdateFactTableProps,
 } from "back-end/types/fact-table";
@@ -426,6 +427,29 @@ export class Permissions {
     factTable: Pick<FactTableInterface, "projects">
   ): boolean => {
     return this.checkProjectFilterPermission(factTable, "manageFactTables");
+  };
+
+  public canCreateFactMetric = (
+    metric: Pick<FactMetricInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(metric, "createMetrics");
+  };
+
+  public canUpdateFactMetric = (
+    existing: Pick<FactMetricInterface, "projects">,
+    updates: Pick<FactMetricInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "createMetrics"
+    );
+  };
+
+  public canDeleteFactMetric = (
+    metric: Pick<FactMetricInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(metric, "createMetrics");
   };
 
   public canCreateMetric = (
