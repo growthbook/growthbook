@@ -15,8 +15,7 @@ const MssqlForm: FC<{
   return (
     <>
       <HostWarning
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-        host={params.server}
+        host={params.server ?? ""}
         setHost={(host) => {
           setParams({
             server: host,
@@ -79,6 +78,21 @@ const MssqlForm: FC<{
             onChange={onParamChange}
             placeholder={existing ? "(Keep existing)" : ""}
           />
+        </div>
+        <div className="form-group col-md-12">
+          <label>Request Timeout</label>
+          <input
+            type="number"
+            className="form-control"
+            name="requestTimeout"
+            value={params.requestTimeout || ""}
+            onChange={onParamChange}
+            placeholder="(optional - in seconds. If empty, it will be disabled)"
+          />
+          <div className="form-text text-muted small">
+            The number of seconds before a request is considered failed. The
+            connection default is 15 seconds. Set to 0 to disable timeout.
+          </div>
         </div>
         <div className="form-group col-md-12">
           <label>Default Schema</label>
