@@ -2,7 +2,10 @@ import { FeatureInterface } from "back-end/types/feature";
 import { MetricInterface } from "back-end/types/metric";
 import {
   EnvScopedPermission,
+<<<<<<< HEAD
   Environment,
+=======
+>>>>>>> main
   GlobalPermission,
   Permission,
   ProjectScopedPermission,
@@ -55,6 +58,34 @@ export class Permissions {
 
   public canDeleteDimension = (): boolean => {
     return this.checkGlobalPermission("createDimensions");
+  };
+
+  public canViewEventWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canCreateEventWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canUpdateEventWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canDeleteEventWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canCreateSDKWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canUpdateSDKWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canDeleteSDKWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
   };
 
   public canCreateAndUpdateTag = (): boolean => {
@@ -558,7 +589,34 @@ export class Permissions {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
-  // Env Scoped Permission
+    
+  // ENV_SCOPED_PERMISSIONS
+  public canPublishFeature = (
+    feature: Pick<FeatureInterface, "project">,
+    environments: string[]
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      {
+        projects: feature.project ? [feature.project] : [],
+      },
+      environments,
+      "publishFeatures"
+    );
+  };
+
+  public canRunExperiment = (
+    experiment: Pick<ExperimentInterface, "project">,
+    environments: string[]
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      {
+        projects: experiment.project ? [experiment.project] : [],
+      },
+      environments,
+      "runExperiments"
+    );
+  };
+
   public canCreateEnvironment = (
     environment: Pick<Environment, "projects" | "id">
   ): boolean => {

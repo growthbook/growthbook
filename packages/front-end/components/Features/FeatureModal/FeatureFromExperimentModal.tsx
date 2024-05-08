@@ -27,7 +27,6 @@ import {
   useFeaturesList,
 } from "@/services/features";
 import { useWatching } from "@/services/WatchProvider";
-import usePermissions from "@/hooks/usePermissions";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
@@ -72,13 +71,13 @@ const genEnvironmentSettings = ({
   project,
 }: {
   environments: ReturnType<typeof useEnvironments>;
-  permissions: ReturnType<typeof usePermissions>;
+  permissions: ReturnType<typeof usePermissionsUtil>;
   project: string;
 }): Record<string, FeatureEnvironment> => {
   const envSettings: Record<string, FeatureEnvironment> = {};
 
   environments.forEach((e) => {
-    const canPublish = permissions.check("publishFeatures", project, [e.id]);
+    const canPublish = permissions.canPublishFeature({ project }, [e.id]);
     const defaultEnabled = canPublish ? e.defaultState ?? true : false;
     const enabled = canPublish ? defaultEnabled : false;
     const rules = [];
@@ -95,7 +94,7 @@ const genFormDefaultValues = ({
   experiment,
 }: {
   environments: ReturnType<typeof useEnvironments>;
-  permissions: ReturnType<typeof usePermissions>;
+  permissions: ReturnType<typeof usePermissionsUtil>;
   project: string;
   experiment: ExperimentInterfaceStringDates;
 }): Omit<FeatureInterface, "organization" | "dateCreated" | "dateUpdated"> & {
@@ -143,13 +142,12 @@ export default function FeatureFromExperimentModal({
     allEnvironments,
     experiment
   );
-  const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
 
   const defaultValues = genFormDefaultValues({
     environments,
-    permissions,
+    permissions: permissionsUtil,
     experiment,
     project,
   });
