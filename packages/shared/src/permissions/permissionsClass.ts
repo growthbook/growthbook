@@ -672,34 +672,64 @@ export class Permissions {
     sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">
   ): boolean => {
     return this.checkEnvFilterPermission(
-      {
-        projects: sdkConnection.projects || [],
-      },
+      sdkConnection,
       [sdkConnection.environment],
       "manageEnvironments"
     );
   };
 
   public canUpdateSDKConnection = (
-    environment: Pick<Environment, "projects" | "id">
+    existing: { projects?: string[]; environment?: string },
+    updates: { projects?: string[]; environment?: string }
   ): boolean => {
-    return this.checkEnvFilterPermission(
-      {
-        projects: environment.projects || [],
-      },
-      [environment.id],
+    return this.checkEnvFilterUpdatePermission(
+      existing,
+      updates,
       "manageEnvironments"
     );
   };
 
+  private checkEnvFilterUpdatePermission(
+    existing: { projects?: string[]; environment?: string },
+    updates: { projects?: string[]; environment?: string },
+    permission: EnvScopedPermission
+  ): boolean {
+    const existingProjects = existing.projects?.length
+      ? existing.projects
+      : [""];
+    const existingEnv = existing.environment ? [existing.environment] : [];
+    if (
+      !existingProjects.every((project) =>
+        this.hasPermission(permission, project, existingEnv)
+      )
+    ) {
+      return false;
+    }
+
+    if ("projects" in updates) {
+      const updatedProjects = updates.projects?.length
+        ? updates.projects
+        : [""];
+
+      const updatedEnvs = updates.environment ? [updates.environment] : [];
+
+      if (
+        !updatedProjects.every((project) => {
+          this.hasPermission(permission, project, updatedEnvs);
+        })
+      ) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   public canDeleteSDKConnection = (
-    environment: Pick<Environment, "projects" | "id">
+    sdkConnection: Pick<Environment, "projects" | "id">
   ): boolean => {
     return this.checkEnvFilterPermission(
-      {
-        projects: environment.projects || [],
-      },
-      [environment.id],
+      sdkConnection,
+      [sdkConnection.id],
       "manageEnvironments"
     );
   };

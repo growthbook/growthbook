@@ -1240,14 +1240,14 @@ export async function putOrganization(
       if (k === "environments") {
         console.log("settings includes 'environments'");
         // Require permissions for any old environments that changed
-        const affectedEnvs: Set<string> = new Set();
+        const affectedEnvs: Set<Environment> = new Set();
         existingEnvironments.forEach((env) => {
           const oldHash = JSON.stringify(env);
           const newHash = JSON.stringify(
             settings[k]?.find((e) => e.id === env.id)
           );
           if (oldHash !== newHash) {
-            affectedEnvs.add(env.id);
+            affectedEnvs.add(env);
           }
           if (!newHash && oldHash) {
             deletedEnvIds.push(env.id);
@@ -1258,7 +1258,7 @@ export async function putOrganization(
         const oldIds = new Set(existingEnvironments.map((env) => env.id) || []);
         settings[k]?.forEach((env) => {
           if (!oldIds.has(env.id)) {
-            affectedEnvs.add(env.id);
+            affectedEnvs.add(env);
           }
         });
 
@@ -1275,26 +1275,15 @@ export async function putOrganization(
           }
         });
 
-        console.log("affectedEnvs", affectedEnvs);
-
         affectedEnvs.forEach((env) => {
-          console.log("stringified env: ", env);
-          console.log("un-stringified: ", JSON.stringify(env));
-          context.permissions.canCreateOrUpdateEnvironment({ id: env });
+          context.permissions.canCreateOrUpdateEnvironment(env);
         });
 
-        // req.checkPermissions(
-        //   "manageEnvironments",
-        //   "",
-        //   Array.from(affectedEnvs)
-        // );
-        //MKTODO: Start back here and figure out this logic
-        // Array.from(affectedEnvs).forEach((affectedEnv) => {
-        //   if (!context.permissions.canCreateOrUpdateEnvironment(affectedEnv)) {
-        //     context.permissions.throwPermissionError();
-        //   }
-        // });
+        envsWithModifiedProjects.forEach((env) => {
+          context.permissions.canCreateOrUpdateEnvironment(env);
+        });
       } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
+        console.log("visualEditorEnabled or sdkInstructionsViewed");
         req.checkPermissions("manageEnvironments", "", []);
       } else if (k === "attributeSchema") {
         throw new Error(
@@ -1518,8 +1507,6 @@ export async function postApiKey(
       }
     }
   } else {
-    //MKTODO: This is creating a deprecated SDK Endpoint - this should use the new canCreateSDK
-    // req.checkPermissions("manageEnvironments", project, [environment]);
     context.permissions.canCreateSDKConnection({
       projects: [project],
       environment,
@@ -1610,7 +1597,11 @@ export async function deleteApiKey(
       throw new Error("You do not have permission to delete this.");
     }
   } else {
-    req.checkPermissions("manageEnvironments", "", [keyObj.environment || ""]);
+    // This is deleting a deprecated SDK Endpoint
+    context.permissions.canDeleteSDKConnection({
+      projects: [keyObj.project || ""],
+      id: keyObj.environment || "",
+    });
   }
 
   if (id) {
