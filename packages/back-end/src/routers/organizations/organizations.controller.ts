@@ -656,6 +656,10 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     hasReadAccess(context.readAccessFilter, attribute.projects || [])
   );
 
+  const filteredEnvironments = settings?.environments?.filter((environment) =>
+    hasReadAccess(context.readAccessFilter, environment.projects || [])
+  );
+
   // Some other global org data needed by the front-end
   const apiKeys = await getAllApiKeysByOrganization(context);
   const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
@@ -706,7 +710,11 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       freeTrialDate: org.freeTrialDate,
       discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
-      settings: { ...settings, attributeSchema: filteredAttributes },
+      settings: {
+        ...settings,
+        attributeSchema: filteredAttributes,
+        environments: filteredEnvironments,
+      },
       autoApproveMembers: org.autoApproveMembers,
       members: org.members,
       messages: messages || [],
@@ -1230,6 +1238,7 @@ export async function putOrganization(
   if (settings) {
     Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
       if (k === "environments") {
+        console.log("settings includes 'environments'");
         // Require permissions for any old environments that changed
         const affectedEnvs: Set<string> = new Set();
         existingEnvironments.forEach((env) => {
@@ -1264,6 +1273,14 @@ export async function putOrganization(
               projects: newProjects,
             });
           }
+        });
+
+        console.log("affectedEnvs", affectedEnvs);
+
+        affectedEnvs.forEach((env) => {
+          console.log("stringified env: ", env);
+          console.log("un-stringified: ", JSON.stringify(env));
+          context.permissions.canCreateOrUpdateEnvironment({ id: env });
         });
 
         // req.checkPermissions(
@@ -1501,7 +1518,12 @@ export async function postApiKey(
       }
     }
   } else {
-    req.checkPermissions("manageEnvironments", project, [environment]);
+    //MKTODO: This is creating a deprecated SDK Endpoint - this should use the new canCreateSDK
+    // req.checkPermissions("manageEnvironments", project, [environment]);
+    context.permissions.canCreateSDKConnection({
+      projects: [project],
+      environment,
+    });
   }
 
   // Handle user personal access tokens

@@ -18,6 +18,7 @@ import {
 import { ExperimentInterface } from "back-end/types/experiment";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { UpdateProps } from "back-end/types/models";
+import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
 class PermissionError extends Error {
   constructor(message: string) {
@@ -638,6 +639,10 @@ export class Permissions {
     );
   };
 
+  public canViewCreateEnvironmentModal = (): boolean => {
+    return true;
+  };
+
   //TODO: Refactor this into two separate methods and eliminate updating envs from organizations.controller.putOrganization
   public canCreateOrUpdateEnvironment = (
     environment: Pick<Environment, "projects" | "id">
@@ -664,13 +669,13 @@ export class Permissions {
   };
 
   public canCreateSDKConnection = (
-    environment: Pick<Environment, "projects" | "id">
+    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">
   ): boolean => {
     return this.checkEnvFilterPermission(
       {
-        projects: environment.projects || [],
+        projects: sdkConnection.projects || [],
       },
-      [environment.id],
+      [sdkConnection.environment],
       "manageEnvironments"
     );
   };
