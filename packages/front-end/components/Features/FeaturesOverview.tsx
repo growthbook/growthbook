@@ -56,7 +56,6 @@ import Tab from "@/components/Tabs/Tab";
 import Modal from "@/components/Modal";
 import DraftModal from "@/components/Features/DraftModal";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
-import usePermissions from "@/hooks/usePermissions";
 import DiscussionThread from "@/components/DiscussionThread";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -133,7 +132,6 @@ export default function FeaturesOverview({
     i: number;
   } | null>(null);
   const [showDependents, setShowDependents] = useState(false);
-  const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
 
   const [revertIndex, setRevertIndex] = useState(0);
@@ -277,16 +275,14 @@ export default function FeaturesOverview({
 
   const hasDraftPublishPermission =
     (approved &&
-      permissions.check(
-        "publishFeatures",
-        projectId,
+      permissionsUtil.canPublishFeature(
+        feature,
         getAffectedRevisionEnvs(feature, revision, environments)
       )) ||
     (isDraft &&
       !requireReviews &&
-      permissions.check(
-        "publishFeatures",
-        projectId,
+      permissionsUtil.canPublishFeature(
+        feature,
         getAffectedRevisionEnvs(feature, revision, environments)
       ));
 

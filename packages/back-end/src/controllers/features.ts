@@ -405,6 +405,15 @@ export async function postFeatures(
     throw new Error("Must specify feature key");
   }
 
+  if (org.settings?.featureRegexValidator) {
+    const regex = new RegExp(org.settings.featureRegexValidator);
+    if (!regex.test(id)) {
+      throw new Error(
+        `Feature key must match the regex validator. '${org.settings.featureRegexValidator}' Example: '${org.settings.featureKeyExample}'`
+      );
+    }
+  }
+
   if (!environmentSettings) {
     throw new Error("Feature missing initial environment toggle settings");
   }
@@ -454,12 +463,14 @@ export async function postFeatures(
     )
   );
 
-  // Require publish permission for any enabled environments
-  req.checkPermissions(
-    "publishFeatures",
-    feature.project,
-    getEnabledEnvironments(feature, environmentIds)
-  );
+  if (
+    !context.permissions.canPublishFeature(
+      feature,
+      Array.from(getEnabledEnvironments(feature, environmentIds))
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   addIdsToRules(feature.environmentSettings, feature.id);
 
@@ -756,17 +767,22 @@ export async function postFeaturePublish(
 
   // If changing the default value, it affects all enabled environments
   if (mergeResult.result.defaultValue !== undefined) {
-    req.checkPermissions(
-      "publishFeatures",
-      feature.project,
-      getEnabledEnvironments(feature, environmentIds)
-    );
+    if (
+      !context.permissions.canPublishFeature(
+        feature,
+        Array.from(getEnabledEnvironments(feature, environmentIds))
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
   }
   // Otherwise, only the environments with rule changes are affected
   else {
     const changedEnvs = Object.keys(mergeResult.result.rules || {});
     if (changedEnvs.length > 0) {
-      req.checkPermissions("publishFeatures", feature.project, changedEnvs);
+      if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
+        context.permissions.throwPermissionError();
+      }
     }
   }
 
@@ -833,12 +849,14 @@ export async function postFeatureRevert(
   const changes: MergeResultChanges = {};
 
   if (revision.defaultValue !== feature.defaultValue) {
-    // If changing the default value, it affects all enabled environments
-    req.checkPermissions(
-      "publishFeatures",
-      feature.project,
-      getEnabledEnvironments(feature, environmentIds)
-    );
+    if (
+      !context.permissions.canPublishFeature(
+        feature,
+        Array.from(getEnabledEnvironments(feature, environmentIds))
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
     changes.defaultValue = revision.defaultValue;
   }
 
@@ -857,7 +875,9 @@ export async function postFeatureRevert(
     }
   });
   if (changedEnvs.length > 0) {
-    req.checkPermissions("publishFeatures", feature.project, changedEnvs);
+    if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   const updatedFeature = await applyRevisionChanges(
@@ -1079,11 +1099,14 @@ export async function postFeatureSync(
     context.permissions.throwPermissionError();
   }
 
-  req.checkPermissions(
-    "publishFeatures",
-    feature.project,
-    getEnabledEnvironments(feature, environments)
-  );
+  if (
+    !context.permissions.canPublishFeature(
+      feature,
+      Array.from(getEnabledEnvironments(feature, environments))
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   if (data.valueType && data.valueType !== feature.valueType) {
     throw new Error(
@@ -1199,11 +1222,14 @@ export async function postFeatureExperimentRefRule(
     context.permissions.throwPermissionError();
   }
 
-  req.checkPermissions(
-    "publishFeatures",
-    feature.project,
-    getEnabledEnvironments(feature, environments)
-  );
+  if (
+    !context.permissions.canPublishFeature(
+      feature,
+      Array.from(getEnabledEnvironments(feature, environments))
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const experiment = await getExperimentById(context, rule.experimentId);
   if (!experiment) {
@@ -1528,10 +1554,12 @@ export async function postFeatureToggle(
     throw new Error("Invalid environment");
   }
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canPublishFeature(feature, [environment])
+  ) {
     context.permissions.throwPermissionError();
   }
-  req.checkPermissions("publishFeatures", feature.project, [environment]);
 
   const currentState =
     feature.environmentSettings?.[environment]?.enabled || false;
@@ -1733,16 +1761,18 @@ export async function putFeature(
   // Changing the project can affect whether or not it's published if using project-scoped api keys
   if ("project" in updates) {
     // Make sure they have access in both the old and new environments
-    req.checkPermissions(
-      "publishFeatures",
-      feature.project,
-      getEnabledEnvironments(feature, environments)
-    );
-    req.checkPermissions(
-      "publishFeatures",
-      updates.project,
-      getEnabledEnvironments(feature, environments)
-    );
+    if (
+      !context.permissions.canPublishFeature(
+        feature,
+        Array.from(getEnabledEnvironments(feature, environments))
+      ) ||
+      !context.permissions.canPublishFeature(
+        updates,
+        Array.from(getEnabledEnvironments(feature, environments))
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   const allowedKeys: (keyof FeatureInterface)[] = [
@@ -1796,16 +1826,14 @@ export async function deleteFeatureById(
 
     if (
       !context.permissions.canDeleteFeature(feature) ||
-      !context.permissions.canManageFeatureDrafts(feature)
+      !context.permissions.canManageFeatureDrafts(feature) ||
+      !context.permissions.canPublishFeature(
+        feature,
+        Array.from(getEnabledEnvironments(feature, environmentsIds))
+      )
     ) {
       context.permissions.throwPermissionError();
     }
-
-    req.checkPermissions(
-      "publishFeatures",
-      feature.project,
-      getEnabledEnvironments(feature, environmentsIds)
-    );
     await deleteFeature(context, feature);
     await req.audit({
       event: "feature.delete",
@@ -1892,14 +1920,16 @@ export async function postFeatureArchive(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentsIds = environments.map((e) => e.id);
 
-  if (!context.permissions.canUpdateFeature(feature, {})) {
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canPublishFeature(
+      feature,
+      Array.from(getEnabledEnvironments(feature, environmentsIds))
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
-  req.checkPermissions(
-    "publishFeatures",
-    feature.project,
-    getEnabledEnvironments(feature, environmentsIds)
-  );
+
   const updatedFeature = await archiveFeature(
     context,
     feature,

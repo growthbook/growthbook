@@ -20,7 +20,6 @@ import ConfirmButton from "@/components/Modal/ConfirmButton";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import TabButtons from "@/components/Tabs/TabButtons";
 import TabButton from "@/components/Tabs/TabButton";
-import usePermissions from "@/hooks/usePermissions";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Modal from "@/components/Modal";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
@@ -102,7 +101,6 @@ export default function ExperimentHeader({
 }: Props) {
   const { apiCall } = useAuth();
   const router = useRouter();
-  const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
   const dataSource = getDatasourceById(experiment.datasource);
@@ -140,7 +138,7 @@ export default function ExperimentHeader({
   let hasRunExperimentsPermission = true;
   const envs = getAffectedEnvsForExperiment({ experiment });
   if (envs.length > 0) {
-    if (!permissions.check("runExperiments", experiment.project, envs)) {
+    if (!permissionsUtil.canRunExperiment(experiment, envs)) {
       hasRunExperimentsPermission = false;
     }
   }
