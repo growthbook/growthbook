@@ -215,7 +215,7 @@ export const ExperimentModel = mongoose.model<ExperimentInterface>(
 const toInterface = (doc: ExperimentDocument): ExperimentInterface => {
   const experiment = omit(doc.toJSON(), ["__v", "_id"]);
   return upgradeExperimentDoc(
-    experiment as unknown as LegacyExperimentInterface
+    (experiment as unknown) as LegacyExperimentInterface
   );
 };
 

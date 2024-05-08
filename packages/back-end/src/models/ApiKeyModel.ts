@@ -47,10 +47,10 @@ type ApiKeyDocument = mongoose.Document & ApiKeyInterface;
 const ApiKeyModel = mongoose.model<ApiKeyInterface>("ApiKey", apiKeySchema);
 
 const toInterface = (doc: ApiKeyDocument): ApiKeyInterface => {
-  const asJson = omit(doc.toJSON<ApiKeyDocument>({ flattenMaps: true }), [
-    "__v",
-    "_id",
-  ]);
+  const asJson = omit(
+    doc.toJSON<ApiKeyDocument>({ flattenMaps: true }),
+    ["__v", "_id"]
+  );
   const role = roleForApiKey(asJson) || undefined;
 
   return {
