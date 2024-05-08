@@ -833,19 +833,17 @@ export async function postExperiment(
   }
 
   // Only some fields affect production SDK payloads
-  const needsRunExperimentsPermission = (
-    [
-      "phases",
-      "variations",
-      "project",
-      "name",
-      "trackingKey",
-      "archived",
-      "status",
-      "releasedVariationId",
-      "excludeFromPayload",
-    ] as (keyof ExperimentInterfaceStringDates)[]
-  ).some((key) => key in changes);
+  const needsRunExperimentsPermission = ([
+    "phases",
+    "variations",
+    "project",
+    "name",
+    "trackingKey",
+    "archived",
+    "status",
+    "releasedVariationId",
+    "excludeFromPayload",
+  ] as (keyof ExperimentInterfaceStringDates)[]).some((key) => key in changes);
   if (needsRunExperimentsPermission) {
     const envs = getAffectedEnvsForExperiment({
       experiment,
@@ -1797,8 +1795,7 @@ async function createExperimentSnapshot({
   }
 
   const { org } = context;
-  const orgSettings: OrganizationSettings =
-    org.settings as OrganizationSettings;
+  const orgSettings: OrganizationSettings = org.settings as OrganizationSettings;
   const { settings } = getScopedSettings({
     organization: org,
     project: project ?? undefined,
@@ -1824,18 +1821,20 @@ async function createExperimentSnapshot({
     )
   ).filter(Boolean) as MetricInterface[];
 
-  const { metricRegressionAdjustmentStatuses, regressionAdjustmentEnabled } =
-    getAllMetricRegressionAdjustmentStatuses({
-      allExperimentMetrics,
-      denominatorMetrics,
-      orgSettings,
-      statsEngine,
-      experimentRegressionAdjustmentEnabled:
-        experiment.regressionAdjustmentEnabled,
-      experimentMetricOverrides: experiment.metricOverrides,
-      datasourceType: datasource?.type,
-      hasRegressionAdjustmentFeature: true,
-    });
+  const {
+    metricRegressionAdjustmentStatuses,
+    regressionAdjustmentEnabled,
+  } = getAllMetricRegressionAdjustmentStatuses({
+    allExperimentMetrics,
+    denominatorMetrics,
+    orgSettings,
+    statsEngine,
+    experimentRegressionAdjustmentEnabled:
+      experiment.regressionAdjustmentEnabled,
+    experimentMetricOverrides: experiment.metricOverrides,
+    datasourceType: datasource?.type,
+    hasRegressionAdjustmentFeature: true,
+  });
 
   const analysisSettings = getDefaultExperimentAnalysisSettings(
     statsEngine,
