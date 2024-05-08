@@ -1,159 +1,43 @@
-import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import { Environment } from "back-end/types/organization";
-import { GbVercelEnvMap } from "back-end/types/vercel";
-import { useAuth } from "@/services/auth";
-import EnvironmentModal from "@/components/Settings/EnvironmentModal";
-import SelectField from "@/components/Forms/SelectField";
-import Modal from "@/components/Modal";
 import useApi from "@/hooks/useApi";
-import { useEnvironments } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function VercelIntegrationPage() {
-  const router = useRouter();
-  const { code, configurationId, teamId, next } = router.query;
+	const permissionsUtil = usePermissionsUtil();
 
-  const { apiCall } = useAuth();
-  const environments = useEnvironments();
-  const permissionsUtil = usePermissionsUtil();
+	const { data } = useApi<{ hasToken: boolean }>("/vercel/has-token");
+	const [integrationAlreadyExists, setIntegrationAlreadyExists] =
+		useState(false);
 
-  const { data } = useApi<{ hasToken: boolean }>("/vercel/has-token");
-  const [integrationAlreadyExists, setIntegrationAlreadyExists] = useState(
-    false
-  );
+	useEffect(() => {
+		if (data?.hasToken !== integrationAlreadyExists)
+			setIntegrationAlreadyExists(!!data?.hasToken);
+	}, [data]);
 
-  const [envModalOpen, setEnvModalOpen] = useState<Partial<Environment> | null>(
-    null
-  );
-  const [gbVercelEnvMap, setGbVercelEnvMap] = useState<GbVercelEnvMap>([
-    { vercel: "production", gb: "" },
-    { vercel: "preview", gb: "" },
-    { vercel: "development", gb: "" },
-  ]);
+	if (!permissionsUtil.canManageIntegrations()) {
+		return (
+			<div className="container-fluid pagecontents">
+				<div className="alert alert-danger">
+					You do not have access to view this page.
+				</div>
+			</div>
+		);
+	}
 
-  useEffect(() => {
-    if (data?.hasToken !== undefined) {
-      if (data.hasToken) return setIntegrationAlreadyExists(true);
-      postToken();
-    }
-  }, [data]);
-
-  async function postToken() {
-    const options = {
-      method: "POST",
-      body: JSON.stringify({
-        code,
-        configurationId,
-        teamId: teamId ? teamId : null,
-      }),
-    };
-    apiCall("/vercel/token", options).catch(() => {
-      //do nothing
-    });
-  }
-
-  if (!permissionsUtil.canManageIntegrations()) {
-    return (
-      <div className="container-fluid pagecontents">
-        <div className="alert alert-danger">
-          You do not have access to view this page.
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      {integrationAlreadyExists ? (
-        <Modal
-          open
-          close={() => window.close()}
-          cta="Continue"
-          submit={async () => {
-            setIntegrationAlreadyExists(false);
-            postToken();
-          }}
-          autoCloseOnSubmit={false}
-        >
-          <div className="alert alert-warning">
-            <strong>Notice:</strong> A Vercel integration already exists for
-            your organization. By clicking <strong>{`"Continue"`}</strong> you
-            will overwrite the existing integration. Click{" "}
-            <strong>{`"Cancel"`}</strong> to avoid your Vercel integration being
-            overwritten.
-          </div>
-        </Modal>
-      ) : (
-        <>
-          {envModalOpen ? (
-            <EnvironmentModal
-              existing={envModalOpen}
-              close={() => setEnvModalOpen(null)}
-              onSuccess={() => setEnvModalOpen(null)}
-            />
-          ) : (
-            <Modal
-              submit={async () => {
-                await apiCall("/vercel/env-vars", {
-                  method: "POST",
-                  body: JSON.stringify({ gbVercelEnvMap }),
-                });
-                window.location.href = next as string;
-              }}
-              open
-            >
-              <div>
-                <h4>Generate Environment Variables</h4>
-                <div className="text-muted" style={{ fontSize: "0.8rem" }}>
-                  Env vars GROWTHBOOK_KEY and GROWTHBOOK_WEBHOOK_SECRET will be
-                  created in GrowthBook and Vercel in the following
-                  environments.
-                </div>
-                {gbVercelEnvMap.map((elem, i) => (
-                  <div key={`keyMap${i}`} className="d-flex mt-2">
-                    <div>
-                      <div>
-                        <strong>Vercel environment:</strong>
-                      </div>
-                      <div>{elem.vercel}</div>
-                    </div>
-                    <div className="ml-5">
-                      <SelectField
-                        label="GrowthBook environment:"
-                        labelClassName="font-weight-bold font"
-                        options={environments.map((env) => ({
-                          label: env.id,
-                          value: env.id,
-                        }))}
-                        initialOption="None"
-                        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | null' is not assignable to type 'st... Remove this comment to see the full error message
-                        value={elem.gb}
-                        onChange={(selected) => {
-                          const newMap = [...gbVercelEnvMap];
-                          newMap[i] = { ...newMap[i], gb: selected };
-                          setGbVercelEnvMap(newMap);
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  setEnvModalOpen({});
-                }}
-                className="btn btn-link btn-sm col-sm-5 text-left"
-              >
-                Create new environment
-              </button>
-            </Modal>
-          )}
-        </>
-      )}
-    </>
-  );
+	return (
+		<>
+			{integrationAlreadyExists ? (
+				<h1>Vercel is integrated</h1>
+			) : (
+				<h1>
+					Let&apos;s install Vercel for you.
+					<div className="p-4">
+						<a href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fgrowthbook%2Fexamples%2Ftree%2Fmain%2Fnext-js&env=NEXT_PUBLIC_GROWTHBOOK_API_HOST,NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY&envDescription=SDK%20Connection%20Keys%20needed%20to%20connect%20with%20the%20GrowthBook%20API.&envLink=https%3A%2F%2Fapp.growthbook.io%2Fsdks&project-name=growthbook-nextjs-example&repository-name=growthbook-nextjs-example&redirect-url=https%3A%2F%2Fapp.growthbook.io%2Fsdks&developer-id=oac_6KG1d8FVno8cwoqGkcVMZdHk&production-deploy-hook=GrowthBook%20Deploy&demo-title=GrowthBook%20Next.js%20Example&integration-ids=oac_6KG1d8FVno8cwoqGkcVMZdHk">
+							<img src="https://vercel.com/button" alt="Deploy with Vercel" />
+						</a>
+					</div>
+				</h1>
+			)}
+		</>
+	);
 }
-
-VercelIntegrationPage.liteLayout = true;
