@@ -6,6 +6,7 @@ import {
   isBinomialMetric,
   isFactMetric,
   isRatioMetric,
+  quantileMetricType,
 } from "shared/experiments";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -45,7 +46,7 @@ const SelectStep = ({
     factMetrics: appFactMetrics,
     getExperimentMetricById,
   } = useDefinitions();
-  // combine both metrics and remove ratio metrics
+  // combine both metrics and remove ratio and quntile metrics
   const allAppMetrics: ExperimentMetricInterface[] = [
     ...appMetrics,
     ...appFactMetrics,
@@ -54,7 +55,8 @@ const SelectStep = ({
       m.denominator && !isFactMetric(m)
         ? getExperimentMetricById(m.denominator) ?? undefined
         : undefined;
-    return !isRatioMetric(m, denominator);
+    const isQuantileMetric = quantileMetricType(m) !== "";
+    return !isRatioMetric(m, denominator) && !isQuantileMetric;
   });
   const usersPerWeek = form.watch("usersPerWeek");
   const metrics = form.watch("metrics");
@@ -96,7 +98,9 @@ const SelectStep = ({
           <>
             <span className="mr-auto font-weight-bold">
               Select Metrics{" "}
-              <Tooltip body={"Ratio metrics can not be selected"} />
+              <Tooltip
+                body={"Ratio and quantile metrics can not be selected."}
+              />
             </span>{" "}
             Limit 5
           </>
