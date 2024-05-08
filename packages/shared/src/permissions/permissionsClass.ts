@@ -56,6 +56,34 @@ export class Permissions {
     return this.checkGlobalPermission("createDimensions");
   };
 
+  public canViewEventWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canCreateEventWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canUpdateEventWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canDeleteEventWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canCreateSDKWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canUpdateSDKWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canDeleteSDKWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
   public canCreateAndUpdateTag = (): boolean => {
     return this.checkGlobalPermission("manageTags");
   };

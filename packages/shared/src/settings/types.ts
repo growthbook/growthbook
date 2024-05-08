@@ -82,6 +82,8 @@ interface BaseSettings {
   secureAttributeSalt: string;
   killswitchConfirmation: boolean;
   requireReviews: boolean | RequireReview[];
+  featureKeyExample: string;
+  featureRegexValidator: string;
 }
 
 // todo: encapsulate all settings, including experiment
