@@ -2,10 +2,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { MetricInterface } from "back-end/types/metric";
 import {
   EnvScopedPermission,
-<<<<<<< HEAD
   Environment,
-=======
->>>>>>> main
   GlobalPermission,
   Permission,
   ProjectScopedPermission,
@@ -589,7 +586,6 @@ export class Permissions {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
-    
   // ENV_SCOPED_PERMISSIONS
   public canPublishFeature = (
     feature: Pick<FeatureInterface, "project">,
