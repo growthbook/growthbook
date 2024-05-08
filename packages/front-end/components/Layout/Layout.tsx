@@ -198,14 +198,6 @@ const navlinks: SidebarLinkProps[] = [
         filter: ({ permissionsUtils }) => permissionsUtils.canViewEvents(),
       },
       {
-        name: "Slack",
-        href: "/integrations/slack",
-        path: /^integrations\/slack/,
-        filter: ({ permissionsUtils, gb }) =>
-          permissionsUtils.canManageIntegrations() &&
-          !!gb?.isOn("slack-integration"),
-      },
-      {
         name: "GitHub",
         href: "/integrations/github",
         path: /^integrations\/github/,

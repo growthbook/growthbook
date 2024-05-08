@@ -1,14 +1,8 @@
-import React, {
-  FC,
-  PropsWithChildren,
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
-import { FaPlug } from "react-icons/fa";
+import React, { FC, useCallback, useMemo, useState } from "react";
 import pick from "lodash/pick";
 import { SlackIntegrationInterface } from "back-end/types/slack-integration";
 import { TagInterface } from "back-end/types/tag";
+import Link from "next/link";
 import {
   SlackIntegrationEditParams,
   SlackIntegrationModalMode,
@@ -43,7 +37,6 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
   onCreate,
   onUpdate,
   onDelete,
-  onCreateModalOpen,
   onEditModalOpen,
   modalMode,
   onModalClose,
@@ -81,15 +74,15 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
       {/* Heading w/ beta messaging */}
       <div className="mb-4">
         <div className="d-flex justify-space-between align-items-center">
-          <span className="badge badge-purple text-uppercase mr-2">Beta</span>
           <h1>Slack Integrations</h1>
         </div>
         <p>Get alerts in Slack when your GrowthBook data is updated.</p>
-        <div className="alert alert-premium">
-          <h4>Free while in Beta</h4>
+        <div className="alert alert-warning">
+          <h4>Deprecated</h4>
           <p className="mb-0">
-            This feature will be free while we build it out and work out the
-            bugs.
+            Slack Integrations are deprecated and have been replaced by{" "}
+            <Link href="/settings/webhooks">Event Webhooks</Link>, which offer
+            the same functionality in a more flexible way.
           </p>
         </div>
       </div>
@@ -100,14 +93,7 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
       )}
 
       {/* Empty state */}
-      {slackIntegrations.length === 0 ? (
-        <SlackIntegrationsEmptyState>
-          <button className="btn btn-primary" onClick={onCreateModalOpen}>
-            <FaPlug className="mr-2" />
-            Create a Slack integration
-          </button>
-        </SlackIntegrationsEmptyState>
-      ) : (
+      {slackIntegrations.length === 0 ? null : (
         <div>
           {/* List View */}
           {slackIntegrations.map((slackIntegration) => (
@@ -122,32 +108,11 @@ export const SlackIntegrationsListView: FC<SlackIntegrationsListViewProps> = ({
               />
             </div>
           ))}
-
-          <div className="mt-4">
-            <button
-              className="btn btn-primary mb-5"
-              onClick={onCreateModalOpen}
-            >
-              <FaPlug className="mr-2" />
-              Create a Slack integration
-            </button>
-          </div>
         </div>
       )}
     </div>
   );
 };
-
-const SlackIntegrationsEmptyState: FC<PropsWithChildren> = ({ children }) => (
-  <div className="row">
-    <div className="col-xs-12 col-md-6 offset-md-3">
-      <div className="card text-center p-3">
-        When Slack integrations are created, they will show up here.
-        <div className="mt-4">{children}</div>
-      </div>
-    </div>
-  </div>
-);
 
 export const SlackIntegrationsListViewContainer = () => {
   const { apiCall } = useAuth();
