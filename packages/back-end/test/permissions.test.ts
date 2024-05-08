@@ -1243,7 +1243,7 @@ describe("Build base user permissions", () => {
   });
 });
 
-describe("PermissionsUtilClass.canReadData check for features", () => {
+describe("PermissionsUtilClass.canReadSingleProjectResource check for features", () => {
   const testOrg: OrganizationInterface = {
     id: "org_sktwi1id9l7z9xkjb",
     name: "Test Org",
@@ -1292,7 +1292,33 @@ describe("PermissionsUtilClass.canReadData check for features", () => {
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      permissions.canReadData(feature.project)
+      permissions.canReadSingleProjectResource(feature.project)
+    );
+
+    expect(filteredFeatures).toEqual([]);
+  });
+
+  it("User with global noaccess role shouldn't be able to see any features if the feature none of the features have the project property defined", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    const features: Partial<FeatureInterface>[] = [
+      {
+        id: "test-feature-123",
+      },
+    ];
+
+    const filteredFeatures = features.filter((feature) =>
+      permissions.canReadSingleProjectResource(feature.project)
     );
 
     expect(filteredFeatures).toEqual([]);
@@ -1319,7 +1345,7 @@ describe("PermissionsUtilClass.canReadData check for features", () => {
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      permissions.canReadData(feature.project)
+      permissions.canReadSingleProjectResource(feature.project)
     );
 
     expect(filteredFeatures).toEqual([
@@ -1374,7 +1400,7 @@ describe("PermissionsUtilClass.canReadData check for features", () => {
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      permissions.canReadData(feature.project)
+      permissions.canReadSingleProjectResource(feature.project)
     );
 
     expect(filteredFeatures).toEqual([
@@ -1390,7 +1416,7 @@ describe("PermissionsUtilClass.canReadData check for features", () => {
   });
 });
 
-describe("PermissionsUtilClass.canReadData check for metrics", () => {
+describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", () => {
   const testOrg: OrganizationInterface = {
     id: "org_sktwi1id9l7z9xkjb",
     name: "Test Org",
@@ -1439,7 +1465,7 @@ describe("PermissionsUtilClass.canReadData check for metrics", () => {
     ];
 
     const filteredMetrics = metrics.filter((metric) =>
-      permissions.canReadData(metric.projects)
+      permissions.canReadMultiProjectResource(metric.projects)
     );
 
     expect(filteredMetrics).toEqual([
@@ -1448,6 +1474,37 @@ describe("PermissionsUtilClass.canReadData check for metrics", () => {
         projects: [],
       },
     ]);
+  });
+
+  it("User with global noaccess role should be able to see metrics in 'All Projects' aka - an undefined projects", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    const metrics: Partial<MetricInterface>[] = [
+      {
+        id: "test-feature-123",
+      },
+    ];
+
+    const filteredMetrics = metrics.filter((metric) =>
+      permissions.canReadMultiProjectResource(metric.projects)
+    );
+
+    expect(filteredMetrics).toEqual([
+      {
+        id: "test-feature-123",
+      },
+    ]);
+    expect(filteredMetrics.length).toEqual(1);
   });
 
   it("User with global noaccess role shouldn't be able to see metrics if the metrics are exlusively in projects they don't have a specific role that grants them read access for", async () => {
@@ -1471,7 +1528,7 @@ describe("PermissionsUtilClass.canReadData check for metrics", () => {
     ];
 
     const filteredMetrics = metrics.filter((metric) =>
-      permissions.canReadData(metric.projects)
+      permissions.canReadMultiProjectResource(metric.projects)
     );
 
     expect(filteredMetrics).toEqual([]);
@@ -1504,7 +1561,7 @@ describe("PermissionsUtilClass.canReadData check for metrics", () => {
     ];
 
     const filteredMetrics = metrics.filter((metric) =>
-      permissions.canReadData(metric.projects)
+      permissions.canReadMultiProjectResource(metric.projects)
     );
 
     expect(filteredMetrics).toEqual([
@@ -1547,7 +1604,7 @@ describe("PermissionsUtilClass.canReadData check for metrics", () => {
     ];
 
     const filteredMetrics = metrics.filter((metric) =>
-      permissions.canReadData(metric.projects)
+      permissions.canReadMultiProjectResource(metric.projects)
     );
 
     expect(filteredMetrics).toEqual([]);

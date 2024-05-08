@@ -652,7 +652,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   }
 
   const filteredAttributes = settings?.attributeSchema?.filter((attribute) =>
-    context.permissions.canReadData(attribute.projects)
+    context.permissions.canReadMultiProjectResource(attribute.projects)
   );
 
   // Some other global org data needed by the front-end
@@ -1642,7 +1642,7 @@ export async function getWebhooks(req: AuthRequest, res: Response) {
   res.status(200).json({
     status: 200,
     webhooks: webhooks.filter((webhook) =>
-      context.permissions.canReadData(webhook.project)
+      context.permissions.canReadSingleProjectResource(webhook.project)
     ),
   });
 }

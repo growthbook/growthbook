@@ -84,7 +84,7 @@ export async function getDataSourcesByOrganization(
   const datasources = docs.map(toInterface);
 
   return datasources.filter((ds) =>
-    context.permissions.canReadData(ds.projects)
+    context.permissions.canReadMultiProjectResource(ds.projects)
   );
 }
 
@@ -108,7 +108,7 @@ export async function getDataSourceById(
 
   const datasource = toInterface(doc);
 
-  return context.permissions.canReadData(datasource.projects)
+  return context.permissions.canReadMultiProjectResource(datasource.projects)
     ? datasource
     : null;
 }

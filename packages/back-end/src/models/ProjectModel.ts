@@ -62,7 +62,9 @@ export async function findAllProjectsByOrganization(
   });
 
   const projects = docs.map(toInterface);
-  return projects.filter((p) => context.permissions.canReadData(p.id));
+  return projects.filter((p) =>
+    context.permissions.canReadSingleProjectResource(p.id)
+  );
 }
 export async function findProjectById(
   context: ReqContext | ApiReqContext,
@@ -77,7 +79,9 @@ export async function findProjectById(
 
   const project = toInterface(doc);
 
-  return context.permissions.canReadData(project.id) ? project : null;
+  return context.permissions.canReadSingleProjectResource(project.id)
+    ? project
+    : null;
 }
 export async function deleteProjectById(id: string, organization: string) {
   await ProjectModel.deleteOne({

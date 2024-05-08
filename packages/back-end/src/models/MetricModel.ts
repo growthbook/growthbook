@@ -265,7 +265,9 @@ async function findMetrics(
     metrics.push(toInterface(doc));
   });
 
-  return metrics.filter((m) => context.permissions.canReadData(m.projects));
+  return metrics.filter((m) =>
+    context.permissions.canReadMultiProjectResource(m.projects)
+  );
 }
 
 export async function getMetricsByOrganization(
@@ -287,7 +289,7 @@ export async function getSampleMetrics(context: ReqContext | ApiReqContext) {
     organization: context.org.id,
   });
   return docs
-    .filter((m) => context.permissions.canReadData(m.projects))
+    .filter((m) => context.permissions.canReadMultiProjectResource(m.projects))
     .map(toInterface);
 }
 
@@ -325,7 +327,10 @@ export async function getMetricById(
 
   const metric = res ? toInterface(res) : null;
 
-  if (!metric || !context.permissions.canReadData(metric.projects)) {
+  if (
+    !metric ||
+    !context.permissions.canReadMultiProjectResource(metric.projects)
+  ) {
     return null;
   }
   return metric;
@@ -361,7 +366,9 @@ export async function getMetricsByIds(
       metrics.push(toInterface(doc));
     });
   }
-  return metrics.filter((m) => context.permissions.canReadData(m.projects));
+  return metrics.filter((m) =>
+    context.permissions.canReadMultiProjectResource(m.projects)
+  );
 }
 
 export async function findRunningMetricsByQueryId(

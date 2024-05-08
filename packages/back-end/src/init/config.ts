@@ -199,7 +199,7 @@ export function getConfigMetrics(
         managedBy: "config",
       });
     })
-    .filter((m) => context.permissions.canReadData(m.projects));
+    .filter((m) => context.permissions.canReadMultiProjectResource(m.projects));
 }
 
 export function getConfigDimensions(

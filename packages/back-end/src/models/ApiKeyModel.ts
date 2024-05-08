@@ -293,7 +293,9 @@ export async function getApiKeyByIdOrKey(
 
   const apiKey = toInterface(doc);
 
-  return context.permissions.canReadData(apiKey.project) ? apiKey : null;
+  return context.permissions.canReadSingleProjectResource(apiKey.project)
+    ? apiKey
+    : null;
 }
 
 export async function getVisualEditorApiKey(
@@ -353,7 +355,7 @@ export async function getAllApiKeysByOrganization(
   });
 
   return keys.filter((k) => {
-    return context.permissions.canReadData(k.project);
+    return context.permissions.canReadSingleProjectResource(k.project);
   });
 }
 

@@ -113,7 +113,7 @@ export async function findSDKConnectionById(
   if (!doc) return null;
 
   const connection = toInterface(doc);
-  return context.permissions.canReadData(connection.projects)
+  return context.permissions.canReadMultiProjectResource(connection.projects)
     ? connection
     : null;
 }
@@ -127,7 +127,7 @@ export async function findSDKConnectionsByOrganization(
 
   const connections = docs.map(toInterface);
   return connections.filter((conn) =>
-    context.permissions.canReadData(conn.projects)
+    context.permissions.canReadMultiProjectResource(conn.projects)
   );
 }
 

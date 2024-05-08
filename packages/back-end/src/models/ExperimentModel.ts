@@ -235,7 +235,7 @@ async function findExperiments(
   const experiments = (await cursor).map(toInterface);
 
   return experiments.filter((exp) =>
-    context.permissions.canReadData(exp.project)
+    context.permissions.canReadSingleProjectResource(exp.project)
   );
 }
 
@@ -252,7 +252,7 @@ export async function getExperimentById(
 
   const experiment = toInterface(doc);
 
-  return context.permissions.canReadData(experiment.project)
+  return context.permissions.canReadSingleProjectResource(experiment.project)
     ? experiment
     : null;
 }
@@ -285,7 +285,7 @@ export async function getExperimentByTrackingKey(
 
   const experiment = toInterface(doc);
 
-  return context.permissions.canReadData(experiment.project)
+  return context.permissions.canReadSingleProjectResource(experiment.project)
     ? experiment
     : null;
 }
@@ -468,7 +468,7 @@ export async function getExperimentByIdea(
 
   const experiment = toInterface(doc);
 
-  return context.permissions.canReadData(experiment.project)
+  return context.permissions.canReadSingleProjectResource(experiment.project)
     ? experiment
     : null;
 }
@@ -563,7 +563,7 @@ export async function getPastExperimentsByDatasource(
   );
 
   const experimentsUserCanAccess = experiments.filter((exp) =>
-    context.permissions.canReadData(exp.project)
+    context.permissions.canReadSingleProjectResource(exp.project)
   );
 
   return experimentsUserCanAccess.map((exp) => ({
@@ -660,7 +660,7 @@ export async function getExperimentsForActivityFeed(
   );
 
   const filteredExperiments = experiments.filter((exp) =>
-    context.permissions.canReadData(exp.project)
+    context.permissions.canReadSingleProjectResource(exp.project)
   );
 
   return filteredExperiments.map((exp) => ({
@@ -687,7 +687,7 @@ const findExperiment = async ({
 
   const experiment = toInterface(doc);
 
-  return context.permissions.canReadData(experiment.project)
+  return context.permissions.canReadSingleProjectResource(experiment.project)
     ? experiment
     : null;
 };

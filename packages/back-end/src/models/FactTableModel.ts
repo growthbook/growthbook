@@ -77,7 +77,7 @@ export async function getAllFactTablesForOrganization(
   const docs = await FactTableModel.find({ organization: context.org.id });
   return docs
     .map((doc) => toInterface(doc))
-    .filter((f) => context.permissions.canReadData(f.projects));
+    .filter((f) => context.permissions.canReadMultiProjectResource(f.projects));
 }
 
 export type FactTableMap = Map<string, FactTableInterface>;
@@ -101,7 +101,7 @@ export async function getFactTable(
   if (!doc) return null;
 
   const factTable = toInterface(doc);
-  if (!context.permissions.canReadData(factTable.projects)) {
+  if (!context.permissions.canReadMultiProjectResource(factTable.projects)) {
     return null;
   }
   return factTable;
