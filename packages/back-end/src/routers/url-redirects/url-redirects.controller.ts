@@ -137,8 +137,13 @@ export const postURLRedirect = async (
   const envs = getAffectedEnvsForExperiment({
     experiment,
   });
-  envs.length > 0 &&
-    req.checkPermissions("runExperiments", experiment.project, envs);
+
+  if (
+    envs.length > 0 &&
+    !context.permissions.canRunExperiment(experiment, envs)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const urlRedirect = await createURLRedirect({
     experiment,
@@ -198,8 +203,9 @@ export const putURLRedirect = async (
   };
 
   const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
-  req.checkPermissions("runExperiments", experiment?.project || "", envs);
-
+  if (!context.permissions.canRunExperiment(experiment || {}, envs)) {
+    context.permissions.throwPermissionError();
+  }
   await updateURLRedirect({
     urlRedirect,
     experiment,
@@ -228,7 +234,9 @@ export const deleteURLRedirect = async (
   const experiment = await getExperimentById(context, urlRedirect.experiment);
 
   const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
-  req.checkPermissions("runExperiments", experiment?.project || "", envs);
+  if (!context.permissions.canRunExperiment(experiment || {}, envs)) {
+    context.permissions.throwPermissionError();
+  }
 
   await deleteURLRedirectById({
     urlRedirect,
