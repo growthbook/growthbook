@@ -853,7 +853,12 @@ export async function postExperiment(
       if ("project" in changes) {
         projects.push(changes.project || undefined);
       }
-      req.checkPermissions("runExperiments", projects, envs);
+      // check user's permission on existing experiment project and the updated project, if changed
+      projects.forEach((project) => {
+        if (!context.permissions.canRunExperiment({ project }, envs)) {
+          context.permissions.throwPermissionError();
+        }
+      });
     }
   }
 
@@ -959,8 +964,12 @@ export async function postExperimentArchive(
   const envs = getAffectedEnvsForExperiment({
     experiment,
   });
-  envs.length > 0 &&
-    req.checkPermissions("runExperiments", experiment.project, envs);
+  if (
+    envs.length > 0 &&
+    !context.permissions.canRunExperiment(experiment, envs)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   changes.archived = true;
 
@@ -1084,8 +1093,13 @@ export async function postExperimentStatus(
   const envs = getAffectedEnvsForExperiment({
     experiment,
   });
-  envs.length > 0 &&
-    req.checkPermissions("runExperiments", experiment.project, envs);
+
+  if (
+    envs.length > 0 &&
+    !context.permissions.canRunExperiment(experiment, envs)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   // If status changed from running to stopped, update the latest phase
   const phases = [...experiment.phases];
@@ -1194,8 +1208,13 @@ export async function postExperimentStop(
   const envs = getAffectedEnvsForExperiment({
     experiment,
   });
-  envs.length > 0 &&
-    req.checkPermissions("runExperiments", experiment.project, envs);
+
+  if (
+    envs.length > 0 &&
+    !context.permissions.canRunExperiment(experiment, envs)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const phases = [...experiment.phases];
   // Already has phases
@@ -1284,8 +1303,13 @@ export async function deleteExperimentPhase(
   const envs = getAffectedEnvsForExperiment({
     experiment,
   });
-  envs.length > 0 &&
-    req.checkPermissions("runExperiments", experiment.project, envs);
+
+  if (
+    envs.length > 0 &&
+    !context.permissions.canRunExperiment(experiment, envs)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   if (phaseIndex < 0 || phaseIndex >= experiment.phases?.length) {
     throw new Error("Invalid phase id");
@@ -1353,8 +1377,13 @@ export async function putExperimentPhase(
   const envs = getAffectedEnvsForExperiment({
     experiment,
   });
-  envs.length > 0 &&
-    req.checkPermissions("runExperiments", experiment.project, envs);
+
+  if (
+    envs.length > 0 &&
+    !context.permissions.canRunExperiment(experiment, envs)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   phase.dateStarted = phase.dateStarted
     ? getValidDate(phase.dateStarted + ":00Z")
@@ -1435,8 +1464,13 @@ export async function postExperimentTargeting(
   const envs = getAffectedEnvsForExperiment({
     experiment,
   });
-  envs.length > 0 &&
-    req.checkPermissions("runExperiments", experiment.project, envs);
+
+  if (
+    envs.length > 0 &&
+    !context.permissions.canRunExperiment(experiment, envs)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const phases = [...experiment.phases];
 
@@ -1551,8 +1585,13 @@ export async function postExperimentPhase(
   const envs = getAffectedEnvsForExperiment({
     experiment,
   });
-  envs.length > 0 &&
-    req.checkPermissions("runExperiments", experiment.project, envs);
+
+  if (
+    envs.length > 0 &&
+    !context.permissions.canRunExperiment(experiment, envs)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
 
@@ -1666,8 +1705,13 @@ export async function deleteExperiment(
   const envs = getAffectedEnvsForExperiment({
     experiment,
   });
-  envs.length > 0 &&
-    req.checkPermissions("runExperiments", experiment.project, envs);
+
+  if (
+    envs.length > 0 &&
+    !context.permissions.canRunExperiment(experiment, envs)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   await Promise.all([
     // note: we might want to change this to change the status to
@@ -2367,8 +2411,13 @@ export async function postVisualChangeset(
   const envs = getAffectedEnvsForExperiment({
     experiment,
   });
-  envs.length > 0 &&
-    req.checkPermissions("runExperiments", experiment.project, envs);
+
+  if (
+    envs.length > 0 &&
+    !context.permissions.canRunExperiment(experiment, envs)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const visualChangeset = await createVisualChangeset({
     experiment,
@@ -2410,7 +2459,9 @@ export async function putVisualChangeset(
   };
 
   const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
-  req.checkPermissions("runExperiments", experiment?.project || "", envs);
+  if (!context.permissions.canRunExperiment(experiment, envs)) {
+    context.permissions.throwPermissionError();
+  }
 
   const ret = await updateVisualChangeset({
     visualChangeset,
@@ -2447,7 +2498,9 @@ export async function deleteVisualChangeset(
   );
 
   const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
-  req.checkPermissions("runExperiments", experiment?.project || "", envs);
+  if (!context.permissions.canRunExperiment(experiment || {}, envs)) {
+    context.permissions.throwPermissionError();
+  }
 
   await deleteVisualChangesetById({
     visualChangeset,
