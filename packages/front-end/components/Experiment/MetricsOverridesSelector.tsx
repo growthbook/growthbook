@@ -23,7 +23,10 @@ import { capitalizeFirstLetter } from "@/services/utils";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
-import { EditMetricsFormInterface } from "./EditMetricsForm";
+import {
+  EditMetricsFormInterface,
+  getDefaultMetricOverridesFormValue,
+} from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
 
 export default function MetricsOverridesSelector({
@@ -41,6 +44,7 @@ export default function MetricsOverridesSelector({
   const {
     metrics: metricDefinitions,
     factMetrics: factMetricDefinitions,
+    getExperimentMetricById,
   } = useDefinitions();
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
@@ -790,9 +794,14 @@ export default function MetricsOverridesSelector({
               disabled={disabled || !selectedMetricId}
               onClick={(e) => {
                 e.preventDefault();
-                metricOverrides.append({
-                  id: selectedMetricId,
-                });
+                const metricOverride = getDefaultMetricOverridesFormValue(
+                  [{ id: selectedMetricId }],
+                  getExperimentMetricById,
+                  settings
+                )?.[0];
+                if (metricOverride) {
+                  metricOverrides.append(metricOverride);
+                }
                 setSelectedMetricId("");
               }}
             >
