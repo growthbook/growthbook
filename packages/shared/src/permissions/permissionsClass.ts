@@ -586,6 +586,19 @@ export class Permissions {
   };
 
   // ENV_SCOPED_PERMISSIONS
+  public canPublishFeature = (
+    feature: Pick<FeatureInterface, "project">,
+    environments: string[]
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      {
+        projects: feature.project ? [feature.project] : [],
+      },
+      environments,
+      "publishFeatures"
+    );
+  };
+
   public canRunExperiment = (
     experiment: Pick<ExperimentInterface, "project">,
     environments: string[]
