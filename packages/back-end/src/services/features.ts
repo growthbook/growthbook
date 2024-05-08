@@ -7,6 +7,7 @@ import { orgHasPremiumFeature } from "enterprise";
 import {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
+  getAutoExperimentChangeType,
   GrowthBook,
   ParentConditionInterface,
 } from "@growthbook/growthbook";
@@ -260,7 +261,6 @@ export function generateAutoExperimentsPayload({
           : undefined,
         condition,
         coverage: phase.coverage,
-        changeType: data.type,
       };
 
       if (prerequisites.length) {
@@ -476,18 +476,9 @@ async function getFeatureDefinitionsResponse({
 
   // Generate any just-in-time fields
   experiments = experiments?.map((exp) => {
-    if (!exp.changeType) {
-      if (
-        exp.urlPatterns &&
-        exp.variations.some((variation) => variation.urlRedirect)
-      ) {
-        exp.changeType = "redirect";
-      } else {
-        exp.changeType = "visual";
-      }
-    }
-    if (!exp.changeId) {
-      exp.changeId = `${exp.key}_${exp.changeType}_${uniqid()}`;
+    const changeType = getAutoExperimentChangeType(exp);
+    if (!exp.changeId && changeType) {
+      exp.changeId = `${exp.key}_${changeType}_${uniqid()}`;
     }
     return exp;
   });
