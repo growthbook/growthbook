@@ -26,15 +26,15 @@ export const putEnvironments = async (
     environments: Environment[];
   }>
 ) => {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const environments = req.body.environments;
 
-  // req.checkPermissions(
-  //   "manageEnvironments",
-  //   "",
-  //   environments.map((e) => e.id)
-  // );
-  // This is checking to see
+  environments.forEach((environment) => {
+    if (!context.permissions.canCreateOrUpdateEnvironment(environment)) {
+      context.permissions.throwPermissionError();
+    }
+  });
 
   // Add each environment to the list if it doesn't exist yet
   const updatedEnvironments = environments.reduce((acc, environment) => {
@@ -68,12 +68,10 @@ export const postEnvironment = async (
   // TODO: Migrate this endpoint to use the new data modelling - https://github.com/growthbook/growthbook/issues/1391
   const { environment } = req.body;
 
-  // req.checkPermissions("manageEnvironments", "", [environment.id]);
-
   const context = getContextFromReq(req);
   const { org, environments } = context;
 
-  if (!context.permissions.canCreateEnvironment(environment)) {
+  if (!context.permissions.canCreateOrUpdateEnvironment(environment)) {
     context.permissions.throwPermissionError();
   }
 

@@ -613,7 +613,8 @@ export class Permissions {
     );
   };
 
-  public canCreateEnvironment = (
+  //TODO: Refactor this into two separate methods and eliminate updating envs from organizations.controller.putOrganization
+  public canCreateOrUpdateEnvironment = (
     environment: Pick<Environment, "projects" | "id">
   ): boolean => {
     return this.checkEnvFilterPermission(
@@ -625,7 +626,43 @@ export class Permissions {
     );
   };
 
-  public canUpdateEnvironment = (
+  public canDeleteEnvironment = (
+    environment: Pick<Environment, "projects" | "id">
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      {
+        projects: environment.projects || [],
+      },
+      [environment.id],
+      "manageEnvironments"
+    );
+  };
+
+  public canCreateSDKConnection = (
+    environment: Pick<Environment, "projects" | "id">
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      {
+        projects: environment.projects || [],
+      },
+      [environment.id],
+      "manageEnvironments"
+    );
+  };
+
+  public canUpdateSDKConnection = (
+    environment: Pick<Environment, "projects" | "id">
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      {
+        projects: environment.projects || [],
+      },
+      [environment.id],
+      "manageEnvironments"
+    );
+  };
+
+  public canDeleteSDKConnection = (
     environment: Pick<Environment, "projects" | "id">
   ): boolean => {
     return this.checkEnvFilterPermission(
@@ -703,6 +740,39 @@ export class Permissions {
       this.hasPermission(permission, project, envs)
     );
   }
+
+  // private checkEnvFilterUpdatePermission(
+  //   existing: { projects?: string[]; id: string },
+  //   updates: { projects?: string[]; id: string },
+  //   // envs: string[],
+  //   permission: ProjectScopedPermission
+  // ): boolean {
+  //   const existingProjects = existing.projects?.length
+  //     ? existing.projects
+  //     : [""];
+  //   if (
+  //     !existingProjects.every((project) =>
+  //       this.hasPermission(permission, project, [existing.id])
+  //     )
+  //   ) {
+  //     return false;
+  //   }
+
+  //   if ("projects" in updates) {
+  //     const updatedProjects = updates.projects?.length
+  //       ? updates.projects
+  //       : [""];
+
+  //     if (
+  //       !updatedProjects.every((project) => {
+  //         this.hasPermission(permission, project, envs);
+  //       })
+  //     ) {
+  //       return false;
+  //     }
+  //   }
+  //   return true;
+  // }
 
   private hasPermission(
     permissionToCheck: Permission,

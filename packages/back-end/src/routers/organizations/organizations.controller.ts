@@ -1266,11 +1266,17 @@ export async function putOrganization(
           }
         });
 
-        req.checkPermissions(
-          "manageEnvironments",
-          "",
-          Array.from(affectedEnvs)
-        );
+        // req.checkPermissions(
+        //   "manageEnvironments",
+        //   "",
+        //   Array.from(affectedEnvs)
+        // );
+        //MKTODO: Start back here and figure out this logic
+        // Array.from(affectedEnvs).forEach((affectedEnv) => {
+        //   if (!context.permissions.canCreateOrUpdateEnvironment(affectedEnv)) {
+        //     context.permissions.throwPermissionError();
+        //   }
+        // });
       } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
         req.checkPermissions("manageEnvironments", "", []);
       } else if (k === "attributeSchema") {
