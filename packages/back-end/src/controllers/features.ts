@@ -780,12 +780,7 @@ export async function postFeaturePublish(
   else {
     const changedEnvs = Object.keys(mergeResult.result.rules || {});
     if (changedEnvs.length > 0) {
-      if (
-        !context.permissions.canPublishFeature(
-          feature,
-          Array.from(getEnabledEnvironments(feature, changedEnvs))
-        )
-      ) {
+      if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
         context.permissions.throwPermissionError();
       }
     }
@@ -1872,8 +1867,11 @@ export async function postFeatureEvaluate(
   const { id, version } = req.params;
   const context = getContextFromReq(req);
   const { org } = context;
-  const { attributes, scrubPrerequisites, skipRulesWithPrerequisites } =
-    req.body;
+  const {
+    attributes,
+    scrubPrerequisites,
+    skipRulesWithPrerequisites,
+  } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -1924,7 +1922,7 @@ export async function postFeatureArchive(
 
   if (
     !context.permissions.canUpdateFeature(feature, {}) ||
-    !!context.permissions.canPublishFeature(
+    !context.permissions.canPublishFeature(
       feature,
       Array.from(getEnabledEnvironments(feature, environmentsIds))
     )
