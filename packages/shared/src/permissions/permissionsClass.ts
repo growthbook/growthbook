@@ -599,6 +599,19 @@ export class Permissions {
     );
   };
 
+  public canRunExperiment = (
+    experiment: Pick<ExperimentInterface, "project">,
+    environments: string[]
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      {
+        projects: experiment.project ? [experiment.project] : [],
+      },
+      environments,
+      "runExperiments"
+    );
+  };
+
   public throwPermissionError(): void {
     throw new PermissionError(
       "You do not have permission to perform this action"

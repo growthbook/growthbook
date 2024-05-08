@@ -19,7 +19,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { GBSequential } from "@/components/Icons";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import Modal from "@/components/Modal";
@@ -65,14 +65,13 @@ const AnalysisForm: FC<{
 
   const { organization, hasCommercialFeature } = useUser();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const orgSettings = useOrgSettings();
 
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
-  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(
-    false
-  );
+  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] =
+    useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
 
   const pid = experiment?.project;
@@ -83,14 +82,13 @@ const AnalysisForm: FC<{
     project: project ?? undefined,
   });
 
-  const hasSequentialTestingFeature = hasCommercialFeature(
-    "sequential-testing"
-  );
+  const hasSequentialTestingFeature =
+    hasCommercialFeature("sequential-testing");
 
   let canRunExperiment = !experiment.archived;
   const envs = getAffectedEnvsForExperiment({ experiment });
   if (envs.length > 0) {
-    if (!permissions.check("runExperiments", experiment.project, envs)) {
+    if (!permissionsUtil.canRunExperiment(experiment, envs)) {
       canRunExperiment = false;
     }
   }
@@ -143,10 +141,8 @@ const AnalysisForm: FC<{
     },
   });
 
-  const [
-    usingSequentialTestingDefault,
-    setUsingSequentialTestingDefault,
-  ] = useState(experiment.sequentialTestingEnabled === undefined);
+  const [usingSequentialTestingDefault, setUsingSequentialTestingDefault] =
+    useState(experiment.sequentialTestingEnabled === undefined);
   const setSequentialTestingToDefault = useCallback(
     (enable: boolean) => {
       if (enable) {
@@ -227,7 +223,8 @@ const AnalysisForm: FC<{
         }
         if (usingSequentialTestingDefault) {
           // User checked the org default checkbox; ignore form values
-          body.sequentialTestingEnabled = !!orgSettings.sequentialTestingEnabled;
+          body.sequentialTestingEnabled =
+            !!orgSettings.sequentialTestingEnabled;
           body.sequentialTestingTuningParameter =
             orgSettings.sequentialTestingTuningParameter ??
             DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
@@ -657,7 +654,7 @@ const AnalysisForm: FC<{
               <MetricsOverridesSelector
                 experiment={experiment}
                 form={
-                  (form as unknown) as UseFormReturn<EditMetricsFormInterface>
+                  form as unknown as UseFormReturn<EditMetricsFormInterface>
                 }
                 disabled={!hasOverrideMetricsFeature}
                 setHasMetricOverrideRiskError={(v: boolean) =>
