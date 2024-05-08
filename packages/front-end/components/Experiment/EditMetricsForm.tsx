@@ -64,24 +64,28 @@ export function getDefaultMetricOverridesFormValue(
       }
     }
     if (
-      defaultMetricOverrides[i].properPriorMean === undefined ||
-      defaultMetricOverrides[i].properPriorStdDev === undefined
+      isNaN(defaultMetricOverrides[i].properPriorMean ?? NaN) ||
+      isNaN(defaultMetricOverrides[i].properPriorMean ?? NaN)
     ) {
       const metricDefinition = getExperimentMetricById(
         defaultMetricOverrides[i].id
       );
       const defaultValues = metricDefinition?.priorSettings?.override
         ? {
+            proper: metricDefinition.priorSettings.proper,
             mean: metricDefinition.priorSettings.mean,
             stddev: metricDefinition.priorSettings.stddev,
           }
         : {
+            proper: settings.metricDefaults?.priorSettings?.proper ?? false,
             mean: settings.metricDefaults?.priorSettings?.mean ?? 0,
             stddev:
               settings.metricDefaults?.priorSettings?.stddev ??
               DEFAULT_PROPER_PRIOR_STDDEV,
           };
 
+      defaultMetricOverrides[i].properPriorEnabled =
+        defaultMetricOverrides[i].properPriorEnabled ?? defaultValues.proper;
       defaultMetricOverrides[i].properPriorMean =
         defaultMetricOverrides[i].properPriorMean ?? defaultValues.mean;
       defaultMetricOverrides[i].properPriorStdDev =
