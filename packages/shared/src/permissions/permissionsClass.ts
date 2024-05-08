@@ -11,11 +11,13 @@ import {
 } from "back-end/types/organization";
 import { IdeaInterface } from "back-end/types/idea";
 import {
+  FactMetricInterface,
   FactTableInterface,
   UpdateFactTableProps,
 } from "back-end/types/fact-table";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { DataSourceInterface } from "back-end/types/datasource";
+import { UpdateProps } from "back-end/types/models";
 import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
 class PermissionError extends Error {
   constructor(message: string) {
@@ -428,6 +430,29 @@ export class Permissions {
     factTable: Pick<FactTableInterface, "projects">
   ): boolean => {
     return this.checkProjectFilterPermission(factTable, "manageFactTables");
+  };
+
+  public canCreateFactMetric = (
+    metric: Pick<FactMetricInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(metric, "createMetrics");
+  };
+
+  public canUpdateFactMetric = (
+    existing: Pick<FactMetricInterface, "projects">,
+    updates: UpdateProps<FactMetricInterface>
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "createMetrics"
+    );
+  };
+
+  public canDeleteFactMetric = (
+    metric: Pick<FactMetricInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(metric, "createMetrics");
   };
 
   public canCreateMetric = (
