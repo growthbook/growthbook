@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useForm, UseFormReturn } from "react-hook-form";
 import clsx from "clsx";
+import {
+  ExperimentMetricInterface,
+  isBinomialMetric,
+  isFactMetric,
+  isRatioMetric,
+} from "shared/experiments";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Field from "@/components/Forms/Field";
@@ -34,7 +40,22 @@ const SelectStep = ({
   close?: () => void;
   onNext: () => void;
 }) => {
-  const { metrics: appMetrics } = useDefinitions();
+  const {
+    metrics: appMetrics,
+    factMetrics: appFactMetrics,
+    getExperimentMetricById,
+  } = useDefinitions();
+  // combine both metrics and remove ratio metrics
+  const allAppMetrics: ExperimentMetricInterface[] = [
+    ...appMetrics,
+    ...appFactMetrics,
+  ].filter((m) => {
+    const denominator =
+      m.denominator && !isFactMetric(m)
+        ? getExperimentMetricById(m.denominator) ?? undefined
+        : undefined;
+    return !isRatioMetric(m, denominator);
+  });
   const usersPerWeek = form.watch("usersPerWeek");
   const metrics = form.watch("metrics");
 
@@ -73,13 +94,16 @@ const SelectStep = ({
         labelClassName="d-flex"
         label={
           <>
-            <span className="mr-auto font-weight-bold">Select Metrics</span>{" "}
+            <span className="mr-auto font-weight-bold">
+              Select Metrics{" "}
+              <Tooltip body={"Ratio metrics can not be selected"} />
+            </span>{" "}
             Limit 5
           </>
         }
         sort={false}
         value={selectedMetrics}
-        options={appMetrics.map(({ name: label, id: value }) => ({
+        options={allAppMetrics.map(({ name: label, id: value }) => ({
           label,
           value,
         }))}
@@ -89,7 +113,7 @@ const SelectStep = ({
             "metrics",
             value.reduce((result, id) => {
               const metric = ensureAndReturn(
-                appMetrics.find((m) => m.id === id)
+                allAppMetrics.find((m) => m.id === id)
               );
 
               return {
@@ -97,7 +121,7 @@ const SelectStep = ({
                 [id]: metrics[id] || {
                   name: metric.name,
                   ...field("effectSize"),
-                  ...(metric.type === "binomial"
+                  ...(isBinomialMetric(metric)
                     ? { type: "binomial", ...field("conversionRate") }
                     : {
                         type: "mean",
