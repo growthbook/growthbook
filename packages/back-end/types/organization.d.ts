@@ -43,9 +43,7 @@ export type MemberRole =
   | "readonly"
   | "collaborator"
   | "visualEditor"
-  | "designer"
   | "analyst"
-  | "developer"
   | "engineer"
   | "experimenter"
   | "admin";
