@@ -39,7 +39,7 @@ const AthenaForm: FC<{
           />
         </div>
       )}
-      {(isCloud() || params.authType == "accessKey") && (
+      {(isCloud() || params.authType === "accessKey") && (
         <>
           <div className="form-group col-md-12">
             <label>AWS Access Key</label>
@@ -68,7 +68,7 @@ const AthenaForm: FC<{
           </div>
         </>
       )}
-      {!isCloud() && params.authType == "assumeRole" && (
+      {!isCloud() && params.authType === "assumeRole" && (
         <>
           <div className="form-group col-md-12">
             <label>AWS IAM Role ARN</label>
@@ -148,7 +148,7 @@ const AthenaForm: FC<{
           type="text"
           className="form-control"
           name="catalog"
-          value={params.catalog || ""}
+          value={params.catalog || "AwsDataCatalog"}
           onChange={onParamChange}
         />
       </div>
