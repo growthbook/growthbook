@@ -117,6 +117,8 @@ const organizationSchema = new mongoose.Schema({
     },
   },
   settings: {},
+  useCustomRoles: Boolean,
+  customRoles: {},
 });
 
 organizationSchema.index({ "members.id": 1 });
