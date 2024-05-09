@@ -99,6 +99,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       srmThreshold: DEFAULT_SRM_THRESHOLD,
       multipleExposureMinPercent: 0.01,
       confidenceLevel: 0.95,
+      experimentNotificationsEnabled: false,
       pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
       pValueCorrection: null,
       statsEngine: DEFAULT_STATS_ENGINE,

@@ -9,6 +9,7 @@ import {
 import { getContextFromReq } from "../services/organizations";
 import {
   deleteMetricById,
+  getMetricsByIds as getMetricModelsById,
   getMetricsByOrganization,
   getMetricById,
   updateMetric,
@@ -258,6 +259,27 @@ export async function getMetric(
     status: 200,
     metric,
     experiments,
+  });
+}
+
+export async function getMetricsByIds(
+  req: AuthRequest<null, null, { ids: string[] }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  if (!req.query?.ids)
+    return res.status(200).json({
+      status: 200,
+      metrics: [],
+    });
+
+  const ids = Array.isArray(req.query.ids) ? req.query.ids : [req.query.ids];
+
+  const metrics = await getMetricModelsById(context, ids);
+
+  res.status(200).json({
+    status: 200,
+    metrics,
   });
 }
 

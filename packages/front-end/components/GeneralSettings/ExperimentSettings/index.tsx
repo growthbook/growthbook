@@ -31,6 +31,10 @@ export default function ExperimentSettings({
     () => queryParams.get("editCheckListModal") || false
   );
 
+  const experimentNotificationsEnabled = form.watch(
+    "experimentNotificationsEnabled"
+  );
+
   const srmThreshold = form.watch("srmThreshold");
   const srmHighlightColor =
     srmThreshold && (srmThreshold > 0.01 || srmThreshold < 0.001)
@@ -170,6 +174,22 @@ export default function ExperimentSettings({
                   />
                 </div>
               )}
+            </div>
+
+            <div className="form-group mb-4  form-inline">
+              <label
+                className="mr-1"
+                htmlFor="toggle-experimentNotificationsEnabled"
+              >
+                Enable experiment notifications
+              </label>
+              <Toggle
+                id="toggle-experimentNotificationsEnabled"
+                value={experimentNotificationsEnabled}
+                setValue={(value) => {
+                  form.setValue("experimentNotificationsEnabled", value);
+                }}
+              />
             </div>
 
             <div className="d-flex form-group mb-3">

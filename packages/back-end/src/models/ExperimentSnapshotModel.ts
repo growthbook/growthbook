@@ -191,6 +191,7 @@ export async function updateSnapshot({
     id,
     organization,
   });
+
   if (!experimentSnapshotModel) throw "Internal error";
 
   await notifyExperimentChange({
@@ -254,6 +255,7 @@ export async function updateSnapshotAnalysis({
     id,
     organization,
   });
+
   if (!experimentSnapshotModel) throw "Internal error";
 
   await notifyExperimentChange({

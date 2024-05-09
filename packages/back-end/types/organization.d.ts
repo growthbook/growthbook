@@ -160,6 +160,7 @@ export interface OrganizationSettings {
   primaryColor?: string;
   secondaryColor?: string;
   northStar?: NorthStarMetric;
+  experimentNotificationsEnabled?: boolean;
   namespaces?: Namespaces[];
   metricDefaults?: MetricDefaults;
   datasources?: string[];

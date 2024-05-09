@@ -143,6 +143,11 @@ export abstract class BaseModel<T extends BaseSchema> {
         : { projects: project }
     );
   }
+  public getAllByAttributes(
+    attrs: FilterQuery<Omit<z.infer<T>, "organization">>
+  ) {
+    return this._find(attrs);
+  }
   public create(props: unknown | CreateProps<z.infer<T>>): Promise<z.infer<T>> {
     return this._createOne(props);
   }

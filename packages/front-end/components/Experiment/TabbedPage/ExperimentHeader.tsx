@@ -541,10 +541,26 @@ export default function ExperimentHeader({
                     }}
                     newStyle={false}
                     activeClassName="active-tab"
-                    last={true}
+                    last={false}
                     notificationCount={healthNotificationCount}
                   />
                 )}
+                <TabButton
+                  active={tab === "notifications"}
+                  display={
+                    <>
+                      <FaHeartPulse /> Notifications
+                    </>
+                  }
+                  anchor="notifications"
+                  onClick={() => {
+                    track("Open notifications tab", { source: "tab-click" });
+                    setTab("notifications");
+                  }}
+                  newStyle={false}
+                  activeClassName="active-tab"
+                  last={true}
+                />
               </TabButtons>
             </div>
 
