@@ -46,8 +46,8 @@ const EnvironmentsPage: FC = () => {
   // See if the user has access to a random environment name that doesn't exist yet
   // If yes, then they can create new environments
   const canCreate = permissionsUtil.canCreateOrUpdateEnvironment({
-    id: "$$$NEW$$$",
-    projects: [],
+    id: "",
+    projects: [project],
   });
 
   const { apiCall } = useAuth();

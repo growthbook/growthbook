@@ -806,31 +806,13 @@ export class Permissions {
       return false;
     }
 
-    if ("projects" in updates) {
-      if (
-        !this.checkEnvFilterPermission(
-          updates,
-          existing.environment ? [existing.environment] : [],
-          permission
-        )
-      ) {
-        return false;
-      }
-    }
+    const updatedObj = { ...existing, ...updates };
 
-    if ("environment" in updates) {
-      if (
-        !this.checkEnvFilterPermission(
-          existing,
-          updates.environment ? [updates.environment] : [],
-          permission
-        )
-      ) {
-        return false;
-      }
-    }
-
-    return true;
+    return this.checkEnvFilterPermission(
+      updatedObj,
+      updatedObj.environment ? [updatedObj.environment] : [],
+      permission
+    );
   }
 
   private hasPermission(

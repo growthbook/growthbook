@@ -218,10 +218,9 @@ const navlinks: SidebarLinkProps[] = [
         path: /^importing/,
         filter: ({ permissionsUtils, gb }) =>
           permissionsUtils.canViewFeatureModal() &&
-          // This is a little weird, since this is only checking a user's global role
           permissionsUtils.canCreateOrUpdateEnvironment({
             projects: [],
-            id: "FOO",
+            id: "",
           }) &&
           permissionsUtils.canCreateProjects() &&
           !!gb?.isOn("import-from-x"),
