@@ -23,12 +23,9 @@ const ImpactModal: FC<{
     defaultValues: {
       metric: estimate?.metric || metrics[0]?.id || "",
       segment: estimate?.segment || "",
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      userAdjustment: idea.estimateParams?.userAdjustment || 100,
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      numVariations: idea.estimateParams?.numVariations || 2,
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      improvement: idea.estimateParams?.improvement || 10,
+      userAdjustment: idea?.estimateParams?.userAdjustment || 100,
+      numVariations: idea?.estimateParams?.numVariations || 2,
+      improvement: idea?.estimateParams?.improvement || 10,
     },
   });
 
@@ -100,8 +97,7 @@ const ImpactModal: FC<{
           },
         };
 
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-        await apiCall(`/idea/${idea.id}`, {
+        await apiCall(`/idea/${idea?.id}`, {
           method: "POST",
           body: JSON.stringify(data),
         });

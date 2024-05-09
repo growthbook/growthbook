@@ -1,15 +1,14 @@
 import { Response } from "express";
-
 import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { getAffectedEnvsForExperiment } from "shared/util";
+import { getAffectedEnvsForExperiment, isDefined } from "shared/util";
+import { getAllMetricSettingsForSnapshot } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
-import { getAllMetricSettingsForSnapshot } from "shared/experiments";
 import { DataSourceInterface } from "@back-end/types/datasource";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
@@ -21,7 +20,7 @@ import {
   getExperimentMetricById,
   getLinkedFeatureInfo,
 } from "../services/experiments";
-import { MetricInterface, MetricStats } from "../../types/metric";
+import { MetricStats } from "../../types/metric";
 import {
   createExperiment,
   deleteExperimentByIdForOrganization,
@@ -1819,7 +1818,7 @@ async function createExperimentSnapshot({
     await Promise.all(
       denominatorMetricIds.map((m) => getMetricById(context, m))
     )
-  ).filter(Boolean) as MetricInterface[];
+  ).filter(isDefined);
 
   const {
     settingsForSnapshotMetrics,
