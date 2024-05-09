@@ -9,7 +9,6 @@ import {
   BsCodeSlash,
 } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
-import { GlobalPermission } from "@back-end/types/organization";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import useStripeSubscription from "@/hooks/useStripeSubscription";

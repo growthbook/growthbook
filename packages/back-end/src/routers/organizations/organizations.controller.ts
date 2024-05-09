@@ -1237,7 +1237,6 @@ export async function putOrganization(
   if (settings) {
     Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
       if (k === "environments") {
-        console.log("settings includes 'environments'");
         // Require permissions for any old environments that changed
         const affectedEnvs: Set<Environment> = new Set();
         existingEnvironments.forEach((env) => {
