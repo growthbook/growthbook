@@ -39,7 +39,8 @@ const AthenaForm: FC<{
           />
         </div>
       )}
-      {(isCloud() || params.authType === "accessKey") && (
+      {(isCloud() ||
+        (params.authType !== "assumeRole" && params.authType !== "auto")) && (
         <>
           <div className="form-group col-md-12">
             <label>AWS Access Key</label>
