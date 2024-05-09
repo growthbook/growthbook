@@ -431,6 +431,18 @@ export class Permissions {
     return this.checkProjectFilterPermission(factTable, "manageFactTables");
   };
 
+  public canCreateAndUpdateFactFilter = (
+    factTable: Pick<FactTableInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(factTable, "manageFactTables");
+  };
+
+  public canDeleteFactFilter = (
+    factTable: Pick<FactTableInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(factTable, "manageFactTables");
+  };
+
   public canCreateFactMetric = (
     metric: Pick<FactMetricInterface, "projects">
   ): boolean => {

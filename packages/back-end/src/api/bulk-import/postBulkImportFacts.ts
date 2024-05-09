@@ -151,7 +151,7 @@ export const postBulkImportFacts = createApiRequestHandler(
             `Could not find fact table ${factTableId} for filter ${id}`
           );
         }
-        if (!req.context.permissions.canUpdateFactTable(factTable, {})) {
+        if (!req.context.permissions.canCreateAndUpdateFactFilter(factTable)) {
           req.context.permissions.throwPermissionError();
         }
 
