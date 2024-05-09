@@ -796,33 +796,40 @@ export class Permissions {
     updates: { projects?: string[]; environment?: string },
     permission: EnvScopedPermission
   ): boolean {
-    const existingProjects = existing.projects?.length
-      ? existing.projects
-      : [""];
-    const existingEnv = existing.environment ? [existing.environment] : [];
     if (
-      !existingProjects.every((project) =>
-        this.hasPermission(permission, project, existingEnv)
+      !this.checkEnvFilterPermission(
+        existing,
+        existing.environment ? [existing.environment] : [],
+        permission
       )
     ) {
       return false;
     }
 
     if ("projects" in updates) {
-      const updatedProjects = updates.projects?.length
-        ? updates.projects
-        : [""];
-
-      const updatedEnvs = updates.environment ? [updates.environment] : [];
-
       if (
-        !updatedProjects.every((project) => {
-          this.hasPermission(permission, project, updatedEnvs);
-        })
+        !this.checkEnvFilterPermission(
+          updates,
+          existing.environment ? [existing.environment] : [],
+          permission
+        )
       ) {
         return false;
       }
     }
+
+    if ("environment" in updates) {
+      if (
+        !this.checkEnvFilterPermission(
+          existing,
+          updates.environment ? [updates.environment] : [],
+          permission
+        )
+      ) {
+        return false;
+      }
+    }
+
     return true;
   }
 

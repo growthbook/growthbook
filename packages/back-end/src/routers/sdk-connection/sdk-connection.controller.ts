@@ -93,7 +93,7 @@ export const putSDKConnection = async (
     throw new Error("Could not find SDK Connection");
   }
 
-  if (!context.permissions.canUpdateSDKConnection(connection, connection)) {
+  if (!context.permissions.canUpdateSDKConnection(connection, req.body)) {
     context.permissions.throwPermissionError();
   }
 
