@@ -1,5 +1,9 @@
 import { ReactNode, useMemo } from "react";
-import { MemberRole, MemberRoleInfo } from "back-end/types/organization";
+import {
+  MemberRole,
+  MemberRoleInfo,
+  OrganizationInterface,
+} from "back-end/types/organization";
 import uniqid from "uniqid";
 import { roleSupportsEnvLimit } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
@@ -22,7 +26,7 @@ export default function SingleRoleSelector({
   includeAdminRole?: boolean;
   disabled?: boolean;
 }) {
-  const { roles, hasCommercialFeature } = useUser();
+  const { roles, hasCommercialFeature, organization } = useUser();
   const hasFeature = hasCommercialFeature("advanced-permissions");
 
   const isNoAccessRoleEnabled = hasCommercialFeature("no-access-role");
@@ -71,49 +75,53 @@ export default function SingleRoleSelector({
         disabled={disabled}
       />
 
-      {roleSupportsEnvLimit(value.role) && availableEnvs.length > 1 && (
-        <div>
-          <div className="form-group">
-            <label htmlFor={`role-modal--${id}`}>
-              <PremiumTooltip commercialFeature="advanced-permissions">
-                Restrict Access to Specific Environments
-              </PremiumTooltip>
-            </label>
-            <div>
-              <Toggle
-                disabled={!hasFeature}
-                id={`role-modal--${id}`}
-                value={value.limitAccessByEnvironment}
-                setValue={(limitAccessByEnvironment) => {
+      {roleSupportsEnvLimit(
+        value.role,
+        organization as OrganizationInterface
+      ) &&
+        availableEnvs.length > 1 && (
+          <div>
+            <div className="form-group">
+              <label htmlFor={`role-modal--${id}`}>
+                <PremiumTooltip commercialFeature="advanced-permissions">
+                  Restrict Access to Specific Environments
+                </PremiumTooltip>
+              </label>
+              <div>
+                <Toggle
+                  disabled={!hasFeature}
+                  id={`role-modal--${id}`}
+                  value={value.limitAccessByEnvironment}
+                  setValue={(limitAccessByEnvironment) => {
+                    setValue({
+                      ...value,
+                      limitAccessByEnvironment,
+                    });
+                  }}
+                />
+              </div>
+            </div>
+            {value.limitAccessByEnvironment && (
+              <MultiSelectField
+                label="Environments"
+                className="mb-4"
+                helpText="Select all environments you want the person to have permissions for"
+                value={value.environments}
+                onChange={(environments) => {
                   setValue({
                     ...value,
-                    limitAccessByEnvironment,
+                    environments,
                   });
                 }}
+                options={availableEnvs.map((env) => ({
+                  label: env.id,
+                  value: env.id,
+                  tooltip: env.description,
+                }))}
               />
-            </div>
+            )}
           </div>
-          {value.limitAccessByEnvironment && (
-            <MultiSelectField
-              label="Environments"
-              className="mb-4"
-              helpText="Select all environments you want the person to have permissions for"
-              value={value.environments}
-              onChange={(environments) => {
-                setValue({
-                  ...value,
-                  environments,
-                });
-              }}
-              options={availableEnvs.map((env) => ({
-                label: env.id,
-                value: env.id,
-                tooltip: env.description,
-              }))}
-            />
-          )}
-        </div>
-      )}
+        )}
     </div>
   );
 }

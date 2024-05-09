@@ -2,6 +2,10 @@ import {
   Permission,
   UserPermissions,
   MemberRole,
+  PermissionsObject,
+  OrganizationInterface,
+  DefaultMemberRole,
+  Role,
 } from "back-end/types/organization";
 
 export const POLICIES = [
@@ -41,10 +45,9 @@ export const POLICIES = [
   "AuditLogsFullAccess",
 ] as const;
 
-export const POLICY_PERMISSION_MAP: Record<
-  typeof POLICIES[number],
-  Permission[]
-> = {
+export type Policy = typeof POLICIES[number];
+
+export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ReadData: ["readData"],
   Comments: ["readData", "addComments"],
   FeaturesFullAccess: [
@@ -98,77 +101,166 @@ export const POLICY_PERMISSION_MAP: Record<
   AuditLogsFullAccess: ["readData", "viewEvents"],
 };
 
-export const DEFAULT_ROLE_POLCIY_MAP: Record<
-  MemberRole,
-  typeof POLICIES[number][]
-> = {
-  noaccess: [],
-  readonly: ["ReadData"],
-  collaborator: [
-    "ReadData",
-    "Comments",
-    "IdeasFullAccess",
-    "PresentationsFullAccess",
-  ],
-  visualEditor: ["ReadData", "VisualEditorFullAccess"],
-  engineer: [
-    "ReadData",
-    "Comments",
-    "FeaturesFullAccess",
-    "ArchetypesFullAccess",
-    "VisualEditorFullAccess",
-    "IdeasFullAccess",
-    "PresentationsFullAccess",
-    "SDKPayloadPublish",
-    "SDKConnectionsFullAccess",
-    "AttributesFullAccess",
-    "EnvironmentsFullAccess",
-    "NamespacesFullAccess",
-    "SavedGroupsFullAccess",
-    "TagsFullAccess",
-  ],
-  analyst: [
-    "ReadData",
-    "Comments",
-    "RunQueries",
-    "MetricsFullAccess",
-    "ExperimentsFullAccess",
-    "VisualEditorFullAccess",
-    "FactTablesFullAccess",
-    "FactMetricsFiltersFullAccess",
-    "DimensionsFullAccess",
-    "SegmentsFullAccess",
-    "IdeasFullAccess",
-    "PresentationsFullAccess",
-    "TagsFullAccess",
-    "DataSourceConfiguration",
-  ],
-  experimenter: [
-    "ReadData",
-    "Comments",
-    "FeaturesFullAccess",
-    "ExperimentsFullAccess",
-    "VisualEditorFullAccess",
-    "ArchetypesFullAccess",
-    "RunQueries",
-    "MetricsFullAccess",
-    "FactTablesFullAccess",
-    "FactMetricsFiltersFullAccess",
-    "DimensionsFullAccess",
-    "SegmentsFullAccess",
-    "IdeasFullAccess",
-    "PresentationsFullAccess",
-    "SDKPayloadPublish",
-    "SDKConnectionsFullAccess",
-    "AttributesFullAccess",
-    "EnvironmentsFullAccess",
-    "NamespacesFullAccess",
-    "SavedGroupsFullAccess",
-    "TagsFullAccess",
-    "DataSourceConfiguration",
-  ],
-  admin: [...POLICIES],
+export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
+  noaccess: {
+    id: "noaccess",
+    description:
+      "Cannot view any features or experiments. Most useful when combined with project-scoped roles.",
+    policies: [],
+  },
+  readonly: {
+    id: "readonly",
+    description: "View all features and experiment results",
+    policies: ["ReadData"],
+  },
+  collaborator: {
+    id: "collaborator",
+    description: "Add comments and contribute ideas",
+    policies: [
+      "ReadData",
+      "Comments",
+      "IdeasFullAccess",
+      "PresentationsFullAccess",
+    ],
+  },
+  visualEditor: {
+    id: "visualEditor",
+    description: "Make visual changes for an experiment",
+    policies: ["ReadData", "VisualEditorFullAccess"],
+  },
+  engineer: {
+    id: "engineer",
+    description: "Manage features",
+    policies: [
+      "ReadData",
+      "Comments",
+      "FeaturesFullAccess",
+      "ArchetypesFullAccess",
+      "VisualEditorFullAccess",
+      "IdeasFullAccess",
+      "PresentationsFullAccess",
+      "SDKPayloadPublish",
+      "SDKConnectionsFullAccess",
+      "AttributesFullAccess",
+      "EnvironmentsFullAccess",
+      "NamespacesFullAccess",
+      "SavedGroupsFullAccess",
+      "TagsFullAccess",
+    ],
+  },
+  analyst: {
+    id: "analyst",
+    description: "Analyze experiments",
+    policies: [
+      "ReadData",
+      "Comments",
+      "RunQueries",
+      "MetricsFullAccess",
+      "ExperimentsFullAccess",
+      "VisualEditorFullAccess",
+      "FactTablesFullAccess",
+      "FactMetricsFiltersFullAccess",
+      "DimensionsFullAccess",
+      "SegmentsFullAccess",
+      "IdeasFullAccess",
+      "PresentationsFullAccess",
+      "TagsFullAccess",
+      "DataSourceConfiguration",
+    ],
+  },
+  experimenter: {
+    id: "experimenter",
+    description: "Manage features AND Analyze experiments",
+    policies: [
+      "ReadData",
+      "Comments",
+      "FeaturesFullAccess",
+      "ExperimentsFullAccess",
+      "VisualEditorFullAccess",
+      "ArchetypesFullAccess",
+      "RunQueries",
+      "MetricsFullAccess",
+      "FactTablesFullAccess",
+      "FactMetricsFiltersFullAccess",
+      "DimensionsFullAccess",
+      "SegmentsFullAccess",
+      "IdeasFullAccess",
+      "PresentationsFullAccess",
+      "SDKPayloadPublish",
+      "SDKConnectionsFullAccess",
+      "AttributesFullAccess",
+      "EnvironmentsFullAccess",
+      "NamespacesFullAccess",
+      "SavedGroupsFullAccess",
+      "TagsFullAccess",
+      "DataSourceConfiguration",
+    ],
+  },
+  admin: {
+    id: "admin",
+    description:
+      "All access + invite teammates and configure organization settings",
+    policies: [...POLICIES],
+  },
 };
+
+export function policiesSupportEnvLimit(policies: Policy[]): boolean {
+  // If any policies have a permission that is env scoped, return true
+  return policies.some((policy) =>
+    POLICY_PERMISSION_MAP[policy]?.some((permission) =>
+      ENV_SCOPED_PERMISSIONS.includes(
+        permission as typeof ENV_SCOPED_PERMISSIONS[number]
+      )
+    )
+  );
+}
+
+export function getPermissionsObjectByPolicies(
+  policies: Policy[]
+): PermissionsObject {
+  const permissions: PermissionsObject = {};
+
+  policies.forEach((policy) => {
+    POLICY_PERMISSION_MAP[policy]?.forEach((permission) => {
+      permissions[permission] = true;
+    });
+  });
+
+  return permissions;
+}
+
+export function getRoleById(
+  roleId: string,
+  organization: OrganizationInterface
+): Role | null {
+  const roles = getRoles(organization);
+
+  return roles.find((role) => role.id === roleId) || null;
+}
+
+export function getRoles(org: OrganizationInterface) {
+  // Always start with noaccess and readonly
+  const roles = [DEFAULT_ROLES.noaccess, DEFAULT_ROLES.readonly];
+
+  // Role ids must be unique (admin is added at the end, which is why it's here)
+  const usedIds = new Set(["noaccess", "readonly", "admin"]);
+
+  // Add additional roles
+  const customRoles =
+    org.useCustomRoles && org.customRoles
+      ? org.customRoles
+      : Object.values(DEFAULT_ROLES);
+  customRoles.forEach((role) => {
+    if (usedIds.has(role.id)) return;
+    usedIds.add(role.id);
+    roles.push(role);
+  });
+
+  // Always add admin at the end
+  roles.push(DEFAULT_ROLES.admin);
+
+  return roles;
+}
 
 export const ENV_SCOPED_PERMISSIONS = [
   "publishFeatures",
@@ -291,8 +383,15 @@ export const userHasPermission = (
   }
 };
 
-export function roleSupportsEnvLimit(role: MemberRole): boolean {
-  return ["engineer", "experimenter"].includes(role);
+export function roleSupportsEnvLimit(
+  roleId: MemberRole,
+  org: OrganizationInterface
+): boolean {
+  if (roleId === "admin") return false;
+
+  const role = getRoleById(roleId, org);
+
+  return policiesSupportEnvLimit(role?.policies || []);
 }
 
 export type ReadAccessFilter = {

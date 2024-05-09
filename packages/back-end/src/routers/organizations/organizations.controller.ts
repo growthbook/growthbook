@@ -9,7 +9,7 @@ import {
   getLicenseError,
   orgHasPremiumFeature,
 } from "enterprise";
-import { hasReadAccess } from "shared/permissions";
+import { getRoles, hasReadAccess } from "shared/permissions";
 import { experimentHasLinkedChanges } from "shared/util";
 import {
   AuthRequest,
@@ -100,7 +100,6 @@ import {
 } from "../../models/ApiKeyModel";
 import {
   getDefaultRole,
-  getRoles,
   getUserPermissions,
 } from "../../util/organization.util";
 import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";

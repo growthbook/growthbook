@@ -35,7 +35,7 @@ const MemberList: FC<{
 }) => {
   const [inviting, setInviting] = useState(!!router.query["just-subscribed"]);
   const { apiCall } = useAuth();
-  const { userId, users } = useUser();
+  const { userId, users, organization } = useUser();
   const [roleModal, setRoleModal] = useState<string>("");
   const [passwordResetModal, setPasswordResetModal] = useState<ExpandedMember>(
     // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
@@ -175,7 +175,11 @@ const MemberList: FC<{
                       </td>
                     )}
                     {environments.map((env) => {
-                      const access = roleHasAccessToEnv(roleInfo, env.id);
+                      const access = roleHasAccessToEnv(
+                        roleInfo,
+                        env.id,
+                        organization
+                      );
                       return (
                         <td key={env.id}>
                           {access === "N/A" ? (

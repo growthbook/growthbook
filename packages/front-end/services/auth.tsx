@@ -483,9 +483,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
 export function roleHasAccessToEnv(
   role: MemberRoleInfo,
-  env: string
+  env: string,
+  org: Partial<OrganizationInterface>
 ): "yes" | "no" | "N/A" {
-  if (!roleSupportsEnvLimit(role.role)) return "N/A";
+  if (!roleSupportsEnvLimit(role.role, org as OrganizationInterface))
+    return "N/A";
 
   if (!role.limitAccessByEnvironment) return "yes";
 

@@ -3,6 +3,7 @@ import {
   ENV_SCOPED_PERMISSIONS,
   GLOBAL_PERMISSIONS,
   PROJECT_SCOPED_PERMISSIONS,
+  Policy,
 } from "shared/permissions";
 import type { ReqContextClass } from "../src/services/context";
 import { attributeDataTypes } from "../src/util/organization.util";
@@ -38,7 +39,7 @@ export type RequireReview = {
   projects: string[];
 };
 
-export type MemberRole =
+export type DefaultMemberRole =
   | "noaccess"
   | "readonly"
   | "collaborator"
@@ -48,10 +49,12 @@ export type MemberRole =
   | "experimenter"
   | "admin";
 
+export type MemberRole = string;
+
 export type Role = {
   id: MemberRole;
   description: string;
-  permissions: Permission[];
+  policies: Policy[];
 };
 
 export interface MemberRoleInfo {
@@ -272,6 +275,9 @@ export interface OrganizationInterface {
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
   messages?: OrganizationMessage[];
+
+  useCustomRoles?: boolean;
+  customRoles?: Role[];
 }
 
 export type NamespaceUsage = Record<
