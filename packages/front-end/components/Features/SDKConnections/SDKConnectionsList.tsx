@@ -13,7 +13,7 @@ import clsx from "clsx";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import StatusCircle from "@/components/Helpers/StatusCircle";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -30,10 +30,15 @@ export default function SDKConnectionsList() {
   const [modalOpen, setModalOpen] = useState(false);
 
   const environments = useEnvironments();
-  const { projects } = useDefinitions();
+  const { projects, project } = useDefinitions();
 
   const router = useRouter();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
+
+  const canCreateSDKConnections = permissionsUtil.canCreateSDKConnection({
+    projects: [project],
+    environment: "",
+  });
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -56,7 +61,7 @@ export default function SDKConnectionsList() {
         <div className="col-auto">
           <h1 className="mb-0">SDK Connections</h1>
         </div>
-        {connections.length > 0 ? (
+        {connections.length > 0 && canCreateSDKConnections ? (
           <div className="col-auto ml-auto">
             <button
               className="btn btn-primary"
@@ -263,7 +268,7 @@ export default function SDKConnectionsList() {
         </table>
       )}
 
-      {permissions.check("manageEnvironments", "", []) && (
+      {canCreateSDKConnections ? (
         <>
           {connections.length === 0 ? (
             <div className="appbox p-5 text-center">
@@ -283,7 +288,7 @@ export default function SDKConnectionsList() {
             </div>
           ) : null}
         </>
-      )}
+      ) : null}
     </div>
   );
 }

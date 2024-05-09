@@ -655,7 +655,7 @@ export class Permissions {
     return true;
   };
 
-  //TODO: Refactor this into two separate methods and eliminate updating envs from organizations.controller.putOrganization
+  //TODO: Refactor this into two separate methods and eliminate updating envs from organizations.controller.putOrganization - Github Issue #2494
   public canCreateOrUpdateEnvironment = (
     environment: Pick<Environment, "projects" | "id">
   ): boolean => {
@@ -702,11 +702,11 @@ export class Permissions {
   };
 
   public canDeleteSDKConnection = (
-    sdkConnection: Pick<Environment, "projects" | "id">
+    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">
   ): boolean => {
     return this.checkEnvFilterPermission(
       sdkConnection,
-      [sdkConnection.id],
+      [sdkConnection.environment],
       "manageEnvironments"
     );
   };

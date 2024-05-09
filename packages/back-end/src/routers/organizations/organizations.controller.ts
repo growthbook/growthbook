@@ -1283,8 +1283,10 @@ export async function putOrganization(
           context.permissions.canCreateOrUpdateEnvironment(env);
         });
       } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
-        console.log("visualEditorEnabled or sdkInstructionsViewed");
-        req.checkPermissions("manageEnvironments", "", []);
+        context.permissions.canCreateSDKConnection({
+          projects: [],
+          environment: "",
+        });
       } else if (k === "attributeSchema") {
         throw new Error(
           "Not supported: Updating organization attributes not supported via this route."
@@ -1600,7 +1602,7 @@ export async function deleteApiKey(
     // This is deleting a deprecated SDK Endpoint
     context.permissions.canDeleteSDKConnection({
       projects: [keyObj.project || ""],
-      id: keyObj.environment || "",
+      environment: keyObj.environment || "",
     });
   }
 
