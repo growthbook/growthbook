@@ -65,5 +65,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
+      - name: Extract static assets from Docker image and upload to S3
+        run: |
+          docker pull growthbook/growthbook:latest
+          docker create --name temp-container growthbook/growthbook:latest
+          docker cp temp-container:/usr/local/src/app/packages/front-end/.next/static ./static
+          docker rm temp-container
+          aws s3 sync ./static s3://growthbook-cloud-static-files/_next/static
+
       - name: Deploy docker image to ECS for GrowthBook Cloud API
         run: aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1

@@ -19,7 +19,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { GBSequential } from "@/components/Icons";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import Modal from "@/components/Modal";
@@ -65,7 +65,7 @@ const AnalysisForm: FC<{
 
   const { organization, hasCommercialFeature } = useUser();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const orgSettings = useOrgSettings();
 
@@ -90,7 +90,7 @@ const AnalysisForm: FC<{
   let canRunExperiment = !experiment.archived;
   const envs = getAffectedEnvsForExperiment({ experiment });
   if (envs.length > 0) {
-    if (!permissions.check("runExperiments", experiment.project, envs)) {
+    if (!permissionsUtil.canRunExperiment(experiment, envs)) {
       canRunExperiment = false;
     }
   }

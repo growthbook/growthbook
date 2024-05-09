@@ -216,9 +216,10 @@ export default function FactMetricPage() {
   }
 
   const canEdit =
-    permissionsUtil.canUpdateMetric(factMetric, {}) && !factMetric.managedBy;
+    permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
+    !factMetric.managedBy;
   const canDelete =
-    permissionsUtil.canDeleteMetric(factMetric) && !factMetric.managedBy;
+    permissionsUtil.canDeleteFactMetric(factMetric) && !factMetric.managedBy;
 
   let regressionAdjustmentAvailableForMetric = true;
   let regressionAdjustmentAvailableForMetricReason = <></>;

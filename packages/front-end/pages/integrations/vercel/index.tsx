@@ -8,6 +8,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Modal from "@/components/Modal";
 import useApi from "@/hooks/useApi";
 import { useEnvironments } from "@/services/features";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function VercelIntegrationPage() {
   const router = useRouter();
@@ -15,6 +16,7 @@ export default function VercelIntegrationPage() {
 
   const { apiCall } = useAuth();
   const environments = useEnvironments();
+  const permissionsUtil = usePermissionsUtil();
 
   const { data } = useApi<{ hasToken: boolean }>("/vercel/has-token");
   const [integrationAlreadyExists, setIntegrationAlreadyExists] = useState(
@@ -49,6 +51,16 @@ export default function VercelIntegrationPage() {
     apiCall("/vercel/token", options).catch(() => {
       //do nothing
     });
+  }
+
+  if (!permissionsUtil.canManageIntegrations()) {
+    return (
+      <div className="container-fluid pagecontents">
+        <div className="alert alert-danger">
+          You do not have access to view this page.
+        </div>
+      </div>
+    );
   }
 
   return (
