@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
 import { omit } from "lodash";
-import { hasReadAccess } from "shared/permissions";
 import { ApiSdkConnection } from "../../types/openapi";
 import {
   CreateSDKConnectionParams,
@@ -114,7 +113,7 @@ export async function findSDKConnectionById(
   if (!doc) return null;
 
   const connection = toInterface(doc);
-  return hasReadAccess(context.readAccessFilter, connection.projects || [])
+  return context.permissions.canReadMultiProjectResource(connection.projects)
     ? connection
     : null;
 }
@@ -128,7 +127,7 @@ export async function findSDKConnectionsByOrganization(
 
   const connections = docs.map(toInterface);
   return connections.filter((conn) =>
-    hasReadAccess(context.readAccessFilter, conn.projects || [])
+    context.permissions.canReadMultiProjectResource(conn.projects)
   );
 }
 
