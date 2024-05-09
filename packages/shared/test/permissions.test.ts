@@ -34,7 +34,9 @@ describe("Role permissions", () => {
   const projects = [];
   const projectResource = { project: "" };
   const projectsResource = { projects: [] };
+  const environmentsResource = { projects: [], id: "" };
   const envs = ["production"];
+  const environment = "";
   const updates = {};
 
   it("has correct permissions for noaccess", () => {
@@ -130,6 +132,20 @@ describe("Role permissions", () => {
     expect(p.canViewFeatureModal()).toBe(false);
     expect(p.canViewIdeaModal()).toBe(false);
     expect(p.canViewReportModal()).toBe(false);
+    expect(p.canCreateAndUpdateFactFilter(projectsResource)).toBe(false);
+    expect(p.canDeleteFactFilter(projectsResource)).toBe(false);
+    expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(false);
+    expect(p.canDeleteEnvironment(environmentsResource)).toBe(false);
+    expect(p.canViewCreateSDKConnectionModal(project)).toBe(false);
+    expect(p.canCreateSDKConnection({ projects, environment })).toBe(false);
+    expect(p.canUpdateSDKConnection({ projects, environment }, updates)).toBe(
+      false
+    );
+    expect(p.canDeleteSDKConnection({ projects, environment })).toBe(false);
+    expect(p.canReadSingleProjectResource(project)).toBe(false);
+    // This is a weird one - for resources that have multiple projects, if their projects array is empty
+    // that means it's in 'All Projects' so users with global noaccess can view them
+    expect(p.canReadMultiProjectResource(projects)).toBe(true);
   });
 
   it("has correct permissions for readonly", () => {
@@ -225,6 +241,18 @@ describe("Role permissions", () => {
     expect(p.canViewFeatureModal()).toBe(false);
     expect(p.canViewIdeaModal()).toBe(false);
     expect(p.canViewReportModal()).toBe(false);
+    expect(p.canCreateAndUpdateFactFilter(projectsResource)).toBe(false);
+    expect(p.canDeleteFactFilter(projectsResource)).toBe(false);
+    expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(false);
+    expect(p.canDeleteEnvironment(environmentsResource)).toBe(false);
+    expect(p.canViewCreateSDKConnectionModal(project)).toBe(false);
+    expect(p.canCreateSDKConnection({ projects, environment })).toBe(false);
+    expect(p.canUpdateSDKConnection({ projects, environment }, updates)).toBe(
+      false
+    );
+    expect(p.canDeleteSDKConnection({ projects, environment })).toBe(false);
+    expect(p.canReadSingleProjectResource(project)).toBe(true);
+    expect(p.canReadMultiProjectResource(projects)).toBe(true);
   });
 
   it("has correct permissions for visualEditor", () => {
@@ -320,6 +348,18 @@ describe("Role permissions", () => {
     expect(p.canViewFeatureModal()).toBe(false);
     expect(p.canViewIdeaModal()).toBe(false);
     expect(p.canViewReportModal()).toBe(false);
+    expect(p.canCreateAndUpdateFactFilter(projectsResource)).toBe(false);
+    expect(p.canDeleteFactFilter(projectsResource)).toBe(false);
+    expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(false);
+    expect(p.canDeleteEnvironment(environmentsResource)).toBe(false);
+    expect(p.canViewCreateSDKConnectionModal(project)).toBe(false);
+    expect(p.canCreateSDKConnection({ projects, environment })).toBe(false);
+    expect(p.canUpdateSDKConnection({ projects, environment }, updates)).toBe(
+      false
+    );
+    expect(p.canDeleteSDKConnection({ projects, environment })).toBe(false);
+    expect(p.canReadSingleProjectResource(project)).toBe(true);
+    expect(p.canReadMultiProjectResource(projects)).toBe(true);
   });
 
   it("has correct permissions for collaborator", () => {
@@ -415,6 +455,18 @@ describe("Role permissions", () => {
     expect(p.canViewFeatureModal()).toBe(false);
     expect(p.canViewIdeaModal()).toBe(true);
     expect(p.canViewReportModal()).toBe(false);
+    expect(p.canCreateAndUpdateFactFilter(projectsResource)).toBe(false);
+    expect(p.canDeleteFactFilter(projectsResource)).toBe(false);
+    expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(false);
+    expect(p.canDeleteEnvironment(environmentsResource)).toBe(false);
+    expect(p.canViewCreateSDKConnectionModal(project)).toBe(false);
+    expect(p.canCreateSDKConnection({ projects, environment })).toBe(false);
+    expect(p.canUpdateSDKConnection({ projects, environment }, updates)).toBe(
+      false
+    );
+    expect(p.canDeleteSDKConnection({ projects, environment })).toBe(false);
+    expect(p.canReadSingleProjectResource(project)).toBe(true);
+    expect(p.canReadMultiProjectResource(projects)).toBe(true);
   });
 
   it("has correct permissions for engineer", () => {
@@ -510,6 +562,18 @@ describe("Role permissions", () => {
     expect(p.canViewFeatureModal()).toBe(true);
     expect(p.canViewIdeaModal()).toBe(true);
     expect(p.canViewReportModal()).toBe(false);
+    expect(p.canCreateAndUpdateFactFilter(projectsResource)).toBe(false);
+    expect(p.canDeleteFactFilter(projectsResource)).toBe(false);
+    expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(true);
+    expect(p.canDeleteEnvironment(environmentsResource)).toBe(true);
+    expect(p.canViewCreateSDKConnectionModal(project)).toBe(true);
+    expect(p.canCreateSDKConnection({ projects, environment })).toBe(true);
+    expect(p.canUpdateSDKConnection({ projects, environment }, updates)).toBe(
+      true
+    );
+    expect(p.canDeleteSDKConnection({ projects, environment })).toBe(true);
+    expect(p.canReadSingleProjectResource(project)).toBe(true);
+    expect(p.canReadMultiProjectResource(projects)).toBe(true);
   });
 
   it("has correct permissions for analyst", () => {
@@ -605,6 +669,18 @@ describe("Role permissions", () => {
     expect(p.canViewFeatureModal()).toBe(false);
     expect(p.canViewIdeaModal()).toBe(true);
     expect(p.canViewReportModal()).toBe(true);
+    expect(p.canCreateAndUpdateFactFilter(projectsResource)).toBe(true);
+    expect(p.canDeleteFactFilter(projectsResource)).toBe(true);
+    expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(false);
+    expect(p.canDeleteEnvironment(environmentsResource)).toBe(false);
+    expect(p.canViewCreateSDKConnectionModal(project)).toBe(false);
+    expect(p.canCreateSDKConnection({ projects, environment })).toBe(false);
+    expect(p.canUpdateSDKConnection({ projects, environment }, updates)).toBe(
+      false
+    );
+    expect(p.canDeleteSDKConnection({ projects, environment })).toBe(false);
+    expect(p.canReadSingleProjectResource(project)).toBe(true);
+    expect(p.canReadMultiProjectResource(projects)).toBe(true);
   });
 
   it("has correct permissions for experimenter", () => {
@@ -700,6 +776,18 @@ describe("Role permissions", () => {
     expect(p.canViewFeatureModal()).toBe(true);
     expect(p.canViewIdeaModal()).toBe(true);
     expect(p.canViewReportModal()).toBe(true);
+    expect(p.canCreateAndUpdateFactFilter(projectsResource)).toBe(true);
+    expect(p.canDeleteFactFilter(projectsResource)).toBe(true);
+    expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(true);
+    expect(p.canDeleteEnvironment(environmentsResource)).toBe(true);
+    expect(p.canViewCreateSDKConnectionModal(project)).toBe(true);
+    expect(p.canCreateSDKConnection({ projects, environment })).toBe(true);
+    expect(p.canUpdateSDKConnection({ projects, environment }, updates)).toBe(
+      true
+    );
+    expect(p.canDeleteSDKConnection({ projects, environment })).toBe(true);
+    expect(p.canReadSingleProjectResource(project)).toBe(true);
+    expect(p.canReadMultiProjectResource(projects)).toBe(true);
   });
 
   it("has correct permissions for admin", () => {
@@ -795,5 +883,17 @@ describe("Role permissions", () => {
     expect(p.canViewFeatureModal()).toBe(true);
     expect(p.canViewIdeaModal()).toBe(true);
     expect(p.canViewReportModal()).toBe(true);
+    expect(p.canCreateAndUpdateFactFilter(projectsResource)).toBe(true);
+    expect(p.canDeleteFactFilter(projectsResource)).toBe(true);
+    expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(true);
+    expect(p.canDeleteEnvironment(environmentsResource)).toBe(true);
+    expect(p.canViewCreateSDKConnectionModal(project)).toBe(true);
+    expect(p.canCreateSDKConnection({ projects, environment })).toBe(true);
+    expect(p.canUpdateSDKConnection({ projects, environment }, updates)).toBe(
+      true
+    );
+    expect(p.canDeleteSDKConnection({ projects, environment })).toBe(true);
+    expect(p.canReadSingleProjectResource(project)).toBe(true);
+    expect(p.canReadMultiProjectResource(projects)).toBe(true);
   });
 });
