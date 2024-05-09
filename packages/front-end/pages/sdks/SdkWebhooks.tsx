@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { WebhookInterface } from "back-end/types/webhook";
-import { FaCheck, FaInfoCircle } from "react-icons/fa";
+import { FaCheck, FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
 import { ago } from "shared/dates";
 import { BsArrowRepeat } from "react-icons/bs";
 import useApi from "@/hooks/useApi";
@@ -37,12 +37,35 @@ export default function SdkWebhooks({ sdkid }) {
     return data?.webhooks?.map((webhook) => (
       <tr key={webhook.name}>
         <td>{webhook.name}</td>
-        <td>{webhook.endpoint}</td>
+        <td
+          style={{
+            wordBreak: "break-word",
+            overflowWrap: "anywhere",
+          }}
+        >
+          {webhook.endpoint}
+        </td>
         <td>{webhook.sendPayload ? "yes" : "no"}</td>
         <td>{webhook.signingKey}</td>
         <td>
           {webhook.error ? (
-            <pre className="text-danger">Error</pre>
+            <>
+              <span className="text-danger">
+                <FaExclamationTriangle /> error
+              </span>
+              <Tooltip
+                className="ml-1"
+                innerClassName="pb-1"
+                usePortal={true}
+                body={
+                  <>
+                    <div className="alert alert-danger mt-2">
+                      {webhook.error}
+                    </div>
+                  </>
+                }
+              />
+            </>
           ) : webhook.lastSuccess ? (
             <em>
               <FaCheck className="text-success" /> last fired{" "}
@@ -55,8 +78,9 @@ export default function SdkWebhooks({ sdkid }) {
         {hasWebhookPermissions && (
           <td>
             <Button
-              color="link"
+              color="outline-primary"
               className="btn-sm"
+              style={{ width: 120 }}
               onClick={async () => {
                 await apiCall(`/webhook/test/${webhook.id}`, {
                   method: "get",
@@ -156,13 +180,13 @@ export default function SdkWebhooks({ sdkid }) {
         <table className="table appbox gbtable mb-0">
           <thead>
             <tr>
-              <td>WEBHOOK</td>
-              <td>ENDPOINT</td>
-              <td>SEND PAYLOAD</td>
-              <td>SHARED SECRET</td>
-              <td>LAST SUCCESS</td>
-              {hasWebhookPermissions && <td>TEST WEBHOOK</td>}
-              <td>EDIT</td>
+              <th>Webhook</th>
+              <th>Endpoint</th>
+              <th>Send Payload</th>
+              <th>Shared Secret</th>
+              <th>Last Success</th>
+              {hasWebhookPermissions && <th />}
+              <th />
             </tr>
           </thead>
           <tbody>{renderTableRows()}</tbody>

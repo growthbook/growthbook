@@ -219,7 +219,7 @@ export async function fireWebhook({
       responseCode: res.statusCode,
     },
   });
-  return res.responseWithoutBody;
+  return res;
 }
 export async function queueSingleWebhookById(webhookId: string) {
   const webhook = await findWebhookById(webhookId);
@@ -269,7 +269,7 @@ export async function queueSingleWebhookById(webhookId: string) {
     });
 
     const payload = JSON.stringify(defs);
-    const res = await fireWebhook({
+    const ret = await fireWebhook({
       organizationId: connection.organization,
       webhookId: webhook.id,
       url: webhook.endpoint,
@@ -281,8 +281,8 @@ export async function queueSingleWebhookById(webhookId: string) {
       sendPayload: webhook.sendPayload,
     });
 
-    if (!res?.ok) {
-      const e = "returned an invalid status code: " + res?.status;
+    if (!ret?.responseWithoutBody?.ok) {
+      const e = ret?.stringBody || "returned an invalid status code: " + ret?.responseWithoutBody?.status;
       webhook.set("error", e);
       await webhook.save();
       return;

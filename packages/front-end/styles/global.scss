@@ -3157,7 +3157,7 @@ input:disabled {
 }
 .gb-webhook-table-container {
   max-height: 300px;
-  overflow-y: scroll;
+  overflow-y: auto;
 }
 .table-tags {
   min-width: 250px;

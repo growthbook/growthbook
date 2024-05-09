@@ -116,7 +116,8 @@ function ConnectionStatus({
               </span>
               {errorTxt !== undefined && (
                 <Tooltip
-                  className="ml-2"
+                  className="ml-1"
+                  innerClassName="pb-1"
                   usePortal={true}
                   body={
                     <>

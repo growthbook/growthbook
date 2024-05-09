@@ -74,7 +74,8 @@ export default function (ag: Agenda) {
     });
 
     if (!res.ok) {
-      const e = "POST returned an invalid status code: " + res.status;
+      const txt = await res.text();
+      const e = txt || "POST returned an invalid status code: " + res.status;
       webhook.set("error", e);
       await webhook.save();
       throw new Error(e);

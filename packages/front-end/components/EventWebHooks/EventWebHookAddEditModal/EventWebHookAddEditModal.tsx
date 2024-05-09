@@ -138,6 +138,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       submit={handleSubmit}
       error={error ?? undefined}
       ctaEnabled={ctaEnabled}
+      size="lg"
     >
       <Field
         label="Webhook Name"

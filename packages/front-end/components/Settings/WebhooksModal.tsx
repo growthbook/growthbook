@@ -182,6 +182,7 @@ const WebhooksModal: FC<{
       autoCloseOnSubmit={false}
       ctaEnabled={validHeaders}
       cta={current.id ? "Update" : "Create"}
+      size="lg"
     >
       <Field label="Display Name" required {...form.register("name")} />
       <Field
