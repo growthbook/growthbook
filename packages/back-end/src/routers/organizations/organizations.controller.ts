@@ -9,7 +9,6 @@ import {
   getLicenseError,
   orgHasPremiumFeature,
 } from "enterprise";
-import { hasReadAccess } from "shared/permissions";
 import { experimentHasLinkedChanges } from "shared/util";
 import {
   AuthRequest,
@@ -653,7 +652,11 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   }
 
   const filteredAttributes = settings?.attributeSchema?.filter((attribute) =>
-    hasReadAccess(context.readAccessFilter, attribute.projects || [])
+    context.permissions.canReadMultiProjectResource(attribute.projects)
+  );
+
+  const filteredEnvironments = settings?.environments?.filter((environment) =>
+    context.permissions.canReadMultiProjectResource(environment.projects)
   );
 
   // Some other global org data needed by the front-end
@@ -706,7 +709,11 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       freeTrialDate: org.freeTrialDate,
       discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
-      settings: { ...settings, attributeSchema: filteredAttributes },
+      settings: {
+        ...settings,
+        attributeSchema: filteredAttributes,
+        environments: filteredEnvironments,
+      },
       autoApproveMembers: org.autoApproveMembers,
       members: org.members,
       messages: messages || [],
@@ -1231,14 +1238,14 @@ export async function putOrganization(
     Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
       if (k === "environments") {
         // Require permissions for any old environments that changed
-        const affectedEnvs: Set<string> = new Set();
+        const affectedEnvs: Set<Environment> = new Set();
         existingEnvironments.forEach((env) => {
           const oldHash = JSON.stringify(env);
           const newHash = JSON.stringify(
             settings[k]?.find((e) => e.id === env.id)
           );
           if (oldHash !== newHash) {
-            affectedEnvs.add(env.id);
+            affectedEnvs.add(env);
           }
           if (!newHash && oldHash) {
             deletedEnvIds.push(env.id);
@@ -1249,7 +1256,7 @@ export async function putOrganization(
         const oldIds = new Set(existingEnvironments.map((env) => env.id) || []);
         settings[k]?.forEach((env) => {
           if (!oldIds.has(env.id)) {
-            affectedEnvs.add(env.id);
+            affectedEnvs.add(env);
           }
         });
 
@@ -1266,13 +1273,26 @@ export async function putOrganization(
           }
         });
 
-        req.checkPermissions(
-          "manageEnvironments",
-          "",
-          Array.from(affectedEnvs)
-        );
+        affectedEnvs.forEach((env) => {
+          if (!context.permissions.canCreateOrUpdateEnvironment(env)) {
+            context.permissions.throwPermissionError();
+          }
+        });
+
+        envsWithModifiedProjects.forEach((env) => {
+          if (!context.permissions.canCreateOrUpdateEnvironment(env)) {
+            context.permissions.throwPermissionError();
+          }
+        });
       } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
-        req.checkPermissions("manageEnvironments", "", []);
+        if (
+          !context.permissions.canCreateSDKConnection({
+            projects: [],
+            environment: "",
+          })
+        ) {
+          context.permissions.throwPermissionError();
+        }
       } else if (k === "attributeSchema") {
         throw new Error(
           "Not supported: Updating organization attributes not supported via this route."
@@ -1495,7 +1515,14 @@ export async function postApiKey(
       }
     }
   } else {
-    req.checkPermissions("manageEnvironments", project, [environment]);
+    if (
+      !context.permissions.canCreateSDKConnection({
+        projects: [project],
+        environment,
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   // Handle user personal access tokens
@@ -1582,7 +1609,14 @@ export async function deleteApiKey(
       throw new Error("You do not have permission to delete this.");
     }
   } else {
-    req.checkPermissions("manageEnvironments", "", [keyObj.environment || ""]);
+    if (
+      !context.permissions.canDeleteSDKConnection({
+        projects: [keyObj.project || ""],
+        environment: keyObj.environment || "",
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   if (id) {
@@ -1643,7 +1677,7 @@ export async function getWebhooks(req: AuthRequest, res: Response) {
   res.status(200).json({
     status: 200,
     webhooks: webhooks.filter((webhook) =>
-      hasReadAccess(context.readAccessFilter, webhook.project)
+      context.permissions.canReadSingleProjectResource(webhook.project)
     ),
   });
 }
