@@ -655,6 +655,23 @@ export class Permissions {
     );
   }
 
+  public canReadSingleProjectResource = (
+    project: string | undefined
+  ): boolean => {
+    return this.hasPermission("readData", project || "");
+  };
+
+  public canReadMultiProjectResource = (
+    projects: string[] | undefined
+  ): boolean => {
+    // If the resource is available to all projects (an empty array or no projects property), then everyone should have read access
+    if (!projects || !projects.length || this.superAdmin) {
+      return true;
+    }
+
+    return projects.some((p) => this.hasPermission("readData", p));
+  };
+
   private checkGlobalPermission(permissionToCheck: GlobalPermission): boolean {
     if (this.superAdmin) {
       return true;

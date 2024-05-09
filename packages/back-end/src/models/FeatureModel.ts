@@ -3,7 +3,6 @@ import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import { MergeResultChanges } from "shared/util";
-import { hasReadAccess } from "shared/permissions";
 import {
   FeatureEnvironment,
   FeatureInterface,
@@ -162,7 +161,7 @@ export async function getAllFeatures(
   );
 
   return features.filter((feature) =>
-    hasReadAccess(context.readAccessFilter, feature.project)
+    context.permissions.canReadSingleProjectResource(feature.project)
   );
 }
 
@@ -184,7 +183,7 @@ export async function getAllFeaturesWithLinkedExperiments(
   const allFeatures = await FeatureModel.find(q);
 
   const features = allFeatures.filter((feature) =>
-    hasReadAccess(context.readAccessFilter, feature.project)
+    context.permissions.canReadSingleProjectResource(feature.project)
   );
   const expIds = new Set<string>(
     features
@@ -210,7 +209,7 @@ export async function getFeature(
   });
   if (!feature) return null;
 
-  return hasReadAccess(context.readAccessFilter, feature.project)
+  return context.permissions.canReadSingleProjectResource(feature.project)
     ? upgradeFeatureInterface(toInterface(feature))
     : null;
 }
@@ -248,7 +247,7 @@ export async function getFeaturesByIds(
   ).map((m) => upgradeFeatureInterface(toInterface(m)));
 
   return features.filter((feature) =>
-    hasReadAccess(context.readAccessFilter, feature.project)
+    context.permissions.canReadSingleProjectResource(feature.project)
   );
 }
 
