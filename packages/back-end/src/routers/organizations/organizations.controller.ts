@@ -1274,17 +1274,25 @@ export async function putOrganization(
         });
 
         affectedEnvs.forEach((env) => {
-          context.permissions.canCreateOrUpdateEnvironment(env);
+          if (!context.permissions.canCreateOrUpdateEnvironment(env)) {
+            context.permissions.throwPermissionError();
+          }
         });
 
         envsWithModifiedProjects.forEach((env) => {
-          context.permissions.canCreateOrUpdateEnvironment(env);
+          if (!context.permissions.canCreateOrUpdateEnvironment(env)) {
+            context.permissions.throwPermissionError();
+          }
         });
       } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
-        context.permissions.canCreateSDKConnection({
-          projects: [],
-          environment: "",
-        });
+        if (
+          !context.permissions.canCreateSDKConnection({
+            projects: [],
+            environment: "",
+          })
+        ) {
+          context.permissions.throwPermissionError();
+        }
       } else if (k === "attributeSchema") {
         throw new Error(
           "Not supported: Updating organization attributes not supported via this route."
