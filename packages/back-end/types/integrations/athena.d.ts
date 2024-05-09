@@ -4,7 +4,7 @@ export interface AthenaConnectionParams {
   secretAccessKey?: string;
   assumeRoleARN?: string;
   roleSessionName?: string;
-  durationSeconds?: string;
+  durationSeconds?: number;
   externalId?: string;
   region: string;
   database?: string;

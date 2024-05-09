@@ -30,7 +30,7 @@ const AthenaForm: FC<{
               },
             ]}
             helpText="'Auto-discovery' will look for credentials in environment variables and instance metadata. 'Assume IAM Role' uses the current role to assume another role and execute Athena with temporary credentials."
-            value={params.authType || "auto"}
+            value={params.authType || "accessKey"}
             onChange={(e) => {
               setParams({
                 authType: e.target.value,
@@ -68,7 +68,7 @@ const AthenaForm: FC<{
           </div>
         </>
       )}
-      {(isCloud() || params.authType == "assumeRole") && (
+      {!isCloud() && params.authType == "assumeRole" && (
         <>
           <div className="form-group col-md-12">
             <label>AWS IAM Role ARN</label>
@@ -102,6 +102,18 @@ const AthenaForm: FC<{
               name="externalId"
               required={!existing}
               value={params.externalId || ""}
+              onChange={onParamChange}
+              placeholder={existing ? "(Keep existing)" : ""}
+            />
+          </div>
+          <div className="form-group col-md-12">
+            <label>Session Duration</label>
+            <input
+              type="number"
+              className="form-control"
+              name="durationSeconds"
+              required={!existing}
+              value={params.durationSeconds || 900}
               onChange={onParamChange}
               placeholder={existing ? "(Keep existing)" : ""}
             />

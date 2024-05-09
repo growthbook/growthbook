@@ -7,12 +7,12 @@ import { ExternalIdCallback, QueryResponse } from "../types/Integration";
 
 async function assumeRole(params: AthenaConnectionParams) {
   // build sts client
-  const client = new STSClient({ region: "us-east-1" });
+  const client = new STSClient();
   const command = new AssumeRoleCommand({
     RoleArn: params.assumeRoleARN,
     RoleSessionName: params.roleSessionName,
     ExternalId: params.externalId,
-    DurationSeconds: 900,
+    DurationSeconds: params.durationSeconds,
   });
 
   return await client.send(command);
