@@ -656,7 +656,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   );
 
   const filteredEnvironments = settings?.environments?.filter((environment) =>
-    hasReadAccess(context.readAccessFilter, environment.projects || [])
+    context.permissions.canReadMultiProjectResource(environment.projects)
   );
 
   // Some other global org data needed by the front-end
