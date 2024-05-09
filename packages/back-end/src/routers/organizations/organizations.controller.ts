@@ -1515,10 +1515,14 @@ export async function postApiKey(
       }
     }
   } else {
-    context.permissions.canCreateSDKConnection({
-      projects: [project],
-      environment,
-    });
+    if (
+      !context.permissions.canCreateSDKConnection({
+        projects: [project],
+        environment,
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   // Handle user personal access tokens
@@ -1605,11 +1609,14 @@ export async function deleteApiKey(
       throw new Error("You do not have permission to delete this.");
     }
   } else {
-    // This is deleting a deprecated SDK Endpoint
-    context.permissions.canDeleteSDKConnection({
-      projects: [keyObj.project || ""],
-      environment: keyObj.environment || "",
-    });
+    if (
+      !context.permissions.canDeleteSDKConnection({
+        projects: [keyObj.project || ""],
+        environment: keyObj.environment || "",
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   if (id) {
