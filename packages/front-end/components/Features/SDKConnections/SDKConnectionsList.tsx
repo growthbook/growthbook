@@ -35,10 +35,9 @@ export default function SDKConnectionsList() {
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
 
-  const canCreateSDKConnections = permissionsUtil.canCreateSDKConnection({
-    projects: [project],
-    environment: "",
-  });
+  const canCreateSDKConnections = permissionsUtil.canViewCreateSDKConnectionModal(
+    project
+  );
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;

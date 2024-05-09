@@ -676,6 +676,12 @@ export class Permissions {
     );
   };
 
+  // UI helper - when determining if we can show the `Create SDK Connection` button, this ignores any env level restrictions
+  // and just takes in the current project
+  public canViewCreateSDKConnectionModal = (project?: string): boolean => {
+    return this.hasPermission("manageEnvironments", project || "");
+  };
+
   public canCreateSDKConnection = (
     sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">
   ): boolean => {

@@ -29,10 +29,10 @@ const SDKEndpoints: FC<{
   const publishableKeys = keys
     .filter((k) => !k.secret)
     .filter((k) => !project || !k.project || k.project === project);
-  const canCreateKeys = permissionsUtil.canCreateSDKConnection({
-    projects: [project],
-    environment: "",
-  });
+
+  const canCreateKeys = permissionsUtil.canViewCreateSDKConnectionModal(
+    project
+  );
 
   const envCounts = new Map();
   publishableKeys.forEach((k) => {
