@@ -1463,8 +1463,6 @@ main.main.report {
   display: inline-block;
   margin-right: 5px;
   vertical-align: middle;
-  height: 25px;
-  width: 50px;
   position: relative;
 
   input[type="checkbox"] {
@@ -1476,7 +1474,6 @@ main.main.report {
   label {
     position: absolute;
     top: 0;
-    left: 0;
     cursor: pointer;
     text-indent: -9999px;
     width: 50px;
@@ -1484,8 +1481,6 @@ main.main.report {
     background: var(--form-switch-background);
     display: block;
     border-radius: 100px;
-    margin-bottom: 0;
-    padding-bottom: 0;
   }
 
   label:after {
@@ -1500,16 +1495,16 @@ main.main.report {
     transition: 0.3s;
   }
 
-  input:checked + label:after {
-    left: calc(100% - 2px);
-    transform: translateX(-100%);
-  }
-
   input:checked + label {
     background: var(--form-switch-background-active);
   }
   &.toggle-featureValue input:checked + label {
     background: colors.$blue;
+  }
+
+  input:checked + label:after {
+    left: calc(100% - 2px);
+    transform: translateX(-100%);
   }
 
   label:active:after {
