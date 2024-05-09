@@ -504,7 +504,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       )
     )
       .map((m) => metricMap.get(m))
-      .filter((m) => m) as [];
+      .filter((m) => m) as ExperimentMetricInterface[];
     if (!selectedMetrics.length) {
       throw new Error("Experiment must have at least 1 metric selected.");
     }

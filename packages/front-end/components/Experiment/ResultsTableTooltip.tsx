@@ -233,6 +233,11 @@ export default function ResultsTableTooltip({
       </>
     );
 
+  const priorUsed =
+    data.statsEngine === "bayesian" && data.metricSnapshotSettings?.properPrior;
+  const cupedUsed = data.metricSnapshotSettings?.regressionAdjustmentEnabled;
+  const addLiftWarning = priorUsed || cupedUsed;
+
   const arrowLeft =
     data.layoutX === "element-right"
       ? "3%"
@@ -484,8 +489,7 @@ export default function ResultsTableTooltip({
                   : pValText}
               </div>
             </div>
-            {data.statsEngine === "bayesian" &&
-            data.metricSnapshotSettings?.properPrior ? (
+            {addLiftWarning ? (
               <div
                 className={clsx(
                   "results-prior text-muted rounded d-flex justify-content-center mt-2",
@@ -496,24 +500,39 @@ export default function ResultsTableTooltip({
                   className="cursor-pointer"
                   body={
                     <>
-                      <div className="mb-1">
-                        {`This metric was analyzed with a proper Bayesian prior of mean ${
-                          data.metricSnapshotSettings?.properPriorMean ?? 0
-                        } and standard deviation ${
-                          data.metricSnapshotSettings?.properPriorStdDev ??
-                          DEFAULT_PROPER_PRIOR_STDDEV
-                        }.`}
-                      </div>
+                      {priorUsed ? (
+                        <div className="mb-1">
+                          {`This metric was analyzed with a prior that is normally distributed with mean ${
+                            data.metricSnapshotSettings?.properPriorMean ?? 0
+                          } and standard deviation ${
+                            data.metricSnapshotSettings?.properPriorStdDev ??
+                            DEFAULT_PROPER_PRIOR_STDDEV
+                          }.`}
+                        </div>
+                      ) : null}
+                      {cupedUsed ? (
+                        <div className="mb-1">
+                          {`This metric was analyzed with CUPED, which adjusts for covariates.`}
+                        </div>
+                      ) : null}
                       <div>
-                        {
-                          "This affects all of the results for this metric (the lift, the chance to win, credible intervals, and more). It also may explain why the experiment lift is not exactly the percent difference between the variation and the baseline."
-                        }
+                        {`This affects metrics results (e.g., lift, ${
+                          data.statsEngine === "bayesian"
+                            ? "chance to win, credible intervals"
+                            : "p-values, confidence intervals"
+                        }), and estimated lift will often differ from the raw difference between variation and baseline.`}
                       </div>
                     </>
                   }
                 >
                   <HiOutlineExclamationCircle size={16} className="flag-icon" />
-                  <span>Your Bayesian prior affects results</span>
+                  <span>
+                    {priorUsed
+                      ? `Your Bayesian prior ${
+                          cupedUsed ? "and CUPED " : ""
+                        }affects results`
+                      : "CUPED affects results"}
+                  </span>
                 </Tooltip>
               </div>
             ) : null}

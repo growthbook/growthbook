@@ -176,6 +176,13 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
     }
   }
 
+  // experiment kill switch
+  if (!experimentRegressionAdjustmentEnabled) {
+    regressionAdjustmentEnabled = false;
+    regressionAdjustmentAvailable = false;
+    regressionAdjustmentReason = "disabled in experiment";
+  }
+
   // start with default prior settings
   const metricPriorSettings = {
     properPrior: false,

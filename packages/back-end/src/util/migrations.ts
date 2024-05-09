@@ -757,16 +757,8 @@ export function migrateSnapshot(
       (m) => {
         if (m.computedSettings) {
           m.computedSettings = {
+            ...defaultMetricPriorSettings,
             ...m.computedSettings,
-            properPrior:
-              m.computedSettings.properPrior ??
-              defaultMetricPriorSettings.proper,
-            properPriorMean:
-              m.computedSettings.properPriorMean ??
-              defaultMetricPriorSettings.mean,
-            properPriorStdDev:
-              m.computedSettings.properPriorStdDev ??
-              defaultMetricPriorSettings.stddev,
           };
         }
         return m;
