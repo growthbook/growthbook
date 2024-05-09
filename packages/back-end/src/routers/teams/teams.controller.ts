@@ -1,4 +1,8 @@
 import type { Response } from "express";
+import {
+  areProjectRolesValid,
+  isRoleValid,
+} from "@back-end/src/scim/users/createUser";
 import { TeamInterface } from "../../../types/team";
 import {
   createTeam,
@@ -62,6 +66,17 @@ export const postTeam = async (
     });
   }
 
+  // Ensure role is valid
+  if (
+    !isRoleValid(permissions.role, org) ||
+    !areProjectRolesValid(permissions.projectRoles, org)
+  ) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid role",
+    });
+  }
+
   const team = await createTeam({
     name,
     createdBy: userName,
@@ -102,7 +117,7 @@ type PutTeamRequest = AuthRequest<
 >;
 
 type PutTeamResponse = {
-  status: 200 | 404;
+  status: 200 | 404 | 400;
   message?: string;
 };
 
@@ -141,6 +156,17 @@ export const updateTeam = async (
     ...permissions,
     managedByIdp: team.managedByIdp,
   });
+
+  // Ensure role is valid
+  if (
+    !isRoleValid(permissions.role, org) ||
+    !areProjectRolesValid(permissions.projectRoles, org)
+  ) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid role",
+    });
+  }
 
   await req.audit({
     event: "team.update",

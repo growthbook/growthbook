@@ -12,6 +12,10 @@ import {
 import { getRoles, hasReadAccess } from "shared/permissions";
 import { experimentHasLinkedChanges } from "shared/util";
 import {
+  areProjectRolesValid,
+  isRoleValid,
+} from "@back-end/src/scim/users/createUser";
+import {
   AuthRequest,
   ResponseWithStatusAndError,
 } from "../../types/AuthRequest";
@@ -40,7 +44,6 @@ import { getAllTags } from "../../models/TagModel";
 import {
   Environment,
   Invite,
-  MemberRole,
   MemberRoleWithProjects,
   NamespaceUsage,
   OrganizationInterface,
@@ -321,6 +324,13 @@ export async function putMemberRole(
     });
   }
 
+  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid role",
+    });
+  }
+
   let found = false;
   org.members.forEach((m) => {
     if (m.id === id) {
@@ -565,6 +575,13 @@ export async function putInviteRole(
   } = req.body;
   const { key } = req.params;
   const originalInvites: Invite[] = cloneDeep(org.invites);
+
+  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid role",
+    });
+  }
 
   let found = false;
 
@@ -957,7 +974,7 @@ export async function deleteNamespace(
 
 export async function getInviteInfo(
   req: AuthRequest<unknown, { key: string }>,
-  res: ResponseWithStatusAndError<{ organization: string; role: MemberRole }>
+  res: ResponseWithStatusAndError<{ organization: string; role: string }>
 ) {
   const { key } = req.params;
 
@@ -1035,6 +1052,14 @@ export async function postInvite(
     environments,
     projectRoles,
   } = req.body;
+
+  // Make sure role is valid
+  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid role",
+    });
+  }
 
   const license = getLicense();
   if (
@@ -1942,6 +1967,14 @@ export async function addOrphanedUser(
     });
   }
 
+  // Make sure role is valid
+  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid role",
+    });
+  }
+
   const license = getLicense();
   if (
     license &&
@@ -2120,7 +2153,7 @@ export async function putLicenseKey(
 }
 
 export async function putDefaultRole(
-  req: AuthRequest<{ defaultRole: MemberRole }>,
+  req: AuthRequest<{ defaultRole: string }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
@@ -2133,6 +2166,10 @@ export async function putDefaultRole(
     throw new Error(
       "Must have a commercial License Key to update the organization's default role."
     );
+  }
+
+  if (!isRoleValid(defaultRole, org)) {
+    throw new Error("Invalid role");
   }
 
   if (!context.permissions.canManageTeam()) {

@@ -96,7 +96,7 @@ export async function patchGroup(
         const role = (value as BasicScimGroup).growthbookRole;
 
         if (role && role !== team.role) {
-          if (!isRoleValid(role)) {
+          if (!isRoleValid(role, org)) {
             return res.status(400).json({
               schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
               status: "400",

@@ -1,29 +1,36 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
+import { getRoleById } from "shared/permissions";
 import {
   addMemberToOrg,
   convertMemberToManagedByIdp,
   expandOrgMembers,
 } from "../../services/organizations";
-import { OrganizationInterface, MemberRole } from "../../../types/organization";
+import {
+  OrganizationInterface,
+  MemberRole,
+  ProjectMemberRole,
+} from "../../../types/organization";
 import { ScimError, ScimUser, ScimUserPostRequest } from "../../../types/scim";
 import {
   createUser as createNewUser,
   getUserByEmail,
 } from "../../services/users";
 
-export function isRoleValid(role: MemberRole) {
-  const validRoles: Record<MemberRole, boolean> = {
-    noaccess: true,
-    readonly: true,
-    visualEditor: true,
-    collaborator: true,
-    analyst: true,
-    engineer: true,
-    experimenter: true,
-    admin: true,
-  };
-  return validRoles[role] || false;
+export function isRoleValid(role: MemberRole, org: OrganizationInterface) {
+  return !!getRoleById(role, org);
+}
+
+export function areProjectRolesValid(
+  projectRoles: ProjectMemberRole[] | undefined,
+  org: OrganizationInterface
+) {
+  if (!projectRoles) {
+    return true;
+  }
+  return projectRoles.every(
+    (projectRole) => !!getRoleById(projectRole.role, org)
+  );
 }
 
 export async function createUser(
@@ -36,7 +43,7 @@ export async function createUser(
 
   let role: MemberRole = org.settings?.defaultRole?.role || "readonly";
 
-  if (growthbookRole && isRoleValid(growthbookRole)) {
+  if (growthbookRole && isRoleValid(growthbookRole, org)) {
     // If a growthbookRole is provided, and it's a MemberRole, use that
     role = growthbookRole;
   }

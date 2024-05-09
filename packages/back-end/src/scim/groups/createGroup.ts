@@ -19,7 +19,7 @@ export async function createGroup(
 
   let role: MemberRole = org.settings?.defaultRole?.role || "collaborator";
 
-  if (growthbookRole && isRoleValid(growthbookRole)) {
+  if (growthbookRole && isRoleValid(growthbookRole, org)) {
     role = growthbookRole;
   }
 

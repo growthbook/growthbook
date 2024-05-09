@@ -17,6 +17,7 @@ import {
   UserPermissions,
 } from "../../types/organization";
 import { TeamInterface } from "../../types/team";
+import { isRoleValid } from "../scim/users/createUser";
 
 function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
   const envLimitedPermissions: Permission[] = ENV_SCOPED_PERMISSIONS.map(
@@ -294,11 +295,29 @@ export function getUserPermissions(
 export function getDefaultRole(
   organization: OrganizationInterface
 ): MemberRoleInfo {
+  // First try the explicitly set defaultRole
+  if (
+    organization.settings?.defaultRole &&
+    isRoleValid(organization.settings.defaultRole.role, organization)
+  ) {
+    return organization.settings.defaultRole;
+  }
+
+  // Then try collaborator role (might not exist if using custom roles)
+  if (isRoleValid("collaborator", organization)) {
+    return {
+      environments: [],
+      limitAccessByEnvironment: false,
+      role: "collaborator",
+    };
+  }
+
+  // Fall back to readonly, which is always available
   return (
     organization.settings?.defaultRole || {
       environments: [],
       limitAccessByEnvironment: false,
-      role: "collaborator",
+      role: "readonly",
     }
   );
 }

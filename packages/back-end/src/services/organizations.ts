@@ -63,6 +63,7 @@ import {
 import { getAllExperiments } from "../models/ExperimentModel";
 import { LegacyExperimentPhase } from "../../types/experiment";
 import { addTags } from "../models/TagModel";
+import { areProjectRolesValid, isRoleValid } from "../scim/users/createUser";
 import { markInstalled } from "./auth";
 import {
   encryptParams,
@@ -300,6 +301,14 @@ export async function addMemberToOrg({
   let pendingMembers: PendingMember[] = organization?.pendingMembers || [];
   pendingMembers = pendingMembers.filter((m) => m.id !== userId);
 
+  // Ensure roles are valid
+  if (
+    !isRoleValid(role, organization) ||
+    !areProjectRolesValid(projectRoles, organization)
+  ) {
+    throw new Error("Invalid role");
+  }
+
   const members: Member[] = [
     ...organization.members,
     {
@@ -419,6 +428,14 @@ export async function addPendingMemberToOrg({
     return;
   }
 
+  // Ensure roles are valid
+  if (
+    !isRoleValid(role, organization) ||
+    !areProjectRolesValid(projectRoles, organization)
+  ) {
+    throw new Error("Invalid role");
+  }
+
   const pendingMembers: PendingMember[] = [
     ...(organization.pendingMembers || []),
     {
@@ -507,6 +524,14 @@ export async function inviteUser({
         organization.invites.filter((invite) => invite.email === email)[0].key
       ),
     };
+  }
+
+  // Ensure roles are valid
+  if (
+    !isRoleValid(role, organization) ||
+    !areProjectRolesValid(projectRoles, organization)
+  ) {
+    throw new Error("Invalid role");
   }
 
   // Generate random key for invite

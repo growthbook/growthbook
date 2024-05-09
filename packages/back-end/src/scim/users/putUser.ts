@@ -80,7 +80,7 @@ export async function putUser(
   const responseObj = cloneDeep(req.body);
 
   if (growthbookRole && growthbookRole !== currentMemberRole) {
-    if (!isRoleValid(growthbookRole)) {
+    if (!isRoleValid(growthbookRole, org)) {
       return res.status(400).json({
         schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
         status: "400",
