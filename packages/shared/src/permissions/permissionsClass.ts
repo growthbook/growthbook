@@ -657,81 +657,8 @@ export class Permissions {
       return true;
     }
 
-    const hasGlobalReadAccess =
-      this.userPermissions.global.permissions.readData || false;
-
-    const usersProjectRoles: { id: string; readAccess: boolean }[] = [];
-    for (const project in this.userPermissions.projects) {
-      usersProjectRoles.push({
-        id: project,
-        readAccess:
-          this.userPermissions.projects[project].permissions.readData || false,
-      });
-    }
-
-    // if the user doesn't have project specific roles or resource doesn't have a project (project is an empty string), fallback to user's global role
-    if (!usersProjectRoles || !projects) {
-      return hasGlobalReadAccess;
-    }
-
-    const resourceProjects = Array.isArray(projects) ? projects : [projects];
-
-    // if the user doesn't have global read access, but they do have read access for atleast one of the resource's projects, allow read access to resource
-    if (!hasGlobalReadAccess) {
-      return resourceProjects.some((project) => {
-        return usersProjectRoles.some((p) => p.id === project && p.readAccess);
-      });
-    }
-
-    // otherwise, don't allow read access only if the user's project-specific roles restrict read access for all of the resource's projects
-    const everyProjectRestrictsReadAccess = resourceProjects.every(
-      (project) => {
-        return usersProjectRoles.some((p) => p.id === project && !p.readAccess);
-      }
-    );
-
-    return everyProjectRestrictsReadAccess ? false : true;
+    return projects.some((p) => this.hasPermission("readData", p));
   };
-  //   // If the resource is available to all projects (an empty array), then everyone should have read access
-  //   if (Array.isArray(projects) && !projects?.length) {
-  //     return true;
-  //   }
-
-  //   const hasGlobalReadAccess =
-  //     this.userPermissions.global.permissions.readData || false;
-
-  //   const usersProjectRoles: { id: string; readAccess: boolean }[] = [];
-  //   for (const project in this.userPermissions.projects) {
-  //     usersProjectRoles.push({
-  //       id: project,
-  //       readAccess:
-  //         this.userPermissions.projects[project].permissions.readData || false,
-  //     });
-  //   }
-
-  //   // if the user doesn't have project specific roles or resource doesn't have a project (project is an empty string), fallback to user's global role
-  //   if (!usersProjectRoles || !projects) {
-  //     return hasGlobalReadAccess;
-  //   }
-
-  //   const resourceProjects = Array.isArray(projects) ? projects : [projects];
-
-  //   // if the user doesn't have global read access, but they do have read access for atleast one of the resource's projects, allow read access to resource
-  //   if (!hasGlobalReadAccess) {
-  //     return resourceProjects.some((project) => {
-  //       return usersProjectRoles.some((p) => p.id === project && p.readAccess);
-  //     });
-  //   }
-
-  //   // otherwise, don't allow read access only if the user's project-specific roles restrict read access for all of the resource's projects
-  //   const everyProjectRestrictsReadAccess = resourceProjects.every(
-  //     (project) => {
-  //       return usersProjectRoles.some((p) => p.id === project && !p.readAccess);
-  //     }
-  //   );
-
-  //   return everyProjectRestrictsReadAccess ? false : true;
-  // };
 
   private checkGlobalPermission(permissionToCheck: GlobalPermission): boolean {
     if (this.superAdmin) {
