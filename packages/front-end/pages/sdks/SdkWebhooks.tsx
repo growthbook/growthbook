@@ -3,6 +3,7 @@ import { WebhookInterface } from "back-end/types/webhook";
 import { FaCheck, FaInfoCircle } from "react-icons/fa";
 import { ago } from "shared/dates";
 import { BsArrowRepeat } from "react-icons/bs";
+import { SDKConnectionInterface } from "@back-end/types/sdk-connection";
 import useApi from "@/hooks/useApi";
 import WebhooksModal from "@/components/Settings/WebhooksModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -15,7 +16,12 @@ import { GBAddCircle } from "@/components/Icons";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
-export default function SdkWebhooks({ sdkid }) {
+export default function SdkWebhooks({
+  connection,
+}: {
+  connection: SDKConnectionInterface;
+}) {
+  const sdkid = connection.id;
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
     `/webhooks/sdk/${sdkid}`
   );
@@ -27,9 +33,9 @@ export default function SdkWebhooks({ sdkid }) {
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature } = useUser();
 
-  const canCreateWebhooks = permissionsUtil.canCreateSDKWebhook();
-  const canUpdateWebhook = permissionsUtil.canUpdateSDKWebhook();
-  const canDeleteWebhook = permissionsUtil.canDeleteSDKWebhook();
+  const canCreateWebhooks = permissionsUtil.canCreateSDKWebhook(connection);
+  const canUpdateWebhook = permissionsUtil.canUpdateSDKWebhook(connection, {});
+  const canDeleteWebhook = permissionsUtil.canDeleteSDKWebhook(connection);
   const hasWebhooks = !!data?.webhooks?.length;
   const disableWebhookCreate =
     !canCreateWebhooks ||
@@ -91,7 +97,7 @@ export default function SdkWebhooks({ sdkid }) {
                   text="Delete"
                   useIcon={false}
                   onClick={async () => {
-                    await apiCall(`/webhook/${webhook.id}`, {
+                    await apiCall(`/webhook/sdk/${webhook.id}`, {
                       method: "DELETE",
                     });
                     mutate();

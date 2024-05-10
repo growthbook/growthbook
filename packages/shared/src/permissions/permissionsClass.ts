@@ -76,18 +76,6 @@ export class Permissions {
     return this.checkGlobalPermission("manageEventWebhooks");
   };
 
-  public canCreateSDKWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageSDKWebhooks");
-  };
-
-  public canUpdateSDKWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageSDKWebhooks");
-  };
-
-  public canDeleteSDKWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageSDKWebhooks");
-  };
-
   public canCreateAndUpdateTag = (): boolean => {
     return this.checkGlobalPermission("manageTags");
   };
@@ -710,6 +698,37 @@ export class Permissions {
       sdkConnection,
       [sdkConnection.environment],
       "manageSDKConnections"
+    );
+  };
+
+  public canCreateSDKWebhook = (
+    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      sdkConnection,
+      [sdkConnection.environment],
+      "manageSDKWebhooks"
+    );
+  };
+
+  public canUpdateSDKWebhook = (
+    existing: { projects?: string[]; environment?: string },
+    updates: { projects?: string[]; environment?: string }
+  ): boolean => {
+    return this.checkEnvFilterUpdatePermission(
+      existing,
+      updates,
+      "manageSDKWebhooks"
+    );
+  };
+
+  public canDeleteSDKWebhook = (
+    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      sdkConnection,
+      [sdkConnection.environment],
+      "manageSDKWebhooks"
     );
   };
 

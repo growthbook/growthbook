@@ -70,7 +70,11 @@ import {
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import { getAllSavedGroups } from "../../models/SavedGroupModel";
 import { getMetricsByOrganization } from "../../models/MetricModel";
-import { WebhookModel, countWebhooksByOrg } from "../../models/WebhookModel";
+import {
+  WebhookModel,
+  countWebhooksByOrg,
+  findWebhookById,
+} from "../../models/WebhookModel";
 import { createWebhook, createSdkWebhook } from "../../services/webhooks";
 import {
   createOrganization,
@@ -120,7 +124,10 @@ import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { TeamInterface } from "../../../types/team";
 import { queueSingleWebhookById } from "../../jobs/sdkWebhooks";
 import { initializeLicenseForOrg } from "../../services/licenseData";
-import { findSDKConnectionsByOrganization } from "../../models/SdkConnectionModel";
+import {
+  findSDKConnectionById,
+  findSDKConnectionsByOrganization,
+} from "../../models/SdkConnectionModel";
 import { triggerSingleSDKWebhookJobs } from "../../jobs/updateAllJobs";
 import { SDKConnectionInterface } from "../../../types/sdk-connection";
 
@@ -1709,11 +1716,16 @@ export async function postWebhook(
   res: Response
 ) {
   const context = getContextFromReq(req);
+  const { name, endpoint, project, environment } = req.body;
 
-  if (!context.permissions.canCreateSDKWebhook()) {
+  if (
+    !context.permissions.canCreateSDKWebhook({
+      projects: [project || ""],
+      environment,
+    })
+  ) {
     context.permissions.throwPermissionError();
   }
-  const { name, endpoint, project, environment } = req.body;
 
   const webhook = await createWebhook({
     organization: context.org.id,
@@ -1749,13 +1761,19 @@ export async function postWebhookSDK(
   }>,
   res: Response
 ) {
+  const { name, endpoint, sdkid, sendPayload, headers, httpMethod } = req.body;
   const context = getContextFromReq(req);
   const { org } = context;
 
-  if (!context.permissions.canCreateSDKWebhook()) {
+  const connection = await findSDKConnectionById(context, sdkid);
+
+  if (!connection) {
+    throw new Error(`Unable to find connection: ${sdkid}`);
+  }
+
+  if (!context.permissions.canCreateSDKWebhook(connection)) {
     context.permissions.throwPermissionError();
   }
-  const { name, endpoint, sdkid, sendPayload, headers, httpMethod } = req.body;
   const webhookcount = await countWebhooksByOrg(org.id);
   const canAddMultipleSdkWebhooks = orgHasPremiumFeature(
     org,
@@ -1784,13 +1802,8 @@ export async function putWebhook(
   req: AuthRequest<WebhookInterface, { id: string }>,
   res: Response
 ) {
-  const context = getContextFromReq(req);
-
-  if (!context.permissions.canUpdateSDKWebhook()) {
-    context.permissions.throwPermissionError();
-  }
-
   const { id } = req.params;
+  const context = getContextFromReq(req);
   const { name, endpoint, project, environment } = req.body;
   const webhook = await WebhookModel.findOne({
     id,
@@ -1805,6 +1818,35 @@ export async function putWebhook(
 
   if (!name || !endpoint) {
     throw new Error("Missing required properties");
+  }
+
+  // if this is an SDK Webhook - loop through all connected SDKs
+  // and check update permissions
+  if (webhook.useSdkMode && webhook.sdks.length > 0) {
+    for (let i = 0; i < webhook.sdks.length; i++) {
+      const connection = await findSDKConnectionById(context, webhook.sdks[0]);
+
+      if (!connection) {
+        throw new Error(`Unable to find SDK Connection ${webhook.sdks[0]}`);
+      }
+      // Passing in an empty object as the second arg
+      // since an SDKWebhook's projects and env are inherited from it's connected sdks
+      if (!context.permissions.canUpdateSDKWebhook(connection, {})) {
+        context.permissions.throwPermissionError();
+      }
+    }
+  } else {
+    if (
+      !context.permissions.canUpdateSDKWebhook(
+        {
+          projects: [webhook.project || ""],
+          environment: webhook.environment || "",
+        },
+        { projects: [project || ""], environment: environment || "" }
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   webhook.set("name", name);
@@ -1825,11 +1867,22 @@ export async function deleteWebhook(
   res: Response
 ) {
   const context = getContextFromReq(req);
+  const { id } = req.params;
 
-  if (!context.permissions.canDeleteSDKWebhook()) {
+  const webhook = await findWebhookById(id);
+
+  if (!webhook) {
+    throw new Error(`Unable to find webhook: ${id}`);
+  }
+
+  if (
+    !context.permissions.canDeleteSDKWebhook({
+      projects: [webhook.project || ""],
+      environment: webhook.environment || "",
+    })
+  ) {
     context.permissions.throwPermissionError();
   }
-  const { id } = req.params;
 
   await WebhookModel.deleteOne({
     organization: context.org.id,
@@ -1845,12 +1898,32 @@ export async function deleteWebhookSDK(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
+  const { id } = req.params;
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canDeleteSDKWebhook()) {
-    context.permissions.throwPermissionError();
+  const webhook = await findWebhookById(id);
+
+  if (!webhook) {
+    throw new Error("Unable to find webhook");
   }
-  const { id } = req.params;
+
+  if (webhook.sdks.length > 0) {
+    for (let i = 0; i < webhook.sdks.length; i++) {
+      const connection = await findSDKConnectionById(context, webhook.sdks[0]);
+
+      if (!connection) {
+        throw new Error(`Unable to find SDK Connection ${webhook.sdks[0]}`);
+      }
+      if (
+        !context.permissions.canUpdateSDKWebhook(connection, {
+          projects: connection.projects,
+          environment: connection.environment,
+        })
+      ) {
+        context.permissions.throwPermissionError();
+      }
+    }
+  }
 
   await WebhookModel.deleteOne({
     organization: context.org.id,

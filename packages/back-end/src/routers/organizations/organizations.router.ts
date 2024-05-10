@@ -67,6 +67,7 @@ router.get("/webhooks", organizationsController.getWebhooks);
 router.post("/webhooks", organizationsController.postWebhook);
 router.put("/webhook/:id", organizationsController.putWebhook);
 router.delete("/webhook/:id", organizationsController.deleteWebhook);
+router.delete("/webhook/sdk/:id", organizationsController.deleteWebhookSDK);
 //webhookSDKs
 router.get("/webhooks/sdk/:sdkid", organizationsController.getWebhooksSDK);
 router.post("/webhooks/sdk", organizationsController.postWebhookSDK);

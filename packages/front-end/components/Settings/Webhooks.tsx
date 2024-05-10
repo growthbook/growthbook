@@ -15,7 +15,7 @@ const Webhooks: FC = () => {
   const { data, error, mutate } = useApi<{ webhooks: WebhookInterface[] }>(
     "/webhooks"
   );
-  const { getProjectById, projects } = useDefinitions();
+  const { getProjectById, projects, project } = useDefinitions();
   const { apiCall } = useAuth();
   const [open, setOpen] = useState<null | Partial<WebhookInterface>>(null);
   const permissionsUtil = usePermissionsUtil();
@@ -107,7 +107,13 @@ const Webhooks: FC = () => {
                     )}
                   </td>
                   <td>
-                    {permissionsUtil.canUpdateSDKWebhook() ? (
+                    {permissionsUtil.canUpdateSDKWebhook(
+                      {
+                        projects: [webhook.project || ""],
+                        environment: webhook.environment || "",
+                      },
+                      {}
+                    ) ? (
                       <a
                         href="#"
                         className="tr-hover text-primary mr-3"
@@ -120,7 +126,10 @@ const Webhooks: FC = () => {
                         <FaPencilAlt />
                       </a>
                     ) : null}
-                    {permissionsUtil.canDeleteSDKWebhook() ? (
+                    {permissionsUtil.canDeleteSDKWebhook({
+                      projects: [webhook.project || ""],
+                      environment: webhook.environment || "",
+                    }) ? (
                       <DeleteButton
                         link={true}
                         className={"tr-hover text-primary"}
@@ -150,7 +159,10 @@ const Webhooks: FC = () => {
           </tbody>
         </table>
       )}
-      {permissionsUtil.canCreateSDKWebhook() ? (
+      {permissionsUtil.canCreateSDKWebhook({
+        projects: [project],
+        environment: "",
+      }) ? (
         <button
           className="btn btn-primary"
           onClick={(e) => {
