@@ -61,7 +61,7 @@ export default function SdkWebhooks({ sdkid }) {
             className="btn-sm"
             disabled={!canUpdateWebhook}
             onClick={async () => {
-              await apiCall(`/webhook/test/${webhook.id}`, {
+              await apiCall(`/webhooks/sdk/test/${webhook.id}`, {
                 method: "get",
               });
               mutate();
@@ -91,7 +91,7 @@ export default function SdkWebhooks({ sdkid }) {
                   text="Delete"
                   useIcon={false}
                   onClick={async () => {
-                    await apiCall(`/webhook/${webhook.id}`, {
+                    await apiCall(`/webhooks/sdk/${webhook.id}`, {
                       method: "DELETE",
                     });
                     mutate();
@@ -182,8 +182,7 @@ export default function SdkWebhooks({ sdkid }) {
           close={() => setCreateWebhookModalOpen(null)}
           onSave={mutate}
           current={createWebhookModalOpen}
-          showSDKMode={true}
-          sdkid={sdkid}
+          sdkConnectionId={sdkid}
         />
       )}
       {!isEmpty && renderTable()}

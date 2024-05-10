@@ -20,7 +20,7 @@ export default function SDKsPage() {
     getPublishableKeys(data?.keys || [], project).length > 0;
 
   const { data: legacyWebhookData } = useApi<{ webhooks: WebhookInterface[] }>(
-    "/webhooks"
+    "/legacy-sdk-webhooks"
   );
   const hasLegacyWebhooks = !!legacyWebhookData?.webhooks?.length;
   const legacyEnabled = hasLegacyEndpoints || hasLegacyWebhooks;
@@ -50,19 +50,25 @@ export default function SDKsPage() {
       {legacyEnabled && legacy ? (
         <>
           <div className="alert alert-warning">
+            <h3>Deprecated</h3>
             <p>
-              Legacy SDK Endpoints and Webhooks are deprecated. The new{" "}
-              <strong>SDK Connections</strong> solve the same problems in an
-              easier, more performant, and scalable way.
+              Legacy SDK Endpoints and Webhooks are deprecated. We recommend
+              migrating to <strong>SDK Connections</strong>, which solve the
+              same problems in an easier, more performant, and scalable way.
             </p>
-            Existing SDK Endpoints and Webhooks will continue to work just as
-            before, but you are not able to create any new ones.
+            Existing Legacy SDK Endpoints and Webhooks will continue to work,
+            but are in a read-only state. After migrating, you can delete them
+            here.
           </div>
-          <SDKEndpoints keys={data?.keys || []} mutate={mutate} />
-          <div className="mt-5">
-            <h1>Legacy SDK Webhooks</h1>
-            <Webhooks />
-          </div>
+          {hasLegacyEndpoints && (
+            <SDKEndpoints keys={data?.keys || []} mutate={mutate} />
+          )}
+          {hasLegacyWebhooks && (
+            <div className="mt-5">
+              <h1>Legacy SDK Webhooks</h1>
+              <Webhooks />
+            </div>
+          )}
         </>
       ) : (
         <SDKConnectionsList />
