@@ -79,8 +79,8 @@ const defaultSdkVersions: Record<SDKLanguage, string> = {
   csharp: "0.2.0",
   elixir: "0.2.0",
   "edge-lambda": "0.0.0",
-  "edge-cloudflare": "0.1.2",
-  "edge-other": "0.0.2",
+  "edge-cloudflare": "0.1.3",
+  "edge-other": "0.0.3",
   other: "0.0.0",
 };
 
