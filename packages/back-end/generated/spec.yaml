@@ -606,6 +606,42 @@ paths:
                         items:
                           $ref: '#/components/schemas/Project'
                   - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - projects
+      summary: Create a single project
+      operationId: postProject
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/projects \
+              -d '{"name":"My Project", "description": "Super cool project"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - project
+                properties:
+                  project:
+                    $ref: '#/components/schemas/Project'
   '/projects/{id}':
     get:
       parameters:

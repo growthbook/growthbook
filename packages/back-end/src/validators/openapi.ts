@@ -48,6 +48,12 @@ export const listProjectsValidator = {
   paramsSchema: z.never(),
 };
 
+export const postProjectValidator = {
+  bodySchema: z.object({ "name": z.string(), "description": z.string().optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
 export const getProjectValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),

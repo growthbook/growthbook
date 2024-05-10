@@ -40,6 +40,8 @@ export interface paths {
   "/projects": {
     /** Get all projects */
     get: operations["listProjects"];
+    /** Create a single project */
+    post: operations["postProject"];
   };
   "/projects/{id}": {
     /** Get a single project */
@@ -2628,6 +2630,37 @@ export interface operations {
             total: number;
             hasMore: boolean;
             nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  postProject: {
+    /** Create a single project */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          description?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            project: {
+              id: string;
+              name: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              description?: string;
+              settings?: {
+                statsEngine?: string;
+              };
+            };
           };
         };
       };
@@ -6231,6 +6264,7 @@ export type UpdateFeatureResponse = operations["updateFeature"]["responses"]["20
 export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
+export type PostProjectResponse = operations["postProject"]["responses"]["200"]["content"]["application/json"];
 export type GetProjectResponse = operations["getProject"]["responses"]["200"]["content"]["application/json"];
 export type PutProjectResponse = operations["putProject"]["responses"]["200"]["content"]["application/json"];
 export type DeleteProjectResponse = operations["deleteProject"]["responses"]["200"]["content"]["application/json"];

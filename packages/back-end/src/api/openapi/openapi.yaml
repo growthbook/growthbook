@@ -116,7 +116,10 @@ paths:
     get:
       $ref: "./paths/getFeatureKeys.yaml"
   /projects:
-    $ref: "./paths/listProjects.yaml"
+    get:
+      $ref: "./paths/listProjects.yaml"
+    post:
+      $ref: "./paths/postProject.yaml"
   /projects/{id}:
     get:
       $ref: "./paths/getProject.yaml"
