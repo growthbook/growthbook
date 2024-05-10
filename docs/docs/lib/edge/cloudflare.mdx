@@ -100,3 +100,32 @@ ENABLE_STICKY_BUCKETING="true"  # default "false". Use cookie-based sticky bucke
 ```
 
 For a full list of customizations, view our vendor-agnostic [Edge Utility repository<ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils).
+
+#### Experiment Tracking
+
+In order to run A/B tests, you must implement a tracking callback (see the [JS SDK docs](/lib/js#experimentation-ab-testing) for more information). When using our Edge App, you can either track on the front-end or on edge. Our turnkey solution defaults to front-end tracking, and automatically integrates with Segment.io, GA4, and Google Tag Manager by using the mechanisms outlined in our [HTML Script Tag](/lib/script-tag#tracking-experiment-views).
+
+You may wish to either customize front-end tracking or switch to edge tracking.
+
+To change the front-end tracking callback, set the `GROWTHBOOK_TRACKING_CALLBACK` to your custom tracking JS code:
+
+```bash
+GROWTHBOOK_TRACKING_CALLBACK="(experiment, results) => { console.log('tracking callback', {experiment, results}) }"
+```
+
+To track on edge instead of front-end, you must inject your own tracking callback into the edge request handler code:
+
+```ts
+import { handleRequest } from "@growthbook/edge-cloudflare";
+
+export default {
+  fetch: async function (request, env, ctx) {
+    const config = {
+      trackingCallback: (experiment, results) => {
+        console.log('tracking callback', {experiment, results});
+      }
+    }
+    return await handleRequest(request, env, config);
+  },
+};
+```
