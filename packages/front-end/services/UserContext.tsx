@@ -86,7 +86,6 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   manageTags: false,
   manageTeam: false,
   manageEventWebhooks: false,
-  manageSDKWebhooks: false,
   manageIntegrations: false,
   organizationSettings: false,
   superDeleteReport: false,
