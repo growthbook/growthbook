@@ -40,34 +40,27 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
 
   protected canRead(doc: URLRedirectInterface): boolean {
     const { experiment } = this.getForeignRefs(doc);
-    return this.context.hasPermission("readData", experiment?.project || "");
+    if (!experiment) throw new Error("Could not find experiment");
+    return this.context.permissions.canReadSingleProjectResource(
+      experiment.project
+    );
+  }
+
+  // Create/Update/Delete all do the exact same permission check
+  private canWrite(doc: URLRedirectInterface): boolean {
+    const { experiment } = this.getForeignRefs(doc);
+    if (!experiment) throw new Error("Could not find experiment");
+    const envs = getAffectedEnvsForExperiment({ experiment });
+    return this.context.permissions.canRunExperiment(experiment, envs);
   }
   protected canCreate(doc: URLRedirectInterface): boolean {
-    const { experiment } = this.getForeignRefs(doc);
-    const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
-    return this.context.hasPermission(
-      "runExperiments",
-      experiment?.project || "",
-      envs
-    );
+    return this.canWrite(doc);
   }
   protected canUpdate(doc: URLRedirectInterface): boolean {
-    const { experiment } = this.getForeignRefs(doc);
-    const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
-    return this.context.hasPermission(
-      "runExperiments",
-      experiment?.project || "",
-      envs
-    );
+    return this.canWrite(doc);
   }
   protected canDelete(doc: URLRedirectInterface): boolean {
-    const { experiment } = this.getForeignRefs(doc);
-    const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
-    return this.context.hasPermission(
-      "runExperiments",
-      experiment?.project || "",
-      envs
-    );
+    return this.canWrite(doc);
   }
 
   protected async beforeCreate(doc: URLRedirectInterface) {
