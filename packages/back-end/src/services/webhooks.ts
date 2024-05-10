@@ -46,7 +46,7 @@ export async function createSdkWebhook({
   });
 }
 
-export async function createWebhook({
+async function createWebhook({
   organization,
   name,
   endpoint,

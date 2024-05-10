@@ -9,7 +9,6 @@ import {
   BsCodeSlash,
 } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
-import { GlobalPermission } from "@back-end/types/organization";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
@@ -188,7 +187,8 @@ const navlinks: SidebarLinkProps[] = [
         name: "Webhooks",
         href: "/settings/webhooks",
         path: /^settings\/webhooks/,
-        filter: ({ permissions }) => permissions.check("manageWebhooks"),
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canViewEventWebhook(),
       },
       {
         name: "Logs",
@@ -216,9 +216,12 @@ const navlinks: SidebarLinkProps[] = [
         name: "Import your data",
         href: "/importing",
         path: /^importing/,
-        filter: ({ permissions, permissionsUtils, gb }) =>
+        filter: ({ permissionsUtils, gb }) =>
           permissionsUtils.canViewFeatureModal() &&
-          permissions.check("manageEnvironments" as GlobalPermission) &&
+          permissionsUtils.canCreateOrUpdateEnvironment({
+            projects: [],
+            id: "",
+          }) &&
           permissionsUtils.canCreateProjects() &&
           !!gb?.isOn("import-from-x"),
       },

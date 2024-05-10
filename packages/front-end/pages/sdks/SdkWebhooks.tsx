@@ -8,12 +8,12 @@ import WebhooksModal from "@/components/Settings/WebhooksModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import usePermissions from "@/hooks/usePermissions";
 import { useUser } from "@/services/UserContext";
 import Button from "@/components/Button";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle } from "@/components/Icons";
 import { DocLink } from "@/components/DocLink";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function SdkWebhooks({ sdkid }) {
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
@@ -24,13 +24,16 @@ export default function SdkWebhooks({ sdkid }) {
     setCreateWebhookModalOpen,
   ] = useState<null | Partial<WebhookInterface>>(null);
   const { apiCall } = useAuth();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature } = useUser();
 
-  const hasWebhookPermissions = permissions.check("manageWebhooks");
+  const canCreateWebhooks = permissionsUtil.canCreateSDKWebhook();
+  const canUpdateWebhook = permissionsUtil.canUpdateSDKWebhook();
+  const canDeleteWebhook = permissionsUtil.canDeleteSDKWebhook();
   const hasWebhooks = !!data?.webhooks?.length;
   const disableWebhookCreate =
-    hasWebhooks && !hasCommercialFeature("multiple-sdk-webhooks");
+    !canCreateWebhooks ||
+    (hasWebhooks && !hasCommercialFeature("multiple-sdk-webhooks"));
 
   const renderTableRows = () => {
     // only render table if there is data to show
@@ -52,53 +55,51 @@ export default function SdkWebhooks({ sdkid }) {
             <em>never fired</em>
           )}
         </td>
-        {hasWebhookPermissions && (
-          <td>
-            <Button
-              color="link"
-              className="btn-sm"
-              onClick={async () => {
-                await apiCall(`/webhook/test/${webhook.id}`, {
-                  method: "get",
-                });
-                mutate();
-              }}
-            >
-              <BsArrowRepeat /> Test Webhook
-            </Button>
-          </td>
-        )}
         <td>
-          {hasWebhookPermissions && (
-            <>
-              <div className="col-auto">
-                <MoreMenu>
-                  <button
-                    className="dropdown-item"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (!disableWebhookCreate)
-                        setCreateWebhookModalOpen(webhook);
-                    }}
-                  >
-                    Edit
-                  </button>
-                  <DeleteButton
-                    className="dropdown-item"
-                    displayName="SDK Connection"
-                    text="Delete"
-                    useIcon={false}
-                    onClick={async () => {
-                      await apiCall(`/webhook/${webhook.id}`, {
-                        method: "DELETE",
-                      });
-                      mutate();
-                    }}
-                  />
-                </MoreMenu>
-              </div>
-            </>
-          )}
+          <Button
+            color="link"
+            className="btn-sm"
+            disabled={!canUpdateWebhook}
+            onClick={async () => {
+              await apiCall(`/webhook/test/${webhook.id}`, {
+                method: "get",
+              });
+              mutate();
+            }}
+          >
+            <BsArrowRepeat /> Test Webhook
+          </Button>
+        </td>
+        <td>
+          <div className="col-auto">
+            <MoreMenu>
+              {canUpdateWebhook ? (
+                <button
+                  className="dropdown-item"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setCreateWebhookModalOpen(webhook);
+                  }}
+                >
+                  Edit
+                </button>
+              ) : null}
+              {canDeleteWebhook ? (
+                <DeleteButton
+                  className="dropdown-item"
+                  displayName="SDK Connection"
+                  text="Delete"
+                  useIcon={false}
+                  onClick={async () => {
+                    await apiCall(`/webhook/${webhook.id}`, {
+                      method: "DELETE",
+                    });
+                    mutate();
+                  }}
+                />
+              ) : null}
+            </MoreMenu>
+          </div>
         </td>
       </tr>
     ));
@@ -109,44 +110,46 @@ export default function SdkWebhooks({ sdkid }) {
         Refer to the <DocLink docSection="sdkWebhooks">documentation</DocLink>{" "}
         for setup instructions
       </div>
-      {hasWebhookPermissions && (
-        <Tooltip
-          body={
-            disableWebhookCreate
-              ? "You can only have one webhook per SDK Connection in the free plan"
-              : ""
-          }
-        >
-          <button
-            className="btn btn-primary mb-2"
-            disabled={disableWebhookCreate}
-            onClick={(e) => {
-              e.preventDefault();
-              if (!disableWebhookCreate) setCreateWebhookModalOpen({});
-            }}
+      {canCreateWebhooks ? (
+        <>
+          <Tooltip
+            body={
+              disableWebhookCreate
+                ? "You can only have one webhook per SDK Connection in the free plan"
+                : ""
+            }
           >
-            <span className="h4 pr-2 m-0 d-inline-block align-top">
-              <GBAddCircle />
+            <button
+              className="btn btn-primary mb-2"
+              disabled={disableWebhookCreate}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!disableWebhookCreate) setCreateWebhookModalOpen({});
+              }}
+            >
+              <span className="h4 pr-2 m-0 d-inline-block align-top">
+                <GBAddCircle />
+              </span>
+              Add Webhook
+            </button>
+          </Tooltip>
+          <Tooltip
+            body={
+              <div style={{ lineHeight: 1.5 }}>
+                <p className="mb-0">
+                  <strong>SDK Webhooks</strong> will automatically notify any
+                  changes affecting this SDK. For instance, modifying a feature
+                  or AB test will prompt the webhook to fire.
+                </p>
+              </div>
+            }
+          >
+            <span className="text-muted ml-2" style={{ fontSize: "0.75rem" }}>
+              What is this? <FaInfoCircle />
             </span>
-            Add Webhook
-          </button>
-        </Tooltip>
-      )}
-      <Tooltip
-        body={
-          <div style={{ lineHeight: 1.5 }}>
-            <p className="mb-0">
-              <strong>SDK Webhooks</strong> will automatically notify any
-              changes affecting this SDK. For instance, modifying a feature or
-              AB test will prompt the webhook to fire.
-            </p>
-          </div>
-        }
-      >
-        <span className="text-muted ml-2" style={{ fontSize: "0.75rem" }}>
-          What is this? <FaInfoCircle />
-        </span>
-      </Tooltip>
+          </Tooltip>
+        </>
+      ) : null}
     </>
   );
 
@@ -161,7 +164,7 @@ export default function SdkWebhooks({ sdkid }) {
               <td>SEND PAYLOAD</td>
               <td>SHARED SECRET</td>
               <td>LAST SUCCESS</td>
-              {hasWebhookPermissions && <td>TEST WEBHOOK</td>}
+              <td>TEST WEBHOOK</td>
               <td>EDIT</td>
             </tr>
           </thead>

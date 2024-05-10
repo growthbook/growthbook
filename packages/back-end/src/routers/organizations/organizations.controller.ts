@@ -9,7 +9,6 @@ import {
   getLicenseError,
   orgHasPremiumFeature,
 } from "enterprise";
-import { hasReadAccess } from "shared/permissions";
 import { experimentHasLinkedChanges } from "shared/util";
 import {
   AuthRequest,
@@ -72,7 +71,7 @@ import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import { getAllSavedGroups } from "../../models/SavedGroupModel";
 import { getMetricsByOrganization } from "../../models/MetricModel";
 import { WebhookModel, countWebhooksByOrg } from "../../models/WebhookModel";
-import { createWebhook, createSdkWebhook } from "../../services/webhooks";
+import { createSdkWebhook } from "../../services/webhooks";
 import {
   createOrganization,
   findOrganizationByInviteKey,
@@ -88,7 +87,6 @@ import { ExperimentRule, NamespaceValue } from "../../../types/feature";
 import { usingOpenId } from "../../services/auth";
 import { getSSOConnectionSummary } from "../../models/SSOConnectionModel";
 import {
-  createLegacySdkKey,
   createOrganizationApiKey,
   createUserPersonalAccessApiKey,
   deleteApiKeyById,
@@ -653,7 +651,11 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   }
 
   const filteredAttributes = settings?.attributeSchema?.filter((attribute) =>
-    hasReadAccess(context.readAccessFilter, attribute.projects || [])
+    context.permissions.canReadMultiProjectResource(attribute.projects)
+  );
+
+  const filteredEnvironments = settings?.environments?.filter((environment) =>
+    context.permissions.canReadMultiProjectResource(environment.projects)
   );
 
   // Some other global org data needed by the front-end
@@ -706,7 +708,11 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       freeTrialDate: org.freeTrialDate,
       discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
-      settings: { ...settings, attributeSchema: filteredAttributes },
+      settings: {
+        ...settings,
+        attributeSchema: filteredAttributes,
+        environments: filteredEnvironments,
+      },
       autoApproveMembers: org.autoApproveMembers,
       members: org.members,
       messages: messages || [],
@@ -1231,14 +1237,14 @@ export async function putOrganization(
     Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
       if (k === "environments") {
         // Require permissions for any old environments that changed
-        const affectedEnvs: Set<string> = new Set();
+        const affectedEnvs: Set<Environment> = new Set();
         existingEnvironments.forEach((env) => {
           const oldHash = JSON.stringify(env);
           const newHash = JSON.stringify(
             settings[k]?.find((e) => e.id === env.id)
           );
           if (oldHash !== newHash) {
-            affectedEnvs.add(env.id);
+            affectedEnvs.add(env);
           }
           if (!newHash && oldHash) {
             deletedEnvIds.push(env.id);
@@ -1249,7 +1255,7 @@ export async function putOrganization(
         const oldIds = new Set(existingEnvironments.map((env) => env.id) || []);
         settings[k]?.forEach((env) => {
           if (!oldIds.has(env.id)) {
-            affectedEnvs.add(env.id);
+            affectedEnvs.add(env);
           }
         });
 
@@ -1266,13 +1272,26 @@ export async function putOrganization(
           }
         });
 
-        req.checkPermissions(
-          "manageEnvironments",
-          "",
-          Array.from(affectedEnvs)
-        );
+        affectedEnvs.forEach((env) => {
+          if (!context.permissions.canCreateOrUpdateEnvironment(env)) {
+            context.permissions.throwPermissionError();
+          }
+        });
+
+        envsWithModifiedProjects.forEach((env) => {
+          if (!context.permissions.canCreateOrUpdateEnvironment(env)) {
+            context.permissions.throwPermissionError();
+          }
+        });
       } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
-        req.checkPermissions("manageEnvironments", "", []);
+        if (
+          !context.permissions.canCreateSDKConnection({
+            projects: [],
+            environment: "",
+          })
+        ) {
+          context.permissions.throwPermissionError();
+        }
       } else if (k === "attributeSchema") {
         throw new Error(
           "Not supported: Updating organization attributes not supported via this route."
@@ -1468,7 +1487,6 @@ export async function postApiKey(
     environment = "",
     project = "",
     secret = false,
-    encryptSDK,
     type,
   } = req.body;
 
@@ -1495,7 +1513,14 @@ export async function postApiKey(
       }
     }
   } else {
-    req.checkPermissions("manageEnvironments", project, [environment]);
+    if (
+      !context.permissions.canCreateSDKConnection({
+        projects: [project],
+        environment,
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   // Handle user personal access tokens
@@ -1535,19 +1560,7 @@ export async function postApiKey(
     });
   }
 
-  // Handle legacy SDK connection
-  const key = await createLegacySdkKey({
-    description,
-    environment,
-    project,
-    organizationId: org.id,
-    encryptSDK,
-  });
-
-  res.status(200).json({
-    status: 200,
-    key,
-  });
+  throw new Error("Invalid API key type");
 }
 
 export async function deleteApiKey(
@@ -1582,7 +1595,14 @@ export async function deleteApiKey(
       throw new Error("You do not have permission to delete this.");
     }
   } else {
-    req.checkPermissions("manageEnvironments", "", [keyObj.environment || ""]);
+    if (
+      !context.permissions.canDeleteSDKConnection({
+        projects: [keyObj.project || ""],
+        environment: keyObj.environment || "",
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   if (id) {
@@ -1643,7 +1663,7 @@ export async function getWebhooks(req: AuthRequest, res: Response) {
   res.status(200).json({
     status: 200,
     webhooks: webhooks.filter((webhook) =>
-      hasReadAccess(context.readAccessFilter, webhook.project)
+      context.permissions.canReadSingleProjectResource(webhook.project)
     ),
   });
 }
@@ -1665,33 +1685,6 @@ export async function getWebhooksSDK(
   });
 }
 
-export async function postWebhook(
-  req: AuthRequest<{
-    name: string;
-    endpoint: string;
-    project?: string;
-    environment: string;
-  }>,
-  res: Response
-) {
-  req.checkPermissions("manageWebhooks");
-
-  const { org } = getContextFromReq(req);
-  const { name, endpoint, project, environment } = req.body;
-
-  const webhook = await createWebhook({
-    organization: org.id,
-    name,
-    endpoint,
-    project,
-    environment,
-  });
-
-  res.status(200).json({
-    status: 200,
-    webhook,
-  });
-}
 export async function getTestWebhook(
   req: AuthRequest<Record<string, unknown>, { id: string }>,
   res: Response
@@ -1713,9 +1706,12 @@ export async function postWebhookSDK(
   }>,
   res: Response
 ) {
-  req.checkPermissions("manageWebhooks");
+  const context = getContextFromReq(req);
+  const { org } = context;
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canCreateSDKWebhook()) {
+    context.permissions.throwPermissionError();
+  }
   const { name, endpoint, sdkid, sendPayload, headers, httpMethod } = req.body;
   const webhookcount = await countWebhooksByOrg(org.id);
   const canAddMultipleSdkWebhooks = orgHasPremiumFeature(
@@ -1745,10 +1741,14 @@ export async function putWebhook(
   req: AuthRequest<WebhookInterface, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageWebhooks");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canUpdateSDKWebhook()) {
+    context.permissions.throwPermissionError();
+  }
+
   const { id } = req.params;
+  const { name, endpoint, project, environment } = req.body;
   const webhook = await WebhookModel.findOne({
     id,
   });
@@ -1756,11 +1756,10 @@ export async function putWebhook(
   if (!webhook) {
     throw new Error("Could not find webhook");
   }
-  if (webhook.organization !== org.id) {
+  if (webhook.organization !== context.org.id) {
     throw new Error("You don't have access to that webhook");
   }
 
-  const { name, endpoint, project, environment } = req.body;
   if (!name || !endpoint) {
     throw new Error("Missing required properties");
   }
@@ -1782,13 +1781,15 @@ export async function deleteWebhook(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageWebhooks");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canDeleteSDKWebhook()) {
+    context.permissions.throwPermissionError();
+  }
   const { id } = req.params;
 
   await WebhookModel.deleteOne({
-    organization: org.id,
+    organization: context.org.id,
     id,
   });
 
@@ -1801,13 +1802,15 @@ export async function deleteWebhookSDK(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageWebhooks");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canDeleteSDKWebhook()) {
+    context.permissions.throwPermissionError();
+  }
   const { id } = req.params;
 
   await WebhookModel.deleteOne({
-    organization: org.id,
+    organization: context.org.id,
     id,
   });
 

@@ -2,7 +2,7 @@ import { FC } from "react";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -31,10 +31,9 @@ const SDKEndpoints: FC<{
 
   const environments = useEnvironments();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const publishableKeys = getPublishableKeys(keys, project);
-  const canManageKeys = permissions.check("manageEnvironments", "", []);
 
   const envCounts = new Map();
   publishableKeys.forEach((k) => {
@@ -63,7 +62,7 @@ const SDKEndpoints: FC<{
               <th>Description</th>
               <th>Endpoint</th>
               <th>Encrypted?</th>
-              {canManageKeys && <th style={{ width: 30 }}></th>}
+              <th style={{ width: 30 }}></th>
             </tr>
           </thead>
           <tbody>
@@ -71,6 +70,15 @@ const SDKEndpoints: FC<{
               const env = key.environment ?? "production";
               const endpoint = getApiBaseUrl() + "/api/features/" + key.key;
               const envExists = environments?.some((e) => e.id === env);
+              const canManage = permissionsUtil.canCreateSDKConnection({
+                projects: [key.project || ""],
+                environment: key.environment || "",
+              });
+
+              const canDelete = permissionsUtil.canDeleteSDKConnection({
+                projects: [key.project || ""],
+                environment: key.environment || "",
+              });
 
               return (
                 <tr key={key.key}>
@@ -100,7 +108,7 @@ const SDKEndpoints: FC<{
                     <ClickToCopy>{endpoint}</ClickToCopy>
                   </td>
                   <td style={{ width: 295 }}>
-                    {canManageKeys && key.encryptSDK ? (
+                    {canManage && key.encryptSDK ? (
                       <ClickToReveal
                         valueWhenHidden="secret_abcdefghijklmnop123"
                         getValue={async () => {
@@ -122,9 +130,9 @@ const SDKEndpoints: FC<{
                       <div>No</div>
                     )}
                   </td>
-                  {canManageKeys && (
-                    <td>
-                      <MoreMenu>
+                  <td>
+                    <MoreMenu>
+                      {canDelete ? (
                         <DeleteButton
                           onClick={async () => {
                             await apiCall(`/keys`, {
@@ -140,9 +148,9 @@ const SDKEndpoints: FC<{
                           displayName="SDK Endpoint"
                           text="Delete endpoint"
                         />
-                      </MoreMenu>
-                    </td>
-                  )}
+                      ) : null}
+                    </MoreMenu>
+                  </td>
                 </tr>
               );
             })}
