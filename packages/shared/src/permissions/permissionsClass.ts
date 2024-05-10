@@ -728,11 +728,22 @@ export class Permissions {
   public canReadMultiProjectResource = (
     projects: string[] | undefined
   ): boolean => {
-    // If the resource is available to all projects (an empty array or no projects property), then everyone should have read access
-    if (!projects || !projects.length || this.superAdmin) {
+    if (this.superAdmin) {
       return true;
     }
 
+    // If the resource doesn't have a projects property or it's an empty array
+    // that means it's in all projects
+    if (!projects || !projects.length) {
+      const projectsToCheck = [
+        "",
+        ...Object.keys(this.userPermissions.projects),
+      ];
+      // Must have read access globally or in at least 1 project
+      return projectsToCheck.some((p) => this.hasPermission("readData", p));
+    }
+
+    // Otherwise, check if they have read access for atleast 1 of the resource's projects
     return projects.some((p) => this.hasPermission("readData", p));
   };
 

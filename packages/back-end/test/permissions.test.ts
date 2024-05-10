@@ -1444,7 +1444,7 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     },
   };
 
-  it("User with global noaccess role should be able to see metrics in 'All Projects' aka - an empty projects array", async () => {
+  it("User with global noaccess role should be able to see metrics in 'All Projects' aka - an empty projects array, if they have atleast 1 project level role that grants them access", async () => {
     const permissions = new Permissions(
       {
         global: {
@@ -1452,7 +1452,13 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {},
+        projects: {
+          project1: {
+            permissions: roleToPermissionMap("readonly", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
       },
       false
     );
@@ -1476,7 +1482,44 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
     ]);
   });
 
-  it("User with global noaccess role should be able to see metrics in 'All Projects' aka - an undefined projects", async () => {
+  it("User with global noaccess role should be able to see metrics in 'All Projects' aka - an undefined projects, if they have atleast 1 project level role that grants them access", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          project1: {
+            permissions: roleToPermissionMap("readonly", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    const metrics: Partial<MetricInterface>[] = [
+      {
+        id: "test-feature-123",
+      },
+    ];
+
+    const filteredMetrics = metrics.filter((metric) =>
+      permissions.canReadMultiProjectResource(metric.projects)
+    );
+
+    expect(filteredMetrics).toEqual([
+      {
+        id: "test-feature-123",
+      },
+    ]);
+    expect(filteredMetrics.length).toEqual(1);
+  });
+
+  it("User with global noaccess role should not be able to see metrics in 'All Projects' aka - an undefined projects, if they don't have atleast 1 project level role that grants them access", async () => {
     const permissions = new Permissions(
       {
         global: {
@@ -1499,12 +1542,8 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
       permissions.canReadMultiProjectResource(metric.projects)
     );
 
-    expect(filteredMetrics).toEqual([
-      {
-        id: "test-feature-123",
-      },
-    ]);
-    expect(filteredMetrics.length).toEqual(1);
+    expect(filteredMetrics).toEqual([]);
+    expect(filteredMetrics.length).toEqual(0);
   });
 
   it("User with global noaccess role shouldn't be able to see metrics if the metrics are exlusively in projects they don't have a specific role that grants them read access for", async () => {

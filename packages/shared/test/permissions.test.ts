@@ -143,9 +143,7 @@ describe("Role permissions", () => {
     );
     expect(p.canDeleteSDKConnection({ projects, environment })).toBe(false);
     expect(p.canReadSingleProjectResource(project)).toBe(false);
-    // This is a weird one - for resources that have multiple projects, if their projects array is empty
-    // that means it's in 'All Projects' so users with global noaccess can view them
-    expect(p.canReadMultiProjectResource(projects)).toBe(true);
+    expect(p.canReadMultiProjectResource(projects)).toBe(false);
   });
 
   it("has correct permissions for readonly", () => {
