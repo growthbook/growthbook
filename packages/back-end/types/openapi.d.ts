@@ -46,6 +46,8 @@ export interface paths {
     get: operations["getProject"];
     /** Edit a single project */
     put: operations["putProject"];
+    /** Deletes a single project */
+    delete: operations["deleteProject"];
   };
   "/dimensions": {
     /** Get all dimensions */
@@ -2699,6 +2701,28 @@ export interface operations {
                 statsEngine?: string;
               };
             };
+          };
+        };
+      };
+    };
+  };
+  deleteProject: {
+    /** Deletes a single project */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /**
+             * @description The ID of the deleted project 
+             * @example prj__123abc
+             */
+            deletedId?: string;
           };
         };
       };
@@ -6209,6 +6233,7 @@ export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
 export type GetProjectResponse = operations["getProject"]["responses"]["200"]["content"]["application/json"];
 export type PutProjectResponse = operations["putProject"]["responses"]["200"]["content"]["application/json"];
+export type DeleteProjectResponse = operations["deleteProject"]["responses"]["200"]["content"]["application/json"];
 export type ListDimensionsResponse = operations["listDimensions"]["responses"]["200"]["content"]["application/json"];
 export type GetDimensionResponse = operations["getDimension"]["responses"]["200"]["content"]["application/json"];
 export type ListSegmentsResponse = operations["listSegments"]["responses"]["200"]["content"]["application/json"];

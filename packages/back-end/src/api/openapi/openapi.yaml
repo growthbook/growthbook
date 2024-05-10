@@ -122,6 +122,8 @@ paths:
       $ref: "./paths/getProject.yaml"
     put:
       $ref: "./paths/putProject.yaml"
+    delete:
+      $ref: "./paths/deleteProject.yaml"
   /dimensions:
     $ref: "./paths/listDimensions.yaml"
   /dimensions/{id}:

@@ -60,6 +60,12 @@ export const putProjectValidator = {
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
+export const deleteProjectValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
 export const listDimensionsValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "datasourceId": z.string().optional() }).strict(),
