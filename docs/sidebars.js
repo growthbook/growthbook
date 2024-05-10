@@ -332,6 +332,11 @@ const sidebars = {
             },
             {
               type: "doc",
+              id: "statistics/quantile",
+              label: "Quantile Testing",
+            },
+            {
+              type: "doc",
               id: "statistics/cuped",
               label: "Regression Adjustment (CUPED)",
             },
@@ -349,11 +354,6 @@ const sidebars = {
               type: "doc",
               id: "statistics/aggregation",
               label: "Aggregate Data",
-            },
-            {
-              type: "doc",
-              id: "statistics/quantile",
-              label: "Quantile Testing",
             },
             {
               type: "doc",
