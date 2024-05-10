@@ -31,7 +31,7 @@ Just run
 docker-compose -f docker-compose.proxy.yml up -d
 ```
 
-This will start the proxy server on port 3300. Check out the health check endpoint to ensure it's working correctly - http://localhost:3300/healthcheck
+This will start the proxy server on port 3300. Check `http://localhost:3300/healthcheck` to ensure it's working correctly.
 
 ### Standalone
 
@@ -52,21 +52,26 @@ docker run -d -p 3300:3300 \
   --name gbproxy growthbook/proxy
 ```
 
-Check http://localhost:3300/healthcheck to ensure it's running correctly.
+Check `http://localhost:3300/healthcheck` to ensure it's running correctly.
+
+### Authentication
+
+You will need to create a "readonly" secret API key in GrowthBook by going to **Settings → API Keys** (you can also use a Personal Access Token if preferred). Or you can use a custom `SECRET_API_KEY` of your choosing. Whichever method you choose, this key will be used to authenticate your proxy server with the GrowthBook app.
 
 Lastly, for self-hosted customers, add environment variables your main GrowthBook API server to enable the proxy:
 
-```yml
+```bash
 PROXY_ENABLED=1
-# The public URL of your proxy server
 PROXY_HOST_PUBLIC=https://growthbook-proxy.example.com
-# Must match the SECRET_API_KEY used above
-# You can either define the secret key here or create one in the GrowthBook UI
+
+# OPTIONAL: You can either create the secret key in the GrowthBook UI or define one here or
 SECRET_API_KEY=something_secret
 ```
 
+### Cloud Customers
+
 For cloud customers who self-host a proxy server, you must configure each SDK Connection to use a custom proxy webhook URL.
-Go to SDK Configuration -> SDK Connections in the GrowthBook app to configure the proxy server per each connection.
+Go to **SDK Configuration → SDK Connections** in the GrowthBook app to configure the proxy server per each connection.
 
 ## Using with the SDKs
 
@@ -92,7 +97,7 @@ The GrowthBook Proxy supports a number of configuration options available via en
 options are:
 
 - `GROWTHBOOK_API_HOST` - Set this to the host and port of your GrowthBook API instance
-- `SECRET_API_KEY` - Create a secret API key in GrowthBook by going to **Settings -> API Keys**
+- `SECRET_API_KEY` - Create a secret API key in GrowthBook by going to **Settings → API Keys**
 - `NODE_ENV` - Set to "production" to hide debug and informational log messages
 - `CACHE_ENGINE` - One of - `memory`, `redis`, or `mongo`
 - `CACHE_CONNECTION_URL` - The URL of your redis or mongo cluster (if using)

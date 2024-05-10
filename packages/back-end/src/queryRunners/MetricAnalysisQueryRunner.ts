@@ -15,6 +15,12 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
   MetricValueParams,
   MetricAnalysis
 > {
+  checkPermissions(): boolean {
+    return this.context.permissions.canRunMetricQueries(
+      this.integration.datasource
+    );
+  }
+
   async startQueries(params: MetricValueParams): Promise<Queries> {
     return [
       await this.startQuery({

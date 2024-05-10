@@ -16,12 +16,6 @@ export const LOG_LEVEL = process.env.LOG_LEVEL;
 export const IS_CLOUD = stringToBoolean(process.env.IS_CLOUD);
 export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
 
-if (!IS_CLOUD && IS_MULTI_ORG && !process.env.LICENSE_KEY) {
-  throw new Error(
-    "Must have a commercial license key to be allowed to have multiple organizations."
-  );
-}
-
 // Default to true
 export const ALLOW_SELF_ORG_CREATION = stringToBoolean(
   process.env.ALLOW_SELF_ORG_CREATION,

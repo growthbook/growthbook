@@ -7,6 +7,7 @@ import {
   postResendEmailVerificationEmailToLicenseServer,
   postVerifyEmailToLicenseServer,
 } from "enterprise";
+import md5 from "md5";
 import {
   getLicenseMetaData,
   initializeLicenseForOrg,
@@ -14,7 +15,10 @@ import {
 import { getUserLicenseCodes } from "../services/users";
 import { AuthRequest } from "../types/AuthRequest";
 import { getContextFromReq } from "../services/organizations";
-import { updateOrganization } from "../models/OrganizationModel";
+import {
+  getAllInviteEmailsInDb,
+  updateOrganization,
+} from "../models/OrganizationModel";
 import { PrivateApiErrorResponse } from "../../types/api";
 import { updateSubscriptionInDb } from "../services/stripe";
 
@@ -24,11 +28,15 @@ import { updateSubscriptionInDb } from "../services/stripe";
  * want to restart their servers.
  */
 export async function getLicenseData(req: AuthRequest, res: Response) {
-  req.checkPermissions("manageBilling");
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
 
   let licenseData;
 
-  if (req.organization?.licenseKey) {
+  if (req.organization?.licenseKey || process.env.LICENSE_KEY) {
     // Force refresh the license data
     licenseData = await initializeLicenseForOrg(req.organization, true);
   } else if (req.organization?.subscription) {
@@ -49,11 +57,19 @@ export async function getLicenseData(req: AuthRequest, res: Response) {
  * data and send it to us.
  */
 export async function getLicenseReport(req: AuthRequest, res: Response) {
-  req.checkPermissions("manageBilling");
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
 
   const timestamp = new Date().toISOString();
   const licenseMetaData = await getLicenseMetaData();
-  const userLicenseCodes = await getUserLicenseCodes();
+  const userEmailCodes = await getUserLicenseCodes();
+  const inviteEmails = await getAllInviteEmailsInDb();
+  const inviteEmailCodes: string[] = inviteEmails.map((email) => {
+    return md5(email).slice(0, 8);
+  });
 
   // Create a hmac signature of the license data
   const hmac = crypto.createHmac("sha256", licenseMetaData.installationId);
@@ -61,7 +77,8 @@ export async function getLicenseReport(req: AuthRequest, res: Response) {
   const report = {
     timestamp,
     licenseMetaData,
-    userLicenseCodes,
+    userEmailCodes,
+    inviteEmailCodes,
   };
 
   return res.status(200).json({
@@ -89,18 +106,27 @@ export async function postCreateTrialEnterpriseLicense(
   req: CreateTrialEnterpriseLicenseRequest,
   res: Response<{ status: 200 } | PrivateApiErrorResponse>
 ) {
-  req.checkPermissions("manageBilling");
+  const context = getContextFromReq(req);
+  const { org } = context;
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
 
-  const { email, name, organizationId, companyName, context } = req.body;
+  const {
+    email,
+    name,
+    organizationId,
+    companyName,
+    context: reqContext,
+  } = req.body;
   try {
     const results = await postCreateTrialEnterpriseLicenseToLicenseServer(
       email,
       name,
       organizationId,
       companyName,
-      context
+      reqContext
     );
 
     if (!org.licenseKey) {
@@ -124,12 +150,14 @@ export async function postResendEmailVerificationEmail(
   req: AuthRequest,
   res: Response
 ) {
-  req.checkPermissions("manageBilling");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
 
   try {
-    await postResendEmailVerificationEmailToLicenseServer(org.id);
+    await postResendEmailVerificationEmailToLicenseServer(context.org.id);
 
     return res.status(200).json({ status: 200 });
   } catch (e) {

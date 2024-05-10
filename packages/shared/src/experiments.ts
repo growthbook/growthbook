@@ -6,11 +6,16 @@ import {
   MetricWindowSettings,
 } from "back-end/types/fact-table";
 import { TemplateVariables } from "back-end/types/sql";
-import { OrganizationSettings } from "back-end/types/organization";
+import {
+  MetricDefaults,
+  OrganizationSettings,
+} from "back-end/types/organization";
 import { MetricOverride } from "back-end/types/experiment";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import cloneDeep from "lodash/cloneDeep";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { StatsEngine } from "back-end/types/stats";
 import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
@@ -315,5 +320,199 @@ export function getAllMetricRegressionAdjustmentStatuses({
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
     regressionAdjustmentHasValidMetrics,
+  };
+}
+
+export function isExpectedDirection(
+  stats: SnapshotMetric,
+  metric: { inverse?: boolean }
+): boolean {
+  const expected: number = stats?.expected ?? 0;
+  if (metric.inverse) {
+    return expected < 0;
+  }
+  return expected > 0;
+}
+
+export function isStatSig(pValue: number, pValueThreshold: number): boolean {
+  return pValue < pValueThreshold;
+}
+
+export function shouldHighlight({
+  metric,
+  baseline,
+  stats,
+  hasEnoughData,
+  belowMinChange,
+}: {
+  metric: { id: string };
+  baseline: SnapshotMetric;
+  stats: SnapshotMetric;
+  hasEnoughData: boolean;
+  belowMinChange: boolean;
+}): boolean {
+  return !!(
+    metric &&
+    baseline?.value &&
+    stats?.value &&
+    hasEnoughData &&
+    !belowMinChange
+  );
+}
+
+export function getMetricSampleSize(
+  baseline: SnapshotMetric,
+  stats: SnapshotMetric,
+  metric: ExperimentMetricInterface
+): { baselineValue?: number; variationValue?: number } {
+  return quantileMetricType(metric)
+    ? {
+        baselineValue: baseline?.stats?.count,
+        variationValue: stats?.stats?.count,
+      }
+    : { baselineValue: baseline.value, variationValue: stats.value };
+}
+
+export function hasEnoughData(
+  baseline: SnapshotMetric,
+  stats: SnapshotMetric,
+  metric: ExperimentMetricInterface,
+  metricDefaults: MetricDefaults
+): boolean {
+  const { baselineValue, variationValue } = getMetricSampleSize(
+    baseline,
+    stats,
+    metric
+  );
+  if (!baselineValue || !variationValue) return false;
+
+  const minSampleSize =
+    metric.minSampleSize || metricDefaults.minimumSampleSize || 0;
+
+  return Math.max(baselineValue, variationValue) >= minSampleSize;
+}
+
+export function isSuspiciousUplift(
+  baseline: SnapshotMetric,
+  stats: SnapshotMetric,
+  metric: { maxPercentChange?: number },
+  metricDefaults: MetricDefaults
+): boolean {
+  if (!baseline?.cr || !stats?.cr) return false;
+
+  const maxPercentChange =
+    metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0;
+
+  return Math.abs(baseline.cr - stats.cr) / baseline.cr >= maxPercentChange;
+}
+
+export function isBelowMinChange(
+  baseline: SnapshotMetric,
+  stats: SnapshotMetric,
+  metric: { minPercentChange?: number },
+  metricDefaults: MetricDefaults
+): boolean {
+  if (!baseline?.cr || !stats?.cr) return false;
+
+  const minPercentChange =
+    metric.minPercentChange ?? metricDefaults.minPercentageChange ?? 0;
+
+  return Math.abs(baseline.cr - stats.cr) / baseline.cr < minPercentChange;
+}
+
+export function getMetricResultStatus({
+  metric,
+  metricDefaults,
+  baseline,
+  stats,
+  ciLower,
+  ciUpper,
+  pValueThreshold,
+  statsEngine,
+}: {
+  metric: ExperimentMetricInterface;
+  metricDefaults: MetricDefaults;
+  baseline: SnapshotMetric;
+  stats: SnapshotMetric;
+  ciLower: number;
+  ciUpper: number;
+  pValueThreshold: number;
+  statsEngine: StatsEngine;
+}) {
+  const directionalStatus: "winning" | "losing" =
+    (stats.expected ?? 0) * (metric.inverse ? -1 : 1) > 0
+      ? "winning"
+      : "losing";
+
+  const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
+  const belowMinChange = isBelowMinChange(
+    baseline,
+    stats,
+    metric,
+    metricDefaults
+  );
+  const _shouldHighlight = shouldHighlight({
+    metric,
+    baseline,
+    stats,
+    hasEnoughData: enoughData,
+    belowMinChange,
+  });
+
+  let significant: boolean;
+  let significantUnadjusted: boolean;
+  if (statsEngine === "bayesian") {
+    if (
+      (stats.chanceToWin ?? 0) > ciUpper ||
+      (stats.chanceToWin ?? 0) < ciLower
+    ) {
+      significant = true;
+      significantUnadjusted = true;
+    } else {
+      significant = false;
+      significantUnadjusted = false;
+    }
+  } else {
+    significant = isStatSig(
+      stats.pValueAdjusted ?? stats.pValue ?? 1,
+      pValueThreshold
+    );
+    significantUnadjusted = isStatSig(stats.pValue ?? 1, pValueThreshold);
+  }
+
+  let resultsStatus: "won" | "lost" | "draw" | "" = "";
+  if (statsEngine === "bayesian") {
+    if (_shouldHighlight && (stats.chanceToWin ?? 0) > ciUpper) {
+      resultsStatus = "won";
+    } else if (_shouldHighlight && (stats.chanceToWin ?? 0) < ciLower) {
+      resultsStatus = "lost";
+    }
+    if (
+      enoughData &&
+      belowMinChange &&
+      ((stats.chanceToWin ?? 0) > ciUpper || (stats.chanceToWin ?? 0) < ciLower)
+    ) {
+      resultsStatus = "draw";
+    }
+  } else {
+    if (_shouldHighlight && significant && directionalStatus === "winning") {
+      resultsStatus = "won";
+    } else if (
+      _shouldHighlight &&
+      significant &&
+      directionalStatus === "losing"
+    ) {
+      resultsStatus = "lost";
+    } else if (enoughData && significant && belowMinChange) {
+      resultsStatus = "draw";
+    }
+  }
+  return {
+    shouldHighlight: _shouldHighlight,
+    belowMinChange,
+    significant,
+    significantUnadjusted,
+    directionalStatus,
+    resultsStatus,
   };
 }

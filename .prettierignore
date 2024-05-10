@@ -3,3 +3,4 @@ node_modules
 public
 coverage
 *.py
+packages/shared/src/sdk-versioning/CAPABILITIES.md

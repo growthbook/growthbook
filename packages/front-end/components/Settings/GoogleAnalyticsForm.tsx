@@ -10,7 +10,8 @@ const GoogleAnalyticsForm: FC<{
   error: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
   setParams: (params: { [key: string]: string }) => void;
-}> = ({ params, existing, onParamChange, error }) => {
+  projects: string[];
+}> = ({ params, existing, onParamChange, error, projects }) => {
   const [loading, setLoading] = useState(false);
   const { apiCall } = useAuth();
 
@@ -19,6 +20,7 @@ const GoogleAnalyticsForm: FC<{
     try {
       const res = await apiCall<{ url: string }>(`/oauth/google`, {
         method: "POST",
+        body: JSON.stringify({ projects }),
       });
       window.location.href = res.url;
     } catch (e) {

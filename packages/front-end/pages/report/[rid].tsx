@@ -41,6 +41,8 @@ import CompactResults from "@/components/Experiment/CompactResults";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import PageHead from "@/components/Layout/PageHead";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -62,20 +64,19 @@ export default function ReportPage() {
       : null
   );
 
-  const {
-    permissions,
-    userId,
-    getUserDisplay,
-    hasCommercialFeature,
-  } = useUser();
+  const { userId, getUserDisplay, hasCommercialFeature } = useUser();
+  const permissionsUtil = usePermissionsUtil();
   const [active, setActive] = useState<string | null>("Results");
   const [refreshError, setRefreshError] = useState("");
 
   const { apiCall } = useAuth();
 
-  const canCreateAnalyses = permissions.check(
-    "createAnalyses",
-    experimentData?.experiment.project || ""
+  const canUpdateReport = experimentData
+    ? permissionsUtil.canViewReportModal(experimentData.experiment.project)
+    : false;
+
+  const canDeleteReport = permissionsUtil.canDeleteReport(
+    experimentData?.experiment || {}
   );
 
   // todo: move to report args
@@ -143,6 +144,7 @@ export default function ReportPage() {
 
   const sequentialTestingEnabled =
     hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled;
+  const differenceType = report.args.differenceType ?? "relative";
 
   return (
     <>
@@ -212,7 +214,7 @@ export default function ReportPage() {
               Go to experiment results
             </Link>
           )}
-          {canCreateAnalyses && (userId === report?.userId || !report?.userId) && (
+          {canDeleteReport && (userId === report?.userId || !report?.userId) && (
             <DeleteButton
               displayName="Custom Report"
               link={false}
@@ -238,15 +240,14 @@ export default function ReportPage() {
           )}
           <h1 className="mb-0 mt-2">
             {report.title}{" "}
-            {canCreateAnalyses &&
-              (userId === report?.userId || !report?.userId) && (
-                <a
-                  className="ml-2 cursor-pointer"
-                  onClick={() => setEditModalOpen(true)}
-                >
-                  <GBEdit />
-                </a>
-              )}
+            {canUpdateReport && (userId === report?.userId || !report?.userId) && (
+              <a
+                className="ml-2 cursor-pointer"
+                onClick={() => setEditModalOpen(true)}
+              >
+                <GBEdit />
+              </a>
+            )}
           </h1>
           <div className="mb-1">
             <small className="text-muted">
@@ -269,7 +270,7 @@ export default function ReportPage() {
           active={active}
           setActive={setActive}
           newStyle={true}
-          navClassName={canCreateAnalyses ? "" : "d-none"}
+          navClassName={canUpdateReport ? "" : "d-none"}
         >
           <Tab key="results" anchor="results" display="Results" padding={false}>
             <div className="pt-3 px-3">
@@ -287,6 +288,19 @@ export default function ReportPage() {
                     userIdType={report.args.userIdType}
                     labelClassName="mr-2"
                     disabled={true}
+                  />
+                </div>
+                <div className="col-auto d-flex align-items-end mr-3">
+                  <DifferenceTypeChooser
+                    differenceType={report.args.differenceType ?? "relative"}
+                    // ensure disabled is true to style correctly
+                    // and callbacks are not needed
+                    disabled={true}
+                    phase={0}
+                    setDifferenceType={() => {}}
+                    setAnalysisSettings={() => {}}
+                    loading={false}
+                    mutate={() => {}}
                   />
                 </div>
                 <div className="col-auto d-flex align-items-end mr-3">
@@ -326,7 +340,7 @@ export default function ReportPage() {
                   )}
                 </div>
                 <div className="col-auto">
-                  {canCreateAnalyses && (
+                  {canUpdateReport && (
                     <form
                       onSubmit={async (e) => {
                         e.preventDefault();
@@ -363,6 +377,7 @@ export default function ReportPage() {
                 <div className="col-auto">
                   <ResultMoreMenu
                     id={report.id}
+                    datasource={datasource}
                     hasData={hasData}
                     forceRefresh={async () => {
                       try {
@@ -385,7 +400,7 @@ export default function ReportPage() {
                     }}
                     supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
                     editMetrics={
-                      canCreateAnalyses
+                      canUpdateReport
                         ? () => setActive("Configuration")
                         : undefined
                     }
@@ -434,7 +449,7 @@ export default function ReportPage() {
                         ago(report.args.startDate) +
                         ". Give it a little longer and click the 'Refresh' button to check again."}
                     {!report.results &&
-                      canCreateAnalyses &&
+                      canUpdateReport &&
                       `Click the "Refresh" button.`}
                   </div>
                 )}
@@ -450,6 +465,7 @@ export default function ReportPage() {
                   seriestype={report.args.dimension}
                   variations={variations}
                   statsEngine={report.args.statsEngine}
+                  differenceType={differenceType}
                 />
               ) : (
                 <BreakDownResults
@@ -473,11 +489,12 @@ export default function ReportPage() {
                     report.args.metricRegressionAdjustmentStatuses
                   }
                   sequentialTestingEnabled={sequentialTestingEnabled}
-                  differenceType={"relative"}
+                  differenceType={differenceType}
                 />
               ))}
             {report.results && !report.args.dimension && (
               <VariationIdWarning
+                datasource={datasource}
                 unknownVariations={report.results?.unknownVariations || []}
                 isUpdating={status === "running"}
                 setVariationIds={async (ids) => {
@@ -510,6 +527,7 @@ export default function ReportPage() {
                 }}
                 variations={variations}
                 results={report.results?.dimensions?.[0]}
+                project={experimentData?.experiment.project}
               />
             )}
             {hasData &&
@@ -540,7 +558,7 @@ export default function ReportPage() {
                       report.args.metricRegressionAdjustmentStatuses
                     }
                     sequentialTestingEnabled={sequentialTestingEnabled}
-                    differenceType={"relative"}
+                    differenceType={differenceType}
                     isTabActive={true}
                   />
                 </div>
@@ -599,7 +617,7 @@ export default function ReportPage() {
               </div>
             )}
           </Tab>
-          {canCreateAnalyses && (
+          {canUpdateReport && (
             <Tab
               key="configuration"
               anchor="configuration"

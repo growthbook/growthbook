@@ -9,6 +9,7 @@ import Toggle from "@/components/Forms/Toggle";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useEnvironments } from "@/services/features";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 export default function FeaturesSettings() {
   const [
@@ -19,6 +20,7 @@ export default function FeaturesSettings() {
   const { hasCommercialFeature } = useUser();
   const environments = useEnvironments();
   const form = useFormContext();
+  const { projects } = useDefinitions();
 
   const hasSecureAttributesFeature = hasCommercialFeature(
     "hash-secure-attributes"
@@ -97,7 +99,40 @@ export default function FeaturesSettings() {
             {...form.register("secureAttributeSalt")}
           />
         </div>
-
+        <div>
+          <label htmlFor="featureKeyExample">
+            Feature Key Example (Optional)
+          </label>
+          <Field
+            id="featureKeyExample"
+            {...form.register("featureKeyExample")}
+            placeholder="my-feature"
+          />
+          <p>
+            <small className="text-muted mb-3">
+              When creating a new feature, this example will be shown. Only
+              letters, numbers, and the characters _, -, ., :, and | allowed. No
+              spaces.
+            </small>
+          </p>
+        </div>
+        <div>
+          <label htmlFor="featureRegexValidator">
+            Feature Key Regex Validator (Optional)
+          </label>
+          <Field
+            id="featureRegexValidator"
+            {...form.register("featureRegexValidator")}
+            placeholder=""
+          />
+          <p>
+            <small className="text-muted mb-3">
+              When using the create feature modal, it will validate the feature
+              key against this regex. This will not block API feature creation,
+              and is used to enforce naming conventions at some companies.
+            </small>
+          </p>
+        </div>
         <div>
           <label className="mr-1" htmlFor="toggle-killswitchConfirmation">
             Require confirmation when changing an environment kill switch
@@ -138,7 +173,24 @@ export default function FeaturesSettings() {
 
                 {!!form.watch(`requireReviews.${i}.requireReviewOn`) && (
                   <div className="mt-3">
-                    <label htmlFor={`environments-${i}`} className="h5">
+                    <label htmlFor={`projects-${i}`} className="h5">
+                      Projects
+                    </label>
+                    <MultiSelectField
+                      id={`projects-${i}`}
+                      value={form.watch(`requireReviews.${i}.projects`) || []}
+                      onChange={(projects) => {
+                        form.setValue(`requireReviews.${i}.projects`, projects);
+                      }}
+                      options={projects.map((e) => {
+                        return {
+                          value: e.id,
+                          label: e.name,
+                        };
+                      })}
+                      placeholder="All Projects"
+                    />
+                    <label htmlFor={`environments-${i}`} className="h5 mt-3">
                       Environments
                     </label>
                     <MultiSelectField

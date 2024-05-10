@@ -3,6 +3,7 @@ import ReactSelect, {
   components,
   MultiValueGenericProps,
   MultiValueProps,
+  InputProps,
   Props,
   StylesConfig,
   OptionProps,
@@ -65,6 +66,12 @@ const SortableCreatableSelect = SortableContainer(
   CreatableSelect
 ) as React.ComponentClass<Props<SingleValue, true> & SortableContainerProps>;
 
+const Input = (props: InputProps) => {
+  // @ts-expect-error will be passed down
+  const { onPaste } = props.selectProps;
+  return <components.Input onPaste={onPaste} {...props} />;
+};
+
 const MultiSelectField: FC<
   Omit<
     FieldProps,
@@ -81,6 +88,7 @@ const MultiSelectField: FC<
     closeMenuOnSelect?: boolean;
     creatable?: boolean;
     formatOptionLabel?: (value: SingleValue) => ReactNode;
+    onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   }
 > = ({
   value,
@@ -96,6 +104,7 @@ const MultiSelectField: FC<
   creatable,
   closeMenuOnSelect = false,
   formatOptionLabel,
+  onPaste,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -124,6 +133,7 @@ const MultiSelectField: FC<
       render={(id, ref) => {
         return (
           <Component
+            onPaste={onPaste}
             useDragHandle
             classNamePrefix="gb-multi-select"
             helperClass="multi-select-container"
@@ -146,6 +156,7 @@ const MultiSelectField: FC<
               MultiValue: SortableMultiValue,
               MultiValueLabel: SortableMultiValueLabel,
               Option: OptionWithTitle,
+              Input,
             }}
             closeMenuOnSelect={closeMenuOnSelect}
             autoFocus={autoFocus}

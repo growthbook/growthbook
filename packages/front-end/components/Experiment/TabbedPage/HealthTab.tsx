@@ -4,7 +4,6 @@ import Link from "next/link";
 import SRMDrawer from "@/components/HealthTab/SRMDrawer";
 import MultipleExposuresDrawer from "@/components/HealthTab/MultipleExposuresDrawer";
 import { useUser } from "@/services/UserContext";
-import usePermissions from "@/hooks/usePermissions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Button from "@/components/Button";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
@@ -13,6 +12,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
@@ -43,7 +43,7 @@ export default function HealthTab({
   } = useSnapshot();
   const { runHealthTrafficQuery } = useOrgSettings();
   const { refreshOrganization } = useUser();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
 
@@ -52,9 +52,11 @@ export default function HealthTab({
   );
 
   const hasPermissionToConfigHealthTag =
-    permissions.check("organizationSettings") &&
-    permissions.check("runQueries", datasource?.projects || []) &&
-    permissions.check("editDatasourceSettings", datasource?.projects || []);
+    (datasource &&
+      permissionsUtil.canManageOrgSettings() &&
+      permissionsUtil.canRunHealthQueries(datasource) &&
+      permissionsUtil.canUpdateDataSourceSettings(datasource)) ||
+    false;
   const [healthIssues, setHealthIssues] = useState<IssueValue[]>([]);
   const [setupModalOpen, setSetupModalOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);

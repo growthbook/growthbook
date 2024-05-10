@@ -29,6 +29,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import clsx from "clsx";
 import Link from "next/link";
 import { BsClock } from "react-icons/bs";
+import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
@@ -55,7 +56,6 @@ import Tab from "@/components/Tabs/Tab";
 import Modal from "@/components/Modal";
 import DraftModal from "@/components/Features/DraftModal";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
-import usePermissions from "@/hooks/usePermissions";
 import DiscussionThread from "@/components/DiscussionThread";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -71,6 +71,7 @@ import Revisionlog from "@/components/Features/RevisionLog";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -131,7 +132,7 @@ export default function FeaturesOverview({
     i: number;
   } | null>(null);
   const [showDependents, setShowDependents] = useState(false);
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const [revertIndex, setRevertIndex] = useState(0);
 
@@ -274,16 +275,14 @@ export default function FeaturesOverview({
 
   const hasDraftPublishPermission =
     (approved &&
-      permissions.check(
-        "publishFeatures",
-        projectId,
+      permissionsUtil.canPublishFeature(
+        feature,
         getAffectedRevisionEnvs(feature, revision, environments)
       )) ||
     (isDraft &&
       !requireReviews &&
-      permissions.check(
-        "publishFeatures",
-        projectId,
+      permissionsUtil.canPublishFeature(
+        feature,
         getAffectedRevisionEnvs(feature, revision, environments)
       ));
 
@@ -298,16 +297,38 @@ export default function FeaturesOverview({
     (revision.status === "published" || revision.status === "discarded") &&
     (!isLive || drafts.length > 0);
 
-  const canEdit = permissions.check("manageFeatures", projectId);
-  const canEditDrafts = permissions.check(
-    "createFeatureDrafts",
-    feature.project
-  );
+  const canEdit = permissionsUtil.canViewFeatureModal(projectId);
+  const canEditDrafts = permissionsUtil.canManageFeatureDrafts(feature);
+  const renderStatusCopy = () => {
+    switch (revision.status) {
+      case "approved":
+        return (
+          <span className="mr-3">
+            <PiCheckCircleFill className="text-success  mr-1" /> Approved
+          </span>
+        );
+      case "pending-review":
+        return (
+          <span className="mr-3">
+            <PiCircleDuotone className="text-warning  mr-1" /> Pending Review
+          </span>
+        );
+      case "changes-requested":
+        return (
+          <span className="mr-3">
+            <PiFileX className="text-danger mr-1" />
+            Changes Requested
+          </span>
+        );
+      default:
+        return;
+    }
+  };
   const renderDraftBannerCopy = () => {
     if (isPendingReview) {
       return (
         <>
-          <BsClock /> Awaiting Approval
+          <BsClock /> Review and Approve
         </>
       );
     }
@@ -1004,6 +1025,7 @@ export default function FeaturesOverview({
                 </div>
               )}
               <div className="col-auto">
+                {renderStatusCopy()}
                 <a
                   href="#"
                   onClick={(e) => {

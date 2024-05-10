@@ -96,7 +96,9 @@ export default class BigQuery extends SqlIntegration {
   }
 
   createUnitsTableOptions() {
-    return bigQueryCreateTableOptions(this.settings.pipelineSettings ?? {});
+    return bigQueryCreateTableOptions(
+      this.datasource.settings.pipelineSettings ?? {}
+    );
   }
 
   addTime(
@@ -227,7 +229,7 @@ export default class BigQuery extends SqlIntegration {
 
     return formatInformationSchema(
       results as RawInformationSchema[],
-      this.type
+      this.datasource.type
     );
   }
 }

@@ -3,6 +3,7 @@ import {
   SDKLanguage,
 } from "back-end/types/sdk-connection";
 import uniq from "lodash/uniq";
+import { paddedVersionString } from "@growthbook/growthbook";
 import { CapabilityStrategy, SDKCapability } from "./types";
 
 import * as nocode_json from "./sdk-versions/nocode.json";
@@ -18,6 +19,7 @@ import * as swift_json from "./sdk-versions/swift.json";
 import * as go_json from "./sdk-versions/go.json";
 import * as flutter_json from "./sdk-versions/flutter.json";
 import * as csharp_json from "./sdk-versions/csharp.json";
+import * as elixir_json from "./sdk-versions/elixir.json";
 import * as other_json from "./sdk-versions/other.json";
 
 type SDKRecords = Record<SDKLanguage, SDKData>;
@@ -46,6 +48,7 @@ const sdks: SDKRecords = {
   go: go_json,
   flutter: flutter_json,
   csharp: csharp_json,
+  elixir: elixir_json,
   other: other_json,
 };
 
@@ -68,6 +71,7 @@ const defaultSdkVersions: Record<SDKLanguage, string> = {
   go: "0.1.4",
   flutter: "1.1.2",
   csharp: "0.2.0",
+  elixir: "0.2.0",
   other: "0.0.0",
 };
 
@@ -221,32 +225,23 @@ export const getSDKCapabilityVersion = (
   return null;
 };
 
-// Copied from the JS SDK's mongrule.ts
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function paddedVersionString(input: any): string {
-  if (typeof input === "number") {
-    input = input + "";
-  }
-  if (!input || typeof input !== "string") {
-    input = "0";
-  }
-  // Remove build info and leading `v` if any
-  // Split version into parts (both core version numbers and pre-release tags)
-  // "v1.2.3-rc.1+build123" -> ["1","2","3","rc","1"]
-  const parts = (input as string).replace(/(^v|\+.*$)/g, "").split(/[-.]/);
+export type MinSupportedSDKVersions = {
+  language: SDKLanguage;
+  minVersion: string;
+};
+export function getMinSupportedSDKVersions(
+  capability: SDKCapability
+): MinSupportedSDKVersions[] {
+  const languages = Object.keys(sdks) as SDKLanguage[];
+  const matches: MinSupportedSDKVersions[] = [];
+  languages.forEach((language) => {
+    const minVersion = getSDKCapabilityVersion(language, capability);
 
-  // If it's SemVer without a pre-release, add `~` to the end
-  // ["1","0","0"] -> ["1","0","0","~"]
-  // "~" is the largest ASCII character, so this will make "1.0.0" greater than "1.0.0-beta" for example
-  if (parts.length === 3) {
-    parts.push("~");
-  }
-
-  // Left pad each numeric part with spaces so string comparisons will work ("9">"10", but " 9"<"10")
-  // Then, join back together into a single string
-  return parts
-    .map((v) => (v.match(/^[0-9]+$/) ? v.padStart(5, " ") : v))
-    .join("-");
+    if (minVersion) {
+      matches.push({ language, minVersion });
+    }
+  });
+  return matches;
 }
 
 export * from "./types";

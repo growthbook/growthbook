@@ -13,11 +13,11 @@ import {
 } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import usePermissions from "@/hooks/usePermissions";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 interface Props {
   i: number;
@@ -40,8 +40,8 @@ export default function PrerequisiteStatusRow({
   mutate,
   setPrerequisiteModal,
 }: Props) {
-  const permissions = usePermissions();
-  const canEdit = permissions.check("manageFeatures", feature.project);
+  const permissionsUtil = usePermissionsUtil();
+  const canEdit = permissionsUtil.canViewFeatureModal(feature.project);
   const { apiCall } = useAuth();
 
   const envs = environments.map((e) => e.id);

@@ -155,7 +155,7 @@ export default function TargetingInfo({
                   <div className="d-flex">
                     <div
                       className={clsx("d-flex", {
-                        "text-danger font-weight-bold": hasSavedGroupsChanges,
+                        "text-danger font-weight-bold mw-50": hasSavedGroupsChanges,
                       })}
                     >
                       {hasSavedGroupsChanges && (
@@ -198,7 +198,7 @@ export default function TargetingInfo({
                   <div className="d-flex">
                     <div
                       className={clsx("d-flex", {
-                        "text-danger font-weight-bold": hasConditionChanges,
+                        "text-danger font-weight-bold mw-50": hasConditionChanges,
                       })}
                     >
                       {hasConditionChanges && (
@@ -237,7 +237,7 @@ export default function TargetingInfo({
                   <div className="d-flex">
                     <div
                       className={clsx("d-flex", {
-                        "text-danger font-weight-bold": hasPrerequisiteChanges,
+                        "text-danger font-weight-bold mw-50": hasPrerequisiteChanges,
                       })}
                     >
                       {hasPrerequisiteChanges && (

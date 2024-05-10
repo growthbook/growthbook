@@ -48,6 +48,7 @@ type OrgSettingsResponse = {
   enterpriseSSO: SSOConnectionInterface | null;
   accountPlan: AccountPlan;
   effectiveAccountPlan: AccountPlan;
+  licenseError: string;
   commercialFeatures: CommercialFeature[];
   license: LicenseInterface;
   licenseKey?: string;
@@ -87,7 +88,7 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   manageWebhooks: false,
   manageIntegrations: false,
   organizationSettings: false,
-  superDelete: false,
+  superDeleteReport: false,
   viewEvents: false,
   readData: false,
 };
@@ -108,6 +109,7 @@ export interface UserContextValue {
   enterpriseSSO?: SSOConnectionInterface;
   accountPlan?: AccountPlan;
   effectiveAccountPlan?: AccountPlan;
+  licenseError: string;
   commercialFeatures: CommercialFeature[];
   apiKeys: ApiKeyInterface[];
   organization: Partial<OrganizationInterface>;
@@ -145,6 +147,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   apiKeys: [],
   organization: {},
+  licenseError: "",
   seatsInUse: 0,
   teams: [],
   hasCommercialFeature: () => false,
@@ -184,6 +187,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const {
     data: currentOrg,
     mutate: refreshOrganization,
+    error: orgLoadingError,
   } = useApi<OrgSettingsResponse>(isAuthenticated ? `/organization` : null);
 
   const [hashedOrganizationId, setHashedOrganizationId] = useState<string>("");
@@ -261,7 +265,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     };
   }, [orgId, data?.userId, role]);
 
-  // Refresh organization data when switching orgs
+  // Refresh organization data when switching orgs or license key changes
   useEffect(() => {
     if (orgId) {
       void refreshOrganization();
@@ -276,13 +280,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     }
     void updateUser();
   }, [isAuthenticated, updateUser]);
-
-  // Refresh org after loading license
-  useEffect(() => {
-    if (orgId) {
-      void refreshOrganization();
-    }
-  }, [orgId, currentOrg?.organization?.licenseKey, refreshOrganization]);
 
   // Update growthbook tarageting attributes
   const growthbook = useGrowthBook<AppFeatures>();
@@ -394,13 +391,14 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         enterpriseSSO: currentOrg?.enterpriseSSO || undefined,
         accountPlan: currentOrg?.accountPlan,
         effectiveAccountPlan: currentOrg?.effectiveAccountPlan,
+        licenseError: currentOrg?.licenseError || "",
         commercialFeatures: currentOrg?.commercialFeatures || [],
         apiKeys: currentOrg?.apiKeys || [],
         // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'OrganizationInterface | undefined' is not as... Remove this comment to see the full error message
         organization: currentOrg?.organization,
         seatsInUse: currentOrg?.seatsInUse || 0,
         teams,
-        error,
+        error: error || orgLoadingError?.message,
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
       }}
     >

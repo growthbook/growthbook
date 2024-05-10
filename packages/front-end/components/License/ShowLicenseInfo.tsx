@@ -1,12 +1,13 @@
 import { FC, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import { date } from "shared/dates";
-import usePermissions from "@/hooks/usePermissions";
 import { useUser } from "@/services/UserContext";
 import EditLicenseModal from "@/components/Settings/EditLicenseModal";
 import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
+import { isCloud } from "@/services/env";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import RefreshLicenseButton from "./RefreshLicenseButton";
 import DownloadLicenseUsageButton from "./DownloadLicenseUsageButton";
 
@@ -14,7 +15,7 @@ const ShowLicenseInfo: FC<{
   showInput?: boolean;
 }> = ({ showInput = true }) => {
   const { accountPlan, license, refreshOrganization, organization } = useUser();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const [editLicenseOpen, setEditLicenseOpen] = useState(false);
 
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -35,7 +36,7 @@ const ShowLicenseInfo: FC<{
 
   // TODO: Remove this once we have migrated all organizations to use the license key
   const usesLicenseInfoOnModel =
-    !showUpgradeButton && !organization?.licenseKey;
+    isCloud() && !showUpgradeButton && !organization?.licenseKey;
 
   return (
     <div>
@@ -79,7 +80,7 @@ const ShowLicenseInfo: FC<{
                 </div>
               </div>
             )}
-            {permissions.manageBilling && !usesLicenseInfoOnModel && (
+            {permissionsUtil.canManageBilling() && !usesLicenseInfoOnModel && (
               <div className="form-group row mt-3 mb-0">
                 {showInput && (
                   <div className="col-sm-2">
@@ -113,22 +114,23 @@ const ShowLicenseInfo: FC<{
                 {license &&
                   license.plan && ( // A license might not have a plan if a stripe pro form is not filled out
                     <>
-                      {["pro", "pro_sso"].includes(license.plan) && (
-                        <div className="col-sm-2">
-                          <div>Status:</div>
-                          <span
-                            className={`text-muted ${
-                              !["active", "trialing"].includes(
-                                license.stripeSubscription?.status || ""
-                              )
-                                ? "alert-danger"
-                                : ""
-                            }`}
-                          >
-                            {license.stripeSubscription?.status}
-                          </span>
-                        </div>
-                      )}
+                      {["pro", "pro_sso"].includes(license.plan) &&
+                        license.stripeSubscription?.status && (
+                          <div className="col-sm-2">
+                            <div>Status:</div>
+                            <span
+                              className={`text-muted ${
+                                !["active", "trialing"].includes(
+                                  license.stripeSubscription?.status || ""
+                                )
+                                  ? "alert-danger"
+                                  : ""
+                              }`}
+                            >
+                              {license.stripeSubscription?.status}
+                            </span>
+                          </div>
+                        )}
                       <div className="col-sm-2">
                         <div>Issued:</div>
                         <span className="text-muted">
@@ -150,7 +152,7 @@ const ShowLicenseInfo: FC<{
                 {license && (
                   <>
                     {license.id.startsWith("license") && (
-                      <div className="col-sm-2">
+                      <div className="col">
                         <RefreshLicenseButton />
                       </div>
                     )}

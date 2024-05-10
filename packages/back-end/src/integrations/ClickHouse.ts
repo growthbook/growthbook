@@ -34,6 +34,7 @@ export default class ClickHouse extends SqlIntegration {
       password: this.params.password,
       database: this.params.database,
       application: "GrowthBook",
+      request_timeout: 3620_000,
       clickhouse_settings: {
         max_execution_time: Math.min(
           this.params.maxExecutionTime ?? 1800,

@@ -1,10 +1,9 @@
 import React, { FC, useCallback, useState } from "react";
 import { FaPencilAlt, FaPlus } from "react-icons/fa";
-import { checkDatasourceProjectPermissions } from "@/services/datasources";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { EditJupyterNotebookQueryRunner } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/EditJupyterNotebookQueryRunner";
-import usePermissions from "@/hooks/usePermissions";
 import Code from "@/components/SyntaxHighlighting/Code";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 type DataSourceJupyterNotebookQueryProps = DataSourceQueryEditingModalBaseProps;
 
@@ -14,14 +13,8 @@ export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryPr
   canEdit = true,
 }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit">("view");
-  const permissions = usePermissions();
-  canEdit =
-    canEdit &&
-    checkDatasourceProjectPermissions(
-      dataSource,
-      permissions,
-      "editDatasourceSettings"
-    );
+  const permissionsUtil = usePermissionsUtil();
+  canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
   const handleCancel = useCallback(() => {
     setUiMode("view");

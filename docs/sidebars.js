@@ -96,7 +96,7 @@ const sidebars = {
         {
           type: "doc",
           id: "feature-flag-experiments",
-          label: "Feature Flags",
+          label: "In Code (Feature Flags)",
         },
         {
           type: "doc",
@@ -108,6 +108,11 @@ const sidebars = {
           id: "running-experiments/url-redirects",
           label: "URL Redirects",
           className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "running-experiments/making-changes",
+          label: "Making Changes",
         },
         {
           type: "doc",
@@ -298,7 +303,7 @@ const sidebars = {
         {
           type: "doc",
           id: "experimentation-analysis/experiment-configuration",
-          label: "Experiments (Adding and Configuring)",
+          label: "Experiments (Setup)",
         },
         {
           type: "doc",
@@ -345,6 +350,11 @@ const sidebars = {
               id: "statistics/quantile",
               label: "Quantile Testing",
             },
+            {
+              type: "doc",
+              id: "statistics/power",
+              label: "Power Analysis",
+            },
           ],
         },
       ],
@@ -352,25 +362,64 @@ const sidebars = {
     {
       type: "category",
       label: "SDKs",
-      collapsed: true,
+      collapsed: false,
       link: {
         type: "doc",
         id: "lib/index",
       },
       items: [
-        { type: "doc", id: "lib/js", label: "Javascript" },
-        { type: "doc", id: "lib/react", label: "React" },
-        { type: "doc", id: "lib/vue", label: "Vue.js" },
-        { type: "doc", id: "lib/script-tag", label: "HTML Script Tag" },
-        { type: "doc", id: "lib/php", label: "PHP)" },
-        { type: "doc", id: "lib/ruby", label: "Ruby" },
-        { type: "doc", id: "lib/python", label: "Python" },
-        { type: "doc", id: "lib/java", label: "Java", className: "pill-new" },
-        { type: "doc", id: "lib/csharp", label: "C#", className: "pill-new" },
-        { type: "doc", id: "lib/go", label: "Go" },
-        { type: "doc", id: "lib/kotlin", label: "Kotlin (Android)" },
-        { type: "doc", id: "lib/flutter", label: "Flutter" },
-        { type: "doc", id: "lib/swift", label: "Swift (iOS)" },
+        {
+          type: "category",
+          label: "Back-end",
+          collapsed: true,
+          items: [
+            { type: "doc", id: "lib/node", label: "Node.js" },
+            { type: "doc", id: "lib/php", label: "PHP" },
+            { type: "doc", id: "lib/ruby", label: "Ruby" },
+            { type: "doc", id: "lib/python", label: "Python" },
+            {
+              type: "doc",
+              id: "lib/java",
+              label: "Java",
+              className: "pill-new",
+            },
+            {
+              type: "doc",
+              id: "lib/csharp",
+              label: "C#",
+              className: "pill-new",
+            },
+            { type: "doc", id: "lib/go", label: "Go" },
+            {
+              type: "doc",
+              id: "lib/elixir",
+              label: "Elixir",
+              className: "pill-new",
+            },
+          ],
+        },
+        {
+          type: "category",
+          label: "Front-end",
+          collapsed: true,
+          items: [
+            { type: "doc", id: "lib/script-tag", label: "HTML Script Tag" },
+            { type: "doc", id: "lib/js", label: "Javascript" },
+            { type: "doc", id: "lib/react", label: "React" },
+            { type: "doc", id: "lib/vue", label: "Vue.js" },
+          ],
+        },
+        {
+          type: "category",
+          label: "Mobile",
+          collapsed: true,
+          items: [
+            { type: "doc", id: "lib/kotlin", label: "Kotlin (Android)" },
+            { type: "doc", id: "lib/flutter", label: "Flutter" },
+            { type: "doc", id: "lib/swift", label: "Swift (iOS)" },
+            { type: "doc", id: "lib/react-native", label: "React Native" },
+          ],
+        },
         { type: "doc", id: "lib/build-your-own", label: "Build Your Own" },
       ],
     },
@@ -386,33 +435,119 @@ const sidebars = {
         "self-host/environment-variables",
         "self-host/config-yml",
         "self-host/production",
-      ],
-    },
-    /*
-        {
-      type: "category",
-      label: "Advanced",
-      collapsed: true,
-      items: [
-        { type: "doc", id: "api-overview", label: "API" },
         { type: "doc", id: "self-host/proxy", label: "Proxy" },
-        { type: "doc", id: "webhooks", label: "Webhooks" },
       ],
     },
-     */
-    { type: "doc", id: "self-host/proxy", label: "Proxy" },
     { type: "doc", id: "api-overview", label: "API" },
-    { type: "doc", id: "webhooks", label: "Webhooks" },
     {
       type: "category",
-      label: "Installation Tutorials",
+      collapsed: true,
+      label: "Webhooks",
+      items: [
+        { type: "doc", id: "webhooks/overview", label: "Webhooks overview" },
+        { type: "doc", id: "webhooks/event-webhooks", label: "Event Webhooks" },
+        { type: "doc", id: "webhooks/sdk-webhooks", label: "SDK Webhooks" },
+        {
+          type: "doc",
+          id: "webhooks/global-sdk-webhooks",
+          label: "Global SDK Webhooks",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Integrations",
+      collapsed: true,
+      items: [
+        {
+          type: "doc",
+          id: "integrations/slack",
+          label: "Slack alerts",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/discord",
+          label: "Discord alerts",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/datadog",
+          label: "DataDog",
+        },
+        {
+          type: "doc",
+          id: "integrations/github-metrics",
+          label: "GitHub (Metric Definitions)",
+        },
+        {
+          type: "doc",
+          id: "tools/chrome-extension",
+          label: "Chrome Extension",
+        },
+        {
+          type: "doc",
+          id: "tools/vscode-extension",
+          label: "VS Code Extension",
+        },
+        {
+          type: "doc",
+          id: "tools/cli",
+          className: "pill-new",
+          label: "GrowthBook CLI",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Security",
+      collapsed: false,
+      items: [
+        {
+          type: "doc",
+          id: "account/user-permissions",
+          label: "Roles & Permissions",
+        },
+        { type: "doc", id: "sso", label: "SSO" },
+        {
+          type: "doc",
+          id: "integrations/scim",
+          label: "SCIM",
+        },
+        {
+          type: "doc",
+          id: "compliance",
+          label: "Compliance",
+        },
+        {
+          type: "doc",
+          id: "account/audit-logs",
+          label: "Audit Logs",
+        },
+      ],
+    },
+    { type: "doc", id: "faq", label: "FAQ" },
+    {
+      type: "category",
+      label: "Tutorials",
       collapsed: true,
       link: {
         type: "doc",
         id: "guide/index",
       },
+      className: "top-divider",
       items: [
-        { type: "doc", id: "guide/nextjs-and-growthbook", label: "Next.js" },
+        {
+          type: "doc",
+          id: "guide/nextjs-app-router",
+          label: "Next.js (App Router)",
+        },
+        {
+          type: "doc",
+          id: "guide/nextjs-and-growthbook",
+          label: "Next.js (Pages Router)",
+        },
         {
           type: "doc",
           id: "guide/create-react-app-and-growthbook",
@@ -453,79 +588,6 @@ const sidebars = {
           type: "doc",
           id: "guide/importing",
           label: "Migrate from LaunchDarkly",
-        },
-      ],
-    },
-    {
-      type: "category",
-      label: "Tools",
-      collapsed: true,
-      items: [
-        {
-          type: "doc",
-          id: "tools/chrome-extension",
-          label: "Chrome Extension",
-        },
-        {
-          type: "doc",
-          id: "tools/vscode-extension",
-          label: "Visual Studio Code Extension",
-        },
-        {
-          type: "doc",
-          id: "tools/cli",
-          className: "pill-new",
-          label: "Command Line Interface (CLI)",
-        },
-      ],
-    },
-    {
-      type: "category",
-      label: "Integrations",
-      collapsed: true,
-      items: [
-        {
-          type: "doc",
-          id: "integrations/slack",
-          label: "Slack alerts",
-          className: "pill-new",
-        },
-        { type: "doc", id: "sso", label: "SSO" },
-        {
-          type: "doc",
-          id: "integrations/datadog",
-          label: "DataDog",
-          className: "pill-new",
-        },
-        {
-          type: "doc",
-          id: "integrations/scim",
-          label: "SCIM",
-          className: "pill-new",
-        },
-        {
-          type: "doc",
-          id: "integrations/github-metrics",
-          label: "GitHub (Metric Definitions)",
-          className: "pill-new",
-        },
-      ],
-    },
-    { type: "doc", id: "faq", label: "FAQ" },
-    {
-      type: "category",
-      label: "Account",
-      collapsed: true,
-      items: [
-        {
-          type: "doc",
-          id: "account/user-permissions",
-          label: "Roles & Permissions",
-        },
-        {
-          type: "doc",
-          id: "account/audit-logs",
-          label: "Audit Logs",
         },
       ],
     },

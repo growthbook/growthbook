@@ -7,13 +7,13 @@ slug: build-your-own
 
 # Build Your Own SDK
 
-**Latest spec version: 0.5.4 [View Changelog](#changelog)**
+**Latest spec version: 0.6.0 [View Changelog](#changelog)**
 
 This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
 
-GrowthBook SDKs are simple and lightweight. Because of this, they can often be kept to **under 2000 lines of code**.
-
 All libraries should follow this specification as closely as the language permits to maintain consistency and make updates and maintenance easier.
+
+At the end of this guide is an extensive test suite with over 400 language-agnostic unit tests in JSON format. All SDKs must pass 100% of these test cases. It's recommended to add additional manual unit tests as needed on top of these.
 
 ## Data structures
 
@@ -74,14 +74,14 @@ The syntax is inspired by MongoDB queries. Here is an example:
 
 A **ParentCondition** defines a prerequisite. It consists of a parent feature's **id** (`string`), a **condition** (`Condition`), and an optional **gate** (`boolean`) flag.
 
-Instead of evaluating against attributes, the condition evaluates against the returned value of the parent feature. The condition will always reference a "value" property. Here is an example of a gating prerequisite where the parent feature must be toggled on:
+Instead of evaluating against attributes, the condition evaluates against the returned value of the parent feature. The condition will always reference a "value" property. Here is an example of a gating prerequisite where the parent feature must be on (`true`)
 
 ```
 {
   "id": "parent-feature",
   "condition": {
     "value": {
-      "$exists": true
+      "$eq": true
     }
   },
   "gate": true
@@ -195,6 +195,7 @@ The result of evaluating a **Feature**. Has a number of properties:
 
 Overrides the defaultValue of a **Feature**. Has a number of optional properties
 
+- **id** (`string`) - Optional rule id, reserved for future use
 - **condition** (`Condition`) - Optional targeting condition
 - **parentConditions** (`ParentCondition[]`) - Each item defines a prerequisite where a `condition` must evaluate against a parent feature's value (identified by `id`). If `gate` is true, then this is a blocking feature-level prerequisite; otherwise it applies to the current rule only.
 - **coverage** (`float`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
@@ -715,17 +716,18 @@ This is a helper method to evaluate `filters` for both feature flags and experim
 Determines if the user is part of a gradual feature rollout.
 
 1. Either `coverage` or `range` are required. If both are `null`, return `true` immediately
-2. Get the hashAttribute and hashValue
+2. If `range` is null and `coverage` is zero, return `false` immediately. This catches an edge case where the bucket is zero and users are let through when they shouldn't be
+3. Get the hashAttribute and hashValue
    ```ts
    hashAttribute = hashAttribute || "id";
    hashValue = context.attributes[hashAttribute] || "";
    ```
-3. If `hashValue` is empty, return `false` immediately
-4. Determine the bucket for the user
+4. If `hashValue` is empty, return `false` immediately
+5. Determine the bucket for the user
    ```ts
    n = hash(seed, hashValue, hashVersion || 1)
    ```
-5. Check if user is included
+6. Check if user is included
 
    ```js
    if (range) {
@@ -1105,10 +1107,15 @@ Subscriptions and tracking calls require storing references to many objects and 
 
 We strive to have 100% test coverage for all of our SDKs.
 
-There is a language-agnostic test suite stored as a JSON file `packages/sdk-js/test/cases.json` with more than 200 unit tests. This extensively tests all of the public methods mentioned above.
+There is a language-agnostic test suite stored as a JSON file (https://github.com/growthbook/growthbook/blob/main/packages/sdk-js/test/cases.json) with more than 400 unit tests. This extensively tests all of the public methods mentioned above.
 
 The cases.json file is an object. The keys are the function being tested, and the values are arrays of test cases. The test case arrays structure is different for each function and listed below:
 
+- **evalCondition**
+  - name of the test case (string)
+  - condition
+  - attributes
+  - expected return value (boolean)
 - **hash**
   - seed (string)
   - value to hash (string)
@@ -1118,6 +1125,18 @@ The cases.json file is an object. The keys are the function being tested, and th
   - Name of the test case (string)
   - Arguments array ([numVariations, coverage, weights or null])
   - expected result
+- **feature** (evalFeature)
+  - name of the test case (string)
+  - context passed into GrowthBook constructor
+  - name of the feature (string)
+  - expected result
+- **run**
+  - name of the test case (string)
+  - context passed into GrowthBook constructor
+  - experiment object
+  - expected value
+  - inExperiment (boolean)
+  - hashUsed (boolean)
 - **chooseVariation**
   - name of the test case (string)
   - n (hash)
@@ -1137,32 +1156,22 @@ The cases.json file is an object. The keys are the function being tested, and th
 - **getEqualWeights**
   - numVariations
   - expected result (weights rounded to 8 decimal places)
-- **evalCondition**
-  - name of the test case (string)
-  - condition
-  - attributes
-  - expected return value (boolean)
-- **feature** (evalFeature)
-  - name of the test case (string)
-  - context passed into GrowthBook constructor
-  - name of the feature (string)
-  - expected result
-- **run**
-  - name of the test case (string)
-  - context passed into GrowthBook constructor
-  - experiment object
-  - expected value
-  - inExperiment (boolean)
-  - hashUsed (boolean)
 - **decrypt**
   - name of the test case (string)
   - encrypted text (string)
   - decryption key (string)
   - expected result (string or `null` if the decryption should fail)
-- **versionCompare** is an object with comparison type properties `lt`, `gt`, `eq`, each with an array of test cases
-  - version (string)
-  - other version (string)
-  - expected to match for comparison type (boolean)
+- **stickyBucket**
+  - name of the test case (string)
+  - context passed into GrowthBook constructor
+  - array of preexisting sticky bucket assignment docs
+  - name of the feature (string)
+  - expected result
+  - expected sticky bucket assignment docs
+- **urlRedirect**
+  - name of the test case (string)
+  - context passed into GrowthBook constructor
+  - expected array of result objects
 
 In addition to the above, you should write custom test cases for things like event subscriptions, tracking callbacks, getters/setters, etc. that are more language-specific.
 
@@ -1218,3 +1227,12 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
 - **v0.5.4** 2024-02-23
   - New `parentConditions` property of FeatureRules
   - New `parentConditions` property of Experiments
+- **v0.5.5** 2024-04-09
+  - Add test cases for URL Redirects
+  - Add `navigate` method to Context
+  - Add `persistQueryString` property to Experiment
+  - Add and improve test cases for StickyBucket
+- **v0.6.0** 2024-04-30
+  - Remove `versionCompare` test cases (these are now just included as part of `evalCondition`)
+  - Tweak to `isIncludedInRollout` to handle an edge case when coverage is zero. Also added test case for this.
+  - Add `id` property to feature rules (reserved for future use)
