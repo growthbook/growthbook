@@ -12,7 +12,8 @@
         "visualEditorJS",
         "visualEditorDragDrop",
         "prerequisites",
-        "redirects"
+        "redirects",
+        "stickyBucketing"
       ]
     }
   ]

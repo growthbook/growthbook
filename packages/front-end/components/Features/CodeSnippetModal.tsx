@@ -379,7 +379,7 @@ export default function CodeSnippetModal({
             </div>
           )}
 
-          {language !== "other" && (
+          {!(language.match(/^edge-/) || language === "other") && (
             <div className="mb-3">
               <h4
                 className="cursor-pointer"
@@ -490,7 +490,7 @@ myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
             </div>
           )}
 
-          {language !== "other" && (
+          {!(language.match(/^edge-/) || language === "other") && (
             <div className="mb-3">
               <h4
                 className="cursor-pointer"

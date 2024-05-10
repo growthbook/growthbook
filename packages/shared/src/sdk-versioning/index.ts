@@ -22,6 +22,7 @@ import * as csharp_json from "./sdk-versions/csharp.json";
 import * as elixir_json from "./sdk-versions/elixir.json";
 import * as edge_lambda_json from "./sdk-versions/edge-lambda.json";
 import * as edge_cloudflare_json from "./sdk-versions/edge-cloudflare.json";
+import * as edge_other_json from "./sdk-versions/edge-other.json";
 import * as other_json from "./sdk-versions/other.json";
 
 type SDKRecords = Record<SDKLanguage, SDKData>;
@@ -53,6 +54,7 @@ const sdks: SDKRecords = {
   elixir: elixir_json,
   "edge-lambda": edge_lambda_json,
   "edge-cloudflare": edge_cloudflare_json,
+  "edge-other": edge_other_json,
   other: other_json,
 };
 
@@ -76,8 +78,9 @@ const defaultSdkVersions: Record<SDKLanguage, string> = {
   flutter: "1.1.2",
   csharp: "0.2.0",
   elixir: "0.2.0",
-  "edge-lambda": "0.1.0",
+  "edge-lambda": "0.0.0",
   "edge-cloudflare": "0.1.0",
+  "edge-other": "0.0.1",
   other: "0.0.0",
 };
 

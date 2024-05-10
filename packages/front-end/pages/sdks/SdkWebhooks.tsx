@@ -14,6 +14,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle } from "@/components/Icons";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import ClickToCopy from "@/components/Settings/ClickToCopy";
 
 export default function SdkWebhooks({ sdkid }) {
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
@@ -38,17 +39,19 @@ export default function SdkWebhooks({ sdkid }) {
     // only render table if there is data to show
     return data?.webhooks?.map((webhook) => (
       <tr key={webhook.name}>
-        <td>{webhook.name}</td>
+        <td style={{ minWidth: 150 }}>{webhook.name}</td>
         <td
           style={{
             wordBreak: "break-word",
             overflowWrap: "anywhere",
           }}
         >
-          {webhook.endpoint}
+          <code className="text-main small">{webhook.endpoint}</code>
         </td>
         <td>{webhook.sendPayload ? "yes" : "no"}</td>
-        <td>{webhook.signingKey}</td>
+        <td className="nowrap">
+          <ClickToCopy>{webhook.signingKey}</ClickToCopy>
+        </td>
         <td>
           {webhook.error ? (
             <>
@@ -69,7 +72,7 @@ export default function SdkWebhooks({ sdkid }) {
               />
             </>
           ) : webhook.lastSuccess ? (
-            <em>
+            <em className="small">
               <FaCheck className="text-success" /> last fired{" "}
               {ago(webhook.lastSuccess)}
             </em>

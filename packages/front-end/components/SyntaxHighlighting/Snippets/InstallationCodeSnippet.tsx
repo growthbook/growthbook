@@ -235,6 +235,45 @@ end
       />
     );
   }
+  if (language === "edge-cloudflare") {
+    return (
+      <Code
+        language="sh"
+        code={`
+npm i --save @growthbook/edge-cloudflare
+# OR
+yarn add @growthbook/edge-cloudflare`.trim()}
+      />
+    );
+  }
+  if (language === "edge-lambda") {
+    return (
+      <>
+        <p>
+          We currently do not offer a specific SDK for{" "}
+          <strong>Lambda@Edge</strong>, but may use our base edge package:
+        </p>
+        <Code
+          language="sh"
+          code={`
+npm i --save @growthbook/edge-utils
+# OR
+yarn add @growthbook/edge-utils`.trim()}
+        />
+      </>
+    );
+  }
+  if (language === "edge-other") {
+    return (
+      <Code
+        language="sh"
+        code={`
+npm i --save @growthbook/edge-utils
+# OR
+yarn add @growthbook/edge-utils`.trim()}
+      />
+    );
+  }
 
   return <em>Depends on your platform</em>;
 }

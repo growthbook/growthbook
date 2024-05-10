@@ -102,7 +102,11 @@ export default function SDKLanguageSelector({
     "elixir",
   ]);
   const mobile = filterLanguages(["ios", "android", "flutter"]);
-  const edge = filterLanguages(["edge-lambda", "edge-cloudflare"]);
+  const edge = filterLanguages([
+    "edge-cloudflare",
+    "edge-lambda",
+    "edge-other",
+  ]);
   const nocode = filterLanguages([
     "nocode-shopify",
     "nocode-wordpress",

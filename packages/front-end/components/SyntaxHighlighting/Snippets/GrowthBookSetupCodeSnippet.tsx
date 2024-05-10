@@ -637,6 +637,148 @@ features = GrowthBook.Config.features_from_config(features)
       </>
     );
   }
+  if (language === "edge-cloudflare") {
+    return (
+      <>
+        <p>See our CloudFlare Workers documentation for detailed setup.</p>
+
+        <p>
+          Our <strong>Edge app</strong> provides turnkey visual editor and URL
+          redirect experimentation on edge without any of the flicker often
+          associated with front-end experiment implementations. It runs as a
+          smart proxy layer between your application and your end users. As
+          such, it also can inject a fully-hydrated front-end SDK onto the
+          rendered page, meaning no extra network requests needed.
+        </p>
+
+        <p>
+          To run the edge app, add our CloudFlare request handler to your
+          project:
+        </p>
+        <Code
+          language="javascript"
+          code={`
+import { handleRequest } from "@growthbook/edge-cloudflare";
+
+export default {
+  fetch: async function (request, env, ctx) {
+    return await handleRequest(request, env);
+  },
+};
+          `.trim()}
+        />
+
+        <p className="mt-4">
+          Or if you want to manually invoke our JavaScript SDK on your
+          proprietary edge app, use the our CloudFlare package to simplify SDK
+          payload caching.
+        </p>
+        <Code
+          language="javascript"
+          code={`
+import { GrowthBook, setPolyfills } from "@growthbook/growthbook";
+import { getKVLocalStoragePolyfill, getPayloadFromKV } from "@growthbook/edge-cloudflare";
+
+// Choose an optional caching strategy
+
+// A. Provide a KV cache layer so that the GrowthBook SDK doesn't need to make as many requests to the GrowthBook API
+const localStoragePolyfill = getKVLocalStoragePolyfill(env);
+
+// B. Or use the KV as a managed payload store to eliminate SDK requests to the GrowthBook API entirely
+const payload = await getPayloadFromKV(env);
+const growthbook = new GrowthBook(gbContext);
+await growthbook.init({ payload: payload });
+          `.trim()}
+        />
+      </>
+    );
+  }
+  if (language === "edge-lambda") {
+    return (
+      <>
+        <p>See our Lambda@Edge documentation for detailed setup.</p>
+
+        <p>
+          Our <strong>Edge app</strong> provides turnkey visual editor and URL
+          redirect experimentation on edge without any of the flicker often
+          associated with front-end experiment implementations. It runs as a
+          smart proxy layer between your application and your end users. As
+          such, it also can inject a fully-hydrated front-end SDK onto the
+          rendered page, meaning no extra network requests needed.
+        </p>
+
+        <p>
+          To run the edge app, add our base app to request handler to your
+          project. You will need to manually build app context and helper
+          functions:
+        </p>
+        <Code
+          language="javascript"
+          code={`
+import { edgeApp, getConfig } from "@growthbook/edge-utils";
+
+export async function handler(event, ctx, callback) {
+  const context = await init(event);
+  const response = edgeApp(context, event);
+  callback(null, response);
+}
+
+function init(event) {
+  // You will need to build a mechanism to define your environment variables
+  const env = getEnvironment();
+  
+  const context = getConfig(env);
+  context.helpers = {
+    // define utility functions for request/response manipulation
+  };
+  return context;
+}
+          `.trim()}
+        />
+      </>
+    );
+  }
+  if (language === "edge-other") {
+    return (
+      <>
+        <p>See our Edge (other) documentation for detailed setup.</p>
+
+        <p>
+          Our <strong>Edge app</strong> provides turnkey visual editor and URL
+          redirect experimentation on edge without any of the flicker often
+          associated with front-end experiment implementations. It runs as a
+          smart proxy layer between your application and your end users. As
+          such, it also can inject a fully-hydrated front-end SDK onto the
+          rendered page, meaning no extra network requests needed.
+        </p>
+
+        <p>
+          To run the edge app, add our base app to request handler to your
+          project. You will need to manually build app context and helper
+          functions:
+        </p>
+        <Code
+          language="javascript"
+          code={`
+import { edgeApp, getConfig } from "@growthbook/edge-utils";
+
+export async function handler(request, env) {
+  const context = await init(env);
+  return edgeApp(context, request);
+}
+
+function init(env) {
+  const context = getConfig(env);
+  context.helpers = {
+    // define utility functions for request/response manipulation
+  };
+  return context;
+}
+          `.trim()}
+        />
+      </>
+    );
+  }
 
   return (
     <p>

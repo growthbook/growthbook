@@ -1786,6 +1786,46 @@ export async function putWebhook(
   });
 }
 
+export async function putWebhookSDK(
+  req: AuthRequest<WebhookInterface, { id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canUpdateSDKWebhook()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { id } = req.params;
+  const { name, endpoint, sendPayload, headers, httpMethod } = req.body;
+  const webhook = await WebhookModel.findOne({
+    id,
+  });
+
+  if (!webhook) {
+    throw new Error("Could not find webhook");
+  }
+  if (webhook.organization !== context.org.id) {
+    throw new Error("You don't have access to that webhook");
+  }
+
+  if (!name || !endpoint) {
+    throw new Error("Missing required properties");
+  }
+
+  webhook.set("name", name);
+  webhook.set("endpoint", endpoint);
+  webhook.set("sendPayload", sendPayload);
+  webhook.set("headers", headers);
+  webhook.set("httpMethod", httpMethod);
+  await webhook.save();
+
+  res.status(200).json({
+    status: 200,
+    webhook,
+  });
+}
+
 export async function deleteWebhook(
   req: AuthRequest<null, { id: string }>,
   res: Response

@@ -64,6 +64,7 @@ export type SDKLanguage =
   | "elixir"
   | "edge-lambda"
   | "edge-cloudflare"
+  | "edge-other"
   | "other";
 
 export interface SDKConnectionInterface {

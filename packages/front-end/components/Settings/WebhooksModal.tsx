@@ -50,10 +50,13 @@ const WebhooksModal: FC<{
 
   const handleApiCall = async (value) => {
     if (showSDKMode) {
-      await apiCall(current.id ? `/webhook/${current.id}` : "/webhooks/sdk", {
-        method: current.id ? "PUT" : "POST",
-        body: JSON.stringify(value),
-      });
+      await apiCall(
+        current.id ? `/webhook/sdk/${current.id}` : "/webhooks/sdk",
+        {
+          method: current.id ? "PUT" : "POST",
+          body: JSON.stringify(value),
+        }
+      );
     } else {
       await apiCall(current.id ? `/webhook/${current.id}` : "/webhooks", {
         method: current.id ? "PUT" : "POST",
@@ -133,6 +136,8 @@ const WebhooksModal: FC<{
     <CodeTextArea
       label="Headers"
       language="json"
+      minLines={3}
+      maxLines={6}
       value={form.watch("headers")}
       setValue={(headers) => {
         validateHeaders(headers);

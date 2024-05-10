@@ -18,7 +18,7 @@ import {
 import { ReactElement } from "react";
 import { isSDKOutdated } from "shared/sdk-versioning";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
-import { BsFiletypeHtml } from "react-icons/bs";
+import { BsCloudFog2, BsFiletypeHtml } from "react-icons/bs";
 import { DocSection } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
@@ -163,17 +163,24 @@ export const languageMapping: Record<
     docs: "flutter",
     type: "mobile",
   },
-  "edge-lambda": {
-    Icon: SiAwslambda,
-    color: "#e57714",
-    label: "AWS Lambda",
-    docs: "sdks",
-    type: "edge",
-  },
   "edge-cloudflare": {
     Icon: SiCloudflare,
     color: "#f78220",
     label: "CloudFlare",
+    docs: "sdks",
+    type: "edge",
+  },
+  "edge-lambda": {
+    Icon: SiAwslambda,
+    color: "#e57714",
+    label: "Lambda@Edge",
+    docs: "sdks",
+    type: "edge",
+  },
+  "edge-other": {
+    Icon: BsCloudFog2,
+    color: "#777",
+    label: "Other",
     docs: "sdks",
     type: "edge",
   },
