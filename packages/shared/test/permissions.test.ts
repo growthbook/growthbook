@@ -146,6 +146,9 @@ describe("Role permissions", () => {
     // This is a weird one - for resources that have multiple projects, if their projects array is empty
     // that means it's in 'All Projects' so users with global noaccess can view them
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
+    // Otherwise, if the resource is in atleast 1 project, and the user doesn't have readaccess overrides,
+    // they can not view the resource
+    expect(p.canReadMultiProjectResource(["FOO"])).toBe(false);
   });
 
   it("has correct permissions for readonly", () => {
