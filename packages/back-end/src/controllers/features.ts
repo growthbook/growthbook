@@ -441,7 +441,7 @@ export async function postFeatures(
     dateCreated: new Date(),
     dateUpdated: new Date(),
     organization: org.id,
-    id: id.toLowerCase(),
+    id,
     archived: false,
     version: 1,
     hasDrafts: false,
