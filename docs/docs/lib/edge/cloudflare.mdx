@@ -121,7 +121,7 @@ import { handleRequest } from "@growthbook/edge-cloudflare";
 export default {
   fetch: async function (request, env, ctx) {
     const config = {
-      trackingCallback: (experiment, results) => {
+      edgeTrackingCallback: (experiment, results) => {
         console.log('tracking callback', {experiment, results});
       }
     }
