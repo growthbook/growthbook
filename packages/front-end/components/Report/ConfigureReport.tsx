@@ -490,96 +490,65 @@ export default function ConfigureReport({
       />
 
       {form.watch("statsEngine") === "frequentist" && (
-        <>
-          <div className="d-flex flex-row no-gutters align-items-center mb-3 ml-1">
-            <div className="col-3">
-              <SelectField
-                label={
-                  <PremiumTooltip commercialFeature="regression-adjustment">
-                    <GBCuped /> Use Regression Adjustment (CUPED)
-                  </PremiumTooltip>
-                }
-                labelClassName="font-weight-bold"
-                value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
-                onChange={(v) => {
-                  form.setValue("regressionAdjustmentEnabled", v === "on");
-                }}
-                options={[
-                  {
-                    label: "On",
-                    value: "on",
-                  },
-                  {
-                    label: "Off",
-                    value: "off",
-                  },
-                ]}
-                helpText="Only applicable to frequentist analyses"
-                disabled={!hasRegressionAdjustmentFeature}
-              />
-            </div>
-          </div>
-
-          <div className="d-flex flex-row no-gutters align-items-top ml-1">
-            <div className="col-3">
-              <SelectField
-                label={
-                  <PremiumTooltip commercialFeature="sequential-testing">
-                    <GBSequential /> Use Sequential Testing
-                  </PremiumTooltip>
-                }
-                labelClassName="font-weight-bold"
-                value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
-                onChange={(v) => {
-                  form.setValue("sequentialTestingEnabled", v === "on");
-                }}
-                options={[
-                  {
-                    label: "On",
-                    value: "on",
-                  },
-                  {
-                    label: "Off",
-                    value: "off",
-                  },
-                ]}
-                helpText="Only applicable to frequentist analyses"
-                disabled={!hasSequentialTestingFeature}
-              />
-            </div>
-            <div
-              className="col-2 px-4"
-              style={{
-                opacity: form.watch("sequentialTestingEnabled") ? "1" : "0.5",
+        <div className="d-flex flex-row no-gutters align-items-top ml-1">
+          <div className="col-3">
+            <SelectField
+              label={
+                <PremiumTooltip commercialFeature="sequential-testing">
+                  <GBSequential /> Use Sequential Testing
+                </PremiumTooltip>
+              }
+              labelClassName="font-weight-bold"
+              value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
+              onChange={(v) => {
+                form.setValue("sequentialTestingEnabled", v === "on");
               }}
-            >
-              <Field
-                label="Tuning parameter"
-                type="number"
-                containerClassName="mb-0"
-                min="0"
-                disabled={!hasSequentialTestingFeature || hasFileConfig()}
-                helpText={
-                  <>
-                    <span className="ml-2">
-                      (
-                      {orgSettings.sequentialTestingTuningParameter ??
-                        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
-                      is organization default)
-                    </span>
-                  </>
-                }
-                {...form.register("sequentialTestingTuningParameter", {
-                  valueAsNumber: true,
-                  validate: (v) => {
-                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                    return !(v <= 0);
-                  },
-                })}
-              />
-            </div>
+              options={[
+                {
+                  label: "On",
+                  value: "on",
+                },
+                {
+                  label: "Off",
+                  value: "off",
+                },
+              ]}
+              helpText="Only applicable to frequentist analyses"
+              disabled={!hasSequentialTestingFeature}
+            />
           </div>
-        </>
+          <div
+            className="col-2 px-4"
+            style={{
+              opacity: form.watch("sequentialTestingEnabled") ? "1" : "0.5",
+            }}
+          >
+            <Field
+              label="Tuning parameter"
+              type="number"
+              containerClassName="mb-0"
+              min="0"
+              disabled={!hasSequentialTestingFeature || hasFileConfig()}
+              helpText={
+                <>
+                  <span className="ml-2">
+                    (
+                    {orgSettings.sequentialTestingTuningParameter ??
+                      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
+                    is organization default)
+                  </span>
+                </>
+              }
+              {...form.register("sequentialTestingTuningParameter", {
+                valueAsNumber: true,
+                validate: (v) => {
+                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                  return !(v <= 0);
+                },
+              })}
+            />
+          </div>
+        </div>
       )}
       {form.watch("statsEngine") === "bayesian" && (
         <div className="align-items-center">
@@ -603,6 +572,33 @@ export default function ConfigureReport({
           />
         </div>
       )}
+      <div className="d-flex flex-row no-gutters align-items-center mb-3 ml-1">
+        <div className="col-3">
+          <SelectField
+            label={
+              <PremiumTooltip commercialFeature="regression-adjustment">
+                <GBCuped /> Use Regression Adjustment (CUPED)
+              </PremiumTooltip>
+            }
+            labelClassName="font-weight-bold"
+            value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
+            onChange={(v) => {
+              form.setValue("regressionAdjustmentEnabled", v === "on");
+            }}
+            options={[
+              {
+                label: "On",
+                value: "on",
+              },
+              {
+                label: "Off",
+                value: "off",
+              },
+            ]}
+            disabled={!hasRegressionAdjustmentFeature}
+          />
+        </div>
+      </div>
 
       {datasourceProperties?.queryLanguage === "sql" && (
         <div className="row">

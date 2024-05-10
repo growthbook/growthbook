@@ -298,7 +298,6 @@ export function getAllMetricSettingsForSnapshot({
   allExperimentMetrics,
   denominatorMetrics,
   orgSettings,
-  statsEngine,
   experimentRegressionAdjustmentEnabled,
   experimentMetricOverrides = [],
   datasourceType,
@@ -307,7 +306,6 @@ export function getAllMetricSettingsForSnapshot({
   allExperimentMetrics: (ExperimentMetricInterface | null)[];
   denominatorMetrics: MetricInterface[];
   orgSettings: OrganizationSettings;
-  statsEngine: string;
   experimentRegressionAdjustmentEnabled?: boolean;
   experimentMetricOverrides?: MetricOverride[];
   datasourceType?: DataSourceInterfaceWithParams["type"];
@@ -340,10 +338,6 @@ export function getAllMetricSettingsForSnapshot({
     settingsForSnapshotMetrics.push(metricSnapshotSettings);
   }
   if (!experimentRegressionAdjustmentEnabled) {
-    regressionAdjustmentEnabled = false;
-  }
-  if (statsEngine === "bayesian") {
-    regressionAdjustmentAvailable = false;
     regressionAdjustmentEnabled = false;
   }
   if (

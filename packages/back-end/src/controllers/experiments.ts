@@ -1767,7 +1767,6 @@ export async function postSnapshot(
     allExperimentMetrics,
     denominatorMetrics,
     orgSettings,
-    statsEngine,
     experimentRegressionAdjustmentEnabled:
       experiment.regressionAdjustmentEnabled,
     experimentMetricOverrides: experiment.metricOverrides,

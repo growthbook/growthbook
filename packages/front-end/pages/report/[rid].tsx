@@ -134,9 +134,7 @@ export default function ReportPage() {
   const phaseAgeMinutes =
     (Date.now() - getValidDate(report.args.startDate).getTime()) / (1000 * 60);
 
-  const statsEngine = data?.report?.args?.statsEngine || DEFAULT_STATS_ENGINE;
-  const regressionAdjustmentAvailable =
-    hasRegressionAdjustmentFeature && statsEngine === "frequentist";
+  const regressionAdjustmentAvailable = hasRegressionAdjustmentFeature;
   const regressionAdjustmentEnabled =
     hasRegressionAdjustmentFeature &&
     regressionAdjustmentAvailable &&
@@ -577,29 +575,28 @@ export default function ReportPage() {
                         : "Bayesian"}
                     </span>
                   </div>
+                  <div>
+                    <span className="text-muted">
+                      <GBCuped size={13} /> CUPED:
+                    </span>{" "}
+                    <span>
+                      {report.args?.regressionAdjustmentEnabled
+                        ? "Enabled"
+                        : "Disabled"}
+                    </span>
+                  </div>
+
                   {report.args?.statsEngine === "frequentist" && (
-                    <>
-                      <div>
-                        <span className="text-muted">
-                          <GBCuped size={13} /> CUPED:
-                        </span>{" "}
-                        <span>
-                          {report.args?.regressionAdjustmentEnabled
-                            ? "Enabled"
-                            : "Disabled"}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-muted">
-                          <GBSequential size={13} /> Sequential:
-                        </span>{" "}
-                        <span>
-                          {report.args?.sequentialTestingEnabled
-                            ? "Enabled"
-                            : "Disabled"}
-                        </span>
-                      </div>
-                    </>
+                    <div>
+                      <span className="text-muted">
+                        <GBSequential size={13} /> Sequential:
+                      </span>{" "}
+                      <span>
+                        {report.args?.sequentialTestingEnabled
+                          ? "Enabled"
+                          : "Disabled"}
+                      </span>
+                    </div>
                   )}
                   <div>
                     <span className="text-muted">Run date:</span>{" "}

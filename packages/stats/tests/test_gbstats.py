@@ -16,7 +16,6 @@ from gbstats.gbstats import (
     format_results,
     variation_statistic_from_metric_row,
 )
-from gbstats.messages import RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR
 from gbstats.models.statistics import RegressionAdjustedStatistic, SampleMeanStatistic
 
 DECIMALS = 9
@@ -659,14 +658,6 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.316211568)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
         self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.00000035)
-
-    def test_analyze_metric_df_ra_errors_bayesian(self):
-        rows = RA_STATISTICS_DF
-        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
-        with self.assertRaisesRegex(
-            ValueError, expected_regex=RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR
-        ):
-            analyze_metric_df(df, metric=RA_METRIC, analysis=DEFAULT_ANALYSIS)
 
 
 class TestAnalyzeMetricDfSequential(TestCase):

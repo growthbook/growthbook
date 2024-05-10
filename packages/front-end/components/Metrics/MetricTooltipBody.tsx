@@ -146,7 +146,7 @@ const MetricTooltipBody = ({
                 row?.metricSnapshotSettings?.properPriorStdDev ??
                 DEFAULT_PROPER_PRIOR_STDDEV
               }`
-            : "disabled"}
+            : "Disabled"}
           {metricOverrideFields.includes("prior") ? (
             <small className="text-purple ml-1">(override)</small>
           ) : null}
