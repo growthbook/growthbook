@@ -10,10 +10,8 @@ import {
   orgHasPremiumFeature,
 } from "enterprise";
 import { experimentHasLinkedChanges } from "shared/util";
-import {
-  areProjectRolesValid,
-  isRoleValid,
-} from "@back-end/src/scim/users/createUser";
+import { getRoles } from "shared/permissions";
+import { areProjectRolesValid, isRoleValid } from "../../scim/users/createUser";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
