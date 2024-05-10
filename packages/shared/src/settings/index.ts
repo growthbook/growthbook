@@ -85,7 +85,7 @@ export const resolvers: Record<
   secureAttributeSalt: genDefaultResolver("secureAttributeSalt"),
   killswitchConfirmation: genDefaultResolver("killswitchConfirmation"),
   requireReviews: genDefaultResolver("requireReviews"),
-  // TODO resolvers
+  // TODO prior resolvers
 };
 
 const scopeSettings = (

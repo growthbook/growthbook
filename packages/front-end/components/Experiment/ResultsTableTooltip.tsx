@@ -635,7 +635,6 @@ export default function ResultsTableTooltip({
                 ) : null}
               </div>
             ) : null}
-            {}
           </div>
 
           <div className="mt-3 mb-2 results">

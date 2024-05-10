@@ -31,7 +31,7 @@ export default function BayesianPriorSettings({
         <div className="w-100 mt-2">
           <div className="d-flex">
             <label className="mr-2" htmlFor="toggle-properPrior">
-              Use informative priors
+              Use proper priors
             </label>
             <Toggle
               id={"toggle-properPrior"}
