@@ -3,6 +3,7 @@ import formatDistance from "date-fns/formatDistance";
 import differenceInDays from "date-fns/differenceInDays";
 import differenceInHours from "date-fns/differenceInHours";
 import addMonths from "date-fns/addMonths";
+import formatRelative from "date-fns/formatRelative";
 
 export function date(date: string | Date): string {
   if (!date) return "";
@@ -11,6 +12,10 @@ export function date(date: string | Date): string {
 export function datetime(date: string | Date): string {
   if (!date) return "";
   return format(getValidDate(date), "PPp");
+}
+export function relativeDate(date: string | Date): string {
+  if (!date) return "";
+  return formatRelative(getValidDate(date), new Date());
 }
 export function ago(date: string | Date): string {
   if (!date) return "";

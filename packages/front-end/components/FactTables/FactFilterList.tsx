@@ -34,7 +34,8 @@ export default function FactFilterList({ factTable }: Props) {
     searchFields: ["name^3", "description", "value^2"],
   });
 
-  const canEdit = permissionsUtil.canViewEditFactTableModal(factTable);
+  const canAddAndEdit = permissionsUtil.canCreateAndUpdateFactFilter(factTable);
+  const canDelete = permissionsUtil.canDeleteFactFilter(factTable);
 
   return (
     <>
@@ -65,17 +66,19 @@ export default function FactFilterList({ factTable }: Props) {
         <div className="col-auto">
           <Tooltip
             body={
-              canEdit ? "" : `You don't have permission to edit this fact table`
+              canAddAndEdit
+                ? ""
+                : `You don't have permission to edit this fact table`
             }
           >
             <button
               className="btn btn-primary"
               onClick={(e) => {
                 e.preventDefault();
-                if (!canEdit) return;
+                if (!canAddAndEdit) return;
                 setNewOpen(true);
               }}
-              disabled={!canEdit}
+              disabled={!canAddAndEdit}
             >
               <GBAddCircle /> Add Filter
             </button>
@@ -105,8 +108,8 @@ export default function FactFilterList({ factTable }: Props) {
                     </div>
                   </td>
                   <td style={{ verticalAlign: "top" }}>
-                    {canEdit && !filter.managedBy && (
-                      <MoreMenu>
+                    <MoreMenu>
+                      {canAddAndEdit && !filter.managedBy ? (
                         <button
                           className="dropdown-item"
                           onClick={(e) => {
@@ -116,6 +119,8 @@ export default function FactFilterList({ factTable }: Props) {
                         >
                           Edit
                         </button>
+                      ) : null}
+                      {canDelete && !filter.managedBy ? (
                         <DeleteButton
                           displayName="Filter"
                           className="dropdown-item"
@@ -131,8 +136,8 @@ export default function FactFilterList({ factTable }: Props) {
                             mutateDefinitions();
                           }}
                         />
-                      </MoreMenu>
-                    )}
+                      ) : null}
+                    </MoreMenu>
                   </td>
                 </tr>
               ))}

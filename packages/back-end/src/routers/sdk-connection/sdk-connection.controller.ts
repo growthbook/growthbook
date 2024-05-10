@@ -39,12 +39,13 @@ export const postSDKConnection = async (
     connection: SDKConnectionInterface;
   }>
 ) => {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const params = req.body;
 
-  req.checkPermissions("manageEnvironments", params.projects, [
-    params.environment,
-  ]);
+  if (!context.permissions.canCreateSDKConnection(params)) {
+    context.permissions.throwPermissionError();
+  }
 
   let encryptPayload = false;
   if (orgHasPremiumFeature(org, "encrypt-features-endpoint")) {
@@ -92,11 +93,9 @@ export const putSDKConnection = async (
     throw new Error("Could not find SDK Connection");
   }
 
-  const projects = [...connection.projects, ...(req.body.projects || [])];
-
-  req.checkPermissions("manageEnvironments", projects, [
-    connection.environment,
-  ]);
+  if (!context.permissions.canUpdateSDKConnection(connection, req.body)) {
+    context.permissions.throwPermissionError();
+  }
 
   let encryptPayload = req.body.encryptPayload || false;
   const encryptionPermitted = orgHasPremiumFeature(
@@ -148,9 +147,9 @@ export const deleteSDKConnection = async (
     throw new Error("Could not find SDK Connection");
   }
 
-  req.checkPermissions("manageEnvironments", connection.projects, [
-    connection.environment,
-  ]);
+  if (!context.permissions.canDeleteSDKConnection(connection)) {
+    context.permissions.throwPermissionError();
+  }
 
   await deleteSDKConnectionById(context.org.id, id);
 

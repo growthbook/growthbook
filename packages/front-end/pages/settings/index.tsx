@@ -126,6 +126,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       codeReferencesEnabled: false,
       codeRefsBranchesToFilter: [],
       codeRefsPlatformUrl: "",
+      featureKeyExample: "",
+      featureRegexValidator: "",
     },
   });
   const { apiCall } = useAuth();
@@ -256,6 +258,39 @@ const GeneralSettingsPage = (): React.ReactElement => {
       multipleExposureMinPercent:
         (value.multipleExposureMinPercent ?? 0.01) / 100,
     };
+
+    // Make sure the feature key example is valid
+    if (
+      transformedOrgSettings.featureKeyExample &&
+      !transformedOrgSettings.featureKeyExample.match(/^[a-zA-Z0-9_.:|-]+$/)
+    ) {
+      throw new Error(
+        "Feature key examples can only include letters, numbers, hyphens, and underscores."
+      );
+    }
+
+    // If the regex validator exists, then the feature key example must match the regex and be valid.
+    if (transformedOrgSettings.featureRegexValidator) {
+      if (
+        !transformedOrgSettings.featureKeyExample ||
+        !transformedOrgSettings.featureRegexValidator
+      ) {
+        throw new Error(
+          "Feature key example must not be empty when a regex validator is defined."
+        );
+      }
+
+      const regexValidator = transformedOrgSettings.featureRegexValidator;
+      if (
+        !new RegExp(regexValidator).test(
+          transformedOrgSettings.featureKeyExample
+        )
+      ) {
+        throw new Error(
+          `Feature key example does not match the regex validator. '${transformedOrgSettings.featureRegexValidator}' Example: '${transformedOrgSettings.featureKeyExample}'`
+        );
+      }
+    }
 
     await apiCall(`/organization`, {
       method: "PUT",

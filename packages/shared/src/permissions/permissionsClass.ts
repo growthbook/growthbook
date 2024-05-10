@@ -1,6 +1,8 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { MetricInterface } from "back-end/types/metric";
 import {
+  EnvScopedPermission,
+  Environment,
   GlobalPermission,
   Permission,
   ProjectScopedPermission,
@@ -9,11 +11,14 @@ import {
 } from "back-end/types/organization";
 import { IdeaInterface } from "back-end/types/idea";
 import {
+  FactMetricInterface,
   FactTableInterface,
   UpdateFactTableProps,
 } from "back-end/types/fact-table";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { DataSourceInterface } from "back-end/types/datasource";
+import { UpdateProps } from "back-end/types/models";
+import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
 class PermissionError extends Error {
   constructor(message: string) {
@@ -55,6 +60,62 @@ export class Permissions {
     return this.checkGlobalPermission("createDimensions");
   };
 
+  public canViewEventWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canCreateEventWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canUpdateEventWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canDeleteEventWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canCreateSDKWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canUpdateSDKWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canDeleteSDKWebhook = (): boolean => {
+    return this.checkGlobalPermission("manageWebhooks");
+  };
+
+  public canCreateAndUpdateTag = (): boolean => {
+    return this.checkGlobalPermission("manageTags");
+  };
+
+  public canDeleteTag = (): boolean => {
+    return this.checkGlobalPermission("manageTags");
+  };
+
+  public canManageBilling = (): boolean => {
+    return this.checkGlobalPermission("manageBilling");
+  };
+
+  public canManageIntegrations = (): boolean => {
+    return this.checkGlobalPermission("manageIntegrations");
+  };
+
+  public canCreateApiKey = (): boolean => {
+    return this.checkGlobalPermission("manageApiKeys");
+  };
+
+  public canDeleteApiKey = (): boolean => {
+    return this.checkGlobalPermission("manageApiKeys");
+  };
+
+  public canManageTeam = (): boolean => {
+    return this.checkGlobalPermission("manageTeam");
+  };
+
   public canCreateSegment = (): boolean => {
     return this.checkGlobalPermission("createSegments");
   };
@@ -67,8 +128,56 @@ export class Permissions {
     return this.checkGlobalPermission("createSegments");
   };
 
+  public canManageOrgSettings = (): boolean => {
+    return this.checkGlobalPermission("organizationSettings");
+  };
+
+  public canSuperDeleteReport = (): boolean => {
+    return this.checkGlobalPermission("superDeleteReport");
+  };
+
   public canManageNorthStarMetric = (): boolean => {
     return this.checkGlobalPermission("manageNorthStarMetric");
+  };
+
+  public canViewEvents = (): boolean => {
+    return this.checkGlobalPermission("viewEvents");
+  };
+
+  public canCreateArchetype = (): boolean => {
+    return this.checkGlobalPermission("manageArchetype");
+  };
+
+  public canUpdateArchetype = (): boolean => {
+    return this.checkGlobalPermission("manageArchetype");
+  };
+
+  public canDeleteArchetype = (): boolean => {
+    return this.checkGlobalPermission("manageArchetype");
+  };
+
+  public canCreateSavedGroup = (): boolean => {
+    return this.checkGlobalPermission("manageSavedGroups");
+  };
+
+  public canUpdateSavedGroup = (): boolean => {
+    return this.checkGlobalPermission("manageSavedGroups");
+  };
+
+  public canDeleteSavedGroup = (): boolean => {
+    return this.checkGlobalPermission("manageSavedGroups");
+  };
+
+  public canCreateNamespace = (): boolean => {
+    return this.checkGlobalPermission("manageNamespaces");
+  };
+
+  public canUpdateNamespace = (): boolean => {
+    return this.checkGlobalPermission("manageNamespaces");
+  };
+
+  public canDeleteNamespace = (): boolean => {
+    return this.checkGlobalPermission("manageNamespaces");
   };
 
   //Project Permissions
@@ -324,6 +433,41 @@ export class Permissions {
     return this.checkProjectFilterPermission(factTable, "manageFactTables");
   };
 
+  public canCreateAndUpdateFactFilter = (
+    factTable: Pick<FactTableInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(factTable, "manageFactTables");
+  };
+
+  public canDeleteFactFilter = (
+    factTable: Pick<FactTableInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(factTable, "manageFactTables");
+  };
+
+  public canCreateFactMetric = (
+    metric: Pick<FactMetricInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(metric, "createMetrics");
+  };
+
+  public canUpdateFactMetric = (
+    existing: Pick<FactMetricInterface, "projects">,
+    updates: UpdateProps<FactMetricInterface>
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "createMetrics"
+    );
+  };
+
+  public canDeleteFactMetric = (
+    metric: Pick<FactMetricInterface, "projects">
+  ): boolean => {
+    return this.checkProjectFilterPermission(metric, "createMetrics");
+  };
+
   public canCreateMetric = (
     metric: Pick<MetricInterface, "projects">
   ): boolean => {
@@ -480,11 +624,128 @@ export class Permissions {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
+  // ENV_SCOPED_PERMISSIONS
+  public canPublishFeature = (
+    feature: Pick<FeatureInterface, "project">,
+    environments: string[]
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      {
+        projects: feature.project ? [feature.project] : [],
+      },
+      environments,
+      "publishFeatures"
+    );
+  };
+
+  public canRunExperiment = (
+    experiment: Pick<ExperimentInterface, "project">,
+    environments: string[]
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      {
+        projects: experiment.project ? [experiment.project] : [],
+      },
+      environments,
+      "runExperiments"
+    );
+  };
+
+  //TODO: Refactor this into two separate methods and eliminate updating envs from organizations.controller.putOrganization - Github Issue #2494
+  public canCreateOrUpdateEnvironment = (
+    environment: Pick<Environment, "projects" | "id">
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      {
+        projects: environment.projects || [],
+      },
+      [environment.id],
+      "manageEnvironments"
+    );
+  };
+
+  public canDeleteEnvironment = (
+    environment: Pick<Environment, "projects" | "id">
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      {
+        projects: environment.projects || [],
+      },
+      [environment.id],
+      "manageEnvironments"
+    );
+  };
+
+  // UI helper - when determining if we can show the `Create SDK Connection` button, this ignores any env level restrictions
+  // and just takes in the current project
+  public canViewCreateSDKConnectionModal = (project?: string): boolean => {
+    return this.hasPermission("manageEnvironments", project || "");
+  };
+
+  public canCreateSDKConnection = (
+    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      sdkConnection,
+      [sdkConnection.environment],
+      "manageEnvironments"
+    );
+  };
+
+  public canUpdateSDKConnection = (
+    existing: { projects?: string[]; environment?: string },
+    updates: { projects?: string[]; environment?: string }
+  ): boolean => {
+    return this.checkEnvFilterUpdatePermission(
+      existing,
+      updates,
+      "manageEnvironments"
+    );
+  };
+
+  public canDeleteSDKConnection = (
+    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      sdkConnection,
+      [sdkConnection.environment],
+      "manageEnvironments"
+    );
+  };
+
   public throwPermissionError(): void {
     throw new PermissionError(
       "You do not have permission to perform this action"
     );
   }
+
+  public canReadSingleProjectResource = (
+    project: string | undefined
+  ): boolean => {
+    return this.hasPermission("readData", project || "");
+  };
+
+  public canReadMultiProjectResource = (
+    projects: string[] | undefined
+  ): boolean => {
+    if (this.superAdmin) {
+      return true;
+    }
+
+    // If the resource doesn't have a projects property or it's an empty array
+    // that means it's in all projects
+    if (!projects || !projects.length) {
+      const projectsToCheck = [
+        "",
+        ...Object.keys(this.userPermissions.projects),
+      ];
+      // Must have read access globally or in at least 1 project
+      return projectsToCheck.some((p) => this.hasPermission("readData", p));
+    }
+
+    // Otherwise, check if they have read access for atleast 1 of the resource's projects
+    return projects.some((p) => this.hasPermission("readData", p));
+  };
 
   private checkGlobalPermission(permissionToCheck: GlobalPermission): boolean {
     if (this.superAdmin) {
@@ -533,6 +794,42 @@ export class Permissions {
       return false;
     }
     return true;
+  }
+
+  public checkEnvFilterPermission(
+    obj: { projects?: string[] },
+    envs: string[],
+    permission: EnvScopedPermission
+  ): boolean {
+    const projects = obj.projects?.length ? obj.projects : [""];
+
+    return projects.every((project) =>
+      this.hasPermission(permission, project, envs)
+    );
+  }
+
+  private checkEnvFilterUpdatePermission(
+    existing: { projects?: string[]; environment?: string },
+    updates: { projects?: string[]; environment?: string },
+    permission: EnvScopedPermission
+  ): boolean {
+    if (
+      !this.checkEnvFilterPermission(
+        existing,
+        existing.environment ? [existing.environment] : [],
+        permission
+      )
+    ) {
+      return false;
+    }
+
+    const updatedObj = { ...existing, ...updates };
+
+    return this.checkEnvFilterPermission(
+      updatedObj,
+      updatedObj.environment ? [updatedObj.environment] : [],
+      permission
+    );
   }
 
   private hasPermission(

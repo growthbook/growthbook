@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { hasReadAccess } from "shared/permissions";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
 import { upgradeMetricDoc } from "../util/migrations";
@@ -273,7 +272,7 @@ async function findMetrics(
   });
 
   return metrics.filter((m) =>
-    hasReadAccess(context.readAccessFilter, m.projects || [])
+    context.permissions.canReadMultiProjectResource(m.projects)
   );
 }
 
@@ -296,7 +295,7 @@ export async function getSampleMetrics(context: ReqContext | ApiReqContext) {
     organization: context.org.id,
   });
   return docs
-    .filter((m) => hasReadAccess(context.readAccessFilter, m.projects || []))
+    .filter((m) => context.permissions.canReadMultiProjectResource(m.projects))
     .map(toInterface);
 }
 
@@ -336,7 +335,7 @@ export async function getMetricById(
 
   if (
     !metric ||
-    !hasReadAccess(context.readAccessFilter, metric.projects || [])
+    !context.permissions.canReadMultiProjectResource(metric.projects)
   ) {
     return null;
   }
@@ -374,7 +373,7 @@ export async function getMetricsByIds(
     });
   }
   return metrics.filter((m) =>
-    hasReadAccess(context.readAccessFilter, m.projects || [])
+    context.permissions.canReadMultiProjectResource(m.projects)
   );
 }
 

@@ -7,6 +7,7 @@ import { getGrowthBookBuild, isCloud } from "@/services/env";
 import track from "@/services/track";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import styles from "./index.module.scss";
 import CloudTrialConfirmationModal from "./CloudTrialConfirmationModal";
 import LicenseSuccessModal from "./LicenseSuccessModal";
@@ -44,14 +45,9 @@ export default function UpgradeModal({ close, source }: Props) {
     false
   );
 
-  const {
-    name,
-    email,
-    accountPlan,
-    permissions,
-    license,
-    effectiveAccountPlan,
-  } = useUser();
+  const { name, email, accountPlan, license, effectiveAccountPlan } = useUser();
+
+  const permissionsUtil = usePermissionsUtil();
 
   const { organization, refreshOrganization } = useUser();
 
@@ -325,7 +321,7 @@ export default function UpgradeModal({ close, source }: Props) {
           header={<>Get more out of GrowthBook</>}
           loading={loading}
         >
-          {!permissions.check("manageBilling") ? (
+          {!permissionsUtil.canManageBilling() ? (
             <div className="text-center mt-4 mb-5">
               To upgrade, please contact your system administrator.
             </div>
