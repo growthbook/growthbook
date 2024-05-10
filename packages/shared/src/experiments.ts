@@ -11,12 +11,13 @@ import {
   OrganizationSettings,
 } from "back-end/types/organization";
 import { MetricOverride } from "back-end/types/experiment";
-import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
+import { MetricSnapshotSettings } from "back-end/types/report";
 import cloneDeep from "lodash/cloneDeep";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { StatsEngine } from "back-end/types/stats";
 import {
+  DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
 } from "./constants";
@@ -129,9 +130,7 @@ export function getMetricLink(id: string): string {
   return `/metric/${id}`;
 }
 
-export function getRegressionAdjustmentsForMetric<
-  T extends ExperimentMetricInterface
->({
+export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
   metric,
   denominatorMetrics,
   experimentRegressionAdjustmentEnabled,
@@ -141,11 +140,11 @@ export function getRegressionAdjustmentsForMetric<
   metric: T;
   denominatorMetrics: MetricInterface[];
   experimentRegressionAdjustmentEnabled: boolean;
-  organizationSettings?: Partial<OrganizationSettings>; // can be RA fields from a snapshot of org settings
+  organizationSettings?: Partial<OrganizationSettings>; // can be RA and prior settings from a snapshot of org settings
   metricOverrides?: MetricOverride[];
 }): {
   newMetric: T;
-  metricRegressionAdjustmentStatus: MetricRegressionAdjustmentStatus;
+  metricSnapshotSettings: MetricSnapshotSettings;
 } {
   const newMetric = cloneDeep<T>(metric);
 
@@ -153,7 +152,7 @@ export function getRegressionAdjustmentsForMetric<
   let regressionAdjustmentAvailable = true;
   let regressionAdjustmentEnabled = false;
   let regressionAdjustmentDays = DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
-  let reason = "";
+  let regressionAdjustmentReason = "";
 
   // get RA settings from organization
   if (organizationSettings?.regressionAdjustmentEnabled) {
@@ -173,13 +172,46 @@ export function getRegressionAdjustmentsForMetric<
       metric?.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
     if (!regressionAdjustmentEnabled) {
       regressionAdjustmentAvailable = false;
-      reason = "disabled in metric settings";
+      regressionAdjustmentReason = "disabled in metric settings";
     }
   }
 
-  // get RA settings from metric override
+  // experiment kill switch
+  if (!experimentRegressionAdjustmentEnabled) {
+    regressionAdjustmentEnabled = false;
+    regressionAdjustmentAvailable = false;
+    regressionAdjustmentReason = "disabled in experiment";
+  }
+
+  // start with default prior settings
+  const metricPriorSettings = {
+    properPrior: false,
+    properPriorMean: 0,
+    properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
+  };
+
+  // get prior settings from organization
+  if (organizationSettings?.metricDefaults?.priorSettings) {
+    metricPriorSettings.properPrior =
+      organizationSettings.metricDefaults.priorSettings.proper;
+    metricPriorSettings.properPriorMean =
+      organizationSettings.metricDefaults.priorSettings.mean;
+    metricPriorSettings.properPriorStdDev =
+      organizationSettings.metricDefaults.priorSettings.stddev;
+  }
+
+  // get prior settings from metric
+  if (metric.priorSettings.override) {
+    metricPriorSettings.properPrior = metric.priorSettings.proper;
+    metricPriorSettings.properPriorMean = metric.priorSettings.mean;
+    metricPriorSettings.properPriorStdDev = metric.priorSettings.stddev;
+  }
+
+  // get RA and prior settings from metric override
   if (metricOverrides) {
     const metricOverride = metricOverrides.find((mo) => mo.id === metric.id);
+
+    // RA override
     if (metricOverride?.regressionAdjustmentOverride) {
       regressionAdjustmentEnabled = !!metricOverride?.regressionAdjustmentEnabled;
       regressionAdjustmentDays =
@@ -187,30 +219,42 @@ export function getRegressionAdjustmentsForMetric<
       if (!regressionAdjustmentEnabled) {
         regressionAdjustmentAvailable = false;
         if (!metric.regressionAdjustmentEnabled) {
-          reason = "disabled in metric settings and metric override";
+          regressionAdjustmentReason =
+            "disabled in metric settings and metric override";
         } else {
-          reason = "disabled by metric override";
+          regressionAdjustmentReason = "disabled by metric override";
         }
       } else {
         regressionAdjustmentAvailable = true;
-        reason = "";
+        regressionAdjustmentReason = "";
       }
+    }
+
+    // prior override
+    if (metricOverride?.properPriorOverride) {
+      metricPriorSettings.properPrior =
+        metricOverride?.properPriorEnabled ?? metricPriorSettings.properPrior;
+      metricPriorSettings.properPriorMean =
+        metricOverride?.properPriorMean ?? metricPriorSettings.properPriorMean;
+      metricPriorSettings.properPriorStdDev =
+        metricOverride?.properPriorStdDev ??
+        metricPriorSettings.properPriorStdDev;
     }
   }
 
-  // final gatekeeping
+  // final gatekeeping for RA
   if (regressionAdjustmentEnabled) {
     if (metric && isFactMetric(metric) && isRatioMetric(metric)) {
       // is this a fact ratio metric?
       regressionAdjustmentEnabled = false;
       regressionAdjustmentAvailable = false;
-      reason = "ratio metrics not supported";
+      regressionAdjustmentReason = "ratio metrics not supported";
     }
     if (metric && isFactMetric(metric) && quantileMetricType(metric)) {
       // is this a fact quantile metric?
       regressionAdjustmentEnabled = false;
       regressionAdjustmentAvailable = false;
-      reason = "quantile metrics not supported";
+      regressionAdjustmentReason = "quantile metrics not supported";
     }
     if (metric?.denominator) {
       // is this a classic "ratio" metric (denominator unsupported type)?
@@ -220,13 +264,13 @@ export function getRegressionAdjustmentsForMetric<
       if (denominator && !isBinomialMetric(denominator)) {
         regressionAdjustmentEnabled = false;
         regressionAdjustmentAvailable = false;
-        reason = `denominator is ${denominator.type}`;
+        regressionAdjustmentReason = `denominator is ${denominator.type}`;
       }
     }
     if (metric && !isFactMetric(metric) && metric?.aggregation) {
       regressionAdjustmentEnabled = false;
       regressionAdjustmentAvailable = false;
-      reason = "custom aggregation";
+      regressionAdjustmentReason = "custom aggregation";
     }
   }
 
@@ -239,21 +283,21 @@ export function getRegressionAdjustmentsForMetric<
 
   return {
     newMetric,
-    metricRegressionAdjustmentStatus: {
+    metricSnapshotSettings: {
       metric: newMetric.id,
+      ...metricPriorSettings,
       regressionAdjustmentEnabled,
       regressionAdjustmentAvailable,
       regressionAdjustmentDays,
-      reason,
+      regressionAdjustmentReason,
     },
   };
 }
 
-export function getAllMetricRegressionAdjustmentStatuses({
+export function getAllMetricSettingsForSnapshot({
   allExperimentMetrics,
   denominatorMetrics,
   orgSettings,
-  statsEngine,
   experimentRegressionAdjustmentEnabled,
   experimentMetricOverrides = [],
   datasourceType,
@@ -262,13 +306,12 @@ export function getAllMetricRegressionAdjustmentStatuses({
   allExperimentMetrics: (ExperimentMetricInterface | null)[];
   denominatorMetrics: MetricInterface[];
   orgSettings: OrganizationSettings;
-  statsEngine: string;
   experimentRegressionAdjustmentEnabled?: boolean;
   experimentMetricOverrides?: MetricOverride[];
   datasourceType?: DataSourceInterfaceWithParams["type"];
   hasRegressionAdjustmentFeature: boolean;
 }) {
-  const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
+  const settingsForSnapshotMetrics: MetricSnapshotSettings[] = [];
   let regressionAdjustmentAvailable = true;
   let regressionAdjustmentEnabled = true;
   let regressionAdjustmentHasValidMetrics = false;
@@ -277,9 +320,7 @@ export function getAllMetricRegressionAdjustmentStatuses({
   }
   for (const metric of allExperimentMetrics) {
     if (!metric) continue;
-    const {
-      metricRegressionAdjustmentStatus,
-    } = getRegressionAdjustmentsForMetric({
+    const { metricSnapshotSettings } = getMetricSnapshotSettings({
       metric: metric,
       denominatorMetrics: denominatorMetrics,
       experimentRegressionAdjustmentEnabled:
@@ -288,19 +329,15 @@ export function getAllMetricRegressionAdjustmentStatuses({
       organizationSettings: orgSettings,
       metricOverrides: experimentMetricOverrides,
     });
-    if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {
+    if (metricSnapshotSettings.regressionAdjustmentEnabled) {
       regressionAdjustmentEnabled = true;
     }
-    if (metricRegressionAdjustmentStatus.regressionAdjustmentAvailable) {
+    if (metricSnapshotSettings.regressionAdjustmentAvailable) {
       regressionAdjustmentHasValidMetrics = true;
     }
-    metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
+    settingsForSnapshotMetrics.push(metricSnapshotSettings);
   }
   if (!experimentRegressionAdjustmentEnabled) {
-    regressionAdjustmentEnabled = false;
-  }
-  if (statsEngine === "bayesian") {
-    regressionAdjustmentAvailable = false;
     regressionAdjustmentEnabled = false;
   }
   if (
@@ -318,8 +355,8 @@ export function getAllMetricRegressionAdjustmentStatuses({
   return {
     regressionAdjustmentAvailable,
     regressionAdjustmentEnabled,
-    metricRegressionAdjustmentStatuses,
     regressionAdjustmentHasValidMetrics,
+    settingsForSnapshotMetrics,
   };
 }
 

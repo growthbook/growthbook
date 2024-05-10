@@ -86,6 +86,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         //startDate?: Date;
       },
       metricDefaults: {
+        priorSettings: metricDefaults.priorSettings,
         minimumSampleSize: metricDefaults.minimumSampleSize,
         maxPercentageChange: metricDefaults.maxPercentageChange * 100,
         minPercentageChange: metricDefaults.minPercentageChange * 100,
@@ -135,6 +136,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     metricAnalysisDays: form.watch("metricAnalysisDays"),
     metricDefaults: {
       minimumSampleSize: form.watch("metricDefaults.minimumSampleSize"),
+      priorSettings: form.watch("metricDefaults.priorSettings"),
       maxPercentageChange: form.watch("metricDefaults.maxPercentageChange"),
       minPercentageChange: form.watch("metricDefaults.minPercentageChange"),
     },

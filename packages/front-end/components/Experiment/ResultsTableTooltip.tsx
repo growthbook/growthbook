@@ -1,5 +1,8 @@
 import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
-import { ExperimentReportVariationWithIndex } from "back-end/types/report";
+import {
+  ExperimentReportVariationWithIndex,
+  MetricSnapshotSettings,
+} from "back-end/types/report";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import {
   DifferenceType,
@@ -21,6 +24,7 @@ import {
   isFactMetric,
   quantileMetricType,
 } from "shared/experiments";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
 import {
   getEffectLabel,
@@ -64,6 +68,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 export interface TooltipData {
   metricRow: number;
   metric: ExperimentMetricInterface;
+  metricSnapshotSettings?: MetricSnapshotSettings;
   dimensionName?: string;
   dimensionValue?: string;
   variation: ExperimentReportVariationWithIndex;
@@ -227,6 +232,11 @@ export default function ResultsTableTooltip({
         {deltaFormatter(data.stats.ci?.[1] ?? 0, deltaFormatterOptions)}]
       </>
     );
+
+  const priorUsed =
+    data.statsEngine === "bayesian" && data.metricSnapshotSettings?.properPrior;
+  const cupedUsed = data.metricSnapshotSettings?.regressionAdjustmentEnabled;
+  const addLiftWarning = priorUsed || cupedUsed;
 
   const arrowLeft =
     data.layoutX === "element-right"
@@ -479,6 +489,53 @@ export default function ResultsTableTooltip({
                   : pValText}
               </div>
             </div>
+            {addLiftWarning ? (
+              <div
+                className={clsx(
+                  "results-prior text-muted rounded d-flex justify-content-center mt-2",
+                  data.rowResults.resultsStatus
+                )}
+              >
+                <Tooltip
+                  className="cursor-pointer"
+                  body={
+                    <>
+                      {priorUsed ? (
+                        <div className="mb-1">
+                          {`This metric was analyzed with a prior that is normally distributed with mean ${
+                            data.metricSnapshotSettings?.properPriorMean ?? 0
+                          } and standard deviation ${
+                            data.metricSnapshotSettings?.properPriorStdDev ??
+                            DEFAULT_PROPER_PRIOR_STDDEV
+                          }.`}
+                        </div>
+                      ) : null}
+                      {cupedUsed ? (
+                        <div className="mb-1">
+                          {`This metric was analyzed with CUPED, which adjusts for covariates.`}
+                        </div>
+                      ) : null}
+                      <div>
+                        {`This affects metrics results (e.g., lift, ${
+                          data.statsEngine === "bayesian"
+                            ? "chance to win, credible intervals"
+                            : "p-values, confidence intervals"
+                        }), and estimated lift will often differ from the raw difference between variation and baseline.`}
+                      </div>
+                    </>
+                  }
+                >
+                  <HiOutlineExclamationCircle size={16} className="flag-icon" />
+                  <span>
+                    {priorUsed
+                      ? `Your Bayesian prior ${
+                          cupedUsed ? "and CUPED " : ""
+                        }affects results`
+                      : "CUPED affects results"}
+                  </span>
+                </Tooltip>
+              </div>
+            ) : null}
 
             {hasFlaggedItems ? (
               <div
@@ -578,6 +635,7 @@ export default function ResultsTableTooltip({
                 ) : null}
               </div>
             ) : null}
+            {}
           </div>
 
           <div className="mt-3 mb-2 results">
