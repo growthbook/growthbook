@@ -133,6 +133,36 @@ export default function StatsEngineSettings() {
         labelClassName="mr-2"
       />
 
+      <ControlledTabs
+        newStyle={true}
+        className="mt-3"
+        buttonsClassName="px-5"
+        tabContentsClassName="border"
+        active={statsEngineTab}
+        setActive={(v) => setStatsEngineTab(v || DEFAULT_STATS_ENGINE)}
+      >
+        <Tab id="bayesian" display="Bayesian">
+          <BayesianTab
+            {...{
+              highlightColor,
+              warningMsg,
+              form,
+            }}
+          />
+        </Tab>
+        <Tab id="frequentist" display="Frequentist">
+          <FrequentistTab
+            {...{
+              pHighlightColor,
+              pWarningMsg,
+              regressionAdjustmentDaysHighlightColor,
+              regressionAdjustmentDaysWarningMsg,
+              form,
+            }}
+          />
+        </Tab>
+      </ControlledTabs>
+
       <div className="p-3 my-3 border rounded">
         <h5 className="font-weight-bold mb-4">
           <PremiumTooltip commercialFeature="regression-adjustment">
@@ -208,36 +238,6 @@ export default function StatsEngineSettings() {
           )}
         </div>
       </div>
-
-      <ControlledTabs
-        newStyle={true}
-        className="mt-3"
-        buttonsClassName="px-5"
-        tabContentsClassName="border"
-        active={statsEngineTab}
-        setActive={(v) => setStatsEngineTab(v || DEFAULT_STATS_ENGINE)}
-      >
-        <Tab id="bayesian" display="Bayesian">
-          <BayesianTab
-            {...{
-              highlightColor,
-              warningMsg,
-              form,
-            }}
-          />
-        </Tab>
-        <Tab id="frequentist" display="Frequentist">
-          <FrequentistTab
-            {...{
-              pHighlightColor,
-              pWarningMsg,
-              regressionAdjustmentDaysHighlightColor,
-              regressionAdjustmentDaysWarningMsg,
-              form,
-            }}
-          />
-        </Tab>
-      </ControlledTabs>
     </div>
   );
 }

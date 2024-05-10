@@ -179,7 +179,7 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
   // experiment kill switch
   if (!experimentRegressionAdjustmentEnabled) {
     regressionAdjustmentEnabled = false;
-    regressionAdjustmentAvailable = false;
+    regressionAdjustmentAvailable = true;
     regressionAdjustmentReason = "disabled in experiment";
   }
 
