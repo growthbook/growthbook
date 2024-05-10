@@ -1,6 +1,8 @@
 import {
   MetricParams,
+  MetricParamsBayesian,
   PowerCalculationParams,
+  PowerCalculationParamsBayesian,
 } from "@/components/PowerCalculation/types";
 
 import {
@@ -8,6 +10,11 @@ import {
   powerEst,
   findMde,
   powerMetricWeeks,
+  calculatePriorMean,
+  calculatePriorVariance,
+  powerEstBayesian, 
+  findMdeBayesian,
+  powerMetricWeeksBayesian
 } from "@/components/PowerCalculation/stats";
 
 describe("backend", () => {
@@ -81,9 +88,32 @@ describe("backend", () => {
       type: "mean",
     },
   };
+  const metricsBayesian: { [id: string]: MetricParamsBayesian } = {
+    click_through_rate: {
+      effectSize: 0.3,
+      name: "click_through_rate",
+      conversionRate: 0.1,
+      type: "binomial",
+      priorMean: 0.2, 
+      priorStandardDeviation: Math.sqrt(0.3), 
+      proper: true
+    },
+    revenue: {
+      effectSize: 0.05,
+      name: "revenue",
+      mean: 0.1,
+      standardDeviation: Math.sqrt(0.5),
+      type: "mean",
+      priorMean: 0.2, 
+      priorStandardDeviation: Math.sqrt(0.3), 
+      proper: true
+    },
+  };
+
   const usersPerWeek = 4500;
   const nVariations = 3;
   const alpha = 0.05;
+  const nWeeks = 9; 
 
   function roundToFifthDecimal(num: number): number {
     return Number(num.toFixed(5));
@@ -94,13 +124,21 @@ describe("backend", () => {
       usersPerWeek: usersPerWeek,
       metrics: metrics,
       nVariations: nVariations,
-      nWeeks: 9,
+      nWeeks: nWeeks,
       targetPower: 0.8,
       alpha: alpha,
       statsEngine: {
         type: "frequentist",
         sequentialTesting: false,
       },
+    };
+    const powerSettingsBayesian: PowerCalculationParamsBayesian = {
+      usersPerWeek: usersPerWeek,
+      metrics: metricsBayesian,
+      nVariations: nVariations,
+      nWeeks: nWeeks,
+      targetPower: 0.8,
+      alpha: alpha,
     };
     const powerSolution = [
       0.65596,
@@ -142,12 +180,55 @@ describe("backend", () => {
       0.10796,
       0.27647,
     ];
+    const powerSolutionBayesian = [0.6679,
+      0.04054,
+      0.92121,
+      0.05343,
+      0.98467,
+      0.06103,
+      0.99738,
+      0.06705,
+      0.99959,
+      0.07239,
+      0.99994,
+      0.07739,
+      0.99999,
+      0.08219,
+      1.0,
+      0.08686,
+      1.0,
+      0.09146];
+    const mdeSolutionBayesian = [0.36258,
+      1.65289,
+      0.24173,
+      0.73247,
+      0.1929,
+      0.54036,
+      0.16491,
+      0.44561,
+      0.14625,
+      0.38687,
+      0.13269,
+      0.34604,
+      0.12228,
+      0.3156,
+      0.11396,
+      0.29181,
+      0.10711,
+      0.27258];
+
     const sampleSizeAndRuntime = [2, undefined];
+    const sampleSizeAndRuntimeBayesian = [2, undefined];
     const resultsTS = powerMetricWeeks(powerSettings);
+    const resultsTSBayesian = powerMetricWeeksBayesian(powerSettingsBayesian);
     let powerMultiple = [0.0, 0.0];
     let mdeMultiple = [1e5, 1e5];
+    let powerMultipleBayesian = [0.0, 0.0];
+    let mdeMultipleBayesian = [1e5, 1e5];
     let w0 = 0;
     const w1 = undefined;
+    let w0Bayesian = 0;
+    const w1Bayesian = undefined;
     if (resultsTS.type === "success") {
       powerMultiple = resultsTS.weeks.reduce(
         (result, { metrics }) =>
@@ -174,10 +255,40 @@ describe("backend", () => {
         throw new Error("should be undefined");
       }
     }
+    if (resultsTSBayesian.type === "success") {
+      powerMultipleBayesian = resultsTSBayesian.weeks.reduce(
+        (result, { metrics }) =>
+          Object.values(metrics).reduce(
+            (result, { power }) => [...result, power],
+            result
+          ),
+        []
+      );
+      mdeMultipleBayesian = resultsTSBayesian.weeks.reduce(
+        (result, { metrics }) =>
+          Object.values(metrics).reduce(
+            (result, { effectSize }) => [...result, effectSize],
+            result
+          ),
+        []
+      );
+      if (
+        resultsTSBayesian.sampleSizeAndRuntime.click_through_rate?.weeks !== undefined
+      ) {
+        w0Bayesian = resultsTSBayesian.sampleSizeAndRuntime.click_through_rate?.weeks;
+      }
+      if (resultsTSBayesian.sampleSizeAndRuntime.revenue?.weeks !== undefined) {
+        throw new Error("should be undefined");
+      }
+    }
     expect(powerMultiple.map(roundToFifthDecimal)).toEqual(powerSolution);
     expect(mdeMultiple.map(roundToFifthDecimal)).toEqual(mdeSolution);
     expect(sampleSizeAndRuntime[0]).toEqual(w0);
     expect(sampleSizeAndRuntime[1]).toEqual(w1);
+    expect(powerMultipleBayesian.map(roundToFifthDecimal)).toEqual(powerSolutionBayesian);
+    expect(mdeMultipleBayesian.map(roundToFifthDecimal)).toEqual(mdeSolutionBayesian);
+    expect(sampleSizeAndRuntime[0]).toEqual(w0Bayesian);
+    expect(sampleSizeAndRuntime[1]).toEqual(w1Bayesian);
   });
   it("checks sequential power", () => {
     const powerSettings: PowerCalculationParams = {
@@ -271,3 +382,105 @@ describe("backend", () => {
     expect(sampleSizeAndRuntime[1]).toEqual(w1);
   });
 });
+
+it("calculatePriorMean", () => {
+  expect(+calculatePriorMean(1/7, 4, true)).toEqual(
+    1/7
+  );
+  expect(+calculatePriorMean(1/7, 4, false)).toEqual(
+    4/7
+  );
+});
+it("calculatePriorVariance", () => {
+  expect(+calculatePriorVariance(1/7, 4, true)).toEqual(
+    1/7
+  );
+  expect(+calculatePriorVariance(1/7, 4, false)).toEqual(
+    16/7
+  );
+});
+
+it("powerEstBayesian", () => {
+  const power = 0.8;
+  const alpha = 0.05; 
+  const effectSizeAbsolute = 0.11431978395869613; 
+  const effectSizeRelative = 0.12033664690846606; 
+  const priorVarianceRelDGP = 0.010000000000000002;
+  const priorMeanRelSpecified = 0.05; 
+  const priorVarianceRelSpecified = 0.5476; 
+  const mean = 10.0; 
+  const variance = 3909.9997749994377; 
+  const nPerVariation = 400000 / 3; 
+
+  const mdeRelative = findMdeBayesian(alpha,
+    power,
+    priorVarianceRelDGP,
+    priorMeanRelSpecified,
+    priorVarianceRelSpecified,
+    true, 
+    mean,
+    variance,
+    nPerVariation, 
+    true, 0);
+
+  const mdeAbsolute = findMdeBayesian(alpha,
+      power,
+      priorVarianceRelDGP,
+      priorMeanRelSpecified,
+      priorVarianceRelSpecified,
+      true, 
+      mean,
+      variance,
+      nPerVariation, 
+      false, 0);
+  
+  let mdeRelativeScalar = -999;
+  if (mdeRelative.type === "success") {
+    mdeRelativeScalar = mdeRelative.mde;
+  }
+  let mdeAbsoluteScalar = -999;
+  if (mdeAbsolute.type === "success") {
+    mdeAbsoluteScalar = mdeAbsolute.mde;
+  }
+    
+  const powerRelative = powerEstBayesian(alpha,
+    mdeRelativeScalar,
+    priorVarianceRelDGP,
+    priorMeanRelSpecified,
+    priorVarianceRelSpecified,
+    true, 
+    mean,
+    variance,
+    nPerVariation, 
+    true);
+
+  const powerAbsolute = powerEstBayesian(alpha,
+    mdeAbsoluteScalar,
+    priorVarianceRelDGP,
+    priorMeanRelSpecified,
+    priorVarianceRelSpecified,
+    true,
+    mean,
+    variance,
+    nPerVariation, 
+    false); 
+
+  expect(parseFloat(mdeRelativeScalar.toFixed(5))).toEqual(
+    parseFloat(effectSizeRelative.toFixed(5))
+  );
+  
+  expect(parseFloat(mdeAbsoluteScalar.toFixed(5))).toEqual(
+    parseFloat(effectSizeAbsolute.toFixed(5))
+  );
+
+  expect(parseFloat(powerRelative.toFixed(5))).toEqual(
+    power
+  );
+  expect(parseFloat(powerAbsolute.toFixed(5))).toEqual(
+    power
+  );
+  
+});
+
+
+

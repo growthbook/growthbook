@@ -13,6 +13,27 @@ export type MetricParams =
       conversionRate: number;
     };
 
+export type MetricParamsBayesian =
+  | {
+      type: "mean";
+      name: string;
+      effectSize: number;
+      mean: number;
+      standardDeviation: number;
+      priorMean: number;
+      priorStandardDeviation: number;
+      proper: boolean;
+    }
+  | {
+      type: "binomial";
+      name: string;
+      effectSize: number;
+      conversionRate: number;
+      priorMean: number;
+      priorStandardDeviation: number;
+      proper: boolean;
+    };
+
 export interface StatsEngine {
   type: "frequentist";
   sequentialTesting: false | number;
@@ -26,6 +47,15 @@ export interface PowerCalculationParams {
   usersPerWeek: number;
   targetPower: number;
   statsEngine: StatsEngine;
+}
+
+export interface PowerCalculationParamsBayesian {
+  metrics: { [id: string]: MetricParamsBayesian };
+  nVariations: number;
+  nWeeks: number;
+  alpha: number;
+  usersPerWeek: number;
+  targetPower: number;
 }
 
 export type FullModalPowerCalculationParams = Omit<
@@ -104,12 +134,14 @@ export const isValidPowerCalculationParams = (
   Object.keys(v.metrics).every((key) => {
     const params = v.metrics[key];
     if (!params) return false;
-    return ([
-      "effectSize",
-      ...(params.type === "binomial"
-        ? (["conversionRate"] as const)
-        : (["mean", "standardDeviation"] as const)),
-    ] as const).every((k) => validEntry(k, params[k]));
+    return (
+      [
+        "effectSize",
+        ...(params.type === "binomial"
+          ? (["conversionRate"] as const)
+          : (["mean", "standardDeviation"] as const)),
+      ] as const
+    ).every((k) => validEntry(k, params[k]));
   });
 
 export const ensureAndReturnPowerCalculationParams = (
