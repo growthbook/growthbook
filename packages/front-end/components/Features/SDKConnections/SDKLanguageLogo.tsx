@@ -35,6 +35,7 @@ export const languageMapping: Record<
     Icon: IconType;
     color: string;
     label: string;
+    docLabel?: string;
     docs: DocSection;
     type: LanguageType;
     hideVersion?: boolean;
@@ -68,6 +69,7 @@ export const languageMapping: Record<
     Icon: BsFiletypeHtml,
     color: "#777",
     label: "Generic",
+    docLabel: "HTML Script Tag",
     docs: "nocode",
     type: "nocode",
     hideVersion: true,
@@ -167,21 +169,22 @@ export const languageMapping: Record<
     Icon: SiCloudflare,
     color: "#f78220",
     label: "CloudFlare",
-    docs: "sdks",
+    docs: "cloudflare",
     type: "edge",
   },
   "edge-lambda": {
     Icon: SiAwslambda,
     color: "#e57714",
     label: "Lambda@Edge",
-    docs: "sdks",
+    docs: "lambda",
     type: "edge",
   },
   "edge-other": {
     Icon: BsCloudFog2,
     color: "#777",
     label: "Other",
-    docs: "sdks",
+    docLabel: "Other Edge",
+    docs: "edge",
     type: "edge",
   },
   other: {

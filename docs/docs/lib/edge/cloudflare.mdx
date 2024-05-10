@@ -1,0 +1,102 @@
+---
+title: CloudFlare Workers SDK
+description: GrowthBook SDK for CloudFlare Workers
+sidebar_label: CloudFlare Workers
+slug: cloudflare
+toc_max_heading_level: 5
+---
+
+import ExternalLink from '@site/src/components/ExternalLink'
+
+## Overview
+
+GrowthBook currently supports two levels of integration with most edge workers, including CloudFlare:
+
+1. Our turnkey Edge App
+
+   - Automatically run server-side or hybrid [Visual Experiments](/app/visual) without redraw flicker
+   - Automatically run server-side or hybrid [URL Redirect Experiments](/app/url-redirects) without flicker or delay
+   - Optionally inject the JavaScript SDK with hydrated payload, allowing the front-end to pick up where the edge left off without any extra network requests. We use an enhanced version of our [HTML Script Tag](/lib/script-tag) for this purpose.
+
+2. Support for edge apps using our JavaScript SDK
+   - Enhanced support and examples for using our JavaScript SDK in an edge environment
+
+Regardless of your use case, our CloudFlare integration makes easy to synchronize feature and experiment values between GrowthBook and CloudFlare's KV store. This eliminates the network request to the GrowthBook API, unlocking blazingly fast edge-side and client-side SDK performance.
+
+### References
+
+- Our CloudFlare Workers SDK repository, which supports the above use cases, is [here<ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare)
+- A turnkey implementation of the Edge App (compatible with Wrangler) is [here<ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare/example)
+- You may find it useful to review our [JavaScript SDK](/lib/js). Many of the concepts which apply to both on-edge and injected frontend SDKs are based on our JS SDK.
+
+## Worker Configuration
+
+:::tip
+This tutorial assumes some familiarity with building and deploying CloudFlare Worker applications. You can quickly get up to speed by following the CloudFlare Workers [Getting Started<ExternalLink />](https://developers.cloudflare.com/workers/get-started/guide/) guide.
+:::
+
+You may either use our turnkey Edge App for CloudFlare Workers or build your own app from scratch using our JavaScript and CloudFlare SDKs.
+
+### 1. Turnkey Edge App
+
+Our Edge App runs as a smart proxy layer between your application and your end users. In absence of Visual or URL Redirect experiments, the Edge App will simply proxy the user request to your site and return the response, optionally injecting a fully-bootstrapped JavaScript SDK onto the rendered HTML page. If the request URL matches an Visual or URL Redirect experiment and the targeting conditions are satisfied, the Edge App may also perform one or more URL redirect behind the scenes (the public-facing URL does not change) and/or mutate the DOM for Visual Experiments.
+
+Setting up our turnkey Edge App is simple. Assuming that you have a basic Worker application set up, simply install the SDK and implement our custom request handler. Or if you prefer, you may pull down our fully-functional [example implementation<ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare/example) and follow along.
+
+#### Install the SDK
+
+```bash npm2yarn
+npm install --save @growthbook/edge-cloudflare
+```
+
+#### Implement our Edge App request handler
+
+```ts
+import { handleRequest } from "@growthbook/edge-cloudflare";
+
+export default {
+  fetch: async function (request, env, ctx) {
+    return await handleRequest(request, env);
+  },
+};
+```
+
+#### Set up environment variables
+
+Edit your `wrangler.toml` file and, at minimum, add these required fields:
+
+```bash
+[vars]
+PROXY_TARGET="https://www.growthbook.io/"  # The non-edge URL to your website
+GROWTHBOOK_API_HOST="https://cdn.growthbook.io"
+GROWTHBOOK_CLIENT_KEY="sdk-abc123"
+GROWTHBOOK_DECRYPTION_KEY="key_abc123"  # Only include for encrypted SDK Connections
+```
+
+You may want to further customize the app. Here is a list of common customization variables:
+
+```bash
+# Disable or change the rendering behavior of Visual Experiments:
+# ==========
+RUN_VISUAL_EDITOR_EXPERIMENTS="everywhere"|"edge"|"browser"|"skip"  # default: "everywhere"
+
+# URL Redirect Experiments are disabled on edge by default. Because the URL does not change, some sites
+# may experience problems with loading assets or endpoints with relative paths:
+# ==========
+RUN_URL_REDIRECT_EXPERIMENTS="everywhere"|"edge"|"browser"|"skip"  # default: "browser"
+RUN_CROSS_ORIGIN_URL_REDIRECT_EXPERIMENTS="everywhere"|"edge"|"browser"|"skip"  # default: "browser"
+# Mutate browser URL via window.history.replaceState() to reflect the new URL:
+INJECT_REDIRECT_URL_SCRIPT="true"  # default "true".
+
+# Do not inject a bootstrapped JavaScript SDK onto the page:
+# ==========
+DISABLE_INJECTIONS="true"  # default "false"
+
+
+# Customize the edge or injected browser SDK behavior:
+# ==========
+ENABLE_STREAMING="true"  # default "false". Streaming SSE updates on browser.
+ENABLE_STICKY_BUCKETING="true"  # default "false". Use cookie-based sticky bucketing on edge and browser.
+```
+
+For a full list of customizations, view our vendor-agnostic [Edge Utility repository<ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils).

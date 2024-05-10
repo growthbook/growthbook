@@ -640,7 +640,11 @@ features = GrowthBook.Config.features_from_config(features)
   if (language === "edge-cloudflare") {
     return (
       <>
-        <p>See our CloudFlare Workers documentation for detailed setup.</p>
+        <p>
+          See the{" "}
+          <DocLink docSection="cloudflare">CloudFlare Workers docs</DocLink> for
+          detailed setup.
+        </p>
 
         <p>
           Our <strong>Edge app</strong> provides turnkey visual editor and URL

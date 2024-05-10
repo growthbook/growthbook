@@ -420,6 +420,16 @@ const sidebars = {
             { type: "doc", id: "lib/react-native", label: "React Native" },
           ],
         },
+        {
+          type: "category",
+          label: "Edge",
+          collapsed: true,
+          items: [
+            { type: "doc", id: "lib/edge/cloudflare", label: "CloudFlare Workers" },
+            { type: "doc", id: "lib/edge/lambda", label: "Lambda@Edge" },
+            { type: "doc", id: "lib/edge/other", label: "Other edge providers" },
+          ],
+        },
         { type: "doc", id: "lib/build-your-own", label: "Build Your Own" },
       ],
     },

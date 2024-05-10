@@ -114,7 +114,7 @@ export default function CodeSnippetModal({
     return null;
   }
 
-  const { docs, label } = languageMapping[language];
+  const { docs, docLabel, label } = languageMapping[language];
   const hasProxy =
     currentConnection.proxy.enabled && !!currentConnection.proxy.host;
   const apiHost = getApiBaseUrl(currentConnection);
@@ -243,7 +243,8 @@ export default function CodeSnippetModal({
           ) : (
             <p>
               Below is some starter code to integrate GrowthBook into your app.
-              Read the <DocLink docSection={docs}>{label} docs</DocLink> for
+              Read the{" "}
+              <DocLink docSection={docs}>{docLabel || label} docs</DocLink> for
               more details.
             </p>
           )}
@@ -256,7 +257,7 @@ export default function CodeSnippetModal({
                   setConfigOpen(!configOpen);
                 }}
               >
-                {label} Config Settings{" "}
+                {docLabel || label} Config Settings{" "}
                 {configOpen ? <FaAngleDown /> : <FaAngleRight />}
               </h4>
               {configOpen && (
