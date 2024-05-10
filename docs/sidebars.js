@@ -327,18 +327,23 @@ const sidebars = {
             },
             {
               type: "doc",
+              id: "statistics/details",
+              label: "Statistical Details",
+            },
+            {
+              type: "doc",
               id: "statistics/cuped",
               label: "Regression Adjustment (CUPED)",
             },
             {
               type: "doc",
-              id: "statistics/multiple-corrections",
-              label: "Multiple Testing Corrections",
+              id: "statistics/sequential",
+              label: "Sequential Testing",
             },
             {
               type: "doc",
-              id: "statistics/sequential",
-              label: "Sequential Testing",
+              id: "statistics/multiple-corrections",
+              label: "Multiple Testing Corrections",
             },
             {
               type: "doc",

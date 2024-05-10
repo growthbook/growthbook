@@ -525,7 +525,10 @@ export default function ResultsTableTooltip({
                     </>
                   }
                 >
-                  <HiOutlineExclamationCircle size={16} className="flag-icon" />
+                  <HiOutlineExclamationCircle
+                    size={16}
+                    className="flag-icon mr-1"
+                  />
                   <span>
                     {priorUsed
                       ? `Your Bayesian prior ${
