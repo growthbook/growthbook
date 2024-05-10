@@ -32,7 +32,8 @@ export default function SdkWebhooks({ sdkid }) {
   const canDeleteWebhook = permissionsUtil.canDeleteSDKWebhook();
   const hasWebhooks = !!data?.webhooks?.length;
   const disableWebhookCreate =
-    hasWebhooks && !hasCommercialFeature("multiple-sdk-webhooks");
+    !canCreateWebhooks ||
+    (hasWebhooks && !hasCommercialFeature("multiple-sdk-webhooks"));
 
   const renderTableRows = () => {
     // only render table if there is data to show
@@ -77,8 +78,7 @@ export default function SdkWebhooks({ sdkid }) {
                   className="dropdown-item"
                   onClick={(e) => {
                     e.preventDefault();
-                    if (!disableWebhookCreate)
-                      setCreateWebhookModalOpen(webhook);
+                    setCreateWebhookModalOpen(webhook);
                   }}
                 >
                   Edit
@@ -111,43 +111,45 @@ export default function SdkWebhooks({ sdkid }) {
         for setup instructions
       </div>
       {canCreateWebhooks ? (
-        <Tooltip
-          body={
-            disableWebhookCreate
-              ? "You can only have one webhook per SDK Connection in the free plan"
-              : ""
-          }
-        >
-          <button
-            className="btn btn-primary mb-2"
-            disabled={disableWebhookCreate}
-            onClick={(e) => {
-              e.preventDefault();
-              if (!disableWebhookCreate) setCreateWebhookModalOpen({});
-            }}
+        <>
+          <Tooltip
+            body={
+              disableWebhookCreate
+                ? "You can only have one webhook per SDK Connection in the free plan"
+                : ""
+            }
           >
-            <span className="h4 pr-2 m-0 d-inline-block align-top">
-              <GBAddCircle />
+            <button
+              className="btn btn-primary mb-2"
+              disabled={disableWebhookCreate}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!disableWebhookCreate) setCreateWebhookModalOpen({});
+              }}
+            >
+              <span className="h4 pr-2 m-0 d-inline-block align-top">
+                <GBAddCircle />
+              </span>
+              Add Webhook
+            </button>
+          </Tooltip>
+          <Tooltip
+            body={
+              <div style={{ lineHeight: 1.5 }}>
+                <p className="mb-0">
+                  <strong>SDK Webhooks</strong> will automatically notify any
+                  changes affecting this SDK. For instance, modifying a feature
+                  or AB test will prompt the webhook to fire.
+                </p>
+              </div>
+            }
+          >
+            <span className="text-muted ml-2" style={{ fontSize: "0.75rem" }}>
+              What is this? <FaInfoCircle />
             </span>
-            Add Webhook
-          </button>
-        </Tooltip>
+          </Tooltip>
+        </>
       ) : null}
-      <Tooltip
-        body={
-          <div style={{ lineHeight: 1.5 }}>
-            <p className="mb-0">
-              <strong>SDK Webhooks</strong> will automatically notify any
-              changes affecting this SDK. For instance, modifying a feature or
-              AB test will prompt the webhook to fire.
-            </p>
-          </div>
-        }
-      >
-        <span className="text-muted ml-2" style={{ fontSize: "0.75rem" }}>
-          What is this? <FaInfoCircle />
-        </span>
-      </Tooltip>
     </>
   );
 

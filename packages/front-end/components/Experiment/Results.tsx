@@ -2,7 +2,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
-import { getValidDate, ago } from "shared/dates";
+import { getValidDate, ago, relativeDate } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "@back-end/types/experiment-snapshot";
@@ -229,9 +229,13 @@ const Results: FC<{
               "Make sure your experiment is tracking properly."}
             {snapshot &&
               phaseAgeMinutes < 120 &&
-              "It was just started " +
-                ago(experiment.phases[phase]?.dateStarted ?? "") +
-                ". Give it a little longer and click the 'Update' button above to check again."}
+              (phaseAgeMinutes < 0
+                ? "This experiment will start " +
+                  relativeDate(experiment.phases[phase]?.dateStarted ?? "") +
+                  ". Wait until it's been running for a little while and click the 'Update' button above to check again."
+                : "It was just started " +
+                  ago(experiment.phases[phase]?.dateStarted ?? "") +
+                  ". Give it a little longer and click the 'Update' button above to check again.")}
             {!snapshot &&
               datasource &&
               permissionsUtil.canRunExperimentQueries(datasource) &&
