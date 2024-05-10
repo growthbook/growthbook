@@ -36,7 +36,7 @@
     "cross-env": "^7.0.3",
     "jest": "^27.1.1",
     "rimraf": "^3.0.2",
-    "typescript": "5.3.3"
+    "typescript": "5.4.5"
   },
   "license": "MIT"
 }

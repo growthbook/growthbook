@@ -142,7 +142,7 @@
     "jest": "^27.1.1",
     "minimist": "^1.2.8",
     "rimraf": "^3.0.2",
-    "typescript": "5.3.3"
+    "typescript": "5.4.5"
   },
   "optionalDependencies": {
     "@apidevtools/swagger-parser": "^10.1.0",
