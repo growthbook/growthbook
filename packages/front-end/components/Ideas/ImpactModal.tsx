@@ -10,7 +10,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 
 const ImpactModal: FC<{
-  idea?: IdeaInterface;
+  idea: IdeaInterface;
   estimate?: ImpactEstimateInterface;
   close: () => void;
   mutate: () => void;
@@ -23,9 +23,9 @@ const ImpactModal: FC<{
     defaultValues: {
       metric: estimate?.metric || metrics[0]?.id || "",
       segment: estimate?.segment || "",
-      userAdjustment: idea?.estimateParams?.userAdjustment || 100,
-      numVariations: idea?.estimateParams?.numVariations || 2,
-      improvement: idea?.estimateParams?.improvement || 10,
+      userAdjustment: idea.estimateParams.userAdjustment || 100,
+      numVariations: idea.estimateParams.numVariations || 2,
+      improvement: idea.estimateParams.improvement || 10,
     },
   });
 
@@ -58,7 +58,7 @@ const ImpactModal: FC<{
               body: JSON.stringify({
                 metric: value.metric,
                 segment: value.segment || null,
-                ideaId: idea?.id || null,
+                ideaId: idea.id || null,
               }),
             }
           );
@@ -97,7 +97,7 @@ const ImpactModal: FC<{
           },
         };
 
-        await apiCall(`/idea/${idea?.id}`, {
+        await apiCall(`/idea/${idea.id}`, {
           method: "POST",
           body: JSON.stringify(data),
         });
