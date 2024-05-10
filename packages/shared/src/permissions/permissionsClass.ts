@@ -735,12 +735,12 @@ export class Permissions {
     // If the resource doesn't have a projects property or it's an empty array
     // that means it's in all projects
     if (!projects || !projects.length) {
-      // If the user has read access via their global role, they should be able to read
-      if (this.hasPermission("readData", "")) {
-        return true;
-      }
-      // if the user has read access globally, or in atleast 1 project they should have read access
-      return this.hasReadAccessForAtleast1Project();
+      const projectsToCheck = [
+        "",
+        ...Object.keys(this.userPermissions.projects),
+      ];
+      // Must have read access globally or in at least 1 project
+      return projectsToCheck.some((p) => this.hasPermission("readData", p));
     }
 
     // Otherwise, check if they have read access for atleast 1 of the resource's projects
@@ -831,24 +831,6 @@ export class Permissions {
       permission
     );
   }
-
-  private hasReadAccessForAtleast1Project = (): boolean => {
-    const usersProjectRoles: { id: string; readAccess: boolean }[] = [];
-    for (const project in this.userPermissions.projects) {
-      usersProjectRoles.push({
-        id: project,
-        readAccess:
-          this.userPermissions.projects[project].permissions.readData || false,
-      });
-    }
-
-    // If the user doesn't have any project roles, return false
-    if (!usersProjectRoles.length) return false;
-
-    // Otherwise, check to see if they have read-access via one of their project roles
-    // if so, they should have read access
-    return usersProjectRoles.some((p) => this.hasPermission("readData", p.id));
-  };
 
   private hasPermission(
     permissionToCheck: Permission,
