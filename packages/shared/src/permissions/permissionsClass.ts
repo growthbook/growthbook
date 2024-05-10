@@ -61,31 +61,31 @@ export class Permissions {
   };
 
   public canViewEventWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageWebhooks");
+    return this.checkGlobalPermission("manageEventWebhooks");
   };
 
   public canCreateEventWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageWebhooks");
+    return this.checkGlobalPermission("manageEventWebhooks");
   };
 
   public canUpdateEventWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageWebhooks");
+    return this.checkGlobalPermission("manageEventWebhooks");
   };
 
   public canDeleteEventWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageWebhooks");
+    return this.checkGlobalPermission("manageEventWebhooks");
   };
 
   public canCreateSDKWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageWebhooks");
+    return this.checkGlobalPermission("manageSDKWebhooks");
   };
 
   public canUpdateSDKWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageWebhooks");
+    return this.checkGlobalPermission("manageSDKWebhooks");
   };
 
   public canDeleteSDKWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageWebhooks");
+    return this.checkGlobalPermission("manageSDKWebhooks");
   };
 
   public canCreateAndUpdateTag = (): boolean => {
@@ -436,19 +436,19 @@ export class Permissions {
   public canCreateAndUpdateFactFilter = (
     factTable: Pick<FactTableInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(factTable, "manageFactTables");
+    return this.checkProjectFilterPermission(factTable, "manageFactFilters");
   };
 
   public canDeleteFactFilter = (
     factTable: Pick<FactTableInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(factTable, "manageFactTables");
+    return this.checkProjectFilterPermission(factTable, "manageFactFilters");
   };
 
   public canCreateFactMetric = (
     metric: Pick<FactMetricInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(metric, "createMetrics");
+    return this.checkProjectFilterPermission(metric, "manageFactMetrics");
   };
 
   public canUpdateFactMetric = (
@@ -458,14 +458,14 @@ export class Permissions {
     return this.checkProjectFilterUpdatePermission(
       existing,
       updates,
-      "createMetrics"
+      "manageFactMetrics"
     );
   };
 
   public canDeleteFactMetric = (
     metric: Pick<FactMetricInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(metric, "createMetrics");
+    return this.checkProjectFilterPermission(metric, "manageFactMetrics");
   };
 
   public canCreateMetric = (
@@ -688,7 +688,7 @@ export class Permissions {
     return this.checkEnvFilterPermission(
       sdkConnection,
       [sdkConnection.environment],
-      "manageEnvironments"
+      "manageSDKConnections"
     );
   };
 
@@ -699,7 +699,7 @@ export class Permissions {
     return this.checkEnvFilterUpdatePermission(
       existing,
       updates,
-      "manageEnvironments"
+      "manageSDKConnections"
     );
   };
 
@@ -709,7 +709,7 @@ export class Permissions {
     return this.checkEnvFilterPermission(
       sdkConnection,
       [sdkConnection.environment],
-      "manageEnvironments"
+      "manageSDKConnections"
     );
   };
 
