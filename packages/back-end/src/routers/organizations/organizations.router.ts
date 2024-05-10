@@ -64,7 +64,6 @@ router.post("/keys/reveal", organizationsController.postApiKeyReveal);
 
 // Webhooks
 router.get("/webhooks", organizationsController.getWebhooks);
-router.post("/webhooks", organizationsController.postWebhook);
 router.put("/webhook/:id", organizationsController.putWebhook);
 router.delete("/webhook/:id", organizationsController.deleteWebhook);
 //webhookSDKs
