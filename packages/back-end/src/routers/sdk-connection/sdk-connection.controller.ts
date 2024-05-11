@@ -204,6 +204,13 @@ export const getSDKConnectionWebhooks = async (
 
   const webhooks = await findAllSdkWebhooksByConnection(context, id);
 
+  // If user does not have write access, remove the shared secret
+  if (!context.permissions.canUpdateSDKWebhook()) {
+    webhooks.forEach((w) => {
+      w.signingKey = "";
+    });
+  }
+
   res.status(200).json({
     status: 200,
     webhooks,

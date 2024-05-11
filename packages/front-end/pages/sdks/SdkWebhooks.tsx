@@ -14,6 +14,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle } from "@/components/Icons";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import ClickToReveal from "@/components/Settings/ClickToReveal";
 
 export default function SdkWebhooks({ sdkid }) {
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
@@ -42,7 +43,16 @@ export default function SdkWebhooks({ sdkid }) {
         <td>{webhook.name}</td>
         <td>{webhook.endpoint}</td>
         <td>{webhook.sendPayload ? "yes" : "no"}</td>
-        <td>{webhook.signingKey}</td>
+        <td>
+          {webhook.signingKey ? (
+            <ClickToReveal
+              valueWhenHidden="wk_abc123def456ghi789"
+              getValue={async () => webhook.signingKey}
+            />
+          ) : (
+            <em className="text-muted">hidden</em>
+          )}
+        </td>
         <td>
           {webhook.error ? (
             <span className="text-danger">
@@ -50,7 +60,7 @@ export default function SdkWebhooks({ sdkid }) {
             </span>
           ) : webhook.lastSuccess ? (
             <em>
-              <FaCheck className="text-success" /> last fired{" "}
+              <FaCheck className="text-success" />
               {ago(webhook.lastSuccess)}
             </em>
           ) : (
