@@ -11,6 +11,16 @@ import {
 } from "enterprise";
 import { experimentHasLinkedChanges } from "shared/util";
 import {
+  UpdateSdkWebhookProps,
+  countSdkWebhooksByOrg,
+  createSdkWebhook,
+  deleteLegacySdkWebhookById,
+  deleteSdkWebhookById,
+  findAllLegacySdkWebhooks,
+  findSdkWebhookById,
+  updateSdkWebhook,
+} from "@back-end/src/models/WebhookModel";
+import {
   AuthRequest,
   ResponseWithStatusAndError,
 } from "../../types/AuthRequest";
@@ -70,8 +80,6 @@ import {
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import { getAllSavedGroups } from "../../models/SavedGroupModel";
 import { getMetricsByOrganization } from "../../models/MetricModel";
-import { WebhookModel, countWebhooksByOrg } from "../../models/WebhookModel";
-import { createSdkWebhook } from "../../services/webhooks";
 import {
   createOrganization,
   findOrganizationByInviteKey,
@@ -82,7 +90,7 @@ import {
 } from "../../models/OrganizationModel";
 import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { ConfigFile } from "../../init/config";
-import { WebhookInterface, WebhookMethod } from "../../../types/webhook";
+import { WebhookMethod } from "../../../types/webhook";
 import { ExperimentRule, NamespaceValue } from "../../../types/feature";
 import { usingOpenId } from "../../services/auth";
 import { getSSOConnectionSummary } from "../../models/SSOConnectionModel";
@@ -119,10 +127,7 @@ import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { TeamInterface } from "../../../types/team";
 import { queueSingleWebhookById } from "../../jobs/sdkWebhooks";
 import { initializeLicenseForOrg } from "../../services/licenseData";
-import {
-  findSDKConnectionById,
-  findSDKConnectionsByOrganization,
-} from "../../models/SdkConnectionModel";
+import { findSDKConnectionsByOrganization } from "../../models/SdkConnectionModel";
 import { triggerSingleSDKWebhookJobs } from "../../jobs/updateAllJobs";
 import { SDKConnectionInterface } from "../../../types/sdk-connection";
 
@@ -1381,7 +1386,7 @@ export async function putOrganization(
         connection.proxy.enabled && connection.proxy.host
       );
       await triggerSingleSDKWebhookJobs(
-        org.id,
+        context,
         connection,
         {},
         connection.proxy,
@@ -1658,44 +1663,13 @@ export async function postApiKeyReveal(
 
 export async function getLegacyWebhooks(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
-  const webhooks = await WebhookModel.find({
-    organization: context.org.id,
-    useSdkMode: { $ne: true },
-  });
+  const webhooks = await findAllLegacySdkWebhooks(context);
 
   res.status(200).json({
     status: 200,
     webhooks: webhooks.filter((webhook) =>
       context.permissions.canReadSingleProjectResource(webhook.project)
     ),
-  });
-}
-
-export async function getSDKWebhooks(
-  req: AuthRequest<Record<string, unknown>, { sdkid: string }>,
-  res: Response
-) {
-  const context = getContextFromReq(req);
-  const { sdkid } = req.params;
-
-  const conn = await findSDKConnectionById(context, sdkid);
-  if (!conn) {
-    throw new Error("Could not find SDK connection");
-  }
-
-  if (!context.permissions.canReadMultiProjectResource(conn.projects)) {
-    context.permissions.throwPermissionError();
-  }
-
-  const webhooks = await WebhookModel.find({
-    organization: context.org.id,
-    useSdkMode: true,
-    sdks: { $in: sdkid },
-  });
-
-  res.status(200).json({
-    status: 200,
-    webhooks,
   });
 }
 
@@ -1706,16 +1680,10 @@ export async function testSDKWebhook(
   const webhookId = req.params.id;
 
   const context = getContextFromReq(req);
-  const webhook = await WebhookModel.findOne({
-    id: webhookId,
-    organization: context.org.id,
-  });
+  const webhook = findSdkWebhookById(context, webhookId);
 
   if (!webhook) {
     throw new Error("Could not find webhook");
-  }
-  if (!webhook.useSdkMode) {
-    throw new Error("Cannot test legacy SDK Webhooks");
   }
 
   if (!context.permissions.canUpdateSDKWebhook()) {
@@ -1745,7 +1713,7 @@ export async function postSDKWebhook(
     context.permissions.throwPermissionError();
   }
   const { name, endpoint, sdkid, sendPayload, headers, httpMethod } = req.body;
-  const webhookcount = await countWebhooksByOrg(org.id);
+  const webhookcount = await countSdkWebhooksByOrg(org.id);
   const canAddMultipleSdkWebhooks = orgHasPremiumFeature(
     org,
     "multiple-sdk-webhooks"
@@ -1754,11 +1722,9 @@ export async function postSDKWebhook(
     throw new Error("your webhook limit has been reached");
   }
 
-  const webhook = await createSdkWebhook({
-    organization: org.id,
+  const webhook = await createSdkWebhook(context, sdkid, {
     name,
     endpoint,
-    sdkid,
     sendPayload,
     headers: headers || "",
     httpMethod,
@@ -1770,7 +1736,7 @@ export async function postSDKWebhook(
 }
 
 export async function putSDKWebhook(
-  req: AuthRequest<WebhookInterface, { id: string }>,
+  req: AuthRequest<UpdateSdkWebhookProps, { id: string }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
@@ -1780,24 +1746,12 @@ export async function putSDKWebhook(
   }
 
   const { id } = req.params;
-  const { name, endpoint, sendPayload, headers, httpMethod } = req.body;
-  const webhook = await WebhookModel.findOne({
-    organization: context.org.id,
-    id,
-  });
+  const webhook = await findSdkWebhookById(context, id);
   if (!webhook) {
     throw new Error("Could not find webhook");
   }
-  if (!webhook.useSdkMode) {
-    throw new Error("Cannot update legacy SDK Webhooks");
-  }
 
-  name != null && webhook.set("name", name);
-  endpoint != null && webhook.set("endpoint", endpoint);
-  sendPayload != null && webhook.set("sendPayload", sendPayload);
-  headers != null && webhook.set("headers", headers);
-  httpMethod != null && webhook.set("httpMethod", httpMethod);
-  await webhook.save();
+  await updateSdkWebhook(context, webhook, req.body);
 
   queueSingleWebhookById(webhook.id);
 
@@ -1817,12 +1771,7 @@ export async function deleteLegacyWebhook(
     context.permissions.throwPermissionError();
   }
   const { id } = req.params;
-
-  await WebhookModel.deleteOne({
-    organization: context.org.id,
-    id,
-    useSdkMode: { $ne: true },
-  });
+  await deleteLegacySdkWebhookById(context, id);
 
   res.status(200).json({
     status: 200,
@@ -1839,12 +1788,7 @@ export async function deleteSDKWebhook(
     context.permissions.throwPermissionError();
   }
   const { id } = req.params;
-
-  await WebhookModel.deleteOne({
-    organization: context.org.id,
-    id,
-    useSdkMode: true,
-  });
+  await deleteSdkWebhookById(context, id);
 
   res.status(200).json({
     status: 200,

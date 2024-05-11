@@ -306,7 +306,7 @@ export async function editSDKConnection(
     // Purge CDN if used
     const isUsingProxy = !!(newProxy.enabled && newProxy.host);
     await triggerSingleSDKWebhookJobs(
-      context.org.id,
+      context,
       connection,
       otherChanges as Partial<SDKConnectionInterface>,
       newProxy,

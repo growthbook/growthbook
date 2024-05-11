@@ -1,15 +1,19 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import fetch from "node-fetch";
-import { WebhookModel } from "../models/WebhookModel";
+import { ReqContext } from "@back-end/types/organization";
 import {
   getContextForAgendaJobByOrgId,
   getExperimentOverrides,
 } from "../services/organizations";
 import { getFeatureDefinitions } from "../services/features";
-import { WebhookInterface } from "../../types/webhook";
 import { CRON_ENABLED } from "../util/secrets";
 import { SDKPayloadKey } from "../../types/sdk-payload";
+import {
+  findAllLegacySdkWebhooks,
+  findSdkWebhookByOnlyId,
+  setLastSdkWebhookError,
+} from "../models/WebhookModel";
 
 const WEBHOOK_JOB_NAME = "fireWebhook";
 type WebhookJob = Job<{
@@ -26,10 +30,7 @@ export default function (ag: Agenda) {
     const webhookId = job.attrs.data?.webhookId;
     if (!webhookId) return;
 
-    const webhook = await WebhookModel.findOne({
-      id: webhookId,
-    });
-
+    const webhook = await findSdkWebhookByOnlyId(webhookId);
     if (!webhook) return;
 
     const context = await getContextForAgendaJobByOrgId(webhook.organization);
@@ -75,14 +76,11 @@ export default function (ag: Agenda) {
 
     if (!res.ok) {
       const e = "POST returned an invalid status code: " + res.status;
-      webhook.set("error", e);
-      await webhook.save();
+      await setLastSdkWebhookError(webhook, e);
       throw new Error(e);
     }
 
-    webhook.set("error", "");
-    webhook.set("lastSuccess", new Date());
-    await webhook.save();
+    await setLastSdkWebhookError(webhook, "");
   });
   agenda.on(
     "fail:" + WEBHOOK_JOB_NAME,
@@ -92,12 +90,12 @@ export default function (ag: Agenda) {
       // record the failure:
       const webhookId = job.attrs.data?.webhookId;
       if (webhookId) {
-        const webhook = await WebhookModel.findOne({
-          id: webhookId,
-        });
+        const webhook = await findSdkWebhookByOnlyId(webhookId);
         if (webhook) {
-          webhook.set("error", "Error: " + job.attrs.failReason || "unknown");
-          await webhook.save();
+          await setLastSdkWebhookError(
+            webhook,
+            job.attrs.failReason || webhook.error || "unknown error"
+          );
         }
       }
 
@@ -125,23 +123,18 @@ export default function (ag: Agenda) {
   );
 }
 
-export async function queueWebhook(
-  orgId: string,
+export async function queueLegacySdkWebhook(
+  context: ReqContext,
   payloadKeys: SDKPayloadKey[],
   isFeature?: boolean
 ) {
   if (!CRON_ENABLED) return;
   if (!payloadKeys.length) return;
 
-  const webhooks = await WebhookModel.find({
-    organization: orgId,
-    useSdkMode: { $ne: true },
-  });
-
-  if (!webhooks) return;
+  const webhooks = await findAllLegacySdkWebhooks(context);
 
   for (let i = 0; i < webhooks.length; i++) {
-    const webhook: WebhookInterface = webhooks[i];
+    const webhook = webhooks[i];
 
     // Skip if this webhook isn't affected by the changes
     if (

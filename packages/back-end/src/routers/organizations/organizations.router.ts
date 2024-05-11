@@ -62,18 +62,18 @@ router.post("/keys", organizationsController.postApiKey);
 router.delete("/keys", organizationsController.deleteApiKey);
 router.post("/keys/reveal", organizationsController.postApiKeyReveal);
 
-// Webhooks
+// Legacy Webhooks
 router.get("/legacy-sdk-webhooks", organizationsController.getLegacyWebhooks);
 router.delete(
   "/legacy-sdk-webhooks/:id",
   organizationsController.deleteLegacyWebhook
 );
+
 // SDK Webhooks
-router.put("/webhooks/sdk/:id", organizationsController.putSDKWebhook);
-router.get("/webhooks/sdk/:sdkid", organizationsController.getSDKWebhooks);
-router.post("/webhooks/sdk", organizationsController.postSDKWebhook);
-router.get("/webhooks/sdk/test/:id", organizationsController.testSDKWebhook);
-router.delete("/webhooks/sdk/:id", organizationsController.deleteSDKWebhook);
+router.post("/sdk-webhooks", organizationsController.postSDKWebhook);
+router.put("/sdk-webhooks/:id", organizationsController.putSDKWebhook);
+router.delete("/sdk-webhooks/:id", organizationsController.deleteSDKWebhook);
+router.post("/sdk-webhooks/:id/test", organizationsController.testSDKWebhook);
 
 // Orphaned users (users not part of an organization)
 // Only available when self-hosting

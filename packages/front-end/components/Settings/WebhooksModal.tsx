@@ -58,7 +58,7 @@ const WebhooksModal: FC<{
     }
 
     await apiCall(
-      current.id ? `/webhooks/sdk/${current.id}` : "/webhooks/sdk",
+      current.id ? `/sdk-webhooks/${current.id}` : "/sdk-webhooks",
       {
         method: current.id ? "PUT" : "POST",
         body: JSON.stringify(value),

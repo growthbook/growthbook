@@ -17,7 +17,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function SdkWebhooks({ sdkid }) {
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
-    `/webhooks/sdk/${sdkid}`
+    `/sdk-connections/${sdkid}/webhooks`
   );
   const [
     createWebhookModalOpen,
@@ -61,8 +61,8 @@ export default function SdkWebhooks({ sdkid }) {
             className="btn-sm"
             disabled={!canUpdateWebhook}
             onClick={async () => {
-              await apiCall(`/webhooks/sdk/test/${webhook.id}`, {
-                method: "get",
+              await apiCall(`/sdk-webhooks/${webhook.id}/test`, {
+                method: "post",
               });
               mutate();
             }}
@@ -91,7 +91,7 @@ export default function SdkWebhooks({ sdkid }) {
                   text="Delete"
                   useIcon={false}
                   onClick={async () => {
-                    await apiCall(`/webhooks/sdk/${webhook.id}`, {
+                    await apiCall(`/sdk-webhooks/${webhook.id}`, {
                       method: "DELETE",
                     });
                     mutate();

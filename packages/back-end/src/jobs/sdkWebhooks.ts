@@ -12,7 +12,12 @@ import {
 } from "../models/SdkConnectionModel";
 import { SDKConnectionInterface } from "../../types/sdk-connection";
 import { logger } from "../util/logger";
-import { findWebhookById, findWebhooksBySdks } from "../models/WebhookModel";
+import {
+  findAllSdkWebhooksByConnection,
+  findAllSdkWebhooksByConnectionIds,
+  findSdkWebhookByOnlyId,
+  setLastSdkWebhookError,
+} from "../models/WebhookModel";
 import { WebhookInterface, WebhookMethod } from "../../types/webhook";
 import { createSdkWebhookLog } from "../models/SdkWebhookLogModel";
 import { cancellableFetch } from "../util/http.util";
@@ -81,13 +86,19 @@ async function singleWebhooksJob(webhook: WebhookInterface) {
   job.schedule(new Date());
   await job.save();
 }
-export async function queueSingleWebhookJob(sdk: SDKConnectionInterface) {
-  const webhooks = await findWebhooksBySdks([sdk.key]);
+export async function queueSingleWebhookJob(
+  context: ReqContext,
+  connection: SDKConnectionInterface
+) {
+  const webhooks = await findAllSdkWebhooksByConnection(
+    context,
+    connection.key
+  );
   for (const webhook of webhooks) {
     return webhook ? singleWebhooksJob(webhook) : null;
   }
 }
-export async function queueWebhookUpdate(
+export async function queueSdkWebhook(
   context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[]
 ) {
@@ -112,8 +123,8 @@ export async function queueWebhookUpdate(
       sdkKeys.push(connection.id);
     }
   }
-  const webhooks = await findWebhooksBySdks(sdkKeys);
 
+  const webhooks = await findAllSdkWebhooksByConnectionIds(context, sdkKeys);
   for (const webhook of webhooks) {
     if (webhook) singleWebhooksJob(webhook);
   }
@@ -222,13 +233,15 @@ export async function fireWebhook({
   return res.responseWithoutBody;
 }
 export async function queueSingleWebhookById(webhookId: string) {
-  const webhook = await findWebhookById(webhookId);
-  if (!webhook) {
+  const webhook = await findSdkWebhookByOnlyId(webhookId);
+  if (!webhook || !webhook.sdks) {
     logger.error("SDK webhook: No webhook found for id", {
       webhookId,
     });
     return;
   }
+
+  const context = await getContextForAgendaJobByOrgId(webhook.organization);
 
   const connections = await findSDKConnectionsByIds(webhook?.sdks);
   for (const connection of connections) {
@@ -238,10 +251,6 @@ export async function queueSingleWebhookById(webhookId: string) {
       });
       return;
     }
-
-    const context = await getContextForAgendaJobByOrgId(
-      connection.organization
-    );
 
     const environmentDoc = context.org?.settings?.environments?.find(
       (e) => e.id === connection.environment
@@ -283,18 +292,14 @@ export async function queueSingleWebhookById(webhookId: string) {
 
     if (!res?.ok) {
       const e = "returned an invalid status code: " + res?.status;
-      webhook.set("error", e);
-      await webhook.save();
+      await setLastSdkWebhookError(webhook, e);
       return;
     }
-
-    webhook.set("error", "");
-    webhook.set("lastSuccess", new Date());
-    await webhook.save();
+    await setLastSdkWebhookError(webhook, "");
   }
 }
 
-export async function queueGlobalWebhooks(
+export async function queueGlobalSdkWebhooks(
   context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[]
 ) {

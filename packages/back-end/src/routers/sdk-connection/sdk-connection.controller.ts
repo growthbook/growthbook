@@ -1,5 +1,7 @@
 import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
+import { WebhookInterface } from "@back-end/types/webhook";
+import { findAllSdkWebhooksByConnection } from "@back-end/src/models/WebhookModel";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getContextFromReq } from "../../services/organizations";
 import {
@@ -178,5 +180,32 @@ export const checkSDKConnectionProxyStatus = async (
   res.status(200).json({
     status: 200,
     result,
+  });
+};
+
+export const getSDKConnectionWebhooks = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{
+    status: 200;
+    webhooks: WebhookInterface[];
+  }>
+) => {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  const conn = await findSDKConnectionById(context, id);
+  if (!conn) {
+    throw new Error("Could not find SDK connection");
+  }
+
+  if (!context.permissions.canReadMultiProjectResource(conn.projects)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const webhooks = await findAllSdkWebhooksByConnection(context, id);
+
+  res.status(200).json({
+    status: 200,
+    webhooks,
   });
 };
