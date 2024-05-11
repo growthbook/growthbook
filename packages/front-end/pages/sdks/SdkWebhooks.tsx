@@ -45,7 +45,9 @@ export default function SdkWebhooks({ sdkid }) {
         <td>{webhook.signingKey}</td>
         <td>
           {webhook.error ? (
-            <pre className="text-danger">Error</pre>
+            <span className="text-danger">
+              Error <Tooltip body={webhook.error} />
+            </span>
           ) : webhook.lastSuccess ? (
             <em>
               <FaCheck className="text-success" /> last fired{" "}

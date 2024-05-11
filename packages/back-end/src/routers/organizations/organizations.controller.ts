@@ -19,7 +19,7 @@ import {
   findAllLegacySdkWebhooks,
   findSdkWebhookById,
   updateSdkWebhook,
-} from "@back-end/src/models/WebhookModel";
+} from "../../models/WebhookModel";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -1690,7 +1690,9 @@ export async function testSDKWebhook(
     context.permissions.throwPermissionError();
   }
 
-  await queueSingleWebhookById(webhookId);
+  await queueSingleWebhookById(webhookId).catch(() => {
+    // Do nothing, already being logged in Mongo
+  });
   res.status(200).json({
     status: 200,
   });

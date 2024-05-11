@@ -18,7 +18,7 @@ import {
   findSdkWebhookByOnlyId,
   setLastSdkWebhookError,
 } from "../models/WebhookModel";
-import { WebhookInterface, WebhookMethod } from "../../types/webhook";
+import { WebhookInterface } from "../../types/webhook";
 import { createSdkWebhookLog } from "../models/SdkWebhookLogModel";
 import { cancellableFetch } from "../util/http.util";
 import { getContextForAgendaJobByOrgId } from "../services/organizations";
@@ -130,29 +130,27 @@ export async function queueSdkWebhook(
   }
 }
 
-export async function fireWebhook({
-  webhookId,
-  organizationId,
-  url,
-  signingKey,
+async function fireWebhook({
+  webhook,
   key,
   payload,
-  method,
-  headers,
-  sendPayload,
+  global,
 }: {
-  webhookId: string;
-  organizationId: string;
-  url: string;
-  signingKey: string;
+  webhook: WebhookInterface;
   key: string;
   payload: string;
-  method: WebhookMethod;
-  headers: string;
-  sendPayload: boolean;
+  global?: boolean;
 }) {
+  const webhookId = webhook.id;
+  const url = webhook.endpoint;
+  const signingKey = webhook.signingKey;
+  const headers = webhook.headers || "";
+  const method = webhook.httpMethod || "POST";
+  const sendPayload = webhook.sendPayload;
+  const organizationId = webhook.organization;
   const requestTimeout = 30000;
   const maxContentSize = 1000;
+
   const date = new Date();
   const signature = createHmac("sha256", signingKey)
     .update(sendPayload ? payload : "")
@@ -161,18 +159,61 @@ export async function fireWebhook({
   const webhookID = `msg_${md5(key + date.getTime()).substr(0, 16)}`;
   const data = sendPayload ? { payload } : {};
 
-  let body;
-  if (method !== "GET") {
-    body = JSON.stringify({
-      type: "payload.changed",
-      timestamp: date.toISOString(),
-      data,
-    });
-  }
-  let customHeaders;
+  const timestamp = Math.floor(date.getTime() / 1000);
+
+  const body =
+    method === "GET"
+      ? undefined
+      : JSON.stringify({
+          type: "payload.changed",
+          timestamp: date.toISOString(),
+          data,
+        });
+
+  const standardSignatureBody = `${webhookID}.${timestamp}.${body || ""}`;
+  const standardSignature =
+    "v1," +
+    createHmac("sha256", signingKey)
+      .update(standardSignatureBody)
+      .digest("base64");
+
   try {
-    customHeaders = JSON.parse(headers);
-  } catch (error) {
+    let customHeaders: Record<string, string> | undefined;
+    if (headers) {
+      try {
+        customHeaders = JSON.parse(headers);
+      } catch (error) {
+        throw new Error("Failed to parse custom headers: " + error.message);
+      }
+    }
+
+    const res = await cancellableFetch(
+      url,
+      {
+        headers: {
+          ...customHeaders,
+          "Content-Type": "application/json",
+          "webhook-id": webhookID,
+          "webhook-timestamp": timestamp + "",
+          "webhook-signature": standardSignature,
+          "webhook-secret": secret,
+          "webhook-sdk-key": key,
+        },
+        method,
+        body,
+      },
+      {
+        maxTimeMs: requestTimeout,
+        maxContentSize: maxContentSize,
+      }
+    );
+
+    if (!res.responseWithoutBody.ok) {
+      throw new Error(
+        "Returned an invalid status code: " + res.responseWithoutBody.status
+      );
+    }
+
     createSdkWebhookLog({
       webhookId,
       webhookRequestId: webhookID,
@@ -180,31 +221,13 @@ export async function fireWebhook({
       payload: JSON.parse(payload),
       result: {
         state: "success",
-        responseBody: "failed to parse custom headers",
-        responseCode: 500,
+        responseBody: res.stringBody,
+        responseCode: res.responseWithoutBody.status,
       },
     });
-    return;
-  }
-  const res = await cancellableFetch(
-    url,
-    {
-      headers: {
-        "Content-Type": "application/json",
-        "webhook-id": webhookID,
-        "webhook-timestamp": date.getTime(),
-        "webhook-secret": secret,
-        "webhook-sdk-key": key,
-        ...customHeaders,
-      },
-      method,
-      body,
-    },
-    {
-      maxTimeMs: requestTimeout,
-      maxContentSize: maxContentSize,
-    }
-  ).catch((e) => {
+    if (!global) await setLastSdkWebhookError(webhook, "");
+    return res;
+  } catch (e) {
     createSdkWebhookLog({
       webhookId,
       webhookRequestId: webhookID,
@@ -212,25 +235,13 @@ export async function fireWebhook({
       payload: JSON.parse(payload),
       result: {
         state: "error",
-        responseBody: e.body,
-        responseCode: e.statusCode,
+        responseBody: e.message,
+        responseCode: 0,
       },
     });
-    return e;
-  });
-
-  createSdkWebhookLog({
-    webhookId,
-    webhookRequestId: webhookID,
-    organizationId,
-    payload: JSON.parse(payload),
-    result: {
-      state: "success",
-      responseBody: res.responseBody,
-      responseCode: res.statusCode,
-    },
-  });
-  return res.responseWithoutBody;
+    if (!global) await setLastSdkWebhookError(webhook, e.message);
+    throw e;
+  }
 }
 export async function queueSingleWebhookById(webhookId: string) {
   const webhook = await findSdkWebhookByOnlyId(webhookId);
@@ -249,7 +260,7 @@ export async function queueSingleWebhookById(webhookId: string) {
       logger.error("SDK webhook: Could not find sdk connection", {
         webhookId,
       });
-      return;
+      continue;
     }
 
     const environmentDoc = context.org?.settings?.environments?.find(
@@ -278,24 +289,11 @@ export async function queueSingleWebhookById(webhookId: string) {
     });
 
     const payload = JSON.stringify(defs);
-    const res = await fireWebhook({
-      organizationId: connection.organization,
-      webhookId: webhook.id,
-      url: webhook.endpoint,
-      signingKey: webhook.signingKey,
+    await fireWebhook({
+      webhook,
       key: connection.key,
       payload,
-      headers: webhook.headers || "",
-      method: webhook.httpMethod || "POST",
-      sendPayload: webhook.sendPayload,
     });
-
-    if (!res?.ok) {
-      const e = "returned an invalid status code: " + res?.status;
-      await setLastSdkWebhookError(webhook, e);
-      return;
-    }
-    await setLastSdkWebhookError(webhook, "");
   }
 }
 
@@ -304,14 +302,7 @@ export async function queueGlobalSdkWebhooks(
   payloadKeys: SDKPayloadKey[]
 ) {
   for (const webhook of WEBHOOKS) {
-    const {
-      url,
-      signingKey,
-      method,
-      headers,
-      sendPayload,
-      webhookId,
-    } = webhook;
+    const { url, signingKey, method, headers, sendPayload } = webhook;
     if (!payloadKeys.length) return;
 
     const connections = await findSDKConnectionsByOrganization(context);
@@ -328,13 +319,16 @@ export async function queueGlobalSdkWebhooks(
         environmentDoc,
         true
       );
+      if (!filteredProjects) {
+        continue;
+      }
 
       // Skip if this SDK Connection isn't affected by the changes
       if (
         payloadKeys.some(
-          (key: { environment: string; project: string }) =>
+          (key) =>
             key.environment === connection.environment &&
-            (!filteredProjects || filteredProjects.includes(key.project))
+            (!filteredProjects.length || filteredProjects.includes(key.project))
         )
       ) {
         const defs = await getFeatureDefinitions({
@@ -353,17 +347,33 @@ export async function queueGlobalSdkWebhooks(
           hashSecureAttributes: connection.hashSecureAttributes,
         });
 
+        const id = `global_${md5(url)}`;
+        const w: WebhookInterface = {
+          id,
+          endpoint: url,
+          signingKey: signingKey || id,
+          httpMethod: method,
+          headers:
+            typeof headers !== "string" ? JSON.stringify(headers) : headers,
+          sendPayload: !!sendPayload,
+          organization: context.org?.id,
+          created: new Date(),
+          error: "",
+          lastSuccess: new Date(),
+          name: "",
+          sdks: [connection.key],
+          useSdkMode: true,
+          featuresOnly: true,
+        };
+
         const payload = JSON.stringify(defs);
         fireWebhook({
-          webhookId,
-          organizationId: context.org.id,
-          url,
-          signingKey,
+          webhook: w,
           key: connection.key,
           payload,
-          method,
-          sendPayload,
-          headers: JSON.stringify(headers),
+          global: true,
+        }).catch((e) => {
+          logger.error(e, "Failed to fire global webhook");
         });
       }
     }

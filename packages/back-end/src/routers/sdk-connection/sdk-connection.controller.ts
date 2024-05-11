@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
-import { WebhookInterface } from "@back-end/types/webhook";
-import { findAllSdkWebhooksByConnection } from "@back-end/src/models/WebhookModel";
+import { WebhookInterface } from "../../../types/webhook";
+import { findAllSdkWebhooksByConnection } from "../../models/WebhookModel";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getContextFromReq } from "../../services/organizations";
 import {

@@ -1,7 +1,6 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
-import fetch from "node-fetch";
-import { ReqContext } from "@back-end/types/organization";
+import { ReqContext } from "../../types/organization";
 import {
   getContextForAgendaJobByOrgId,
   getExperimentOverrides,
@@ -14,6 +13,7 @@ import {
   findSdkWebhookByOnlyId,
   setLastSdkWebhookError,
 } from "../models/WebhookModel";
+import { cancellableFetch } from "../util/http.util";
 
 const WEBHOOK_JOB_NAME = "fireWebhook";
 type WebhookJob = Job<{
@@ -65,62 +65,32 @@ export default function (ag: Agenda) {
       .update(payload)
       .digest("hex");
 
-    const res = await fetch(webhook.endpoint, {
-      headers: {
-        "Content-Type": "application/json",
-        "X-GrowthBook-Signature": signature,
+    const res = await cancellableFetch(
+      webhook.endpoint,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-GrowthBook-Signature": signature,
+        },
+        method: "POST",
+        body: payload,
       },
-      method: "POST",
-      body: payload,
-    });
+      {
+        maxTimeMs: 30000,
+        maxContentSize: 1000,
+      }
+    );
 
-    if (!res.ok) {
-      const e = "POST returned an invalid status code: " + res.status;
+    if (!res.responseWithoutBody.ok) {
+      const e =
+        "POST returned an invalid status code: " +
+        res.responseWithoutBody.status;
       await setLastSdkWebhookError(webhook, e);
       throw new Error(e);
     }
 
     await setLastSdkWebhookError(webhook, "");
   });
-  agenda.on(
-    "fail:" + WEBHOOK_JOB_NAME,
-    async (error: Error, job: WebhookJob) => {
-      if (!job.attrs.data) return;
-
-      // record the failure:
-      const webhookId = job.attrs.data?.webhookId;
-      if (webhookId) {
-        const webhook = await findSdkWebhookByOnlyId(webhookId);
-        if (webhook) {
-          await setLastSdkWebhookError(
-            webhook,
-            job.attrs.failReason || webhook.error || "unknown error"
-          );
-        }
-      }
-
-      // retry:
-      const retryCount = job.attrs.data.retryCount;
-      let nextRunAt = Date.now();
-      // Wait 30s after the first failure
-      if (retryCount === 0) {
-        nextRunAt += 30000;
-      }
-      // Wait 5m after the second failure
-      else if (retryCount === 1) {
-        nextRunAt += 300000;
-      }
-      // If it failed 3 times, give up
-      else {
-        // TODO: email the organization owner
-        return;
-      }
-
-      job.attrs.data.retryCount++;
-      job.attrs.nextRunAt = new Date(nextRunAt);
-      await job.save();
-    }
-  );
 }
 
 export async function queueLegacySdkWebhook(
