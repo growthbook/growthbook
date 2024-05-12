@@ -1689,7 +1689,7 @@ export async function testSDKWebhook(
     context.permissions.throwPermissionError();
   }
 
-  await fireSdkWebhook(webhook).catch(() => {
+  await fireSdkWebhook(context, webhook).catch(() => {
     // Do nothing, already being logged in Mongo
   });
   res.status(200).json({
@@ -1755,7 +1755,7 @@ export async function putSDKWebhook(
   const updatedWebhook = await updateSdkWebhook(context, webhook, req.body);
 
   // Fire the webhook now that it has changed
-  fireSdkWebhook(updatedWebhook).catch(() => {
+  fireSdkWebhook(context, updatedWebhook).catch(() => {
     // Do nothing, already being logged in Mongo
   });
 

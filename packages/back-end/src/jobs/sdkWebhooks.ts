@@ -21,7 +21,10 @@ import {
 import { WebhookInterface } from "../../types/webhook";
 import { createSdkWebhookLog } from "../models/SdkWebhookLogModel";
 import { cancellableFetch } from "../util/http.util";
-import { getContextForAgendaJobByOrgId } from "../services/organizations";
+import {
+  getContextForAgendaJobByOrgId,
+  getContextForAgendaJobByOrgObject,
+} from "../services/organizations";
 import { ReqContext } from "../../types/organization";
 import { ApiReqContext } from "../../types/api";
 import { trackJob } from "../services/otel";
@@ -52,7 +55,8 @@ const fireWebhooks = trackJob(
       return;
     }
 
-    await fireSdkWebhook(webhook);
+    const context = await getContextForAgendaJobByOrgId(webhook.organization);
+    await fireSdkWebhook(context, webhook);
   }
 );
 
@@ -254,8 +258,11 @@ async function runWebhookFetch({
     throw e;
   }
 }
-export async function fireSdkWebhook(webhook: WebhookInterface) {
-  const context = await getContextForAgendaJobByOrgId(webhook.organization);
+export async function fireSdkWebhook(
+  context: ReqContext,
+  webhook: WebhookInterface
+) {
+  const webhookContext = getContextForAgendaJobByOrgObject(context.org);
 
   const connections = await findSDKConnectionsByIds(webhook?.sdks);
   for (const connection of connections) {
@@ -266,7 +273,7 @@ export async function fireSdkWebhook(webhook: WebhookInterface) {
       continue;
     }
 
-    const environmentDoc = context.org?.settings?.environments?.find(
+    const environmentDoc = webhookContext.org?.settings?.environments?.find(
       (e) => e.id === connection.environment
     );
     const filteredProjects = filterProjectsByEnvironmentWithNull(
@@ -276,14 +283,13 @@ export async function fireSdkWebhook(webhook: WebhookInterface) {
     );
 
     const defs = await getFeatureDefinitions({
-      context,
+      context: webhookContext,
       capabilities: getConnectionSDKCapabilities(connection),
       environment: connection.environment,
       projects: filteredProjects,
       encryptionKey: connection.encryptPayload
         ? connection.encryptionKey
         : undefined,
-
       includeVisualExperiments: connection.includeVisualExperiments,
       includeDraftExperiments: connection.includeDraftExperiments,
       includeExperimentNames: connection.includeExperimentNames,
