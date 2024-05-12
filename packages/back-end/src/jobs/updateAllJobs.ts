@@ -13,7 +13,7 @@ import { IS_CLOUD } from "../util/secrets";
 import { queueProxyUpdate, queueSingleProxyUpdate } from "./proxyUpdate";
 import {
   fireGlobalSdkWebhooks,
-  queueSingleSdkWebhookJobs,
+  queueWebhooksBySdkPayloadKeys,
   queueWebhooksForSdkConnection,
 } from "./sdkWebhooks";
 import { queueLegacySdkWebhooks } from "./webhooks";
@@ -25,7 +25,7 @@ export const triggerWebhookJobs = async (
   isProxyEnabled: boolean,
   isFeature = true
 ) => {
-  queueSingleSdkWebhookJobs(context, payloadKeys);
+  queueWebhooksBySdkPayloadKeys(context, payloadKeys);
   fireGlobalSdkWebhooks(context, payloadKeys);
   if (isProxyEnabled) queueProxyUpdate(context, payloadKeys);
   queueLegacySdkWebhooks(context, payloadKeys, isFeature);

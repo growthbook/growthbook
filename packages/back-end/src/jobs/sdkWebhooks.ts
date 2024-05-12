@@ -113,7 +113,7 @@ export async function queueWebhooksForSdkConnection(
     if (webhook) await queueSingleSdkWebhookJob(webhook);
   }
 }
-export async function queueSingleSdkWebhookJobs(
+export async function queueWebhooksBySdkPayloadKeys(
   context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[]
 ) {
