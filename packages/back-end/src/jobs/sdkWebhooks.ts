@@ -273,31 +273,33 @@ export async function fireSdkWebhook(
       continue;
     }
 
-    const environmentDoc = webhookContext.org?.settings?.environments?.find(
-      (e) => e.id === connection.environment
-    );
-    const filteredProjects = filterProjectsByEnvironmentWithNull(
-      connection.projects,
-      environmentDoc,
-      true
-    );
+    let payload = "";
+    if (webhook.sendPayload) {
+      const environmentDoc = webhookContext.org?.settings?.environments?.find(
+        (e) => e.id === connection.environment
+      );
+      const filteredProjects = filterProjectsByEnvironmentWithNull(
+        connection.projects,
+        environmentDoc,
+        true
+      );
 
-    const defs = await getFeatureDefinitions({
-      context: webhookContext,
-      capabilities: getConnectionSDKCapabilities(connection),
-      environment: connection.environment,
-      projects: filteredProjects,
-      encryptionKey: connection.encryptPayload
-        ? connection.encryptionKey
-        : undefined,
-      includeVisualExperiments: connection.includeVisualExperiments,
-      includeDraftExperiments: connection.includeDraftExperiments,
-      includeExperimentNames: connection.includeExperimentNames,
-      includeRedirectExperiments: connection.includeRedirectExperiments,
-      hashSecureAttributes: connection.hashSecureAttributes,
-    });
-
-    const payload = JSON.stringify(defs);
+      const defs = await getFeatureDefinitions({
+        context: webhookContext,
+        capabilities: getConnectionSDKCapabilities(connection),
+        environment: connection.environment,
+        projects: filteredProjects,
+        encryptionKey: connection.encryptPayload
+          ? connection.encryptionKey
+          : undefined,
+        includeVisualExperiments: connection.includeVisualExperiments,
+        includeDraftExperiments: connection.includeDraftExperiments,
+        includeExperimentNames: connection.includeExperimentNames,
+        includeRedirectExperiments: connection.includeRedirectExperiments,
+        hashSecureAttributes: connection.hashSecureAttributes,
+      });
+      payload = JSON.stringify(defs);
+    }
     await runWebhookFetch({
       webhook,
       key: connection.key,
