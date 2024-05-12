@@ -144,6 +144,11 @@ export async function updateSdkWebhook(
       },
     }
   );
+
+  return {
+    ...existing,
+    ...updates,
+  };
 }
 
 const createSdkWebhookValidator = z.object({

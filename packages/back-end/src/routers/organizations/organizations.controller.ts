@@ -125,7 +125,7 @@ import { EntityType } from "../../types/Audit";
 import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { TeamInterface } from "../../../types/team";
-import { fireSdkWebhookById } from "../../jobs/sdkWebhooks";
+import { fireSdkWebhook } from "../../jobs/sdkWebhooks";
 import { initializeLicenseForOrg } from "../../services/licenseData";
 import { findSDKConnectionsByOrganization } from "../../models/SdkConnectionModel";
 import { triggerSingleSDKWebhookJobs } from "../../jobs/updateAllJobs";
@@ -1689,7 +1689,7 @@ export async function testSDKWebhook(
     context.permissions.throwPermissionError();
   }
 
-  await fireSdkWebhookById(webhookId).catch(() => {
+  await fireSdkWebhook(webhook).catch(() => {
     // Do nothing, already being logged in Mongo
   });
   res.status(200).json({
@@ -1752,16 +1752,16 @@ export async function putSDKWebhook(
     throw new Error("Could not find webhook");
   }
 
-  await updateSdkWebhook(context, webhook, req.body);
+  const updatedWebhook = await updateSdkWebhook(context, webhook, req.body);
 
   // Fire the webhook now that it has changed
-  fireSdkWebhookById(webhook.id).catch(() => {
+  fireSdkWebhook(updatedWebhook).catch(() => {
     // Do nothing, already being logged in Mongo
   });
 
   res.status(200).json({
     status: 200,
-    webhook,
+    webhook: updatedWebhook,
   });
 }
 

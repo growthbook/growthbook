@@ -43,7 +43,16 @@ const fireWebhooks = trackJob(
       });
       return;
     }
-    await fireSdkWebhookById(webhookId);
+
+    const webhook = await findSdkWebhookByOnlyId(webhookId);
+    if (!webhook || !webhook.sdks) {
+      logger.error("SDK webhook: No webhook found for id", {
+        webhookId,
+      });
+      return;
+    }
+
+    await fireSdkWebhook(webhook);
   }
 );
 
@@ -132,7 +141,7 @@ export async function queueSingleSdkWebhookJobs(
   }
 }
 
-async function fireSdkWebhook({
+async function runWebhookFetch({
   webhook,
   key,
   payload,
@@ -245,22 +254,14 @@ async function fireSdkWebhook({
     throw e;
   }
 }
-export async function fireSdkWebhookById(webhookId: string) {
-  const webhook = await findSdkWebhookByOnlyId(webhookId);
-  if (!webhook || !webhook.sdks) {
-    logger.error("SDK webhook: No webhook found for id", {
-      webhookId,
-    });
-    return;
-  }
-
+export async function fireSdkWebhook(webhook: WebhookInterface) {
   const context = await getContextForAgendaJobByOrgId(webhook.organization);
 
   const connections = await findSDKConnectionsByIds(webhook?.sdks);
   for (const connection of connections) {
     if (!connection) {
       logger.error("SDK webhook: Could not find sdk connection", {
-        webhookId,
+        webhookId: webhook.id,
       });
       continue;
     }
@@ -291,7 +292,7 @@ export async function fireSdkWebhookById(webhookId: string) {
     });
 
     const payload = JSON.stringify(defs);
-    await fireSdkWebhook({
+    await runWebhookFetch({
       webhook,
       key: connection.key,
       payload,
@@ -369,7 +370,7 @@ export async function fireGlobalSdkWebhooks(
         };
 
         const payload = JSON.stringify(defs);
-        fireSdkWebhook({
+        runWebhookFetch({
           webhook: w,
           key: connection.key,
           payload,
