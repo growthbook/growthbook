@@ -138,11 +138,11 @@ export async function findAllSDKConnections() {
 
 export async function findSDKConnectionsByIds(
   context: ReqContext,
-  keys: string[]
+  ids: string[]
 ) {
   const docs = await SDKConnectionModel.find({
     organization: context.org.id,
-    id: { $in: keys },
+    id: { $in: ids },
   });
   return docs.map(toInterface);
 }
