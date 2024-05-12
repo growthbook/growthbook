@@ -13,10 +13,10 @@ import { IS_CLOUD } from "../util/secrets";
 import { queueProxyUpdate, queueSingleProxyUpdate } from "./proxyUpdate";
 import {
   queueGlobalSdkWebhooks,
-  queueSdkWebhook,
+  queueSdkWebhooks,
   queueSingleWebhookJob,
 } from "./sdkWebhooks";
-import { queueLegacySdkWebhook } from "./webhooks";
+import { queueLegacySdkWebhooks } from "./webhooks";
 
 export const triggerWebhookJobs = async (
   context: ReqContext | ApiReqContext,
@@ -25,10 +25,10 @@ export const triggerWebhookJobs = async (
   isProxyEnabled: boolean,
   isFeature = true
 ) => {
-  queueSdkWebhook(context, payloadKeys);
+  queueSdkWebhooks(context, payloadKeys);
   queueGlobalSdkWebhooks(context, payloadKeys);
   if (isProxyEnabled) queueProxyUpdate(context, payloadKeys);
-  queueLegacySdkWebhook(context, payloadKeys, isFeature);
+  queueLegacySdkWebhooks(context, payloadKeys, isFeature);
   const surrogateKeys = getSurrogateKeysFromEnvironments(context.org.id, [
     ...environments,
   ]);

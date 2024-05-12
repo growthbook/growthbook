@@ -91,9 +91,37 @@ export default function (ag: Agenda) {
 
     await setLastSdkWebhookError(webhook, "");
   });
+
+  agenda.on(
+    "fail:" + WEBHOOK_JOB_NAME,
+    async (error: Error, job: WebhookJob) => {
+      if (!job.attrs.data) return;
+
+      // retry:
+      const retryCount = job.attrs.data.retryCount;
+      let nextRunAt = Date.now();
+      // Wait 30s after the first failure
+      if (retryCount === 0) {
+        nextRunAt += 30000;
+      }
+      // Wait 5m after the second failure
+      else if (retryCount === 1) {
+        nextRunAt += 300000;
+      }
+      // If it failed 3 times, give up
+      else {
+        // TODO: email the organization owner
+        return;
+      }
+
+      job.attrs.data.retryCount++;
+      job.attrs.nextRunAt = new Date(nextRunAt);
+      await job.save();
+    }
+  );
 }
 
-export async function queueLegacySdkWebhook(
+export async function queueLegacySdkWebhooks(
   context: ReqContext,
   payloadKeys: SDKPayloadKey[],
   isFeature?: boolean

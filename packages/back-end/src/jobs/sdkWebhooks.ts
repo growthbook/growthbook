@@ -60,12 +60,17 @@ export default function addSdkWebhooksJob(ag: Agenda) {
       // retry:
       const retryCount = job.attrs.data.retryCount;
       let nextRunAt = Date.now();
-      // Try again after 5 seconds
+      // Wait 30s after the first failure
       if (retryCount === 0) {
-        nextRunAt += 5000;
+        nextRunAt += 30000;
       }
-      // If it failed twice, give up
+      // Wait 5m after the second failure
+      else if (retryCount === 1) {
+        nextRunAt += 300000;
+      }
+      // If it failed 3 times, give up
       else {
+        // TODO: email the organization owner
         return;
       }
 
@@ -98,7 +103,7 @@ export async function queueSingleWebhookJob(
     return webhook ? singleWebhooksJob(webhook) : null;
   }
 }
-export async function queueSdkWebhook(
+export async function queueSdkWebhooks(
   context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[]
 ) {

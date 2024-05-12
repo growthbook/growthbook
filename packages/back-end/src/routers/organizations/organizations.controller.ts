@@ -1680,8 +1680,7 @@ export async function testSDKWebhook(
   const webhookId = req.params.id;
 
   const context = getContextFromReq(req);
-  const webhook = findSdkWebhookById(context, webhookId);
-
+  const webhook = await findSdkWebhookById(context, webhookId);
   if (!webhook) {
     throw new Error("Could not find webhook");
   }
@@ -1755,7 +1754,10 @@ export async function putSDKWebhook(
 
   await updateSdkWebhook(context, webhook, req.body);
 
-  queueSingleWebhookById(webhook.id);
+  // Fire the webhook now that it has changed
+  queueSingleWebhookById(webhook.id).catch(() => {
+    // Do nothing, already being logged in Mongo
+  });
 
   res.status(200).json({
     status: 200,

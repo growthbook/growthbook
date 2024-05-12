@@ -116,9 +116,9 @@ app.listen(port, () => {
 
 If your endpoint returns any HTTP status besides `200`, the webhook will be considered failed.
 
-Failed SDK webhooks are attempted one additional time after a 5 second delay. If still failing, the particular SDK payload event will be skipped. Future SDK payload events will start fresh with a new attempt.
+Webhooks are retried up to 2 additional times with an exponential back-off between attempts.
 
-You can view the status of your webhooks in the GrowthBook app under **SDK Connections** .
+You can view the status of your webhooks in the GrowthBook app under **SDK Connections**.
 
 ## Supported HTTP Types
 
