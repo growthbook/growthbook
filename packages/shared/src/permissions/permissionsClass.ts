@@ -701,6 +701,12 @@ export class Permissions {
     );
   };
 
+  public canManageLegacySDKWebhooks = (): boolean => {
+    // These webhooks are deprecated
+    // Restrict access to admins by using the event webhooks permission
+    return this.checkGlobalPermission("manageEventWebhooks");
+  };
+
   public canCreateSDKWebhook = (
     sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">
   ): boolean => {
@@ -712,12 +718,11 @@ export class Permissions {
   };
 
   public canUpdateSDKWebhook = (
-    existing: { projects?: string[]; environment?: string },
-    updates: { projects?: string[]; environment?: string }
+    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">
   ): boolean => {
-    return this.checkEnvFilterUpdatePermission(
-      existing,
-      updates,
+    return this.checkEnvFilterPermission(
+      sdkConnection,
+      [sdkConnection.environment],
       "manageSDKWebhooks"
     );
   };

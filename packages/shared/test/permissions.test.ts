@@ -117,9 +117,7 @@ describe("Role permissions", () => {
     expect(p.canUpdatePresentation()).toBe(false);
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(false);
-    expect(p.canUpdateSDKWebhook({ projects, environment }, updates)).toBe(
-      false
-    );
+    expect(p.canUpdateSDKWebhook({ projects, environment })).toBe(false);
     expect(p.canUpdateSavedGroup()).toBe(false);
     expect(p.canUpdateSegment()).toBe(false);
     expect(p.canUpdateSomeProjects()).toBe(false);
@@ -146,6 +144,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSDKConnection({ projects, environment })).toBe(false);
     expect(p.canReadSingleProjectResource(project)).toBe(false);
     expect(p.canReadMultiProjectResource(projects)).toBe(false);
+    expect(p.canManageLegacySDKWebhooks()).toBe(false);
   });
 
   it("has correct permissions for readonly", () => {
@@ -226,7 +225,7 @@ describe("Role permissions", () => {
     expect(p.canUpdatePresentation()).toBe(false);
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(false);
-    expect(p.canUpdateSDKWebhook({ projects, environment }, {})).toBe(false);
+    expect(p.canUpdateSDKWebhook({ projects, environment })).toBe(false);
     expect(p.canUpdateSavedGroup()).toBe(false);
     expect(p.canUpdateSegment()).toBe(false);
     expect(p.canUpdateSomeProjects()).toBe(false);
@@ -253,6 +252,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSDKConnection({ projects, environment })).toBe(false);
     expect(p.canReadSingleProjectResource(project)).toBe(true);
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
+    expect(p.canManageLegacySDKWebhooks()).toBe(false);
   });
 
   it("has correct permissions for visualEditor", () => {
@@ -333,9 +333,7 @@ describe("Role permissions", () => {
     expect(p.canUpdatePresentation()).toBe(false);
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(false);
-    expect(p.canUpdateSDKWebhook({ projects, environment }, updates)).toBe(
-      false
-    );
+    expect(p.canUpdateSDKWebhook({ projects, environment })).toBe(false);
     expect(p.canUpdateSavedGroup()).toBe(false);
     expect(p.canUpdateSegment()).toBe(false);
     expect(p.canUpdateSomeProjects()).toBe(false);
@@ -362,6 +360,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSDKConnection({ projects, environment })).toBe(false);
     expect(p.canReadSingleProjectResource(project)).toBe(true);
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
+    expect(p.canManageLegacySDKWebhooks()).toBe(false);
   });
 
   it("has correct permissions for collaborator", () => {
@@ -442,9 +441,7 @@ describe("Role permissions", () => {
     expect(p.canUpdatePresentation()).toBe(true);
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(false);
-    expect(p.canUpdateSDKWebhook({ projects, environment }, updates)).toBe(
-      false
-    );
+    expect(p.canUpdateSDKWebhook({ projects, environment })).toBe(false);
     expect(p.canUpdateSavedGroup()).toBe(false);
     expect(p.canUpdateSegment()).toBe(false);
     expect(p.canUpdateSomeProjects()).toBe(false);
@@ -471,6 +468,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSDKConnection({ projects, environment })).toBe(false);
     expect(p.canReadSingleProjectResource(project)).toBe(true);
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
+    expect(p.canManageLegacySDKWebhooks()).toBe(false);
   });
 
   it("has correct permissions for engineer", () => {
@@ -551,9 +549,7 @@ describe("Role permissions", () => {
     expect(p.canUpdatePresentation()).toBe(true);
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(false);
-    expect(p.canUpdateSDKWebhook({ projects, environment }, updates)).toBe(
-      true
-    );
+    expect(p.canUpdateSDKWebhook({ projects, environment })).toBe(true);
     expect(p.canUpdateSavedGroup()).toBe(true);
     expect(p.canUpdateSegment()).toBe(false);
     expect(p.canUpdateSomeProjects()).toBe(false);
@@ -580,6 +576,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSDKConnection({ projects, environment })).toBe(true);
     expect(p.canReadSingleProjectResource(project)).toBe(true);
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
+    expect(p.canManageLegacySDKWebhooks()).toBe(false);
   });
 
   it("has correct permissions for analyst", () => {
@@ -660,9 +657,7 @@ describe("Role permissions", () => {
     expect(p.canUpdatePresentation()).toBe(true);
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(true);
-    expect(p.canUpdateSDKWebhook({ projects, environment }, updates)).toBe(
-      false
-    );
+    expect(p.canUpdateSDKWebhook({ projects, environment })).toBe(false);
     expect(p.canUpdateSavedGroup()).toBe(false);
     expect(p.canUpdateSegment()).toBe(true);
     expect(p.canUpdateSomeProjects()).toBe(false);
@@ -689,6 +684,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSDKConnection({ projects, environment })).toBe(false);
     expect(p.canReadSingleProjectResource(project)).toBe(true);
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
+    expect(p.canManageLegacySDKWebhooks()).toBe(false);
   });
 
   it("has correct permissions for experimenter", () => {
@@ -769,9 +765,7 @@ describe("Role permissions", () => {
     expect(p.canUpdatePresentation()).toBe(true);
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(true);
-    expect(p.canUpdateSDKWebhook({ projects, environment }, updates)).toBe(
-      true
-    );
+    expect(p.canUpdateSDKWebhook({ projects, environment })).toBe(true);
     expect(p.canUpdateSavedGroup()).toBe(true);
     expect(p.canUpdateSegment()).toBe(true);
     expect(p.canUpdateSomeProjects()).toBe(false);
@@ -798,6 +792,7 @@ describe("Role permissions", () => {
     expect(p.canDeleteSDKConnection({ projects, environment })).toBe(true);
     expect(p.canReadSingleProjectResource(project)).toBe(true);
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
+    expect(p.canManageLegacySDKWebhooks()).toBe(false);
   });
 
   it("has correct permissions for admin", () => {
@@ -878,9 +873,7 @@ describe("Role permissions", () => {
     expect(p.canUpdatePresentation()).toBe(true);
     expect(p.canUpdateProject(project)).toBe(true);
     expect(p.canUpdateReport(projectResource)).toBe(true);
-    expect(p.canUpdateSDKWebhook({ projects, environment }, updates)).toBe(
-      true
-    );
+    expect(p.canUpdateSDKWebhook({ projects, environment })).toBe(true);
     expect(p.canUpdateSavedGroup()).toBe(true);
     expect(p.canUpdateSegment()).toBe(true);
     expect(p.canUpdateSomeProjects()).toBe(true);
@@ -907,5 +900,6 @@ describe("Role permissions", () => {
     expect(p.canDeleteSDKConnection({ projects, environment })).toBe(true);
     expect(p.canReadSingleProjectResource(project)).toBe(true);
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
+    expect(p.canManageLegacySDKWebhooks()).toBe(true);
   });
 });
