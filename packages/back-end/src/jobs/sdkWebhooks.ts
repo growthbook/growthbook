@@ -43,7 +43,7 @@ const fireWebhooks = trackJob(
       });
       return;
     }
-    await queueSingleWebhookById(webhookId);
+    await fireSdkWebhookById(webhookId);
   }
 );
 
@@ -80,7 +80,7 @@ export default function addSdkWebhooksJob(ag: Agenda) {
     }
   );
 }
-async function singleWebhooksJob(webhook: WebhookInterface) {
+async function queueSingleSdkWebhookJob(webhook: WebhookInterface) {
   const job = agenda.create(SDK_WEBHOOKS_JOB_NAME, {
     webhookId: webhook.id,
     retryCount: 0,
@@ -91,19 +91,16 @@ async function singleWebhooksJob(webhook: WebhookInterface) {
   job.schedule(new Date());
   await job.save();
 }
-export async function queueSingleWebhookJob(
+export async function queueWebhooksForSdkConnection(
   context: ReqContext,
   connection: SDKConnectionInterface
 ) {
-  const webhooks = await findAllSdkWebhooksByConnection(
-    context,
-    connection.key
-  );
+  const webhooks = await findAllSdkWebhooksByConnection(context, connection.id);
   for (const webhook of webhooks) {
-    return webhook ? singleWebhooksJob(webhook) : null;
+    if (webhook) await queueSingleSdkWebhookJob(webhook);
   }
 }
-export async function queueSdkWebhooks(
+export async function queueSingleSdkWebhookJobs(
   context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[]
 ) {
@@ -131,11 +128,11 @@ export async function queueSdkWebhooks(
 
   const webhooks = await findAllSdkWebhooksByConnectionIds(context, sdkKeys);
   for (const webhook of webhooks) {
-    if (webhook) singleWebhooksJob(webhook);
+    if (webhook) await queueSingleSdkWebhookJob(webhook);
   }
 }
 
-async function fireWebhook({
+async function fireSdkWebhook({
   webhook,
   key,
   payload,
@@ -248,7 +245,7 @@ async function fireWebhook({
     throw e;
   }
 }
-export async function queueSingleWebhookById(webhookId: string) {
+export async function fireSdkWebhookById(webhookId: string) {
   const webhook = await findSdkWebhookByOnlyId(webhookId);
   if (!webhook || !webhook.sdks) {
     logger.error("SDK webhook: No webhook found for id", {
@@ -294,7 +291,7 @@ export async function queueSingleWebhookById(webhookId: string) {
     });
 
     const payload = JSON.stringify(defs);
-    await fireWebhook({
+    await fireSdkWebhook({
       webhook,
       key: connection.key,
       payload,
@@ -302,7 +299,7 @@ export async function queueSingleWebhookById(webhookId: string) {
   }
 }
 
-export async function queueGlobalSdkWebhooks(
+export async function fireGlobalSdkWebhooks(
   context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[]
 ) {
@@ -372,7 +369,7 @@ export async function queueGlobalSdkWebhooks(
         };
 
         const payload = JSON.stringify(defs);
-        fireWebhook({
+        fireSdkWebhook({
           webhook: w,
           key: connection.key,
           payload,

@@ -125,7 +125,7 @@ import { EntityType } from "../../types/Audit";
 import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { TeamInterface } from "../../../types/team";
-import { queueSingleWebhookById } from "../../jobs/sdkWebhooks";
+import { fireSdkWebhookById } from "../../jobs/sdkWebhooks";
 import { initializeLicenseForOrg } from "../../services/licenseData";
 import { findSDKConnectionsByOrganization } from "../../models/SdkConnectionModel";
 import { triggerSingleSDKWebhookJobs } from "../../jobs/updateAllJobs";
@@ -1689,7 +1689,7 @@ export async function testSDKWebhook(
     context.permissions.throwPermissionError();
   }
 
-  await queueSingleWebhookById(webhookId).catch(() => {
+  await fireSdkWebhookById(webhookId).catch(() => {
     // Do nothing, already being logged in Mongo
   });
   res.status(200).json({
@@ -1755,7 +1755,7 @@ export async function putSDKWebhook(
   await updateSdkWebhook(context, webhook, req.body);
 
   // Fire the webhook now that it has changed
-  queueSingleWebhookById(webhook.id).catch(() => {
+  fireSdkWebhookById(webhook.id).catch(() => {
     // Do nothing, already being logged in Mongo
   });
 

@@ -60,8 +60,7 @@ export default function SdkWebhooks({ sdkid }) {
             </span>
           ) : webhook.lastSuccess ? (
             <em>
-              <FaCheck className="text-success" />
-              {ago(webhook.lastSuccess)}
+              <FaCheck className="text-success" /> {ago(webhook.lastSuccess)}
             </em>
           ) : (
             <em>never fired</em>

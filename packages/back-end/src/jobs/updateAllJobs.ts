@@ -12,9 +12,9 @@ import {
 import { IS_CLOUD } from "../util/secrets";
 import { queueProxyUpdate, queueSingleProxyUpdate } from "./proxyUpdate";
 import {
-  queueGlobalSdkWebhooks,
-  queueSdkWebhooks,
-  queueSingleWebhookJob,
+  fireGlobalSdkWebhooks,
+  queueSingleSdkWebhookJobs,
+  queueWebhooksForSdkConnection,
 } from "./sdkWebhooks";
 import { queueLegacySdkWebhooks } from "./webhooks";
 
@@ -25,8 +25,8 @@ export const triggerWebhookJobs = async (
   isProxyEnabled: boolean,
   isFeature = true
 ) => {
-  queueSdkWebhooks(context, payloadKeys);
-  queueGlobalSdkWebhooks(context, payloadKeys);
+  queueSingleSdkWebhookJobs(context, payloadKeys);
+  fireGlobalSdkWebhooks(context, payloadKeys);
   if (isProxyEnabled) queueProxyUpdate(context, payloadKeys);
   queueLegacySdkWebhooks(context, payloadKeys, isFeature);
   const surrogateKeys = getSurrogateKeysFromEnvironments(context.org.id, [
@@ -42,7 +42,7 @@ export const triggerSingleSDKWebhookJobs = async (
   newProxy: ProxyConnection,
   isUsingProxy: boolean
 ) => {
-  queueSingleWebhookJob(context, connection);
+  queueWebhooksForSdkConnection(context, connection);
   if (isUsingProxy) {
     if (IS_CLOUD) {
       const newConnection = {
