@@ -110,19 +110,21 @@ export async function setLastSdkWebhookError(
     {
       $set: {
         error,
-        lastSuccess: error ? null : new Date(),
+        lastSuccess: error ? undefined : new Date(),
       },
     }
   );
 }
 
-export const updateSdkWebhookValidator = z.object({
-  endpoint: z.string().optional(),
-  headers: z.string().optional(),
-  httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PURGE"]).optional(),
-  name: z.string().optional(),
-  sendPayload: z.boolean().optional(),
-});
+export const updateSdkWebhookValidator = z
+  .object({
+    endpoint: z.string().optional(),
+    headers: z.string().optional(),
+    httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PURGE"]).optional(),
+    name: z.string().optional(),
+    sendPayload: z.boolean().optional(),
+  })
+  .strict();
 export type UpdateSdkWebhookProps = z.infer<typeof updateSdkWebhookValidator>;
 
 export async function updateSdkWebhook(
@@ -151,13 +153,15 @@ export async function updateSdkWebhook(
   };
 }
 
-const createSdkWebhookValidator = z.object({
-  name: z.string(),
-  endpoint: z.string(),
-  sendPayload: z.boolean(),
-  httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PURGE"]),
-  headers: z.string(),
-});
+const createSdkWebhookValidator = z
+  .object({
+    name: z.string(),
+    endpoint: z.string(),
+    sendPayload: z.boolean(),
+    httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PURGE"]),
+    headers: z.string(),
+  })
+  .strict();
 export type CreateSdkWebhookProps = z.infer<typeof createSdkWebhookValidator>;
 
 export async function createSdkWebhook(
@@ -188,7 +192,7 @@ export async function createSdkWebhook(
   return toInterface(res);
 }
 
-export async function findSdkWebhookByOnlyId(id: string) {
+export async function findSdkWebhookByIdAcrossOrgs(id: string) {
   const doc = await WebhookModel.findOne({
     id,
   });

@@ -10,7 +10,7 @@ import { CRON_ENABLED } from "../util/secrets";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import {
   findAllLegacySdkWebhooks,
-  findSdkWebhookByOnlyId,
+  findSdkWebhookByIdAcrossOrgs,
   setLastSdkWebhookError,
 } from "../models/WebhookModel";
 import { cancellableFetch } from "../util/http.util";
@@ -30,7 +30,7 @@ export default function (ag: Agenda) {
     const webhookId = job.attrs.data?.webhookId;
     if (!webhookId) return;
 
-    const webhook = await findSdkWebhookByOnlyId(webhookId);
+    const webhook = await findSdkWebhookByIdAcrossOrgs(webhookId);
     if (!webhook) return;
 
     const context = await getContextForAgendaJobByOrgId(webhook.organization);

@@ -15,7 +15,7 @@ import { logger } from "../util/logger";
 import {
   findAllSdkWebhooksByConnection,
   findAllSdkWebhooksByConnectionIds,
-  findSdkWebhookByOnlyId,
+  findSdkWebhookByIdAcrossOrgs,
   setLastSdkWebhookError,
 } from "../models/WebhookModel";
 import { WebhookInterface } from "../../types/webhook";
@@ -47,7 +47,7 @@ const fireWebhooks = trackJob(
       return;
     }
 
-    const webhook = await findSdkWebhookByOnlyId(webhookId);
+    const webhook = await findSdkWebhookByIdAcrossOrgs(webhookId);
     if (!webhook || !webhook.sdks) {
       logger.error("SDK webhook: No webhook found for id", {
         webhookId,
