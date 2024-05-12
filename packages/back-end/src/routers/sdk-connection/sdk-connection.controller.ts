@@ -1,5 +1,14 @@
 import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
+import {
+  CreateSdkWebhookProps,
+  WebhookInterface,
+} from "../../../types/webhook";
+import {
+  countSdkWebhooksByOrg,
+  createSdkWebhook,
+  findAllSdkWebhooksByConnection,
+} from "../../models/WebhookModel";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getContextFromReq } from "../../services/organizations";
 import {
@@ -180,3 +189,70 @@ export const checkSDKConnectionProxyStatus = async (
     result,
   });
 };
+
+export const getSDKConnectionWebhooks = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{
+    status: 200;
+    webhooks: WebhookInterface[];
+  }>
+) => {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  const conn = await findSDKConnectionById(context, id);
+  if (!conn) {
+    throw new Error("Could not find SDK connection");
+  }
+
+  if (!context.permissions.canReadMultiProjectResource(conn.projects)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const webhooks = await findAllSdkWebhooksByConnection(context, id);
+
+  // If user does not have write access, remove the shared secret
+  if (!context.permissions.canUpdateSDKWebhook()) {
+    webhooks.forEach((w) => {
+      w.signingKey = "";
+    });
+  }
+
+  res.status(200).json({
+    status: 200,
+    webhooks,
+  });
+};
+
+export async function postSDKConnectionWebhook(
+  req: AuthRequest<CreateSdkWebhookProps, { id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  const { id } = req.params;
+  const connection = await findSDKConnectionById(context, id);
+  if (!connection) {
+    throw new Error("Could not find SDK Connection");
+  }
+
+  if (!context.permissions.canCreateSDKWebhook()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const webhookcount = await countSdkWebhooksByOrg(org.id);
+  const canAddMultipleSdkWebhooks = orgHasPremiumFeature(
+    org,
+    "multiple-sdk-webhooks"
+  );
+  if (!canAddMultipleSdkWebhooks && webhookcount > 0) {
+    throw new Error("your webhook limit has been reached");
+  }
+
+  const webhook = await createSdkWebhook(context, id, req.body);
+  return res.status(200).json({
+    status: 200,
+    webhook,
+  });
+}

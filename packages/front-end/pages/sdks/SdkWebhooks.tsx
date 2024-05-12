@@ -14,10 +14,11 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle } from "@/components/Icons";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import ClickToReveal from "@/components/Settings/ClickToReveal";
 
 export default function SdkWebhooks({ sdkid }) {
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
-    `/webhooks/sdk/${sdkid}`
+    `/sdk-connections/${sdkid}/webhooks`
   );
   const [
     createWebhookModalOpen,
@@ -42,14 +43,24 @@ export default function SdkWebhooks({ sdkid }) {
         <td>{webhook.name}</td>
         <td>{webhook.endpoint}</td>
         <td>{webhook.sendPayload ? "yes" : "no"}</td>
-        <td>{webhook.signingKey}</td>
+        <td>
+          {webhook.signingKey ? (
+            <ClickToReveal
+              valueWhenHidden="wk_abc123def456ghi789"
+              getValue={async () => webhook.signingKey}
+            />
+          ) : (
+            <em className="text-muted">hidden</em>
+          )}
+        </td>
         <td>
           {webhook.error ? (
-            <pre className="text-danger">Error</pre>
+            <span className="text-danger">
+              Error <Tooltip body={webhook.error} />
+            </span>
           ) : webhook.lastSuccess ? (
             <em>
-              <FaCheck className="text-success" /> last fired{" "}
-              {ago(webhook.lastSuccess)}
+              <FaCheck className="text-success" /> {ago(webhook.lastSuccess)}
             </em>
           ) : (
             <em>never fired</em>
@@ -61,8 +72,8 @@ export default function SdkWebhooks({ sdkid }) {
             className="btn-sm"
             disabled={!canUpdateWebhook}
             onClick={async () => {
-              await apiCall(`/webhook/test/${webhook.id}`, {
-                method: "get",
+              await apiCall(`/sdk-webhooks/${webhook.id}/test`, {
+                method: "post",
               });
               mutate();
             }}
@@ -91,7 +102,7 @@ export default function SdkWebhooks({ sdkid }) {
                   text="Delete"
                   useIcon={false}
                   onClick={async () => {
-                    await apiCall(`/webhook/${webhook.id}`, {
+                    await apiCall(`/sdk-webhooks/${webhook.id}`, {
                       method: "DELETE",
                     });
                     mutate();
@@ -165,7 +176,7 @@ export default function SdkWebhooks({ sdkid }) {
               <td>SHARED SECRET</td>
               <td>LAST SUCCESS</td>
               <td>TEST WEBHOOK</td>
-              <td>EDIT</td>
+              <td style={{ width: 50 }}></td>
             </tr>
           </thead>
           <tbody>{renderTableRows()}</tbody>
@@ -182,8 +193,7 @@ export default function SdkWebhooks({ sdkid }) {
           close={() => setCreateWebhookModalOpen(null)}
           onSave={mutate}
           current={createWebhookModalOpen}
-          showSDKMode={true}
-          sdkid={sdkid}
+          sdkConnectionId={sdkid}
         />
       )}
       {!isEmpty && renderTable()}
