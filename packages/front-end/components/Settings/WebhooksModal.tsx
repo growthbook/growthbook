@@ -1,6 +1,11 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
-import { WebhookInterface, WebhookMethod } from "back-end/types/webhook";
+import {
+  CreateSdkWebhookProps,
+  UpdateSdkWebhookProps,
+  WebhookInterface,
+  WebhookMethod,
+} from "back-end/types/webhook";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
@@ -57,13 +62,32 @@ const WebhooksModal: FC<{
       throw new Error("Invalid URL");
     }
 
-    await apiCall(
-      current.id ? `/sdk-webhooks/${current.id}` : "/sdk-webhooks",
-      {
-        method: current.id ? "PUT" : "POST",
-        body: JSON.stringify(value),
-      }
-    );
+    if (current.id) {
+      const data: UpdateSdkWebhookProps = {
+        endpoint: value.endpoint,
+        headers: value.headers,
+        httpMethod: value.httpMethod,
+        name: value.name,
+        sendPayload: value.sendPayload,
+      };
+
+      await apiCall(`/sdk-webhooks/${current.id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      });
+    } else {
+      const data: CreateSdkWebhookProps = {
+        name: value.name,
+        endpoint: value.endpoint,
+        sendPayload: value.sendPayload,
+        httpMethod: value.httpMethod,
+        headers: value.headers,
+      };
+      await apiCall(`/sdk-connections/${sdkConnectionId}/webhooks`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    }
 
     track(current.id ? "Edit Webhook" : "Create Webhook");
     onSave();

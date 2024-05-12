@@ -176,7 +176,7 @@ export default function SdkWebhooks({ sdkid }) {
               <td>SHARED SECRET</td>
               <td>LAST SUCCESS</td>
               <td>TEST WEBHOOK</td>
-              <td>EDIT</td>
+              <td style={{ width: 50 }}></td>
             </tr>
           </thead>
           <tbody>{renderTableRows()}</tbody>

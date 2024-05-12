@@ -233,7 +233,7 @@ async function runWebhookFetch({
       webhookId,
       webhookRequestId: webhookID,
       organizationId,
-      payload: JSON.parse(payload),
+      payload: { data: payload },
       result: {
         state: "success",
         responseBody: res.stringBody,
@@ -247,7 +247,7 @@ async function runWebhookFetch({
       webhookId,
       webhookRequestId: webhookID,
       organizationId,
-      payload: JSON.parse(payload),
+      payload: { data: payload },
       result: {
         state: "error",
         responseBody: e.message,

@@ -70,7 +70,6 @@ router.delete(
 );
 
 // SDK Webhooks
-router.post("/sdk-webhooks", organizationsController.postSDKWebhook);
 router.put("/sdk-webhooks/:id", organizationsController.putSDKWebhook);
 router.delete("/sdk-webhooks/:id", organizationsController.deleteSDKWebhook);
 router.post("/sdk-webhooks/:id/test", organizationsController.testSDKWebhook);

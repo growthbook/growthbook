@@ -7,13 +7,10 @@ import {
   getEffectiveAccountPlan,
   getLicense,
   getLicenseError,
-  orgHasPremiumFeature,
 } from "enterprise";
 import { experimentHasLinkedChanges } from "shared/util";
 import {
   UpdateSdkWebhookProps,
-  countSdkWebhooksByOrg,
-  createSdkWebhook,
   deleteLegacySdkWebhookById,
   deleteSdkWebhookById,
   findAllLegacySdkWebhooks,
@@ -90,7 +87,6 @@ import {
 } from "../../models/OrganizationModel";
 import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { ConfigFile } from "../../init/config";
-import { WebhookMethod } from "../../../types/webhook";
 import { ExperimentRule, NamespaceValue } from "../../../types/feature";
 import { usingOpenId } from "../../services/auth";
 import { getSSOConnectionSummary } from "../../models/SSOConnectionModel";
@@ -1694,45 +1690,6 @@ export async function testSDKWebhook(
   });
   res.status(200).json({
     status: 200,
-  });
-}
-export async function postSDKWebhook(
-  req: AuthRequest<{
-    name: string;
-    endpoint: string;
-    sdkid: string;
-    sendPayload: boolean;
-    headers?: string;
-    httpMethod: WebhookMethod;
-  }>,
-  res: Response
-) {
-  const context = getContextFromReq(req);
-  const { org } = context;
-
-  if (!context.permissions.canCreateSDKWebhook()) {
-    context.permissions.throwPermissionError();
-  }
-  const { name, endpoint, sdkid, sendPayload, headers, httpMethod } = req.body;
-  const webhookcount = await countSdkWebhooksByOrg(org.id);
-  const canAddMultipleSdkWebhooks = orgHasPremiumFeature(
-    org,
-    "multiple-sdk-webhooks"
-  );
-  if (!canAddMultipleSdkWebhooks && webhookcount > 0) {
-    throw new Error("your webhook limit has been reached");
-  }
-
-  const webhook = await createSdkWebhook(context, sdkid, {
-    name,
-    endpoint,
-    sendPayload,
-    headers: headers || "",
-    httpMethod,
-  });
-  return res.status(200).json({
-    status: 200,
-    webhook,
   });
 }
 
