@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { isRoleValid } from "shared/permissions";
 import { createTeam } from "../../models/TeamModel";
 import {
   ScimError,
@@ -7,7 +8,6 @@ import {
 } from "../../../types/scim";
 import { addMembersToTeam } from "../../services/organizations";
 import { MemberRole } from "../../../types/organization";
-import { isRoleValid } from "../users/createUser";
 
 export async function createGroup(
   req: ScimGroupPostRequest,

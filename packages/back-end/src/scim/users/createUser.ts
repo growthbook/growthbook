@@ -1,37 +1,17 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
-import { getRoleById } from "shared/permissions";
+import { isRoleValid } from "shared/permissions";
 import {
   addMemberToOrg,
   convertMemberToManagedByIdp,
   expandOrgMembers,
 } from "../../services/organizations";
-import {
-  OrganizationInterface,
-  MemberRole,
-  ProjectMemberRole,
-} from "../../../types/organization";
+import { OrganizationInterface, MemberRole } from "../../../types/organization";
 import { ScimError, ScimUser, ScimUserPostRequest } from "../../../types/scim";
 import {
   createUser as createNewUser,
   getUserByEmail,
 } from "../../services/users";
-
-export function isRoleValid(role: MemberRole, org: OrganizationInterface) {
-  return !!getRoleById(role, org);
-}
-
-export function areProjectRolesValid(
-  projectRoles: ProjectMemberRole[] | undefined,
-  org: OrganizationInterface
-) {
-  if (!projectRoles) {
-    return true;
-  }
-  return projectRoles.every(
-    (projectRole) => !!getRoleById(projectRole.role, org)
-  );
-}
 
 export async function createUser(
   req: ScimUserPostRequest,

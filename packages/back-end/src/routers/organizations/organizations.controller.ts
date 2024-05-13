@@ -9,8 +9,11 @@ import {
   getLicenseError,
 } from "enterprise";
 import { experimentHasLinkedChanges } from "shared/util";
-import { getRoles } from "shared/permissions";
-import { areProjectRolesValid, isRoleValid } from "../../scim/users/createUser";
+import {
+  getRoles,
+  areProjectRolesValid,
+  isRoleValid,
+} from "shared/permissions";
 import {
   UpdateSdkWebhookProps,
   deleteLegacySdkWebhookById,

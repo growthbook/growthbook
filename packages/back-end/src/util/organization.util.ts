@@ -5,6 +5,7 @@ import {
   getPermissionsObjectByPolicies,
   getRoleById,
   roleSupportsEnvLimit,
+  isRoleValid,
 } from "shared/permissions";
 import {
   MemberRole,
@@ -17,7 +18,6 @@ import {
   UserPermissions,
 } from "../../types/organization";
 import { TeamInterface } from "../../types/team";
-import { isRoleValid } from "../scim/users/createUser";
 
 function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
   const envLimitedPermissions: Permission[] = ENV_SCOPED_PERMISSIONS.map(

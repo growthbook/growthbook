@@ -6,6 +6,7 @@ import {
   OrganizationInterface,
   DefaultMemberRole,
   Role,
+  ProjectMemberRole,
 } from "back-end/types/organization";
 
 export const POLICIES = [
@@ -418,6 +419,22 @@ export function getRoles(org: OrganizationInterface) {
   roles.push(DEFAULT_ROLES.admin);
 
   return roles;
+}
+
+export function isRoleValid(role: MemberRole, org: OrganizationInterface) {
+  return !!getRoleById(role, org);
+}
+
+export function areProjectRolesValid(
+  projectRoles: ProjectMemberRole[] | undefined,
+  org: OrganizationInterface
+) {
+  if (!projectRoles) {
+    return true;
+  }
+  return projectRoles.every(
+    (projectRole) => !!getRoleById(projectRole.role, org)
+  );
 }
 
 export const ENV_SCOPED_PERMISSIONS = [

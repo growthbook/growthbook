@@ -1,10 +1,10 @@
 import { cloneDeep } from "lodash";
 import { Response } from "express";
+import { isRoleValid } from "shared/permissions";
 import { ScimError, ScimUser, ScimUserPutRequest } from "../../../types/scim";
 import { expandOrgMembers } from "../../services/organizations";
 import { updateOrganization } from "../../models/OrganizationModel";
 import { MemberRole, OrganizationInterface } from "../../../types/organization";
-import { isRoleValid } from "./createUser";
 
 async function updateUserRole(
   org: OrganizationInterface,

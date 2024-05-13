@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { areProjectRolesValid, isRoleValid } from "../../scim/users/createUser";
+import { areProjectRolesValid, isRoleValid } from "shared/permissions";
 import { TeamInterface } from "../../../types/team";
 import {
   createTeam,

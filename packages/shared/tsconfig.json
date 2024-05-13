@@ -8,7 +8,7 @@
     "moduleResolution": "node",
     "sourceMap": true,
     "outDir": "dist",
-    "typeRoots": ["node_modules/@types", "../back-end/typings"],
+    "typeRoots": ["node_modules/@types"],
     "strictNullChecks": true,
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,

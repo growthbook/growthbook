@@ -8,6 +8,7 @@ import {
   isAirGappedLicenseKey,
   postSubscriptionUpdateToLicenseServer,
 } from "enterprise";
+import { areProjectRolesValid, isRoleValid } from "shared/permissions";
 import {
   createOrganization,
   findAllOrganizations,
@@ -63,7 +64,6 @@ import {
 import { getAllExperiments } from "../models/ExperimentModel";
 import { LegacyExperimentPhase } from "../../types/experiment";
 import { addTags } from "../models/TagModel";
-import { areProjectRolesValid, isRoleValid } from "../scim/users/createUser";
 import { markInstalled } from "./auth";
 import {
   encryptParams,
