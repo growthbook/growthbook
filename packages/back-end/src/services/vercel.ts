@@ -65,6 +65,7 @@ export async function createOrgGbKeys(
 ) {
   const orgGbKeys = [];
   for (const envMapEntry of gbVercelEnvMap) {
+    // TODO update to use latest sdk connection model
     const createdKeyVal = await createLegacySdkKey({
       organizationId: orgId,
       description:
@@ -73,6 +74,11 @@ export async function createOrgGbKeys(
       encryptSDK: false,
       environment: envMapEntry.gb,
     });
+
+    // TODO use following keys to match examples repo
+    //
+    // NEXT_PUBLIC_GROWTHBOOK_API_HOST
+    // NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY
 
     orgGbKeys.push({
       key: "GROWTHBOOK_KEY",
@@ -91,6 +97,7 @@ export async function getGbRelatedVercelProjects(
   const json = await vercelApiCall<{ projects: VercelProject[] }>({
     token,
     teamId,
+    // TODO double check if this endpoint is up-to-date
     endpoint: `/v9/projects`,
     method: "GET",
   });
@@ -109,6 +116,7 @@ export async function postEnvVar({
   await vercelApiCall({
     token,
     teamId,
+    // TODO same re: double ceck
     endpoint: `/v9/projects/${projectId}/env`,
     method: "POST",
     body: JSON.stringify({

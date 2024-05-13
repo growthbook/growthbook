@@ -101,6 +101,8 @@ export async function postEnvVars(
   const newEnvMap = reduceGbVercelEnvMap(gbVercelEnvMap);
   const orgGbKeys = await createOrgGbKeys(org.id, newEnvMap);
 
+  // TODO add API host env var
+
   //Create keys in Vercel for all GB related projects
   for (const project of projects) {
     for (const orgGbKey of orgGbKeys) {
