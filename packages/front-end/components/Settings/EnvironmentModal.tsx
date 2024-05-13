@@ -112,14 +112,6 @@ export default function EnvironmentModal({
         // Update environments list in UI
         await refreshOrganization();
 
-        // Create API key for environment if it doesn't exist yet
-        await apiCall(`/keys?preferExisting=true`, {
-          method: "POST",
-          body: JSON.stringify({
-            description: `${value.id} SDK Key`,
-            environment: value.id,
-          }),
-        });
         onSuccess();
       })}
     >

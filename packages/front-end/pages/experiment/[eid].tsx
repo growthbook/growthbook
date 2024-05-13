@@ -16,7 +16,6 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
 import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
-import usePermissions from "@/hooks/usePermissions";
 import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
@@ -32,7 +31,6 @@ import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const ExperimentPage = (): ReactElement => {
-  const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
   const { eid } = router.query;
@@ -84,7 +82,7 @@ const ExperimentPage = (): ReactElement => {
   let canRunExperiment = !experiment.archived;
   const envs = getAffectedEnvsForExperiment({ experiment });
   if (envs.length > 0) {
-    if (!permissions.check("runExperiments", experiment.project, envs)) {
+    if (!permissionsUtil.canRunExperiment(experiment, envs)) {
       canRunExperiment = false;
     }
   }

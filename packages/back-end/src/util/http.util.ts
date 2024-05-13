@@ -1,7 +1,8 @@
-import fetch, { RequestInfo, RequestInit, Response } from "node-fetch";
+import fetch, { RequestInit, Response } from "node-fetch";
 import { ProxyAgent } from "proxy-agent";
+import ssrfReqFilter from "ssrf-req-filter";
 import { logger } from "./logger";
-import { USE_PROXY } from "./secrets";
+import { IS_CLOUD, USE_PROXY } from "./secrets";
 
 export type CancellableFetchCriteria = {
   maxContentSize: number;
@@ -14,22 +15,18 @@ export type CancellableFetchReturn = {
   stringBody: string;
 };
 
-export function getHttpOptions() {
+export function getHttpOptions(url?: string) {
   if (USE_PROXY) {
     return { agent: new ProxyAgent() };
+  }
+  if (url && IS_CLOUD) {
+    return { agent: ssrfReqFilter(url) };
   }
   return {};
 }
 
-/**
- * Performs a request with the optionally provided {@link AbortController}.
- * Aborts the request if any of the limits in the abortOptions are exceeded.
- * @param url
- * @param fetchOptions
- * @param abortOptions
- */
 export const cancellableFetch = async (
-  url: RequestInfo,
+  url: string,
   fetchOptions: RequestInit,
   abortOptions: CancellableFetchCriteria
 ): Promise<CancellableFetchReturn> => {
@@ -63,7 +60,7 @@ export const cancellableFetch = async (
   try {
     response = await fetch(url, {
       signal: abortController.signal,
-      ...getHttpOptions(),
+      ...getHttpOptions(url),
       ...fetchOptions,
     });
 

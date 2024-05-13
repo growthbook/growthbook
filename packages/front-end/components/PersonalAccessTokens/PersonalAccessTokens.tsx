@@ -30,7 +30,6 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
           close={() => setOpen(false)}
           onCreate={onCreate}
           type="user"
-          secret={true}
         />
       )}
 

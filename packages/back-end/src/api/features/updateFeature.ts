@@ -39,16 +39,18 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     if (project != null) {
-      req.checkPermissions(
-        "publishFeatures",
-        feature.project,
-        getEnabledEnvironments(feature, orgEnvs)
-      );
-      req.checkPermissions(
-        "publishFeatures",
-        project,
-        getEnabledEnvironments(feature, orgEnvs)
-      );
+      if (
+        !req.context.permissions.canPublishFeature(
+          feature,
+          Array.from(getEnabledEnvironments(feature, orgEnvs))
+        ) ||
+        !req.context.permissions.canPublishFeature(
+          { project },
+          Array.from(getEnabledEnvironments(feature, orgEnvs))
+        )
+      ) {
+        req.context.permissions.throwPermissionError();
+      }
     }
 
     // ensure environment keys are valid
@@ -92,17 +94,22 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       updates.project != null ||
       updates.archived != null
     ) {
-      req.checkPermissions(
-        "publishFeatures",
-        updates.project,
-        getEnabledEnvironments(
-          {
-            ...feature,
-            ...updates,
-          },
-          orgEnvs
+      if (
+        !req.context.permissions.canPublishFeature(
+          updates,
+          Array.from(
+            getEnabledEnvironments(
+              {
+                ...feature,
+                ...updates,
+              },
+              orgEnvs
+            )
+          )
         )
-      );
+      ) {
+        req.context.permissions.throwPermissionError();
+      }
       addIdsToRules(updates.environmentSettings, feature.id);
     }
 

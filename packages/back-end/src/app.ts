@@ -683,6 +683,7 @@ app.use("/teams", teamRouter);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
+app.put("/admin/organization", adminController.putOrganization);
 
 // License
 app.get("/license", licenseController.getLicenseData);
