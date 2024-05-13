@@ -686,6 +686,7 @@ app.get("/admin/organizations", adminController.getOrganizations);
 app.get("/admin/organization/:orgId/users", adminController.getUsersForOrg);
 app.post("/admin/user/:userId", adminController.updateUser);
 app.delete("/admin/organization/:orgId", adminController.deleteOrganization);
+app.put("/admin/organization", adminController.putOrganization);
 
 // License
 app.get("/license", licenseController.getLicenseData);

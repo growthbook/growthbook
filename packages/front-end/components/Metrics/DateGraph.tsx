@@ -235,6 +235,11 @@ const DateGraph: FC<DateGraphProps> = ({
   const experimentDates: ExperimentDisplayData[] = [];
   const bands = new Map();
 
+  const [
+    highlightExp,
+    setHighlightExp,
+  ] = useState<null | ExperimentDisplayData>(null);
+
   if (experiments && experiments.length > 0) {
     experiments.forEach((e) => {
       if (e.status !== "draft") {
@@ -379,11 +384,6 @@ const DateGraph: FC<DateGraphProps> = ({
   const [toolTipTimer, setToolTipTimer] = useState<
     undefined | ReturnType<typeof setTimeout>
   >();
-
-  const [
-    highlightExp,
-    setHighlightExp,
-  ] = useState<null | ExperimentDisplayData>(null);
 
   useEffect(() => {
     if (!hoverDate) {
