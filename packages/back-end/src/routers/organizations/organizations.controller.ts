@@ -97,7 +97,6 @@ import {
   deleteApiKeyByKey,
   getAllApiKeysByOrganization,
   getApiKeyByIdOrKey,
-  getFirstPublishableApiKey,
   getUnredactedSecretKey,
 } from "../../models/ApiKeyModel";
 import {
@@ -1479,56 +1478,13 @@ export async function getApiKeys(req: AuthRequest, res: Response) {
 export async function postApiKey(
   req: AuthRequest<{
     description?: string;
-    environment: string;
-    project: string;
     type: string;
-    secret: boolean;
-    encryptSDK: boolean;
   }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
-  const {
-    description = "",
-    environment = "",
-    project = "",
-    secret = false,
-    type,
-  } = req.body;
-
-  const { preferExisting } = req.query as { preferExisting?: string };
-  if (preferExisting) {
-    if (secret) {
-      throw new Error("Cannot use 'preferExisting' for secret API keys");
-    }
-    const existing = await getFirstPublishableApiKey(org.id, environment);
-    if (existing) {
-      return res.status(200).json({
-        status: 200,
-        key: existing,
-      });
-    }
-  }
-
-  // Only require permissions if we are creating a new API key
-  if (secret) {
-    if (type !== "user") {
-      // All access token types except `user` require the permission
-      if (!context.permissions.canCreateApiKey()) {
-        context.permissions.throwPermissionError();
-      }
-    }
-  } else {
-    if (
-      !context.permissions.canCreateSDKConnection({
-        projects: [project],
-        environment,
-      })
-    ) {
-      context.permissions.throwPermissionError();
-    }
-  }
+  const { description = "", type } = req.body;
 
   // Handle user personal access tokens
   if (type === "user") {
@@ -1548,9 +1504,12 @@ export async function postApiKey(
       key,
     });
   }
-
   // Handle organization secret tokens
-  if (secret) {
+  else {
+    if (!context.permissions.canCreateApiKey()) {
+      context.permissions.throwPermissionError();
+    }
+
     if (type && !["readonly", "admin"].includes(type)) {
       throw new Error("can only assign readonly or admin roles");
     }
@@ -1566,8 +1525,6 @@ export async function postApiKey(
       key,
     });
   }
-
-  throw new Error("Invalid API key type");
 }
 
 export async function deleteApiKey(
