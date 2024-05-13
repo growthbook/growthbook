@@ -51,6 +51,7 @@ export type CommercialFeature =
   | "multi-metric-queries"
   | "no-access-role"
   | "teams"
+  | "custom-roles"
   | "sticky-bucketing"
   | "require-approvals"
   | "code-references"
@@ -203,6 +204,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "remote-evaluation",
     "multi-org",
     "teams",
+    "custom-roles",
     "custom-launch-checklist",
     "no-access-role",
     "sticky-bucketing",

@@ -1,5 +1,6 @@
 import { FC, useState } from "react";
 import { FaUsers } from "react-icons/fa";
+import Link from "next/link";
 import usePermissions from "@/hooks/usePermissions";
 import TeamsList from "@/components/Settings/Teams/TeamsList";
 import TeamModal from "@/components/Teams/TeamModal";
@@ -14,6 +15,7 @@ const TeamPage: FC = () => {
   const permissions = usePermissions();
   const [modalOpen, setModalOpen] = useState<Partial<Team> | null>(null);
   const hasTeamsFeature = hasCommercialFeature("teams");
+  const hasCustomRolesFeature = hasCommercialFeature("custom-roles");
 
   if (!permissions.manageTeam) {
     return (
@@ -72,6 +74,41 @@ const TeamPage: FC = () => {
           ) : (
             <div className="alert alert-warning">
               Teams are only available on the Enterprise plan. Email
+              sales@growthbook.io for more information and to set up a call.
+            </div>
+          )}
+        </Tab>
+        <Tab anchor="roles" id="roles" display="Roles" padding={false} lazy>
+          <div className="filters md-form row mb-1 align-items-center">
+            <div className="col-auto d-flex align-items-end">
+              <div>
+                <h1>
+                  <PremiumTooltip commercialFeature="custom-roles">
+                    Roles
+                  </PremiumTooltip>
+                </h1>
+                <div className="text-muted mb-2">
+                  Create and update roles to customize permissions.
+                </div>
+              </div>
+            </div>
+            <div style={{ flex: 1 }} />
+            <div className="col-auto">
+              <button
+                className="btn btn-primary"
+                disabled={!hasCustomRolesFeature}
+              >
+                <Link href="/settings/role/new">
+                  <FaUsers /> <span> </span>Create Custom Role
+                </Link>
+              </button>
+            </div>
+          </div>
+          {hasCustomRolesFeature ? (
+            <h1>Hi from Roles</h1>
+          ) : (
+            <div className="alert alert-warning">
+              Custom Roles are only available on the Enterprise plan. Email
               sales@growthbook.io for more information and to set up a call.
             </div>
           )}
