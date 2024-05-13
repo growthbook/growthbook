@@ -792,7 +792,6 @@ function init(event) {
     return (
       <>
         <p>See our Edge (other) documentation for detailed setup.</p>
-
         <p>
           Our <strong>Edge app</strong> provides turnkey visual editor and URL
           redirect experimentation on edge without any of the flicker often
@@ -801,7 +800,9 @@ function init(event) {
           such, it also can inject a fully-hydrated front-end SDK onto the
           rendered page, meaning no extra network requests needed.
         </p>
-
+        <div className="h4 mt-4 mb-3">
+          Step 1: Implement our Edge App request handler
+        </div>
         <p>
           To run the edge app, add our base app to request handler to your
           project. You will need to manually build app context and helper
@@ -826,6 +827,50 @@ function init(env) {
 }
           `.trim()}
         />
+        <div className="h4 mt-4 mb-3">Set up environment variables</div>
+        <p>
+          Add these required fields, at minimum, to your environment variables:
+        </p>
+        <Code
+          language="bash"
+          code={`
+[vars]
+PROXY_TARGET="https://www.mysite.io"  # The non-edge URL to your website
+GROWTHBOOK_API_HOST=${JSON.stringify(apiHost)}
+GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
+            encryptionKey
+              ? `\nGROWTHBOOK_DECRYPTION_KEY=${JSON.stringify(encryptionKey)}`
+              : ""
+          }
+          `.trim()}
+        />
+        <div className="h4 mt-4 mb-3">Further customization</div>
+        <ul>
+          <li>
+            Set up an edge key-val store and use a GrowthBook{" "}
+            <strong>SDK Webhook</strong> to keep feature and experiment values
+            synced between GrowthBook and your edge worker. This eliminates
+            network requests from your edge to GrowthBook.
+          </li>
+          <li>
+            Enable URL Redirect experiments on edge (off by default) by setting{" "}
+            <code>{`RUN_URL_REDIRECT_EXPERIMENTS="everywhere"`}</code>
+          </li>
+          <li>
+            Enable cookie-based sticky bucketing on edge and browser by setting{" "}
+            <code>{`ENABLE_STICKY_BUCKETING="true"`}</code>
+          </li>
+          <li>
+            Enable streaming in the browser by setting{" "}
+            <code>{`ENABLE_STREAMING="true"`}</code>
+          </li>
+          <li>
+            Add a custom tracking callback for your browser SDK and/or edge
+            worker
+          </li>
+        </ul>
+        See the <DocLink docSection="edge">Other Edge docs</DocLink> further
+        instructions.
       </>
     );
   }
