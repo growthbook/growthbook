@@ -12,9 +12,9 @@ import {
   powerMetricWeeks,
   calculatePriorMean,
   calculatePriorVariance,
-  powerEstBayesian, 
+  powerEstBayesian,
   findMdeBayesian,
-  powerMetricWeeksBayesian
+  powerMetricWeeksBayesian, 
 } from "@/components/PowerCalculation/stats";
 
 describe("backend", () => {
@@ -94,8 +94,8 @@ describe("backend", () => {
       name: "click_through_rate",
       conversionRate: 0.1,
       type: "binomial",
-      priorMean: 0.2, 
-      priorStandardDeviation: Math.sqrt(0.3), 
+      priorMean: 0.2,
+      priorStandardDeviation: Math.sqrt(0.3),
       proper: true
     },
     revenue: {
@@ -220,7 +220,6 @@ describe("backend", () => {
     const sampleSizeAndRuntime = [2, undefined];
     const sampleSizeAndRuntimeBayesian = [2, undefined];
     const resultsTS = powerMetricWeeks(powerSettings);
-    const resultsTSBayesian = powerMetricWeeksBayesian(powerSettingsBayesian);
     let powerMultiple = [0.0, 0.0];
     let mdeMultiple = [1e5, 1e5];
     let powerMultipleBayesian = [0.0, 0.0];

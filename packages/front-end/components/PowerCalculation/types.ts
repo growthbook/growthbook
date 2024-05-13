@@ -134,14 +134,12 @@ export const isValidPowerCalculationParams = (
   Object.keys(v.metrics).every((key) => {
     const params = v.metrics[key];
     if (!params) return false;
-    return (
-      [
-        "effectSize",
-        ...(params.type === "binomial"
-          ? (["conversionRate"] as const)
-          : (["mean", "standardDeviation"] as const)),
-      ] as const
-    ).every((k) => validEntry(k, params[k]));
+    return ([
+      "effectSize",
+      ...(params.type === "binomial"
+        ? (["conversionRate"] as const)
+        : (["mean", "standardDeviation"] as const)),
+    ] as const).every((k) => validEntry(k, params[k]));
   });
 
 export const ensureAndReturnPowerCalculationParams = (
