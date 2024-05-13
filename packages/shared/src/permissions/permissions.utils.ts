@@ -47,58 +47,216 @@ export const POLICIES = [
 
 export type Policy = typeof POLICIES[number];
 
-export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
-  ReadData: ["readData"],
-  Comments: ["readData", "addComments"],
-  FeaturesFullAccess: [
-    "readData",
-    "manageFeatureDrafts",
-    "manageFeatures",
-    "canReview",
-  ],
-  ArchetypesFullAccess: ["readData", "manageArchetype"],
-  FeaturesBypassApprovals: [
-    "readData",
-    "manageFeatureDrafts",
-    "manageFeatures",
-    "canReview",
-    "bypassApprovalChecks",
-  ],
-  ExperimentsFullAccess: ["readData", "createAnalyses"],
-  VisualEditorFullAccess: ["readData", "manageVisualChanges"],
-  SuperDeleteReports: ["readData", "superDeleteReport"],
-  DataSourcesFullAccess: [
-    "readData",
-    "createDatasources",
-    "editDatasourceSettings",
-  ],
-  DataSourceConfiguration: ["readData", "editDatasourceSettings"],
-  RunQueries: ["readData", "runQueries"],
-  MetricsFullAccess: ["readData", "createMetrics"],
-  // TODO: Fix fact permissions
-  FactTablesFullAccess: ["readData", "manageFactTables", "createMetrics"],
-  FactMetricsFiltersFullAccess: ["readData", "createMetrics"],
-  DimensionsFullAccess: ["readData", "createDimensions"],
-  SegmentsFullAccess: ["readData", "createSegments"],
-  IdeasFullAccess: ["readData", "createIdeas"],
-  PresentationsFullAccess: ["readData", "createPresentations"],
-  SDKPayloadPublish: ["readData", "publishFeatures", "runExperiments"],
-  // TODO: add permissions
-  SDKConnectionsFullAccess: ["readData"],
-  AttributesFullAccess: ["readData", "manageTargetingAttributes"],
-  EnvironmentsFullAccess: ["readData", "manageEnvironments"],
-  NamespacesFullAccess: ["readData", "manageNamespaces"],
-  SavedGroupsFullAccess: ["readData", "manageSavedGroups"],
-  GeneralSettingsFullAccess: ["readData", "organizationSettings"],
-  NorthStarMetricFullAccess: ["readData", "manageNorthStarMetric"],
-  TeamManagementFullAccess: ["readData", "manageTeam"],
-  ProjectsFullAccess: ["readData", "manageProjects"],
-  TagsFullAccess: ["readData", "manageTags"],
-  APIKeysFullAccess: ["readData", "manageApiKeys"],
-  IntegrationsFullAccess: ["readData", "manageIntegrations"],
-  EventWebhooksFullAccess: ["readData", "manageWebhooks"],
-  BillingFullAccess: ["readData", "manageBilling"],
-  AuditLogsFullAccess: ["readData", "viewEvents"],
+export const POLICY_PERMISSION_MAP: Record<
+  Policy,
+  {
+    description: string;
+    group: string;
+    warning?: string;
+    permissions: Permission[];
+  }
+> = {
+  ReadData: {
+    group: "Global",
+    description:
+      "View all resources - features, metrics, experiments, data sources, etc.",
+    permissions: ["readData"],
+  },
+  Comments: {
+    group: "Global",
+    description: "Add comments to any resource",
+    permissions: ["readData", "addComments"],
+  },
+  FeaturesFullAccess: {
+    group: "Features",
+    description: "Create, edit, and delete feature flags",
+    permissions: [
+      "readData",
+      "manageFeatureDrafts",
+      "manageFeatures",
+      "manageArchetype",
+      "canReview",
+    ],
+  },
+  ArchetypesFullAccess: {
+    group: "Features",
+    description:
+      "Create, edit, and delete saved User Archetypes for feature flag debugging",
+    permissions: ["readData", "manageArchetype"],
+  },
+  FeaturesBypassApprovals: {
+    group: "Features",
+    description: "Bypass required approval checks for feature flag changes",
+    permissions: [
+      "readData",
+      "manageFeatureDrafts",
+      "manageFeatures",
+      "canReview",
+      "bypassApprovalChecks",
+    ],
+  },
+  ExperimentsFullAccess: {
+    group: "Experiments",
+    description:
+      "Create, edit, and delete experiments. Does not include Visual Editor access.",
+    permissions: ["readData", "createAnalyses"],
+  },
+  VisualEditorFullAccess: {
+    group: "Experiments",
+    description: "Use the Visual Editor to implement experiment changes.",
+    permissions: ["readData", "manageVisualChanges"],
+  },
+  SuperDeleteReports: {
+    group: "Experiments",
+    description:
+      "Delete ad-hoc reports made by other users. Typically assigned to admins only.",
+    permissions: ["readData", "superDeleteReport"],
+  },
+  DataSourcesFullAccess: {
+    group: "Metrics and Data",
+    description: "Create, edit, and delete data sources",
+    permissions: ["readData", "createDatasources", "editDatasourceSettings"],
+  },
+  DataSourceConfiguration: {
+    group: "Metrics and Data",
+    description:
+      "Edit existing data source configuration settings (identifier types, experiment assignment queries)",
+    permissions: ["readData", "editDatasourceSettings"],
+  },
+  RunQueries: {
+    group: "Metrics and Data",
+    description:
+      "Execute queries against data sources. Required to refresh experiment results.",
+    permissions: ["readData", "runQueries"],
+  },
+  MetricsFullAccess: {
+    group: "Metrics and Data",
+    description:
+      "Create, edit, and delete regular metrics (does not include Fact Metrics)",
+    permissions: ["readData", "createMetrics"],
+  },
+  // TODO: add new permissions for fact metrics and filters
+  FactTablesFullAccess: {
+    group: "Metrics and Data",
+    description: "Create, edit, and delete fact tables, metrics, and filters.",
+    permissions: ["readData", "manageFactTables", "createMetrics"],
+  },
+  // TODO: add new permissions for fact metrics and filters
+  FactMetricsFiltersFullAccess: {
+    group: "Metrics and Data",
+    description:
+      "Create, edit, and delete fact metrics and filters only (cannot edit the fact table itself)",
+    permissions: ["readData", "createMetrics"],
+  },
+  DimensionsFullAccess: {
+    group: "Metrics and Data",
+    description: "Create, edit, and delete dimensions",
+    permissions: ["readData", "createDimensions"],
+  },
+  SegmentsFullAccess: {
+    group: "Metrics and Data",
+    description: "Create, edit, and delete segments",
+    permissions: ["readData", "createSegments"],
+  },
+  IdeasFullAccess: {
+    group: "Management",
+    description: "Create, edit, and delete ideas",
+    permissions: ["readData", "createIdeas"],
+  },
+  PresentationsFullAccess: {
+    group: "Management",
+    description: "Create, edit, and delete presentations",
+    permissions: ["readData", "createPresentations"],
+  },
+  SDKPayloadPublish: {
+    group: "SDK Configuration",
+    description:
+      "Make changes that affect data sent to SDKs. For example: edit a saved group, toggle a feature flag, stop an experiment, etc.",
+    permissions: ["readData", "publishFeatures", "runExperiments"],
+  },
+  // TODO: add permissions for SDK connections and webhooks
+  SDKConnectionsFullAccess: {
+    group: "SDK Configuration",
+    description: "Create, edit, and delete SDK Connections",
+    permissions: ["readData"],
+  },
+  AttributesFullAccess: {
+    group: "SDK Configuration",
+    description: "Create, edit, and delete targeting attributes",
+    permissions: ["readData", "manageTargetingAttributes"],
+  },
+  EnvironmentsFullAccess: {
+    group: "SDK Configuration",
+    description: "Create, edit, and delete environments",
+    permissions: ["readData", "manageEnvironments"],
+  },
+  NamespacesFullAccess: {
+    group: "SDK Configuration",
+    description: "Create, edit, and delete namespaces",
+    permissions: ["readData", "manageNamespaces"],
+  },
+  SavedGroupsFullAccess: {
+    group: "SDK Configuration",
+    description: "Create, edit, and delete saved groups",
+    permissions: ["readData", "manageSavedGroups"],
+  },
+  GeneralSettingsFullAccess: {
+    group: "Settings",
+    description: "Edit organization general settings",
+    permissions: ["readData", "organizationSettings"],
+  },
+  NorthStarMetricFullAccess: {
+    group: "Settings",
+    description: "Configure North Star metrics",
+    permissions: ["readData", "manageNorthStarMetric"],
+  },
+  TeamManagementFullAccess: {
+    group: "Settings",
+    description:
+      "Invite users, delete users, change user roles, add/remove users from teams.",
+    warning: "Can be used to create new admin users",
+    permissions: ["readData", "manageTeam"],
+  },
+  ProjectsFullAccess: {
+    group: "Settings",
+    description: "Create, edit, and delete projects",
+    permissions: ["readData", "manageProjects"],
+  },
+  TagsFullAccess: {
+    group: "Settings",
+    description: "Create, edit, and delete tags",
+    permissions: ["readData", "manageTags"],
+  },
+  APIKeysFullAccess: {
+    group: "Settings",
+    description:
+      "Create, edit, and delete API secret keys. Not required to create Personal Access Tokens.",
+    warning: "Can be used to create an API Key with full admin permissions.",
+    permissions: ["readData", "manageApiKeys"],
+  },
+  IntegrationsFullAccess: {
+    group: "Settings",
+    description: "Set up and configure integrations - GitHub, Vercel, etc.",
+    permissions: ["readData", "manageIntegrations"],
+  },
+  // TODO: use new permission name for event webhooks
+  EventWebhooksFullAccess: {
+    group: "Settings",
+    description:
+      "Create, edit, and delete event-based webhooks. Used for Slack/Discord notifications.",
+    permissions: ["readData", "manageWebhooks"],
+  },
+  BillingFullAccess: {
+    group: "Settings",
+    description:
+      "View and edit license key. View invoices and update billing info.",
+    permissions: ["readData", "manageBilling"],
+  },
+  AuditLogsFullAccess: {
+    group: "Settings",
+    description: "View and export audit logs",
+    permissions: ["readData", "viewEvents"],
+  },
 };
 
 export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
@@ -207,7 +365,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
 export function policiesSupportEnvLimit(policies: Policy[]): boolean {
   // If any policies have a permission that is env scoped, return true
   return policies.some((policy) =>
-    POLICY_PERMISSION_MAP[policy]?.some((permission) =>
+    POLICY_PERMISSION_MAP[policy]?.permissions?.some((permission) =>
       ENV_SCOPED_PERMISSIONS.includes(
         permission as typeof ENV_SCOPED_PERMISSIONS[number]
       )
@@ -221,7 +379,7 @@ export function getPermissionsObjectByPolicies(
   const permissions: PermissionsObject = {};
 
   policies.forEach((policy) => {
-    POLICY_PERMISSION_MAP[policy]?.forEach((permission) => {
+    POLICY_PERMISSION_MAP[policy]?.permissions?.forEach((permission) => {
       permissions[permission] = true;
     });
   });

@@ -3,7 +3,7 @@ import { omit } from "lodash";
 import uniqid from "uniqid";
 import md5 from "md5";
 import { z } from "zod";
-import { ReqContext } from "@back-end/types/organization";
+import { ReqContext } from "../../types/organization";
 import { WebhookInterface } from "../../types/webhook";
 
 const webhookSchema = new mongoose.Schema({
