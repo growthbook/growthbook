@@ -17,7 +17,8 @@ export function evalCondition(
   obj: TestedObj,
   condition: ConditionInterface
 ): boolean {
-  // Condition is an object, keys are object paths, values are the condition for that path
+  // Condition is an object, keys are either specific operators or object paths
+  // values are either arguments for operators or conditions for paths
   for (const [k, v] of Object.entries(condition)) {
     switch (k) {
       case "$or":
