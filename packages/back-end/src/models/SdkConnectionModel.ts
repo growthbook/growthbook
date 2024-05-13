@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
-import { omit } from "lodash";
+import { isEqual, omit } from "lodash";
 import { ApiSdkConnection } from "../../types/openapi";
 import {
   CreateSDKConnectionParams,
@@ -282,7 +282,7 @@ export async function editSDKConnection(
     "remoteEvalEnabled",
   ] as const;
   keysRequiringProxyUpdate.forEach((key) => {
-    if (key in otherChanges && otherChanges[key] !== connection[key]) {
+    if (key in otherChanges && !isEqual(otherChanges[key], connection[key])) {
       needsProxyUpdate = true;
     }
   });
@@ -306,7 +306,7 @@ export async function editSDKConnection(
     // Purge CDN if used
     const isUsingProxy = !!(newProxy.enabled && newProxy.host);
     await triggerSingleSDKWebhookJobs(
-      context.org.id,
+      context,
       connection,
       otherChanges as Partial<SDKConnectionInterface>,
       newProxy,

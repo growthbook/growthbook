@@ -247,7 +247,7 @@ const breadcumbLinks = [
   {
     name: "Power Calculator",
     path: /^power-calculator/,
-    subLinks: [],
+    subLinks: [] as SidebarLinkProps[],
   },
 ];
 

@@ -1,24 +1,31 @@
-import { FC, useState } from "react";
+import { FC } from "react";
 import { ApiKeyInterface } from "back-end/types/apikey";
-import { FaExclamationTriangle, FaKey } from "react-icons/fa";
+import { FaExclamationTriangle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import ApiKeysModal from "@/components/Settings/ApiKeysModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
 import { getApiBaseUrl } from "./CodeSnippetModal";
 
+export function getPublishableKeys(
+  keys: ApiKeyInterface[],
+  project?: string
+): ApiKeyInterface[] {
+  return keys
+    .filter((k) => !k.secret)
+    .filter((k) => !project || !k.project || k.project === project);
+}
+
 const SDKEndpoints: FC<{
   keys: ApiKeyInterface[];
   mutate: () => void;
 }> = ({ keys = [], mutate }) => {
   const { apiCall } = useAuth();
-  const [open, setOpen] = useState<boolean>(false);
 
   const { getProjectById, projects, project } = useDefinitions();
 
@@ -26,13 +33,7 @@ const SDKEndpoints: FC<{
 
   const permissionsUtil = usePermissionsUtil();
 
-  const publishableKeys = keys
-    .filter((k) => !k.secret)
-    .filter((k) => !project || !k.project || k.project === project);
-
-  const canCreateKeys = permissionsUtil.canViewCreateSDKConnectionModal(
-    project
-  );
+  const publishableKeys = getPublishableKeys(keys, project);
 
   const envCounts = new Map();
   publishableKeys.forEach((k) => {
@@ -46,14 +47,7 @@ const SDKEndpoints: FC<{
 
   return (
     <div>
-      {open && (
-        <ApiKeysModal
-          close={() => setOpen(false)}
-          onCreate={mutate}
-          secret={false}
-        />
-      )}
-      <h1>SDK Endpoints</h1>
+      <h1>Legacy SDK Endpoints</h1>
       <p>
         SDK Endpoints return a list of feature flags for an environment,
         formatted in a way our SDKs understand. The endpoints provide readonly
@@ -162,17 +156,6 @@ const SDKEndpoints: FC<{
             })}
           </tbody>
         </table>
-      )}
-      {canCreateKeys && (
-        <button
-          className="btn btn-primary"
-          onClick={(e) => {
-            e.preventDefault();
-            setOpen(true);
-          }}
-        >
-          <FaKey /> Create New SDK Endpoint
-        </button>
       )}
     </div>
   );
