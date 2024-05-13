@@ -1,11 +1,16 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep } from "lodash";
+import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
+import { z } from "zod";
+import { TeamInterface } from "@back-end/types/team";
 import {
   Invite,
   Member,
+  MemberRoleWithProjects,
   OrganizationInterface,
   OrganizationMessage,
+  Role,
 } from "../../types/organization";
 import { upgradeOrganizationDoc } from "../util/migrations";
 import { ApiOrganization } from "../../types/openapi";
@@ -117,7 +122,6 @@ const organizationSchema = new mongoose.Schema({
     },
   },
   settings: {},
-  useCustomRoles: Boolean,
   customRoles: {},
 });
 
@@ -435,4 +439,107 @@ export async function updateMember(
       return m;
     }),
   });
+}
+
+export const customRoleValidator = z
+  .object({
+    id: z.string().min(2).max(64),
+    description: z.string().max(100),
+    policies: z.array(z.enum(POLICIES)),
+  })
+  .strict();
+
+export async function addCustomRole(org: OrganizationInterface, role: Role) {
+  // Basic Validation
+  role = customRoleValidator.parse(role);
+
+  // Make sure role id is not reserved
+  if (RESERVED_ROLE_IDS.includes(role.id)) {
+    throw new Error("That role id is reserved and cannot be used");
+  }
+
+  // Make sure role id is not already in use
+  if (org.customRoles?.find((r) => r.id === role.id)) {
+    throw new Error("That role id already exists");
+  }
+
+  // Validate custom role id format
+  if (!/^[a-zA-Z0-9_]+$/.test(role.id)) {
+    throw new Error(
+      "Role id must only include letters, numbers, and underscores."
+    );
+  }
+
+  const customRoles = [...(org.customRoles || [])];
+  customRoles.push(role);
+
+  await updateOrganization(org.id, { customRoles });
+}
+
+export async function editCustomRole(
+  org: OrganizationInterface,
+  id: string,
+  updates: Omit<Role, "id">
+) {
+  // Validation
+  updates = customRoleValidator.omit({ id: true }).parse(updates);
+
+  let found = false;
+  const newCustomRoles = (org.customRoles || []).map((role) => {
+    if (role.id === id) {
+      found = true;
+      return {
+        ...role,
+        ...updates,
+      };
+    }
+    return role;
+  });
+
+  if (!found) {
+    throw new Error("Role not found");
+  }
+
+  await updateOrganization(org.id, { customRoles: newCustomRoles });
+}
+
+function usingRole(member: MemberRoleWithProjects, role: string): boolean {
+  return (
+    member.role === role ||
+    (member.projectRoles || []).some((pr) => pr.role === role)
+  );
+}
+
+export async function removeCustomRole(
+  org: OrganizationInterface,
+  teams: TeamInterface[],
+  id: string
+) {
+  // Make sure no members, invites, pending members, or teams are using the role
+  if (org.members.some((m) => usingRole(m, id))) {
+    throw new Error("Role is currently being used by at least one member");
+  }
+  if (org.pendingMembers?.some((m) => usingRole(m, id))) {
+    throw new Error(
+      "Role is currently being used by at least one pending member"
+    );
+  }
+  if (org.invites?.some((m) => usingRole(m, id))) {
+    throw new Error(
+      "Role is currently being used by at least one invited member"
+    );
+  }
+  if (teams.some((team) => usingRole(team, id))) {
+    throw new Error("Role is currently being used by at least one team");
+  }
+
+  const newCustomRoles = (org.customRoles || []).filter(
+    (role) => role.id !== id
+  );
+
+  if (newCustomRoles.length === (org.customRoles || []).length) {
+    throw new Error("Role not found");
+  }
+
+  await updateOrganization(org.id, { customRoles: newCustomRoles });
 }

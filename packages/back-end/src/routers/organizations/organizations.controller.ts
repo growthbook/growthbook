@@ -56,6 +56,7 @@ import {
   NamespaceUsage,
   OrganizationInterface,
   OrganizationSettings,
+  Role,
   SDKAttribute,
 } from "../../../types/organization";
 import {
@@ -89,6 +90,9 @@ import {
   findOrganizationsByMemberId,
   hasOrganization,
   updateOrganization,
+  addCustomRole,
+  editCustomRole,
+  removeCustomRole,
 } from "../../models/OrganizationModel";
 import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { ConfigFile } from "../../init/config";
@@ -2070,6 +2074,70 @@ export async function putDefaultRole(
       },
     },
   });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postCustomRole(req: AuthRequest<Role>, res: Response) {
+  const context = getContextFromReq(req);
+  const roleToAdd = req.body;
+
+  if (!context.hasPremiumFeature("custom-roles")) {
+    throw new Error("Must have an Enterprise License Key to use custom roles.");
+  }
+
+  if (!context.permissions.canManageCustomRoles()) {
+    context.permissions.throwPermissionError();
+  }
+
+  await addCustomRole(context.org, roleToAdd);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function putCustomRole(
+  req: AuthRequest<Omit<Role, "id">, { id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const roleToUpdate = req.body;
+  const { id } = req.params;
+
+  if (!context.hasPremiumFeature("custom-roles")) {
+    throw new Error("Must have an Enterprise License Key to use custom roles.");
+  }
+
+  if (!context.permissions.canManageCustomRoles()) {
+    context.permissions.throwPermissionError();
+  }
+
+  await editCustomRole(context.org, id, roleToUpdate);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function deleteCustomRole(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  if (!context.hasPremiumFeature("custom-roles")) {
+    throw new Error("Must have an Enterprise License Key to use custom roles.");
+  }
+
+  if (!context.permissions.canManageCustomRoles()) {
+    context.permissions.throwPermissionError();
+  }
+
+  await removeCustomRole(context.org, context.teams, id);
 
   res.status(200).json({
     status: 200,

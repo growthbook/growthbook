@@ -59,8 +59,8 @@ export function getRoles(org: Partial<OrganizationInterface>) {
   // Role ids must be unique, keep track of used ids
   const usedIds = new Set(RESERVED_ROLE_IDS);
 
-  // Add additional roles
-  if (org.useCustomRoles && org.customRoles) {
+  // Add additional custom roles
+  if (org.customRoles?.length) {
     org.customRoles.forEach((role) => {
       if (usedIds.has(role.id)) return;
       usedIds.add(role.id);

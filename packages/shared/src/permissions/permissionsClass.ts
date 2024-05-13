@@ -747,6 +747,10 @@ export class Permissions {
     return projects.some((p) => this.hasPermission("readData", p));
   };
 
+  public canManageCustomRoles = (): boolean => {
+    return this.checkGlobalPermission("manageCustomRoles");
+  };
+
   private checkGlobalPermission(permissionToCheck: GlobalPermission): boolean {
     if (this.superAdmin) {
       return true;

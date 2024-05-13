@@ -94,6 +94,7 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   superDeleteReport: false,
   viewEvents: false,
   readData: false,
+  manageCustomRoles: false,
 };
 
 export interface UserContextValue {

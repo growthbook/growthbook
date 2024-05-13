@@ -39,6 +39,7 @@ export const POLICIES = [
   "EventWebhooksFullAccess",
   "BillingFullAccess",
   "AuditLogsFullAccess",
+  "CustomRolesFullAccess",
 ] as const;
 
 export type Policy = typeof POLICIES[number];
@@ -94,6 +95,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   EventWebhooksFullAccess: ["readData", "manageWebhooks"],
   BillingFullAccess: ["readData", "manageBilling"],
   AuditLogsFullAccess: ["readData", "viewEvents"],
+  CustomRolesFullAccess: ["readData", "manageTeam", "manageCustomRoles"],
 };
 
 export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
@@ -151,6 +153,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "GeneralSettingsFullAccess",
       "NorthStarMetricFullAccess",
       "TeamManagementFullAccess",
+      "CustomRolesFullAccess",
       "ProjectsFullAccess",
       "TagsFullAccess",
       "APIKeysFullAccess",
@@ -321,6 +324,10 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "Audit Logs Full Access",
     description: "View and export audit logs",
   },
+  CustomRolesFullAccess: {
+    displayName: "Manage Custom Roles",
+    description: "Create, edit, and delete custom roles",
+  },
 };
 
 export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
@@ -477,6 +484,7 @@ export const GLOBAL_PERMISSIONS = [
   "manageNamespaces",
   "manageSavedGroups",
   "manageArchetype",
+  "manageCustomRoles",
   "viewEvents",
 ] as const;
 

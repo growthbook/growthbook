@@ -274,7 +274,6 @@ export interface OrganizationInterface {
   settings?: OrganizationSettings;
   messages?: OrganizationMessage[];
 
-  useCustomRoles?: boolean;
   customRoles?: Role[];
 }
 
