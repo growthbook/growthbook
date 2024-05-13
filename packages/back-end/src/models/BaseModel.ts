@@ -63,7 +63,9 @@ export interface ModelConfig<T extends BaseSchema> {
 // We only need to add indexes once at server start-up
 const indexesAdded: Set<string> = new Set();
 
-export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
+// Generic model class has everything but the actual data fetch implementation.
+// See BaseModel below for the class with explicit mongodb implementation.
+export abstract class GenericModel<T extends BaseSchema, WriteOptions = never> {
   protected context: Context;
   public constructor(context: Context) {
     this.context = context;
@@ -84,6 +86,9 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
     newDoc: z.infer<T>
   ): boolean;
   protected abstract canDelete(existing: z.infer<T>): boolean;
+
+  // This is implemented in BaseModel below.
+  protected abstract _dangerousGetCollection(): Collection;
 
   /***************
    * Optional methods that can be overridden by subclasses as needed
@@ -528,17 +533,6 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
     await this.afterDelete(doc, writeOptions);
   }
 
-  private _collection: Collection | null = null;
-  protected _dangerousGetCollection() {
-    if (!this._collection) {
-      // TODO: don't use Mongoose, use the native Mongo Driver instead
-      this._collection = mongoose.connection.db.collection(
-        this.config.collectionName
-      );
-    }
-    return this._collection;
-  }
-
   protected detectForeignKey(
     doc: z.infer<T>,
     potentialFields: string[]
@@ -675,6 +669,37 @@ export abstract class BaseModel<T extends BaseSchema, WriteOptions = never> {
     return omit(doc, ["__v", "_id"]) as unknown;
   }
 }
+
+export abstract class BaseModel<
+  T extends BaseSchema,
+  WriteOptions = never
+> extends GenericModel<T, WriteOptions> {
+  private _collection: Collection | null = null;
+  protected _dangerousGetCollection() {
+    if (!this._collection) {
+      // TODO: don't use Mongoose, use the native Mongo Driver instead
+      this._collection = mongoose.connection.db.collection(
+        this.config.collectionName
+      );
+    }
+    return this._collection;
+  }
+}
+
+export const MakeGenericClass = <T extends BaseSchema>(
+  config: ModelConfig<T>
+) => {
+  abstract class Model<WriteOptions = never> extends GenericModel<
+    T,
+    WriteOptions
+  > {
+    getConfig() {
+      return config;
+    }
+  }
+
+  return Model;
+};
 
 export const MakeModelClass = <T extends BaseSchema>(
   config: ModelConfig<T>
