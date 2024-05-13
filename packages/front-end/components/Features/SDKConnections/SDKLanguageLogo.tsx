@@ -169,6 +169,7 @@ export const languageMapping: Record<
     Icon: SiCloudflare,
     color: "#f78220",
     label: "CloudFlare",
+    docLabel: "CloudFlare Workers",
     docs: "cloudflare",
     type: "edge",
   },

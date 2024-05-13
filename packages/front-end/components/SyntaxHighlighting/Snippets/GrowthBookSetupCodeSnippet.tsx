@@ -1,6 +1,7 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
 import { useState } from "react";
 import { paddedVersionString } from "@growthbook/growthbook";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -641,20 +642,38 @@ features = GrowthBook.Config.features_from_config(features)
     return (
       <>
         <p>
-          See the{" "}
-          <DocLink docSection="cloudflare">CloudFlare Workers docs</DocLink> for
-          detailed setup.
+          Our <strong>Edge app</strong> provides turnkey Visual Editor and URL
+          Redirect experimentation on edge without any of the flicker associated
+          with front-end experiments. It runs as a smart proxy layer between
+          your application and your end users. It also can inject a
+          fully-hydrated front-end SDK onto the rendered page, meaning no extra
+          network requests needed.
         </p>
-
+        <div className="h4 mt-4 mb-3">
+          Step 1: Set up a CloudFlare Workers project
+        </div>
         <p>
-          Our <strong>Edge app</strong> provides turnkey visual editor and URL
-          redirect experimentation on edge without any of the flicker often
-          associated with front-end experiment implementations. It runs as a
-          smart proxy layer between your application and your end users. As
-          such, it also can inject a fully-hydrated front-end SDK onto the
-          rendered page, meaning no extra network requests needed.
+          See the official CloudFlare Workers{" "}
+          <a
+            href="https://developers.cloudflare.com/workers/get-started/guide/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Get started guide <FaExternalLinkAlt />
+          </a>{" "}
+          to set up your project. Or have a look at our{" "}
+          <a
+            href="https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare/example"
+            target="_blank"
+            rel="noreferrer"
+          >
+            example implementation <FaExternalLinkAlt />
+          </a>
+          .
         </p>
-
+        <div className="h4 mt-4 mb-3">
+          Step 2: Implement our Edge App request handler
+        </div>
         <p>
           To run the edge app, add our CloudFlare request handler to your
           project:
@@ -671,36 +690,63 @@ export default {
 };
           `.trim()}
         />
-
-        <p className="mt-4">
-          Or if you want to manually invoke our JavaScript SDK on your
-          proprietary edge app, use the our CloudFlare package to simplify SDK
-          payload caching.
+        <div className="h4 mt-4 mb-3">Step 3: Set up environment variables</div>
+        <p>
+          Edit your <code>wrangler.toml</code> file and, at minimum, add these
+          required fields:
         </p>
         <Code
-          language="javascript"
+          language="bash"
+          filename="wrangler.toml"
           code={`
-import { GrowthBook, setPolyfills } from "@growthbook/growthbook";
-import { getKVLocalStoragePolyfill, getPayloadFromKV } from "@growthbook/edge-cloudflare";
-
-// Choose an optional caching strategy
-
-// A. Provide a KV cache layer so that the GrowthBook SDK doesn't need to make as many requests to the GrowthBook API
-const localStoragePolyfill = getKVLocalStoragePolyfill(env);
-
-// B. Or use the KV as a managed payload store to eliminate SDK requests to the GrowthBook API entirely
-const payload = await getPayloadFromKV(env);
-const growthbook = new GrowthBook(gbContext);
-await growthbook.init({ payload: payload });
+[vars]
+PROXY_TARGET="https://www.mysite.io"  # The non-edge URL to your website
+GROWTHBOOK_API_HOST=${JSON.stringify(apiHost)}
+GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
+            encryptionKey
+              ? `\nGROWTHBOOK_DECRYPTION_KEY=${JSON.stringify(encryptionKey)}`
+              : ""
+          }
           `.trim()}
         />
+        <div className="h4 mt-4 mb-3">Further customization</div>
+        <ul>
+          <li>
+            Set up a <strong>CloudFlare KV</strong> store and use a GrowthBook{" "}
+            <strong>SDK Webhook</strong> to keep feature and experiment values
+            synced between GrowthBook and your CloudFlare Worker. This
+            eliminates network requests from your edge to GrowthBook.
+          </li>
+          <li>
+            Enable URL Redirect experiments on edge (off by default) by setting{" "}
+            <code>{`RUN_URL_REDIRECT_EXPERIMENTS="everywhere"`}</code>
+          </li>
+          <li>
+            Enable cookie-based sticky bucketing on edge and browser by setting{" "}
+            <code>{`ENABLE_STICKY_BUCKETING="true"`}</code>
+          </li>
+          <li>
+            Enable streaming in the browser by setting{" "}
+            <code>{`ENABLE_STREAMING="true"`}</code>
+          </li>
+          <li>
+            Add a custom tracking callback for your browser SDK and/or edge
+            worker
+          </li>
+        </ul>
+        See the{" "}
+        <DocLink docSection="cloudflare">CloudFlare Workers docs</DocLink>{" "}
+        further instructions.
       </>
     );
   }
   if (language === "edge-lambda") {
     return (
       <>
-        <p>See our Lambda@Edge documentation for detailed setup.</p>
+        <p>
+          See the <DocLink docSection="lambda">Lambda@Edge docs</DocLink> for
+          detailed setup.
+        </p>
 
         <p>
           Our <strong>Edge app</strong> provides turnkey visual editor and URL

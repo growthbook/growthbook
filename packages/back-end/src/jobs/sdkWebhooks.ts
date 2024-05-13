@@ -282,7 +282,9 @@ export async function queueSingleWebhookById(webhookId: string) {
     });
 
     if (!ret?.responseWithoutBody?.ok) {
-      const e = ret?.stringBody || "returned an invalid status code: " + ret?.responseWithoutBody?.status;
+      const e =
+        ret?.stringBody ||
+        "returned an invalid status code: " + ret?.responseWithoutBody?.status;
       webhook.set("error", e);
       await webhook.save();
       return;

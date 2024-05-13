@@ -14,8 +14,8 @@ GrowthBook currently supports two levels of integration with most edge workers, 
 
 1. Our turnkey Edge App
 
-   - Automatically run server-side or hybrid [Visual Experiments](/app/visual) without redraw flicker
-   - Automatically run server-side or hybrid [URL Redirect Experiments](/app/url-redirects) without flicker or delay
+   - Automatically run server-side or hybrid [Visual Experiments](/app/visual) without redraw flicker.
+   - Automatically run server-side or hybrid [URL Redirect Experiments](/app/url-redirects) without flicker or delay.
    - Optionally inject the JavaScript SDK with hydrated payload, allowing the front-end to pick up where the edge left off without any extra network requests. We use an enhanced version of our [HTML Script Tag](/lib/script-tag) for this purpose.
 
 2. Support for edge apps using our JavaScript SDK
@@ -23,7 +23,7 @@ GrowthBook currently supports two levels of integration with most edge workers, 
 
 Regardless of your use case, our CloudFlare integration makes easy to synchronize feature and experiment values between GrowthBook and CloudFlare's KV store. This eliminates the network request to the GrowthBook API, unlocking blazingly fast edge-side and client-side SDK performance.
 
-### References
+## References
 
 - Our CloudFlare Workers SDK repository, which supports the above use cases, is [here<ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare)
 - A turnkey implementation of the Edge App (compatible with Wrangler) is [here<ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare/example)
@@ -32,24 +32,36 @@ Regardless of your use case, our CloudFlare integration makes easy to synchroniz
 ## Worker Configuration
 
 :::tip
+
 This tutorial assumes some familiarity with building and deploying CloudFlare Worker applications. You can quickly get up to speed by following the CloudFlare Workers [Getting Started<ExternalLink />](https://developers.cloudflare.com/workers/get-started/guide/) guide.
+
 :::
 
 You may either use our turnkey Edge App for CloudFlare Workers or build your own app from scratch using our JavaScript and CloudFlare SDKs.
 
-### 1. Turnkey Edge App
+## Turnkey Edge App
 
 Our Edge App runs as a smart proxy layer between your application and your end users. In absence of Visual or URL Redirect experiments, the Edge App will simply proxy the user request to your site and return the response, optionally injecting a fully-bootstrapped JavaScript SDK onto the rendered HTML page. If the request URL matches an Visual or URL Redirect experiment and the targeting conditions are satisfied, the Edge App may also perform one or more URL redirect behind the scenes (the public-facing URL does not change) and/or mutate the DOM for Visual Experiments.
 
+:::note URL Redirects on edge
+
+The Edge App defaults to running URL Redirect Experiments in the browser only. This is because edge redirects load a separate page's content without altering the URL. After the redirect, some sites may experience problems with loading assets or endpoints with relative paths.attributes
+
+You can enable URL Redirects on edge by setting environment variable `RUN_URL_REDIRECT_EXPERIMENTS` (see below)
+
+:::
+
 Setting up our turnkey Edge App is simple. Assuming that you have a basic Worker application set up, simply install the SDK and implement our custom request handler. Or if you prefer, you may pull down our fully-functional [example implementation<ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare/example) and follow along.
 
-#### Install the SDK
+### Install the SDK
 
 ```bash npm2yarn
 npm install --save @growthbook/edge-cloudflare
 ```
 
-#### Implement our Edge App request handler
+### Implement the Edge App request handler
+
+A basic implementation of our Edge App only requires a few lines of code:
 
 ```ts
 import { handleRequest } from "@growthbook/edge-cloudflare";
@@ -61,13 +73,17 @@ export default {
 };
 ```
 
-#### Set up environment variables
+### Configure the Edge App
+
+Use a combination of environment variables and optional runtime configuration to add required fields and to customize the Edge App behavior.
+
+#### Environment variables
 
 Edit your `wrangler.toml` file and, at minimum, add these required fields:
 
 ```bash
 [vars]
-PROXY_TARGET="https://www.growthbook.io/"  # The non-edge URL to your website
+PROXY_TARGET="https://www.mysite.io"  # The non-edge URL to your website
 GROWTHBOOK_API_HOST="https://cdn.growthbook.io"
 GROWTHBOOK_CLIENT_KEY="sdk-abc123"
 GROWTHBOOK_DECRYPTION_KEY="key_abc123"  # Only include for encrypted SDK Connections
@@ -99,21 +115,44 @@ ENABLE_STREAMING="true"  # default "false". Streaming SSE updates on browser.
 ENABLE_STICKY_BUCKETING="true"  # default "false". Use cookie-based sticky bucketing on edge and browser.
 ```
 
+#### Runtime configuration
+
+You may want to provide context to your edge app at runtime rather than using environment variables. For example, if you have additional [targeting attributes](/lib/js#attributes) available, you may inject them by modifying your request handler code:
+
+```ts
+import { handleRequest } from "@growthbook/edge-cloudflare";
+import { parse } from "cookie";
+
+export default {
+  fetch: async function (request, env, ctx) {
+    const cookie = parse(request.headers.get("Cookie") || "");
+    const config = {
+      attributes: {
+        userType: cookie["userId"] ? "logged in" : "anonymous"
+      }
+    };
+    return await handleRequest(request, env, config);
+  },
+};
+```
+
+---
+
 For a full list of customizations, view our vendor-agnostic [Edge Utility repository<ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils).
 
-#### Experiment Tracking
+### Tracking Experiment Views
 
-In order to run A/B tests, you must implement a tracking callback (see the [JS SDK docs](/lib/js#experimentation-ab-testing) for more information). When using our Edge App, you can either track on the front-end or on edge. Our turnkey solution defaults to front-end tracking, and automatically integrates with Segment.io, GA4, and Google Tag Manager by using the mechanisms outlined in our [HTML Script Tag](/lib/script-tag#tracking-experiment-views).
+Running A/B tests requires a [tracking callback](/lib/js#experimentation-ab-testing). Our turnkey Edge App defaults to using built-in front-end tracking. The tracking call automatically integrates with Segment.io, GA4, and Google Tag Manager by using the mechanism outlined in our [HTML Script Tag](/lib/script-tag#tracking-experiment-views). In order to do this, the app keeps track of tracking calls triggered on edge and injects them into the front-end SDK to be automatically triggered on page load.
 
-You may wish to either customize front-end tracking or switch to edge tracking.
+You may wish to either customize front-end tracking or switch to edge tracking (or use both concurrently if running hybrid edge + front-end experiments).
 
 To change the front-end tracking callback, set the `GROWTHBOOK_TRACKING_CALLBACK` to your custom tracking JS code:
 
 ```bash
-GROWTHBOOK_TRACKING_CALLBACK="(experiment, results) => { console.log('tracking callback', {experiment, results}) }"
+GROWTHBOOK_TRACKING_CALLBACK="(experiment, results) => { console.log('browser tracking callback', {experiment, results}); }"
 ```
 
-To track on edge instead of front-end, you must inject your own tracking callback into the edge request handler code:
+To track on edge, you must inject your own tracking callback into the edge request handler code. Any experiments that run on edge will use the edge tracking callback and not the front-end callback (hybrid edge + front-end experiments being an exception):
 
 ```ts
 import { handleRequest } from "@growthbook/edge-cloudflare";
@@ -122,10 +161,47 @@ export default {
   fetch: async function (request, env, ctx) {
     const config = {
       edgeTrackingCallback: (experiment, results) => {
-        console.log('tracking callback', {experiment, results});
+        console.log('edge tracking callback', {experiment, results});
       }
     };
     return await handleRequest(request, env, config);
   },
 };
+```
+
+### Targeting Attributes
+
+The following targeting attributes are set automatically by the Edge App and are available for use.
+
+- `id` - creates a long-lived `gbuuid` cookie if it doesn't exist already
+- `url`
+- `path`
+- `host`
+- `query`
+- `pageTitle`
+- `deviceType` - either `mobile` or `desktop`
+- `browser` - one of `chrome`, `edge`, `firefox`, `safari`, or `unknown`
+
+You can customize both the primary identifier name (`id`) and cookie name (`gbuuid`) by setting the `UUID_KEY` and `UUID_COOKIE_NAME` environment variables respectively.
+
+As shown in the [runtime configuration](#runtime-configuration) section above, you can also pass custom attributes via runtime config. You can also skip automatic attribute generation and rely solely on custom attributes by setting the environment variable `SKIP_AUTO_ATTRIBUTES="true"`.
+
+## Manual
+
+Or if you want to manually invoke our JavaScript SDK on your proprietary edge app, use the our CloudFlare package to simplify SDK payload caching.
+
+```ts
+import { GrowthBook, setPolyfills } from "@growthbook/growthbook";
+import { getKVLocalStoragePolyfill, getPayloadFromKV } from "@growthbook/edge-cloudflare";
+
+// Choose an optional caching strategy
+
+// A. Provide a KV cache layer so that the GrowthBook SDK doesn't need to make as many requests to the GrowthBook API
+const localStoragePolyfill = getKVLocalStoragePolyfill(env);
+setPolyfills({ localStorage: localStoragePolyfill });
+
+// B. Or use the KV as a managed payload store to eliminate SDK requests to the GrowthBook API entirely
+const payload = await getPayloadFromKV(env);
+const growthbook = new GrowthBook(gbContext);
+await growthbook.init({ payload: payload });
 ```
