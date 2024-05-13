@@ -1948,7 +1948,10 @@ export async function putAdminResetUserPassword(
   });
 }
 
-async function setLicenseKey(org: OrganizationInterface, licenseKey: string) {
+export async function setLicenseKey(
+  org: OrganizationInterface,
+  licenseKey: string
+) {
   if (!IS_CLOUD && IS_MULTI_ORG) {
     throw new Error(
       "You must use the LICENSE_KEY environmental variable on multi org sites."
