@@ -136,7 +136,7 @@ export default {
 };
 ```
 
----
+#### More customization options
 
 For a full list of customizations, view our vendor-agnostic [Edge Utility repository<ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils).
 
@@ -186,9 +186,67 @@ You can customize both the primary identifier name (`id`) and cookie name (`gbuu
 
 As shown in the [runtime configuration](#runtime-configuration) section above, you can also pass custom attributes via runtime config. You can also skip automatic attribute generation and rely solely on custom attributes by setting the environment variable `SKIP_AUTO_ATTRIBUTES="true"`.
 
-## Manual
+### Routing
 
-Or if you want to manually invoke our JavaScript SDK on your proprietary edge app, use the our CloudFlare package to simplify SDK payload caching.
+By default, the Edge App will process all `GET` requests (other HTTP verbs are proxied through without running through our app logic).
+
+It is generally preferable to configure your routing rules outside of our Edge App. For instance, you may only want to invoke the Edge App at `https://yourdomain.io/landing-page`. You can configure CloudFlare routing by following the CloudFlare Workers [Routes<ExternalLink />](https://developers.cloudflare.com/workers/configuration/routing/routes/) documentation.
+
+There may be situations when you will need to provide finer-grained routing / URL targeting rules within our Edge App. You will need to include a JSON encoded string of route rules in your `ROUTES` environment variable.
+
+For instance, you may want to do a proxy pass-through (do not process) for `mysite.io/account/*` or `mysite.io/settings/*`. Your routes may look like this:
+
+```bash
+ROUTES='[{ "pattern":"mysite.io/account/*", "behavior":"proxy" }, { "pattern":"mysite.io/settings/*", "behavior":"proxy" }]'
+```
+
+A route uses the following interface, with many of the properties being optional:
+
+```typescript
+{
+  pattern: string;
+  type?: "regex" | "simple";  // default: "simple"
+  behavior?: "intercept" | "proxy" | "error";  // default: "intercept"
+  includeFileExtensions?: boolean;  // Include requests to filenames like "*.jpg". default: false (pass-through).
+  statusCode?: number; // Alter the status code (default is 404 when using "error")
+  body?: string; // Alter the body (for setting an error message body)
+};
+```
+
+When multiple routes are included in your `ROUTES` array, only the first match is used.
+
+### Cookie Policy and GDPR
+
+By default, the Edge App will persist a random unique identifier in a first-party cookie names `gbuuid`. Its purpose is to provide a consistent user experience to your visitors by preventing them from being re-bucketed into different A/B test variations. It follows the same mechanism as discussed in our [HTML Script Tag docs](/lib/script-tag#cookie-policy-and-gdpr).
+
+#### Delay Storing the Cookie Until Consent is Granted
+
+If you must delay persisting the `gbuuid` cookie until a user consents, you can set the environment variable `NO_AUTO_COOKIES="true"`.
+
+This will still generate a UUID for the user, but will not persist it. That means, if the user refreshes the page, they will have a new random UUID generated.environment
+
+You have the option to manually persist this cookie at any time, for example when a user grants consent on your cookie banner. All you need to do is fire this custom event from javascript on the rendered page:
+
+```js
+document.dispatchEvent(new CustomEvent("growthbookpersist"));
+```
+
+:::note
+
+If you are using Sticky Bucketing, a persistent sticky bucket assignments cookie will automatically be generated. If you require user permission before writing cookies, you should:
+
+- Either do not enable Sticky Bucketing on edge (do not use `ENABLE_STICKY_BUCKETING`)
+- Or only enable Sticky Bucketing per each user via runtime configuration. (only pass `config.enableStickyBucketing: true` if user has consented — identifiable by checking for presence of the `gbuuid` cookie).
+
+:::
+
+## Manual SDK Integration on Edge
+
+You may be interested in build your own edge application using the GrowthBook SDK and not using our turnkey Edge App. Or you may want to do custom feature flagging on specific routes while running our Edge App on other routes.
+
+To use the GrowthBook on edge, simply include our standard [JavaScript SDK](/lib/js) (`@growthbook/growthbook` NPM package).
+
+In our `@growthbook/edge-cloudflare` NPM package, we export a few CloudFlare-specific utility functions to simplify SDK payload caching.
 
 ```ts
 import { GrowthBook, setPolyfills } from "@growthbook/growthbook";
