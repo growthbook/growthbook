@@ -1,0 +1,192 @@
+---
+title: Statistical Details
+description: Statistical Details
+sidebar_label: Statistical Details
+slug: details
+---
+
+# Statistical Details
+
+Both our Bayesian and our Frequentist engines begin with a similar foundation for estimating experiment effects. We estimate the experiment effect (either the **relative** lift or the **absolute** effect), and its standard error. We create decision making tools from those estimates (e.g., frequentist confidence intervals and p-values, or Bayesian credible intervals and risks) to help you make rollout/rollback decisions.
+
+Our estimates compare an experimental variation (henceforth the treatment) to some baseline variation (henceforth control). Define $\mu_{C}$ as the population control mean, and define $\mu_{T}$ as the population treatment mean.
+
+The absolute treatment effect is $\Delta_{a} = \mu_{T}-\mu_{C}$.
+
+The relative treatment effect (or lift) is $\Delta_{r} = (\mu_{T}-\mu_{C})/\mu_{C}$ if $\mu_{C}\ne 0$ and is undefined otherwise.
+
+Throughout for any population parameter $\gamma$ denote its sample counterpart as $\hat{\gamma}$. For example, the sample absolute effect is $\hat{\Delta}_{a}$.
+
+### Lift (Relative Effects)
+
+By default, we estimate lift (i.e. relative effects or percentage changes) from the control to the treatment variations. No matter which engine we use, the statistics we leverage are
+
+$$
+\begin{align}
+\hat{\Delta}_r &= \frac{\hat\mu_T - \hat\mu_C}{\hat\mu_C} \\
+\hat{\sigma}^2_{\Delta_r} &= \frac{\hat\sigma^2_C \hat\mu^2_T}{\hat\mu^4_C n_C} + \frac{\hat\sigma^2_T}{\hat\mu^2_C n_T}
+\end{align}
+$$
+
+where $\hat\mu_C$ and $\hat\mu_T$ are the estimates of our variation means, $\hat\sigma^2_C$ and $\hat\sigma^2_T$ are the estimated variances of those means, and $n_C$ and $n_T$ are the sample sizes. The variance $\hat{\sigma}^2_{\Delta_r}$ is a delta method estimator, as $\hat{\Delta}_r$ is a ratio.
+
+We cover how we estimate the variation means and their standard errors below, depending on metric type.
+
+### Absolute Effects
+
+The math for absolute effects is simpler, as our estimator is no longer a ratio.
+
+$$
+\begin{align}
+\hat{\Delta}_a &= \hat\mu_T - \hat\mu_C \\
+\hat{\sigma}^2_{\Delta_a} &= \frac{\hat\sigma^2_C}{n_C} + \frac{\hat\sigma^2_T}{n_T}
+\end{align}
+$$
+
+## Bayesian Engine
+
+Our Bayesian engine synthesizes the above estimates with information external to the experiment to estimate lift. This synthesis combines the experimental data with the prior distribution, which contains information about the treatment effect before the experiment began.
+
+We specify the following prior
+
+$$
+\Delta_{prior} \sim N(\mu_{prior}, \sigma_{prior}^{2}).
+$$
+
+This information is represented by the prior mean $\mu_{prior}$ and the prior variance $\sigma_{prior}^{2}$. The prior mean is your best guess for the treatment effect before the experiment starts. The prior variance determines your confidence in this best guess. A small prior variance corresponds to high confidence, and vice versa. GrowthBook's default prior is an improper prior (i.e., $\sigma_{\text{prior}}^{2}=\infty$) that has no impact.
+
+As of GrowthBook 3.0, you can specify a prior that overrides the default. As stated above, the prior distribution represents your knowledge of the treatment effect before the experiment begins. GrowthBook uses priors on lift, as this is often easier to conceptualize (e.g., 95% chance the true lift is between -50% and 50%). This knowledge can be weak or strong, and we outline a few examples below.
+
+1. Weak knowledge: suppose you have little information about your treatment effect, and do not have past data about treatment effects or experiments for this metric. Then use a weak prior, with mean 0 and large variance (e.g., $0.5^ 2$ or 1).
+2. Moderate knowledge: perhaps you have run multiple experiments on this metric. Suppose the average lift for these experiments was 0.01, and the variance of lifts was 0.05. Then a prior with mean 0.01 and variance 0.05 can be appropriate. As another example, suppose you believe that your feature impact will be relatively moderate. A $N(0, 0.3^2)$ prior, our default when proper priors are enabled, encodes the prior belief that 68% of all experiments have a lift between -30% and 30%, and 95% of all experiments have a lift between -60% and 60%.
+3. Strong knowledge: suppose you ran a similar experiment last year on the same feature, or you ran this experiment last quarter on a different segment, and your treatment effect estimate was 0.02 and its variance was 0.01. Then a prior with mean 0.02 and variance 0.01 can be appropriate.
+
+In summary, picking the right prior can add information to your results. If you use a moderately informative or strongly informative prior, conduct a sensitivity analysis by comparing your results to those using a weak prior, to see how sensitive your results are to prior selection. For any proper prior, the effect of the prior diminishes as the sample size increases.
+
+These priors are normally distributed and our effect estimates above are asymptotically normally distributed via the Central Limit Theorem. Therefore, combining them to compute our posterior beliefs, which will themselves be normally distributed, we get the following mean and variance for our posterior effect estimates:
+
+$$
+\begin{align}
+\Delta_{posterior} &= \frac{  \frac{\mu_{prior}}{\sigma_{prior}^{2}} + \frac{\hat{\Delta}}{\hat{\sigma}^2_{\Delta} }}{ \frac{1}{\sigma^2_{prior}} + \frac{1}{\hat{\sigma}^2_{\Delta}}} \\
+\sigma^2_{posterior} &= \frac{1}{\frac{1}{\sigma^2_{prior}} + \frac{1}{\hat{\sigma}^2_{\Delta}}}
+\end{align}
+$$
+
+For relative effects, we simply plug in the values for our prior and the $\hat\Delta_r$ and $\hat{\sigma}^2_{\Delta_r}$ values from equations (1) and (2).
+
+For absolute effects, we first rescale the prior so that your prior beliefs represent the same amount of uncertainty for both relative and absolute effects. So we recompute your prior as the following:
+
+$$
+\begin{align*}
+\mu_{prior,a} &= \mu_{prior} \left|\hat\mu_C\right| \\
+\sigma^2_{prior,a} &= \sigma^2_{prior} \hat\mu^2_C \\
+\end{align*}
+$$
+
+where $\mu_{prior, a}$ is the prior mean and $\sigma_{prior,a}^{2}$ is the prior variance on the absolute scale.
+
+From the posterior, we can compute the following quantities of interest
+
+### Chance To Win
+
+Chance to Win is the percentage of the posterior that is greater than 0 in favor of the treatment variation
+
+$$
+CTW = 100\% * (1 - \Phi_{p osterior}(0)),
+$$
+
+where $\Phi_{posterior}$ is the CDF of the distribution $N(\Delta_{posterior}, \sigma^2_{posterior})$.
+
+### Confidence Interval
+
+Our “confidence interval” in the Bayesian engine is an interval from the 2.5th to the 97.5th percentile of the posterior distribution (e.g. $\Phi^{-1}_{posterior}(0.025)$ and $\Phi^{-1}_{posterior}(0.975)$). We plot the posterior between these two points in the GrowthBook UI.
+
+## Frequentist Engine
+
+In our frequentist engine, we directly use $\hat\Delta_a$, $\hat\Delta_r$, and their standard errors.
+
+**Sequential Testing** - if you have sequential testing enabled, we implement Asymptotic Confidence Sequences, which you can read more about in the [sequential testing documentation](/statistics/sequential). Enabling sequential testing does not affect the mean $\hat\Delta$, but it inflates the standard error.
+
+### p-value
+
+The p-value is the probability of observing the value $\hat{\Delta}/\hat{\sigma}_{\Delta_{a}}$if the true $\Delta$ was zero. We conduct two-tailed tests, so the p-value if
+
+$$
+p = 2\left(1 - F_t\left(\left|\frac{\hat\Delta}{\hat\sigma_\Delta}\right|, \nu\right)\right)
+$$
+
+where $F_t$ is the CDF t-distribution with degrees of freedom $\nu$ estimated via the Welch-Satterthwaite approximation. This converges to using the Normal distribution as sample size increases.
+
+### Confidence Interval
+
+We return 95% confidence intervals. They are
+
+$$
+\left[\hat\Delta - F^{-1}_t\left(0.975, \nu\right) \hat\sigma_\Delta,\; \hat\Delta + F^{-1}_t\left(0.975, \nu\right) \hat\sigma_\Delta\right]
+$$
+
+## Estimating variation means
+
+Our estimates of variation means and their variances ($\mu_C$, $\mu_T$, $\sigma^2_C$, and $\sigma^2_T$) are the same for both engines. In the following, we will focus on the control variation for simplicity. The math is the same for the treatment variation.
+
+While there is no difference across engines, there is a difference in our estimates depending on the metric type being analyzed.
+
+### Mean metrics
+
+For mean metrics (e.g. the average revenue per user) we use standard sample mean estimators. This is used for:
+
+- Metrics that are of type `revenue`, `duration`, and `count` metrics and do not have denominators
+- or, Fact Metrics of type `mean`
+
+In these cases, we have, for both variations
+
+$$
+\begin{align}
+\hat\mu_C &= \frac{\sum^{n_C}_{i=1} {Y_{i}}}{n_C} \\
+\hat\sigma^2_C &= \frac{1}{n_C - 1}\left(\sum^{n_C}_{i=1} Y^2_i - \frac{\left(\sum^{n_C}_{i=1} Y_i\right)^2}{n_C}\right)
+\end{align}
+$$
+
+where $Y_i$ is the $i^{\text{th}}$ unit in the control variation's total metric value.
+
+### Proportion metrics
+
+Proportion metrics (e.g. the % of users who purchased a product) cover the following cases:
+
+- regular Metrics of type `binomial`
+- Fact Metrics of type `proportion`
+
+In these cases, we have
+
+$$
+\begin{align}
+\hat\mu_C &= \frac{\sum^{n_C}_{i=1} {Y_{i}}}{n_C} \\
+\hat\sigma^2_C &= \hat\mu_C (1 - \hat\mu_C)
+\end{align}
+$$
+
+where $Y_i$ is either 0 or 1 for a user.
+
+### Ratio metrics
+
+Ratio metrics (e.g. the bounce rate for the number of bounced sessions over the number of total session) require a bit more care as the unit of analysis (e.g. the session) is not the same as the unit of randomization (e.g. the user).
+
+Ratio metrics in GrowthBook are:
+
+- regular Metrics with a denominator that is type `revenue`, `duration`, and `count`
+- Fact Metrics of type `ratio`
+
+In these cases, we have
+
+$$
+\begin{align}
+\hat\mu_C &= \frac{\sum^{n_C}_{i=1} {M_{i}}}{\sum^{n_C}_{i=1} {D_{i}}} \\
+\hat\sigma^2_C &= \frac{1}{n_{C}\hat\mu^2_D}\left(\hat\sigma^2_M - 2 \frac{\hat\mu_M}{\hat\mu_D}\hat\sigma_{MD} +  \hat\sigma^2_D\frac{\hat\mu^2_M}{\hat\mu^2_D} \right)
+\end{align}
+$$
+
+where $M_i$ and $D_i$ are the $i^{\text{th}}$ units' values for the numerator and denominator of the metric, $\hat\mu_M$ and $\hat\sigma^2_M$ are the estimated sample mean and variance of that metric, and $\hat\sigma_{MD}$ is the estimated covariance of M and D in the control variation.
+
+### Quantile metrics
+
+The statistics for quantile metrics are covered more in detail in the [Quantile documentation](/statistics/quantile). But in the end we arrive at both a `\hat\mu` and `\hat\sigma^2` for the desired quantile and its variance and use those in our lift calculations.

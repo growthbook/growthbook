@@ -1,5 +1,6 @@
 import Field from "@/components/Forms/Field";
 import { hasFileConfig } from "@/services/env";
+import BayesianPriorSettings from "@/components/Settings/BayesianPriorSettings";
 import { StatsEngineSettingsForm } from "./StatsEngineSettings";
 
 export default function BayesianTab({
@@ -52,6 +53,8 @@ export default function BayesianTab({
           })}
         />
       </div>
+
+      <BayesianPriorSettings />
     </>
   );
 }

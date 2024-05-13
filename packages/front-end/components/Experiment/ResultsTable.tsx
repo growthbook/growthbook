@@ -405,6 +405,7 @@ export default function ResultsTable({
       tooltipData: {
         metricRow,
         metric,
+        metricSnapshotSettings: row.metricSnapshotSettings,
         dimensionName: dimension,
         dimensionValue: dimension ? row.label : undefined,
         variation,

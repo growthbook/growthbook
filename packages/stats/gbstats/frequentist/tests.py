@@ -11,12 +11,8 @@ from gbstats.messages import (
     ZERO_NEGATIVE_VARIANCE_MESSAGE,
     ZERO_SCALED_VARIATION_MESSAGE,
 )
+from gbstats.models.statistics import TestStatistic
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
-from gbstats.models.statistics import (
-    RegressionAdjustedStatistic,
-    TestStatistic,
-    compute_theta,
-)
 
 
 # Configs
@@ -73,20 +69,6 @@ class TTest(BaseABTest):
             stat_b (Statistic): the "treatment" or "variation" statistic
         """
         super().__init__(stat_a, stat_b)
-
-        # Ensure theta is set for regression adjusted statistics
-        if isinstance(self.stat_b, RegressionAdjustedStatistic) and isinstance(
-            self.stat_a, RegressionAdjustedStatistic
-        ):
-            theta = compute_theta(self.stat_a, self.stat_b)
-            if theta == 0:
-                # revert to non-RA under the hood if no variance in a time period
-                self.stat_a = self.stat_a.post_statistic
-                self.stat_b = self.stat_b.post_statistic
-            else:
-                self.stat_a.theta = theta
-                self.stat_b.theta = theta
-
         self.alpha = config.alpha
         self.test_value = config.test_value
         self.relative = config.difference_type == "relative"
