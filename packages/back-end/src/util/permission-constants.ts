@@ -3,6 +3,7 @@ export const ENV_SCOPED_PERMISSIONS = [
   "publishFeatures",
   "manageEnvironments",
   "manageSDKConnections",
+  "manageSDKWebhooks",
   "runExperiments",
 ] as const;
 
@@ -35,7 +36,6 @@ export const GLOBAL_PERMISSIONS = [
   "manageApiKeys",
   "manageIntegrations",
   "manageEventWebhooks",
-  "manageSDKWebhooks",
   "manageBilling",
   "manageNorthStarMetric",
   "manageTargetingAttributes",
