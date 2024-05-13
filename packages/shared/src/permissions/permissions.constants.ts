@@ -87,7 +87,11 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   IdeasFullAccess: ["readData", "createIdeas"],
   PresentationsFullAccess: ["readData", "createPresentations"],
   SDKPayloadPublish: ["readData", "publishFeatures", "runExperiments"],
-  SDKConnectionsFullAccess: ["readData", "manageSDKConnections"],
+  SDKConnectionsFullAccess: [
+    "readData",
+    "manageSDKConnections",
+    "manageSDKWebhooks",
+  ],
   AttributesFullAccess: ["readData", "manageTargetingAttributes"],
   EnvironmentsFullAccess: ["readData", "manageEnvironments"],
   NamespacesFullAccess: ["readData", "manageNamespaces"],
