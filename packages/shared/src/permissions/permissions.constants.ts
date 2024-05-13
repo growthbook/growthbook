@@ -426,6 +426,15 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
   },
 };
 
+// Reserved role IDs that cannot be used by custom roles
+// There are 2 legacy roles (designer/developer) that we also need to reserve
+// This is because of JIT migrations performed in the organization object
+export const RESERVED_ROLE_IDS = [
+  ...Object.keys(DEFAULT_ROLES),
+  "designer",
+  "developer",
+];
+
 export const ENV_SCOPED_PERMISSIONS = [
   "publishFeatures",
   "manageEnvironments",

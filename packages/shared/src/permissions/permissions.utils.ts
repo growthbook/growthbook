@@ -13,6 +13,7 @@ import {
   POLICY_PERMISSION_MAP,
   Policy,
   READ_ONLY_PERMISSIONS,
+  RESERVED_ROLE_IDS,
 } from "./permissions.constants";
 
 export function policiesSupportEnvLimit(policies: Policy[]): boolean {
@@ -50,25 +51,22 @@ export function getRoleById(
 }
 
 export function getRoles(org: OrganizationInterface) {
-  // Always start with noaccess and readonly
-  const roles = [DEFAULT_ROLES.noaccess, DEFAULT_ROLES.readonly];
+  // Always start with default roles
+  const roles = Object.values(DEFAULT_ROLES);
 
-  // Role ids must be unique (admin is added at the end, which is why it's here)
-  const usedIds = new Set(["noaccess", "readonly", "admin"]);
+  // TODO: Allow orgs to remove/disable some default roles
+
+  // Role ids must be unique, keep track of used ids
+  const usedIds = new Set(RESERVED_ROLE_IDS);
 
   // Add additional roles
-  const customRoles =
-    org.useCustomRoles && org.customRoles
-      ? org.customRoles
-      : Object.values(DEFAULT_ROLES);
-  customRoles.forEach((role) => {
-    if (usedIds.has(role.id)) return;
-    usedIds.add(role.id);
-    roles.push(role);
-  });
-
-  // Always add admin at the end
-  roles.push(DEFAULT_ROLES.admin);
+  if (org.useCustomRoles && org.customRoles) {
+    org.customRoles.forEach((role) => {
+      if (usedIds.has(role.id)) return;
+      usedIds.add(role.id);
+      roles.push(role);
+    });
+  }
 
   return roles;
 }
