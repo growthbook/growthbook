@@ -171,7 +171,7 @@ export default {
 
 ### Targeting Attributes
 
-The following targeting attributes are set automatically by the Edge App and are available for use.
+The following targeting attributes are set automatically by the Edge App.
 
 - `id` - creates a long-lived `gbuuid` cookie if it doesn't exist already
 - `url`
@@ -202,7 +202,7 @@ ROUTES='[{ "pattern":"mysite.io/account/*", "behavior":"proxy" }, { "pattern":"m
 
 A route uses the following interface, with many of the properties being optional:
 
-```typescript
+```ts
 {
   pattern: string;
   type?: "regex" | "simple";  // default: "simple"
@@ -210,7 +210,7 @@ A route uses the following interface, with many of the properties being optional
   includeFileExtensions?: boolean;  // Include requests to filenames like "*.jpg". default: false (pass-through).
   statusCode?: number; // Alter the status code (default is 404 when using "error")
   body?: string; // Alter the body (for setting an error message body)
-};
+}
 ```
 
 When multiple routes are included in your `ROUTES` array, only the first match is used.
@@ -246,20 +246,90 @@ You may be interested in build your own edge application using the GrowthBook SD
 
 To use the GrowthBook on edge, simply include our standard [JavaScript SDK](/lib/js) (`@growthbook/growthbook` NPM package).
 
-In our `@growthbook/edge-cloudflare` NPM package, we export a few CloudFlare-specific utility functions to simplify SDK payload caching.
+In our `@growthbook/edge-cloudflare` NPM package, we export a few CloudFlare-specific utility functions to simplify SDK payload caching (We discuss payload caching strategies in the subsequent doc section).
 
 ```ts
 import { GrowthBook, setPolyfills } from "@growthbook/growthbook";
-import { getKVLocalStoragePolyfill, getPayloadFromKV } from "@growthbook/edge-cloudflare";
+import { getPayloadFromKV, getKVLocalStoragePolyfill } from "@growthbook/edge-cloudflare";
 
-// Choose an optional caching strategy
+export default {
+  async fetch(request) {
+    // 1. Init the GrowthBook SDK and choose an optional caching strategy
 
-// A. Provide a KV cache layer so that the GrowthBook SDK doesn't need to make as many requests to the GrowthBook API
-const localStoragePolyfill = getKVLocalStoragePolyfill(env);
-setPolyfills({ localStorage: localStoragePolyfill });
+    // A. Use the KV as a managed payload store to eliminate SDK requests to the GrowthBook API entirely.
+    // Requires setting up an SDK Webhook.
+    const payload = await getPayloadFromKV(env);
+    const growthbook = new GrowthBook(gbContext);
+    await growthbook.init({ payload: payload });
 
-// B. Or use the KV as a managed payload store to eliminate SDK requests to the GrowthBook API entirely
-const payload = await getPayloadFromKV(env);
-const growthbook = new GrowthBook(gbContext);
-await growthbook.init({ payload: payload });
+    // B. Or provide a KV cache layer so that the GrowthBook SDK doesn't need to make as many requests
+    // to the GrowthBook API. No SDK Webhook needed.
+    const localStoragePolyfill = getKVLocalStoragePolyfill(env);
+    setPolyfills({ localStorage: localStoragePolyfill });
+    await growthbook.init();
+
+    // 2. Start feature flagging
+    if (growthbook.isOn("my-feature") {
+      return new Response("<h1>foo</h1>");
+    }
+    return new Response("<h1>bar</h1>");
+  }
+}
 ```
+
+## Payload Caching with CloudFlare KV Store
+
+By default, the Edge App will make a network request to the GrowthBook API on each user request in order to fetch the current feature and experiment values. This is a blocking call that delays page delivery.
+
+Convenient solutions this problem are realized through [CloudFlare KV<ExternalLink />](https://developers.cloudflare.com/kv/reference/how-kv-works/), an on-edge key-value store which we can leverage for persistent payload caching. There are 2 levels of KV integration available:
+
+1. You can either completely eliminate the blocking call to the GrowthBook API by implementing a GrowthBook-to-CloudFlare-KV push model via **SDK Webhooks**.
+2. Alternately, you can eliminate most of these network requests by using CloudFlare KV as a just-in-time payload cache.
+
+You can also use either of these strategies in your own manual SDK integration via the `getPayloadFromKV` and `getKVLocalStoragePolyfill` utility functions.
+
+### Configuring the KV store
+
+Create a CloudFlare KV namespace for your worker to interface with. You can do this either using the CloudFlare dashboard or via Wrangler commands. By default, the GrowthBook Edge App and KV utility functions use the following KV namespaces; you only need to choose one, not both, depending on your desired level of integration:
+
+1. KV stored payloads: `KV_GB_PAYLOAD`
+2. KV payload cache: `KV_GB_CACHE`
+
+For KV stored payloads (1), we also assume a KV key of `"gb_payload"`. You will likely not need to modify this, but for manual implementations both the namespace and key can be specified in the utility functions.
+
+You must also create a KV binding so that your CloudFlare Worker can access the KV namespace. Edit your `wrangler.toml` file to add the binding:
+
+```bash
+# You probably do not need both bindings:
+kv_namespaces = [
+  { binding = "KV_GB_PAYLOAD", id = "abcdefg1234567" },
+  { binding = "KV_GB_CACHE", id = "qwertyuiop12345" }
+]
+
+[vars]
+...
+```
+
+### Configuring a SDK Webhook
+
+For KV stored payloads (1), we eliminate network requests from edge to GrowthBook by using a GrowthBook SDK Webhook to push the SDK payload to the KV store on change.
+
+1. Create an [SDK Webhook](/app/webhooks/sdk-webhooks) on the same SDK Connection that you are using for edge integration. You do not need to worry about the receiving end of the webhook (verifying GrowthBook signatures, etc).
+2. Set the **Endpoint URL** to the CloudFlare's REST API endpoint for KV. At the time of writing, it follows this format:
+
+```
+https://api.cloudflare.com/client/v4/accounts/{accountId}/storage/kv/namespaces/{namespaceId}/values/gb_payload
+```
+
+3. Enable the **Send Payload** toggle.
+4. Change the **Method** to `PUT`.
+5. Add appropriate authorization and content-type headers:
+
+```json
+{
+  "Authorization": "Bearer YOUR_CF_REST_API_TOKEN",
+  "Content-Type": "application/json"
+}
+```
+
+Now whenever feature and experiment values change, your CloudFlare worker will have immediate access to the latest values. You can also test the webhook by using the "Test Webhook" button on the SDK Connection page.
