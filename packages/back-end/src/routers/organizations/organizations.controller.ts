@@ -7,10 +7,16 @@ import {
   getEffectiveAccountPlan,
   getLicense,
   getLicenseError,
-  orgHasPremiumFeature,
 } from "enterprise";
-import { hasReadAccess } from "shared/permissions";
 import { experimentHasLinkedChanges } from "shared/util";
+import {
+  UpdateSdkWebhookProps,
+  deleteLegacySdkWebhookById,
+  deleteSdkWebhookById,
+  findAllLegacySdkWebhooks,
+  findSdkWebhookById,
+  updateSdkWebhook,
+} from "../../models/WebhookModel";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -71,8 +77,6 @@ import {
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import { getAllSavedGroups } from "../../models/SavedGroupModel";
 import { getMetricsByOrganization } from "../../models/MetricModel";
-import { WebhookModel, countWebhooksByOrg } from "../../models/WebhookModel";
-import { createWebhook, createSdkWebhook } from "../../services/webhooks";
 import {
   createOrganization,
   findOrganizationByInviteKey,
@@ -83,19 +87,16 @@ import {
 } from "../../models/OrganizationModel";
 import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { ConfigFile } from "../../init/config";
-import { WebhookInterface, WebhookMethod } from "../../../types/webhook";
 import { ExperimentRule, NamespaceValue } from "../../../types/feature";
 import { usingOpenId } from "../../services/auth";
 import { getSSOConnectionSummary } from "../../models/SSOConnectionModel";
 import {
-  createLegacySdkKey,
   createOrganizationApiKey,
   createUserPersonalAccessApiKey,
   deleteApiKeyById,
   deleteApiKeyByKey,
   getAllApiKeysByOrganization,
   getApiKeyByIdOrKey,
-  getFirstPublishableApiKey,
   getUnredactedSecretKey,
 } from "../../models/ApiKeyModel";
 import {
@@ -119,7 +120,7 @@ import { EntityType } from "../../types/Audit";
 import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { TeamInterface } from "../../../types/team";
-import { queueSingleWebhookById } from "../../jobs/sdkWebhooks";
+import { fireSdkWebhook } from "../../jobs/sdkWebhooks";
 import { initializeLicenseForOrg } from "../../services/licenseData";
 import { findSDKConnectionsByOrganization } from "../../models/SdkConnectionModel";
 import { triggerSingleSDKWebhookJobs } from "../../jobs/updateAllJobs";
@@ -653,7 +654,11 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   }
 
   const filteredAttributes = settings?.attributeSchema?.filter((attribute) =>
-    hasReadAccess(context.readAccessFilter, attribute.projects || [])
+    context.permissions.canReadMultiProjectResource(attribute.projects)
+  );
+
+  const filteredEnvironments = settings?.environments?.filter((environment) =>
+    context.permissions.canReadMultiProjectResource(environment.projects)
   );
 
   // Some other global org data needed by the front-end
@@ -706,7 +711,11 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       freeTrialDate: org.freeTrialDate,
       discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
-      settings: { ...settings, attributeSchema: filteredAttributes },
+      settings: {
+        ...settings,
+        attributeSchema: filteredAttributes,
+        environments: filteredEnvironments,
+      },
       autoApproveMembers: org.autoApproveMembers,
       members: org.members,
       messages: messages || [],
@@ -1231,14 +1240,14 @@ export async function putOrganization(
     Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
       if (k === "environments") {
         // Require permissions for any old environments that changed
-        const affectedEnvs: Set<string> = new Set();
+        const affectedEnvs: Set<Environment> = new Set();
         existingEnvironments.forEach((env) => {
           const oldHash = JSON.stringify(env);
           const newHash = JSON.stringify(
             settings[k]?.find((e) => e.id === env.id)
           );
           if (oldHash !== newHash) {
-            affectedEnvs.add(env.id);
+            affectedEnvs.add(env);
           }
           if (!newHash && oldHash) {
             deletedEnvIds.push(env.id);
@@ -1249,7 +1258,7 @@ export async function putOrganization(
         const oldIds = new Set(existingEnvironments.map((env) => env.id) || []);
         settings[k]?.forEach((env) => {
           if (!oldIds.has(env.id)) {
-            affectedEnvs.add(env.id);
+            affectedEnvs.add(env);
           }
         });
 
@@ -1266,13 +1275,26 @@ export async function putOrganization(
           }
         });
 
-        req.checkPermissions(
-          "manageEnvironments",
-          "",
-          Array.from(affectedEnvs)
-        );
+        affectedEnvs.forEach((env) => {
+          if (!context.permissions.canCreateOrUpdateEnvironment(env)) {
+            context.permissions.throwPermissionError();
+          }
+        });
+
+        envsWithModifiedProjects.forEach((env) => {
+          if (!context.permissions.canCreateOrUpdateEnvironment(env)) {
+            context.permissions.throwPermissionError();
+          }
+        });
       } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
-        req.checkPermissions("manageEnvironments", "", []);
+        if (
+          !context.permissions.canCreateSDKConnection({
+            projects: [],
+            environment: "",
+          })
+        ) {
+          context.permissions.throwPermissionError();
+        }
       } else if (k === "attributeSchema") {
         throw new Error(
           "Not supported: Updating organization attributes not supported via this route."
@@ -1359,7 +1381,7 @@ export async function putOrganization(
         connection.proxy.enabled && connection.proxy.host
       );
       await triggerSingleSDKWebhookJobs(
-        org.id,
+        context,
         connection,
         {},
         connection.proxy,
@@ -1453,50 +1475,13 @@ export async function getApiKeys(req: AuthRequest, res: Response) {
 export async function postApiKey(
   req: AuthRequest<{
     description?: string;
-    environment: string;
-    project: string;
     type: string;
-    secret: boolean;
-    encryptSDK: boolean;
   }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
-  const {
-    description = "",
-    environment = "",
-    project = "",
-    secret = false,
-    encryptSDK,
-    type,
-  } = req.body;
-
-  const { preferExisting } = req.query as { preferExisting?: string };
-  if (preferExisting) {
-    if (secret) {
-      throw new Error("Cannot use 'preferExisting' for secret API keys");
-    }
-    const existing = await getFirstPublishableApiKey(org.id, environment);
-    if (existing) {
-      return res.status(200).json({
-        status: 200,
-        key: existing,
-      });
-    }
-  }
-
-  // Only require permissions if we are creating a new API key
-  if (secret) {
-    if (type !== "user") {
-      // All access token types except `user` require the permission
-      if (!context.permissions.canCreateApiKey()) {
-        context.permissions.throwPermissionError();
-      }
-    }
-  } else {
-    req.checkPermissions("manageEnvironments", project, [environment]);
-  }
+  const { description = "", type } = req.body;
 
   // Handle user personal access tokens
   if (type === "user") {
@@ -1516,9 +1501,12 @@ export async function postApiKey(
       key,
     });
   }
-
   // Handle organization secret tokens
-  if (secret) {
+  else {
+    if (!context.permissions.canCreateApiKey()) {
+      context.permissions.throwPermissionError();
+    }
+
     if (type && !["readonly", "admin"].includes(type)) {
       throw new Error("can only assign readonly or admin roles");
     }
@@ -1534,20 +1522,6 @@ export async function postApiKey(
       key,
     });
   }
-
-  // Handle legacy SDK connection
-  const key = await createLegacySdkKey({
-    description,
-    environment,
-    project,
-    organizationId: org.id,
-    encryptSDK,
-  });
-
-  res.status(200).json({
-    status: 200,
-    key,
-  });
 }
 
 export async function deleteApiKey(
@@ -1582,7 +1556,14 @@ export async function deleteApiKey(
       throw new Error("You do not have permission to delete this.");
     }
   } else {
-    req.checkPermissions("manageEnvironments", "", [keyObj.environment || ""]);
+    if (
+      !context.permissions.canDeleteSDKConnection({
+        projects: [keyObj.project || ""],
+        environment: keyObj.environment || "",
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   if (id) {
@@ -1633,121 +1614,44 @@ export async function postApiKeyReveal(
   });
 }
 
-export async function getWebhooks(req: AuthRequest, res: Response) {
+export async function getLegacyWebhooks(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
-  const webhooks = await WebhookModel.find({
-    organization: context.org.id,
-    useSdkMode: { $ne: true },
-  });
+  const webhooks = await findAllLegacySdkWebhooks(context);
 
   res.status(200).json({
     status: 200,
     webhooks: webhooks.filter((webhook) =>
-      hasReadAccess(context.readAccessFilter, webhook.project)
+      context.permissions.canReadSingleProjectResource(webhook.project)
     ),
   });
 }
 
-export async function getWebhooksSDK(
-  req: AuthRequest<Record<string, unknown>, { sdkid: string }>,
-  res: Response
-) {
-  const { org } = getContextFromReq(req);
-  const { sdkid } = req.params;
-  const webhooks = await WebhookModel.find({
-    organization: org.id,
-    useSdkMode: true,
-    sdks: { $in: sdkid },
-  });
-  res.status(200).json({
-    status: 200,
-    webhooks,
-  });
-}
-
-export async function postWebhook(
-  req: AuthRequest<{
-    name: string;
-    endpoint: string;
-    project?: string;
-    environment: string;
-  }>,
-  res: Response
-) {
-  const context = getContextFromReq(req);
-
-  if (!context.permissions.canCreateSDKWebhook()) {
-    context.permissions.throwPermissionError();
-  }
-  const { name, endpoint, project, environment } = req.body;
-
-  const webhook = await createWebhook({
-    organization: context.org.id,
-    name,
-    endpoint,
-    project,
-    environment,
-  });
-
-  res.status(200).json({
-    status: 200,
-    webhook,
-  });
-}
-export async function getTestWebhook(
+export async function testSDKWebhook(
   req: AuthRequest<Record<string, unknown>, { id: string }>,
   res: Response
 ) {
   const webhookId = req.params.id;
-  await queueSingleWebhookById(webhookId);
+
+  const context = getContextFromReq(req);
+  const webhook = await findSdkWebhookById(context, webhookId);
+  if (!webhook) {
+    throw new Error("Could not find webhook");
+  }
+
+  if (!context.permissions.canUpdateSDKWebhook()) {
+    context.permissions.throwPermissionError();
+  }
+
+  await fireSdkWebhook(context, webhook).catch(() => {
+    // Do nothing, already being logged in Mongo
+  });
   res.status(200).json({
     status: 200,
   });
 }
-export async function postWebhookSDK(
-  req: AuthRequest<{
-    name: string;
-    endpoint: string;
-    sdkid: string;
-    sendPayload: boolean;
-    headers?: string;
-    httpMethod: WebhookMethod;
-  }>,
-  res: Response
-) {
-  const context = getContextFromReq(req);
-  const { org } = context;
 
-  if (!context.permissions.canCreateSDKWebhook()) {
-    context.permissions.throwPermissionError();
-  }
-  const { name, endpoint, sdkid, sendPayload, headers, httpMethod } = req.body;
-  const webhookcount = await countWebhooksByOrg(org.id);
-  const canAddMultipleSdkWebhooks = orgHasPremiumFeature(
-    org,
-    "multiple-sdk-webhooks"
-  );
-  if (!canAddMultipleSdkWebhooks && webhookcount > 0) {
-    throw new Error("your webhook limit has been reached");
-  }
-
-  const webhook = await createSdkWebhook({
-    organization: org.id,
-    name,
-    endpoint,
-    sdkid,
-    sendPayload,
-    headers: headers || "",
-    httpMethod,
-  });
-  return res.status(200).json({
-    status: 200,
-    webhook,
-  });
-}
-
-export async function putWebhook(
-  req: AuthRequest<WebhookInterface, { id: string }>,
+export async function putSDKWebhook(
+  req: AuthRequest<UpdateSdkWebhookProps, { id: string }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
@@ -1757,76 +1661,24 @@ export async function putWebhook(
   }
 
   const { id } = req.params;
-  const { name, endpoint, project, environment } = req.body;
-  const webhook = await WebhookModel.findOne({
-    id,
-  });
-
+  const webhook = await findSdkWebhookById(context, id);
   if (!webhook) {
     throw new Error("Could not find webhook");
   }
-  if (webhook.organization !== context.org.id) {
-    throw new Error("You don't have access to that webhook");
-  }
 
-  if (!name || !endpoint) {
-    throw new Error("Missing required properties");
-  }
+  const updatedWebhook = await updateSdkWebhook(context, webhook, req.body);
 
-  webhook.set("name", name);
-  webhook.set("endpoint", endpoint);
-  webhook.set("project", project || "");
-  webhook.set("environment", environment || "");
-  if (webhook.useSdkMode) queueSingleWebhookById(webhook.id);
-  await webhook.save();
-
+  // Fire the webhook now that it has changed
+  fireSdkWebhook(context, updatedWebhook).catch(() => {
+    // Do nothing, already being logged in Mongo
+  });
   res.status(200).json({
     status: 200,
-    webhook,
+    webhook: updatedWebhook,
   });
 }
 
-export async function putWebhookSDK(
-  req: AuthRequest<WebhookInterface, { id: string }>,
-  res: Response
-) {
-  const context = getContextFromReq(req);
-
-  if (!context.permissions.canUpdateSDKWebhook()) {
-    context.permissions.throwPermissionError();
-  }
-
-  const { id } = req.params;
-  const { name, endpoint, sendPayload, headers, httpMethod } = req.body;
-  const webhook = await WebhookModel.findOne({
-    id,
-  });
-
-  if (!webhook) {
-    throw new Error("Could not find webhook");
-  }
-  if (webhook.organization !== context.org.id) {
-    throw new Error("You don't have access to that webhook");
-  }
-
-  if (!name || !endpoint) {
-    throw new Error("Missing required properties");
-  }
-
-  webhook.set("name", name);
-  webhook.set("endpoint", endpoint);
-  webhook.set("sendPayload", sendPayload);
-  webhook.set("headers", headers);
-  webhook.set("httpMethod", httpMethod);
-  await webhook.save();
-
-  res.status(200).json({
-    status: 200,
-    webhook,
-  });
-}
-
-export async function deleteWebhook(
+export async function deleteLegacyWebhook(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
@@ -1836,18 +1688,14 @@ export async function deleteWebhook(
     context.permissions.throwPermissionError();
   }
   const { id } = req.params;
-
-  await WebhookModel.deleteOne({
-    organization: context.org.id,
-    id,
-  });
+  await deleteLegacySdkWebhookById(context, id);
 
   res.status(200).json({
     status: 200,
   });
 }
 
-export async function deleteWebhookSDK(
+export async function deleteSDKWebhook(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
@@ -1857,11 +1705,7 @@ export async function deleteWebhookSDK(
     context.permissions.throwPermissionError();
   }
   const { id } = req.params;
-
-  await WebhookModel.deleteOne({
-    organization: context.org.id,
-    id,
-  });
+  await deleteSdkWebhookById(context, id);
 
   res.status(200).json({
     status: 200,

@@ -20,7 +20,6 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import usePermissions from "@/hooks/usePermissions";
 import SDKConnectionForm from "@/components/Features/SDKConnections/SDKConnectionForm";
 import CodeSnippetModal, {
   getApiBaseUrl,
@@ -36,6 +35,7 @@ import { useEnvironments } from "@/services/features";
 import Badge from "@/components/Badge";
 import ProjectBadges from "@/components/ProjectBadges";
 import SdkWebhooks from "@/pages/sdks/SdkWebhooks";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 function ConnectionDot({ left }: { left: boolean }) {
   return (
@@ -167,7 +167,7 @@ export default function SDKConnectionPage() {
   const environments = useEnvironments();
   const { projects } = useDefinitions();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const connection:
     | SDKConnectionInterface
@@ -194,12 +194,6 @@ export default function SDKConnectionPage() {
     ...disallowedProjectIds,
   ];
 
-  const hasPermission = connection
-    ? permissions.check("manageEnvironments", connection.projects, [
-        connection.environment,
-      ])
-    : false;
-
   const hasProxy = connection?.proxy?.enabled && !!connection?.proxy?.host;
 
   if (error) {
@@ -211,6 +205,10 @@ export default function SDKConnectionPage() {
   if (!connection) {
     return <div className="alert alert-danger">Invalid SDK Connection id</div>;
   }
+
+  const canDuplicate = permissionsUtil.canCreateSDKConnection(connection);
+  const canUpdate = permissionsUtil.canUpdateSDKConnection(connection, {});
+  const canDelete = permissionsUtil.canDeleteSDKConnection(connection);
 
   return (
     <div className="contents container pagecontents">
@@ -232,54 +230,60 @@ export default function SDKConnectionPage() {
 
       <div className="row align-items-center mb-2">
         <h1 className="col-auto mb-0">{connection.name}</h1>
-        {hasPermission && (
+        {canDelete || canUpdate || canDuplicate ? (
           <>
-            <div className="col-auto ml-auto">
-              <a
-                role="button"
-                className="btn btn-outline-primary"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setModalState({
-                    mode: "edit",
-                    initialValue: connection,
-                  });
-                }}
-              >
-                <GBEdit /> Edit
-              </a>
-            </div>
-            <div className="col-auto">
-              <MoreMenu>
-                <button
-                  className="dropdown-item"
+            {canUpdate ? (
+              <div className="col-auto ml-auto">
+                <a
+                  role="button"
+                  className="btn btn-outline-primary"
                   onClick={(e) => {
                     e.preventDefault();
                     setModalState({
-                      mode: "create",
+                      mode: "edit",
                       initialValue: connection,
                     });
                   }}
                 >
-                  Duplicate
-                </button>
-                <DeleteButton
-                  className="dropdown-item text-danger"
-                  displayName="SDK Connection"
-                  text="Delete"
-                  useIcon={false}
-                  onClick={async () => {
-                    await apiCall(`/sdk-connections/${connection.id}`, {
-                      method: "DELETE",
-                    });
-                    mutate();
-                    router.push(`/sdks`);
-                  }}
-                />
+                  <GBEdit /> Edit
+                </a>
+              </div>
+            ) : null}
+            <div className="col-auto">
+              <MoreMenu>
+                {canDuplicate ? (
+                  <button
+                    className="dropdown-item"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setModalState({
+                        mode: "create",
+                        initialValue: connection,
+                      });
+                    }}
+                  >
+                    Duplicate
+                  </button>
+                ) : null}
+                {canDelete ? (
+                  <DeleteButton
+                    className="dropdown-item text-danger"
+                    displayName="SDK Connection"
+                    text="Delete"
+                    useIcon={false}
+                    onClick={async () => {
+                      await apiCall(`/sdk-connections/${connection.id}`, {
+                        method: "DELETE",
+                      });
+                      mutate();
+                      router.push(`/sdks`);
+                    }}
+                  />
+                ) : null}
               </MoreMenu>
             </div>
           </>
-        )}
+        ) : null}
       </div>
 
       <div className="mb-4 row">
@@ -393,7 +397,7 @@ export default function SDKConnectionPage() {
 
         <ConnectionStatus
           connected={connection.connected}
-          canRefresh={hasPermission && !connection.connected}
+          canRefresh={canUpdate && !connection.connected}
           refresh={
             <Button
               color="link"
@@ -422,7 +426,7 @@ export default function SDKConnectionPage() {
 
             <ConnectionStatus
               connected={connection.proxy.connected}
-              canRefresh={hasPermission}
+              canRefresh={canUpdate}
               error={!connection.proxy.connected}
               errorTxt={connection.proxy.error}
               refresh={
