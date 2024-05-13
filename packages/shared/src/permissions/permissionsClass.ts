@@ -61,31 +61,19 @@ export class Permissions {
   };
 
   public canViewEventWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageWebhooks");
+    return this.checkGlobalPermission("manageEventWebhooks");
   };
 
   public canCreateEventWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageWebhooks");
+    return this.checkGlobalPermission("manageEventWebhooks");
   };
 
   public canUpdateEventWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageWebhooks");
+    return this.checkGlobalPermission("manageEventWebhooks");
   };
 
   public canDeleteEventWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageWebhooks");
-  };
-
-  public canCreateSDKWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageWebhooks");
-  };
-
-  public canUpdateSDKWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageWebhooks");
-  };
-
-  public canDeleteSDKWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageWebhooks");
+    return this.checkGlobalPermission("manageEventWebhooks");
   };
 
   public canCreateAndUpdateTag = (): boolean => {
@@ -436,19 +424,19 @@ export class Permissions {
   public canCreateAndUpdateFactFilter = (
     factTable: Pick<FactTableInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(factTable, "manageFactTables");
+    return this.checkProjectFilterPermission(factTable, "manageFactFilters");
   };
 
   public canDeleteFactFilter = (
     factTable: Pick<FactTableInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(factTable, "manageFactTables");
+    return this.checkProjectFilterPermission(factTable, "manageFactFilters");
   };
 
   public canCreateFactMetric = (
     metric: Pick<FactMetricInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(metric, "createMetrics");
+    return this.checkProjectFilterPermission(metric, "manageFactMetrics");
   };
 
   public canUpdateFactMetric = (
@@ -458,14 +446,14 @@ export class Permissions {
     return this.checkProjectFilterUpdatePermission(
       existing,
       updates,
-      "createMetrics"
+      "manageFactMetrics"
     );
   };
 
   public canDeleteFactMetric = (
     metric: Pick<FactMetricInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(metric, "createMetrics");
+    return this.checkProjectFilterPermission(metric, "manageFactMetrics");
   };
 
   public canCreateMetric = (
@@ -688,7 +676,7 @@ export class Permissions {
     return this.checkEnvFilterPermission(
       sdkConnection,
       [sdkConnection.environment],
-      "manageEnvironments"
+      "manageSDKConnections"
     );
   };
 
@@ -699,7 +687,7 @@ export class Permissions {
     return this.checkEnvFilterUpdatePermission(
       existing,
       updates,
-      "manageEnvironments"
+      "manageSDKConnections"
     );
   };
 
@@ -709,7 +697,43 @@ export class Permissions {
     return this.checkEnvFilterPermission(
       sdkConnection,
       [sdkConnection.environment],
-      "manageEnvironments"
+      "manageSDKConnections"
+    );
+  };
+
+  public canManageLegacySDKWebhooks = (): boolean => {
+    // These webhooks are deprecated
+    // Restrict access to admins by using the event webhooks permission
+    return this.checkGlobalPermission("manageEventWebhooks");
+  };
+
+  public canCreateSDKWebhook = (
+    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      sdkConnection,
+      [sdkConnection.environment],
+      "manageSDKWebhooks"
+    );
+  };
+
+  public canUpdateSDKWebhook = (
+    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      sdkConnection,
+      [sdkConnection.environment],
+      "manageSDKWebhooks"
+    );
+  };
+
+  public canDeleteSDKWebhook = (
+    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      sdkConnection,
+      [sdkConnection.environment],
+      "manageSDKWebhooks"
     );
   };
 

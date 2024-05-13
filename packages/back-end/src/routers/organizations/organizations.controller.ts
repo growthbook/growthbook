@@ -127,7 +127,10 @@ import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { TeamInterface } from "../../../types/team";
 import { fireSdkWebhook } from "../../jobs/sdkWebhooks";
 import { initializeLicenseForOrg } from "../../services/licenseData";
-import { findSDKConnectionsByOrganization } from "../../models/SdkConnectionModel";
+import {
+  findSDKConnectionsByIds,
+  findSDKConnectionsByOrganization,
+} from "../../models/SdkConnectionModel";
 import { triggerSingleSDKWebhookJobs } from "../../jobs/updateAllJobs";
 import { SDKConnectionInterface } from "../../../types/sdk-connection";
 
@@ -1665,7 +1668,12 @@ export async function testSDKWebhook(
     throw new Error("Could not find webhook");
   }
 
-  if (!context.permissions.canUpdateSDKWebhook()) {
+  const conns = await findSDKConnectionsByIds(context, webhook.sdks);
+  if (!conns.length) {
+    throw new Error("Could not find any SDK connection tied to this webhook");
+  }
+
+  if (!conns.every((c) => context.permissions.canUpdateSDKWebhook(c))) {
     context.permissions.throwPermissionError();
   }
 
@@ -1683,14 +1691,19 @@ export async function putSDKWebhook(
 ) {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canUpdateSDKWebhook()) {
-    context.permissions.throwPermissionError();
-  }
-
   const { id } = req.params;
   const webhook = await findSdkWebhookById(context, id);
   if (!webhook) {
     throw new Error("Could not find webhook");
+  }
+
+  const conns = await findSDKConnectionsByIds(context, webhook.sdks);
+  if (!conns.length) {
+    throw new Error("Could not find any SDK connection tied to this webhook");
+  }
+
+  if (!conns.every((c) => context.permissions.canUpdateSDKWebhook(c))) {
+    context.permissions.throwPermissionError();
   }
 
   const updatedWebhook = await updateSdkWebhook(context, webhook, req.body);
@@ -1712,7 +1725,7 @@ export async function deleteLegacyWebhook(
 ) {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canDeleteSDKWebhook()) {
+  if (!context.permissions.canManageLegacySDKWebhooks()) {
     context.permissions.throwPermissionError();
   }
   const { id } = req.params;
@@ -1728,11 +1741,18 @@ export async function deleteSDKWebhook(
   res: Response
 ) {
   const context = getContextFromReq(req);
-
-  if (!context.permissions.canDeleteSDKWebhook()) {
-    context.permissions.throwPermissionError();
-  }
   const { id } = req.params;
+
+  const webhook = await findSdkWebhookById(context, id);
+  if (webhook) {
+    // It's ok if conns is empty here
+    // We still want to allow deleting orphaned webhooks
+    const conns = await findSDKConnectionsByIds(context, webhook.sdks);
+    if (!conns.every((c) => context.permissions.canDeleteSDKWebhook(c))) {
+      context.permissions.throwPermissionError();
+    }
+  }
+
   await deleteSdkWebhookById(context, id);
 
   res.status(200).json({
@@ -1983,7 +2003,10 @@ export async function putAdminResetUserPassword(
   });
 }
 
-async function setLicenseKey(org: OrganizationInterface, licenseKey: string) {
+export async function setLicenseKey(
+  org: OrganizationInterface,
+  licenseKey: string
+) {
   if (!IS_CLOUD && IS_MULTI_ORG) {
     throw new Error(
       "You must use the LICENSE_KEY environmental variable on multi org sites."

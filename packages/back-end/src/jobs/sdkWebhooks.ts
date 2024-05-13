@@ -264,7 +264,7 @@ export async function fireSdkWebhook(
 ) {
   const webhookContext = getContextForAgendaJobByOrgObject(context.org);
 
-  const connections = await findSDKConnectionsByIds(webhook?.sdks);
+  const connections = await findSDKConnectionsByIds(context, webhook?.sdks);
   for (const connection of connections) {
     if (!connection) {
       logger.error("SDK webhook: Could not find sdk connection", {
