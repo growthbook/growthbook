@@ -269,7 +269,7 @@ export default {
     await growthbook.init();
 
     // 2. Start feature flagging
-    if (growthbook.isOn("my-feature") {
+    if (growthbook.isOn("my-feature")) {
       return new Response("<h1>foo</h1>");
     }
     return new Response("<h1>bar</h1>");
@@ -284,7 +284,7 @@ By default, the Edge App will make a network request to the GrowthBook API on ea
 Convenient solutions this problem are realized through [CloudFlare KV<ExternalLink />](https://developers.cloudflare.com/kv/reference/how-kv-works/), an on-edge key-value store which we can leverage for persistent payload caching. There are 2 levels of KV integration available:
 
 1. You can either completely eliminate the blocking call to the GrowthBook API by implementing a GrowthBook-to-CloudFlare-KV push model via **SDK Webhooks**.
-2. Alternately, you can eliminate most of these network requests by using CloudFlare KV as a just-in-time payload cache.
+2. Alternatively, you can eliminate most of these network requests by using CloudFlare KV as a just-in-time payload cache.
 
 You can also use either of these strategies in your own manual SDK integration via the `getPayloadFromKV` and `getKVLocalStoragePolyfill` utility functions.
 
