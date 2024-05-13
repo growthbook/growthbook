@@ -18,26 +18,25 @@ export function evalCondition(
   condition: ConditionInterface
 ): boolean {
   // Condition is an object, keys are object paths, values are the condition for that path
-  let failedCondition = false;
   for (const [k, v] of Object.entries(condition)) {
     switch (k) {
       case "$or":
-        failedCondition ||= !evalOr(obj, v as ConditionInterface[]);
+        if (!evalOr(obj, v as ConditionInterface[])) return false;
         break;
       case "$nor":
-        failedCondition ||= evalOr(obj, v as ConditionInterface[]);
+        if (evalOr(obj, v as ConditionInterface[])) return false;
         break;
       case "$and":
-        failedCondition ||= !evalAnd(obj, v as ConditionInterface[]);
+        if (!evalAnd(obj, v as ConditionInterface[])) return false;
         break;
       case "$not":
-        failedCondition ||= evalCondition(obj, v as ConditionInterface);
+        if (evalCondition(obj, v as ConditionInterface)) return false;
         break;
       default:
-        failedCondition ||= !evalConditionValue(v, getPath(obj, k));
+        if (!evalConditionValue(v, getPath(obj, k))) return false;
     }
   }
-  return !failedCondition;
+  return true;
 }
 
 // Return value at dot-separated path of an object
