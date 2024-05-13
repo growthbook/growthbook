@@ -59,6 +59,7 @@ export type CommercialFeature =
   | "prerequisite-targeting"
   | "redirects"
   | "multiple-sdk-webhooks"
+  | "custom-roles"
   | "quantile-metrics";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -215,6 +216,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "redirects",
     "multiple-sdk-webhooks",
     "quantile-metrics",
+    "custom-roles",
   ]),
 };
 

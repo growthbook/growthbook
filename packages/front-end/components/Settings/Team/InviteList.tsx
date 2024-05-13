@@ -9,6 +9,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useEnvironments } from "@/services/features";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import ChangeRoleModal from "./ChangeRoleModal";
 
 type ChangeRoleInfo = {
@@ -31,6 +32,8 @@ const InviteList: FC<{
   const [roleModal, setRoleModal] = useState<ChangeRoleInfo>(null);
   const [resending, setResending] = useState(false);
   const [resendMessage, setResendMessage] = useState<ReactElement | null>(null);
+
+  const { organization } = useUser();
 
   const { projects } = useDefinitions();
   const environments = useEnvironments();
@@ -190,7 +193,11 @@ const InviteList: FC<{
                   </td>
                 )}
                 {environments.map((env) => {
-                  const access = roleHasAccessToEnv(roleInfo, env.id);
+                  const access = roleHasAccessToEnv(
+                    roleInfo,
+                    env.id,
+                    organization
+                  );
                   return (
                     <td key={env.id}>
                       {access === "N/A" ? (

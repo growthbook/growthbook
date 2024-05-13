@@ -10,6 +10,12 @@ import {
 } from "enterprise";
 import { experimentHasLinkedChanges } from "shared/util";
 import {
+  getRoles,
+  areProjectRolesValid,
+  isRoleValid,
+  getDefaultRole,
+} from "shared/permissions";
+import {
   UpdateSdkWebhookProps,
   deleteLegacySdkWebhookById,
   deleteSdkWebhookById,
@@ -46,11 +52,11 @@ import { getAllTags } from "../../models/TagModel";
 import {
   Environment,
   Invite,
-  MemberRole,
   MemberRoleWithProjects,
   NamespaceUsage,
   OrganizationInterface,
   OrganizationSettings,
+  Role,
   SDKAttribute,
 } from "../../../types/organization";
 import {
@@ -84,6 +90,9 @@ import {
   findOrganizationsByMemberId,
   hasOrganization,
   updateOrganization,
+  addCustomRole,
+  editCustomRole,
+  removeCustomRole,
 } from "../../models/OrganizationModel";
 import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { ConfigFile } from "../../init/config";
@@ -99,11 +108,7 @@ import {
   getApiKeyByIdOrKey,
   getUnredactedSecretKey,
 } from "../../models/ApiKeyModel";
-import {
-  getDefaultRole,
-  getRoles,
-  getUserPermissions,
-} from "../../util/organization.util";
+import { getUserPermissions } from "../../util/organization.util";
 import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
 import {
   getAllExperiments,
@@ -323,6 +328,13 @@ export async function putMemberRole(
     return res.status(400).json({
       status: 400,
       message: "Cannot change your own role",
+    });
+  }
+
+  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid role",
     });
   }
 
@@ -570,6 +582,13 @@ export async function putInviteRole(
   } = req.body;
   const { key } = req.params;
   const originalInvites: Invite[] = cloneDeep(org.invites);
+
+  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid role",
+    });
+  }
 
   let found = false;
 
@@ -970,7 +989,7 @@ export async function deleteNamespace(
 
 export async function getInviteInfo(
   req: AuthRequest<unknown, { key: string }>,
-  res: ResponseWithStatusAndError<{ organization: string; role: MemberRole }>
+  res: ResponseWithStatusAndError<{ organization: string; role: string }>
 ) {
   const { key } = req.params;
 
@@ -1048,6 +1067,14 @@ export async function postInvite(
     environments,
     projectRoles,
   } = req.body;
+
+  // Make sure role is valid
+  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid role",
+    });
+  }
 
   const license = getLicense();
   if (
@@ -1848,6 +1875,14 @@ export async function addOrphanedUser(
     });
   }
 
+  // Make sure role is valid
+  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid role",
+    });
+  }
+
   const license = getLicense();
   if (
     license &&
@@ -2029,7 +2064,7 @@ export async function putLicenseKey(
 }
 
 export async function putDefaultRole(
-  req: AuthRequest<{ defaultRole: MemberRole }>,
+  req: AuthRequest<{ defaultRole: string }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
@@ -2042,6 +2077,10 @@ export async function putDefaultRole(
     throw new Error(
       "Must have a commercial License Key to update the organization's default role."
     );
+  }
+
+  if (!isRoleValid(defaultRole, org)) {
+    throw new Error("Invalid role");
   }
 
   if (!context.permissions.canManageTeam()) {
@@ -2058,6 +2097,70 @@ export async function putDefaultRole(
       },
     },
   });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postCustomRole(req: AuthRequest<Role>, res: Response) {
+  const context = getContextFromReq(req);
+  const roleToAdd = req.body;
+
+  if (!context.hasPremiumFeature("custom-roles")) {
+    throw new Error("Must have an Enterprise License Key to use custom roles.");
+  }
+
+  if (!context.permissions.canManageCustomRoles()) {
+    context.permissions.throwPermissionError();
+  }
+
+  await addCustomRole(context.org, roleToAdd);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function putCustomRole(
+  req: AuthRequest<Omit<Role, "id">, { id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const roleToUpdate = req.body;
+  const { id } = req.params;
+
+  if (!context.hasPremiumFeature("custom-roles")) {
+    throw new Error("Must have an Enterprise License Key to use custom roles.");
+  }
+
+  if (!context.permissions.canManageCustomRoles()) {
+    context.permissions.throwPermissionError();
+  }
+
+  await editCustomRole(context.org, id, roleToUpdate);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function deleteCustomRole(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  if (!context.hasPremiumFeature("custom-roles")) {
+    throw new Error("Must have an Enterprise License Key to use custom roles.");
+  }
+
+  if (!context.permissions.canManageCustomRoles()) {
+    context.permissions.throwPermissionError();
+  }
+
+  await removeCustomRole(context.org, context.teams, id);
 
   res.status(200).json({
     status: 200,

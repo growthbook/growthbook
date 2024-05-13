@@ -1,6 +1,6 @@
-import { MemberRole } from "back-end/types/organization";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { getDefaultRole } from "shared/permissions";
 import Button from "@/components/Button";
 import SelectField from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
@@ -14,13 +14,12 @@ export default function UpdateDefaultRoleForm() {
 
   const form = useForm({
     defaultValues: {
-      defaultRole: organization.settings?.defaultRole?.role || "collaborator",
+      defaultRole: getDefaultRole(organization).role,
     },
   });
 
   const disableSaveButton =
-    form.watch("defaultRole") ===
-    (organization.settings?.defaultRole?.role || "collaborator");
+    form.watch("defaultRole") === getDefaultRole(organization).role;
 
   const saveSettings = form.handleSubmit(async (data) => {
     setDefaultRoleError(null);
@@ -48,7 +47,7 @@ export default function UpdateDefaultRoleForm() {
             label={"Default User Role"}
             helpText="This is the default role that will be assigned to new users if you have auto-join or SCIM enabled. This will not affect any existing users."
             value={form.watch("defaultRole")}
-            onChange={async (role: MemberRole) => {
+            onChange={async (role: string) => {
               form.setValue("defaultRole", role);
             }}
             options={roles.map((r) => ({

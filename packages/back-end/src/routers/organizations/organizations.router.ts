@@ -88,4 +88,9 @@ if (!IS_CLOUD) {
   );
 }
 
+// Custom Roles
+router.post("/custom-roles", organizationsController.postCustomRole);
+router.put("/custom-roles/:id", organizationsController.putCustomRole);
+router.delete("/custom-roles/:id", organizationsController.deleteCustomRole);
+
 export { router as organizationsRouter };
