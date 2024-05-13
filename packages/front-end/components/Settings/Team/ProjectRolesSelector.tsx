@@ -93,15 +93,15 @@ export default function ProjectRolesSelector({
               onClick={(e) => {
                 e.preventDefault();
                 if (!newProject) return;
-                setProjectRoles([
-                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ProjectMemberRole | { role?: MemberRole | un... Remove this comment to see the full error message
-                  ...projectRoles,
-                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ role?: MemberRole | undefined; limitAccess... Remove this comment to see the full error message
+
+                const newProjectRoles: ProjectMemberRole[] = [...projectRoles];
+                newProjectRoles.push(
                   cloneDeep({
                     project: newProject,
                     ...settings.defaultRole,
-                  }),
-                ]);
+                  }) as ProjectMemberRole
+                );
+                setProjectRoles(newProjectRoles);
                 setNewProject("");
               }}
             >

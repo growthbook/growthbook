@@ -5,11 +5,8 @@ import {
   getPermissionsObjectByPolicies,
   getRoleById,
   roleSupportsEnvLimit,
-  isRoleValid,
 } from "shared/permissions";
 import {
-  MemberRole,
-  MemberRoleInfo,
   OrganizationInterface,
   Permission,
   PermissionsObject,
@@ -55,7 +52,7 @@ export function getEnvironments(org: OrganizationInterface) {
 }
 
 export function roleToPermissionMap(
-  roleId: MemberRole,
+  roleId: string,
   org: OrganizationInterface
 ): PermissionsObject {
   const role = getRoleById(roleId || "readonly", org);
@@ -220,7 +217,7 @@ function getUserPermission(
   info: {
     environments?: string[];
     limitAccessByEnvironment?: boolean;
-    role: MemberRole;
+    role: string;
   },
   org: OrganizationInterface
 ): UserPermission {
@@ -290,36 +287,6 @@ export function getUserPermissions(
   }
 
   return userPermissions;
-}
-
-export function getDefaultRole(
-  organization: OrganizationInterface
-): MemberRoleInfo {
-  // First try the explicitly set defaultRole
-  if (
-    organization.settings?.defaultRole &&
-    isRoleValid(organization.settings.defaultRole.role, organization)
-  ) {
-    return organization.settings.defaultRole;
-  }
-
-  // Then try collaborator role (might not exist if using custom roles)
-  if (isRoleValid("collaborator", organization)) {
-    return {
-      environments: [],
-      limitAccessByEnvironment: false,
-      role: "collaborator",
-    };
-  }
-
-  // Fall back to readonly, which is always available
-  return (
-    organization.settings?.defaultRole || {
-      environments: [],
-      limitAccessByEnvironment: false,
-      role: "readonly",
-    }
-  );
 }
 
 export const attributeDataTypes = [

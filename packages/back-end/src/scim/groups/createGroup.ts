@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { isRoleValid } from "shared/permissions";
+import { isRoleValid, getDefaultRole } from "shared/permissions";
 import { createTeam } from "../../models/TeamModel";
 import {
   ScimError,
@@ -7,7 +7,6 @@ import {
   ScimGroupPostRequest,
 } from "../../../types/scim";
 import { addMembersToTeam } from "../../services/organizations";
-import { MemberRole } from "../../../types/organization";
 
 export async function createGroup(
   req: ScimGroupPostRequest,
@@ -17,17 +16,15 @@ export async function createGroup(
 
   const org = req.organization;
 
-  let role: MemberRole = org.settings?.defaultRole?.role || "collaborator";
+  let roleInfo = getDefaultRole(org);
 
   if (growthbookRole && isRoleValid(growthbookRole, org)) {
-    role = growthbookRole;
+    roleInfo = {
+      role: growthbookRole,
+      limitAccessByEnvironment: false,
+      environments: [],
+    };
   }
-
-  const DEFAULT_TEAM_PERMISSIONS = {
-    role,
-    limitAccessByEnvironment: false,
-    environments: [],
-  };
 
   try {
     const group = await createTeam({
@@ -36,7 +33,7 @@ export async function createGroup(
       description: "Created via SCIM.",
       organization: org.id,
       managedByIdp: true,
-      ...DEFAULT_TEAM_PERMISSIONS,
+      ...roleInfo,
     });
 
     await addMembersToTeam({

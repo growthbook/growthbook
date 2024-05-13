@@ -13,6 +13,7 @@ import {
   getRoles,
   areProjectRolesValid,
   isRoleValid,
+  getDefaultRole,
 } from "shared/permissions";
 import {
   UpdateSdkWebhookProps,
@@ -103,10 +104,7 @@ import {
   getApiKeyByIdOrKey,
   getUnredactedSecretKey,
 } from "../../models/ApiKeyModel";
-import {
-  getDefaultRole,
-  getUserPermissions,
-} from "../../util/organization.util";
+import { getUserPermissions } from "../../util/organization.util";
 import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
 import {
   getAllExperiments,

@@ -4,12 +4,12 @@ import { isRoleValid } from "shared/permissions";
 import { ScimError, ScimUser, ScimUserPutRequest } from "../../../types/scim";
 import { expandOrgMembers } from "../../services/organizations";
 import { updateOrganization } from "../../models/OrganizationModel";
-import { MemberRole, OrganizationInterface } from "../../../types/organization";
+import { OrganizationInterface } from "../../../types/organization";
 
 async function updateUserRole(
   org: OrganizationInterface,
   userId: string,
-  newRole: MemberRole
+  newRole: string
 ) {
   const updatedOrgMembers = cloneDeep(org.members);
 

@@ -49,16 +49,14 @@ export type DefaultMemberRole =
   | "experimenter"
   | "admin";
 
-export type MemberRole = string;
-
 export type Role = {
-  id: MemberRole;
+  id: string;
   description: string;
   policies: Policy[];
 };
 
 export interface MemberRoleInfo {
-  role: MemberRole;
+  role: string;
   limitAccessByEnvironment: boolean;
   environments: string[];
   teams?: string[];

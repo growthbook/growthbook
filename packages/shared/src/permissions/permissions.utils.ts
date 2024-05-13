@@ -1,12 +1,12 @@
 import {
   Permission,
   UserPermissions,
-  MemberRole,
   PermissionsObject,
   OrganizationInterface,
   DefaultMemberRole,
   Role,
   ProjectMemberRole,
+  MemberRoleInfo,
 } from "back-end/types/organization";
 
 export const POLICIES = [
@@ -421,7 +421,7 @@ export function getRoles(org: OrganizationInterface) {
   return roles;
 }
 
-export function isRoleValid(role: MemberRole, org: OrganizationInterface) {
+export function isRoleValid(role: string, org: OrganizationInterface) {
   return !!getRoleById(role, org);
 }
 
@@ -435,6 +435,32 @@ export function areProjectRolesValid(
   return projectRoles.every(
     (projectRole) => !!getRoleById(projectRole.role, org)
   );
+}
+
+export function getDefaultRole(org: OrganizationInterface): MemberRoleInfo {
+  // First use the explicitly provided default role
+  if (
+    org.settings?.defaultRole?.role &&
+    isRoleValid(org.settings.defaultRole.role, org)
+  ) {
+    return org.settings.defaultRole;
+  }
+
+  // Otherwise, try to use collaborator if it's valid
+  if (isRoleValid("collaborator", org)) {
+    return {
+      role: "collaborator",
+      environments: [],
+      limitAccessByEnvironment: false,
+    };
+  }
+
+  // Readonly is always valid
+  return {
+    role: "readonly",
+    environments: [],
+    limitAccessByEnvironment: false,
+  };
 }
 
 export const ENV_SCOPED_PERMISSIONS = [
@@ -559,7 +585,7 @@ export const userHasPermission = (
 };
 
 export function roleSupportsEnvLimit(
-  roleId: MemberRole,
+  roleId: string,
   org: OrganizationInterface
 ): boolean {
   if (roleId === "admin") return false;

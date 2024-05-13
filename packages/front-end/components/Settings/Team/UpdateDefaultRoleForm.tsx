@@ -1,4 +1,3 @@
-import { MemberRole } from "back-end/types/organization";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import Button from "@/components/Button";
@@ -48,7 +47,7 @@ export default function UpdateDefaultRoleForm() {
             label={"Default User Role"}
             helpText="This is the default role that will be assigned to new users if you have auto-join or SCIM enabled. This will not affect any existing users."
             value={form.watch("defaultRole")}
-            onChange={async (role: MemberRole) => {
+            onChange={async (role: string) => {
               form.setValue("defaultRole", role);
             }}
             options={roles.map((r) => ({

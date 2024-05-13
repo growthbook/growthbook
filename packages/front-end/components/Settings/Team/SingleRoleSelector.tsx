@@ -1,6 +1,5 @@
 import { ReactNode, useMemo } from "react";
 import {
-  MemberRole,
   MemberRoleInfo,
   OrganizationInterface,
 } from "back-end/types/organization";
@@ -46,7 +45,7 @@ export default function SingleRoleSelector({
       <SelectField
         label={label}
         value={value.role}
-        onChange={(role: MemberRole) => {
+        onChange={(role) => {
           setValue({
             ...value,
             role,
