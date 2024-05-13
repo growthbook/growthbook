@@ -486,8 +486,7 @@ export function roleHasAccessToEnv(
   env: string,
   org: Partial<OrganizationInterface>
 ): "yes" | "no" | "N/A" {
-  if (!roleSupportsEnvLimit(role.role, org as OrganizationInterface))
-    return "N/A";
+  if (!roleSupportsEnvLimit(role.role, org)) return "N/A";
 
   if (!role.limitAccessByEnvironment) return "yes";
 

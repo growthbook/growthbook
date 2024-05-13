@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { getDefaultRole } from "shared/permissions";
 import Button from "@/components/Button";
 import SelectField from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
@@ -13,13 +14,12 @@ export default function UpdateDefaultRoleForm() {
 
   const form = useForm({
     defaultValues: {
-      defaultRole: organization.settings?.defaultRole?.role || "collaborator",
+      defaultRole: getDefaultRole(organization).role,
     },
   });
 
   const disableSaveButton =
-    form.watch("defaultRole") ===
-    (organization.settings?.defaultRole?.role || "collaborator");
+    form.watch("defaultRole") === getDefaultRole(organization).role;
 
   const saveSettings = form.handleSubmit(async (data) => {
     setDefaultRoleError(null);

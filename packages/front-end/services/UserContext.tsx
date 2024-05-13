@@ -30,7 +30,11 @@ import {
 } from "react";
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import { Permissions, userHasPermission } from "shared/permissions";
+import {
+  Permissions,
+  getDefaultRole,
+  userHasPermission,
+} from "shared/permissions";
 import { isCloud, isMultiOrg, isSentryEnabled } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
@@ -253,7 +257,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   const role =
     (data?.superAdmin && "admin") ||
-    (user?.role ?? currentOrg?.organization?.settings?.defaultRole?.role);
+    (user?.role ?? getDefaultRole(currentOrg?.organization || {}).role);
 
   // Update current user data for telemetry data
   useEffect(() => {

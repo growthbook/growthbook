@@ -43,14 +43,14 @@ export function getPermissionsObjectByPolicies(
 
 export function getRoleById(
   roleId: string,
-  organization: OrganizationInterface
+  organization: Partial<OrganizationInterface>
 ): Role | null {
   const roles = getRoles(organization);
 
   return roles.find((role) => role.id === roleId) || null;
 }
 
-export function getRoles(org: OrganizationInterface) {
+export function getRoles(org: Partial<OrganizationInterface>) {
   // Always start with default roles
   const roles = Object.values(DEFAULT_ROLES);
 
@@ -71,24 +71,24 @@ export function getRoles(org: OrganizationInterface) {
   return roles;
 }
 
-export function isRoleValid(role: string, org: OrganizationInterface) {
+export function isRoleValid(role: string, org: Partial<OrganizationInterface>) {
   return !!getRoleById(role, org);
 }
 
 export function areProjectRolesValid(
   projectRoles: ProjectMemberRole[] | undefined,
-  org: OrganizationInterface
+  org: Partial<OrganizationInterface>
 ) {
   if (!projectRoles) {
     return true;
   }
-  return projectRoles.every(
-    (projectRole) => !!getRoleById(projectRole.role, org)
-  );
+  return projectRoles.every((p) => isRoleValid(p.role, org));
 }
 
-export function getDefaultRole(org: OrganizationInterface): MemberRoleInfo {
-  // First use the explicitly provided default role
+export function getDefaultRole(
+  org: Partial<OrganizationInterface>
+): MemberRoleInfo {
+  // First try the explicitly provided default role
   if (
     org.settings?.defaultRole?.role &&
     isRoleValid(org.settings.defaultRole.role, org)
@@ -96,18 +96,10 @@ export function getDefaultRole(org: OrganizationInterface): MemberRoleInfo {
     return org.settings.defaultRole;
   }
 
-  // Otherwise, try to use collaborator if it's valid
-  if (isRoleValid("collaborator", org)) {
-    return {
-      role: "collaborator",
-      environments: [],
-      limitAccessByEnvironment: false,
-    };
-  }
-
-  // Readonly is always valid
+  // Fall back to using "collaborator"
+  // TODO: If we allow disabling roles, check to make sure "collaborator" is enabled
   return {
-    role: "readonly",
+    role: "collaborator",
     environments: [],
     limitAccessByEnvironment: false,
   };
@@ -178,7 +170,7 @@ export const userHasPermission = (
 
 export function roleSupportsEnvLimit(
   roleId: string,
-  org: OrganizationInterface
+  org: Partial<OrganizationInterface>
 ): boolean {
   if (roleId === "admin") return false;
 

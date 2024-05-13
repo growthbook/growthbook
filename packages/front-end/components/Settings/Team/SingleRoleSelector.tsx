@@ -1,8 +1,5 @@
 import { ReactNode, useMemo } from "react";
-import {
-  MemberRoleInfo,
-  OrganizationInterface,
-} from "back-end/types/organization";
+import { MemberRoleInfo } from "back-end/types/organization";
 import uniqid from "uniqid";
 import { roleSupportsEnvLimit } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
@@ -74,10 +71,7 @@ export default function SingleRoleSelector({
         disabled={disabled}
       />
 
-      {roleSupportsEnvLimit(
-        value.role,
-        organization as OrganizationInterface
-      ) &&
+      {roleSupportsEnvLimit(value.role, organization) &&
         availableEnvs.length > 1 && (
           <div>
             <div className="form-group">
