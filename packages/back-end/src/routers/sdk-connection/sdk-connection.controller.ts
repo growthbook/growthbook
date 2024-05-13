@@ -205,14 +205,10 @@ export const getSDKConnectionWebhooks = async (
     throw new Error("Could not find SDK connection");
   }
 
-  if (!context.permissions.canReadMultiProjectResource(conn.projects)) {
-    context.permissions.throwPermissionError();
-  }
-
   const webhooks = await findAllSdkWebhooksByConnection(context, id);
 
   // If user does not have write access, remove the shared secret
-  if (!context.permissions.canUpdateSDKWebhook()) {
+  if (!context.permissions.canUpdateSDKWebhook(conn)) {
     webhooks.forEach((w) => {
       w.signingKey = "";
     });
@@ -237,7 +233,7 @@ export async function postSDKConnectionWebhook(
     throw new Error("Could not find SDK Connection");
   }
 
-  if (!context.permissions.canCreateSDKWebhook()) {
+  if (!context.permissions.canCreateSDKWebhook(connection)) {
     context.permissions.throwPermissionError();
   }
 

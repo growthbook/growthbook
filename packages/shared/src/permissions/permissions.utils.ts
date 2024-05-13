@@ -7,6 +7,8 @@ import {
 export const ENV_SCOPED_PERMISSIONS = [
   "publishFeatures",
   "manageEnvironments",
+  "manageSDKConnections",
+  "manageSDKWebhooks",
   "runExperiments",
 ] as const;
 
@@ -21,7 +23,9 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "createAnalyses",
   "createIdeas",
   "createMetrics",
+  "manageFactMetrics",
   "manageFactTables",
+  "manageFactFilters",
   "createDatasources",
   "editDatasourceSettings",
   "runQueries",
@@ -40,7 +44,7 @@ export const GLOBAL_PERMISSIONS = [
   "manageTags",
   "manageApiKeys",
   "manageIntegrations",
-  "manageWebhooks",
+  "manageEventWebhooks",
   "manageBilling",
   "manageNorthStarMetric",
   "manageNamespaces",

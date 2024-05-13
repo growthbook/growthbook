@@ -484,7 +484,7 @@ export default function SDKConnectionPage() {
           </Tooltip>
         </div>
       </div>
-      <SdkWebhooks sdkid={sdkid} />
+      <SdkWebhooks connection={connection} />
       <div className="mt-4">
         <CodeSnippetModal
           connections={data.connections}
