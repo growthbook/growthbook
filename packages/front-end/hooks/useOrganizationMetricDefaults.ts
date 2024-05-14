@@ -106,8 +106,6 @@ export type OrganizationSettingsWithMetricDefaults = Omit<
     minimumSampleSize: number;
     maxPercentageChange: number;
     minPercentageChange: number;
-    windowSettings: MetricWindowSettings;
-    cappingSettings: MetricCappingSettings;
     priorSettings: MetricPriorSettings;
   };
 };
@@ -124,7 +122,6 @@ export const useOrganizationMetricDefaults = (): OrganizationMetricDefaults => {
     }),
     [orgSettings]
   );
-
   /**
    * @link OrganizationMetricDefaults#getMaxPercentageChangeForMetric
    */

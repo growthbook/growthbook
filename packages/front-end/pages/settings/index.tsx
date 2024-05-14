@@ -65,7 +65,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
 
   const { metricDefaults } = useOrganizationMetricDefaults();
-
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
       visualEditorEnabled: false,
@@ -131,14 +130,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
     },
   });
   const { apiCall } = useAuth();
-
-  const value = {
+  const value: OrganizationSettingsWithMetricDefaults = {
     visualEditorEnabled: form.watch("visualEditorEnabled"),
     pastExperimentsMinLength: form.watch("pastExperimentsMinLength"),
     metricAnalysisDays: form.watch("metricAnalysisDays"),
     metricDefaults: {
-      minimumSampleSize: form.watch("metricDefaults.minimumSampleSize"),
       priorSettings: form.watch("metricDefaults.priorSettings"),
+      minimumSampleSize: form.watch("metricDefaults.minimumSampleSize"),
       maxPercentageChange: form.watch("metricDefaults.maxPercentageChange"),
       minPercentageChange: form.watch("metricDefaults.minPercentageChange"),
     },
@@ -193,8 +191,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
       const newVal = { ...form.getValues() };
       Object.keys(newVal).forEach((k) => {
         const hasExistingMetrics = typeof settings?.[k] !== "undefined";
-        newVal[k] = settings?.[k] || newVal[k];
-
+        if (k === "metricDefaults") {
+          // Metric defaults are nested, so take existing metric defaults only if
+          // they exist and are not empty
+          Object.keys(newVal[k]).forEach((kk) => {
+            newVal[k][kk] = settings?.[k]?.[k] ?? newVal[k][kk];
+          });
+        } else {
+          newVal[k] = settings?.[k] || newVal[k];
+        }
         // Existing values are stored as a multiplier, e.g. 50% on the UI is stored as 0.5
         // Transform these values from the UI format
         if (k === "metricDefaults" && hasExistingMetrics) {
