@@ -190,27 +190,31 @@ const GeneralSettingsPage = (): React.ReactElement => {
     if (settings) {
       const newVal = { ...form.getValues() };
       Object.keys(newVal).forEach((k) => {
-        const hasExistingMetrics = typeof settings?.[k] !== "undefined";
         if (k === "metricDefaults") {
           // Metric defaults are nested, so take existing metric defaults only if
           // they exist and are not empty
-          Object.keys(newVal[k]).forEach((kk) => {
-            newVal[k][kk] = settings?.[k]?.[kk] ?? newVal[k][kk];
-          });
+          const existingMaxChange = settings?.[k]?.maxPercentageChange;
+          const existingMinChange = settings?.[k]?.minPercentageChange;
+          newVal[k] = {
+            ...newVal[k],
+            ...settings?.[k],
+            // Existing values are stored as a multiplier, e.g. 50% on the UI is stored as 0.5
+            // Transform these values from the UI format
+            ...(existingMaxChange !== undefined
+              ? {
+                  maxPercentageChange: existingMaxChange * 100,
+                }
+              : {}),
+            ...(existingMinChange !== undefined
+              ? {
+                  minPercentageChange: existingMinChange * 100,
+                }
+              : {}),
+          };
         } else {
           newVal[k] = settings?.[k] || newVal[k];
         }
-        // Existing values are stored as a multiplier, e.g. 50% on the UI is stored as 0.5
-        // Transform these values from the UI format
-        if (k === "metricDefaults" && hasExistingMetrics) {
-          newVal.metricDefaults = {
-            ...newVal.metricDefaults,
-            maxPercentageChange:
-              newVal.metricDefaults.maxPercentageChange * 100,
-            minPercentageChange:
-              newVal.metricDefaults.minPercentageChange * 100,
-          };
-        }
+
         if (k === "confidenceLevel" && (newVal?.confidenceLevel ?? 0.95) <= 1) {
           newVal.confidenceLevel = (newVal.confidenceLevel ?? 0.95) * 100;
         }
