@@ -225,7 +225,7 @@ export async function postRegister(
   }
 
   // Create new account
-  const user = await createUser(name, email, password);
+  const user = await createUser({ name, email, password });
   sendLocalSuccessResponse(req, res, user);
 }
 
@@ -276,7 +276,9 @@ export async function postFirstTimeRegister(
     });
   }
 
-  const user = await createUser(name, email, password);
+  // grant the first user on a new installation super admin access
+  const user = await createUser({ name, email, password, superAdmin: true });
+
   await createOrganization({
     email,
     userId: user.id,
