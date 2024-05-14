@@ -394,12 +394,14 @@ export default function FactMetricModal({
         existing?.regressionAdjustmentDays ||
         (settings.regressionAdjustmentDays ??
           DEFAULT_REGRESSION_ADJUSTMENT_DAYS),
-      priorSettings: existing?.priorSettings || (metricDefaults.priorSettings ?? {
-        override: false,
-        proper: false,
-        mean: 0,
-        stddev: DEFAULT_PROPER_PRIOR_STDDEV
-      }),
+      priorSettings:
+        existing?.priorSettings ||
+        (metricDefaults.priorSettings ?? {
+          override: false,
+          proper: false,
+          mean: 0,
+          stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+        }),
     },
   });
 
