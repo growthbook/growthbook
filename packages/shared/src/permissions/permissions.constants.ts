@@ -19,7 +19,6 @@ export const POLICIES = [
   "MetricsFullAccess",
   "FactTablesFullAccess",
   "FactMetricsFullAccess",
-  "FactFiltersFullAccess",
   "DimensionsFullAccess",
   "SegmentsFullAccess",
   "IdeasFullAccess",
@@ -81,7 +80,6 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "manageFactFilters",
   ],
   FactMetricsFullAccess: ["readData", "manageFactMetrics", "manageFactFilters"],
-  FactFiltersFullAccess: ["readData", "manageFactFilters"],
   DimensionsFullAccess: ["readData", "createDimensions"],
   SegmentsFullAccess: ["readData", "createSegments"],
   IdeasFullAccess: ["readData", "createIdeas"],
@@ -138,7 +136,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "RunQueries",
       "MetricsFullAccess",
       "FactTablesFullAccess",
-      "FactFiltersFullAccess",
+      "FactMetricsFullAccess",
       "DimensionsFullAccess",
       "SegmentsFullAccess",
     ],
@@ -246,11 +244,6 @@ export const POLICY_METADATA_MAP: Record<
   FactMetricsFullAccess: {
     displayName: "Fact Metrics Full Access",
     description: "Create, edit, and delete fact metrics and filters.",
-  },
-  FactFiltersFullAccess: {
-    displayName: "Fact Metrics Filters Full Access",
-    description:
-      "Create, edit, and delete fact metrics and filters only (cannot edit the fact table itself)",
   },
   DimensionsFullAccess: {
     displayName: "Dimensions Full Access",
@@ -404,7 +397,6 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "VisualEditorFullAccess",
       "FactTablesFullAccess",
       "FactMetricsFullAccess",
-      "FactFiltersFullAccess",
       "DimensionsFullAccess",
       "SegmentsFullAccess",
       "IdeasFullAccess",
@@ -427,7 +419,6 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "MetricsFullAccess",
       "FactTablesFullAccess",
       "FactMetricsFullAccess",
-      "FactFiltersFullAccess",
       "DimensionsFullAccess",
       "SegmentsFullAccess",
       "IdeasFullAccess",

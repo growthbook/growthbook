@@ -1,10 +1,12 @@
 import isEqual from "lodash/isEqual";
 import cloneDeep from "lodash/cloneDeep";
 import {
+  DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getDefaultRole } from "shared/permissions";
+import { LegacyReportInterface, ReportInterface } from "@back-end/types/report";
 import { SdkWebHookLogDocument } from "../models/SdkWebhookLogModel";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import {
@@ -78,6 +80,15 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
         delayHours: doc.conversionDelayHours || 0,
       };
     }
+  }
+
+  if (doc.priorSettings === undefined) {
+    newDoc.priorSettings = {
+      override: false,
+      proper: false,
+      mean: 0,
+      stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+    };
   }
 
   if (!doc.userIdTypes?.length) {
@@ -549,6 +560,39 @@ export function upgradeExperimentDoc(
   return experiment as ExperimentInterface;
 }
 
+export function migrateReport(orig: LegacyReportInterface): ReportInterface {
+  const { args, ...report } = orig;
+
+  if ((args?.attributionModel as string) === "allExposures") {
+    args.attributionModel = "experimentDuration";
+  }
+
+  if (
+    args?.metricRegressionAdjustmentStatuses &&
+    args?.settingsForSnapshotMetrics === undefined
+  ) {
+    args.settingsForSnapshotMetrics = args.metricRegressionAdjustmentStatuses.map(
+      (m) => ({
+        metric: m.metric,
+        properPrior: false,
+        properPriorMean: 0,
+        properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
+        regressionAdjustmentReason: m.reason,
+        regressionAdjustmentDays: m.regressionAdjustmentDays,
+        regressionAdjustmentEnabled: m.regressionAdjustmentEnabled,
+        regressionAdjustmentAvailable: m.regressionAdjustmentAvailable,
+      })
+    );
+  }
+
+  delete args?.metricRegressionAdjustmentStatuses;
+
+  return {
+    ...report,
+    args,
+  };
+}
+
 export function migrateSnapshot(
   orig: LegacyExperimentSnapshotInterface
 ): ExperimentSnapshotInterface {
@@ -621,6 +665,12 @@ export function migrateSnapshot(
       : "running";
   }
 
+  const defaultMetricPriorSettings = {
+    override: false,
+    proper: false,
+    mean: 0,
+    stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+  };
   // Migrate settings
   // We weren't tracking all of these before, so just pick good defaults
   if (!snapshot.settings) {
@@ -649,6 +699,9 @@ export function migrateSnapshot(
             windowUnit: "hours",
             windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
           },
+          properPrior: defaultMetricPriorSettings.proper,
+          properPriorMean: defaultMetricPriorSettings.mean,
+          properPriorStdDev: defaultMetricPriorSettings.stddev,
           regressionAdjustmentDays:
             regressionSettings?.regressionAdjustmentDays || 0,
           regressionAdjustmentEnabled: !!(
@@ -676,6 +729,7 @@ export function migrateSnapshot(
       goalMetrics: metricIds.filter((m) => m !== activationMetric),
       guardrailMetrics: [],
       activationMetric: activationMetric || null,
+      defaultMetricPriorSettings: defaultMetricPriorSettings,
       regressionAdjustmentEnabled: !!regressionAdjustmentEnabled,
       startDate: snapshot.dateCreated,
       endDate: snapshot.dateCreated,
@@ -688,6 +742,25 @@ export function migrateSnapshot(
       attributionModel: "firstExposure",
       variations,
     };
+  } else {
+    // Add new settings field in case it is missing
+    if (snapshot.settings.defaultMetricPriorSettings === undefined) {
+      snapshot.settings.defaultMetricPriorSettings = defaultMetricPriorSettings;
+    }
+
+    // migrate metric for snapshot to have new fields as old snapshots
+    // may not have prior settings
+    snapshot.settings.metricSettings = snapshot.settings.metricSettings.map(
+      (m) => {
+        if (m.computedSettings) {
+          m.computedSettings = {
+            ...defaultMetricPriorSettings,
+            ...m.computedSettings,
+          };
+        }
+        return m;
+      }
+    );
   }
 
   // Some fields used to be optional, but are now required
