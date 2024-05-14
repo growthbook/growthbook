@@ -13,7 +13,10 @@ import {
   getMetricTemplateVariables,
   quantileMetricType,
 } from "shared/experiments";
-import { AUTOMATIC_DIMENSION_OTHER_NAME } from "shared/constants";
+import {
+  AUTOMATIC_DIMENSION_OTHER_NAME,
+  DEFAULT_TEST_QUERY_DAYS,
+} from "shared/constants";
 import { ReqContext } from "../../types/organization";
 import { MetricInterface, MetricType } from "../../types/metric";
 import {
@@ -57,7 +60,6 @@ import {
   FactMetricData,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
-import { IMPORT_LIMIT_DAYS } from "../util/secrets";
 import { SegmentInterface } from "../../types/segment";
 import {
   getBaseIdTypeAndJoins,
@@ -748,10 +750,13 @@ export default abstract class SqlIntegration
   getTestQuery(
     query: string,
     templateVariables?: TemplateVariables,
+    testDays?: number,
     limit: number = 5
   ): string {
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - IMPORT_LIMIT_DAYS);
+    startDate.setDate(
+      startDate.getDate() - (testDays ?? DEFAULT_TEST_QUERY_DAYS)
+    );
     const limitedQuery = compileSqlTemplate(
       `WITH __table as (
         ${query}

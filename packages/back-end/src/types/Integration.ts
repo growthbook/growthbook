@@ -425,7 +425,11 @@ export interface SourceIntegrationInterface {
     query: string,
     templateVariables?: TemplateVariables
   ): string;
-  getTestQuery?(query: string, templateVariables?: TemplateVariables): string;
+  getTestQuery?(
+    query: string,
+    templateVariables?: TemplateVariables,
+    lengthDays?: number
+  ): string;
   runTestQuery?(
     sql: string,
     timestampCols?: string[]

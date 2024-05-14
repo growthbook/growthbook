@@ -67,7 +67,8 @@ async function testFilterQuery(
     ) f WHERE ${filter}`,
     {
       eventName: factTable.eventName,
-    }
+    },
+    context.org.settings?.testQueryDays
   );
 
   try {

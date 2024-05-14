@@ -195,6 +195,7 @@ export interface OrganizationSettings {
   killswitchConfirmation?: boolean;
   requireReviews?: boolean | RequireReview[];
   defaultDataSource?: string;
+  testQueryDays?: number;
   disableMultiMetricQueries?: boolean;
   useStickyBucketing?: boolean;
   useFallbackAttributes?: boolean;

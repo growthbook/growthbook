@@ -1,5 +1,4 @@
 import { AES, enc } from "crypto-js";
-import { ENCRYPTION_KEY } from "../util/secrets";
 import GoogleAnalytics from "../integrations/GoogleAnalytics";
 import Athena from "../integrations/Athena";
 import Presto from "../integrations/Presto";
@@ -154,7 +153,11 @@ export async function testQuery(
     throw new Error("Unable to test query.");
   }
 
-  const sql = integration.getTestQuery(query, templateVariables);
+  const sql = integration.getTestQuery(
+    query,
+    templateVariables,
+    context.org.settings?.testQueryDays
+  );
   try {
     const { results, duration } = await integration.runTestQuery(sql, [
       "timestamp",
