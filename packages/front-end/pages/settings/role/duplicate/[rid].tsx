@@ -5,7 +5,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import RoleForm from "@/components/Teams/Roles/RoleForm";
 
 const CustomRolePage: FC = () => {
-  const { rid, edit } = router.query;
+  const { rid } = router.query;
   const permissionsUtil = usePermissionsUtil();
 
   if (!rid || Array.isArray(rid)) {
@@ -39,8 +39,8 @@ const CustomRolePage: FC = () => {
         ]}
       />
       <div className="contents container pagecontents">
-        <h1 className="pb-3">{rid}</h1>
-        <RoleForm roleId={rid} action={edit ? "editing" : "viewing"} />
+        <h1 className="pb-3">Duplicate {rid}</h1>
+        <RoleForm roleId={rid} action="duplicating" />
       </div>
     </>
   );

@@ -59,11 +59,9 @@ export default function UpdateDefaultRoleForm() {
               const r = roles.find((r) => r.id === value.value);
               if (!r) return value.label;
               return (
-                <div className="d-flex align-items-center">
-                  <strong style={{ width: 110 }}>{r.id}</strong>
-                  <small className="ml-2">
-                    <em>{r.description}</em>
-                  </small>
+                <div className={r.id === "admin" ? "border-bottom pb-3" : ""}>
+                  <strong className="pr-2">{r.id}.</strong>
+                  {r.description}
                 </div>
               );
             }}

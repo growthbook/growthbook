@@ -1,7 +1,7 @@
-import { Link } from "spectacle";
 import { RESERVED_ROLE_IDS } from "shared/permissions";
 import router from "next/router";
 import { useState } from "react";
+import Link from "next/link";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useUser } from "@/services/UserContext";
@@ -11,12 +11,10 @@ import Tag from "@/components/Tags/Tag";
 import Button from "@/components/Button";
 
 export default function RoleList() {
-  const { roles, refreshOrganization, organization } = useUser();
+  const { roles, refreshOrganization } = useUser();
   const [error, setError] = useState<string | null>(null);
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
-
-  console.log("organizatin", organization);
 
   const canManageRoles = permissionsUtil.canManageCustomRoles();
 
@@ -35,12 +33,11 @@ export default function RoleList() {
           <tbody>
             {roles.map((r) => {
               const isReservedRole = RESERVED_ROLE_IDS.includes(r.id);
-              //TODO: Build logic to see if any users have this role globally or as a project role
               return (
                 <tr key={r.id}>
                   <td>
                     <Link
-                      className="font-weight-bold text-decoration-none"
+                      className={`font-weight-bold`}
                       href={`/settings/role/${r.id}`}
                     >
                       {r.id}
@@ -57,22 +54,7 @@ export default function RoleList() {
                         className="dropdown-item"
                         disabled={!canManageRoles}
                         onClick={async () => {
-                          setError(null);
-                          //MKTODO: Add a loading state here somehow
-                          try {
-                            await apiCall(`/custom-roles`, {
-                              method: "POST",
-                              body: JSON.stringify({
-                                id: `${r.id}_copy`,
-                                description: r.description,
-                                policies: r.policies,
-                              }),
-                            });
-                            await refreshOrganization();
-                            await router.push(`/settings/role/${r.id}_copy`);
-                          } catch (e) {
-                            setError(e.message);
-                          }
+                          await router.push(`/settings/role/duplicate/${r.id}`);
                         }}
                       >
                         Duplicate
@@ -83,15 +65,15 @@ export default function RoleList() {
                             color="btn-link"
                             className="dropdown-item"
                             onClick={async () => {
-                              await router.push(`/settings/role/${r.id}`);
+                              await router.push(
+                                `/settings/role/${r.id}?edit=true`
+                              );
                             }}
                           >
                             Edit
                           </Button>
                           <div className="border-top mt-1 pt-1">
                             <DeleteButton
-                              //MKTODO: Add validation to prevent deleting role that is applied to users
-                              //MKTODO: Add validation to prevent deleting the org's default role
                               onClick={async () => {
                                 setError(null);
                                 try {

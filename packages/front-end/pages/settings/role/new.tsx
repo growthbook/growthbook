@@ -27,7 +27,8 @@ const NewCustomRolePage: FC = () => {
         ]}
       />
       <div className="contents container pagecontents">
-        <RoleForm />
+        <h1 className="pb-3">Create Custom Role</h1>
+        <RoleForm action="creating" />
       </div>
     </>
   );
