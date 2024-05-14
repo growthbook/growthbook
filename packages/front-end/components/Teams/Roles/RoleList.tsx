@@ -93,26 +93,6 @@ export default function RoleList() {
                           </div>
                         </>
                       ) : null}
-                      {/* {isReservedRole ? (
-                        <div className="border-top mt-1 pt-1">
-                          <Button
-                            color="btn-link"
-                            className="dropdown-item text-danger"
-                            onClick={async () => {
-                              try {
-                                setError(null);
-                                //MKTODO: Build this logic
-                                //MKTODO: Add validation to prevent deactivating the org's default role
-                                //MKTODO: Add validation to handle reactivating a deactivated role
-                              } catch (e) {
-                                setError(e.message);
-                              }
-                            }}
-                          >
-                            Deactivate
-                          </Button>
-                        </div>
-                      ) : null} */}
                     </MoreMenu>
                   </td>
                 </tr>

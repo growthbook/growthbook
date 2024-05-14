@@ -36,7 +36,11 @@ export default function RoleForm({
   const [saveMsg, setSaveMsg] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const originalValue = {
-    id: status === "duplicating" ? `${existingRole?.id}-copy` : "",
+    id: !existingRole?.id
+      ? ""
+      : status === "duplicating"
+      ? `${existingRole?.id}-copy`
+      : existingRole?.id,
     description: existingRole?.description || "",
     policies: existingRole?.policies || [],
   };
@@ -64,11 +68,13 @@ export default function RoleForm({
     setError(null);
     try {
       await apiCall(
-        existingRole?.id ? `/custom-roles/${existingRole.id}` : `/custom-roles`,
+        existingRole?.id && status !== "duplicating"
+          ? `/custom-roles/${existingRole.id}`
+          : `/custom-roles`,
         {
-          method: existingRole?.id ? "PUT" : "POST",
+          method: existingRole?.id && status !== "duplicating" ? "PUT" : "POST",
           body: JSON.stringify(
-            existingRole?.id
+            existingRole?.id && status !== "duplicating"
               ? { description: value.description, policies: value.policies }
               : value
           ),
@@ -90,7 +96,9 @@ export default function RoleForm({
           required
           autoFocus
           disabled={
-            (!!existingRole && status !== "duplicating") || status === "viewing"
+            existingRole?.id && status === ("viewing" || "editing")
+              ? true
+              : false
           }
           autoComplete="company"
           maxLength={40}
@@ -110,7 +118,7 @@ export default function RoleForm({
         />
         <Field
           label="Description"
-          disabled={isReservedRole || (!isReservedRole && status == "viewing")}
+          disabled={existingRole?.id && status === "viewing" ? true : false}
           placeholder="Briefly describe what this role will permit users to do"
           maxLength={56}
           labelClassName="font-weight-bold"
@@ -142,8 +150,9 @@ export default function RoleForm({
                             type="checkbox"
                             checked={checked}
                             disabled={
-                              isReservedRole ||
-                              (!isReservedRole && status === "viewing")
+                              existingRole?.id && status === "viewing"
+                                ? true
+                                : false
                             }
                             id={`${policy}-checkbox`}
                             onChange={() => {
@@ -163,6 +172,12 @@ export default function RoleForm({
                               {policyData.displayName}
                             </p>
                             <span>{policyData.description}</span>
+                            {policyData.warning ? (
+                              <div className="text-danger">
+                                <strong>Warning: </strong>
+                                {policyData.warning}
+                              </div>
+                            ) : null}
                           </div>
                         </div>
                       </div>
@@ -174,7 +189,7 @@ export default function RoleForm({
           })}
         </div>
       </div>
-      {!isReservedRole ? (
+      {!isReservedRole || (isReservedRole && status === "duplicating") ? (
         <div
           className="bg-main-color position-sticky w-100 py-3 border-top"
           style={{ bottom: 0, height: 70 }}

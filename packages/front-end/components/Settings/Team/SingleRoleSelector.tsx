@@ -1,7 +1,7 @@
 import { ReactNode, useMemo } from "react";
 import { MemberRoleInfo } from "back-end/types/organization";
 import uniqid from "uniqid";
-import { roleSupportsEnvLimit } from "shared/permissions";
+import { RESERVED_ROLE_IDS, roleSupportsEnvLimit } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -33,9 +33,39 @@ export default function SingleRoleSelector({
     roleOptions = roles.filter((r) => r.id !== "noaccess");
   }
 
+  if (!includeAdminRole) {
+    roleOptions = roles.filter((r) => r.id !== "admin");
+  }
+
+  const standardOptions: { label: string; value: string }[] = [];
+  const customOptions: { label: string; value: string }[] = [];
+
+  roleOptions.forEach((r) => {
+    if (RESERVED_ROLE_IDS.includes(r.id)) {
+      standardOptions.push({ label: r.id, value: r.id });
+    } else {
+      customOptions.push({ label: r.id, value: r.id });
+    }
+  });
+
+  const groupedOptions = [
+    {
+      label: "Standard",
+      options: standardOptions,
+    },
+    {
+      label: "Custom",
+      options: customOptions,
+    },
+  ];
+
   const availableEnvs = useEnvironments();
 
   const id = useMemo(() => uniqid(), []);
+
+  const formatGroupLabel = (data) => (
+    <div className={data.label === "Custom" ? "border-bottom my-3" : ""}></div>
+  );
 
   return (
     <div>
@@ -48,23 +78,16 @@ export default function SingleRoleSelector({
             role,
           });
         }}
-        options={roleOptions
-          //MKTODO: Add logic to not include deactivated roles
-          .filter((r) => includeAdminRole || r.id !== "admin")
-          .map((r) => ({
-            label: r.id,
-            value: r.id,
-          }))}
+        options={groupedOptions}
         sort={false}
+        formatGroupLabel={formatGroupLabel}
         formatOptionLabel={(value) => {
           const r = roles.find((r) => r.id === value.label);
           if (!r) {
             return;
           }
           return (
-            //MKTODO: Update this logic to handle includeAdminRole being false, and/or then Experimenter being deactivated.
-            //MKTODO: The bottom border needs to be added after the last reserved role id
-            <div className={r.id === "admin" ? "border-bottom pb-3" : ""}>
+            <div>
               <strong className="pr-2">{r.id}.</strong>
               {r.description}
             </div>
