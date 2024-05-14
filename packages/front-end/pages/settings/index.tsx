@@ -195,7 +195,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
           // Metric defaults are nested, so take existing metric defaults only if
           // they exist and are not empty
           Object.keys(newVal[k]).forEach((kk) => {
-            newVal[k][kk] = settings?.[k]?.[k] ?? newVal[k][kk];
+            newVal[k][kk] = settings?.[k]?.[kk] ?? newVal[k][kk];
           });
         } else {
           newVal[k] = settings?.[k] || newVal[k];
