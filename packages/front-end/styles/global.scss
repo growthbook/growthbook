@@ -771,6 +771,10 @@ main.main.report {
   background-color: var(--form-multivalue-background-color);
   color: var(--form-multivalue-text-color);
 }
+.badge-yellow {
+  background-color: var(--alert-warn-background);
+  color: var(--alert-warn-color);
+}
 .badge-muted-info {
   @include badge-variant(#66aaaa);
   color: var(--text-color-on-bright);

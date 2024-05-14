@@ -703,7 +703,7 @@ export default {
           filename="wrangler.toml"
           code={`
 [vars]
-PROXY_TARGET="https://www.mysite.io"  # The non-edge URL to your website
+PROXY_TARGET="https://internal.mysite.io"  # The non-edge URL to your website
 GROWTHBOOK_API_HOST=${JSON.stringify(apiHost)}
 GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
             encryptionKey
@@ -768,7 +768,8 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
           >
             Tutorial: Create a basic Lambda@Edge function <FaExternalLinkAlt />
           </a>{" "}
-          to set up your project.
+          to see how to set up an example Lambda@Edge project. Our Edge App will
+          differ from the example app, but it is a worthwhile read.
         </p>
         <p>
           Note that our Edge App responds directly to a{" "}
@@ -897,7 +898,7 @@ function init(env) {
           language="bash"
           code={`
 [vars]
-PROXY_TARGET="https://www.mysite.io"  # The non-edge URL to your website
+PROXY_TARGET="https://internal.mysite.io"  # The non-edge URL to your website
 GROWTHBOOK_API_HOST=${JSON.stringify(apiHost)}
 GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
             encryptionKey

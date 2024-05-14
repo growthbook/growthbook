@@ -6,7 +6,10 @@ slug: other
 toc_max_heading_level: 5
 ---
 
-import ExternalLink from '@site/src/components/ExternalLink'
+import ExternalLink from '@site/src/components/ExternalLink';
+import Pill from '@site/src/components/Pill';
+
+# GrowthBook for other edge providers <Pill>beta</Pill>
 
 ## Overview
 
@@ -132,7 +135,7 @@ Use a combination of environment variables and optional runtime configuration to
 Add these required fields, at minimum, to your environment variables:
 
 ```bash
-PROXY_TARGET="https://www.mysite.io"  # The non-edge URL to your website
+PROXY_TARGET="https://internal.mysite.io"  # The non-edge URL to your website
 GROWTHBOOK_API_HOST="https://cdn.growthbook.io"
 GROWTHBOOK_CLIENT_KEY="sdk-abc123"
 GROWTHBOOK_DECRYPTION_KEY="key_abc123"  # Only include for encrypted SDK Connections

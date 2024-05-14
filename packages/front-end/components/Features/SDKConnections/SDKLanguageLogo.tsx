@@ -15,7 +15,7 @@ import {
   SiWordpress,
   SiElixir,
 } from "react-icons/si";
-import { ReactElement } from "react";
+import React, { ReactElement } from "react";
 import { isSDKOutdated } from "shared/sdk-versioning";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { BsCloudFog2, BsFiletypeHtml } from "react-icons/bs";
@@ -39,6 +39,7 @@ export const languageMapping: Record<
     docs: DocSection;
     type: LanguageType;
     hideVersion?: boolean;
+    extra?: ReactElement | string;
   }
 > = {
   "nocode-shopify": {
@@ -172,6 +173,14 @@ export const languageMapping: Record<
     docLabel: "CloudFlare Workers",
     docs: "cloudflare",
     type: "edge",
+    extra: (
+      <span
+        className="badge badge-purple text-uppercase position-absolute"
+        style={{ top: -16, right: -12 }}
+      >
+        Beta
+      </span>
+    ),
   },
   "edge-lambda": {
     Icon: SiAwslambda,
@@ -179,6 +188,14 @@ export const languageMapping: Record<
     label: "Lambda@Edge",
     docs: "lambda",
     type: "edge",
+    extra: (
+      <span
+        className="badge badge-yellow text-uppercase position-absolute"
+        style={{ top: -16, right: -16 }}
+      >
+        Alpha
+      </span>
+    ),
   },
   "edge-other": {
     Icon: BsCloudFog2,
@@ -187,6 +204,14 @@ export const languageMapping: Record<
     docLabel: "Other Edge",
     docs: "edge",
     type: "edge",
+    extra: (
+      <span
+        className="badge badge-purple text-uppercase position-absolute"
+        style={{ top: -16, right: -12 }}
+      >
+        Beta
+      </span>
+    ),
   },
   other: {
     Icon: FaCode,
@@ -211,7 +236,7 @@ export default function SDKLanguageLogo({
   titlePrefix?: string;
   version?: string;
 }) {
-  const { Icon, color, label, hideVersion } =
+  const { Icon, color, label, hideVersion, extra } =
     languageMapping[language] || languageMapping["other"];
 
   const versionOutdated = isSDKOutdated(language, version);
@@ -234,7 +259,7 @@ export default function SDKLanguageLogo({
   }
 
   return (
-    <span className="d-inline-flex align-items-center">
+    <span className="d-inline-flex align-items-center position-relative">
       <Icon
         style={{ color, height: size, fontSize: size, lineHeight: size }}
         className="m-0"
@@ -246,6 +271,7 @@ export default function SDKLanguageLogo({
           {versionText}
         </span>
       )}
+      {extra}
     </span>
   );
 }

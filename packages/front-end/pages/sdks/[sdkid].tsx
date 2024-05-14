@@ -51,6 +51,7 @@ function ConnectionDot({ left }: { left: boolean }) {
         borderRadius: 20,
         border: "3px solid var(--text-color-primary)",
         background: "#fff",
+        zIndex: 1,
       }}
     />
   );

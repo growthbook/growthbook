@@ -6,7 +6,10 @@ slug: cloudflare
 toc_max_heading_level: 5
 ---
 
-import ExternalLink from '@site/src/components/ExternalLink'
+import ExternalLink from '@site/src/components/ExternalLink';
+import Pill from '@site/src/components/Pill';
+
+# CloudFlare Workers SDK <Pill>beta</Pill>
 
 ## Overview
 
@@ -83,7 +86,7 @@ Edit your `wrangler.toml` file and, at minimum, add these required fields:
 
 ```bash
 [vars]
-PROXY_TARGET="https://www.mysite.io"  # The non-edge URL to your website
+PROXY_TARGET="https://internal.mysite.io"  # The non-edge URL to your website
 GROWTHBOOK_API_HOST="https://cdn.growthbook.io"
 GROWTHBOOK_CLIENT_KEY="sdk-abc123"
 GROWTHBOOK_DECRYPTION_KEY="key_abc123"  # Only include for encrypted SDK Connections
