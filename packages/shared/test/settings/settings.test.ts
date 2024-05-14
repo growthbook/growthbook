@@ -179,11 +179,11 @@ describe("settings", () => {
 
       // org level:
       expect(settings_revenue_1.regressionAdjustmentEnabled.value).toEqual(
-        false
+        true // no longer false since CUPED override allowed for bayesian now
       );
       expect(
         settings_revenue_1.regressionAdjustmentEnabled.meta.reason
-      ).toEqual("stats engine is bayesian");
+      ).toEqual("experiment-level metric override applied");
       // TODO
       // expect(settings_revenue_1.pValueThreshold.meta.warning).toEqual(
       //   "stats engine is bayesian"

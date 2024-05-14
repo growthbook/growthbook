@@ -46,6 +46,12 @@ const metricSchema = new mongoose.Schema({
     windowValue: Number,
     windowUnit: String,
   },
+  priorSettings: {
+    override: Boolean,
+    proper: Boolean,
+    mean: Number,
+    stddev: Number,
+  },
   denominator: String,
   winRisk: Number,
   loseRisk: Number,

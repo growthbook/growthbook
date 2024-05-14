@@ -6,10 +6,10 @@ import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getAffectedEnvsForExperiment } from "shared/util";
-import { getAllMetricRegressionAdjustmentStatuses } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
+import { getAllMetricSettingsForSnapshot } from "shared/experiments";
 import { DataSourceInterface } from "@back-end/types/datasource";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
@@ -1822,13 +1822,12 @@ async function createExperimentSnapshot({
   ).filter(Boolean) as MetricInterface[];
 
   const {
-    metricRegressionAdjustmentStatuses,
+    settingsForSnapshotMetrics,
     regressionAdjustmentEnabled,
-  } = getAllMetricRegressionAdjustmentStatuses({
+  } = getAllMetricSettingsForSnapshot({
     allExperimentMetrics,
     denominatorMetrics,
     orgSettings,
-    statsEngine,
     experimentRegressionAdjustmentEnabled:
       experiment.regressionAdjustmentEnabled,
     experimentMetricOverrides: experiment.metricOverrides,
@@ -1857,8 +1856,7 @@ async function createExperimentSnapshot({
       analysisSettings,
       experiment
     ),
-    metricRegressionAdjustmentStatuses:
-      metricRegressionAdjustmentStatuses || [],
+    settingsForSnapshotMetrics,
     metricMap,
     factTableMap,
   });
@@ -1919,6 +1917,7 @@ export async function postSnapshot(
       experiment,
     });
     const statsEngine = settings.statsEngine.value;
+    const metricDefaults = settings.metricDefaults.value;
 
     const analysisSettings = getDefaultExperimentAnalysisSettings(
       statsEngine,
@@ -1936,6 +1935,7 @@ export async function postSnapshot(
         phaseIndex: phase,
         users,
         metrics,
+        orgPriorSettings: metricDefaults.priorSettings,
         analysisSettings,
         metricMap,
         context,
