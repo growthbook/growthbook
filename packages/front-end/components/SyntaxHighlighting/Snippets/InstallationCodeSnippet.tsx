@@ -248,19 +248,13 @@ yarn add @growthbook/edge-cloudflare`.trim()}
   }
   if (language === "edge-lambda") {
     return (
-      <>
-        <p>
-          We currently do not offer a specific SDK for{" "}
-          <strong>Lambda@Edge</strong>, but may use our base edge package:
-        </p>
-        <Code
-          language="sh"
-          code={`
-npm i --save @growthbook/edge-utils
+      <Code
+        language="sh"
+        code={`
+npm i --save @growthbook/edge-lambda
 # OR
-yarn add @growthbook/edge-utils`.trim()}
-        />
-      </>
+yarn add @growthbook/edge-lambda`.trim()}
+      />
     );
   }
   if (language === "edge-other") {

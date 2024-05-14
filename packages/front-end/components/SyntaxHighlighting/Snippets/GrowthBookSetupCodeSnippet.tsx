@@ -649,6 +649,7 @@ features = GrowthBook.Config.features_from_config(features)
           fully-hydrated front-end SDK onto the rendered page, meaning no extra
           network requests needed.
         </p>
+
         <div className="h4 mt-4 mb-3">
           Step 1: Set up a CloudFlare Workers project
         </div>
@@ -671,6 +672,7 @@ features = GrowthBook.Config.features_from_config(features)
           </a>
           .
         </p>
+
         <div className="h4 mt-4 mb-3">
           Step 2: Implement our Edge App request handler
         </div>
@@ -690,6 +692,7 @@ export default {
 };
           `.trim()}
         />
+
         <div className="h4 mt-4 mb-3">Step 3: Set up environment variables</div>
         <p>
           Edit your <code>wrangler.toml</code> file and, at minimum, add these
@@ -709,6 +712,7 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
           }
           `.trim()}
         />
+
         <div className="h4 mt-4 mb-3">Further customization</div>
         <ul>
           <li>
@@ -734,9 +738,11 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
             worker
           </li>
         </ul>
-        See the{" "}
-        <DocLink docSection="cloudflare">CloudFlare Workers docs</DocLink>{" "}
-        further instructions.
+        <p>
+          See the{" "}
+          <DocLink docSection="cloudflare">CloudFlare Workers docs</DocLink>{" "}
+          further instructions.
+        </p>
       </>
     );
   }
@@ -744,62 +750,118 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
     return (
       <>
         <p>
-          See the <DocLink docSection="lambda">Lambda@Edge docs</DocLink> for
-          detailed setup.
+          Our <strong>Edge app</strong> provides turnkey Visual Editor and URL
+          Redirect experimentation on edge without any of the flicker associated
+          with front-end experiments. It runs as a smart proxy layer between
+          your application and your end users. It also can inject a
+          fully-hydrated front-end SDK onto the rendered page, meaning no extra
+          network requests needed.
         </p>
 
+        <div className="h4 mt-4 mb-3">Step 1: Set up a Lambda@Edge project</div>
         <p>
-          Our <strong>Edge app</strong> provides turnkey visual editor and URL
-          redirect experimentation on edge without any of the flicker often
-          associated with front-end experiment implementations. It runs as a
-          smart proxy layer between your application and your end users. As
-          such, it also can inject a fully-hydrated front-end SDK onto the
-          rendered page, meaning no extra network requests needed.
+          See the official AWS{" "}
+          <a
+            href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-edge-how-it-works-tutorial.html"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Tutorial: Create a basic Lambda@Edge function <FaExternalLinkAlt />
+          </a>{" "}
+          to set up your project.
+        </p>
+        <p>
+          Note that our Edge App responds directly to a{" "}
+          <code>viewer-request</code> without forwarding to an origin;
+          interaction with CloudFront is minimal (Step 2 in the AWS tutorial).
         </p>
 
+        <div className="h4 mt-4 mb-3">
+          Step 2: Implement our Edge App request handler
+        </div>
         <p>
           To run the edge app, add our base app to request handler to your
-          project. You will need to manually build app context and helper
-          functions:
+          project.
+        </p>
+        <p>
+          Note: Due to Lambda@Edge limitations, you will need to inject your
+          environment variables into the handler either directly into your
+          codebase or at compile time.
         </p>
         <Code
           language="javascript"
           code={`
-import { edgeApp, getConfig } from "@growthbook/edge-utils";
+import { handleRequest } from "@growthbook/edge-lambda";
 
 export async function handler(event, ctx, callback) {
-  const context = await init(event);
-  const response = edgeApp(context, event);
-  callback(null, response);
+  // manually build your environment
+  const env = buildEnv();
+  // specify additional edge endpoint information
+  env.host = "www.mysite.io";
+  
+  handleRequest(event, callback, env);
 }
 
-function init(event) {
-  // You will need to build a mechanism to define your environment variables
-  const env = getEnvironment();
-  
-  const context = getConfig(env);
-  context.helpers = {
-    // define utility functions for request/response manipulation
+function buildEnv() {
+  return {
+    PROXY_TARGET: "https://internal.mysite.io",
+    GROWTHBOOK_API_HOST: ${JSON.stringify(apiHost)},
+    GROWTHBOOK_CLIENT_KEY: ${JSON.stringify(apiKey)},${
+            encryptionKey
+              ? `\n    GROWTHBOOK_DECRYPTION_KEY: ${JSON.stringify(
+                  encryptionKey
+                )},`
+              : ""
+          }
   };
-  return context;
 }
           `.trim()}
         />
+
+        <div className="h4 mt-4 mb-3">Further customization</div>
+        <ul>
+          <li>
+            Set up an edge key-val store such as DynamoDB and use a GrowthBook{" "}
+            <strong>SDK Webhook</strong> to keep feature and experiment values
+            synced between GrowthBook and your edge worker. This eliminates
+            network requests from your edge to GrowthBook.
+          </li>
+          <li>
+            Enable URL Redirect experiments on edge (off by default) by setting{" "}
+            <code>{`RUN_URL_REDIRECT_EXPERIMENTS="everywhere"`}</code>
+          </li>
+          <li>
+            Enable cookie-based sticky bucketing on edge and browser by setting{" "}
+            <code>{`ENABLE_STICKY_BUCKETING="true"`}</code>
+          </li>
+          <li>
+            Enable streaming in the browser by setting{" "}
+            <code>{`ENABLE_STREAMING="true"`}</code>
+          </li>
+          <li>
+            Add a custom tracking callback for your browser SDK and/or edge
+            worker
+          </li>
+        </ul>
+        <p>
+          See the <DocLink docSection="lambda">Lambda@Edge docs</DocLink>{" "}
+          further instructions.
+        </p>
       </>
     );
   }
   if (language === "edge-other") {
     return (
       <>
-        <p>See our Edge (other) documentation for detailed setup.</p>
         <p>
-          Our <strong>Edge app</strong> provides turnkey visual editor and URL
-          redirect experimentation on edge without any of the flicker often
-          associated with front-end experiment implementations. It runs as a
-          smart proxy layer between your application and your end users. As
-          such, it also can inject a fully-hydrated front-end SDK onto the
-          rendered page, meaning no extra network requests needed.
+          Our <strong>Edge app</strong> provides turnkey Visual Editor and URL
+          Redirect experimentation on edge without any of the flicker associated
+          with front-end experiments. It runs as a smart proxy layer between
+          your application and your end users. It also can inject a
+          fully-hydrated front-end SDK onto the rendered page, meaning no extra
+          network requests needed.
         </p>
+
         <div className="h4 mt-4 mb-3">
           Step 1: Implement our Edge App request handler
         </div>
@@ -827,7 +889,7 @@ function init(env) {
 }
           `.trim()}
         />
-        <div className="h4 mt-4 mb-3">Set up environment variables</div>
+        <div className="h4 mt-4 mb-3">Step 2: Set up environment variables</div>
         <p>
           Add these required fields, at minimum, to your environment variables:
         </p>
@@ -844,6 +906,7 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
           }
           `.trim()}
         />
+
         <div className="h4 mt-4 mb-3">Further customization</div>
         <ul>
           <li>
@@ -869,8 +932,10 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
             worker
           </li>
         </ul>
-        See the <DocLink docSection="edge">Other Edge docs</DocLink> further
-        instructions.
+        <p>
+          See the <DocLink docSection="edge">Other Edge docs</DocLink> further
+          instructions.
+        </p>
       </>
     );
   }
