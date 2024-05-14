@@ -1,7 +1,6 @@
 import { FC, useState } from "react";
-import { FaUsers } from "react-icons/fa";
+import { FaUsers, FaPlus } from "react-icons/fa";
 import Link from "next/link";
-import usePermissions from "@/hooks/usePermissions";
 import TeamsList from "@/components/Settings/Teams/TeamsList";
 import TeamModal from "@/components/Teams/TeamModal";
 import { Team, useUser } from "@/services/UserContext";
@@ -9,15 +8,17 @@ import Tabs from "@/components/Tabs/Tabs";
 import Tab from "@/components/Tabs/Tab";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { MembersTabView } from "@/components/Settings/Team/MembersTabView";
+import RoleList from "@/components/Teams/Roles/RoleList";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const TeamPage: FC = () => {
   const { refreshOrganization, hasCommercialFeature } = useUser();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const [modalOpen, setModalOpen] = useState<Partial<Team> | null>(null);
   const hasTeamsFeature = hasCommercialFeature("teams");
   const hasCustomRolesFeature = hasCommercialFeature("custom-roles");
 
-  if (!permissions.manageTeam) {
+  if (!permissionsUtil.canManageTeam()) {
     return (
       <div className="container pagecontents">
         <div className="alert alert-danger">
@@ -88,24 +89,20 @@ const TeamPage: FC = () => {
                   </PremiumTooltip>
                 </h1>
                 <div className="text-muted mb-2">
-                  Create and update roles to customize permissions.
+                  Create and update roles to customize permissions for your
+                  organization&apos;s users and teams.
                 </div>
               </div>
             </div>
             <div style={{ flex: 1 }} />
             <div className="col-auto">
-              <button
-                className="btn btn-primary"
-                disabled={!hasCustomRolesFeature}
-              >
-                <Link href="/settings/role/new">
-                  <FaUsers /> <span> </span>Create Custom Role
-                </Link>
-              </button>
+              <Link href="/settings/role/new" className="btn btn-primary">
+                <FaPlus /> <span> </span>Create Custom Role
+              </Link>
             </div>
           </div>
           {hasCustomRolesFeature ? (
-            <h1>Hi from Roles</h1>
+            <RoleList />
           ) : (
             <div className="alert alert-warning">
               Custom Roles are only available on the Enterprise plan. Email
