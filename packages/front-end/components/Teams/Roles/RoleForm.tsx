@@ -2,6 +2,7 @@ import {
   POLICY_DISPLAY_GROUPS,
   POLICY_METADATA_MAP,
   Policy,
+  RESERVED_ROLE_IDS,
 } from "shared/permissions";
 import { FormProvider, useForm } from "react-hook-form";
 import { Role } from "@back-end/types/organization";
@@ -11,9 +12,12 @@ import Field from "@/components/Forms/Field";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Button from "@/components/Button";
+import TempMessage from "@/components/TempMessage";
 
 export default function RoleForm({ roleId }: { roleId?: string }) {
-  //MKTODO: Is this the best way to do this?
+  const { apiCall } = useAuth();
+  const [saveMsg, setSaveMsg] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { roles: orgRoles, refreshOrganization } = useUser();
   let existingRole: Role | undefined;
   const existingRoleIndex = orgRoles.findIndex(
@@ -22,30 +26,33 @@ export default function RoleForm({ roleId }: { roleId?: string }) {
   if (existingRoleIndex > -1) {
     existingRole = orgRoles[existingRoleIndex];
   }
+  const originalValue = {
+    id: existingRole?.id || "",
+    description: existingRole?.description || "",
+    policies: existingRole?.policies || [],
+  };
 
-  const { apiCall } = useAuth();
   const form = useForm<{
     id: string;
     description: string;
     policies: Policy[];
   }>({
-    defaultValues: {
-      id: existingRole?.id || "",
-      description: existingRole?.description || "",
-      policies: existingRole?.policies || [],
-    },
+    defaultValues: originalValue,
   });
 
-  // const value = {
-  //   id: form.watch("id"),
-  //   description: form.watch("description"),
-  //   policies: form.watch("policies"),
-  // };
+  const value = {
+    id: form.watch("id"),
+    description: form.watch("description"),
+    policies: form.watch("policies"),
+  };
 
-  //MKTODO: Build this logic out
-  // const ctaEnabled = hasChanges(value, originalValue);
+  const isReservedRole = existingRole?.id
+    ? RESERVED_ROLE_IDS.includes(existingRole?.id)
+    : false;
+  const ctaEnabled = JSON.stringify(originalValue) !== JSON.stringify(value);
 
   const saveSettings = form.handleSubmit(async (value) => {
+    setError(null);
     try {
       await apiCall(
         existingRole?.id ? `/custom-roles/${existingRole.id}` : `/custom-roles`,
@@ -59,37 +66,47 @@ export default function RoleForm({ roleId }: { roleId?: string }) {
         }
       );
       await refreshOrganization();
+      setSaveMsg(true);
       await router.push("/settings/team#roles");
     } catch (e) {
-      //MKTODO: Handle error case
-      console.log(e);
+      setError(e.message);
+    }
+  });
+
+  function getHeadline(): string {
+    if (!existingRole?.id) {
+      return "Create Custom Role";
     }
 
-    // show the user that the settings have saved:
-    // setSaveMsg(true);
-  });
+    if (isReservedRole) {
+      return existingRole.id;
+    }
+
+    return `Edit ${existingRole.id}`;
+  }
 
   return (
     <FormProvider {...form}>
       <div className="container-fluid pagecontents">
-        <h1 className="pb-3">{`${
-          existingRole?.id ? "Edit " : "Create "
-        }Custom Role`}</h1>
+        {/* MKTODO: Update this logic if viewing a reserved role, just show the
+        role.id if viewing a custom role, show edit [role name] if there is no
+        role, show Create Custom Role */}
+        <h1 className="pb-3">{getHeadline()}</h1>
         <div className="bg-white p-4 mt-2">
           <Field
             label="Name"
             required
             autoFocus
+            disabled={isReservedRole}
             autoComplete="company"
-            minLength={3}
             maxLength={40}
             placeholder="Name your Custom Role"
             labelClassName="font-weight-bold"
             {...form.register("id")}
-            //MKTODO: Add some validation to only include only include letters, numbers, and underscores.
           />
           <Field
             label="Description"
+            disabled={isReservedRole}
             placeholder="Briefly describe what this role will permit users to do"
             maxLength={56}
             labelClassName="font-weight-bold"
@@ -120,6 +137,7 @@ export default function RoleForm({ roleId }: { roleId?: string }) {
                             <input
                               type="checkbox"
                               checked={checked}
+                              disabled={isReservedRole}
                               id={`${policy}-checkbox`}
                               onChange={() => {
                                 if (!checked) {
@@ -155,17 +173,22 @@ export default function RoleForm({ roleId }: { roleId?: string }) {
         style={{ bottom: 0, height: 70 }}
       >
         <div className="container-fluid pagecontents d-flex">
+          {error ? (
+            <div className="alert alert-danger">
+              <strong>Error: {error}</strong>
+            </div>
+          ) : null}
           <div className="flex-grow-1 mr-4">
-            {/* {saveMsg && (
+            {saveMsg && (
               <TempMessage
                 className="mb-0 py-2"
                 close={() => {
                   setSaveMsg(false);
                 }}
               >
-                Settings saved
+                Custom Role has been saved
               </TempMessage>
-            )} */}
+            )}
           </div>
           <div>
             <button
@@ -177,10 +200,8 @@ export default function RoleForm({ roleId }: { roleId?: string }) {
             <Button
               style={{ marginRight: "4rem" }}
               color={"primary"}
-              // disabled={!ctaEnabled}
-
+              disabled={!ctaEnabled}
               onClick={async () => {
-                // if (!ctaEnabled) return;
                 await saveSettings();
               }}
             >

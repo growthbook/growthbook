@@ -49,6 +49,7 @@ export default function SingleRoleSelector({
           });
         }}
         options={roleOptions
+          //MKTODO: Add logic to not include deactivated roles
           .filter((r) => includeAdminRole || r.id !== "admin")
           .map((r) => ({
             label: r.id,
@@ -57,14 +58,15 @@ export default function SingleRoleSelector({
         sort={false}
         formatOptionLabel={(value) => {
           const r = roles.find((r) => r.id === value.label);
+          if (!r) {
+            return;
+          }
           return (
-            <div className="d-flex align-items-center">
-              {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-              <strong style={{ width: 110 }}>{r.id}</strong>
-              <small className="ml-2">
-                {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                <em>{r.description}</em>
-              </small>
+            //MKTODO: Update this logic to handle includeAdminRole being false, and/or then Experimenter being deactivated.
+            //MKTODO: The bottom border needs to be added after the last reserved role id
+            <div className={r.id === "admin" ? "border-bottom pb-3" : ""}>
+              <strong className="pr-2">{r.id}.</strong>
+              {r.description}
             </div>
           );
         }}
