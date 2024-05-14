@@ -65,7 +65,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
 
   const { metricDefaults } = useOrganizationMetricDefaults();
-
+  console.log(metricDefaults);
+  console.log(metricDefaults.priorSettings);
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
       visualEditorEnabled: false,
@@ -131,7 +132,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     },
   });
   const { apiCall } = useAuth();
-
+  console.log(form.getValues("metricDefaults"))
   const value = {
     visualEditorEnabled: form.watch("visualEditorEnabled"),
     pastExperimentsMinLength: form.watch("pastExperimentsMinLength"),

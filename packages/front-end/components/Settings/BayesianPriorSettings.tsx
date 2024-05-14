@@ -3,11 +3,17 @@ import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { hasFileConfig } from "@/services/env";
 import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
+import { MetricDefaults } from "@back-end/types/organization";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
 });
+
+interface FormValues {
+  metricDefaults: MetricDefaults;
+}
+
 
 export default function BayesianPriorSettings({
   defaultMean,
@@ -18,7 +24,7 @@ export default function BayesianPriorSettings({
   defaultStdDev?: number;
   labelText?: string;
 }) {
-  const form = useFormContext();
+  const form = useFormContext<FormValues>();
   return (
     <div className="form-group mb-0 mr-2">
       <label>
