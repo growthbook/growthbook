@@ -143,6 +143,14 @@ export default {
 
 For a full list of customizations, view our vendor-agnostic [Edge Utility repository<ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils).
 
+### Set up a Payload Cache
+
+You can configure GrowthBook payload caching by using a [CloudFlare KV<ExternalLink />](https://developers.cloudflare.com/kv/reference/how-kv-works/) store. This eliminates network requests from your edge to GrowthBook which speeds up page delivery while reducing network costs.
+
+Our CloudFlare Edge App will automatically use either webhook-based or just-in-time payload caching (or both) depending on how you've set up your KV namespaces, bindings, and SDK Webhooks.
+
+More information about setting up your payload cache can be found in the [Payload Caching with CloudFlare KV Store](#payload-caching-with-cloudflare-kv-store) doc section below.
+
 ### Tracking Experiment Views
 
 Running A/B tests requires a [tracking callback](/lib/js#experimentation-ab-testing). Our turnkey Edge App defaults to using built-in front-end tracking. The tracking call automatically integrates with Segment.io, GA4, and Google Tag Manager by using the mechanism outlined in our [HTML Script Tag](/lib/script-tag#tracking-experiment-views). In order to do this, the app keeps track of tracking calls triggered on edge and injects them into the front-end SDK to be automatically triggered on page load.
@@ -289,7 +297,7 @@ export default {
 
 By default, the Edge App will make a network request to the GrowthBook API on each user request in order to fetch the current feature and experiment values. This is a blocking call that delays page delivery.
 
-Convenient solutions this problem are realized through [CloudFlare KV<ExternalLink />](https://developers.cloudflare.com/kv/reference/how-kv-works/), an on-edge key-value store which we can leverage for persistent payload caching. There are 2 levels of KV integration available:
+Convenient solutions this problem are realized through [CloudFlare KV<ExternalLink />](https://developers.cloudflare.com/kv/reference/how-kv-works/), an on-edge key-val store which we can leverage for persistent payload caching. There are 2 levels of KV integration available:
 
 1. You can either completely eliminate the blocking call to the GrowthBook API by implementing a GrowthBook-to-CloudFlare-KV push model via **SDK Webhooks**.
 2. Alternatively, you can eliminate most of these network requests by using CloudFlare KV as a just-in-time payload cache.

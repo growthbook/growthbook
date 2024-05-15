@@ -713,14 +713,16 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
           `.trim()}
         />
 
+        <div className="h4 mt-4 mb-3">Step 4: Set up payload caching</div>
+        <p>
+          Set up a <strong>CloudFlare KV</strong> store and use a GrowthBook{" "}
+          <strong>SDK Webhook</strong> to keep feature and experiment values
+          synced between GrowthBook and your CloudFlare Worker. This eliminates
+          network requests from your edge to GrowthBook.
+        </p>
+
         <div className="h4 mt-4 mb-3">Further customization</div>
         <ul>
-          <li>
-            Set up a <strong>CloudFlare KV</strong> store and use a GrowthBook{" "}
-            <strong>SDK Webhook</strong> to keep feature and experiment values
-            synced between GrowthBook and your CloudFlare Worker. This
-            eliminates network requests from your edge to GrowthBook.
-          </li>
           <li>
             Enable URL Redirect experiments on edge (off by default) by setting{" "}
             <code>{`RUN_URL_REDIRECT_EXPERIMENTS="everywhere"`}</code>
@@ -822,10 +824,10 @@ function buildEnv() {
         <div className="h4 mt-4 mb-3">Further customization</div>
         <ul>
           <li>
-            Set up an edge key-val store such as DynamoDB and use a GrowthBook{" "}
-            <strong>SDK Webhook</strong> to keep feature and experiment values
-            synced between GrowthBook and your edge worker. This eliminates
-            network requests from your edge to GrowthBook.
+            Set up an edge key-val store such as <strong>DynamoDB</strong> and
+            use a GrowthBook <strong>SDK Webhook</strong> to keep feature and
+            experiment values synced between GrowthBook and your edge worker.
+            This eliminates network requests from your edge to GrowthBook.
           </li>
           <li>
             Enable URL Redirect experiments on edge (off by default) by setting{" "}
@@ -890,6 +892,7 @@ function init(env) {
 }
           `.trim()}
         />
+
         <div className="h4 mt-4 mb-3">Step 2: Set up environment variables</div>
         <p>
           Add these required fields, at minimum, to your environment variables:

@@ -328,14 +328,14 @@ export default {
 
 By default, the Edge App will make a network request to the GrowthBook API on each user request in order to fetch the current feature and experiment values. This is a blocking call that delays page delivery.
 
-If you have access to a distributed key-value store on your edge, you can likely overcome this problem. There are 2 levels of key-value integration available:
+If you have access to a distributed key-val store on your edge, you can likely overcome this problem. There are 2 levels of key-val integration available:
 
 1. You can either completely eliminate the blocking call to the GrowthBook API by implementing a GrowthBook-to-edge-keyval push model via **SDK Webhooks**.
 2. Alternatively, you can eliminate most of these network requests by using an edge key-val store as a just-in-time payload cache.
 
 You can also use these strategies in your own manual SDK integration.
 
-We are unable to offer specific guidance about how to configure or connect to your key-val store because the details vary heavily by vendor. For inspiration, you can see how we've addressed key-value implementation with CloudFlare Workers in our [CloudFlare docs](/lib/edge/cloudflare#payload-caching-with-cloudflare-kv-store).
+We are unable to offer specific guidance about how to configure or connect to your key-val store because the details vary heavily by vendor. For inspiration, you can see how we've addressed key-val implementation with CloudFlare Workers in our [CloudFlare docs](/lib/edge/cloudflare#payload-caching-with-cloudflare-kv-store).
 
 ### Configuring a SDK Webhook
 
