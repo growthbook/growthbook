@@ -7,7 +7,6 @@ import { orgHasPremiumFeature } from "enterprise";
 import {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
-  getAutoExperimentChangeType,
   GrowthBook,
   ParentConditionInterface,
 } from "@growthbook/growthbook";
@@ -198,12 +197,16 @@ export function generateAutoExperimentsPayload({
       if (!phase) return null;
 
       const implementationId =
-        (data.type === "redirect"
-          ? data?.urlRedirect?.id
-          : data?.visualChangeset?.id) || uniqid();
+        data.type === "redirect"
+          ? data.urlRedirect.id
+          : data.visualChangeset.id;
+
       const exp: AutoExperimentWithProject = {
         key: e.trackingKey,
-        changeId: `${e.trackingKey}_${data.type}_${implementationId}`,
+        changeId: sha256(
+          `${e.trackingKey}_${data.type}_${implementationId}`,
+          ""
+        ),
         status: e.status,
         project: e.project,
         variations: e.variations.map((v) => {
@@ -473,15 +476,6 @@ async function getFeatureDefinitionsResponse({
       }
     }
   }
-
-  // Generate any just-in-time fields
-  experiments = experiments?.map((exp) => {
-    const changeType = getAutoExperimentChangeType(exp);
-    if (!exp.changeId && changeType) {
-      exp.changeId = `${exp.key}_${changeType}_${uniqid()}`;
-    }
-    return exp;
-  });
 
   // Filter list of features/experiments to the selected projects
   if (projects && projects.length > 0) {
