@@ -1111,7 +1111,6 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
           return acc;
         }, {} as Record<string, unknown>),
         additionalProperties: false,
-        format: "grid",
       });
     case "object[]":
       if (fields.some((f) => !f.key)) {
@@ -1127,15 +1126,12 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
             return acc;
           }, {} as Record<string, unknown>),
           additionalProperties: false,
-          format: fields.length > 5 ? "grid" : undefined,
         },
-        format: fields.length > 5 ? "tabs" : "table",
       });
     case "primitive[]":
       return JSON.stringify({
         type: "array",
         items: fields[0].schema,
-        format: "table",
       });
     case "primitive":
       return JSON.stringify({

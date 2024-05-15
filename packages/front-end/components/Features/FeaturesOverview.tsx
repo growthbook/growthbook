@@ -251,7 +251,9 @@ export default function FeaturesOverview({
   const revisionHasChanges =
     !!mergeResult && mergeResultHasChanges(mergeResult);
 
-  const hasJsonValidator = hasCommercialFeature("json-validation");
+  const hasJsonValidator =
+    hasCommercialFeature("json-validation") &&
+    feature.id !== "json-feature-non-enterprise";
 
   const projectId = feature.project;
 
@@ -339,7 +341,7 @@ export default function FeaturesOverview({
           ...getFieldData(value),
         });
       });
-      jsonSchemaDescription = "An object with properties";
+      jsonSchemaDescription = "Value is an object with properties";
     } else if (
       "items" in jsonSchema &&
       jsonSchema.items &&
@@ -355,16 +357,16 @@ export default function FeaturesOverview({
             ...getFieldData(value),
           });
         });
-        jsonSchemaDescription = "An array of objects with properties";
+        jsonSchemaDescription = "Value is an array of objects with properties";
       } else {
-        jsonSchemaDescription = "An array of";
+        jsonSchemaDescription = "Value is an array of";
         jsonSchemaFields.push({
           key: jsonSchema.items.type + "s",
           ...getFieldData(jsonSchema.items),
         });
       }
     } else {
-      jsonSchemaDescription = "A";
+      jsonSchemaDescription = "Value is a";
       jsonSchemaFields.push({
         key: jsonSchema.type + "",
         ...getFieldData(jsonSchema),
@@ -725,21 +727,19 @@ export default function FeaturesOverview({
 
         {feature.valueType === "json" && (
           <div>
-            <h3 className={hasJsonValidator ? "" : "mb-4"}>
-              <PremiumTooltip commercialFeature="json-validation">
-                {" "}
-                JSON Validation{" "}
-              </PremiumTooltip>
-              {hasJsonValidator && canEdit && (
-                <>
-                  <a
-                    className="ml-2 cursor-pointer"
-                    onClick={() => setEditValidator(true)}
-                  >
-                    <GBEdit />
-                  </a>
-                </>
-              )}
+            <h3>
+              JSON Validation{" "}
+              <Tooltip
+                body={
+                  "Prevent typos and mistakes by specifying validation rules using JSON Schema or our Simple Validation Builder"
+                }
+              />
+              <span
+                className="badge badge-dark ml-2"
+                style={{ fontStyle: "normal", fontSize: "0.7em" }}
+              >
+                ENTERPRISE
+              </span>
             </h3>
             <div className="appbox mb-4 p-3 card">
               {hasJsonValidator && jsonSchema ? (
@@ -767,20 +767,23 @@ export default function FeaturesOverview({
                         >
                           <small>
                             {showSchema
-                              ? "Hide Raw JSON Schema"
-                              : "Show Raw JSON Schema"}
+                              ? "Hide JSON Schema"
+                              : "Show JSON Schema"}
                           </small>
                         </a>
                       </div>
                     ) : null}
                   </div>
                   {validationEnabled ? (
-                    <div className="d-flex align-items-top mt-3 border-top pt-3">
+                    <div className="mt-3 border-top pt-3 d-flex align-items-center">
                       {jsonSchemaDescription ? (
-                        <div>{jsonSchemaDescription}</div>
+                        <div className="mr-2">{jsonSchemaDescription}</div>
                       ) : null}
                       {jsonSchemaFields.map((field) => (
-                        <div key={field.key} className="ml-2">
+                        <div
+                          key={field.key}
+                          className="mr-2 bg-light px-2 border rounded"
+                        >
                           <div>
                             <Tooltip
                               body={
@@ -855,7 +858,7 @@ export default function FeaturesOverview({
                               tipMinWidth="300px"
                             >
                               <strong>{field.key}</strong>{" "}
-                              <MdInfoOutline className="text-info" />
+                              <MdInfoOutline className="text-purple" />
                             </Tooltip>
                           </div>
                         </div>
@@ -863,25 +866,33 @@ export default function FeaturesOverview({
                     </div>
                   ) : null}
                   {showSchema && validationEnabled && (
-                    <>
+                    <div className="mt-4">
                       <Code
                         language="json"
                         code={JSON.stringify(jsonSchema, null, 2)}
-                        expandable
                       />
-                    </>
+                    </div>
                   )}
                 </>
               ) : (
                 <div>
-                  <em>
-                    No validation added.{" "}
-                    <Tooltip
-                      body={
-                        "Add validation using a JSON Schema or our simple validation builder"
-                      }
-                    />
-                  </em>
+                  <em>No validation added.</em>
+                </div>
+              )}
+
+              {hasJsonValidator && canEdit && (
+                <div className="mt-3">
+                  <a
+                    href="#"
+                    className="text-purple"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setEditValidator(true);
+                    }}
+                  >
+                    {validationEnabled ? <GBEdit /> : <GBAddCircle />}{" "}
+                    {validationEnabled ? "Edit" : "Add"} JSON Validation
+                  </a>
                 </div>
               )}
             </div>

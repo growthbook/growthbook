@@ -17,7 +17,6 @@ import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Modal from "@/components/Modal";
 import { GBAddCircle } from "@/components/Icons";
-import Code from "@/components/SyntaxHighlighting/Code";
 
 export interface Props {
   valueType: FeatureValueType;
@@ -29,8 +28,6 @@ export interface Props {
   type?: string;
   placeholder?: string;
   feature?: FeatureInterface;
-  hideParentModal?: () => void;
-  showParentModal?: () => void;
   renderJSONInline?: boolean;
 }
 
@@ -44,8 +41,6 @@ export default function FeatureValueField({
   placeholder,
   feature,
   renderJSONInline,
-  hideParentModal,
-  showParentModal,
 }: Props) {
   const { hasCommercialFeature } = useUser();
   const hasJsonValidator = hasCommercialFeature("json-validation");
@@ -66,8 +61,6 @@ export default function FeatureValueField({
           value={value}
           setValue={setValue}
           renderInline={renderJSONInline}
-          hideParentModal={hideParentModal}
-          showParentModal={showParentModal}
           label={label}
         />
         {helpText && <small className="text-muted">{helpText}</small>}
@@ -97,6 +90,18 @@ export default function FeatureValueField({
     );
   }
 
+  if (valueType === "json") {
+    return (
+      <JSONTextEditor
+        label={label}
+        value={value}
+        setValue={setValue}
+        helpText={helpText}
+        placeholder={placeholder}
+      />
+    );
+  }
+
   return (
     <Field
       label={label}
@@ -112,8 +117,6 @@ export default function FeatureValueField({
             min: "any",
             max: "any",
           }
-        : valueType === "json"
-        ? { minRows: 4, textarea: true }
         : {
             textarea: true,
             minRows: 1,
@@ -227,16 +230,12 @@ function SimpleSchemaEditor({
   setValue,
   renderInline,
   label,
-  hideParentModal,
-  showParentModal,
 }: {
   schema: SimpleSchema;
   value: string;
   setValue: (value: string) => void;
   renderInline?: boolean;
   label?: string;
-  hideParentModal?: () => void;
-  showParentModal?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
@@ -317,15 +316,38 @@ function SimpleSchemaEditor({
   }
 
   if (!renderInline) {
-    if (!open) {
-      return (
-        <div className="form-group">
-          {label ? <label>{label}</label> : null}
-          <Code
-            language="json"
-            code={stringify(valueParsed)}
-            expandable
-            containerClassName="mt-0 mb-2"
+    return (
+      <>
+        {open ? (
+          <Modal
+            open={true}
+            header="Edit Value"
+            size="lg"
+            close={() => {
+              setOpen(false);
+            }}
+            submit={async () => {
+              setValue(tempValue);
+            }}
+            cta="Save"
+            raised={true}
+          >
+            <SimpleSchemaObjectArrayEditor
+              type={schema.type}
+              value={tempValue}
+              setValue={setTempValue}
+              fields={schema.fields}
+              label={label}
+            />
+          </Modal>
+        ) : null}
+        <div>
+          <Field
+            textarea
+            value={stringify(valueParsed)}
+            maxRows={5}
+            disabled
+            label={label}
           />
           <a
             href="#"
@@ -334,36 +356,12 @@ function SimpleSchemaEditor({
               e.preventDefault();
               setTempValue(value);
               setOpen(true);
-              hideParentModal && hideParentModal();
             }}
           >
             Edit Value <BsBoxArrowUpRight style={{ marginTop: -3 }} />
           </a>
         </div>
-      );
-    }
-    return (
-      <Modal
-        open={true}
-        header="Edit Value"
-        size="lg"
-        close={() => {
-          setOpen(false);
-          showParentModal && showParentModal();
-        }}
-        submit={async () => {
-          setValue(tempValue);
-        }}
-        cta="Save"
-      >
-        <SimpleSchemaObjectArrayEditor
-          type={schema.type}
-          value={tempValue}
-          setValue={setTempValue}
-          fields={schema.fields}
-          label={label}
-        />
-      </Modal>
+      </>
     );
   }
 
@@ -375,6 +373,78 @@ function SimpleSchemaEditor({
       setValue={setValue}
       fields={schema.fields}
       label={label}
+    />
+  );
+}
+
+function JSONTextEditor({
+  label,
+  editAsForm,
+  value,
+  setValue,
+  helpText,
+  placeholder,
+}: {
+  label?: string;
+  editAsForm?: () => void;
+  value: string;
+  setValue: (value: string) => void;
+  helpText?: ReactNode;
+  placeholder?: string;
+}) {
+  let formatted;
+  try {
+    const parsed = dJSON.parse(value);
+    formatted = stringify(parsed);
+  } catch (e) {
+    // Ignore
+  }
+
+  return (
+    <Field
+      labelClassName="d-flex w-100"
+      placeholder={placeholder}
+      label={
+        <>
+          <div>{label}</div>
+          {editAsForm && (
+            <div className="ml-auto">
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  editAsForm();
+                }}
+              >
+                Edit as Form
+              </a>
+            </div>
+          )}
+        </>
+      }
+      value={value}
+      onChange={(e) => {
+        setValue(e.target.value);
+      }}
+      textarea
+      minRows={1}
+      helpText={
+        <div className="d-flex align-items-top">
+          {helpText && <div>{helpText}</div>}
+          {formatted && formatted !== value ? (
+            <a
+              href="#"
+              className="text-purple ml-auto"
+              onClick={(e) => {
+                e.preventDefault();
+                setValue(formatted);
+              }}
+            >
+              <FaMagic /> Format JSON
+            </a>
+          ) : null}
+        </div>
+      }
     />
   );
 }
@@ -403,49 +473,13 @@ function SimpleSchemaObjectArrayEditor({
   const [rawJSONInput, setRawJSONInput] = useState(!simpleEditorAllowed);
 
   const fallback = (
-    <Field
-      labelClassName="d-flex w-100"
-      label={
-        <>
-          <div>{label}</div>
-          {simpleEditorAllowed && (
-            <div className="ml-auto">
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setRawJSONInput(false);
-                }}
-              >
-                Edit as Form
-              </a>
-            </div>
-          )}
-        </>
-      }
+    <JSONTextEditor
+      label={label}
       value={value}
-      onChange={(e) => {
-        setValue(e.target.value);
+      setValue={setValue}
+      editAsForm={() => {
+        setRawJSONInput(false);
       }}
-      textarea
-      minRows={4}
-      helpText={
-        <a
-          href="#"
-          className="text-purple"
-          onClick={(e) => {
-            e.preventDefault();
-            try {
-              const parsed = dJSON.parse(value);
-              setValue(stringify(parsed));
-            } catch (e) {
-              console.error(e);
-            }
-          }}
-        >
-          <FaMagic /> Format JSON
-        </a>
-      }
     />
   );
 

@@ -88,8 +88,6 @@ export default function RuleModal({
   const attributeSchema = useAttributeSchema(false, feature.project);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
-  const [hideModal, setHideModal] = useState(false);
-
   const { namespaces } = useOrgSettings();
 
   const rules = getRules(feature, environment);
@@ -284,11 +282,9 @@ export default function RuleModal({
     );
   }
 
-  console.log("Modal showing", !hideModal);
-
   return (
     <Modal
-      open={!hideModal}
+      open={true}
       close={close}
       size="lg"
       cta="Save"
@@ -687,8 +683,6 @@ export default function RuleModal({
                     valueType={feature.valueType}
                     feature={feature}
                     renderJSONInline={false}
-                    hideParentModal={() => setHideModal(true)}
-                    showParentModal={() => setHideModal(false)}
                   />
                 ))}
               </div>
@@ -719,8 +713,6 @@ export default function RuleModal({
           valueType={feature.valueType}
           feature={feature}
           renderJSONInline={true}
-          hideParentModal={() => setHideModal(true)}
-          showParentModal={() => setHideModal(false)}
         />
       )}
 
@@ -734,8 +726,6 @@ export default function RuleModal({
             valueType={feature.valueType}
             feature={feature}
             renderJSONInline={true}
-            hideParentModal={() => setHideModal(true)}
-            showParentModal={() => setHideModal(false)}
           />
           <div className="appbox mt-4 mb-4 px-3 pt-3 bg-light">
             <RolloutPercentInput
@@ -877,6 +867,7 @@ export default function RuleModal({
                 }) || []
             }
             setVariations={(variations) => form.setValue("values", variations)}
+            feature={feature}
           />
           {namespaces && namespaces.length > 0 && (
             <NamespaceSelector

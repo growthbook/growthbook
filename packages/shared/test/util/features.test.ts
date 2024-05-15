@@ -441,7 +441,6 @@ describe("simpleToJSONSchema", () => {
       properties: expectedProperties,
       required: ["a_string", "a_float"],
       additionalProperties: false,
-      format: "grid",
     });
   });
   it("converts array of objects", () => {
@@ -454,7 +453,6 @@ describe("simpleToJSONSchema", () => {
         required: ["a_string", "a_float"],
         additionalProperties: false,
       },
-      format: "table",
     });
   });
   it("converts primitive", () => {
@@ -474,7 +472,6 @@ describe("simpleToJSONSchema", () => {
     expect(JSON.parse(simpleToJSONSchema(primitiveArraySchema))).toEqual({
       type: "array",
       items: expectedProperties.a_string,
-      format: "table",
     });
   });
 
@@ -630,7 +627,6 @@ describe("simpleToJSONSchema", () => {
         },
         required: ["a_string", "a_float", "valid"],
         additionalProperties: false,
-        format: "grid",
       }
     );
   });
@@ -708,9 +704,7 @@ describe("simpleToJSONSchema", () => {
         },
         required: ["a_string", "a_float", "int1", "int2"],
         additionalProperties: false,
-        format: "grid",
       },
-      format: "tabs",
     });
   });
 });
