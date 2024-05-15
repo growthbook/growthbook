@@ -420,8 +420,6 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
 
   const defaultJSONSchema = feature.jsonSchema?.schema || "{}";
 
-  console.log(feature.jsonSchema, defaultJSONSchema);
-
   const defaultSchemaType =
     feature.jsonSchema?.schemaType === "simple"
       ? "simple"

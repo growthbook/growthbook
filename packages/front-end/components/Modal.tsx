@@ -42,7 +42,7 @@ type ModalProps = {
   bodyClassName?: string;
   formRef?: React.RefObject<HTMLFormElement>;
   customValidation?: () => Promise<boolean> | boolean;
-  raised?: boolean;
+  increasedElevation?: boolean;
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
@@ -74,7 +74,7 @@ const Modal: FC<ModalProps> = ({
   bodyClassName = "",
   formRef,
   customValidation,
-  raised,
+  increasedElevation,
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -237,7 +237,7 @@ const Modal: FC<ModalProps> = ({
       }
     : {};
 
-  if (raised) {
+  if (increasedElevation) {
     overlayStyle.zIndex = 1500;
   }
 
@@ -247,7 +247,7 @@ const Modal: FC<ModalProps> = ({
       style={{
         display: open ? "block" : "none",
         position: inline ? "relative" : undefined,
-        zIndex: inline ? 1 : raised ? 1550 : undefined,
+        zIndex: inline ? 1 : increasedElevation ? 1550 : undefined,
       }}
     >
       <div

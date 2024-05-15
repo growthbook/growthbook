@@ -251,9 +251,7 @@ export default function FeaturesOverview({
   const revisionHasChanges =
     !!mergeResult && mergeResultHasChanges(mergeResult);
 
-  const hasJsonValidator =
-    hasCommercialFeature("json-validation") &&
-    feature.id !== "json-feature-non-enterprise";
+  const hasJsonValidator = hasCommercialFeature("json-validation");
 
   const projectId = feature.project;
 
