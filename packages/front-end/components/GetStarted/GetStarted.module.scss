@@ -1,0 +1,84 @@
+@property --myColor1 {
+  syntax: "<color>";
+  initial-value: #ede9fe;
+  inherits: false;
+}
+
+@property --myColor2 {
+  syntax: "<color>";
+  initial-value: #ede9fe;
+  inherits: false;
+}
+
+.animatedCard {
+  -webkit-transition: --myColor1 0.5s, --myColor2 0.5s;
+  -ms-transition: --myColor1 0.5s, --myColor2 0.5s;
+  transition: --myColor1 1s, --myColor2 1s;
+  width: 415px;
+  height: 254px;
+  background: linear-gradient(var(--myColor1), var(--myColor2));
+  border-color: #ede9fe;
+  border-style: solid;
+  border-radius: 6px;
+  border-width: 1px;
+  h2 {
+    transition: 0.5s;
+  }
+  strong {
+    transition: 0.5s;
+    color: #05054973;
+  }
+  .imgActive {
+    display: none;
+  }
+  &:hover {
+    --myColor1: #7b45eab2;
+    --myColor2: #7b45ea1a;
+    color: #ffffff;
+    background: linear-gradient(var(--myColor1), var(--myColor2));
+    text-decoration: none;
+    strong {
+      color: #ffffffd9;
+    }
+    .imgActive {
+      display: inline;
+      opacity: 100;
+    }
+    .imgInactive {
+      display: none;
+    }
+  }
+}
+
+.workspaceSetupLink {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  &:hover {
+    color: #050549a6;
+    text-decoration: none;
+  }
+}
+
+#documentationSection {
+  a {
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+    &:hover {
+      color: inherit;
+      text-decoration: none;
+    }
+  }
+  h6 {
+    font-size: 12px;
+  }
+}
+#featuredDocs {
+  font-size: 15px;
+  font-weight: 500;
+}
+#questions {
+  font-size: 13px;
+  font-weight: 500;
+}
