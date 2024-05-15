@@ -107,9 +107,7 @@ export default function MetricName({
   if (!metric) return <>{id}</>;
 
   return (
-    <div
-      style={{ textOverflow: "ellipsis", overflow: "auto", maxWidth: "100%" }}
-    >
+    <>
       {metric.name}
       {showDescription && metric.description ? (
         <span className="text-muted">
@@ -128,6 +126,6 @@ export default function MetricName({
         disableTooltip={disableTooltip}
         showOfficialLabel={showOfficialLabel}
       />
-    </div>
+    </>
   );
 }
