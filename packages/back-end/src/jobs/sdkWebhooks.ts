@@ -308,85 +308,117 @@ export async function fireSdkWebhook(
   }
 }
 
-export async function fireGlobalSdkWebhooks(
+export async function getSDKConnectionsByPayloadKeys(
   context: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[]
 ) {
-  for (const webhook of WEBHOOKS) {
-    const { url, signingKey, method, headers, sendPayload } = webhook;
-    if (!payloadKeys.length) return;
+  if (!payloadKeys.length) return [];
 
-    const connections = await findSDKConnectionsByOrganization(context);
+  const connections = await findSDKConnectionsByOrganization(context);
+  if (!connections) return [];
 
-    if (!connections) return;
-    for (let i = 0; i < connections.length; i++) {
-      const connection = connections[i];
-
-      const environmentDoc = context.org?.settings?.environments?.find(
-        (e) => e.id === connection.environment
-      );
-      const filteredProjects = filterProjectsByEnvironmentWithNull(
-        connection.projects,
-        environmentDoc,
-        true
-      );
-      if (!filteredProjects) {
-        continue;
-      }
-
-      // Skip if this SDK Connection isn't affected by the changes
-      if (
-        payloadKeys.some(
-          (key) =>
-            key.environment === connection.environment &&
-            (!filteredProjects.length || filteredProjects.includes(key.project))
-        )
-      ) {
-        const defs = await getFeatureDefinitions({
-          context,
-          capabilities: getConnectionSDKCapabilities(connection),
-          environment: connection.environment,
-          projects: filteredProjects,
-          encryptionKey: connection.encryptPayload
-            ? connection.encryptionKey
-            : undefined,
-
-          includeVisualExperiments: connection.includeVisualExperiments,
-          includeDraftExperiments: connection.includeDraftExperiments,
-          includeExperimentNames: connection.includeExperimentNames,
-          includeRedirectExperiments: connection.includeRedirectExperiments,
-          hashSecureAttributes: connection.hashSecureAttributes,
-        });
-
-        const id = `global_${md5(url)}`;
-        const w: WebhookInterface = {
-          id,
-          endpoint: url,
-          signingKey: signingKey || id,
-          httpMethod: method,
-          headers:
-            typeof headers !== "string" ? JSON.stringify(headers) : headers,
-          sendPayload: !!sendPayload,
-          organization: context.org?.id,
-          created: new Date(),
-          error: "",
-          lastSuccess: new Date(),
-          name: "",
-          sdks: [connection.key],
-          useSdkMode: true,
-          featuresOnly: true,
-        };
-
-        const payload = JSON.stringify(defs);
-        runWebhookFetch({
-          webhook: w,
-          key: connection.key,
-          payload,
-          global: true,
-        }).catch((e) => {
-          logger.error(e, "Failed to fire global webhook");
-        });
-      }
+  return connections.filter((c) => {
+    const environmentDoc = context.org?.settings?.environments?.find(
+      (e) => e.id === c.environment
+    );
+    const filteredProjects = filterProjectsByEnvironmentWithNull(
+      c.projects,
+      environmentDoc,
+      true
+    );
+    if (!filteredProjects) {
+      return false;
     }
+
+    // Skip if this SDK Connection isn't affected by the changes
+    if (
+      !payloadKeys.some(
+        (key) =>
+          key.environment === c.environment &&
+          (!filteredProjects.length || filteredProjects.includes(key.project))
+      )
+    ) {
+      return false;
+    }
+    return true;
+  });
+}
+
+export async function fireGlobalSdkWebhooksByPayloadKeys(
+  context: ReqContext | ApiReqContext,
+  payloadKeys: SDKPayloadKey[]
+) {
+  const connections = await getSDKConnectionsByPayloadKeys(
+    context,
+    payloadKeys
+  );
+  await fireGlobalSdkWebhooks(context, connections);
+}
+
+export async function fireGlobalSdkWebhooks(
+  context: ReqContext | ApiReqContext,
+  connections: SDKConnectionInterface[]
+) {
+  if (!connections.length) return;
+
+  for (const connection of connections) {
+    const environmentDoc = context.org?.settings?.environments?.find(
+      (e) => e.id === connection.environment
+    );
+    const filteredProjects = filterProjectsByEnvironmentWithNull(
+      connection.projects,
+      environmentDoc,
+      true
+    );
+
+    const defs = await getFeatureDefinitions({
+      context,
+      capabilities: getConnectionSDKCapabilities(connection),
+      environment: connection.environment,
+      projects: filteredProjects,
+      encryptionKey: connection.encryptPayload
+        ? connection.encryptionKey
+        : undefined,
+
+      includeVisualExperiments: connection.includeVisualExperiments,
+      includeDraftExperiments: connection.includeDraftExperiments,
+      includeExperimentNames: connection.includeExperimentNames,
+      includeRedirectExperiments: connection.includeRedirectExperiments,
+      hashSecureAttributes: connection.hashSecureAttributes,
+    });
+
+    const payload = JSON.stringify(defs);
+
+    WEBHOOKS.forEach((webhook) => {
+      const { url, signingKey, method, headers, sendPayload } = webhook;
+
+      const id = `global_${md5(url)}`;
+      const w: WebhookInterface = {
+        id,
+        endpoint: url,
+        signingKey: signingKey || id,
+        httpMethod: method,
+        headers:
+          typeof headers !== "string" ? JSON.stringify(headers) : headers,
+        sendPayload: !!sendPayload,
+        organization: context.org?.id,
+        created: new Date(),
+        error: "",
+        lastSuccess: new Date(),
+        name: "",
+        sdks: [connection.key],
+        useSdkMode: true,
+        featuresOnly: true,
+      };
+
+      runWebhookFetch({
+        webhook: w,
+        key: connection.key,
+        payload,
+        global: true,
+      }).catch((e) => {
+        logger.error(e, "Failed to fire global webhook");
+      });
+    });
   }
 }

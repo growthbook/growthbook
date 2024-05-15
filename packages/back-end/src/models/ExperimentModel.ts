@@ -1364,7 +1364,9 @@ const onExperimentUpdate = async ({
       isEqual
     );
 
-    refreshSDKPayloadCache(context, payloadKeys);
+    refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
+      logger.error(e, "Error refreshing SDK payload cache");
+    });
   }
 };
 
@@ -1381,5 +1383,7 @@ const onExperimentDelete = async (
   }
 
   const payloadKeys = getPayloadKeys(context, experiment, linkedFeatures);
-  refreshSDKPayloadCache(context, payloadKeys);
+  refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
+    logger.error(e, "Error refreshing SDK payload cache");
+  });
 };
