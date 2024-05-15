@@ -355,17 +355,19 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     permissionsCheck,
   ]);
 
-  const permissionsUtil = new Permissions(
-    currentOrg?.currentUserPermissions || {
-      global: {
-        permissions: {},
-        limitAccessByEnvironment: false,
-        environments: [],
+  const permissionsUtil = useMemo(() => {
+    return new Permissions(
+      currentOrg?.currentUserPermissions || {
+        global: {
+          permissions: {},
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
       },
-      projects: {},
-    },
-    data?.superAdmin || false
-  );
+      data?.superAdmin || false
+    );
+  }, [currentOrg?.currentUserPermissions, data?.superAdmin]);
 
   return (
     <UserContext.Provider
