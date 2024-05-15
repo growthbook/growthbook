@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type { FeatureDefinition, FeatureResult } from "@growthbook/growthbook";
+import { z } from "zod";
+import {
+  simpleSchemaFieldValidator,
+  simpleSchemaValidator,
+} from "@back-end/src/validators/features";
 import { UserRef } from "./user";
 import { FeatureRevisionInterface } from "./feature-revision";
 
@@ -11,22 +16,8 @@ export interface FeatureEnvironment {
   rules: FeatureRule[];
 }
 
-export interface SchemaField {
-  key: string;
-  type: "integer" | "float" | "string" | "boolean";
-  required: boolean;
-  default: string;
-  description: string;
-  // Empty array = no enum
-  enum: string[];
-  // For strings, this is the length. For numbers, this is the range.
-  min: number;
-  max: number;
-}
-export interface SimpleSchema {
-  type: "object" | "object[]" | "primitive" | "primitive[]";
-  fields: SchemaField[];
-}
+export type SchemaField = z.infer<typeof simpleSchemaFieldValidator>;
+export type SimpleSchema = z.infer<typeof simpleSchemaValidator>;
 
 export interface JSONSchemaDef {
   schemaType: "schema" | "simple";

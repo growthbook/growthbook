@@ -7,6 +7,7 @@ import ReactSelect, {
   Props,
   StylesConfig,
   OptionProps,
+  FormatOptionLabelMeta,
 } from "react-select";
 import {
   SortableContainer,
@@ -87,8 +88,12 @@ const MultiSelectField: FC<
     customClassName?: string;
     closeMenuOnSelect?: boolean;
     creatable?: boolean;
-    formatOptionLabel?: (value: SingleValue) => ReactNode;
+    formatOptionLabel?: (
+      value: SingleValue,
+      meta: FormatOptionLabelMeta<SingleValue>
+    ) => ReactNode;
     onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
+    noMenu?: boolean;
   }
 > = ({
   value,
@@ -105,6 +110,7 @@ const MultiSelectField: FC<
   closeMenuOnSelect = false,
   formatOptionLabel,
   onPaste,
+  noMenu,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -157,7 +163,25 @@ const MultiSelectField: FC<
               MultiValueLabel: SortableMultiValueLabel,
               Option: OptionWithTitle,
               Input,
+              ...(creatable && noMenu
+                ? {
+                    Menu: () => null,
+                    DropdownIndicator: () => null,
+                    IndicatorSeparator: () => null,
+                  }
+                : {}),
             }}
+            {...(creatable && noMenu
+              ? {
+                  // Prevent multi-select from submitting if you type the same value twice
+                  onKeyDown: (e) => {
+                    const v = (e.target as HTMLInputElement).value;
+                    if (e.code === "Enter" && (!v || value.includes(v))) {
+                      e.preventDefault();
+                    }
+                  },
+                }
+              : {})}
             closeMenuOnSelect={closeMenuOnSelect}
             autoFocus={autoFocus}
             // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(SingleValue | undefined)[]' is not assignab... Remove this comment to see the full error message

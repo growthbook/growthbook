@@ -54,6 +54,7 @@ function EditSchemaField({
               value={value.key}
               onChange={(e) => onChange({ ...value, key: e.target.value })}
               required
+              maxLength={64}
             />
           </div>
         )}
@@ -91,6 +92,7 @@ function EditSchemaField({
         label="Description"
         value={value.description}
         onChange={(e) => onChange({ ...value, description: e.target.value })}
+        maxLength={256}
       />
       {inObject && (
         <div className="form-group">
@@ -110,11 +112,13 @@ function EditSchemaField({
             placeholder="(Optional)"
             value={value.enum}
             onChange={(e) => {
-              // TODO: validation (e.g. if type === "integer", make sure they are integers)
+              if (e.length > 256) return;
+              e = e.filter((v) => v !== "" && v != null && v.length <= 256);
               onChange({ ...value, enum: e });
             }}
             options={value.enum.map((v) => ({ value: v, label: v }))}
             creatable
+            noMenu
           />
           {value.enum.length === 0 && (
             <div className="row">
@@ -137,6 +141,7 @@ function EditSchemaField({
                   value={value.max}
                   type="number"
                   min={value.min || undefined}
+                  max={value.type === "string" ? 256 : undefined}
                   step={value.type !== "float" ? 1 : "any"}
                   onChange={(e) =>
                     onChange({ ...value, max: parseInt(e.target.value) })
@@ -284,8 +289,9 @@ function EditSimpleSchema({
             {schema.fields.map((field, i) => (
               <div key={i} className="d-flex align-items-top mb-2">
                 <div className="flex-1 border rounded ">
-                  <div
-                    className="d-flex align-items-center cursor-pointer p-2"
+                  <a
+                    href="#"
+                    className="d-flex align-items-center cursor-pointer p-2 no-underline"
                     onClick={(e) => {
                       e.preventDefault();
                       const newExpandedFields = new Set(expandedFields);
@@ -297,7 +303,7 @@ function EditSimpleSchema({
                       setExpandedFields(newExpandedFields);
                     }}
                   >
-                    <strong className="mb-0">
+                    <strong className="mb-0 text-dark">
                       {field.key ? field.key : "New Property"}
                     </strong>
                     {!expandedFields.has(i) && (
@@ -335,7 +341,7 @@ function EditSimpleSchema({
                         <FaAngleRight />
                       )}
                     </div>
-                  </div>
+                  </a>
                   {expandedFields.has(i) ? (
                     <div className="border-top bg-light p-3 mb-0">
                       <EditSchemaField

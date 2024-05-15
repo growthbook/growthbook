@@ -861,6 +861,12 @@ main.main.report {
   }
 }
 
+.no-underline {
+  &:hover {
+    text-decoration: none !important;
+  }
+}
+
 .link-purple {
   color: colors.$highlight-purple;
   text-decoration: none;

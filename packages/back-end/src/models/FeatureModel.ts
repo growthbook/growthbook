@@ -35,6 +35,7 @@ import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { logger } from "../util/logger";
 import { getEnvironmentIdsFromOrg } from "../services/organizations";
 import { ApiReqContext } from "../../types/api";
+import { simpleSchemaValidator } from "../validators/features";
 import { createEvent } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
@@ -766,6 +767,11 @@ export async function setJsonSchema(
   feature: FeatureInterface,
   def: Omit<JSONSchemaDef, "date">
 ) {
+  // Validate Simple Schema (sanity check)
+  if (def.schemaType === "simple" && def.simple) {
+    simpleSchemaValidator.parse(def.simple);
+  }
+
   return await updateFeature(context, feature, {
     jsonSchema: { ...def, date: new Date() },
   });
