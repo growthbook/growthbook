@@ -28,15 +28,15 @@ Regardless of your use case, our CloudFlare integration makes easy to synchroniz
 
 ## References
 
-- Our CloudFlare Workers SDK repository, which supports the above use cases, is [here<ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare)
-- A turnkey implementation of the Edge App (compatible with Wrangler) is [here<ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare/example)
+- Our CloudFlare Workers SDK repository, which supports the above use cases, is [here <ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare)
+- A turnkey implementation of the Edge App (compatible with Wrangler) is [here <ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare/example)
 - You may find it useful to review our [JavaScript SDK](/lib/js). Many of the concepts which apply to both on-edge and injected frontend SDKs are based on our JS SDK.
 
 ## Worker Configuration
 
 :::tip
 
-This tutorial assumes some familiarity with building and deploying CloudFlare Worker applications. You can quickly get up to speed by following the CloudFlare Workers [Getting Started<ExternalLink />](https://developers.cloudflare.com/workers/get-started/guide/) guide.
+This tutorial assumes some familiarity with building and deploying CloudFlare Worker applications. You can quickly get up to speed by following the CloudFlare Workers [Getting Started <ExternalLink />](https://developers.cloudflare.com/workers/get-started/guide/) guide.
 
 :::
 
@@ -54,7 +54,7 @@ You can enable URL Redirects on edge by setting environment variable `RUN_URL_RE
 
 :::
 
-Setting up our turnkey Edge App is simple. Assuming that you have a basic Worker application set up, simply install the SDK and implement our custom request handler. Or if you prefer, you may pull down our fully-functional [example implementation<ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare/example) and follow along.
+Setting up our turnkey Edge App is simple. Assuming that you have a basic Worker application set up, simply install the SDK and implement our custom request handler. Or if you prefer, you may pull down our fully-functional [example implementation <ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare/example) and follow along.
 
 ### Install the SDK
 
@@ -141,11 +141,11 @@ export default {
 
 #### More customization options
 
-For a full list of customizations, view our vendor-agnostic [Edge Utility repository<ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils).
+For a full list of customizations, view our vendor-agnostic [Edge Utility repository <ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils).
 
 ### Set up a Payload Cache
 
-You can configure GrowthBook payload caching by using a [CloudFlare KV<ExternalLink />](https://developers.cloudflare.com/kv/reference/how-kv-works/) store. This eliminates network requests from your edge to GrowthBook which speeds up page delivery while reducing network costs.
+You can configure GrowthBook payload caching by using a [CloudFlare KV <ExternalLink />](https://developers.cloudflare.com/kv/reference/how-kv-works/) store. This eliminates network requests from your edge to GrowthBook which speeds up page delivery while reducing network costs.
 
 Our CloudFlare Edge App will automatically use either webhook-based or just-in-time payload caching (or both) depending on how you've set up your KV namespaces, bindings, and SDK Webhooks.
 
@@ -206,7 +206,7 @@ As shown in the [runtime configuration](#runtime-configuration) section above, y
 
 By default, the Edge App will process all `GET` requests (other HTTP verbs are proxied through without running through our app logic).
 
-It is generally preferable to configure your routing rules outside of our Edge App. For instance, you may only want to invoke the Edge App at `https://yourdomain.io/landing-page`. You can configure CloudFlare routing by following the CloudFlare Workers [Routes<ExternalLink />](https://developers.cloudflare.com/workers/configuration/routing/routes/) documentation.
+It is generally preferable to configure your routing rules outside of our Edge App. For instance, you may only want to invoke the Edge App at `https://yourdomain.io/landing-page`. You can configure CloudFlare routing by following the CloudFlare Workers [Routes <ExternalLink />](https://developers.cloudflare.com/workers/configuration/routing/routes/) documentation.
 
 There may be situations when you will need to provide finer-grained routing / URL targeting rules within our Edge App. You will need to include a JSON encoded string of route rules in your `ROUTES` environment variable.
 
@@ -297,7 +297,7 @@ export default {
 
 By default, the Edge App will make a network request to the GrowthBook API on each user request in order to fetch the current feature and experiment values. This is a blocking call that delays page delivery.
 
-Convenient solutions this problem are realized through [CloudFlare KV<ExternalLink />](https://developers.cloudflare.com/kv/reference/how-kv-works/), an on-edge key-val store which we can leverage for persistent payload caching. There are 2 levels of KV integration available:
+Convenient solutions this problem are realized through [CloudFlare KV <ExternalLink />](https://developers.cloudflare.com/kv/reference/how-kv-works/), an on-edge key-val store which we can leverage for persistent payload caching. There are 2 levels of KV integration available:
 
 1. You can either completely eliminate the blocking call to the GrowthBook API by implementing a GrowthBook-to-CloudFlare-KV push model via **SDK Webhooks**.
 2. Alternatively, you can eliminate most of these network requests by using CloudFlare KV as a just-in-time payload cache.
