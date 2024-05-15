@@ -359,17 +359,19 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     permissionsCheck,
   ]);
 
-  const permissionsUtil = new Permissions(
-    currentOrg?.currentUserPermissions || {
-      global: {
-        permissions: {},
-        limitAccessByEnvironment: false,
-        environments: [],
+  const permissionsUtil = useMemo(() => {
+    return new Permissions(
+      currentOrg?.currentUserPermissions || {
+        global: {
+          permissions: {},
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
       },
-      projects: {},
-    },
-    data?.superAdmin || false
-  );
+      data?.superAdmin || false
+    );
+  }, [currentOrg?.currentUserPermissions, data?.superAdmin]);
 
   return (
     <UserContext.Provider
@@ -398,8 +400,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         licenseError: currentOrg?.licenseError || "",
         commercialFeatures: currentOrg?.commercialFeatures || [],
         apiKeys: currentOrg?.apiKeys || [],
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'OrganizationInterface | undefined' is not as... Remove this comment to see the full error message
-        organization: currentOrg?.organization,
+        organization: currentOrg?.organization || {},
         seatsInUse: currentOrg?.seatsInUse || 0,
         teams,
         error: error || orgLoadingError?.message,
