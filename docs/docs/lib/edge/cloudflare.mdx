@@ -44,13 +44,13 @@ You may either use our turnkey Edge App for CloudFlare Workers or build your own
 
 ## Turnkey Edge App
 
-Our Edge App runs as a smart proxy layer between your application and your end users. In absence of Visual or URL Redirect experiments, the Edge App will simply proxy the user request to your site and return the response, optionally injecting a fully-bootstrapped JavaScript SDK onto the rendered HTML page. If the request URL matches an Visual or URL Redirect experiment and the targeting conditions are satisfied, the Edge App may also perform one or more URL redirect behind the scenes (the public-facing URL does not change) and/or mutate the DOM for Visual Experiments.
+Our Edge App runs as a smart proxy layer between your application and your end users. In absence of Visual or URL Redirect experiments, the Edge App will simply proxy the user request to your site and return the response, optionally injecting a fully-bootstrapped JavaScript SDK onto the rendered HTML page. If the request URL matches an Visual or URL Redirect experiment and the targeting conditions are satisfied, the Edge App may also perform one or more URL redirects behind the scenes (the public-facing URL does not change) and/or mutate the DOM for Visual Experiments.
 
 :::note URL Redirects on edge
 
 The Edge App defaults to running URL Redirect Experiments in the browser only. This is because edge redirects load a separate page's content without altering the URL. After the redirect, some sites may experience problems with loading assets or endpoints with relative paths.
 
-You can enable URL Redirects on edge by setting environment variable `RUN_URL_REDIRECT_EXPERIMENTS` (see below)
+You can enable URL Redirects on edge by setting environment variable `RUN_URL_REDIRECT_EXPERIMENTS` ([see below](#environment-variables)).
 
 :::
 
@@ -155,11 +155,12 @@ More information about setting up your payload cache can be found in the [Payloa
 
 Running A/B tests requires a [tracking callback](/lib/js#experimentation-ab-testing). Our turnkey Edge App defaults to using built-in front-end tracking. The tracking call automatically integrates with Segment.io, GA4, and Google Tag Manager by using the mechanism outlined in our [HTML Script Tag](/lib/script-tag#tracking-experiment-views). In order to do this, the app keeps track of tracking calls triggered on edge and injects them into the front-end SDK to be automatically triggered on page load.
 
-You may wish to either customize front-end tracking or switch to edge tracking (or use both concurrently if running hybrid edge + front-end experiments).
+You may wish to either customize front-end tracking or switch to edge tracking (or use both concurrently if running hybrid edge + front-end experiments). In general, tracking on an edge or backend environment helps eliminate measurement delta and experimental bias. However, using the default injected front-end tracking reduces biases and deltas when compared with solely using a front-end SDK.
 
 To change the front-end tracking callback, set the `GROWTHBOOK_TRACKING_CALLBACK` to your custom tracking JS code:
 
 ```bash
+# todo: replace with your own tracking library
 GROWTHBOOK_TRACKING_CALLBACK="(experiment, results) => { console.log('browser tracking callback', {experiment, results}); }"
 ```
 
@@ -172,6 +173,7 @@ export default {
   fetch: async function (request, env, ctx) {
     const config = {
       edgeTrackingCallback: (experiment, results) => {
+        // todo: replace with your tracking library
         console.log('edge tracking callback', {experiment, results});
       }
     };
@@ -233,7 +235,7 @@ When multiple routes are included in your `ROUTES` array, only the first match i
 
 ### Cookie Policy and GDPR
 
-By default, the Edge App will persist a random unique identifier in a first-party cookie names `gbuuid`. Its purpose is to provide a consistent user experience to your visitors by preventing them from being re-bucketed into different A/B test variations. It follows the same mechanism as discussed in our [HTML Script Tag docs](/lib/script-tag#cookie-policy-and-gdpr).
+By default, the Edge App will persist a random unique identifier in a first-party cookie named `gbuuid`. Its purpose is to provide a consistent user experience to your visitors by preventing them from being re-bucketed into different A/B test variations. It follows the same mechanism as discussed in our [HTML Script Tag docs](/lib/script-tag#cookie-policy-and-gdpr).
 
 #### Delay Storing the Cookie Until Consent is Granted
 
@@ -258,11 +260,11 @@ If you are using Sticky Bucketing, a persistent sticky bucket assignments cookie
 
 ## Manual SDK Integration on Edge
 
-You may be interested in build your own edge application using the GrowthBook SDK and not using our turnkey Edge App. Or you may want to do custom feature flagging on specific routes while running our Edge App on other routes.
+You may be interested in building your own edge application using the GrowthBook SDK and not using our turnkey Edge App. Or you may want to do custom feature flagging on specific routes while running our Edge App on other routes.
 
 To use the GrowthBook on edge, simply include our standard [JavaScript SDK](/lib/js) (`@growthbook/growthbook` NPM package).
 
-In our `@growthbook/edge-cloudflare` NPM package, we export a few CloudFlare-specific utility functions to simplify SDK payload caching (We discuss payload caching strategies in the subsequent doc section).
+In our `@growthbook/edge-cloudflare` NPM package, we export a few CloudFlare-specific utility functions to simplify SDK payload caching (we discuss payload caching strategies in the subsequent doc section).
 
 ```ts
 import { GrowthBook, setPolyfills } from "@growthbook/growthbook";
