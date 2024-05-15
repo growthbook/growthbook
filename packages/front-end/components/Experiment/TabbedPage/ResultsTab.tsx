@@ -86,7 +86,6 @@ export default function ResultsTab({
 
   const { snapshot } = useSnapshot();
   const permissionsUtil = usePermissionsUtil();
-  const canCreateReports = permissionsUtil.canCreateReport(experiment);
 
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
 
@@ -281,7 +280,7 @@ export default function ResultsTab({
           <div className="row mx-2 py-3 d-flex align-items-center">
             <div className="col h3 ml-2 mb-0">Custom Reports</div>
             <div className="col-auto mr-2">
-              {canCreateReports ? (
+              {permissionsUtil.canCreateReport(experiment) ? (
                 <Button
                   className="btn btn-outline-primary float-right"
                   color="outline-info"
