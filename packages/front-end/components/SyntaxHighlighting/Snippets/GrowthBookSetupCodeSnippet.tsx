@@ -876,7 +876,7 @@ function buildEnv() {
         <Code
           language="javascript"
           code={`
-import { edgeApp, getConfig } from "@growthbook/edge-utils";
+import { edgeApp, getConfig, defaultContext } from "@growthbook/edge-utils";
 
 export async function handler(request, env) {
   const context = await init(env);
@@ -884,7 +884,8 @@ export async function handler(request, env) {
 }
 
 function init(env) {
-  const context = getConfig(env);
+  const context = defaultContext;
+  context.config = getConfig(env);
   context.helpers = {
     // define utility functions for request/response manipulation
   };

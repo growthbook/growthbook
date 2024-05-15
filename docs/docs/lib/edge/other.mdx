@@ -55,7 +55,7 @@ npm install --save @growthbook/edge-utils
 A basic implementation of our Edge App only requires a few lines of code. Your implementation however will be vendor specific:
 
 ```ts
-import { edgeApp, getConfig } from "@growthbook/edge-utils";
+import { edgeApp, getConfig, defaultContext } from "@growthbook/edge-utils";
 
 // Build a request handler
 // note: we assume availability of `env` (environment variables)
@@ -67,7 +67,8 @@ export async function handler(request, env) {
 // Build context for the app
 function init(env) {
   // Automatically parse environment variables into app context
-  const context = getConfig(env);
+  const context = defaultContext;
+  context.config = getConfig(env);
   context.helpers = {
     // define utility functions for request/response manipulation
   };
