@@ -52,7 +52,7 @@ export default function UpgradeModal({ close, source }: Props) {
   const { organization, refreshOrganization } = useUser();
 
   const currentUsers =
-    (organization?.members?.length || 0) + (organization?.invites?.length || 0);
+    (organization.members?.length || 0) + (organization.invites?.length || 0);
 
   const licensePlanText =
     (accountPlan === "enterprise"
