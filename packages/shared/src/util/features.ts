@@ -31,6 +31,7 @@ export function getValidation(feature: FeatureInterface) {
         jsonSchema: null,
         validationEnabled: false,
         schemaDateUpdated: null,
+        simpleSchema: null,
       };
     }
 
@@ -42,13 +43,22 @@ export function getValidation(feature: FeatureInterface) {
     const jsonSchema = JSON.parse(schemaString);
     const validationEnabled = feature.jsonSchema.enabled;
     const schemaDateUpdated = feature?.jsonSchema.date;
-    return { jsonSchema, validationEnabled, schemaDateUpdated };
+    return {
+      jsonSchema,
+      validationEnabled,
+      schemaDateUpdated,
+      simpleSchema:
+        feature.jsonSchema.schemaType === "simple"
+          ? feature.jsonSchema.simple
+          : null,
+    };
   } catch (e) {
     // log an error?
     return {
       jsonSchema: null,
       validationEnabled: false,
       schemaDateUpdated: null,
+      simpleSchema: null,
     };
   }
 }

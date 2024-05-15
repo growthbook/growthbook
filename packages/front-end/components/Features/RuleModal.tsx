@@ -88,6 +88,8 @@ export default function RuleModal({
   const attributeSchema = useAttributeSchema(false, feature.project);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
+  const [hideModal, setHideModal] = useState(false);
+
   const { namespaces } = useOrgSettings();
 
   const rules = getRules(feature, environment);
@@ -282,9 +284,11 @@ export default function RuleModal({
     );
   }
 
+  console.log("Modal showing", !hideModal);
+
   return (
     <Modal
-      open={true}
+      open={!hideModal}
       close={close}
       size="lg"
       cta="Save"
@@ -681,6 +685,10 @@ export default function RuleModal({
                     value={form.watch(`variations.${i}.value`) || ""}
                     setValue={(v) => form.setValue(`variations.${i}.value`, v)}
                     valueType={feature.valueType}
+                    feature={feature}
+                    renderJSONInline={false}
+                    hideParentModal={() => setHideModal(true)}
+                    showParentModal={() => setHideModal(false)}
                   />
                 ))}
               </div>
@@ -709,6 +717,10 @@ export default function RuleModal({
           value={form.watch("value")}
           setValue={(v) => form.setValue("value", v)}
           valueType={feature.valueType}
+          feature={feature}
+          renderJSONInline={true}
+          hideParentModal={() => setHideModal(true)}
+          showParentModal={() => setHideModal(false)}
         />
       )}
 
@@ -720,6 +732,10 @@ export default function RuleModal({
             value={form.watch("value")}
             setValue={(v) => form.setValue("value", v)}
             valueType={feature.valueType}
+            feature={feature}
+            renderJSONInline={true}
+            hideParentModal={() => setHideModal(true)}
+            showParentModal={() => setHideModal(false)}
           />
           <div className="appbox mt-4 mb-4 px-3 pt-3 bg-light">
             <RolloutPercentInput

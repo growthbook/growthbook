@@ -252,6 +252,7 @@ const Modal: FC<ModalProps> = ({
             ref={formRef}
             onSubmit={async (e) => {
               e.preventDefault();
+              e.stopPropagation();
               if (loading) return;
               setError(null);
               setLoading(true);

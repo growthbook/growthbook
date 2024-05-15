@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { FeatureInterface } from "back-end/types/feature";
-import { getValidation, validateFeatureValue } from "shared/util";
+import { validateFeatureValue } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { getFeatureDefaultValue } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -27,8 +27,6 @@ export default function EditDefaultValueModal({
     },
   });
   const { apiCall } = useAuth();
-
-  const { jsonSchema, validationEnabled } = getValidation(feature);
 
   return (
     <Modal
@@ -70,7 +68,8 @@ export default function EditDefaultValueModal({
         value={form.watch("defaultValue")}
         setValue={(v) => form.setValue("defaultValue", v)}
         valueType={feature.valueType}
-        jsonSchema={validationEnabled ? jsonSchema : null}
+        feature={feature}
+        renderJSONInline={true}
       />
     </Modal>
   );
