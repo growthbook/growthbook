@@ -113,7 +113,7 @@ export default function RoleForm({
           label="Description"
           disabled={status === "viewing"}
           placeholder="Briefly describe what this role will permit users to do"
-          maxLength={56}
+          maxLength={100}
           labelClassName="font-weight-bold"
           {...form.register("description")}
         />
