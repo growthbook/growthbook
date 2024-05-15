@@ -5,7 +5,8 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { getDefaultRole } from "shared/permissions";
+import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
+import { accountFeatures, getAccountPlan } from "enterprise";
 import { LegacyReportInterface, ReportInterface } from "@back-end/types/report";
 import { SdkWebHookLogDocument } from "../models/SdkWebhookLogModel";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
@@ -388,6 +389,7 @@ export function upgradeOrganizationDoc(
   doc: OrganizationInterface
 ): OrganizationInterface {
   const org = cloneDeep(doc);
+  const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
 
   // Add settings from config.json
   const configSettings = getConfigOrganizationSettings();
@@ -409,6 +411,18 @@ export function upgradeOrganizationDoc(
   // Add a default role if one doesn't exist
   if (!org.settings.defaultRole) {
     org.settings.defaultRole = getDefaultRole(org);
+  } else {
+    // if the defaultRole is a custom role and the org no longer has that feature, default to collaborator
+    if (
+      !RESERVED_ROLE_IDS.includes(org.settings.defaultRole.role) &&
+      !commercialFeatures.includes("custom-roles")
+    ) {
+      org.settings.defaultRole = {
+        role: "collaborator",
+        environments: [],
+        limitAccessByEnvironment: false,
+      };
+    }
   }
 
   // Default attribute schema for backwards compatibility
