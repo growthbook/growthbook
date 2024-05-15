@@ -211,6 +211,7 @@ export default function RoleForm({
               <Button
                 style={{ marginRight: "4rem" }}
                 color={"primary"}
+                loadingCta="Saving"
                 disabled={status !== "viewing" && !hasChanges}
                 onClick={async () => {
                   if (status === "viewing") {

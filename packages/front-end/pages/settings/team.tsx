@@ -1,5 +1,5 @@
 import { FC, useState } from "react";
-import { FaUsers, FaPlus } from "react-icons/fa";
+import { FaUsers, FaPlusCircle } from "react-icons/fa";
 import Link from "next/link";
 import TeamsList from "@/components/Settings/Teams/TeamsList";
 import TeamModal from "@/components/Teams/TeamModal";
@@ -97,7 +97,7 @@ const TeamPage: FC = () => {
             <div style={{ flex: 1 }} />
             <div className="col-auto">
               <Link href="/settings/role/new" className="btn btn-primary">
-                <FaPlus /> <span> </span>Create Custom Role
+                <FaPlusCircle /> <span> </span>Create Custom Role
               </Link>
             </div>
           </div>
