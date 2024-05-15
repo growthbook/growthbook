@@ -405,6 +405,7 @@ export default function FactMetricModal({
     },
   });
 
+  console.log(form.getValues("priorSettings"));
   const selectedDataSource = getDatasourceById(form.watch("datasource"));
 
   const [advancedOpen, setAdvancedOpen] = useState(
@@ -488,6 +489,15 @@ export default function FactMetricModal({
       submit={form.handleSubmit(async (values) => {
         if (values.denominator && !values.denominator.factTableId) {
           values.denominator = null;
+        }
+
+        if (values.priorSettings === undefined) {
+          values.priorSettings = {
+            override: false,
+            proper: false,
+            mean: 0,
+            stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+          };
         }
 
         if (values.metricType === "ratio" && !values.denominator)
