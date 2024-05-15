@@ -60,6 +60,9 @@ tags:
   - name: projects
     x-displayName: Projects
     description: Projects are used to organize your feature flags and experiments
+  - name: environments
+    x-displayName: Environments
+    description: Environments are used to enable and disable feature flags
   - name: features
     x-displayName: Feature Flags
     description: Control your feature flags programatically
@@ -105,6 +108,9 @@ tags:
   - name: Dimension_model
     x-displayName: Dimension
     description: <SchemaDefinition schemaRef="#/components/schemas/Dimension" />
+  - name: Environment_model
+    x-displayName: Environment
+    description: <SchemaDefinition schemaRef="#/components/schemas/Environment" />
   - name: Experiment_model
     x-displayName: Experiment
     description: <SchemaDefinition schemaRef="#/components/schemas/Experiment" />
@@ -2437,6 +2443,159 @@ paths:
                 properties:
                   organization:
                     $ref: '#/components/schemas/Organization'
+  '/organizations/{id}/environments':
+    get:
+      summary: Get the organization's environments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - environments
+      operationId: listEnvironments
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/organization/org-test/environments \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - environments
+                    properties:
+                      environments:
+                        type: array
+                        items:
+                          $ref: '#/paths/~1organizations~1%7Bid%7D~1environments/post/responses/200/content/application~1json/schema/properties/environment'
+    post:
+      tags:
+        - environments
+      summary: Create a new environment
+      parameters:
+        - $ref: '#/components/parameters/id'
+      operationId: postEnvironment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/organization/org-test/environments \
+               -d '{"id": "new-env", "description": "My new environment" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - description
+              properties:
+                id:
+                  type: string
+                  description: The ID of the new environment
+                description:
+                  type: string
+                  description: The description of the new environment
+                toggleOnList:
+                  type: bool
+                  description: Show toggle on feature list
+                defaultState:
+                  type: string
+                  description: Default state for new features
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - environment
+                properties:
+                  environment:
+                    type: object
+                    required:
+                      - id
+                      - description
+                      - toggleOnList
+                      - defaultState
+                    properties:
+                      id:
+                        type: string
+                      description:
+                        type: string
+                      toggleOnList:
+                        type: boolean
+                      defaultState:
+                        type: boolean
+  '/organizations/{id}/environments/${environmentId}':
+    put:
+      parameters:
+        - $ref: '#/components/parameters/environmentId'
+        - $ref: '#/components/parameters/id'
+      tags:
+        - environments
+      summary: Update an environment
+      operationId: putEnvironment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X PUT https://api.growthbook.io/api/v1/organization/org-test/environments/env-id \
+               -d '{ "description": "My new environment" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description:
+                  type: string
+                  description: The description of the new environment
+                toggleOnList:
+                  type: bool
+                  description: Show toggle on feature list
+                defaultState:
+                  type: string
+                  description: Default state for new features
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - environment
+                properties:
+                  environment:
+                    $ref: '#/paths/~1organizations~1%7Bid%7D~1environments/post/responses/200/content/application~1json/schema/properties/environment'
+    delete:
+      summary: Deletes a single environment
+      parameters:
+        - $ref: '#/components/parameters/environmentId'
+        - $ref: '#/components/parameters/id'
+      tags:
+        - environments
+      operationId: deleteEnvironment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/organization/org-test/enviromnents/env-id \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
   /fact-tables:
     get:
       summary: Get all fact tables
@@ -3540,6 +3699,13 @@ components:
       in: path
       required: true
       description: Specify a specific fact table
+      schema:
+        type: string
+    environmentId:
+      name: environmentId
+      in: path
+      required: true
+      description: Specify an environment ID
       schema:
         type: string
     repo:
@@ -5337,6 +5503,7 @@ x-tagGroups:
   - name: Endpoints
     tags:
       - projects
+      - environments
       - features
       - data-sources
       - metrics
@@ -5354,6 +5521,7 @@ x-tagGroups:
     tags:
       - DataSource_model
       - Dimension_model
+      - Environment_model
       - Experiment_model
       - ExperimentAnalysisSettings_model
       - ExperimentMetric_model

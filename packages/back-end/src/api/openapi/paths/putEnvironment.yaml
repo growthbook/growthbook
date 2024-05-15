@@ -1,0 +1,40 @@
+parameters:
+  - $ref: "../parameters.yaml#/environmentId"
+  - $ref: "../parameters.yaml#/id"
+tags:
+  - environments
+summary: Update an environment
+operationId: putEnvironment
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X PUT https://api.growthbook.io/api/v1/organization/org-test/environments/env-id \
+         -d '{ "description": "My new environment" }' \
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        properties:
+          description:
+            type: string
+            description: The description of the new environment
+          toggleOnList:
+            type: bool
+            description: Show toggle on feature list
+          defaultState:
+            type: string
+            description: Default state for new features
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - environment
+          properties:
+            environment:
+              $ref: "../schemas/Environment.yaml"

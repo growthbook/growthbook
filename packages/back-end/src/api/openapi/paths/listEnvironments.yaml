@@ -1,0 +1,25 @@
+summary: Get the organization's environments
+parameters:
+  - $ref: "../parameters.yaml#/id"
+tags:
+  - environments
+operationId: listEnvironments
+x-codeSamples:
+  - lang: 'cURL'
+    source: |
+      curl https://api.growthbook.io/api/v1/organization/org-test/environments \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          allOf:
+            - type: object
+              required:
+                - environments
+              properties:
+                environments:
+                  type: array
+                  items:
+                    $ref: "../schemas/Environment.yaml"

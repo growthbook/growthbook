@@ -199,6 +199,18 @@ export interface paths {
     /** Edit a single organization (only for super admins on multi-org Enterprise Plan only) */
     put: operations["putOrganization"];
   };
+  "/organizations/{id}/environments": {
+    /** Get the organization's environments */
+    get: operations["listEnvironments"];
+    /** Create a new environment */
+    post: operations["postEnvironment"];
+  };
+  "/organizations/{id}/environments/${environmentId}": {
+    /** Update an environment */
+    put: operations["putEnvironment"];
+    /** Deletes a single environment */
+    delete: operations["deleteEnvironment"];
+  };
   "/fact-tables": {
     /** Get all fact tables */
     get: operations["listFactTables"];
@@ -1374,6 +1386,8 @@ export interface components {
     visualChangeId: string;
     /** @description Specify a specific fact table */
     factTableId: string;
+    /** @description Specify an environment ID */
+    environmentId: string;
     /** @description Fully qualified name of repo either in GitHub or some other version control platform. */
     repo: string;
     /** @description Name of branch for git repo. */
@@ -4994,6 +5008,123 @@ export interface operations {
       };
     };
   };
+  listEnvironments: {
+    /** Get the organization's environments */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            environments: ({
+                id: string;
+                description: string;
+                toggleOnList: boolean;
+                defaultState: boolean;
+              })[];
+          };
+        };
+      };
+    };
+  };
+  postEnvironment: {
+    /** Create a new environment */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The ID of the new environment */
+          id: string;
+          /** @description The description of the new environment */
+          description: string;
+          /** @description Show toggle on feature list */
+          toggleOnList?: any;
+          /** @description Default state for new features */
+          defaultState?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            environment: {
+              id: string;
+              description: string;
+              toggleOnList: boolean;
+              defaultState: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  putEnvironment: {
+    /** Update an environment */
+    parameters: {
+        /** @description Specify an environment ID */
+        /** @description The id of the requested resource */
+      path: {
+        environmentId: string;
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The description of the new environment */
+          description?: string;
+          /** @description Show toggle on feature list */
+          toggleOnList?: any;
+          /** @description Default state for new features */
+          defaultState?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            environment: {
+              id: string;
+              description: string;
+              toggleOnList: boolean;
+              defaultState: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteEnvironment: {
+    /** Deletes a single environment */
+    parameters: {
+        /** @description Specify an environment ID */
+        /** @description The id of the requested resource */
+      path: {
+        environmentId: string;
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
   listFactTables: {
     /** Get all fact tables */
     parameters: {
@@ -6281,6 +6412,10 @@ export type DeleteSavedGroupResponse = operations["deleteSavedGroup"]["responses
 export type ListOrganizationsResponse = operations["listOrganizations"]["responses"]["200"]["content"]["application/json"];
 export type PostOrganizationResponse = operations["postOrganization"]["responses"]["200"]["content"]["application/json"];
 export type PutOrganizationResponse = operations["putOrganization"]["responses"]["200"]["content"]["application/json"];
+export type ListEnvironmentsResponse = operations["listEnvironments"]["responses"]["200"]["content"]["application/json"];
+export type PostEnvironmentResponse = operations["postEnvironment"]["responses"]["200"]["content"]["application/json"];
+export type PutEnvironmentResponse = operations["putEnvironment"]["responses"]["200"]["content"]["application/json"];
+export type DeleteEnvironmentResponse = operations["deleteEnvironment"]["responses"]["200"]["content"]["application/json"];
 export type ListFactTablesResponse = operations["listFactTables"]["responses"]["200"]["content"]["application/json"];
 export type PostFactTableResponse = operations["postFactTable"]["responses"]["200"]["content"]["application/json"];
 export type GetFactTableResponse = operations["getFactTable"]["responses"]["200"]["content"]["application/json"];
