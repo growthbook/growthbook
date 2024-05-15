@@ -11,7 +11,10 @@ const NewCustomRolePage: FC = () => {
     >
       <>
         <h1 className="pb-3">Create Custom Role</h1>
-        <RoleForm action="creating" />
+        <RoleForm
+          action="creating"
+          role={{ id: "", description: "", policies: [] }}
+        />
       </>
     </RoleFormWrapper>
   );

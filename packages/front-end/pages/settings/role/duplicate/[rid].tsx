@@ -1,28 +1,33 @@
 import { FC } from "react";
 import router from "next/router";
+import { Role } from "@back-end/types/organization";
 import RoleForm from "@/components/Teams/Roles/RoleForm";
 import RoleFormWrapper from "@/components/Teams/Roles/RoleFormWrapper";
+import { useUser } from "@/services/UserContext";
 
 const CustomRolePage: FC = () => {
+  const { roles } = useUser();
   const { rid } = router.query;
 
-  if (!rid || Array.isArray(rid)) {
-    return (
-      <div className="container pagecontents">
-        <div className="alert alert-danger">Unable to locate the role.</div>
-      </div>
-    );
+  let role: Role = { id: "", description: "", policies: [] };
+
+  const existingRoleIndex = roles.findIndex((orgRole) => orgRole.id === rid);
+  if (existingRoleIndex > -1) {
+    role = {
+      ...roles[existingRoleIndex],
+      id: `copyOf_${roles[existingRoleIndex].id}`,
+    };
   }
 
   return (
     <RoleFormWrapper
       display="Members"
       href="/settings/team#roles"
-      breadcrumb={`${rid}`}
+      breadcrumb={"Duplicate Role"}
     >
       <>
         <h1 className="pb-3">Duplicate {rid}</h1>
-        <RoleForm roleId={rid} action="duplicating" />
+        <RoleForm role={role} action="creating" />
       </>
     </RoleFormWrapper>
   );

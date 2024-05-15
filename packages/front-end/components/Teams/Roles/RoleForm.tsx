@@ -15,71 +15,68 @@ import Button from "@/components/Button";
 import TempMessage from "@/components/TempMessage";
 
 export default function RoleForm({
-  roleId,
+  role,
   action = "viewing",
 }: {
-  roleId?: string;
-  action?: "creating" | "editing" | "duplicating" | "viewing";
+  role: Role;
+  action?: "creating" | "editing" | "viewing";
 }) {
   const { apiCall } = useAuth();
-  const { roles: orgRoles, refreshOrganization } = useUser();
-  let existingRole: Role | undefined;
-  const existingRoleIndex = orgRoles.findIndex(
-    (orgRole) => orgRole.id === roleId
-  );
-  if (existingRoleIndex > -1) {
-    existingRole = orgRoles[existingRoleIndex];
-  }
-  const [status, setStatus] = useState<
-    "editing" | "viewing" | "creating" | "duplicating"
-  >(action);
   const [saveMsg, setSaveMsg] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const originalValue = {
-    id: !existingRole?.id
-      ? ""
-      : status === "duplicating"
-      ? `${existingRole?.id}-copy`
-      : existingRole?.id,
-    description: existingRole?.description || "",
-    policies: existingRole?.policies || [],
-  };
+  const { refreshOrganization } = useUser();
+  const [status, setStatus] = useState<"editing" | "viewing" | "creating">(
+    action
+  );
 
   const form = useForm<{
     id: string;
     description: string;
     policies: Policy[];
   }>({
-    defaultValues: originalValue,
+    defaultValues: role,
   });
 
-  const value = {
+  const currentValue = {
     id: form.watch("id"),
     description: form.watch("description"),
     policies: form.watch("policies"),
   };
 
-  const isReservedRole = existingRole?.id
-    ? RESERVED_ROLE_IDS.includes(existingRole?.id)
-    : false;
-  const ctaEnabled = JSON.stringify(originalValue) !== JSON.stringify(value);
+  const isReservedRole = RESERVED_ROLE_IDS.includes(role.id);
+  const getFooterCTA = (): string => {
+    if (status === "viewing") {
+      return "Edit";
+    }
 
-  const saveSettings = form.handleSubmit(async (value) => {
+    if (status === "editing") {
+      return "Save";
+    }
+
+    return "Create & Save";
+  };
+
+  const hasChanges = JSON.stringify(role) !== JSON.stringify(currentValue);
+
+  const saveSettings = form.handleSubmit(async (currentValue) => {
     setError(null);
     try {
-      await apiCall(
-        existingRole?.id && status !== "duplicating"
-          ? `/custom-roles/${existingRole.id}`
-          : `/custom-roles`,
-        {
-          method: existingRole?.id && status !== "duplicating" ? "PUT" : "POST",
-          body: JSON.stringify(
-            existingRole?.id && status !== "duplicating"
-              ? { description: value.description, policies: value.policies }
-              : value
-          ),
-        }
-      );
+      console.log("Hit save");
+      if (status === "creating") {
+        await apiCall("/custom-roles", {
+          method: "POST",
+          body: JSON.stringify(currentValue),
+        });
+      } else {
+        // Using role.id to ensure we never allow someone to update a different role
+        await apiCall(`/custom-roles/${role.id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            description: currentValue.description,
+            policies: currentValue.policies,
+          }),
+        });
+      }
       await refreshOrganization();
       setSaveMsg(true);
       await router.push("/settings/team#roles");
@@ -95,18 +92,14 @@ export default function RoleForm({
           label="Name"
           required
           autoFocus
-          disabled={
-            existingRole?.id && status === ("viewing" || "editing")
-              ? true
-              : false
-          }
+          disabled={status !== "creating"}
           autoComplete="company"
           maxLength={40}
           placeholder="Name your Custom Role"
           labelClassName="font-weight-bold"
           {...form.register("id")}
           helpText={
-            !existingRole?.id ? (
+            status === "creating" ? (
               <>
                 Only letters, numbers, and underscores allowed. No spaces.{" "}
                 <strong>Cannot be changed later!</strong>
@@ -118,7 +111,7 @@ export default function RoleForm({
         />
         <Field
           label="Description"
-          disabled={existingRole?.id && status === "viewing" ? true : false}
+          disabled={status === "viewing"}
           placeholder="Briefly describe what this role will permit users to do"
           maxLength={56}
           labelClassName="font-weight-bold"
@@ -149,11 +142,7 @@ export default function RoleForm({
                           <input
                             type="checkbox"
                             checked={checked}
-                            disabled={
-                              existingRole?.id && status === "viewing"
-                                ? true
-                                : false
-                            }
+                            disabled={status === "viewing"}
                             id={`${policy}-checkbox`}
                             onChange={() => {
                               if (!checked) {
@@ -189,7 +178,7 @@ export default function RoleForm({
           })}
         </div>
       </div>
-      {!isReservedRole || (isReservedRole && status === "duplicating") ? (
+      {!isReservedRole ? (
         <div
           className="bg-main-color position-sticky w-100 py-3 border-top"
           style={{ bottom: 0, height: 70 }}
@@ -222,7 +211,7 @@ export default function RoleForm({
               <Button
                 style={{ marginRight: "4rem" }}
                 color={"primary"}
-                disabled={status === "editing" && !ctaEnabled}
+                disabled={status !== "viewing" && !hasChanges}
                 onClick={async () => {
                   if (status === "viewing") {
                     setStatus("editing");
@@ -231,11 +220,7 @@ export default function RoleForm({
                   await saveSettings();
                 }}
               >
-                {status === "viewing"
-                  ? "Edit"
-                  : existingRole?.id && status !== "duplicating"
-                  ? "Save"
-                  : "Create & Save"}
+                {getFooterCTA()}
               </Button>
             </div>
           </div>
