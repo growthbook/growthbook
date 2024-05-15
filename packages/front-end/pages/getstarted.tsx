@@ -77,7 +77,7 @@ const GetStartedPage = (): React.ReactElement => {
                 />
               </button>
             </Link>
-            <Link href={"/getstarted/feature-flag-guide"}>
+            <Link href={"/getstarted/experiment-guide"}>
               <button
                 className={clsx(styles.animatedCard, "px-0 py-4 text-left")}
               >
@@ -112,95 +112,99 @@ const GetStartedPage = (): React.ReactElement => {
             </Link>
 
             <div className="d-flex flex-row mt-4 mb-4">
-              <button
-                className="p-3 mr-3 text-left align-middle"
-                style={{
-                  width: "415px",
-                  height: "83px",
-                  backgroundColor: "#FFFFFF",
-                  borderColor: "#F5F2FF",
-                  borderStyle: "solid",
-                  borderRadius: "6px",
-                }}
-              >
-                <svg width="0" height="0">
-                  <linearGradient
-                    id="arrow-gradient"
-                    x1="100%"
-                    y1="100%"
-                    x2="0%"
-                    y2="0%"
-                  >
-                    <stop stopColor="#7B45EA" offset="0%" />
-                    <stop stopColor="#FFC53D" offset="100%" />
-                  </linearGradient>
-                </svg>
-                <PiArrowFatLineRight
-                  className="mr-4"
+              <Link href="/importing/launchdarkly">
+                <button
+                  className="p-3 mr-3 text-left align-middle"
                   style={{
-                    width: "35px",
-                    height: "35px",
-                    color: "#050549A6",
-                    fill: "url(#arrow-gradient)",
+                    width: "415px",
+                    height: "83px",
+                    backgroundColor: "#FFFFFF",
+                    borderColor: "#F5F2FF",
+                    borderStyle: "solid",
+                    borderRadius: "6px",
                   }}
-                />
-                <span style={{ fontSize: "17px", fontWeight: 600 }}>
-                  Migrate Feature Flags
-                </span>
+                >
+                  <svg width="0" height="0">
+                    <linearGradient
+                      id="arrow-gradient"
+                      x1="100%"
+                      y1="100%"
+                      x2="0%"
+                      y2="0%"
+                    >
+                      <stop stopColor="#7B45EA" offset="0%" />
+                      <stop stopColor="#FFC53D" offset="100%" />
+                    </linearGradient>
+                  </svg>
+                  <PiArrowFatLineRight
+                    className="mr-4"
+                    style={{
+                      width: "35px",
+                      height: "35px",
+                      color: "#050549A6",
+                      fill: "url(#arrow-gradient)",
+                    }}
+                  />
+                  <span style={{ fontSize: "17px", fontWeight: 600 }}>
+                    Migrate from LaunchDarkly
+                  </span>
 
-                <PiArrowCircleRight
-                  className="float-right"
+                  <PiArrowCircleRight
+                    className="float-right"
+                    style={{
+                      width: "30px",
+                      height: "30px",
+                      color: "#05054926",
+                    }}
+                  />
+                </button>
+              </Link>
+              <Link href="/getstarted/imported-experiment-guide">
+                <button
+                  className="p-3 text-left align-middle"
                   style={{
-                    width: "30px",
-                    height: "30px",
-                    color: "#05054926",
+                    width: "415px",
+                    height: "83px",
+                    backgroundColor: "#FFFFFF",
+                    borderColor: "#F5F2FF",
+                    borderStyle: "solid",
+                    borderRadius: "6px",
                   }}
-                />
-              </button>
-              <button
-                className="p-3 text-left align-middle"
-                style={{
-                  width: "415px",
-                  height: "83px",
-                  backgroundColor: "#FFFFFF",
-                  borderColor: "#F5F2FF",
-                  borderStyle: "solid",
-                  borderRadius: "6px",
-                }}
-              >
-                <svg width="0" height="0">
-                  <linearGradient
-                    id="blue-gradient"
-                    x1="100%"
-                    y1="100%"
-                    x2="0%"
-                    y2="0%"
-                  >
-                    <stop stopColor="#3E63DD" offset="0%" />
-                    <stop stopColor="#27B08B" offset="100%" />
-                  </linearGradient>
-                </svg>
-                <PiChartScatter
-                  className="mr-4"
-                  style={{
-                    width: "35px",
-                    height: "35px",
-                    color: "#050549A6",
-                    fill: "url(#blue-gradient)",
-                  }}
-                />
-                <span style={{ fontSize: "17px", fontWeight: 600 }}>
-                  Analyze Imported Experiments
-                </span>
-                <PiArrowCircleRight
-                  className="float-right"
-                  style={{
-                    width: "30px",
-                    height: "30px",
-                    color: "#05054926",
-                  }}
-                />
-              </button>
+                >
+                  <svg width="0" height="0">
+                    <linearGradient
+                      id="blue-gradient"
+                      x1="100%"
+                      y1="100%"
+                      x2="0%"
+                      y2="0%"
+                    >
+                      <stop stopColor="#3E63DD" offset="0%" />
+                      <stop stopColor="#27B08B" offset="100%" />
+                    </linearGradient>
+                  </svg>
+                  <PiChartScatter
+                    className="mr-4"
+                    style={{
+                      width: "35px",
+                      height: "35px",
+                      color: "#050549A6",
+                      fill: "url(#blue-gradient)",
+                    }}
+                  />
+                  <span style={{ fontSize: "17px", fontWeight: 600 }}>
+                    Analyze Imported Experiments
+                  </span>
+                  <PiArrowCircleRight
+                    className="float-right"
+                    style={{
+                      width: "30px",
+                      height: "30px",
+                      color: "#05054926",
+                    }}
+                  />
+                </button>
+              </Link>
             </div>
 
             <hr />

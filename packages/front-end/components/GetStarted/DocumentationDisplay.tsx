@@ -2,6 +2,7 @@ import { FaSlack } from "react-icons/fa";
 import { PiSealQuestion } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import styles from "@/components/GetStarted/GetStarted.module.scss";
+import PaidFeatureBadge from "./PaidFeatureBadge";
 
 interface Props {
   setUpgradeModal: (open: boolean) => void;
@@ -52,6 +53,54 @@ const DocumentationDisplay = ({
             <a href="https://docs.growthbook.io/warehouses">
               Connect Your Data Source
             </a>
+          </li>
+        </ul>
+      ) : type === "experiments" ? (
+        <ul
+          id={styles.featuredDocs}
+          style={{ listStyleType: "none", padding: 0 }}
+        >
+          <li className="mb-2">
+            <a href="https://docs.growthbook.io/experiments">
+              Running Experiments
+            </a>
+          </li>
+          <li className="mb-2">
+            <a href="https://docs.growthbook.io/app/sticky-bucketing">
+              Sticky Bucketing
+            </a>
+            <PaidFeatureBadge type="pro" />
+          </li>
+          <li className="mb-2">
+            <a href="https://docs.growthbook.io/app/visual">Visual Editor</a>
+            <PaidFeatureBadge type="pro" />
+          </li>
+          <li className="mb-2">
+            <a href="https://docs.growthbook.io/app/url-redirects">
+              URL Redirects
+            </a>
+            <PaidFeatureBadge type="pro" />
+          </li>
+        </ul>
+      ) : type === "imports" ? (
+        <ul
+          id={styles.featuredDocs}
+          style={{ listStyleType: "none", padding: 0 }}
+        >
+          <li className="mb-2">
+            <a href="https://docs.growthbook.io/quick-start">
+              Connect to Your Data Warehouse
+            </a>
+          </li>
+          <li className="mb-2">
+            <a href="https://docs.growthbook.io/overview">Fact Tables</a>
+          </li>
+          <li className="mb-2">
+            <a href="https://docs.growthbook.io/lib/">Data Pipeline Mode</a>
+            <PaidFeatureBadge type="enterprise" />
+          </li>
+          <li className="mb-2">
+            <a href="https://docs.growthbook.io/lib/">Experiment Results</a>
           </li>
         </ul>
       ) : (
