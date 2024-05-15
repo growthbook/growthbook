@@ -405,7 +405,6 @@ export default function FactMetricModal({
     },
   });
 
-  console.log(form.getValues("priorSettings"));
   const selectedDataSource = getDatasourceById(form.watch("datasource"));
 
   const [advancedOpen, setAdvancedOpen] = useState(
