@@ -48,7 +48,7 @@ const GetStartedPage = (): React.ReactElement => {
                   "px-0 py-4 mr-3 text-left"
                 )}
               >
-                <div className="px-3 mb-5">
+                <div className="pr-3 mb-5" style={{ paddingLeft: "29px" }}>
                   <div className="d-flex text-left align-middle">
                     <h2>Create Feature Flags from Scratch</h2>
                     <PiArrowCircleRight
@@ -81,7 +81,7 @@ const GetStartedPage = (): React.ReactElement => {
               <button
                 className={clsx(styles.animatedCard, "px-0 py-4 text-left")}
               >
-                <div className="px-3 mb-5">
+                <div className="pr-3 mb-5" style={{ paddingLeft: "29px" }}>
                   <div className="d-flex text-left align-middle">
                     <h2>Run an Experiment</h2>
                     <PiArrowCircleRight
@@ -394,10 +394,10 @@ const GetStartedPage = (): React.ReactElement => {
           </div>
         </div>
       </div>
-      <span>
+      {/* <span>
         Finished setting up?{" "}
         <a href="#">Turn off the guide to hide this page</a>
-      </span>
+      </span> */}
     </div>
   );
 };

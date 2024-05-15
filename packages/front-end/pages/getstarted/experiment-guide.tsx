@@ -2,6 +2,8 @@ import { PiArrowRight, PiCheckCircleFill } from "react-icons/pi";
 import { useState } from "react";
 import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { useRouter } from "next/router";
+import { ProjectInterface } from "@back-end/types/project";
 import DocumentationDisplay from "@/components/GetStarted/DocumentationDisplay";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -10,12 +12,19 @@ import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import { useExperiments } from "@/hooks/useExperiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import track from "@/services/track";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const ExperimentGuide = (): React.ReactElement => {
   const { organization, userId } = useUser();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { data: sdkConnections } = useSDKConnections();
   const { experiments, loading, error, mutateExperiments } = useExperiments();
+  const { mutateDefinitions } = useDefinitions();
+  const router = useRouter();
+  const { apiCall } = useAuth();
   const isSDKIntegrated =
     sdkConnections?.connections.some((c) => c.connected) || false;
   // Ignore the demo datasource
@@ -31,6 +40,31 @@ const ExperimentGuide = (): React.ReactElement => {
         getDemoDatasourceProjectIdForOrganization(organization.id || "") &&
       e.status !== "draft"
   );
+
+  const { projectId: demoDataSourceProjectId, demoExperimentId } =
+    useDemoDataSourceProject();
+
+  const openSampleExperiment = async () => {
+    if (demoDataSourceProjectId && demoExperimentId) {
+      router.push(`/experiment/${demoExperimentId}`);
+    } else {
+      track("Create Sample Project", {
+        source: "experiments-get-started",
+      });
+      const res = await apiCall<{
+        project: ProjectInterface;
+        experimentId: string;
+      }>("/demo-datasource-project", {
+        method: "POST",
+      });
+      await mutateDefinitions();
+      if (res.experimentId) {
+        router.push(`/experiment/${res.experimentId}`);
+      } else {
+        throw new Error("Could not create sample experiment");
+      }
+    }
+  };
 
   return (
     <div className="container pagecontents p-4">
@@ -225,6 +259,7 @@ const ExperimentGuide = (): React.ReactElement => {
                   from URL Redirect, Feature Flag or Visual Editor (Pro).
                 </p>
               </div>
+              <hr />
             </div>
 
             <div className="row">
@@ -302,3 +337,6 @@ const ExperimentGuide = (): React.ReactElement => {
 };
 
 export default ExperimentGuide;
+function mutateDefinitions() {
+  throw new Error("Function not implemented.");
+}

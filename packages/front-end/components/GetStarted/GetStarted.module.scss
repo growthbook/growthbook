@@ -36,6 +36,7 @@
     --myColor2: #7b45ea1a;
     color: #ffffff;
     background: linear-gradient(var(--myColor1), var(--myColor2));
+    box-shadow: 2px 2px 2px #05054920;
     text-decoration: none;
     strong {
       color: #ffffffd9;
@@ -48,6 +49,15 @@
       display: none;
     }
   }
+}
+
+#transp {
+  position: absolute;
+  left: 0;
+  top: 0;
+  background: rgba(255, 255, 255, 0.5);
+  width: 100%;
+  height: 500px;
 }
 
 .workspaceSetupLink {

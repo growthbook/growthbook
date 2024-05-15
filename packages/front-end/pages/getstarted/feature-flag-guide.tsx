@@ -88,7 +88,11 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
               <div className="col">
                 <Link
                   href="/sdks"
-                  style={{ fontSize: "17px", fontWeight: 600 }}
+                  style={{
+                    fontSize: "17px",
+                    fontWeight: 600,
+                    textDecoration: isSDKIntegrated ? "line-through" : "none",
+                  }}
                 >
                   Integrate the GrowthBook SDK into your app
                 </Link>
@@ -128,7 +132,11 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
               <div className="col">
                 <Link
                   href="/environments"
-                  style={{ fontSize: "17px", fontWeight: 600 }}
+                  style={{
+                    fontSize: "17px",
+                    fontWeight: 600,
+                    textDecoration: !isSDKIntegrated ? "line-through" : "none",
+                  }}
                 >
                   Review or Add Environments
                 </Link>
@@ -168,7 +176,11 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
               <div className="col">
                 <Link
                   href="/attributes"
-                  style={{ fontSize: "17px", fontWeight: 600 }}
+                  style={{
+                    fontSize: "17px",
+                    fontWeight: 600,
+                    textDecoration: !isSDKIntegrated ? "line-through" : "none",
+                  }}
                 >
                   Customize Targeting Attributes
                 </Link>
@@ -208,7 +220,11 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
               <div className="col">
                 <Link
                   href="/features"
-                  style={{ fontSize: "17px", fontWeight: 600 }}
+                  style={{
+                    fontSize: "17px",
+                    fontWeight: 600,
+                    textDecoration: hasFeatures ? "line-through" : "none",
+                  }}
                 >
                   Test Your First Feature Flag
                 </Link>
