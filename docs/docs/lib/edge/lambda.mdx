@@ -31,14 +31,14 @@ GrowthBook currently supports two levels of integration with most edge workers, 
 
 ## References
 
-- Our Lambda@Edge SDK repository, which supports the above use cases, is [here<ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-lambda)
+- Our Lambda@Edge SDK repository, which supports the above use cases, is [here <ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-lambda)
 - You may find it useful to review our [JavaScript SDK](/lib/js). Many of the concepts which apply to both on-edge and injected frontend SDKs are based on our JS SDK.
 
 ## Worker Configuration
 
 :::tip
 
-This tutorial assumes some familiarity with building and deploying AWS Lambda@Edge applications. You can get up to speed by following the AWS [Tutorial: Create a basic Lambda@Edge function<ExternalLink />](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-edge-how-it-works-tutorial.html) guide.
+This tutorial assumes some familiarity with building and deploying AWS Lambda@Edge applications. You can get up to speed by following the AWS [Tutorial: Create a basic Lambda@Edge function <ExternalLink />](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-edge-how-it-works-tutorial.html) guide.
 
 Note that our Edge App responds directly to a `viewer-request` without forwarding to an origin; interaction with CloudFront is minimal (Step 2 in the AWS tutorial).
 
@@ -173,7 +173,7 @@ export async function handler(event, ctx, callback) {
 
 #### More customization options
 
-For a full list of customizations, view our vendor-agnostic [Edge Utility repository<ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils).
+For a full list of customizations, view our vendor-agnostic [Edge Utility repository <ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils).
 
 ### Tracking Experiment Views
 
