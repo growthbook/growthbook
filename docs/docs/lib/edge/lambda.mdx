@@ -179,7 +179,9 @@ For a full list of customizations, view our vendor-agnostic [Edge Utility reposi
 
 Running A/B tests requires a [tracking callback](/lib/js#experimentation-ab-testing). Our turnkey Edge App defaults to using built-in front-end tracking. The tracking call automatically integrates with Segment.io, GA4, and Google Tag Manager by using the mechanism outlined in our [HTML Script Tag](/lib/script-tag#tracking-experiment-views). In order to do this, the app keeps track of tracking calls triggered on edge and injects them into the front-end SDK to be automatically triggered on page load.
 
-You may wish to either customize front-end tracking or switch to edge tracking (or use both concurrently if running hybrid edge + front-end experiments). In general, tracking on an edge or backend environment helps eliminate measurement delta and experimental bias. However, using the default injected front-end tracking reduces biases and deltas when compared with solely using a front-end SDK.
+You may wish to either customize front-end tracking or switch to edge tracking (or use both concurrently if running hybrid edge + front-end experiments).
+
+Why might you be interested in tracking on edge? Tracking on an edge or backend environment allows you to ensure the callback is fired before any differentiation across variations, eliminating experimental bias. While not eliminating this risk, the default injected front-end tracking introduced by the edge SDK here does reduce this risk relative to solely using a front-end SDK.
 
 To change the front-end tracking callback, set the `GROWTHBOOK_TRACKING_CALLBACK` to your custom tracking JS code:
 
