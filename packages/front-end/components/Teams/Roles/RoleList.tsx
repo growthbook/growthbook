@@ -1,6 +1,5 @@
 import { RESERVED_ROLE_IDS } from "shared/permissions";
 import router from "next/router";
-import { useState } from "react";
 import Link from "next/link";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -12,7 +11,6 @@ import Button from "@/components/Button";
 
 export default function RoleList() {
   const { roles, refreshOrganization } = useUser();
-  const [error, setError] = useState<string | null>(null);
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
 
@@ -21,7 +19,6 @@ export default function RoleList() {
   return (
     <div className="mb-4">
       <div>
-        {error ? <div className="alert alert-danger">{error}</div> : null}
         <table className="table appbox gbtable table-hover">
           <thead>
             <tr>
@@ -32,7 +29,7 @@ export default function RoleList() {
           </thead>
           <tbody>
             {roles.map((r) => {
-              const isReservedRole = RESERVED_ROLE_IDS.includes(r.id);
+              const isCustom = !RESERVED_ROLE_IDS.includes(r.id);
               return (
                 <tr key={r.id}>
                   <td>
@@ -42,9 +39,7 @@ export default function RoleList() {
                     >
                       {r.id}
                     </Link>{" "}
-                    {!isReservedRole ? (
-                      <Tag color="#f9f9f9" tag="Custom" />
-                    ) : null}
+                    {isCustom ? <Tag color="#f9f9f9" tag="Custom" /> : null}
                   </td>
                   <td>{r.description}</td>
                   <td>
@@ -59,7 +54,7 @@ export default function RoleList() {
                       >
                         Duplicate
                       </Button>
-                      {canManageRoles && !isReservedRole ? (
+                      {canManageRoles && isCustom ? (
                         <>
                           <Button
                             color="btn-link"
@@ -75,20 +70,16 @@ export default function RoleList() {
                           <div className="border-top mt-1 pt-1">
                             <DeleteButton
                               onClick={async () => {
-                                setError(null);
-                                try {
-                                  await apiCall(`/custom-roles/${r.id}`, {
-                                    method: "DELETE",
-                                  });
-                                  refreshOrganization();
-                                } catch (e) {
-                                  setError(e.message);
-                                }
+                                await apiCall(`/custom-roles/${r.id}`, {
+                                  method: "DELETE",
+                                });
+                                refreshOrganization();
                               }}
                               className="dropdown-item text-danger"
                               displayName="Delete"
                               text="Delete"
                               useIcon={false}
+                              deleteMessage="Are you you want to delete this role?"
                             />
                           </div>
                         </>
