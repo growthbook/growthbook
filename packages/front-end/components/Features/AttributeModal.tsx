@@ -5,6 +5,7 @@ import {
   SDKAttributeType,
 } from "back-end/types/organization";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
+import React from "react";
 import { useAttributeSchema } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -35,6 +36,7 @@ export default function AttributeModal({ close, attribute }: Props) {
   const form = useForm<SDKAttribute>({
     defaultValues: {
       property: attribute || "",
+      description: current?.description || "",
       datatype: current?.datatype || "string",
       projects: attribute ? current?.projects || [] : project ? [project] : [],
       format: current?.format || "",
@@ -82,6 +84,7 @@ export default function AttributeModal({ close, attribute }: Props) {
         const attributeObj: SDKAttribute & { previousName?: string } = {
           property: value.property,
           datatype: value.datatype,
+          description: value.description,
           projects: value.projects,
           format: value.format,
           enum: value.enum,
@@ -103,7 +106,16 @@ export default function AttributeModal({ close, attribute }: Props) {
         refreshOrganization();
       })}
     >
-      <Field label="Attribute" {...form.register("property")} />
+      <Field
+        label={
+          <>
+            Attribute{" "}
+            <Tooltip body={"This is the attribute name used in the SDK"} />
+          </>
+        }
+        required={true}
+        {...form.register("property")}
+      />
       {attribute && form.watch("property") !== attribute ? (
         <div className="alert alert-warning">
           Be careful changing the attribute name. Any existing targeting
@@ -111,6 +123,16 @@ export default function AttributeModal({ close, attribute }: Props) {
           and will still reference the old attribute name.
         </div>
       ) : null}
+      <div className="form-group">
+        <label>
+          Description <small className="text-muted">(optional)</small>
+        </label>
+        <Field
+          className="form-control"
+          {...form.register("description")}
+          textarea={true}
+        />
+      </div>
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
