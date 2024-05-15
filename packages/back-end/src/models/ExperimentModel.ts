@@ -3,7 +3,6 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
-import { hasReadAccess } from "shared/permissions";
 import {
   Changeset,
   ExperimentInterface,
@@ -83,6 +82,7 @@ const experimentSchema = new mongoose.Schema({
   observations: String,
   hypothesis: String,
   metrics: [String],
+  pastNotifications: [String],
   metricOverrides: [
     {
       _id: false,
@@ -92,6 +92,10 @@ const experimentSchema = new mongoose.Schema({
       delayHours: Number,
       winRisk: Number,
       loseRisk: Number,
+      properPriorOverride: Boolean,
+      properPriorEnabled: Boolean,
+      properPriorMean: Number,
+      properPriorStdDev: Number,
       regressionAdjustmentOverride: Boolean,
       regressionAdjustmentEnabled: Boolean,
       regressionAdjustmentDays: Number,
@@ -235,7 +239,7 @@ async function findExperiments(
   const experiments = (await cursor).map(toInterface);
 
   return experiments.filter((exp) =>
-    hasReadAccess(context.readAccessFilter, exp.project)
+    context.permissions.canReadSingleProjectResource(exp.project)
   );
 }
 
@@ -252,7 +256,7 @@ export async function getExperimentById(
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
+  return context.permissions.canReadSingleProjectResource(experiment.project)
     ? experiment
     : null;
 }
@@ -285,7 +289,7 @@ export async function getExperimentByTrackingKey(
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
+  return context.permissions.canReadSingleProjectResource(experiment.project)
     ? experiment
     : null;
 }
@@ -468,7 +472,7 @@ export async function getExperimentByIdea(
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
+  return context.permissions.canReadSingleProjectResource(experiment.project)
     ? experiment
     : null;
 }
@@ -545,7 +549,9 @@ export async function getExperimentsToUpdateLegacy(
 export async function getPastExperimentsByDatasource(
   context: ReqContext | ApiReqContext,
   datasource: string
-): Promise<Pick<ExperimentInterface, "id" | "trackingKey">[]> {
+): Promise<
+  Pick<ExperimentInterface, "id" | "trackingKey" | "exposureQueryId">[]
+> {
   const experiments = await ExperimentModel.find(
     {
       organization: context.org.id,
@@ -555,17 +561,19 @@ export async function getPastExperimentsByDatasource(
       _id: false,
       id: true,
       trackingKey: true,
+      exposureQueryId: true,
       project: true,
     }
   );
 
   const experimentsUserCanAccess = experiments.filter((exp) =>
-    hasReadAccess(context.readAccessFilter, exp.project)
+    context.permissions.canReadSingleProjectResource(exp.project)
   );
 
   return experimentsUserCanAccess.map((exp) => ({
     id: exp.id,
     trackingKey: exp.trackingKey,
+    exposureQueryId: exp.exposureQueryId,
   }));
 }
 
@@ -656,7 +664,7 @@ export async function getExperimentsForActivityFeed(
   );
 
   const filteredExperiments = experiments.filter((exp) =>
-    hasReadAccess(context.readAccessFilter, exp.project)
+    context.permissions.canReadSingleProjectResource(exp.project)
   );
 
   return filteredExperiments.map((exp) => ({
@@ -683,7 +691,7 @@ const findExperiment = async ({
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
+  return context.permissions.canReadSingleProjectResource(experiment.project)
     ? experiment
     : null;
 };

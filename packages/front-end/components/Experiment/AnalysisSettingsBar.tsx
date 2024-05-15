@@ -247,6 +247,7 @@ export default function AnalysisSettingsBar({
             <div className="col-auto">
               <ResultMoreMenu
                 id={snapshot?.id || ""}
+                datasource={datasource}
                 forceRefresh={async () => {
                   await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
                     `/experiment/${experiment.id}/snapshot?force=true`,
@@ -416,16 +417,14 @@ export function isOutdated(
     reasons.push("P-value threshold changed");
   }
 
-  const experimentRegressionAdjustmentEnabled =
-    statsEngine !== "frequentist" || !hasRegressionAdjustmentFeature
-      ? false
-      : !!experiment.regressionAdjustmentEnabled;
+  const experimentRegressionAdjustmentEnabled = !hasRegressionAdjustmentFeature
+    ? false
+    : !!experiment.regressionAdjustmentEnabled;
   if (
     isDifferent(
       experimentRegressionAdjustmentEnabled,
       !!analysisSettings?.regressionAdjusted
-    ) &&
-    statsEngine === "frequentist"
+    )
   ) {
     reasons.push("CUPED settings changed");
   }

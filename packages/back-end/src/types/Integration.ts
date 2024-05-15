@@ -1,8 +1,9 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { ReqContext } from "../../types/organization";
 import {
+  DataSourceInterface,
   DataSourceProperties,
-  DataSourceSettings,
   SchemaFormat,
 } from "../../types/datasource";
 import { DimensionInterface } from "../../types/dimension";
@@ -169,6 +170,7 @@ export type DimensionSlicesQueryParams = {
 
 export type PastExperimentParams = {
   from: Date;
+  forceRefresh?: boolean;
 };
 
 export type MetricValueParams = {
@@ -195,6 +197,7 @@ export type MetricValueResult = {
 };
 
 export type PastExperimentResult = {
+  mergeResults: boolean;
   experiments: {
     exposureQueryId: string;
     experiment_id: string;
@@ -204,6 +207,8 @@ export type PastExperimentResult = {
     start_date: Date;
     end_date: Date;
     users: number;
+    latest_data: Date;
+    start_of_range: boolean;
   }[];
 };
 
@@ -248,6 +253,7 @@ export type PastExperimentResponseRows = {
   start_date: string;
   end_date: string;
   users: number;
+  latest_data: string;
 }[];
 
 export type ExperimentMetricQueryResponseRows = {
@@ -308,13 +314,6 @@ export type ExperimentFactMetricsQueryResponse = QueryResponse<ExperimentFactMet
 export type ExperimentUnitsQueryResponse = QueryResponse;
 export type ExperimentAggregateUnitsQueryResponse = QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
 export type DimensionSlicesQueryResponse = QueryResponse<DimensionSlicesQueryResponseRows>;
-
-export interface SourceIntegrationConstructor {
-  new (
-    encryptedParams: string,
-    settings: DataSourceSettings
-  ): SourceIntegrationInterface;
-}
 
 export interface TestQueryRow {
   [key: string]: unknown;
@@ -395,10 +394,8 @@ export interface InformationSchemaTablesInterface {
 }
 
 export interface SourceIntegrationInterface {
-  datasource: string;
-  organization: string;
-  type: string;
-  settings: DataSourceSettings;
+  datasource: DataSourceInterface;
+  context: ReqContext;
   decryptionError: boolean;
   // eslint-disable-next-line
   params: any;

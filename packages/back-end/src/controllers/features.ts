@@ -392,14 +392,27 @@ export async function postFeatures(
   >
 ) {
   const context = getContextFromReq(req);
-  const { id, environmentSettings, ...otherProps } = req.body;
   const { org, userId, userName } = context;
+  const { id, environmentSettings, ...otherProps } = req.body;
 
-  req.checkPermissions("manageFeatures", otherProps.project);
-  req.checkPermissions("createFeatureDrafts", otherProps.project);
+  if (
+    !context.permissions.canCreateFeature(req.body) ||
+    !context.permissions.canManageFeatureDrafts({ project: otherProps.project })
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   if (!id) {
     throw new Error("Must specify feature key");
+  }
+
+  if (org.settings?.featureRegexValidator) {
+    const regex = new RegExp(org.settings.featureRegexValidator);
+    if (!regex.test(id)) {
+      throw new Error(
+        `Feature key must match the regex validator. '${org.settings.featureRegexValidator}' Example: '${org.settings.featureKeyExample}'`
+      );
+    }
   }
 
   if (!environmentSettings) {
@@ -429,7 +442,7 @@ export async function postFeatures(
     dateCreated: new Date(),
     dateUpdated: new Date(),
     organization: org.id,
-    id: id.toLowerCase(),
+    id,
     archived: false,
     version: 1,
     hasDrafts: false,
@@ -456,12 +469,14 @@ export async function postFeatures(
     )
   );
 
-  // Require publish permission for any enabled environments
-  req.checkPermissions(
-    "publishFeatures",
-    feature.project,
-    getEnabledEnvironments(feature, environmentIds)
-  );
+  if (
+    !context.permissions.canPublishFeature(
+      feature,
+      Array.from(getEnabledEnvironments(feature, environmentIds))
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   addIdsToRules(feature.environmentSettings, feature.id);
 
@@ -512,8 +527,12 @@ export async function postFeatureRebase(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const revision = await getRevision(org.id, feature.id, parseInt(version));
   if (!revision) {
@@ -593,7 +612,9 @@ export async function postFeatureRequestReview(
   if (!feature) {
     throw new Error("Could not find feature");
   }
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
 
   const revision = await getRevision(
     context.org.id,
@@ -694,7 +715,9 @@ export async function postFeaturePublish(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  req.checkPermissions("manageFeatures", feature.project);
+  if (!context.permissions.canUpdateFeature(feature, {})) {
+    context.permissions.throwPermissionError();
+  }
 
   const revision = await getRevision(org.id, feature.id, parseInt(version));
   const reviewStatuses = [
@@ -750,17 +773,22 @@ export async function postFeaturePublish(
 
   // If changing the default value, it affects all enabled environments
   if (mergeResult.result.defaultValue !== undefined) {
-    req.checkPermissions(
-      "publishFeatures",
-      feature.project,
-      getEnabledEnvironments(feature, environmentIds)
-    );
+    if (
+      !context.permissions.canPublishFeature(
+        feature,
+        Array.from(getEnabledEnvironments(feature, environmentIds))
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
   }
   // Otherwise, only the environments with rule changes are affected
   else {
     const changedEnvs = Object.keys(mergeResult.result.rules || {});
     if (changedEnvs.length > 0) {
-      req.checkPermissions("publishFeatures", feature.project, changedEnvs);
+      if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
+        context.permissions.throwPermissionError();
+      }
     }
   }
 
@@ -820,17 +848,21 @@ export async function postFeatureRevert(
     throw new Error("Can only revert to previously published revisions");
   }
 
-  req.checkPermissions("manageFeatures", feature.project);
+  if (!context.permissions.canUpdateFeature(feature, {})) {
+    context.permissions.throwPermissionError();
+  }
 
   const changes: MergeResultChanges = {};
 
   if (revision.defaultValue !== feature.defaultValue) {
-    // If changing the default value, it affects all enabled environments
-    req.checkPermissions(
-      "publishFeatures",
-      feature.project,
-      getEnabledEnvironments(feature, environmentIds)
-    );
+    if (
+      !context.permissions.canPublishFeature(
+        feature,
+        Array.from(getEnabledEnvironments(feature, environmentIds))
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
     changes.defaultValue = revision.defaultValue;
   }
 
@@ -849,7 +881,9 @@ export async function postFeatureRevert(
     }
   });
   if (changedEnvs.length > 0) {
-    req.checkPermissions("publishFeatures", feature.project, changedEnvs);
+    if (!context.permissions.canPublishFeature(feature, changedEnvs)) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   const updatedFeature = await applyRevisionChanges(
@@ -900,8 +934,12 @@ export async function postFeatureFork(
     throw new Error("Could not find feature revision");
   }
 
-  req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const newRevision = await createRevision({
     feature,
@@ -944,8 +982,12 @@ export async function postFeatureDiscard(
     throw new Error(`Can not discard ${revision.status} revisions`);
   }
 
-  req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   await discardRevision(revision, res.locals.eventAudit);
 
@@ -990,8 +1032,12 @@ export async function postFeatureRule(
     throw new Error("Invalid environment");
   }
 
-  req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
   const resetReview = resetReviewOnChange({
@@ -1055,13 +1101,18 @@ export async function postFeatureSync(
 
   const data = req.body;
 
-  req.checkPermissions("manageFeatures", feature.project);
+  if (!context.permissions.canUpdateFeature(feature, {})) {
+    context.permissions.throwPermissionError();
+  }
 
-  req.checkPermissions(
-    "publishFeatures",
-    feature.project,
-    getEnabledEnvironments(feature, environments)
-  );
+  if (
+    !context.permissions.canPublishFeature(
+      feature,
+      Array.from(getEnabledEnvironments(feature, environments))
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   if (data.valueType && data.valueType !== feature.valueType) {
     throw new Error(
@@ -1173,13 +1224,18 @@ export async function postFeatureExperimentRefRule(
     throw new Error("Could not find feature");
   }
 
-  req.checkPermissions("manageFeatures", feature.project);
+  if (!context.permissions.canUpdateFeature(feature, {})) {
+    context.permissions.throwPermissionError();
+  }
 
-  req.checkPermissions(
-    "publishFeatures",
-    feature.project,
-    getEnabledEnvironments(feature, environments)
-  );
+  if (
+    !context.permissions.canPublishFeature(
+      feature,
+      Array.from(getEnabledEnvironments(feature, environments))
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const experiment = await getExperimentById(context, rule.experimentId);
   if (!experiment) {
@@ -1276,6 +1332,7 @@ async function getDraftRevision(
       feature,
       user: context.auditUser,
       environments: getEnvironmentIdsFromOrg(context.org),
+      baseVersion: version,
       org,
     });
 
@@ -1319,8 +1376,12 @@ export async function putRevisionComment(
     throw new Error("Could not find feature");
   }
 
-  req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const revision = await getRevision(org.id, feature.id, parseInt(version));
   if (!revision) {
@@ -1361,8 +1422,12 @@ export async function postFeatureDefaultValue(
     throw new Error("Could not find feature");
   }
 
-  req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
   const resetReview = resetReviewOnChange({
@@ -1397,8 +1462,12 @@ export async function postFeatureSchema(
     throw new Error("Could not find feature");
   }
 
-  req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const updatedFeature = await setJsonSchema(context, feature, schemaDef);
 
@@ -1444,8 +1513,12 @@ export async function putFeatureRule(
     throw new Error("Invalid environment");
   }
 
-  req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
   const resetReview = resetReviewOnChange({
@@ -1487,8 +1560,12 @@ export async function postFeatureToggle(
     throw new Error("Invalid environment");
   }
 
-  req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("publishFeatures", feature.project, [environment]);
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canPublishFeature(feature, [environment])
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const currentState =
     feature.environmentSettings?.[environment]?.enabled || false;
@@ -1544,8 +1621,12 @@ export async function postFeatureMoveRule(
     throw new Error("Invalid environment");
   }
 
-  req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
@@ -1619,8 +1700,12 @@ export async function deleteFeatureRule(
     throw new Error("Invalid environment");
   }
 
-  req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
@@ -1674,24 +1759,26 @@ export async function putFeature(
     throw new Error("Could not find feature");
   }
 
-  req.checkPermissions("manageFeatures", feature.project);
-
   const updates = req.body;
+  if (!context.permissions.canUpdateFeature(feature, updates)) {
+    context.permissions.throwPermissionError();
+  }
 
   // Changing the project can affect whether or not it's published if using project-scoped api keys
   if ("project" in updates) {
     // Make sure they have access in both the old and new environments
-    req.checkPermissions("manageFeatures", updates.project);
-    req.checkPermissions(
-      "publishFeatures",
-      feature.project,
-      getEnabledEnvironments(feature, environments)
-    );
-    req.checkPermissions(
-      "publishFeatures",
-      updates.project,
-      getEnabledEnvironments(feature, environments)
-    );
+    if (
+      !context.permissions.canPublishFeature(
+        feature,
+        Array.from(getEnabledEnvironments(feature, environments))
+      ) ||
+      !context.permissions.canPublishFeature(
+        updates,
+        Array.from(getEnabledEnvironments(feature, environments))
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   const allowedKeys: (keyof FeatureInterface)[] = [
@@ -1743,13 +1830,16 @@ export async function deleteFeatureById(
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
     const environmentsIds = environments.map((e) => e.id);
 
-    req.checkPermissions("manageFeatures", feature.project);
-    req.checkPermissions("createFeatureDrafts", feature.project);
-    req.checkPermissions(
-      "publishFeatures",
-      feature.project,
-      getEnabledEnvironments(feature, environmentsIds)
-    );
+    if (
+      !context.permissions.canDeleteFeature(feature) ||
+      !context.permissions.canManageFeatureDrafts(feature) ||
+      !context.permissions.canPublishFeature(
+        feature,
+        Array.from(getEnabledEnvironments(feature, environmentsIds))
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
     await deleteFeature(context, feature);
     await req.audit({
       event: "feature.delete",
@@ -1836,12 +1926,16 @@ export async function postFeatureArchive(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentsIds = environments.map((e) => e.id);
 
-  req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions(
-    "publishFeatures",
-    feature.project,
-    getEnabledEnvironments(feature, environmentsIds)
-  );
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canPublishFeature(
+      feature,
+      Array.from(getEnabledEnvironments(feature, environmentsIds))
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
   const updatedFeature = await archiveFeature(
     context,
     feature,
@@ -2145,7 +2239,9 @@ export async function toggleStaleFFDetectionForFeature(
     throw new Error("Could not find feature");
   }
 
-  req.checkPermissions("manageFeatures", feature.project);
+  if (!context.permissions.canUpdateFeature(feature, {})) {
+    context.permissions.throwPermissionError();
+  }
 
   await updateFeature(context, feature, {
     neverStale: !feature.neverStale,
@@ -2169,7 +2265,9 @@ export async function postPrerequisite(
     throw new Error("Could not find feature");
   }
 
-  req.checkPermissions("manageFeatures", feature.project);
+  if (!context.permissions.canUpdateFeature(feature, {})) {
+    context.permissions.throwPermissionError();
+  }
 
   const changes = {
     prerequisites: feature.prerequisites || [],
@@ -2199,7 +2297,9 @@ export async function putPrerequisite(
     throw new Error("Could not find feature");
   }
 
-  req.checkPermissions("manageFeatures", feature.project);
+  if (!context.permissions.canUpdateFeature(feature, {})) {
+    context.permissions.throwPermissionError();
+  }
 
   const changes = {
     prerequisites: feature.prerequisites || [],
@@ -2230,7 +2330,9 @@ export async function deletePrerequisite(
     throw new Error("Could not find feature");
   }
 
-  req.checkPermissions("manageFeatures", feature.project);
+  if (!context.permissions.canUpdateFeature(feature, {})) {
+    context.permissions.throwPermissionError();
+  }
 
   const changes = {
     prerequisites: feature.prerequisites || [],

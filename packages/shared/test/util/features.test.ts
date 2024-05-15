@@ -1313,7 +1313,7 @@ describe("validateCondition", () => {
     expect(validateCondition("{(+")).toEqual({
       success: false,
       empty: false,
-      error: "Unexpected token ( in JSON at position 1",
+      error: "Expected property name or '}' in JSON at position 1",
     });
   });
   it("returns error when condition is not an object", () => {
@@ -1327,7 +1327,7 @@ describe("validateCondition", () => {
     expect(validateCondition("{test: true}")).toEqual({
       success: false,
       empty: false,
-      error: "Unexpected token t in JSON at position 1",
+      error: "Expected property name or '}' in JSON at position 1",
       suggestedValue: '{"test":true}',
     });
   });

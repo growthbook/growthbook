@@ -55,7 +55,6 @@ import Tab from "@/components/Tabs/Tab";
 import Modal from "@/components/Modal";
 import DraftModal from "@/components/Features/DraftModal";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
-import usePermissions from "@/hooks/usePermissions";
 import DiscussionThread from "@/components/DiscussionThread";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -71,6 +70,7 @@ import Revisionlog from "@/components/Features/RevisionLog";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -131,7 +131,7 @@ export default function FeaturesOverview({
     i: number;
   } | null>(null);
   const [showDependents, setShowDependents] = useState(false);
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const [revertIndex, setRevertIndex] = useState(0);
 
@@ -374,16 +374,14 @@ export default function FeaturesOverview({
 
   const hasDraftPublishPermission =
     (approved &&
-      permissions.check(
-        "publishFeatures",
-        projectId,
+      permissionsUtil.canPublishFeature(
+        feature,
         getAffectedRevisionEnvs(feature, revision, environments)
       )) ||
     (isDraft &&
       !requireReviews &&
-      permissions.check(
-        "publishFeatures",
-        projectId,
+      permissionsUtil.canPublishFeature(
+        feature,
         getAffectedRevisionEnvs(feature, revision, environments)
       ));
 
@@ -398,11 +396,8 @@ export default function FeaturesOverview({
     (revision.status === "published" || revision.status === "discarded") &&
     (!isLive || drafts.length > 0);
 
-  const canEdit = permissions.check("manageFeatures", projectId);
-  const canEditDrafts = permissions.check(
-    "createFeatureDrafts",
-    feature.project
-  );
+  const canEdit = permissionsUtil.canViewFeatureModal(projectId);
+  const canEditDrafts = permissionsUtil.canManageFeatureDrafts(feature);
   const renderStatusCopy = () => {
     switch (revision.status) {
       case "approved":
