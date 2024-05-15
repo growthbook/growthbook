@@ -893,7 +893,15 @@ function init(env) {
           `.trim()}
         />
 
-        <div className="h4 mt-4 mb-3">Step 2: Set up environment variables</div>
+        <div className="h4 mt-4 mb-3">Step 2: Define helper methods</div>
+        <p>
+          You&apos;ll need to define helper methods that correspond to how your
+          edge provider handles various request and response utilities. For
+          instance: reading request headers, creating a response object,
+          managing cookies, etc.
+        </p>
+
+        <div className="h4 mt-4 mb-3">Step 3: Set up environment variables</div>
         <p>
           Add these required fields, at minimum, to your environment variables:
         </p>
