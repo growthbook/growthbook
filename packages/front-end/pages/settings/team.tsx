@@ -96,9 +96,11 @@ const TeamPage: FC = () => {
             </div>
             <div style={{ flex: 1 }} />
             <div className="col-auto">
-              <Link href="/settings/role/new" className="btn btn-primary">
-                <FaPlusCircle /> <span> </span>Create Custom Role
-              </Link>
+              {hasCustomRolesFeature ? (
+                <Link href="/settings/role/new" className="btn btn-primary">
+                  <FaPlusCircle /> <span> </span>Create Custom Role
+                </Link>
+              ) : null}
             </div>
           </div>
           {hasCustomRolesFeature ? (

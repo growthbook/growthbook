@@ -24,6 +24,7 @@ export default function SingleRoleSelector({
 }) {
   const { roles, hasCommercialFeature, organization } = useUser();
   const hasFeature = hasCommercialFeature("advanced-permissions");
+  const hasCustomRolesFeature = hasCommercialFeature("custom-roles");
 
   const isNoAccessRoleEnabled = hasCommercialFeature("no-access-role");
 
@@ -44,7 +45,9 @@ export default function SingleRoleSelector({
     if (RESERVED_ROLE_IDS.includes(r.id)) {
       standardOptions.push({ label: r.id, value: r.id });
     } else {
-      customOptions.push({ label: r.id, value: r.id });
+      if (hasCustomRolesFeature) {
+        customOptions.push({ label: r.id, value: r.id });
+      }
     }
   });
 
