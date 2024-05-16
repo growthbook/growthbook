@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { getDefaultRole } from "shared/permissions";
+import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import Button from "@/components/Button";
 import SelectField from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
@@ -11,6 +11,29 @@ export default function UpdateDefaultRoleForm() {
   const [defaultRoleError, setDefaultRoleError] = useState<string | null>(null);
 
   const { apiCall } = useAuth();
+  const roleOptions = [...roles];
+
+  const standardOptions: { label: string; value: string }[] = [];
+  const customOptions: { label: string; value: string }[] = [];
+
+  roleOptions.forEach((r) => {
+    if (RESERVED_ROLE_IDS.includes(r.id)) {
+      standardOptions.push({ label: r.id, value: r.id });
+    } else {
+      customOptions.push({ label: r.id, value: r.id });
+    }
+  });
+
+  const groupedOptions = [
+    {
+      label: "Standard",
+      options: standardOptions,
+    },
+    {
+      label: "Custom",
+      options: customOptions,
+    },
+  ];
 
   const form = useForm({
     defaultValues: {
@@ -36,6 +59,11 @@ export default function UpdateDefaultRoleForm() {
       setDefaultRoleError(e.message);
     }
   });
+
+  const formatGroupLabel = (data) => (
+    <div className={data.label === "Custom" ? "border-bottom my-3" : ""}></div>
+  );
+
   return (
     <div className="bg-white p-3 border mt-5 mb-5">
       <div className="row">
@@ -50,16 +78,14 @@ export default function UpdateDefaultRoleForm() {
             onChange={async (role: string) => {
               form.setValue("defaultRole", role);
             }}
-            options={roles.map((r) => ({
-              label: r.id,
-              value: r.id,
-            }))}
+            options={groupedOptions}
             sort={false}
+            formatGroupLabel={formatGroupLabel}
             formatOptionLabel={(value) => {
-              const r = roles.find((r) => r.id === value.value);
-              if (!r) return value.label;
+              const r = roles.find((r) => r.id === value.label);
+              if (!r) return <strong>{value.label}</strong>;
               return (
-                <div className={r.id === "admin" ? "border-bottom pb-3" : ""}>
+                <div>
                   <strong className="pr-2">{r.id}.</strong>
                   {r.description}
                 </div>
