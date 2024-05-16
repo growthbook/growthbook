@@ -13,7 +13,7 @@ export type MetricParams =
       conversionRate: number;
     };
 
-export interface StatsEngine {
+export interface StatsEngineSettings {
   type: "frequentist";
   sequentialTesting: false | number;
 }
@@ -25,7 +25,7 @@ export interface PowerCalculationParams {
   alpha: number;
   usersPerWeek: number;
   targetPower: number;
-  statsEngine: StatsEngine;
+  statsEngine: StatsEngineSettings;
 }
 
 export type FullModalPowerCalculationParams = Omit<

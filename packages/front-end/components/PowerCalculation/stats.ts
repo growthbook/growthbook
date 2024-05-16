@@ -7,6 +7,7 @@ import {
   SampleSizeAndRuntime,
   Week,
 } from "./types";
+import { StatsEngine } from "@back-end/types/stats";
 
 /**
  * delta method for relative difference
@@ -237,33 +238,23 @@ export function findMde(
 }
 
 export function powerMetricWeeks(
-  powerSettings: PowerCalculationParams
+  powerSettings: PowerCalculationParams,
+  statsEngine: StatsEngine,
 ): PowerCalculationResults {
-  const metrics = powerSettings.metrics;
+
   const sampleSizeAndRuntimeNumeric: number[] = []; //for each metric, the first week they achieve 80% power.
-  const nWeeks = powerSettings.nWeeks;
-  let sequentialTuningParameter = 0.0;
-  if (powerSettings.statsEngine.sequentialTesting !== false) {
-    sequentialTuningParameter = powerSettings.statsEngine.sequentialTesting;
-  }
-  function getNumberOfMetrics(params: PowerCalculationParams): number {
-    return Object.keys(params.metrics).length;
-  }
-  const nMetrics = getNumberOfMetrics(powerSettings);
-  const metricKeys = Object.keys(metrics);
+
   const mySampleSizeAndRuntime: {
     [id: string]: SampleSizeAndRuntime | undefined;
   } = {};
 
   const metricThresholds = {};
-  const weeks: Week[] = [...Array(nWeeks).keys()].map((idx) => ({
+  const weeks: Week[] = [...Array(powerSettings.nWeeks).keys()].map((idx) => ({
     users: (idx + 1) * powerSettings.usersPerWeek,
     metrics: {},
   }));
 
-  for (let i = 0; i < nMetrics; i++) {
-    const metricKey = metricKeys[i];
-    const thisMetric = metrics[metricKey];
+  Object.entries(powerSettings.metrics).forEach(([metricKey, thisMetric]) => {
     let thisMean = 0;
     let thisVariance = 1;
     if (thisMetric.type === "binomial") {
@@ -277,31 +268,36 @@ export function powerMetricWeeks(
     let thisMDENumeric = NaN;
     let thisSampleSizeAndRuntimeNumeric = 999;
     let lookingForSampleSizeAndRunTime = true;
-    for (let j = 0; j < nWeeks; j++) {
+    for (let j = 0; j < powerSettings.nWeeks; j++) {
       const n = powerSettings.usersPerWeek * (j + 1);
-      const thisPower = powerEst(
-        thisMetric.effectSize,
-        thisMean,
-        thisVariance,
-        n,
-        powerSettings.nVariations,
-        powerSettings.alpha,
-        true,
-        sequentialTuningParameter
-      );
+      if (statsEngine === "frequentist") {
+        const powerParams = {
+          // stuff passed to powerEst
+        }
+        const mdeParams = {
+          // stuff passed to findMde
+        }
+        const powerFunction = powerEst;
+        const mdeFunction = findMde;
+      }
+      else {
+        const powerParams = {
+          // stuff passed to powerEstBayesian
+        }
+        const mdeParams = {
+          // stuff passed to findMdeBayesian
+        }
+        const powerFunction = powerEstBayesian;
+        const mdeFunction = findMdeBayesian;
+      }
+
+      const thisPower = powerFunction(powerParams);
       if (thisPower >= 0.8 && lookingForSampleSizeAndRunTime) {
         lookingForSampleSizeAndRunTime = false;
         thisSampleSizeAndRuntimeNumeric = j + 1;
       }
-      const thisMde = findMde(
-        0.8,
-        thisMean,
-        thisVariance,
-        powerSettings.usersPerWeek * (j + 1),
-        powerSettings.nVariations,
-        powerSettings.alpha,
-        sequentialTuningParameter
-      );
+      const thisMde = mdeFunction(mdeParams);
+
       if (thisMde.type === "success") {
         thisMDENumeric = thisMde.mde;
       }
@@ -326,11 +322,8 @@ export function powerMetricWeeks(
           }
         : undefined;
     mySampleSizeAndRuntime[metricKey] = thisSampleSizeAndRuntime;
-  }
-  function findMax(arr: number[]): number {
-    return Math.max(...arr);
-  }
-  const duration = findMax(sampleSizeAndRuntimeNumeric);
+  })
+  const duration = Math.max(...sampleSizeAndRuntimeNumeric);
 
   const results: PowerCalculationResults = {
     sampleSizeAndRuntime: mySampleSizeAndRuntime,
