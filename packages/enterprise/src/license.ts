@@ -286,7 +286,12 @@ function getVerifiedLicenseData(key: string): Partial<LicenseInterface> {
     .split(".")
     .map((s) => Buffer.from(s, "base64url"));
 
-  const decodedLicense: LicenseData = JSON.parse(license.toString());
+  let decodedLicense: LicenseData;
+  try {
+    decodedLicense = JSON.parse(license.toString());
+  } catch {
+    throw new Error("Could not parse license");
+  }
 
   // Support old way of storing expiration date
   decodedLicense.exp = decodedLicense.exp || decodedLicense.eat || "";

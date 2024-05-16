@@ -23,6 +23,7 @@ import Results, { ResultsMetricFilters } from "@/components/Experiment/Results";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 
@@ -84,6 +85,7 @@ export default function ResultsTab({
   const router = useRouter();
 
   const { snapshot } = useSnapshot();
+  const permissionsUtil = usePermissionsUtil();
 
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
 
@@ -278,26 +280,28 @@ export default function ResultsTab({
           <div className="row mx-2 py-3 d-flex align-items-center">
             <div className="col h3 ml-2 mb-0">Custom Reports</div>
             <div className="col-auto mr-2">
-              <Button
-                className="btn btn-outline-primary float-right"
-                color="outline-info"
-                stopPropagation={true}
-                onClick={async () => {
-                  const res = await apiCall<{ report: ReportInterface }>(
-                    `/experiments/report/${snapshot.id}`,
-                    {
-                      method: "POST",
+              {permissionsUtil.canCreateReport(experiment) ? (
+                <Button
+                  className="btn btn-outline-primary float-right"
+                  color="outline-info"
+                  stopPropagation={true}
+                  onClick={async () => {
+                    const res = await apiCall<{ report: ReportInterface }>(
+                      `/experiments/report/${snapshot.id}`,
+                      {
+                        method: "POST",
+                      }
+                    );
+                    if (!res.report) {
+                      throw new Error("Failed to create report");
                     }
-                  );
-                  if (!res.report) {
-                    throw new Error("Failed to create report");
-                  }
-                  await router.push(`/report/${res.report.id}`);
-                }}
-              >
-                <GBAddCircle className="pr-1" />
-                Custom Report
-              </Button>
+                    await router.push(`/report/${res.report.id}`);
+                  }}
+                >
+                  <GBAddCircle className="pr-1" />
+                  Custom Report
+                </Button>
+              ) : null}
             </div>
           </div>
           <ExperimentReportsList experiment={experiment} />
