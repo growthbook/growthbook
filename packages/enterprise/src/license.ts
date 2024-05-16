@@ -204,7 +204,6 @@ export const accountFeatures: CommercialFeaturesMap = {
     "remote-evaluation",
     "multi-org",
     "teams",
-    "custom-roles",
     "custom-launch-checklist",
     "no-access-role",
     "sticky-bucketing",
