@@ -5,12 +5,8 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-<<<<<<< HEAD
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import { accountFeatures, getAccountPlan } from "enterprise";
-=======
-import { getDefaultRole } from "shared/permissions";
->>>>>>> main
 import { LegacyReportInterface, ReportInterface } from "@back-end/types/report";
 import { SdkWebHookLogDocument } from "../models/SdkWebhookLogModel";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
