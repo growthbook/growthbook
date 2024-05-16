@@ -2870,24 +2870,17 @@ export interface operations {
       content: {
         "application/json": {
           name: string;
-          organization: string;
           languages: (string)[];
           sdkVersion?: string;
-          environment?: string;
-          /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
-          project?: string;
+          environment: string;
           projects?: (string)[];
           encryptPayload?: boolean;
-          encryptionKey?: string;
           includeVisualExperiments?: boolean;
           includeDraftExperiments?: boolean;
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
-          key?: string;
           proxyEnabled?: boolean;
           proxyHost?: string;
-          proxySigningKey?: string;
-          sseEnabled?: boolean;
           hashSecureAttributes?: boolean;
           remoteEvalEnabled?: boolean;
         };
@@ -2990,20 +2983,14 @@ export interface operations {
           languages?: (string)[];
           sdkVersion?: string;
           environment?: string;
-          /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
-          project?: string;
           projects?: (string)[];
           encryptPayload?: boolean;
-          encryptionKey?: string;
           includeVisualExperiments?: boolean;
           includeDraftExperiments?: boolean;
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
-          key?: string;
           proxyEnabled?: boolean;
           proxyHost?: string;
-          proxySigningKey?: string;
-          sseEnabled?: boolean;
           hashSecureAttributes?: boolean;
           remoteEvalEnabled?: boolean;
         };

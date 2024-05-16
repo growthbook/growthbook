@@ -293,12 +293,13 @@ export async function editSDKConnection(
     }
   });
 
-  await SDKConnectionModel.updateOne(
+  const updatedConnection = await SDKConnectionModel.findOneAndUpdate(
     {
       organization: connection.organization,
       id: connection.id,
     },
     {
+      new: true,
       $set: {
         ...otherChanges,
         proxy: newProxy,
@@ -307,6 +308,8 @@ export async function editSDKConnection(
       },
     }
   );
+
+  if (!updatedConnection) throw "Internal error!";
 
   if (needsProxyUpdate) {
     // Purge CDN if used
@@ -319,6 +322,8 @@ export async function editSDKConnection(
       isUsingProxy
     );
   }
+
+  return toInterface(updatedConnection);
 }
 
 export async function deleteSDKConnectionById(
