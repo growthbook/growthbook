@@ -42,8 +42,6 @@ import { FactTableMap } from "../models/FactTableModel";
 import { OrganizationInterface } from "../../types/organization";
 import { FactMetricInterface } from "../../types/fact-table";
 import SqlIntegration from "../integrations/SqlIntegration";
-import { getExperimentByName } from "../models/ExperimentModel";
-import { ReqContextClass } from "../services/context";
 import {
   QueryRunner,
   QueryMap,
@@ -65,6 +63,7 @@ export type ExperimentResultsQueryParams = {
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   queryParentId: string;
+  experimentId?: string;
 };
 
 export const TRAFFIC_QUERY_NAME = "traffic";
@@ -166,8 +165,7 @@ export const startExperimentResultQueries = async (
   organization: OrganizationInterface,
   startQuery: (
     params: StartQueryParams<RowsType, ProcessedRowsType>
-  ) => Promise<QueryPointer>,
-  context: ReqContextClass
+  ) => Promise<QueryPointer>
 ): Promise<Queries> => {
   const snapshotSettings = params.snapshotSettings;
   const queryParentId = params.queryParentId;
@@ -211,11 +209,6 @@ export const startExperimentResultQueries = async (
   const dimensionObj = await parseDimensionId(
     snapshotSettings.dimensions[0]?.id,
     organization.id
-  );
-
-  const expObj = await getExperimentByName(
-    context,
-    snapshotSettings.experimentId
   );
 
   const queries: Queries = [];
@@ -276,10 +269,10 @@ export const startExperimentResultQueries = async (
         integration.runExperimentUnitsQuery(query, setExternalId),
       process: (rows) => rows,
       queryType: "experimentUnits",
-      querySource: expObj
+      querySource: params.experimentId
         ? {
             sourceType: "Experiment",
-            id: expObj.id,
+            id: params.experimentId,
           }
         : undefined,
     });
@@ -325,10 +318,10 @@ export const startExperimentResultQueries = async (
           integration.runExperimentMetricQuery(query, setExternalId),
         process: (rows) => rows,
         queryType: "experimentMetric",
-        querySource: expObj
+        querySource: params.experimentId
           ? {
               sourceType: "Experiment",
-              id: expObj.id,
+              id: params.experimentId,
             }
           : undefined,
       })
@@ -366,10 +359,10 @@ export const startExperimentResultQueries = async (
           ),
         process: (rows) => rows,
         queryType: "experimentMultiMetric",
-        querySource: expObj
+        querySource: params.experimentId
           ? {
               sourceType: "Experiment",
-              id: expObj.id,
+              id: params.experimentId,
             }
           : undefined,
       })
@@ -391,10 +384,10 @@ export const startExperimentResultQueries = async (
         integration.runExperimentAggregateUnitsQuery(query, setExternalId),
       process: (rows) => rows,
       queryType: "experimentTraffic",
-      querySource: expObj
+      querySource: params.experimentId
         ? {
             sourceType: "Experiment",
-            id: expObj.id,
+            id: params.experimentId,
           }
         : undefined,
     });
@@ -428,11 +421,10 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         params,
         this.integration,
         this.context.org,
-        this.startQuery.bind(this),
-        this.context
+        this.startQuery.bind(this)
       );
     } else {
-      return this.startLegacyQueries(params, this.context);
+      return this.startLegacyQueries(params);
     }
   }
 
@@ -521,16 +513,10 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   private async startLegacyQueries(
-    params: ExperimentResultsQueryParams,
-    context: ReqContextClass
+    params: ExperimentResultsQueryParams
   ): Promise<Queries> {
     const snapshotSettings = params.snapshotSettings;
     const metricMap = params.metricMap;
-
-    const expObj = await getExperimentByName(
-      context,
-      snapshotSettings.experimentId
-    );
 
     const activationMetric = snapshotSettings.activationMetric
       ? metricMap.get(snapshotSettings.activationMetric) ?? null
@@ -580,10 +566,10 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         },
         process: (rows: ExperimentQueryResponses) =>
           this.processLegacyExperimentResultsResponse(snapshotSettings, rows),
-        querySource: expObj
+        querySource: params.experimentId
           ? {
               sourceType: "Experiment",
-              id: expObj.id,
+              id: params.experimentId,
             }
           : undefined,
       }),

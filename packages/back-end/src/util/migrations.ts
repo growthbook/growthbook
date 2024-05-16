@@ -231,6 +231,10 @@ export function upgradeDatasourceObject(
     }
   }
 
+  datasource.supportsQueryCancellation = ["athena", "bigquery"].includes(
+    datasource.type
+  );
+
   return datasource;
 }
 

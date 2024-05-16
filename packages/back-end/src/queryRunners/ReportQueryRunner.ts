@@ -50,14 +50,14 @@ export class ReportQueryRunner extends QueryRunner<
       variationNames: this.model.args.variations.map((v) => v.name),
       queryParentId: this.model.id,
       factTableMap: params.factTableMap,
+      experimentId: this.model.experimentId,
     };
 
     return startExperimentResultQueries(
       experimentParams,
       this.integration,
       this.context.org,
-      this.startQuery.bind(this),
-      this.context
+      this.startQuery.bind(this)
     );
   }
   async runAnalysis(queryMap: QueryMap): Promise<ExperimentReportResults> {
