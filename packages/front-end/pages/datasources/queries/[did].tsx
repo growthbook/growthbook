@@ -164,9 +164,8 @@ const DataSourceQueries = (): React.ReactElement => {
 
             let LinkToQuerySource = <></>;
             if (query.querySource) {
+              // Backlinks are supported for Metrics and Experiments as they have canonical pages to link to
               switch (query.querySource.sourceType) {
-                case "DimensionSlices":
-                  break;
                 case "Experiment":
                   LinkToQuerySource = (
                     <a
@@ -181,8 +180,14 @@ const DataSourceQueries = (): React.ReactElement => {
                   );
                   break;
                 case "Metric":
-                  break;
-                case "PastExperiments":
+                  LinkToQuerySource = (
+                    <a
+                      onClick={(e) => e.stopPropagation()}
+                      href={`/metric/${query.querySource.id}`}
+                    >
+                      <FaExternalLinkAlt title="View metric" className="ml-1" />
+                    </a>
+                  );
                   break;
               }
             }
