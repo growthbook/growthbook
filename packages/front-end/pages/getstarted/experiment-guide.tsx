@@ -2,8 +2,6 @@ import { PiArrowRight, PiCheckCircleFill } from "react-icons/pi";
 import { useState } from "react";
 import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { useRouter } from "next/router";
-import { ProjectInterface } from "@back-end/types/project";
 import DocumentationDisplay from "@/components/GetStarted/DocumentationDisplay";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -11,22 +9,29 @@ import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import { useExperiments } from "@/hooks/useExperiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import track from "@/services/track";
-import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Button from "@/components/Button";
 import { useGetStarted } from "@/services/GetStartedProvider";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
 
 const ExperimentGuide = (): React.ReactElement => {
   const { organization } = useUser();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { data: sdkConnections } = useSDKConnections();
-  const { experiments, loading, error, mutateExperiments } = useExperiments();
-  const { mutateDefinitions, project } = useDefinitions();
+  const { experiments, loading: experimentsLoading, error } = useExperiments();
+  const { project, ready: definitionsReady } = useDefinitions();
   const { setStep } = useGetStarted();
-  const router = useRouter();
-  const { apiCall } = useAuth();
+
+  const loading = experimentsLoading && !sdkConnections && !definitionsReady;
+
+  if (loading) {
+    return <LoadingOverlay />;
+  }
+
+  if (error) {
+    return <div className="alert alert-danger">{error.message}</div>;
+  }
+
   const isSDKIntegrated =
     sdkConnections?.connections.some((c) => c.connected) || false;
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
@@ -56,30 +61,6 @@ const ExperimentGuide = (): React.ReactElement => {
         (e) => e.project !== demoProjectId && e.status !== "draft"
       );
 
-  const { demoExperimentId } = useDemoDataSourceProject();
-
-  const openSampleExperiment = async () => {
-    if (demoProjectId && demoExperimentId) {
-      router.push(`/experiment/${demoExperimentId}`);
-    } else {
-      track("Create Sample Project", {
-        source: "experiments-get-started",
-      });
-      const res = await apiCall<{
-        project: ProjectInterface;
-        experimentId: string;
-      }>("/demo-datasource-project", {
-        method: "POST",
-      });
-      await mutateDefinitions();
-      if (res.experimentId) {
-        router.push(`/experiment/${res.experimentId}`);
-      } else {
-        throw new Error("Could not create sample experiment");
-      }
-    }
-  };
-
   return (
     <div className="container pagecontents p-4">
       <PageHead
@@ -104,18 +85,7 @@ const ExperimentGuide = (): React.ReactElement => {
           </Link>{" "}
           <PiArrowRight />
         </span>
-        <Button
-          style={{
-            width: "250px",
-            background: "#EDE9FE",
-            color: "#5746AF",
-            fontWeight: 400,
-            border: "1px solid #C4B8F3",
-          }}
-          onClick={openSampleExperiment}
-        >
-          View Sample Data
-        </Button>
+        <ViewSampleDataButton />
       </div>
       <div className="d-flex">
         <div className="flex-fill mr-5">

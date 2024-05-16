@@ -8,15 +8,32 @@ import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 const ImportedExperimentGuide = (): React.ReactElement => {
   const { organization } = useUser();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
-  const { experiments, loading, error, mutateExperiments } = useExperiments();
-  const { factTables, datasources, ready, project } = useDefinitions();
+  const { experiments, loading: experimentsLoading, error } = useExperiments();
+  const {
+    factTables,
+    datasources,
+    ready: definitionsReady,
+    project,
+  } = useDefinitions();
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
     organization.id || ""
   );
+
+  const loading = experimentsLoading && !definitionsReady;
+
+  if (loading) {
+    return <LoadingOverlay />;
+  }
+
+  if (error) {
+    return <div className="alert alert-danger">{error.message}</div>;
+  }
+
   // Ignore the demo datasource
   const hasExperiments = project
     ? experiments.some(

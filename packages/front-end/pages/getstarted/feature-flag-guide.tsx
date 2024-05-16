@@ -2,30 +2,35 @@ import { PiArrowRight, PiCheckCircleFill } from "react-icons/pi";
 import { useState } from "react";
 import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { useRouter } from "next/router";
-import { ProjectInterface } from "@back-end/types/project";
 import DocumentationDisplay from "@/components/GetStarted/DocumentationDisplay";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useFeaturesList } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
-import { useAuth } from "@/services/auth";
-import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import track from "@/services/track";
-import Button from "@/components/Button";
 import { useGetStarted } from "@/services/GetStartedProvider";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import ViewSampleDataButton from "@/components/GetStarted/ViewSampleDataButton";
 
 const CreateFeatureFlagsGuide = (): React.ReactElement => {
-  const { organization, name } = useUser();
-  const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
+  const { organization } = useUser();
   const { data: sdkConnections } = useSDKConnections();
-  const { features, loading, error, mutate } = useFeaturesList();
-  const { mutateDefinitions, project } = useDefinitions();
-  const router = useRouter();
-  const { apiCall } = useAuth();
+  const { features, loading: featuresLoading, error } = useFeaturesList();
+  const { project, ready: definitionsReady } = useDefinitions();
   const { setStep } = useGetStarted();
+
+  const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
+
+  const loading = featuresLoading && !sdkConnections && !definitionsReady;
+
+  if (loading) {
+    return <LoadingOverlay />;
+  }
+
+  if (error) {
+    return <div className="alert alert-danger">{error.message}</div>;
+  }
 
   const manualChecks = organization.getStartedChecklists?.features;
   const environmentsReviewed = manualChecks?.find(
@@ -42,30 +47,6 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
   const hasFeatures = project
     ? features.some((f) => f.project !== demoProjectId && f.project === project)
     : features.some((f) => f.project !== demoProjectId);
-
-  const { demoExperimentId } = useDemoDataSourceProject();
-
-  const openSampleExperiment = async () => {
-    if (demoProjectId && demoExperimentId) {
-      router.push(`/experiment/${demoExperimentId}`);
-    } else {
-      track("Create Sample Project", {
-        source: "experiments-get-started",
-      });
-      const res = await apiCall<{
-        project: ProjectInterface;
-        experimentId: string;
-      }>("/demo-datasource-project", {
-        method: "POST",
-      });
-      await mutateDefinitions();
-      if (res.experimentId) {
-        router.push(`/experiment/${res.experimentId}`);
-      } else {
-        throw new Error("Could not create sample experiment");
-      }
-    }
-  };
 
   return (
     <div className="container pagecontents p-4">
@@ -91,18 +72,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
           </Link>{" "}
           <PiArrowRight />
         </span>
-        <Button
-          style={{
-            width: "250px",
-            background: "#EDE9FE",
-            color: "#5746AF",
-            fontWeight: 400,
-            border: "1px solid #C4B8F3",
-          }}
-          onClick={openSampleExperiment}
-        >
-          View Sample Data
-        </Button>
+        <ViewSampleDataButton />
       </div>
       <div className="d-flex">
         <div className="flex-fill mr-5">
