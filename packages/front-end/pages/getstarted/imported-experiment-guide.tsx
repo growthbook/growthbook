@@ -96,7 +96,11 @@ const ImportedExperimentGuide = (): React.ReactElement => {
               <div className="col">
                 <Link
                   href="/datasources"
-                  style={{ fontSize: "17px", fontWeight: 600 }}
+                  style={{
+                    fontSize: "17px",
+                    fontWeight: 600,
+                    textDecoration: hasDatasource ? "line-through" : "none",
+                  }}
                 >
                   Connect to Your Data Warehouse
                 </Link>
@@ -136,7 +140,11 @@ const ImportedExperimentGuide = (): React.ReactElement => {
               <div className="col">
                 <Link
                   href="/fact-tables"
-                  style={{ fontSize: "17px", fontWeight: 600 }}
+                  style={{
+                    fontSize: "17px",
+                    fontWeight: 600,
+                    textDecoration: hasFactTables ? "line-through" : "none",
+                  }}
                 >
                   Define Fact Tables
                 </Link>
@@ -149,7 +157,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
 
             <div className="row">
               <div className="col-sm-auto">
-                {!isSDKIntegrated ? (
+                {hasExperiments ? (
                   <PiCheckCircleFill
                     className="mt-1"
                     style={{
@@ -175,7 +183,11 @@ const ImportedExperimentGuide = (): React.ReactElement => {
               <div className="col">
                 <Link
                   href="/experiments"
-                  style={{ fontSize: "17px", fontWeight: 600 }}
+                  style={{
+                    fontSize: "17px",
+                    fontWeight: 600,
+                    textDecoration: hasExperiments ? "line-through" : "none",
+                  }}
                 >
                   Import Your First Experiment & View Results
                 </Link>
