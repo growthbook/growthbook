@@ -5,7 +5,7 @@ import { z } from "zod";
 import {
   simpleSchemaFieldValidator,
   simpleSchemaValidator,
-} from "@back-end/src/validators/features";
+} from "../src/validators/features";
 import { UserRef } from "./user";
 import { FeatureRevisionInterface } from "./feature-revision";
 
