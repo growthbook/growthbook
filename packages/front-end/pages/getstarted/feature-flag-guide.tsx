@@ -2,18 +2,37 @@ import { PiArrowRight, PiCheckCircle, PiCheckCircleFill } from "react-icons/pi";
 import { useState } from "react";
 import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { useRouter } from "next/router";
+import { ProjectInterface } from "@back-end/types/project";
 import DocumentationDisplay from "@/components/GetStarted/DocumentationDisplay";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useFeaturesList } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
+import { useAuth } from "@/services/auth";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import track from "@/services/track";
+import Button from "@/components/Button";
+import { useGetStarted } from "@/services/GetStartedProvider";
 
 const CreateFeatureFlagsGuide = (): React.ReactElement => {
   const { organization, name } = useUser();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { data: sdkConnections } = useSDKConnections();
   const { features, loading, error, mutate } = useFeaturesList();
+  const { mutateDefinitions } = useDefinitions();
+  const router = useRouter();
+  const { apiCall } = useAuth();
+  const { setStep } = useGetStarted();
+
+  const manualChecks = organization.getStartedChecklists?.features;
+  const environmentsReviewed = manualChecks?.find(
+    (c) => c.step === "environments"
+  );
+  const attributesSet = manualChecks?.find((c) => c.step === "attributes");
+
   const isSDKIntegrated =
     sdkConnections?.connections.some((c) => c.connected) || false;
   // Ignore the demo datasource
@@ -23,6 +42,31 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
         getDemoDatasourceProjectIdForOrganization(organization.id || "") &&
       f.owner === name
   );
+
+  const { projectId: demoDataSourceProjectId, demoExperimentId } =
+    useDemoDataSourceProject();
+
+  const openSampleExperiment = async () => {
+    if (demoDataSourceProjectId && demoExperimentId) {
+      router.push(`/experiment/${demoExperimentId}`);
+    } else {
+      track("Create Sample Project", {
+        source: "experiments-get-started",
+      });
+      const res = await apiCall<{
+        project: ProjectInterface;
+        experimentId: string;
+      }>("/demo-datasource-project", {
+        method: "POST",
+      });
+      await mutateDefinitions();
+      if (res.experimentId) {
+        router.push(`/experiment/${res.experimentId}`);
+      } else {
+        throw new Error("Could not create sample experiment");
+      }
+    }
+  };
 
   return (
     <div className="container pagecontents p-4">
@@ -40,7 +84,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
         />
       )}
       <h1 className="mb-3">Create Feature Flags</h1>
-      <div className="d-flex align-middle">
+      <div className="d-flex align-middle justify-content-between mb-4">
         <span>
           Have feature flags in LaunchDarkly?{" "}
           <Link href="/importing/launchdarkly">
@@ -48,8 +92,20 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
           </Link>{" "}
           <PiArrowRight />
         </span>
+        <Button
+          style={{
+            width: "250px",
+            background: "#EDE9FE",
+            color: "#5746AF",
+            fontWeight: 400,
+            border: "1px solid #C4B8F3",
+          }}
+          onClick={openSampleExperiment}
+        >
+          View Sample Data
+        </Button>
       </div>
-      <div className="d-flex mt-5">
+      <div className="d-flex">
         <div className="flex-fill mr-5">
           <div
             className="p-4"
@@ -105,7 +161,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
 
             <div className="row">
               <div className="col-sm-auto">
-                {!isSDKIntegrated ? (
+                {environmentsReviewed ? (
                   <PiCheckCircleFill
                     className="mt-1"
                     style={{
@@ -135,8 +191,17 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                   style={{
                     fontSize: "17px",
                     fontWeight: 600,
-                    textDecoration: !isSDKIntegrated ? "line-through" : "none",
+                    textDecoration: environmentsReviewed
+                      ? "line-through"
+                      : "none",
                   }}
+                  onClick={() =>
+                    setStep({
+                      step: "Review or Add Environments",
+                      source: "features",
+                      stepKey: "environments",
+                    })
+                  }
                 >
                   Review or Add Environments
                 </Link>
@@ -150,7 +215,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
 
             <div className="row">
               <div className="col-sm-auto">
-                {!isSDKIntegrated ? (
+                {attributesSet ? (
                   <PiCheckCircleFill
                     className="mt-1"
                     style={{
@@ -179,14 +244,21 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                   style={{
                     fontSize: "17px",
                     fontWeight: 600,
-                    textDecoration: !isSDKIntegrated ? "line-through" : "none",
+                    textDecoration: attributesSet ? "line-through" : "none",
                   }}
+                  onClick={() =>
+                    setStep({
+                      step: "Customize Targeting Attributes",
+                      source: "features",
+                      stepKey: "attributes",
+                    })
+                  }
                 >
                   Customize Targeting Attributes
                 </Link>
                 <p className="mt-2">
-                  Define user attributes to use for targeting a specific feature
-                  value to a subset of your users.
+                  Define user attributes used to target specific feature values
+                  to subsets of users.
                 </p>
                 <hr />
               </div>
@@ -226,7 +298,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                     textDecoration: hasFeatures ? "line-through" : "none",
                   }}
                 >
-                  Test Your First Feature Flag
+                  Create a Test Feature Flag
                 </Link>
                 <p className="mt-2">
                   Add first feature flag to test that everything is connected

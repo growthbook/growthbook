@@ -129,23 +129,23 @@ const DocumentationDisplay = ({
         <li className="mb-2">
           <a href="https://slack.growthbook.io/?ref=community-page">
             <img
-              className="align-baseline mr-1"
+              className="mr-1"
               src="/images/get-started/slack-logo.svg"
               alt="Slack Logo"
               width={"18px"}
               height={"18px"}
               style={{ margin: "1px 5px 1px 2px" }}
             />{" "}
-            GrowthBook Slack
+            <span className="align-middle">GrowthBook Slack</span>
           </a>
         </li>
         <li className="mb-2">
           <a href="https://docs.growthbook.io/faq">
             <PiSealQuestion
-              className="align-baseline mr-1"
+              className="mr-1"
               style={{ width: "20px", height: "20px" }}
             />{" "}
-            GrowthBook FAQs
+            <span className="align-middle">GrowthBook FAQs</span>
           </a>
         </li>
       </ul>

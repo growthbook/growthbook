@@ -10,9 +10,10 @@ import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
 import { MetricCappingSettings, MetricWindowSettings } from "./fact-table";
 
-export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
-export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
-export type GlobalPermission = typeof GLOBAL_PERMISSIONS[number];
+export type EnvScopedPermission = (typeof ENV_SCOPED_PERMISSIONS)[number];
+export type ProjectScopedPermission =
+  (typeof PROJECT_SCOPED_PERMISSIONS)[number];
+export type GlobalPermission = (typeof GLOBAL_PERMISSIONS)[number];
 
 export type Permission =
   | GlobalPermission
@@ -124,7 +125,7 @@ export interface Namespaces {
 
 export type SDKAttributeFormat = "" | "version";
 
-export type SDKAttributeType = typeof attributeDataTypes[number];
+export type SDKAttributeType = (typeof attributeDataTypes)[number];
 
 export type SDKAttribute = {
   property: string;
@@ -236,6 +237,17 @@ export type OrganizationMessage = {
   level: "info" | "danger" | "warning";
 };
 
+export type GetStartedChecklistItem = {
+  step: string;
+  isCompleted: boolean;
+};
+
+export type GetStartedChecklist = {
+  features: GetStartedChecklistItem[];
+  experiments: GetStartedChecklistItem[];
+  importedExperiments: GetStartedChecklistItem[];
+};
+
 export interface OrganizationInterface {
   id: string;
   url: string;
@@ -274,6 +286,7 @@ export interface OrganizationInterface {
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
   messages?: OrganizationMessage[];
+  getStartedChecklists?: GetStartedChecklist;
 }
 
 export type NamespaceUsage = Record<

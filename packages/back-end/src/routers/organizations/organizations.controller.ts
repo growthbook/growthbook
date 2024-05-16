@@ -39,6 +39,8 @@ import { updatePassword } from "../../services/users";
 import { getAllTags } from "../../models/TagModel";
 import {
   Environment,
+  GetStartedChecklist,
+  GetStartedChecklistItem,
   Invite,
   MemberRole,
   MemberRoleWithProjects,
@@ -307,12 +309,8 @@ export async function putMemberRole(
     context.permissions.throwPermissionError();
   }
   const { org, userId } = context;
-  const {
-    role,
-    limitAccessByEnvironment,
-    environments,
-    projectRoles,
-  } = req.body;
+  const { role, limitAccessByEnvironment, environments, projectRoles } =
+    req.body;
   const { id } = req.params;
 
   if (id === userId) {
@@ -558,12 +556,8 @@ export async function putInviteRole(
   }
 
   const { org } = context;
-  const {
-    role,
-    limitAccessByEnvironment,
-    environments,
-    projectRoles,
-  } = req.body;
+  const { role, limitAccessByEnvironment, environments, projectRoles } =
+    req.body;
   const { key } = req.params;
   const originalInvites: Invite[] = cloneDeep(org.invites);
 
@@ -711,6 +705,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       members: org.members,
       messages: messages || [],
       pendingMembers: org.pendingMembers,
+      getStartedChecklists: org.getStartedChecklists,
     },
     seatsInUse,
   });
@@ -1029,13 +1024,8 @@ export async function postInvite(
   }
 
   const { org } = context;
-  const {
-    email,
-    role,
-    limitAccessByEnvironment,
-    environments,
-    projectRoles,
-  } = req.body;
+  const { email, role, limitAccessByEnvironment, environments, projectRoles } =
+    req.body;
 
   const license = getLicense();
   if (
@@ -1918,12 +1908,8 @@ export async function addOrphanedUser(
   const { org } = getContextFromReq(req);
 
   const { id } = req.params;
-  const {
-    role,
-    environments,
-    limitAccessByEnvironment,
-    projectRoles,
-  } = req.body;
+  const { role, environments, limitAccessByEnvironment, projectRoles } =
+    req.body;
 
   // Make sure user exists
   const user = await findUserById(id);
@@ -2150,6 +2136,46 @@ export async function putDefaultRole(
       },
     },
   });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function putGetStartedChecklistItem(
+  req: AuthRequest<{
+    item: GetStartedChecklistItem;
+    type: keyof GetStartedChecklist;
+  }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { item, type } = req.body;
+
+  const emptyChecklist: GetStartedChecklist = {
+    features: [],
+    experiments: [],
+    importedExperiments: [],
+  };
+
+  const newChecklist = {
+    getStartedChecklists: {
+      ...(org.getStartedChecklists || emptyChecklist),
+    },
+  };
+
+  const index = newChecklist.getStartedChecklists[type].findIndex(
+    (c) => c.step === item.step
+  );
+  if (index === -1) {
+    newChecklist.getStartedChecklists[type].push({
+      step: item.step,
+      isCompleted: true,
+    });
+  }
+
+  updateOrganization(org.id, newChecklist);
 
   res.status(200).json({
     status: 200,

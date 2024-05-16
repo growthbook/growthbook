@@ -117,6 +117,26 @@ const organizationSchema = new mongoose.Schema({
     },
   },
   settings: {},
+  getStartedChecklists: {
+    features: [
+      {
+        step: String,
+        isCompleted: Boolean,
+      },
+    ],
+    experiments: [
+      {
+        step: String,
+        isCompleted: Boolean,
+      },
+    ],
+    importedExperiments: [
+      {
+        step: String,
+        isCompleted: Boolean,
+      },
+    ],
+  },
 });
 
 organizationSchema.index({ "members.id": 1 });
@@ -194,6 +214,11 @@ export async function createOrganization({
         { property: "utmTerm", datatype: "string" },
         { property: "utmContent", datatype: "string" },
       ],
+    },
+    getStartedChecklists: {
+      features: [],
+      experiments: [],
+      importedExperiments: [],
     },
   });
   return toInterface(doc);

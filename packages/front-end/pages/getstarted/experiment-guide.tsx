@@ -16,6 +16,8 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Button from "@/components/Button";
+import { useGetStarted } from "@/services/GetStartedProvider";
 
 const ExperimentGuide = (): React.ReactElement => {
   const { organization, userId } = useUser();
@@ -23,6 +25,7 @@ const ExperimentGuide = (): React.ReactElement => {
   const { data: sdkConnections } = useSDKConnections();
   const { experiments, loading, error, mutateExperiments } = useExperiments();
   const { mutateDefinitions } = useDefinitions();
+  const { setStep } = useGetStarted();
   const router = useRouter();
   const { apiCall } = useAuth();
   const isSDKIntegrated =
@@ -33,6 +36,12 @@ const ExperimentGuide = (): React.ReactElement => {
       e.project !==
       getDemoDatasourceProjectIdForOrganization(organization.id || "")
   );
+
+  const manualChecks = organization.getStartedChecklists?.experiments;
+  const environmentsReviewed = manualChecks?.find(
+    (c) => c.step === "environments"
+  );
+  const attributesSet = manualChecks?.find((c) => c.step === "attributes");
 
   const hasStartedExperiment = experiments.some(
     (e) =>
@@ -82,7 +91,7 @@ const ExperimentGuide = (): React.ReactElement => {
         />
       )}
       <h1 className="mb-3">Run an Experiment</h1>
-      <div className="d-flex align-middle">
+      <div className="d-flex align-middle justify-content-between mb-4">
         <span>
           Ran experiments on another platform?{" "}
           <Link href="/importing/launchdarkly">
@@ -90,8 +99,20 @@ const ExperimentGuide = (): React.ReactElement => {
           </Link>{" "}
           <PiArrowRight />
         </span>
+        <Button
+          style={{
+            width: "250px",
+            background: "#EDE9FE",
+            color: "#5746AF",
+            fontWeight: 400,
+            border: "1px solid #C4B8F3",
+          }}
+          onClick={openSampleExperiment}
+        >
+          View Sample Data
+        </Button>
       </div>
-      <div className="d-flex mt-5">
+      <div className="d-flex">
         <div className="flex-fill mr-5">
           <div
             className="p-4"
@@ -130,7 +151,11 @@ const ExperimentGuide = (): React.ReactElement => {
               <div className="col">
                 <Link
                   href="/sdks"
-                  style={{ fontSize: "17px", fontWeight: 600 }}
+                  style={{
+                    fontSize: "17px",
+                    fontWeight: 600,
+                    textDecoration: isSDKIntegrated ? "line-through" : "none",
+                  }}
                 >
                   Integrate the GrowthBook SDK into your app
                 </Link>
@@ -143,7 +168,7 @@ const ExperimentGuide = (): React.ReactElement => {
 
             <div className="row">
               <div className="col-sm-auto">
-                {!isSDKIntegrated ? (
+                {environmentsReviewed ? (
                   <PiCheckCircleFill
                     className="mt-1"
                     style={{
@@ -170,7 +195,20 @@ const ExperimentGuide = (): React.ReactElement => {
               <div className="col">
                 <Link
                   href="/environments"
-                  style={{ fontSize: "17px", fontWeight: 600 }}
+                  style={{
+                    fontSize: "17px",
+                    fontWeight: 600,
+                    textDecoration: environmentsReviewed
+                      ? "line-through"
+                      : "none",
+                  }}
+                  onClick={() =>
+                    setStep({
+                      step: "Review or Add Environments",
+                      source: "experiments",
+                      stepKey: "environments",
+                    })
+                  }
                 >
                   Review or Add Environments
                 </Link>
@@ -184,7 +222,7 @@ const ExperimentGuide = (): React.ReactElement => {
 
             <div className="row">
               <div className="col-sm-auto">
-                {!isSDKIntegrated ? (
+                {attributesSet ? (
                   <PiCheckCircleFill
                     className="mt-1"
                     style={{
@@ -210,13 +248,24 @@ const ExperimentGuide = (): React.ReactElement => {
               <div className="col">
                 <Link
                   href="/attributes"
-                  style={{ fontSize: "17px", fontWeight: 600 }}
+                  style={{
+                    fontSize: "17px",
+                    fontWeight: 600,
+                    textDecoration: attributesSet ? "line-through" : "none",
+                  }}
+                  onClick={() =>
+                    setStep({
+                      step: "Customize Targeting Attributes",
+                      source: "experiments",
+                      stepKey: "attributes",
+                    })
+                  }
                 >
-                  Set up User Attributes
+                  Customize Targeting Attributes
                 </Link>
                 <p className="mt-2">
-                  Add metrics to define how experiments will be measured and
-                  analyzed in GrowthBook.
+                  Define user attributes to use for targeting experiments and
+                  for use in randomization
                 </p>
                 <hr />
               </div>
@@ -250,16 +299,20 @@ const ExperimentGuide = (): React.ReactElement => {
               <div className="col">
                 <Link
                   href="/experiments"
-                  style={{ fontSize: "17px", fontWeight: 600 }}
+                  style={{
+                    fontSize: "17px",
+                    fontWeight: 600,
+                    textDecoration: hasExperiments ? "line-through" : "none",
+                  }}
                 >
                   Design Your Organization’s First Experiment
                 </Link>
                 <p className="mt-2">
-                  Create an experiment and add changes to variations. Choose
-                  from URL Redirect, Feature Flag or Visual Editor (Pro).
+                  Create an experiment and change variations. Choose from
+                  Feature Flags, URL Redirects, or the Visual Editor (Pro).
                 </p>
+                <hr />
               </div>
-              <hr />
             </div>
 
             <div className="row">
@@ -290,7 +343,13 @@ const ExperimentGuide = (): React.ReactElement => {
               <div className="col">
                 <Link
                   href="/experiments"
-                  style={{ fontSize: "17px", fontWeight: 600 }}
+                  style={{
+                    fontSize: "17px",
+                    fontWeight: 600,
+                    textDecoration: hasStartedExperiment
+                      ? "line-through"
+                      : "none",
+                  }}
                 >
                   <Tooltip
                     body={
@@ -337,6 +396,3 @@ const ExperimentGuide = (): React.ReactElement => {
 };
 
 export default ExperimentGuide;
-function mutateDefinitions() {
-  throw new Error("Function not implemented.");
-}

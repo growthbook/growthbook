@@ -17,6 +17,7 @@ import Layout from "@/components/Layout/Layout";
 import { AppearanceUIThemeProvider } from "@/services/AppearanceUIThemeProvider";
 import TopNavLite from "@/components/Layout/TopNavLite";
 import { AppFeatures } from "@/./types/app-features";
+import GetStartedProvider from "@/services/GetStartedProvider";
 
 type ModAppProps = AppProps & {
   Component: {
@@ -97,30 +98,16 @@ function App({
                 <GrowthBookProvider growthbook={growthbook}>
                   <ProtectedPage organizationRequired={organizationRequired}>
                     {organizationRequired ? (
-                      <DefinitionsProvider>
-                        {/* <div
-                          className="pl-5 py-3"
-                          style={{
-                            background: "#7B45EA",
-                            color: "#FFFFFF",
-                            height: "50px",
-                            width: "100%",
-                            position: "sticky",
-                            top: "0",
-                          }}
-                        >
-                          <span>
-                            <strong>Current Task:</strong> Integrate GrowthBook
-                            SDK into your app.
-                          </span>
-                        </div> */}
-                        {!liteLayout && <Layout />}
-                        <main className={`main ${parts[0]}`}>
-                          <OrganizationMessagesContainer />
-                          <DemoDataSourceGlobalBannerContainer />
-                          <Component {...pageProps} />
-                        </main>
-                      </DefinitionsProvider>
+                      <GetStartedProvider>
+                        <DefinitionsProvider>
+                          {!liteLayout && <Layout />}
+                          <main className={`main ${parts[0]}`}>
+                            <OrganizationMessagesContainer />
+                            <DemoDataSourceGlobalBannerContainer />
+                            <Component {...pageProps} />
+                          </main>
+                        </DefinitionsProvider>
+                      </GetStartedProvider>
                     ) : (
                       <div>
                         <TopNavLite />
