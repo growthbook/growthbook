@@ -128,13 +128,7 @@ const GetStartedPage = (): React.ReactElement => {
                     </linearGradient>
                   </svg>
                   <PiArrowFatLineRight
-                    className="mr-4"
-                    style={{
-                      width: "35px",
-                      height: "35px",
-                      color: "#050549A6",
-                      fill: "url(#arrow-gradient)",
-                    }}
+                    className={`${styles.buttonIcon} mr-4`}
                   />
                   <span style={{ fontSize: "17px", fontWeight: 600 }}>
                     Migrate from LaunchDarkly

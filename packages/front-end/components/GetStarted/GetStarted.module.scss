@@ -58,8 +58,27 @@
   border-color: #f5f2ff;
   border-style: solid;
   border-radius: 6px;
+  transition: box-shadow 0.5s;
+  .buttonIcon {
+    width: 35px;
+    height: 35px;
+    fill: #050549a6;
+    transition: 1s;
+  }
+  #arrow-gradient {
+    opacity: 0;
+    transition: 3s;
+  }
   &:hover {
+    transition: 0.5s;
     box-shadow: 1px 1px 10px #05054910;
+    .buttonIcon {
+      fill: url(#arrow-gradient);
+    }
+    #arrow-gradient {
+      transition: 1s;
+      opacity: 1;
+    }
   }
 }
 
