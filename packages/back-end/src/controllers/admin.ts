@@ -6,6 +6,7 @@ import {
   findAllOrganizations,
   findOrganizationById,
   updateOrganization,
+  deleteOrganizationData,
 } from "../models/OrganizationModel";
 import {
   findUserById,
@@ -161,5 +162,32 @@ export async function updateUser(
 
   return res.status(200).json({
     updated,
+  });
+}
+
+export async function deleteOrganization(
+  req: AuthRequest<null, { orgId: string }>,
+  res: Response
+) {
+  if (!req.superAdmin)
+    return res.status(403).json({
+      status: 403,
+      message: "Only super admins can access this endpoint",
+    });
+
+  await deleteOrganizationData(req.params.orgId);
+
+  req.audit({
+    event: "organization.delete",
+    entity: {
+      object: "organization",
+      id: req.params.orgId,
+    },
+  });
+
+  return res.status(200).json({
+    status: 200,
+    message: "Organization and all related data deleted",
+    orgId: req.params.orgId,
   });
 }
