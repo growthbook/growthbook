@@ -36,7 +36,7 @@
     --myColor2: #7b45ea1a;
     color: #ffffff;
     background: linear-gradient(var(--myColor1), var(--myColor2));
-    box-shadow: 2px 2px 2px #05054920;
+    box-shadow: 2px 2px 5px #05054920;
     text-decoration: none;
     strong {
       color: #ffffffd9;
@@ -48,6 +48,18 @@
     .imgInactive {
       display: none;
     }
+  }
+}
+
+.animatedButton {
+  width: 415px;
+  height: 83px;
+  background-color: #ffffff;
+  border-color: #f5f2ff;
+  border-style: solid;
+  border-radius: 6px;
+  &:hover {
+    box-shadow: 1px 1px 10px #05054910;
   }
 }
 

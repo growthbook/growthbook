@@ -1,4 +1,3 @@
-import { FaSlack } from "react-icons/fa";
 import { PiSealQuestion } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import styles from "@/components/GetStarted/GetStarted.module.scss";
@@ -9,7 +8,7 @@ interface Props {
   type: "get-started" | "features" | "experiments" | "imports";
 }
 
-const DocumentationDisplay = ({
+const DocumentationSidebar = ({
   setUpgradeModal,
   type,
 }: Props): React.ReactElement => {
@@ -168,4 +167,4 @@ const DocumentationDisplay = ({
   );
 };
 
-export default DocumentationDisplay;
+export default DocumentationSidebar;

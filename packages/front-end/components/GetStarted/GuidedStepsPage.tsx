@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PiArrowRight } from "react-icons/pi";
 import { useState } from "react";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import DocumentationDisplay from "@/components/GetStarted/DocumentationDisplay";
+import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 
 interface Props {
   title: string;
@@ -104,7 +104,7 @@ const GuidedStepsPage = (): React.ReactElement => {
           </div>
         </div>
         <div className="">
-          <DocumentationDisplay setUpgradeModal={setUpgradeModal} />
+          <DocumentationSidebar setUpgradeModal={setUpgradeModal} />
         </div>
       </div>
     </div>

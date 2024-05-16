@@ -12,8 +12,7 @@ import {
   PiWebhooksLogo,
 } from "react-icons/pi";
 import clsx from "clsx";
-import { useAuth } from "@/services/auth";
-import DocumentationDisplay from "@/components/GetStarted/DocumentationDisplay";
+import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import styles from "@/components/GetStarted/GetStarted.module.scss";
 import YouTubeLightBox from "@/components/GetStarted/YoutubeLightbox";
@@ -114,15 +113,7 @@ const GetStartedPage = (): React.ReactElement => {
             <div className="d-flex flex-row mt-4 mb-4">
               <Link href="/importing/launchdarkly">
                 <button
-                  className="p-3 mr-3 text-left align-middle"
-                  style={{
-                    width: "415px",
-                    height: "83px",
-                    backgroundColor: "#FFFFFF",
-                    borderColor: "#F5F2FF",
-                    borderStyle: "solid",
-                    borderRadius: "6px",
-                  }}
+                  className={`${styles.animatedButton} p-3 mr-3 text-left align-middle`}
                 >
                   <svg width="0" height="0">
                     <linearGradient
@@ -161,15 +152,7 @@ const GetStartedPage = (): React.ReactElement => {
               </Link>
               <Link href="/getstarted/imported-experiment-guide">
                 <button
-                  className="p-3 text-left align-middle"
-                  style={{
-                    width: "415px",
-                    height: "83px",
-                    backgroundColor: "#FFFFFF",
-                    borderColor: "#F5F2FF",
-                    borderStyle: "solid",
-                    borderRadius: "6px",
-                  }}
+                  className={`${styles.animatedButton} p-3 mr-3 text-left align-middle`}
                 >
                   <svg width="0" height="0">
                     <linearGradient
@@ -387,7 +370,7 @@ const GetStartedPage = (): React.ReactElement => {
           </div>
           <div className="col"></div>
           <div className="col">
-            <DocumentationDisplay
+            <DocumentationSidebar
               setUpgradeModal={setUpgradeModal}
               type="get-started"
             />

@@ -2,7 +2,7 @@ import { PiArrowRight, PiCheckCircleFill } from "react-icons/pi";
 import { useState } from "react";
 import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import DocumentationDisplay from "@/components/GetStarted/DocumentationDisplay";
+import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useUser } from "@/services/UserContext";
@@ -362,7 +362,7 @@ const ExperimentGuide = (): React.ReactElement => {
           </div>
         </div>
         <div className="">
-          <DocumentationDisplay
+          <DocumentationSidebar
             setUpgradeModal={setUpgradeModal}
             type="experiments"
           />
