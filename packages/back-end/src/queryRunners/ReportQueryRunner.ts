@@ -56,7 +56,8 @@ export class ReportQueryRunner extends QueryRunner<
       experimentParams,
       this.integration,
       this.context.org,
-      this.startQuery.bind(this)
+      this.startQuery.bind(this),
+      this.context
     );
   }
   async runAnalysis(queryMap: QueryMap): Promise<ExperimentReportResults> {

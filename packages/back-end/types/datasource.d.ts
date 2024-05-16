@@ -227,62 +227,50 @@ interface DataSourceBase {
 
 interface RedshiftDataSource extends DataSourceBase {
   type: "redshift";
-  supportsQueryCancellation: false;
 }
 
 interface AthenaDataSource extends DataSourceBase {
   type: "athena";
-  supportsQueryCancellation: true;
 }
 
 interface PrestoDataSource extends DataSourceBase {
   type: "presto";
-  supportsQueryCancellation: false;
 }
 
 interface DatabricksDataSource extends DataSourceBase {
   type: "databricks";
-  supportsQueryCancellation: false;
 }
 
 interface GoogleAnalyticsDataSource extends DataSourceBase {
   type: "google_analytics";
-  supportsQueryCancellation: false;
 }
 
 interface SnowflakeDataSource extends DataSourceBase {
   type: "snowflake";
-  supportsQueryCancellation: false;
 }
 
 interface MysqlDataSource extends DataSourceBase {
   type: "mysql";
-  supportsQueryCancellation: false;
 }
 
 interface MssqlDataSource extends DataSourceBase {
   type: "mssql";
-  supportsQueryCancellation: false;
 }
 
 interface PostgresDataSource extends DataSourceBase {
   type: "postgres";
-  supportsQueryCancellation: false;
 }
 
 interface BigQueryDataSource extends DataSourceBase {
   type: "bigquery";
-  supportsQueryCancellation: true;
 }
 
 interface ClickHouseDataSource extends DataSourceBase {
   type: "clickhouse";
-  supportsQueryCancellation: false;
 }
 
 interface MixpanelDataSource extends DataSourceBase {
   type: "mixpanel";
-  supportsQueryCancellation: false;
 }
 
 export type RedshiftDataSourceWithParams = WithParams<
