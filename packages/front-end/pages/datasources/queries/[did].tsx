@@ -90,8 +90,6 @@ const DataSourceQueries = (): React.ReactElement => {
     );
   }
 
-  const supportsCancellation = d.supportsQueryCancellation;
-
   return (
     <div className="container pagecontents">
       {modalData && (
@@ -254,7 +252,7 @@ const DataSourceQueries = (): React.ReactElement => {
                 <td>{query.externalId || "N/A"}</td>
                 <td>
                   <div className="d-flex align-items-center">
-                    {supportsCancellation &&
+                    {d.supportsQueryCancellation &&
                       ["running", "queued", "succeeded"].includes(
                         query.status
                       ) && (
