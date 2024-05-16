@@ -137,7 +137,9 @@ export async function putManualLaunchChecklist(
 
   const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
 
-  req.checkPermissions("runExperiments", experiment?.project || "", envs);
+  if (!context.permissions.canRunExperiment(experiment, envs)) {
+    context.permissions.throwPermissionError();
+  }
 
   await updateExperiment({
     context,

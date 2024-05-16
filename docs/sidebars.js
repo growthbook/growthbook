@@ -327,13 +327,18 @@ const sidebars = {
             },
             {
               type: "doc",
-              id: "statistics/cuped",
-              label: "Regression Adjustment (CUPED)",
+              id: "statistics/details",
+              label: "Statistical Details",
             },
             {
               type: "doc",
-              id: "statistics/multiple-corrections",
-              label: "Multiple Testing Corrections",
+              id: "statistics/quantile",
+              label: "Quantile Testing",
+            },
+            {
+              type: "doc",
+              id: "statistics/cuped",
+              label: "Regression Adjustment (CUPED)",
             },
             {
               type: "doc",
@@ -342,13 +347,13 @@ const sidebars = {
             },
             {
               type: "doc",
-              id: "statistics/aggregation",
-              label: "Aggregate Data",
+              id: "statistics/multiple-corrections",
+              label: "Multiple Testing Corrections",
             },
             {
               type: "doc",
-              id: "statistics/quantile",
-              label: "Quantile Testing",
+              id: "statistics/aggregation",
+              label: "Aggregate Data",
             },
             {
               type: "doc",

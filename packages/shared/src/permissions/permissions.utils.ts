@@ -1,66 +1,109 @@
 import {
   Permission,
   UserPermissions,
-  MemberRole,
+  PermissionsObject,
+  OrganizationInterface,
+  Role,
+  ProjectMemberRole,
+  MemberRoleInfo,
 } from "back-end/types/organization";
+import {
+  DEFAULT_ROLES,
+  ENV_SCOPED_PERMISSIONS,
+  POLICY_PERMISSION_MAP,
+  Policy,
+  READ_ONLY_PERMISSIONS,
+  RESERVED_ROLE_IDS,
+} from "./permissions.constants";
 
-export const ENV_SCOPED_PERMISSIONS = [
-  "publishFeatures",
-  "manageEnvironments",
-  "runExperiments",
-] as const;
+export function policiesSupportEnvLimit(policies: Policy[]): boolean {
+  // If any policies have a permission that is env scoped, return true
+  return policies.some((policy) =>
+    POLICY_PERMISSION_MAP[policy]?.some((permission) =>
+      ENV_SCOPED_PERMISSIONS.includes(
+        permission as typeof ENV_SCOPED_PERMISSIONS[number]
+      )
+    )
+  );
+}
 
-export const PROJECT_SCOPED_PERMISSIONS = [
-  "readData",
-  "addComments",
-  "bypassApprovalChecks",
-  "canReview",
-  "manageFeatureDrafts",
-  "manageFeatures",
-  "manageProjects",
-  "createAnalyses",
-  "createIdeas",
-  "createMetrics",
-  "manageFactTables",
-  "createDatasources",
-  "editDatasourceSettings",
-  "runQueries",
-  "manageTargetingAttributes",
-  "manageVisualChanges",
-] as const;
+export function getPermissionsObjectByPolicies(
+  policies: Policy[]
+): PermissionsObject {
+  const permissions: PermissionsObject = {};
 
-export const GLOBAL_PERMISSIONS = [
-  "readData",
-  "createPresentations",
-  "createDimensions",
-  "createSegments",
-  "organizationSettings",
-  "superDeleteReport",
-  "manageTeam",
-  "manageTags",
-  "manageApiKeys",
-  "manageIntegrations",
-  "manageWebhooks",
-  "manageBilling",
-  "manageNorthStarMetric",
-  "manageNamespaces",
-  "manageSavedGroups",
-  "manageArchetype",
-  "viewEvents",
-] as const;
+  policies.forEach((policy) => {
+    POLICY_PERMISSION_MAP[policy]?.forEach((permission) => {
+      permissions[permission] = true;
+    });
+  });
 
-export const ALL_PERMISSIONS = [
-  ...GLOBAL_PERMISSIONS,
-  ...PROJECT_SCOPED_PERMISSIONS,
-  ...ENV_SCOPED_PERMISSIONS,
-];
+  return permissions;
+}
 
-export const READ_ONLY_PERMISSIONS = [
-  "readData",
-  "viewEvents",
-  "runQueries",
-  "addComments",
-];
+export function getRoleById(
+  roleId: string,
+  organization: Partial<OrganizationInterface>
+): Role | null {
+  const roles = getRoles(organization);
+
+  return roles.find((role) => role.id === roleId) || null;
+}
+
+export function getRoles(org: Partial<OrganizationInterface>) {
+  // Always start with default roles
+  const roles = Object.values(DEFAULT_ROLES);
+
+  // TODO: Allow orgs to remove/disable some default roles
+
+  // Role ids must be unique, keep track of used ids
+  const usedIds = new Set(RESERVED_ROLE_IDS);
+
+  // Add additional custom roles
+  if (org.customRoles?.length) {
+    org.customRoles.forEach((role) => {
+      if (usedIds.has(role.id)) return;
+      usedIds.add(role.id);
+      roles.push(role);
+    });
+  }
+
+  return roles;
+}
+
+export function isRoleValid(role: string, org: Partial<OrganizationInterface>) {
+  return !!getRoleById(role, org);
+}
+
+export function areProjectRolesValid(
+  projectRoles: ProjectMemberRole[] | undefined,
+  org: Partial<OrganizationInterface>
+) {
+  if (!projectRoles) {
+    return true;
+  }
+  return projectRoles.every((p) => isRoleValid(p.role, org));
+}
+
+export function getDefaultRole(
+  org: Partial<OrganizationInterface>
+): MemberRoleInfo {
+  // First try the explicitly provided default role
+  if (
+    org.settings?.defaultRole?.role &&
+    isRoleValid(org.settings.defaultRole.role, org)
+  ) {
+    return org.settings.defaultRole;
+  }
+
+  // Fall back to using "collaborator"
+  // TODO: If we allow disabling roles, check to make sure "collaborator" is enabled
+  return {
+    role: "collaborator",
+    environments: [],
+    limitAccessByEnvironment: false,
+  };
+}
 
 export function hasPermission(
   userPermissions: UserPermissions | undefined,
@@ -125,83 +168,13 @@ export const userHasPermission = (
   }
 };
 
-export function roleSupportsEnvLimit(role: MemberRole): boolean {
-  return ["engineer", "experimenter"].includes(role);
-}
-
-export type ReadAccessFilter = {
-  globalReadAccess: boolean;
-  projects: { id: string; readAccess: boolean }[];
-};
-
-// there are some cases, like in async jobs, where we need to provide the job with full access permission. E.G. updateScheduledFeature
-export const FULL_ACCESS_PERMISSIONS: ReadAccessFilter = {
-  globalReadAccess: true,
-  projects: [],
-};
-
-export function getApiKeyReadAccessFilter(
-  role: string | undefined
-): ReadAccessFilter {
-  let readAccessFilter: ReadAccessFilter = {
-    globalReadAccess: false,
-    projects: [],
-  };
-
-  // Eventually, we may support API keys that don't have readAccess for all projects
-  if (role && (role === "admin" || role === "readonly")) {
-    readAccessFilter = FULL_ACCESS_PERMISSIONS;
-  }
-
-  return readAccessFilter;
-}
-
-export function getReadAccessFilter(userPermissions: UserPermissions) {
-  const readAccess: ReadAccessFilter = {
-    globalReadAccess: userPermissions.global.permissions.readData || false,
-    projects: [],
-  };
-
-  Object.entries(userPermissions.projects).forEach(
-    ([project, projectPermissions]) => {
-      readAccess.projects.push({
-        id: project,
-        readAccess: projectPermissions.permissions.readData || false,
-      });
-    }
-  );
-
-  return readAccess;
-}
-export function hasReadAccess(
-  filter: ReadAccessFilter,
-  projects: string | string[] | undefined
+export function roleSupportsEnvLimit(
+  roleId: string,
+  org: Partial<OrganizationInterface>
 ): boolean {
-  // If the resource is available to all projects (an empty array), then everyone should have read access
-  if (Array.isArray(projects) && !projects?.length) {
-    return true;
-  }
+  if (roleId === "admin") return false;
 
-  const hasGlobaReadAccess = filter.globalReadAccess;
+  const role = getRoleById(roleId, org);
 
-  // if the user doesn't have project specific roles or resource doesn't have a project (project is an empty string), fallback to user's global role
-  if (!filter.projects.length || !projects) {
-    return hasGlobaReadAccess;
-  }
-
-  const resourceProjects = Array.isArray(projects) ? projects : [projects];
-
-  // if the user doesn't have global read access, but they do have read access for atleast one of the resource's projects, allow read access to resource
-  if (!hasGlobaReadAccess) {
-    return resourceProjects.some((project) => {
-      return filter.projects.some((p) => p.id === project && p.readAccess);
-    });
-  }
-
-  // otherwise, don't allow read access only if the user's project-specific roles restrict read access for all of the resource's projects
-  const everyProjectRestrictsReadAccess = resourceProjects.every((project) => {
-    return filter.projects.some((p) => p.id === project && !p.readAccess);
-  });
-
-  return everyProjectRestrictsReadAccess ? false : true;
+  return policiesSupportEnvLimit(role?.policies || []);
 }

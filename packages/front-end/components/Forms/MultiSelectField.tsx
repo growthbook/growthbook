@@ -7,6 +7,7 @@ import ReactSelect, {
   Props,
   StylesConfig,
   OptionProps,
+  FormatOptionLabelMeta,
 } from "react-select";
 import {
   SortableContainer,
@@ -87,7 +88,10 @@ const MultiSelectField: FC<
     customClassName?: string;
     closeMenuOnSelect?: boolean;
     creatable?: boolean;
-    formatOptionLabel?: (value: SingleValue) => ReactNode;
+    formatOptionLabel?: (
+      value: SingleValue,
+      meta: FormatOptionLabelMeta<SingleValue>
+    ) => ReactNode;
     onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   }
 > = ({

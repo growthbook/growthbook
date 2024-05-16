@@ -2,7 +2,7 @@ import path from "path";
 import fs from "fs";
 import { licenseInit } from "enterprise";
 import md5 from "md5";
-import { findAllSDKConnections } from "../models/SdkConnectionModel";
+import { findAllSDKConnectionsAcrossAllOrgs } from "../models/SdkConnectionModel";
 import { getInstallationId } from "../models/InstallationModel";
 import { IS_CLOUD } from "../util/secrets";
 import { getInstallationDatasources } from "../models/DataSourceModel";
@@ -35,7 +35,7 @@ export async function getLicenseMetaData() {
   if (!IS_CLOUD) {
     sdkLanguages = Array.from(
       new Set(
-        (await findAllSDKConnections())
+        (await findAllSDKConnectionsAcrossAllOrgs())
           .map((connection) => connection.languages)
           .flat()
       )

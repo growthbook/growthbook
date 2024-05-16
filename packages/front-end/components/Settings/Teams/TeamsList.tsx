@@ -14,7 +14,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const TeamsList: FC = () => {
-  const { teams, refreshOrganization } = useUser();
+  const { teams, refreshOrganization, organization } = useUser();
   const { projects } = useDefinitions();
   const router = useRouter();
   const environments = useEnvironments();
@@ -86,7 +86,11 @@ const TeamsList: FC = () => {
                         })}
                     </td>
                     {environments.map((env) => {
-                      const access = roleHasAccessToEnv(t, env.id);
+                      const access = roleHasAccessToEnv(
+                        t,
+                        env.id,
+                        organization
+                      );
                       return (
                         <td key={env.id}>
                           {access === "N/A" ? (

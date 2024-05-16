@@ -223,7 +223,7 @@ export const postFactFilterTest = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  if (!context.permissions.canUpdateFactTable(factTable, {})) {
+  if (!context.permissions.canCreateAndUpdateFactFilter(factTable)) {
     context.permissions.throwPermissionError();
   }
 
@@ -257,7 +257,7 @@ export const postFactFilter = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  if (!context.permissions.canUpdateFactTable(factTable, {})) {
+  if (!context.permissions.canCreateAndUpdateFactFilter(factTable)) {
     context.permissions.throwPermissionError();
   }
 
@@ -286,7 +286,7 @@ export const putFactFilter = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  if (!context.permissions.canUpdateFactTable(factTable, {})) {
+  if (!context.permissions.canCreateAndUpdateFactFilter(factTable)) {
     context.permissions.throwPermissionError();
   }
 
@@ -307,7 +307,7 @@ export const deleteFactFilter = async (
   if (!factTable) {
     throw new Error("Could not find filter table with that id");
   }
-  if (!context.permissions.canUpdateFactTable(factTable, {})) {
+  if (!context.permissions.canDeleteFactFilter(factTable)) {
     context.permissions.throwPermissionError();
   }
 

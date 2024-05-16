@@ -8,7 +8,7 @@ import normal from "@stdlib/stats/base/dists/normal";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariationWithIndex,
-  MetricRegressionAdjustmentStatus,
+  MetricSnapshotSettings,
 } from "back-end/types/report";
 import { MetricDefaults } from "back-end/types/organization";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
@@ -38,7 +38,7 @@ export type ExperimentTableRow = {
   metricOverrideFields: string[];
   variations: SnapshotMetric[];
   rowClass?: string;
-  regressionAdjustmentStatus?: MetricRegressionAdjustmentStatus;
+  metricSnapshotSettings?: MetricSnapshotSettings;
   isGuardrail?: boolean;
 };
 
@@ -50,8 +50,18 @@ export function getRisk(
   // separate CR because sometimes "baseline" above is the variation
   baselineCR: number
 ): { risk: number; relativeRisk: number; showRisk: boolean } {
-  const risk = stats.risk?.[1] ?? 0;
-  const relativeRisk = baselineCR ? risk / baselineCR : 0;
+  const statsRisk = stats.risk?.[1] ?? 0;
+  let risk: number;
+  let relativeRisk: number;
+  if (stats.riskType === "relative") {
+    risk = statsRisk * baselineCR;
+    relativeRisk = statsRisk;
+  } else {
+    // otherwise it is absolute, including legacy snapshots
+    // that were missing `riskType` field
+    risk = statsRisk;
+    relativeRisk = baselineCR ? statsRisk / baselineCR : 0;
+  }
   const showRisk =
     baseline.cr > 0 &&
     hasEnoughData(baseline, stats, metric, metricDefaults) &&
@@ -194,6 +204,17 @@ export function applyMetricOverrides<T extends ExperimentMetricInterface>(
           metricOverride.regressionAdjustmentDays;
         overrideFields.push("regressionAdjustmentDays");
       }
+    }
+
+    if (metricOverride?.properPriorOverride) {
+      newMetric.priorSettings.override = true;
+      newMetric.priorSettings.proper =
+        metricOverride.properPriorEnabled ?? newMetric.priorSettings.proper;
+      newMetric.priorSettings.mean =
+        metricOverride.properPriorMean ?? newMetric.priorSettings.mean;
+      newMetric.priorSettings.stddev =
+        metricOverride.properPriorStdDev ?? newMetric.priorSettings.stddev;
+      overrideFields.push("prior");
     }
   }
   return { newMetric, overrideFields };

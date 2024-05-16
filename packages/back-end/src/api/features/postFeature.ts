@@ -90,7 +90,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       dateCreated: new Date(),
       dateUpdated: new Date(),
       organization: req.organization.id,
-      id: req.body.id.toLowerCase(),
+      id: req.body.id,
       archived: !!req.body.archived,
       version: 1,
       environmentSettings: {},
@@ -114,14 +114,19 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
     // ensure default value matches value type
     feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
 
-    req.checkPermissions(
-      "publishFeatures",
-      feature.project,
-      getEnabledEnvironments(
+    if (
+      !req.context.permissions.canPublishFeature(
         feature,
-        orgEnvs.map((e) => e.id)
+        Array.from(
+          getEnabledEnvironments(
+            feature,
+            orgEnvs.map((e) => e.id)
+          )
+        )
       )
-    );
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
 
     addIdsToRules(feature.environmentSettings, feature.id);
 

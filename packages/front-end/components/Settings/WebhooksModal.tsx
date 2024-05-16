@@ -1,11 +1,14 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
-import { WebhookInterface, WebhookMethod } from "back-end/types/webhook";
+import {
+  CreateSdkWebhookProps,
+  UpdateSdkWebhookProps,
+  WebhookInterface,
+  WebhookMethod,
+} from "back-end/types/webhook";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useEnvironments } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
 import Toggle from "@/components/Forms/Toggle";
@@ -17,13 +20,11 @@ const WebhooksModal: FC<{
   onSave: () => void;
   defaultDescription?: string;
   current: Partial<WebhookInterface>;
-  showSDKMode?: boolean;
-  sdkid?: string;
-}> = ({ close, onSave, current, showSDKMode, sdkid }) => {
+  sdkConnectionId: string;
+}> = ({ close, onSave, current, sdkConnectionId }) => {
   const { apiCall } = useAuth();
   const [validHeaders, setValidHeaders] = useState(true);
 
-  showSDKMode = showSDKMode || false;
   const methodTypes: WebhookMethod[] = [
     "POST",
     "GET",
@@ -31,39 +32,20 @@ const WebhooksModal: FC<{
     "DELETE",
     "PURGE",
   ];
-  const { projects, project } = useDefinitions();
-  const environments = useEnvironments();
   const form = useForm({
     defaultValues: {
       name: current.name || "My Webhook",
       endpoint: current.endpoint || "",
-      project: current.project || (current.id ? "" : project),
-      environment:
-        current.environment === undefined ? "production" : current.environment,
-      useSdkMode: current?.useSdkMode || showSDKMode,
-      sendPayload: current?.sendPayload,
+      useSdkMode: true,
+      sendPayload: current?.sendPayload || false,
       httpMethod: current?.httpMethod || "POST",
       headers: current?.headers || "{}",
-      sdkid,
+      sdkid: sdkConnectionId,
     },
   });
 
-  const handleApiCall = async (value) => {
-    if (showSDKMode) {
-      await apiCall(current.id ? `/webhook/${current.id}` : "/webhooks/sdk", {
-        method: current.id ? "PUT" : "POST",
-        body: JSON.stringify(value),
-      });
-    } else {
-      await apiCall(current.id ? `/webhook/${current.id}` : "/webhooks", {
-        method: current.id ? "PUT" : "POST",
-        body: JSON.stringify(value),
-      });
-    }
-  };
-
   const isValidHttp = (urlString: string) => {
-    let url;
+    let url: URL;
     try {
       url = new URL(urlString);
     } catch (e) {
@@ -79,48 +61,39 @@ const WebhooksModal: FC<{
     if (!isValidHttp(value.endpoint)) {
       throw new Error("Invalid URL");
     }
-    await handleApiCall(value);
+
+    if (current.id) {
+      const data: UpdateSdkWebhookProps = {
+        endpoint: value.endpoint,
+        headers: value.headers,
+        httpMethod: value.httpMethod,
+        name: value.name,
+        sendPayload: value.sendPayload,
+      };
+
+      await apiCall(`/sdk-webhooks/${current.id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      });
+    } else {
+      const data: CreateSdkWebhookProps = {
+        name: value.name,
+        endpoint: value.endpoint,
+        sendPayload: value.sendPayload,
+        httpMethod: value.httpMethod,
+        headers: value.headers,
+      };
+      await apiCall(`/sdk-connections/${sdkConnectionId}/webhooks`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    }
+
     track(current.id ? "Edit Webhook" : "Create Webhook");
     onSave();
     close();
   });
 
-  const envOptions = environments.map((e) => ({
-    label: e.id,
-    value: e.id,
-  }));
-
-  // New webhooks must select a single environment
-  // Add the option to select both only when required for backwards compatibility
-  if (current && current.environment === "") {
-    envOptions.push({
-      label: "Both dev and production",
-      value: "",
-    });
-  }
-  const SDKFilterFields = () => (
-    <>
-      <Toggle
-        id="sendPayload"
-        value={!!form.watch("sendPayload")}
-        setValue={(value) => {
-          form.setValue("sendPayload", value);
-        }}
-      />
-      <label htmlFor="sendPayload">Send Payload</label>
-      <SelectField
-        label="Method"
-        required
-        placeholder="POST"
-        value={form.watch("httpMethod")}
-        onChange={(httpMethod: WebhookMethod) =>
-          form.setValue("httpMethod", httpMethod)
-        }
-        options={methodTypes.map((e) => ({ label: e, value: e }))}
-      />
-      {headerJsonEditor()}
-    </>
-  );
   const validateHeaders = (headers: string) => {
     try {
       JSON.parse(headers);
@@ -149,29 +122,6 @@ const WebhooksModal: FC<{
       }
     />
   );
-  const nonSDKFilterFields = () => (
-    <>
-      <SelectField
-        label="Environment"
-        value={form.watch("environment")}
-        onChange={(environment) => form.setValue("environment", environment)}
-        options={envOptions}
-      />
-      {projects.length > 0 && (
-        <SelectField
-          label="project"
-          options={projects.map((p) => ({
-            label: p.name,
-            value: p.id,
-          }))}
-          initialOption="All Projects"
-          value={form.watch("project")}
-          onChange={(project) => form.setValue("project", project)}
-        />
-      )}
-    </>
-  );
-  const filterFields = showSDKMode ? SDKFilterFields() : nonSDKFilterFields();
 
   return (
     <Modal
@@ -217,7 +167,25 @@ const WebhooksModal: FC<{
         </div>
       )}
       <h4>Webhook Filter</h4>
-      {filterFields}
+      <Toggle
+        id="sendPayload"
+        value={!!form.watch("sendPayload")}
+        setValue={(value) => {
+          form.setValue("sendPayload", value);
+        }}
+      />
+      <label htmlFor="sendPayload">Send Payload</label>
+      <SelectField
+        label="Method"
+        required
+        placeholder="POST"
+        value={form.watch("httpMethod")}
+        onChange={(httpMethod: WebhookMethod) =>
+          form.setValue("httpMethod", httpMethod)
+        }
+        options={methodTypes.map((e) => ({ label: e, value: e }))}
+      />
+      {headerJsonEditor()}
     </Modal>
   );
 };

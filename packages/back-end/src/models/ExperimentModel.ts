@@ -3,7 +3,6 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
-import { hasReadAccess } from "shared/permissions";
 import {
   Changeset,
   ExperimentInterface,
@@ -93,6 +92,10 @@ const experimentSchema = new mongoose.Schema({
       delayHours: Number,
       winRisk: Number,
       loseRisk: Number,
+      properPriorOverride: Boolean,
+      properPriorEnabled: Boolean,
+      properPriorMean: Number,
+      properPriorStdDev: Number,
       regressionAdjustmentOverride: Boolean,
       regressionAdjustmentEnabled: Boolean,
       regressionAdjustmentDays: Number,
@@ -236,7 +239,7 @@ async function findExperiments(
   const experiments = (await cursor).map(toInterface);
 
   return experiments.filter((exp) =>
-    hasReadAccess(context.readAccessFilter, exp.project)
+    context.permissions.canReadSingleProjectResource(exp.project)
   );
 }
 
@@ -253,7 +256,7 @@ export async function getExperimentById(
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
+  return context.permissions.canReadSingleProjectResource(experiment.project)
     ? experiment
     : null;
 }
@@ -286,7 +289,7 @@ export async function getExperimentByTrackingKey(
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
+  return context.permissions.canReadSingleProjectResource(experiment.project)
     ? experiment
     : null;
 }
@@ -469,7 +472,7 @@ export async function getExperimentByIdea(
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
+  return context.permissions.canReadSingleProjectResource(experiment.project)
     ? experiment
     : null;
 }
@@ -564,7 +567,7 @@ export async function getPastExperimentsByDatasource(
   );
 
   const experimentsUserCanAccess = experiments.filter((exp) =>
-    hasReadAccess(context.readAccessFilter, exp.project)
+    context.permissions.canReadSingleProjectResource(exp.project)
   );
 
   return experimentsUserCanAccess.map((exp) => ({
@@ -661,7 +664,7 @@ export async function getExperimentsForActivityFeed(
   );
 
   const filteredExperiments = experiments.filter((exp) =>
-    hasReadAccess(context.readAccessFilter, exp.project)
+    context.permissions.canReadSingleProjectResource(exp.project)
   );
 
   return filteredExperiments.map((exp) => ({
@@ -688,7 +691,7 @@ const findExperiment = async ({
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
+  return context.permissions.canReadSingleProjectResource(experiment.project)
     ? experiment
     : null;
 };
@@ -1361,7 +1364,9 @@ const onExperimentUpdate = async ({
       isEqual
     );
 
-    refreshSDKPayloadCache(context, payloadKeys);
+    refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
+      logger.error(e, "Error refreshing SDK payload cache");
+    });
   }
 };
 
@@ -1378,5 +1383,7 @@ const onExperimentDelete = async (
   }
 
   const payloadKeys = getPayloadKeys(context, experiment, linkedFeatures);
-  refreshSDKPayloadCache(context, payloadKeys);
+  refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
+    logger.error(e, "Error refreshing SDK payload cache");
+  });
 };
