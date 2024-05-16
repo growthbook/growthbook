@@ -92,7 +92,7 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   manageIntegrations: false,
   organizationSettings: false,
   superDeleteReport: false,
-  viewEvents: false,
+  viewAuditLog: false,
   readData: false,
   manageCustomRoles: false,
 };

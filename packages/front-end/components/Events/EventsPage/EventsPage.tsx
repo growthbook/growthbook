@@ -41,7 +41,7 @@ export const EventsPage: FC<EventsPageProps> = ({
 }) => {
   const permissionsUtil = usePermissionsUtil();
 
-  if (!permissionsUtil.canViewEvents()) {
+  if (!permissionsUtil.canViewAuditLogs()) {
     return (
       <div className="container pagecontents">
         <div className="alert alert-danger">

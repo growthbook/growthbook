@@ -203,6 +203,12 @@ export async function trackLoginForUser({
     data: {
       current: auditedData,
     },
+    projects: [],
+    tags: [],
+    environments: [],
+    // The event contains the ip, userAgent, etc. of users
+    // When marked as containing secrets, view access will be restricted to admins
+    containsSecrets: true,
   };
 
   try {

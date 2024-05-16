@@ -1,3 +1,4 @@
+import { getAffectedEnvsForExperiment } from "shared/util";
 import { Context } from "../models/BaseModel";
 import { createEvent } from "../models/EventModel";
 import { getExperimentById, updateExperiment } from "../models/ExperimentModel";
@@ -29,6 +30,7 @@ type ExperimentWarningNotificationData = IfEqual<
 
 const dispatchEvent = async (
   context: Context,
+  experiment: ExperimentInterface,
   data: ExperimentWarningNotificationData
 ) => {
   const payload: ExperimentWarningNotificationEvent = {
@@ -41,6 +43,10 @@ const dispatchEvent = async (
       email: context.email,
       name: context.userName,
     },
+    projects: [experiment.project || ""],
+    environments: getAffectedEnvsForExperiment({ experiment }),
+    tags: experiment.tags || [],
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(context.org.id, payload);
@@ -96,7 +102,7 @@ export const notifyAutoUpdate = ({
     type: "auto-update",
     triggered: !success,
     dispatch: () =>
-      dispatchEvent(context, {
+      dispatchEvent(context, experiment, {
         type: "auto-update",
         success,
         experimentId: experiment.id,
@@ -136,7 +142,7 @@ const notifyMultipleExposures = async ({
     dispatch: async () => {
       if (!triggered) return;
 
-      await dispatchEvent(context, {
+      await dispatchEvent(context, experiment, {
         type: "multiple-exposures",
         experimentId: experiment.id,
         experimentName: experiment.name,
@@ -171,7 +177,7 @@ const notifySrm = async ({
     dispatch: async () => {
       if (!triggered) return;
 
-      await dispatchEvent(context, {
+      await dispatchEvent(context, experiment, {
         type: "srm",
         experimentId: experiment.id,
         experimentName: experiment.name,
