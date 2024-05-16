@@ -1,4 +1,4 @@
-import { getAffectedEnvsForExperiment } from "shared/util";
+import { includeExperimentInPayload } from "shared/util";
 import { Context } from "../models/BaseModel";
 import { createEvent } from "../models/EventModel";
 import { getExperimentById, updateExperiment } from "../models/ExperimentModel";
@@ -15,6 +15,7 @@ import {
 import { ExperimentReportResultDimension } from "../../types/report";
 import { ExperimentWarningNotificationPayload } from "../types/ExperimentNotification";
 import { IfEqual } from "../util/types";
+import { getEnvironmentIdsFromOrg } from "./organizations";
 
 // This ensures that the two types remain equal.
 
@@ -33,6 +34,10 @@ const dispatchEvent = async (
   experiment: ExperimentInterface,
   data: ExperimentWarningNotificationData
 ) => {
+  const changedEnvs = includeExperimentInPayload(experiment)
+    ? getEnvironmentIdsFromOrg(context.org)
+    : [];
+
   const payload: ExperimentWarningNotificationEvent = {
     event: "experiment.warning",
     object: "experiment",
@@ -44,7 +49,7 @@ const dispatchEvent = async (
       name: context.userName,
     },
     projects: [experiment.project || ""],
-    environments: getAffectedEnvsForExperiment({ experiment }),
+    environments: changedEnvs,
     tags: experiment.tags || [],
     containsSecrets: false,
   };
