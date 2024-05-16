@@ -782,10 +782,88 @@ paths:
                         items:
                           $ref: '#/components/schemas/SdkConnection'
                   - $ref: '#/components/schemas/PaginationFields'
+    post:
+      summary: Create a single sdk connection
+      tags:
+        - sdk-connections
+      operationId: postSdkConnection
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/sdk-connections \
+              -d '{ name: "new-connection", ... }'
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - organization
+                - languages
+              properties:
+                name:
+                  type: string
+                organization:
+                  type: string
+                languages:
+                  type: array
+                  items:
+                    type: string
+                sdkVersion:
+                  type: string
+                environment:
+                  type: string
+                project:
+                  description: Use 'projects' instead. This is only for backwards compatibility and contains the first project only.
+                  type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+                encryptPayload:
+                  type: boolean
+                encryptionKey:
+                  type: string
+                includeVisualExperiments:
+                  type: boolean
+                includeDraftExperiments:
+                  type: boolean
+                includeExperimentNames:
+                  type: boolean
+                includeRedirectExperiments:
+                  type: boolean
+                key:
+                  type: string
+                proxyEnabled:
+                  type: boolean
+                proxyHost:
+                  type: string
+                proxySigningKey:
+                  type: string
+                sseEnabled:
+                  type: boolean
+                hashSecureAttributes:
+                  type: boolean
+                remoteEvalEnabled:
+                  type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - sdkConnection
+                properties:
+                  sdkConnection:
+                    $ref: '#/components/schemas/SdkConnection'
   '/sdk-connections/{id}':
-    parameters:
-      - $ref: '#/components/parameters/id'
     get:
+      parameters:
+        - $ref: '#/components/parameters/id'
       summary: Get a single sdk connection
       tags:
         - sdk-connections
@@ -806,6 +884,103 @@ paths:
                 properties:
                   sdkConnection:
                     $ref: '#/components/schemas/SdkConnection'
+    put:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      summary: Update a single sdk connection
+      tags:
+        - sdk-connections
+      operationId: putSdkConnection
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X PUT https://api.growthbook.io/api/v1/sdk-connections/connection_id \
+              -d '{ name: "new-connection", ... }'
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                languages:
+                  type: array
+                  items:
+                    type: string
+                sdkVersion:
+                  type: string
+                environment:
+                  type: string
+                project:
+                  description: Use 'projects' instead. This is only for backwards compatibility and contains the first project only.
+                  type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+                encryptPayload:
+                  type: boolean
+                encryptionKey:
+                  type: string
+                includeVisualExperiments:
+                  type: boolean
+                includeDraftExperiments:
+                  type: boolean
+                includeExperimentNames:
+                  type: boolean
+                includeRedirectExperiments:
+                  type: boolean
+                key:
+                  type: string
+                proxyEnabled:
+                  type: boolean
+                proxyHost:
+                  type: string
+                proxySigningKey:
+                  type: string
+                sseEnabled:
+                  type: boolean
+                hashSecureAttributes:
+                  type: boolean
+                remoteEvalEnabled:
+                  type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - sdkConnection
+                properties:
+                  sdkConnection:
+                    $ref: '#/components/schemas/SdkConnection'
+    delete:
+      summary: Deletes a single SDK connection
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - sdk-connection
+      operationId: deleteSdkConnection
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/sdk-connections/connection_id \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
   /data-sources:
     get:
       summary: Get all data sources

@@ -82,16 +82,16 @@ export interface paths {
   "/sdk-connections": {
     /** Get all sdk connections */
     get: operations["listSdkConnections"];
+    /** Create a single sdk connection */
+    post: operations["postSdkConnection"];
   };
   "/sdk-connections/{id}": {
     /** Get a single sdk connection */
     get: operations["getSdkConnection"];
-    parameters: {
-        /** @description The id of the requested resource */
-      path: {
-        id: string;
-      };
-    };
+    /** Update a single sdk connection */
+    put: operations["putSdkConnection"];
+    /** Deletes a single SDK connection */
+    delete: operations["deleteSdkConnection"];
   };
   "/data-sources": {
     /** Get all data sources */
@@ -2864,8 +2864,35 @@ export interface operations {
       };
     };
   };
-  getSdkConnection: {
-    /** Get a single sdk connection */
+  postSdkConnection: {
+    /** Create a single sdk connection */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          organization: string;
+          languages: (string)[];
+          sdkVersion?: string;
+          environment?: string;
+          /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
+          project?: string;
+          projects?: (string)[];
+          encryptPayload?: boolean;
+          encryptionKey?: string;
+          includeVisualExperiments?: boolean;
+          includeDraftExperiments?: boolean;
+          includeExperimentNames?: boolean;
+          includeRedirectExperiments?: boolean;
+          key?: string;
+          proxyEnabled?: boolean;
+          proxyHost?: string;
+          proxySigningKey?: string;
+          sseEnabled?: boolean;
+          hashSecureAttributes?: boolean;
+          remoteEvalEnabled?: boolean;
+        };
+      };
+    };
     responses: {
       200: {
         content: {
@@ -2898,6 +2925,140 @@ export interface operations {
               hashSecureAttributes?: boolean;
               remoteEvalEnabled?: boolean;
             };
+          };
+        };
+      };
+    };
+  };
+  getSdkConnection: {
+    /** Get a single sdk connection */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            sdkConnection: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              organization: string;
+              languages: (string)[];
+              sdkVersion?: string;
+              environment: string;
+              /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
+              project: string;
+              projects?: (string)[];
+              encryptPayload: boolean;
+              encryptionKey: string;
+              includeVisualExperiments?: boolean;
+              includeDraftExperiments?: boolean;
+              includeExperimentNames?: boolean;
+              includeRedirectExperiments?: boolean;
+              key: string;
+              proxyEnabled: boolean;
+              proxyHost: string;
+              proxySigningKey: string;
+              sseEnabled?: boolean;
+              hashSecureAttributes?: boolean;
+              remoteEvalEnabled?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  putSdkConnection: {
+    /** Update a single sdk connection */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          languages?: (string)[];
+          sdkVersion?: string;
+          environment?: string;
+          /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
+          project?: string;
+          projects?: (string)[];
+          encryptPayload?: boolean;
+          encryptionKey?: string;
+          includeVisualExperiments?: boolean;
+          includeDraftExperiments?: boolean;
+          includeExperimentNames?: boolean;
+          includeRedirectExperiments?: boolean;
+          key?: string;
+          proxyEnabled?: boolean;
+          proxyHost?: string;
+          proxySigningKey?: string;
+          sseEnabled?: boolean;
+          hashSecureAttributes?: boolean;
+          remoteEvalEnabled?: boolean;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            sdkConnection: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              organization: string;
+              languages: (string)[];
+              sdkVersion?: string;
+              environment: string;
+              /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
+              project: string;
+              projects?: (string)[];
+              encryptPayload: boolean;
+              encryptionKey: string;
+              includeVisualExperiments?: boolean;
+              includeDraftExperiments?: boolean;
+              includeExperimentNames?: boolean;
+              includeRedirectExperiments?: boolean;
+              key: string;
+              proxyEnabled: boolean;
+              proxyHost: string;
+              proxySigningKey: string;
+              sseEnabled?: boolean;
+              hashSecureAttributes?: boolean;
+              remoteEvalEnabled?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteSdkConnection: {
+    /** Deletes a single SDK connection */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
           };
         };
       };
@@ -6381,7 +6542,10 @@ export type GetDimensionResponse = operations["getDimension"]["responses"]["200"
 export type ListSegmentsResponse = operations["listSegments"]["responses"]["200"]["content"]["application/json"];
 export type GetSegmentResponse = operations["getSegment"]["responses"]["200"]["content"]["application/json"];
 export type ListSdkConnectionsResponse = operations["listSdkConnections"]["responses"]["200"]["content"]["application/json"];
+export type PostSdkConnectionResponse = operations["postSdkConnection"]["responses"]["200"]["content"]["application/json"];
 export type GetSdkConnectionResponse = operations["getSdkConnection"]["responses"]["200"]["content"]["application/json"];
+export type PutSdkConnectionResponse = operations["putSdkConnection"]["responses"]["200"]["content"]["application/json"];
+export type DeleteSdkConnectionResponse = operations["deleteSdkConnection"]["responses"]["200"]["content"]["application/json"];
 export type ListDataSourcesResponse = operations["listDataSources"]["responses"]["200"]["content"]["application/json"];
 export type GetDataSourceResponse = operations["getDataSource"]["responses"]["200"]["content"]["application/json"];
 export type ListExperimentsResponse = operations["listExperiments"]["responses"]["200"]["content"]["application/json"];

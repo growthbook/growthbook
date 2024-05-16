@@ -84,7 +84,25 @@ export const listSdkConnectionsValidator = {
   paramsSchema: z.never(),
 };
 
+export const postSdkConnectionValidator = {
+  bodySchema: z.object({ "name": z.string(), "organization": z.string(), "languages": z.array(z.string()), "sdkVersion": z.string().optional(), "environment": z.string().optional(), "project": z.string().describe("Use 'projects' instead. This is only for backwards compatibility and contains the first project only.").optional(), "projects": z.array(z.string()).optional(), "encryptPayload": z.boolean().optional(), "encryptionKey": z.string().optional(), "includeVisualExperiments": z.boolean().optional(), "includeDraftExperiments": z.boolean().optional(), "includeExperimentNames": z.boolean().optional(), "includeRedirectExperiments": z.boolean().optional(), "key": z.string().optional(), "proxyEnabled": z.boolean().optional(), "proxyHost": z.string().optional(), "proxySigningKey": z.string().optional(), "sseEnabled": z.boolean().optional(), "hashSecureAttributes": z.boolean().optional(), "remoteEvalEnabled": z.boolean().optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
 export const getSdkConnectionValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const putSdkConnectionValidator = {
+  bodySchema: z.object({ "name": z.string().optional(), "languages": z.array(z.string()).optional(), "sdkVersion": z.string().optional(), "environment": z.string().optional(), "project": z.string().describe("Use 'projects' instead. This is only for backwards compatibility and contains the first project only.").optional(), "projects": z.array(z.string()).optional(), "encryptPayload": z.boolean().optional(), "encryptionKey": z.string().optional(), "includeVisualExperiments": z.boolean().optional(), "includeDraftExperiments": z.boolean().optional(), "includeExperimentNames": z.boolean().optional(), "includeRedirectExperiments": z.boolean().optional(), "key": z.string().optional(), "proxyEnabled": z.boolean().optional(), "proxyHost": z.string().optional(), "proxySigningKey": z.string().optional(), "sseEnabled": z.boolean().optional(), "hashSecureAttributes": z.boolean().optional(), "remoteEvalEnabled": z.boolean().optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const deleteSdkConnectionValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),

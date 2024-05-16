@@ -134,9 +134,17 @@ paths:
   /segments/{id}:
     $ref: "./paths/getSegment.yaml"
   /sdk-connections:
-    $ref: "./paths/listSdkConnections.yaml"
+    get:
+      $ref: "./paths/listSdkConnections.yaml"
+    post:
+      $ref: "./paths/postSdkConnection.yaml"
   /sdk-connections/{id}:
-    $ref: "./paths/getSdkConnection.yaml"
+    get:
+      $ref: "./paths/getSdkConnection.yaml"
+    put:
+      $ref: "./paths/putSdkConnection.yaml"
+    delete:
+      $ref: "./paths/deleteSdkConnection.yaml"
   /data-sources:
     $ref: "./paths/listDataSources.yaml"
   /data-sources/{id}:
