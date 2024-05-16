@@ -35,7 +35,7 @@ export default function SingleRoleSelector({
   }
 
   if (!includeAdminRole) {
-    roleOptions = roles.filter((r) => r.id !== "admin");
+    roleOptions = roleOptions.filter((r) => r.id !== "admin");
   }
 
   const standardOptions: { label: string; value: string }[] = [];
@@ -86,9 +86,7 @@ export default function SingleRoleSelector({
         formatGroupLabel={formatGroupLabel}
         formatOptionLabel={(value) => {
           const r = roles.find((r) => r.id === value.label);
-          if (!r) {
-            return;
-          }
+          if (!r) return <strong>{value.label}</strong>;
           return (
             <div>
               <strong className="pr-2">{r.id}.</strong>

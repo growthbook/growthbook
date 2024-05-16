@@ -51,7 +51,6 @@ export type CommercialFeature =
   | "multi-metric-queries"
   | "no-access-role"
   | "teams"
-  | "custom-roles"
   | "sticky-bucketing"
   | "require-approvals"
   | "code-references"
