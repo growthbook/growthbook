@@ -3,6 +3,7 @@ import {
   FaCheck,
   FaCircle,
   FaExclamationTriangle,
+  FaExternalLinkAlt,
   FaSquare,
   FaStopCircle,
 } from "react-icons/fa";
@@ -161,6 +162,31 @@ const DataSourceQueries = (): React.ReactElement => {
               }
             }
 
+            let LinkToQuerySource = <></>;
+            if (query.querySource) {
+              switch (query.querySource.sourceType) {
+                case "DimensionSlices":
+                  break;
+                case "Experiment":
+                  LinkToQuerySource = (
+                    <a
+                      onClick={(e) => e.stopPropagation()}
+                      href={`/experiment/${query.querySource.id}`}
+                    >
+                      <FaExternalLinkAlt
+                        title="View experiment"
+                        className="ml-1"
+                      />
+                    </a>
+                  );
+                  break;
+                case "Metric":
+                  break;
+                case "PastExperiments":
+                  break;
+              }
+            }
+
             return (
               <tr
                 key={query.id}
@@ -249,6 +275,7 @@ const DataSourceQueries = (): React.ReactElement => {
                           title="Force stop"
                         />
                       )}
+                    {LinkToQuerySource}
                   </div>
                 </td>
               </tr>

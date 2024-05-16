@@ -42,6 +42,8 @@ import { FactTableMap } from "../models/FactTableModel";
 import { OrganizationInterface } from "../../types/organization";
 import { FactMetricInterface } from "../../types/fact-table";
 import SqlIntegration from "../integrations/SqlIntegration";
+import { getExperimentByName } from "../models/ExperimentModel";
+import { ReqContextClass } from "../services/context";
 import {
   QueryRunner,
   QueryMap,
@@ -164,7 +166,8 @@ export const startExperimentResultQueries = async (
   organization: OrganizationInterface,
   startQuery: (
     params: StartQueryParams<RowsType, ProcessedRowsType>
-  ) => Promise<QueryPointer>
+  ) => Promise<QueryPointer>,
+  context: ReqContextClass
 ): Promise<Queries> => {
   const snapshotSettings = params.snapshotSettings;
   const queryParentId = params.queryParentId;
@@ -208,6 +211,11 @@ export const startExperimentResultQueries = async (
   const dimensionObj = await parseDimensionId(
     snapshotSettings.dimensions[0]?.id,
     organization.id
+  );
+
+  const expObj = await getExperimentByName(
+    context,
+    snapshotSettings.experimentId
   );
 
   const queries: Queries = [];
@@ -268,6 +276,12 @@ export const startExperimentResultQueries = async (
         integration.runExperimentUnitsQuery(query, setExternalId),
       process: (rows) => rows,
       queryType: "experimentUnits",
+      querySource: expObj
+        ? {
+            sourceType: "Experiment",
+            id: expObj.id,
+          }
+        : undefined,
     });
     queries.push(unitQuery);
   }
@@ -311,6 +325,12 @@ export const startExperimentResultQueries = async (
           integration.runExperimentMetricQuery(query, setExternalId),
         process: (rows) => rows,
         queryType: "experimentMetric",
+        querySource: expObj
+          ? {
+              sourceType: "Experiment",
+              id: expObj.id,
+            }
+          : undefined,
       })
     );
   });
@@ -346,6 +366,12 @@ export const startExperimentResultQueries = async (
           ),
         process: (rows) => rows,
         queryType: "experimentMultiMetric",
+        querySource: expObj
+          ? {
+              sourceType: "Experiment",
+              id: expObj.id,
+            }
+          : undefined,
       })
     );
   });
@@ -365,6 +391,12 @@ export const startExperimentResultQueries = async (
         integration.runExperimentAggregateUnitsQuery(query, setExternalId),
       process: (rows) => rows,
       queryType: "experimentTraffic",
+      querySource: expObj
+        ? {
+            sourceType: "Experiment",
+            id: expObj.id,
+          }
+        : undefined,
     });
     queries.push(trafficQuery);
   }
@@ -396,10 +428,11 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         params,
         this.integration,
         this.context.org,
-        this.startQuery.bind(this)
+        this.startQuery.bind(this),
+        this.context
       );
     } else {
-      return this.startLegacyQueries(params);
+      return this.startLegacyQueries(params, this.context);
     }
   }
 
@@ -488,10 +521,16 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   private async startLegacyQueries(
-    params: ExperimentResultsQueryParams
+    params: ExperimentResultsQueryParams,
+    context: ReqContextClass
   ): Promise<Queries> {
     const snapshotSettings = params.snapshotSettings;
     const metricMap = params.metricMap;
+
+    const expObj = await getExperimentByName(
+      context,
+      snapshotSettings.experimentId
+    );
 
     const activationMetric = snapshotSettings.activationMetric
       ? metricMap.get(snapshotSettings.activationMetric) ?? null
@@ -541,6 +580,12 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         },
         process: (rows: ExperimentQueryResponses) =>
           this.processLegacyExperimentResultsResponse(snapshotSettings, rows),
+        querySource: expObj
+          ? {
+              sourceType: "Experiment",
+              id: expObj.id,
+            }
+          : undefined,
       }),
     ];
   }

@@ -261,6 +261,24 @@ export async function getExperimentById(
     : null;
 }
 
+export async function getExperimentByName(
+  context: ReqContext | ApiReqContext,
+  name: string
+): Promise<ExperimentInterface | null> {
+  const doc = await ExperimentModel.findOne({
+    organization: context.org.id,
+    name,
+  });
+
+  if (!doc) return null;
+
+  const experiment = toInterface(doc);
+
+  return context.permissions.canReadSingleProjectResource(experiment.project)
+    ? experiment
+    : null;
+}
+
 export async function getAllExperiments(
   context: ReqContext | ApiReqContext,
   project?: string

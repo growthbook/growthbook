@@ -31,6 +31,10 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
           this.integration.runMetricValueQuery(query, setExternalId),
         process: (rows) => processMetricValueQueryResponse(rows),
         queryType: "metricAnalysis",
+        querySource: {
+          sourceType: "Metric",
+          id: params.metric.id,
+        },
       }),
     ];
   }

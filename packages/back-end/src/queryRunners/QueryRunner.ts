@@ -3,6 +3,7 @@ import {
   Queries,
   QueryInterface,
   QueryPointer,
+  QuerySource,
   QueryStatus,
   QueryType,
 } from "../../types/query";
@@ -56,6 +57,7 @@ export type StartQueryParams<Rows, ProcessedRows> = {
   ) => Promise<QueryResponse<Rows>>;
   process: (rows: Rows) => ProcessedRows;
   queryType: QueryType;
+  querySource?: QuerySource;
 };
 
 const FINISH_EVENT = "finish";
@@ -589,6 +591,7 @@ export abstract class QueryRunner<
       language: this.integration.getSourceProperties().queryLanguage,
       dependencies: dependencies,
       running: readyToRun,
+      querySource: params.querySource,
     });
 
     logger.debug("Created new query " + doc.id + " for " + name);

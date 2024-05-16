@@ -43,6 +43,10 @@ export class PastExperimentsQueryRunner extends QueryRunner<
         process: (rows) =>
           this.processPastExperimentQueryResponse(rows, merge, params.from),
         queryType: "pastExperiment",
+        querySource: {
+          sourceType: "PastExperiments",
+          id: this.model.id,
+        },
       }),
     ];
   }
