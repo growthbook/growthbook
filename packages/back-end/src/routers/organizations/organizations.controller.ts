@@ -2014,18 +2014,8 @@ export async function setLicenseKey(
     );
   }
 
-  try {
-    org.licenseKey = licenseKey;
-    await initializeLicenseForOrg(org, true);
-  } catch (error) {
-    // As we show this error on the front-end, show a more generic invalid license key error
-    // if the error is not related to being able to connect to the license server
-    if (error.message.includes("Could not connect")) {
-      throw new Error(error?.message);
-    } else {
-      throw new Error("Invalid license key");
-    }
-  }
+  org.licenseKey = licenseKey;
+  await initializeLicenseForOrg(org, true);
 }
 
 export async function putLicenseKey(

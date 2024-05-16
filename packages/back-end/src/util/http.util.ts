@@ -70,8 +70,6 @@ export const cancellableFetch = async (
       stringBody,
     };
   } catch (e) {
-    logger.error(e, "cancellableFetch -> readResponseBody");
-
     if (e.name === "AbortError" && response) {
       logger.warn(e, `Response aborted due to content size: ${received}`);
 
