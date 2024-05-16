@@ -44,7 +44,7 @@ const TagsInput: FC<{
   tagOptions = [...tagOptions];
   value.forEach((value) => {
     if (!tagSet.has(value)) {
-      tagOptions.push({
+      tagOptions?.push({
         id: value,
         description: "",
         color: getTagById(value)?.color || "#029dd1",
