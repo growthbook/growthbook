@@ -4,34 +4,30 @@ import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import DocumentationDisplay from "@/components/GetStarted/DocumentationDisplay";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import useSDKConnections from "@/hooks/useSDKConnections";
-import { useFeaturesList } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import { useExperiments } from "@/hooks/useExperiments";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 const ImportedExperimentGuide = (): React.ReactElement => {
-  const { organization, userId } = useUser();
+  const { organization } = useUser();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
-  const { data: sdkConnections } = useSDKConnections();
   const { experiments, loading, error, mutateExperiments } = useExperiments();
-  const { factTables, datasources, ready } = useDefinitions();
-  const isSDKIntegrated =
-    sdkConnections?.connections.some((c) => c.connected) || false;
-  const demoDatasourceProject = getDemoDatasourceProjectIdForOrganization(
+  const { factTables, datasources, ready, project } = useDefinitions();
+  const demoProjectId = getDemoDatasourceProjectIdForOrganization(
     organization.id || ""
   );
   // Ignore the demo datasource
-  const hasExperiments = experiments.some(
-    (e) => e.project !== demoDatasourceProject
-  );
+  const hasExperiments = project
+    ? experiments.some(
+        (e) => e.project !== demoProjectId && e.project === project
+      )
+    : experiments.some((e) => e.project !== demoProjectId);
 
   const hasFactTables = factTables.length > 0;
   // Ignore the demo datasource
   const hasDatasource = datasources.some(
-    (d) => !d.projects?.includes(demoDatasourceProject)
+    (d) => !d.projects?.includes(demoProjectId)
   );
 
   return (
@@ -189,7 +185,8 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                     textDecoration: hasExperiments ? "line-through" : "none",
                   }}
                 >
-                  Import Your First Experiment & View Results
+                  Import Your First Experiment{project && " in this Project"} &
+                  View Results
                 </Link>
                 <p className="mt-2">
                   Navigate to Experiments {">"} Add Experiment. In the popup,

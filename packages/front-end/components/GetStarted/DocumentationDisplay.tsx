@@ -88,19 +88,23 @@ const DocumentationDisplay = ({
           style={{ listStyleType: "none", padding: 0 }}
         >
           <li className="mb-2">
-            <a href="https://docs.growthbook.io/quick-start">
+            <a href="https://docs.growthbook.io/warehouses">
               Connect to Your Data Warehouse
             </a>
           </li>
           <li className="mb-2">
-            <a href="https://docs.growthbook.io/overview">Fact Tables</a>
+            <a href="https://docs.growthbook.io/app/fact-tables">Fact Tables</a>
           </li>
           <li className="mb-2">
-            <a href="https://docs.growthbook.io/lib/">Data Pipeline Mode</a>
+            <a href="https://docs.growthbook.io/app/data-pipeline">
+              Data Pipeline Mode
+            </a>
             <PaidFeatureBadge type="enterprise" />
           </li>
           <li className="mb-2">
-            <a href="https://docs.growthbook.io/lib/">Experiment Results</a>
+            <a href="https://docs.growthbook.io/app/experiment-results">
+              Experiment Results
+            </a>
           </li>
         </ul>
       ) : (

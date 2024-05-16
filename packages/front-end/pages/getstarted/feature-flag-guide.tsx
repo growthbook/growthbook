@@ -1,4 +1,4 @@
-import { PiArrowRight, PiCheckCircle, PiCheckCircleFill } from "react-icons/pi";
+import { PiArrowRight, PiCheckCircleFill } from "react-icons/pi";
 import { useState } from "react";
 import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -22,7 +22,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { data: sdkConnections } = useSDKConnections();
   const { features, loading, error, mutate } = useFeaturesList();
-  const { mutateDefinitions } = useDefinitions();
+  const { mutateDefinitions, project } = useDefinitions();
   const router = useRouter();
   const { apiCall } = useAuth();
   const { setStep } = useGetStarted();
@@ -32,22 +32,21 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
     (c) => c.step === "environments"
   );
   const attributesSet = manualChecks?.find((c) => c.step === "attributes");
-
   const isSDKIntegrated =
     sdkConnections?.connections.some((c) => c.connected) || false;
-  // Ignore the demo datasource
-  const hasFeatures = features.some(
-    (f) =>
-      f.project !==
-        getDemoDatasourceProjectIdForOrganization(organization.id || "") &&
-      f.owner === name
+  const demoProjectId = getDemoDatasourceProjectIdForOrganization(
+    organization.id || ""
   );
 
-  const { projectId: demoDataSourceProjectId, demoExperimentId } =
-    useDemoDataSourceProject();
+  // Ignore the demo datasource
+  const hasFeatures = project
+    ? features.some((f) => f.project !== demoProjectId && f.project === project)
+    : features.some((f) => f.project !== demoProjectId);
+
+  const { demoExperimentId } = useDemoDataSourceProject();
 
   const openSampleExperiment = async () => {
-    if (demoDataSourceProjectId && demoExperimentId) {
+    if (demoProjectId && demoExperimentId) {
       router.push(`/experiment/${demoExperimentId}`);
     } else {
       track("Create Sample Project", {
@@ -298,7 +297,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                     textDecoration: hasFeatures ? "line-through" : "none",
                   }}
                 >
-                  Create a Test Feature Flag
+                  Create a Test Feature Flag{project && " in this Project"}
                 </Link>
                 <p className="mt-2">
                   Add first feature flag to test that everything is connected

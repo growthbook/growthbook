@@ -7,7 +7,6 @@ import { ProjectInterface } from "@back-end/types/project";
 import DocumentationDisplay from "@/components/GetStarted/DocumentationDisplay";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import { useFeaturesList } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import { useExperiments } from "@/hooks/useExperiments";
@@ -20,22 +19,25 @@ import Button from "@/components/Button";
 import { useGetStarted } from "@/services/GetStartedProvider";
 
 const ExperimentGuide = (): React.ReactElement => {
-  const { organization, userId } = useUser();
+  const { organization } = useUser();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { data: sdkConnections } = useSDKConnections();
   const { experiments, loading, error, mutateExperiments } = useExperiments();
-  const { mutateDefinitions } = useDefinitions();
+  const { mutateDefinitions, project } = useDefinitions();
   const { setStep } = useGetStarted();
   const router = useRouter();
   const { apiCall } = useAuth();
   const isSDKIntegrated =
     sdkConnections?.connections.some((c) => c.connected) || false;
-  // Ignore the demo datasource
-  const hasExperiments = experiments.some(
-    (e) =>
-      e.project !==
-      getDemoDatasourceProjectIdForOrganization(organization.id || "")
+  const demoProjectId = getDemoDatasourceProjectIdForOrganization(
+    organization.id || ""
   );
+  // Ignore the demo datasource
+  const hasExperiments = project
+    ? experiments.some(
+        (e) => e.project !== demoProjectId && e.project === project
+      )
+    : experiments.some((e) => e.project !== demoProjectId);
 
   const manualChecks = organization.getStartedChecklists?.experiments;
   const environmentsReviewed = manualChecks?.find(
@@ -43,18 +45,21 @@ const ExperimentGuide = (): React.ReactElement => {
   );
   const attributesSet = manualChecks?.find((c) => c.step === "attributes");
 
-  const hasStartedExperiment = experiments.some(
-    (e) =>
-      e.project !==
-        getDemoDatasourceProjectIdForOrganization(organization.id || "") &&
-      e.status !== "draft"
-  );
+  const hasStartedExperiment = project
+    ? experiments.some(
+        (e) =>
+          e.project !== demoProjectId &&
+          e.status !== "draft" &&
+          e.project === project
+      )
+    : experiments.some(
+        (e) => e.project !== demoProjectId && e.status !== "draft"
+      );
 
-  const { projectId: demoDataSourceProjectId, demoExperimentId } =
-    useDemoDataSourceProject();
+  const { demoExperimentId } = useDemoDataSourceProject();
 
   const openSampleExperiment = async () => {
-    if (demoDataSourceProjectId && demoExperimentId) {
+    if (demoProjectId && demoExperimentId) {
       router.push(`/experiment/${demoExperimentId}`);
     } else {
       track("Create Sample Project", {
@@ -305,7 +310,9 @@ const ExperimentGuide = (): React.ReactElement => {
                     textDecoration: hasExperiments ? "line-through" : "none",
                   }}
                 >
-                  Design Your Organization’s First Experiment
+                  {project
+                    ? "Design the First Experiment for this Project"
+                    : "Design Your Organization’s First Experiment"}
                 </Link>
                 <p className="mt-2">
                   Create an experiment and change variations. Choose from
