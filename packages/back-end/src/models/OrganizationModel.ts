@@ -10,6 +10,7 @@ import {
 import { upgradeOrganizationDoc } from "../util/migrations";
 import { ApiOrganization } from "../../types/openapi";
 import { IS_CLOUD } from "../util/secrets";
+import { logger } from "../util/logger";
 
 const baseMemberFields = {
   _id: false,
@@ -433,4 +434,102 @@ export async function updateMember(
       return m;
     }),
   });
+}
+
+/**
+ * Delete an organization and all associated data. Users are not deleted as part
+ * of this since they are deleted in a separate operation by admins.
+ */
+export async function deleteOrganizationData(orgId: string) {
+  logger.info("Deleting org %s", orgId);
+
+  const org = await findOrganizationById(orgId);
+
+  if (!org) throw new Error("Organization not found");
+
+  // all collections that have an FK to organizations. this needs to be updated
+  // manually.
+  const collections: { name: string; orgField: string }[] = [
+    { name: "segments", orgField: "organization" },
+    { name: "factmetrics", orgField: "organization" },
+    { name: "eventwebhooklogs", orgField: "organizationId" },
+    { name: "featurecoderefs", orgField: "organization" },
+    { name: "metrics", orgField: "organization" },
+    { name: "events", orgField: "organizationId" },
+    { name: "features", orgField: "organization" },
+    { name: "webhooks", orgField: "organization" },
+    { name: "presentations", orgField: "organization" },
+    { name: "ideas", orgField: "organization" },
+    { name: "ssoconnections", orgField: "organization" },
+    { name: "discussions", orgField: "organization" },
+    { name: "slackintegrations", orgField: "organizationId" },
+    { name: "apikeys", orgField: "organization" },
+    { name: "projects", orgField: "organization" },
+    { name: "sdkpayloadcaches", orgField: "organization" },
+    { name: "sdkconnections", orgField: "organization" },
+    { name: "experimentlaunchchecklists", orgField: "organizationId" },
+    { name: "audits", orgField: "organization" },
+    { name: "featurerevisions", orgField: "organization" },
+    { name: "urlredirects", orgField: "organization" },
+    { name: "queries", orgField: "organization" },
+    { name: "pastexperiments", orgField: "organization" },
+    { name: "realtimeusages", orgField: "organization" },
+    { name: "experiments", orgField: "organization" },
+    { name: "watches", orgField: "organization" },
+    { name: "licenses", orgField: "organizationId" },
+    { name: "archetypes", orgField: "organization" },
+    { name: "githubintegrations", orgField: "organization" },
+    { name: "visualchangesets", orgField: "organization" },
+    { name: "dimensions", orgField: "organization" },
+    { name: "tags", orgField: "organization" },
+    { name: "reports", orgField: "organization" },
+    { name: "facttables", orgField: "organization" },
+    { name: "informationschemas", orgField: "organization" },
+    { name: "githubusertokens", orgField: "organization:" },
+    { name: "informationschematables", orgField: "organization" },
+    { name: "sdkwebhooklogs", orgField: "organizationId" },
+    { name: "savedgroups", orgField: "organization" },
+    { name: "teams", orgField: "organization" },
+    { name: "aitokenusages", orgField: "organization" },
+    { name: "experimentsnapshots", orgField: "organization" },
+    { name: "impactestimates", orgField: "organization" },
+    { name: "datasources", orgField: "organization" },
+    { name: "eventwebhooks", orgField: "organizationId" },
+    { name: "dimensionslices", orgField: "organization" },
+  ];
+
+  const collectionsHit: string[] = [];
+  const collectionsMissed: string[] = [];
+
+  let deleteResult;
+  for (const { name, orgField } of collections) {
+    try {
+      deleteResult = await mongoose.connection.db
+        .collection(name)
+        .deleteMany({ [orgField]: orgId });
+      logger.info(
+        "Deleted %s documents from %s",
+        deleteResult.deletedCount,
+        name
+      );
+      if (deleteResult.deletedCount > 0) {
+        collectionsHit.push(name);
+      } else {
+        collectionsMissed.push(name);
+      }
+    } catch (e) {
+      logger.error("Error deleting from collection %s", name, e);
+      collectionsMissed.push(name);
+    }
+  }
+
+  const orgDeleted = await mongoose.connection.db
+    .collection("organizations")
+    .deleteOne({ id: orgId });
+
+  if (orgDeleted.deletedCount > 0) {
+    logger.info("Deleted org %s", orgId);
+  } else {
+    logger.info("Org was not deleted %s", orgId);
+  }
 }

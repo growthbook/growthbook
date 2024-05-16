@@ -17,6 +17,7 @@ import {
 } from "back-end/types/sso-connection";
 import * as Sentry from "@sentry/react";
 import { roleSupportsEnvLimit } from "shared/permissions";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Modal from "@/components/Modal";
 import { DocLink } from "@/components/DocLink";
 import Welcome from "@/components/Auth/Welcome";
@@ -196,6 +197,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [sessionError, setSessionError] = useState(false);
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
+  const [lastPickedOrg] = useLocalStorage("gb-last-picked-org", "");
 
   async function init() {
     const resp = await refreshToken();
@@ -374,10 +376,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
       if (orgs.length > 0) {
         try {
-          const pickedOrg = localStorage.getItem("gb-last-picked-org");
-          if (pickedOrg && !router.query.org) {
+          if (lastPickedOrg && !router.query.org) {
             try {
-              setOrgId(JSON.parse(pickedOrg));
+              setOrgId(lastPickedOrg);
             } catch (e) {
               setOrgId(orgs[0].id);
             }
@@ -389,7 +390,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         }
       }
     },
-    [initialOrgId, orgId, router.query.org, specialOrg?.id]
+    [initialOrgId, orgId, router.query.org, specialOrg?.id, lastPickedOrg]
   );
 
   if (initError) {
