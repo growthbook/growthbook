@@ -18,7 +18,7 @@ export default function RoleFormWrapper({
   const permissionsUtil = usePermissionsUtil();
   const hasCustomRolesFeature = hasCommercialFeature("custom-roles");
 
-  if (!permissionsUtil.canManageTeam) {
+  if (!permissionsUtil.canManageTeam()) {
     return (
       <div className="container pagecontents">
         <div className="alert alert-danger">
