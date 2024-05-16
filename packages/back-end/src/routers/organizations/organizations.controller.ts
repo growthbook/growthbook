@@ -2157,3 +2157,27 @@ export async function deleteCustomRole(
     status: 200,
   });
 }
+
+export async function putRoleStatus(
+  req: AuthRequest<{ status: "active" | "inactive" }, { id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { status } = req.body;
+
+  // Only orgs with custom-roles feature can deactivate/activate roles
+  if (!context.hasPremiumFeature("custom-roles")) {
+    throw new Error("Must have an Enterprise License Key to use custom roles.");
+  }
+
+  if (!context.permissions.canManageCustomRoles()) {
+    context.permissions.throwPermissionError();
+  }
+
+  await updateRoleStatus(context.org, context.teams, id, status);
+
+  res.status(200).json({
+    status: 200,
+  });
+}

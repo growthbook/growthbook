@@ -549,3 +549,38 @@ export async function removeCustomRole(
 
   await updateOrganization(org.id, { customRoles: newCustomRoles });
 }
+
+export async function updateRoleStatus(
+  org: OrganizationInterface,
+  teams: TeamInterface[],
+  id: string,
+  status: "active" | "inactive"
+) {
+  // Make sure the id isn't the org's default
+  if (org.settings?.defaultRole?.role === id) {
+    throw new Error(
+      "Cannot delete role. This role is set as the organization's default role."
+    );
+  }
+  // Make sure no members, invites, pending members, or teams are using the role
+  if (org.members.some((m) => usingRole(m, id))) {
+    throw new Error("Role is currently being used by at least one member");
+  }
+  if (org.pendingMembers?.some((m) => usingRole(m, id))) {
+    throw new Error(
+      "Role is currently being used by at least one pending member"
+    );
+  }
+  if (org.invites?.some((m) => usingRole(m, id))) {
+    throw new Error(
+      "Role is currently being used by at least one invited member"
+    );
+  }
+  if (teams.some((team) => usingRole(team, id))) {
+    throw new Error("Role is currently being used by at least one team");
+  }
+
+  // First,
+
+  await updateOrganization(org.id, { customRoles: newCustomRoles });
+}
