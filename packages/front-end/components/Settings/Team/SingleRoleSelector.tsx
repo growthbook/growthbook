@@ -1,7 +1,7 @@
 import { ReactNode, useMemo } from "react";
 import { MemberRoleInfo } from "back-end/types/organization";
 import uniqid from "uniqid";
-import { roleSupportsEnvLimit } from "shared/permissions";
+import { RESERVED_ROLE_IDS, roleSupportsEnvLimit } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -24,6 +24,7 @@ export default function SingleRoleSelector({
 }) {
   const { roles, hasCommercialFeature, organization } = useUser();
   const hasFeature = hasCommercialFeature("advanced-permissions");
+  const hasCustomRolesFeature = hasCommercialFeature("custom-roles");
 
   const isNoAccessRoleEnabled = hasCommercialFeature("no-access-role");
 
@@ -33,9 +34,41 @@ export default function SingleRoleSelector({
     roleOptions = roles.filter((r) => r.id !== "noaccess");
   }
 
+  if (!includeAdminRole) {
+    roleOptions = roleOptions.filter((r) => r.id !== "admin");
+  }
+
+  const standardOptions: { label: string; value: string }[] = [];
+  const customOptions: { label: string; value: string }[] = [];
+
+  roleOptions.forEach((r) => {
+    if (RESERVED_ROLE_IDS.includes(r.id)) {
+      standardOptions.push({ label: r.id, value: r.id });
+    } else {
+      if (hasCustomRolesFeature) {
+        customOptions.push({ label: r.id, value: r.id });
+      }
+    }
+  });
+
+  const groupedOptions = [
+    {
+      label: "Standard",
+      options: standardOptions,
+    },
+    {
+      label: "Custom",
+      options: customOptions,
+    },
+  ];
+
   const availableEnvs = useEnvironments();
 
   const id = useMemo(() => uniqid(), []);
+
+  const formatGroupLabel = (data) => (
+    <div className={data.label === "Custom" ? "border-bottom my-3" : ""}></div>
+  );
 
   return (
     <div>
@@ -48,23 +81,16 @@ export default function SingleRoleSelector({
             role,
           });
         }}
-        options={roleOptions
-          .filter((r) => includeAdminRole || r.id !== "admin")
-          .map((r) => ({
-            label: r.id,
-            value: r.id,
-          }))}
+        options={groupedOptions}
         sort={false}
+        formatGroupLabel={formatGroupLabel}
         formatOptionLabel={(value) => {
           const r = roles.find((r) => r.id === value.label);
+          if (!r) return <strong>{value.label}</strong>;
           return (
-            <div className="d-flex align-items-center">
-              {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-              <strong style={{ width: 110 }}>{r.id}</strong>
-              <small className="ml-2">
-                {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                <em>{r.description}</em>
-              </small>
+            <div>
+              <strong className="pr-2">{r.id}.</strong>
+              {r.description}
             </div>
           );
         }}

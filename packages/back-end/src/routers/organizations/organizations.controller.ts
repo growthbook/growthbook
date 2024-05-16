@@ -733,6 +733,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       freeTrialDate: org.freeTrialDate,
       discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
+      customRoles: org.customRoles,
       settings: {
         ...settings,
         attributeSchema: filteredAttributes,

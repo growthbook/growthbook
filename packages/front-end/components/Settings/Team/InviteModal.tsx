@@ -148,6 +148,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       header="Invite Member"
       open={true}
       cta="Invite"
+      size="lg"
       closeCta={
         successfulInvites.length || failedInvites.length ? "Close" : "Cancel"
       }
