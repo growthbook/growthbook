@@ -19,6 +19,8 @@ export const postEnvironment = createApiRequestHandler(
     const id = req.params.id;
     const { id: envId, description, toggleOnList, defaultState } = req.body;
 
+    if (envId === "") throw Error("Environment ID cannot empty!");
+
     const environment = {
       id: envId,
       description,
