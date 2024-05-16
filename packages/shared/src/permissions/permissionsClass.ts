@@ -19,7 +19,7 @@ import { ExperimentInterface } from "back-end/types/experiment";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { UpdateProps } from "back-end/types/models";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
+import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 class PermissionError extends Error {
   constructor(message: string) {
     super(message);
@@ -769,6 +769,10 @@ export class Permissions {
 
     // Otherwise, check if they have read access for atleast 1 of the resource's projects
     return projects.some((p) => this.hasPermission("readData", p));
+  };
+
+  public canManageCustomRoles = (): boolean => {
+    return this.checkGlobalPermission("manageCustomRoles");
   };
 
   private checkGlobalPermission(permissionToCheck: GlobalPermission): boolean {

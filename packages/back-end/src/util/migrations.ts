@@ -5,6 +5,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import { getDefaultRole } from "shared/permissions";
 import { LegacyReportInterface, ReportInterface } from "@back-end/types/report";
 import { SdkWebHookLogDocument } from "../models/SdkWebhookLogModel";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
@@ -20,7 +21,7 @@ import {
   FeatureRule,
   LegacyFeatureInterface,
 } from "../../types/feature";
-import { MemberRole, OrganizationInterface } from "../../types/organization";
+import { OrganizationInterface } from "../../types/organization";
 import { getConfigOrganizationSettings } from "../init/config";
 import {
   ExperimentInterface,
@@ -407,11 +408,7 @@ export function upgradeOrganizationDoc(
 
   // Add a default role if one doesn't exist
   if (!org.settings.defaultRole) {
-    org.settings.defaultRole = {
-      role: "collaborator",
-      environments: [],
-      limitAccessByEnvironment: false,
-    };
+    org.settings.defaultRole = getDefaultRole(org);
   }
 
   // Default attribute schema for backwards compatibility
@@ -448,7 +445,7 @@ export function upgradeOrganizationDoc(
     ];
   }
   // Rename legacy roles
-  const legacyRoleMap: Record<string, MemberRole> = {
+  const legacyRoleMap: Record<string, string> = {
     designer: "collaborator",
     developer: "experimenter",
   };

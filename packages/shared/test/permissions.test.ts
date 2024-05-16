@@ -1,5 +1,5 @@
 import { roleToPermissionMap } from "back-end/src/util/organization.util";
-import { MemberRole, OrganizationInterface } from "back-end/types/organization";
+import { OrganizationInterface } from "back-end/types/organization";
 import { Permissions } from "../permissions";
 
 describe("Role permissions", () => {
@@ -16,7 +16,7 @@ describe("Role permissions", () => {
     },
   };
 
-  function getPermissions(role: MemberRole) {
+  function getPermissions(role: string) {
     return new Permissions(
       {
         global: {
