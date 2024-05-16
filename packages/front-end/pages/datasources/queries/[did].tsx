@@ -4,6 +4,7 @@ import {
   FaCircle,
   FaExclamationTriangle,
   FaSquare,
+  FaStopCircle,
 } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { ago, datetime } from "shared/dates";
@@ -18,6 +19,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import ExpandableQuery from "@/components/Queries/ExpandableQuery";
 import usePermissions from "@/hooks/usePermissions";
+import { useAuth } from "@/services/auth";
 
 const DataSourceQueries = (): React.ReactElement => {
   const permissions = usePermissions();
@@ -26,6 +28,7 @@ const DataSourceQueries = (): React.ReactElement => {
   const { did } = router.query as { did: string };
   const { getDatasourceById, ready, error: datasourceError } = useDefinitions();
   const d = getDatasourceById(did);
+  const { apiCall } = useAuth();
 
   const canView = d && permissions.check("readData", d.projects || []);
 
@@ -86,6 +89,8 @@ const DataSourceQueries = (): React.ReactElement => {
     );
   }
 
+  const supportsCancellation = d.supportsQueryCancellation;
+
   return (
     <div className="container pagecontents">
       {modalData && (
@@ -143,6 +148,7 @@ const DataSourceQueries = (): React.ReactElement => {
             <SortableTH field="externalId" className="col-2">
               External ID
             </SortableTH>
+            <th className="col-1">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -215,6 +221,36 @@ const DataSourceQueries = (): React.ReactElement => {
                   </Tooltip>
                 </td>
                 <td>{query.externalId || "N/A"}</td>
+                <td>
+                  <div className="d-flex align-items-center">
+                    {supportsCancellation &&
+                      ["running", "queued", "succeeded"].includes(
+                        query.status
+                      ) && (
+                        <FaStopCircle
+                          className="text-danger mr-2"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log("Clicked to stop", query.id);
+                            apiCall<Response>(
+                              `/datasource/${did}/cancel/${query.id}`,
+                              {
+                                method: "POST",
+                              }
+                            )
+                              .then((res) => {
+                                console.log("Got res with status", res.status);
+                              })
+                              .catch((error) => {
+                                console.error(error.message);
+                              });
+                          }}
+                          title="Force stop"
+                        />
+                      )}
+                  </div>
+                </td>
               </tr>
             );
           })}

@@ -664,6 +664,32 @@ export async function cancelDimensionSlices(
   });
 }
 
+export async function cancelQuery(
+  req: AuthRequest<null, { did: string; qid: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { qid, did } = req.params;
+
+  const integration = await getIntegrationFromDatasourceId(context, did, true);
+
+  if (!integration.cancelQuery) {
+    res.status(501).json({
+      status: 501,
+      message:
+        "This datasource integration does not support cancelling queries",
+    });
+    return;
+  }
+
+  await integration.cancelQuery(qid);
+
+  res.status(200).json({
+    status: 200,
+    message: "Query cancelled",
+  });
+}
+
 export async function fetchBigQueryDatasets(
   req: AuthRequest<{
     projectId: string;

@@ -361,6 +361,7 @@ app.post(
   "/dimension-slices/:id/cancel",
   datasourcesController.cancelDimensionSlices
 );
+app.post("/datasource/:did/cancel/:qid", datasourcesController.cancelQuery);
 
 app.get(
   "/dimension-slices/datasource/:datasourceId/:exposureQueryId",
