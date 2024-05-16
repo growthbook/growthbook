@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import usePermissions from "./usePermissions";
+import usePermissionsUtil from "./usePermissionsUtils";
 
 export default function useStripeSubscription() {
   const selfServePricingEnabled = useFeature("self-serve-billing").on;
@@ -23,17 +23,17 @@ export default function useStripeSubscription() {
   const [quote, setQuote] = useState<SubscriptionQuote | null>(null);
 
   const { apiCall } = useAuth();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   useEffect(() => {
-    if (!permissions.manageBilling) return;
+    if (!permissionsUtil.canManageBilling()) return;
 
     apiCall<{ quote: SubscriptionQuote }>(`/subscription/quote`)
       .then((data) => {
         setQuote(data.quote);
       })
       .catch((e) => console.error(e));
-  }, [freeSeats, permissions.manageBilling]);
+  }, [freeSeats, permissionsUtil]);
 
   const activeAndInvitedUsers = quote?.activeAndInvitedUsers || 0;
 

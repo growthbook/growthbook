@@ -8,6 +8,7 @@ from gbstats.bayesian.tests import (
     BayesianTestResult,
     EffectBayesianABTest,
     EffectBayesianConfig,
+    GaussianPrior,
 )
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -16,7 +17,6 @@ from gbstats.frequentist.tests import (
     SequentialTwoSidedTTest,
     TwoSidedTTest,
 )
-from gbstats.messages import RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR
 from gbstats.models.results import (
     BaselineResponse,
     BayesianVariationResponse,
@@ -214,15 +214,20 @@ def get_configured_test(
             )
     else:
         assert type(stat_a) is type(stat_b), "stat_a and stat_b must be of same type."
-        if isinstance(stat_a, RegressionAdjustedStatistic) or isinstance(
-            stat_b, RegressionAdjustedStatistic
-        ):
-            raise ValueError(RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR)
-
+        prior = GaussianPrior(
+            mean=metric.prior_mean,
+            variance=pow(metric.prior_stddev, 2),
+            proper=metric.prior_proper,
+        )
         return EffectBayesianABTest(
             stat_a,
             stat_b,
-            EffectBayesianConfig(**base_config, inverse=metric.inverse),
+            EffectBayesianConfig(
+                **base_config,
+                inverse=metric.inverse,
+                prior_effect=prior,
+                prior_type="relative",
+            ),
         )
 
 

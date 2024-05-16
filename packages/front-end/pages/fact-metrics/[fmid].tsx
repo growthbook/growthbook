@@ -31,6 +31,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -188,6 +189,7 @@ export default function FactMetricPage() {
   const settings = useOrgSettings();
 
   const {
+    metricDefaults,
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
@@ -216,9 +218,10 @@ export default function FactMetricPage() {
   }
 
   const canEdit =
-    permissionsUtil.canUpdateMetric(factMetric, {}) && !factMetric.managedBy;
+    permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
+    !factMetric.managedBy;
   const canDelete =
-    permissionsUtil.canDeleteMetric(factMetric) && !factMetric.managedBy;
+    permissionsUtil.canDeleteFactMetric(factMetric) && !factMetric.managedBy;
 
   let regressionAdjustmentAvailableForMetric = true;
   let regressionAdjustmentAvailableForMetricReason = <></>;
@@ -612,15 +615,17 @@ export default function FactMetricPage() {
                 </ul>
               </RightRailSectionGroup>
 
+              <MetricPriorRightRailSectionGroup
+                metric={factMetric}
+                metricDefaults={metricDefaults}
+              />
+
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-2">
                   <li className="mt-3 mb-2">
                     <span className="uppercase-title lg">
                       <GBCuped size={14} /> Regression Adjustment (CUPED)
                     </span>
-                    <small className="d-block mb-1 text-muted">
-                      Only applicable to frequentist analyses
-                    </small>
                   </li>
                   {!regressionAdjustmentAvailableForMetric ? (
                     <li className="mb-2">

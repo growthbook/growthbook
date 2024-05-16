@@ -417,16 +417,14 @@ export function isOutdated(
     reasons.push("P-value threshold changed");
   }
 
-  const experimentRegressionAdjustmentEnabled =
-    statsEngine !== "frequentist" || !hasRegressionAdjustmentFeature
-      ? false
-      : !!experiment.regressionAdjustmentEnabled;
+  const experimentRegressionAdjustmentEnabled = !hasRegressionAdjustmentFeature
+    ? false
+    : !!experiment.regressionAdjustmentEnabled;
   if (
     isDifferent(
       experimentRegressionAdjustmentEnabled,
       !!analysisSettings?.regressionAdjusted
-    ) &&
-    statsEngine === "frequentist"
+    )
   ) {
     reasons.push("CUPED settings changed");
   }

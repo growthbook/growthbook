@@ -28,12 +28,10 @@ const EditOrganization: FC<{
     await apiCall<{
       status: number;
       message?: string;
-      orgId?: string;
-      licenseKey?: string;
-    }>("/organization", {
+    }>("/admin/organization", {
       method: "PUT",
-      headers: { "X-Organization": id },
       body: JSON.stringify({
+        orgId: id,
         name,
         externalId,
         licenseKey,

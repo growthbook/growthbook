@@ -8,7 +8,7 @@ import normal from "@stdlib/stats/base/dists/normal";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariationWithIndex,
-  MetricRegressionAdjustmentStatus,
+  MetricSnapshotSettings,
 } from "back-end/types/report";
 import { MetricDefaults } from "back-end/types/organization";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
@@ -38,7 +38,7 @@ export type ExperimentTableRow = {
   metricOverrideFields: string[];
   variations: SnapshotMetric[];
   rowClass?: string;
-  regressionAdjustmentStatus?: MetricRegressionAdjustmentStatus;
+  metricSnapshotSettings?: MetricSnapshotSettings;
   isGuardrail?: boolean;
 };
 
@@ -204,6 +204,17 @@ export function applyMetricOverrides<T extends ExperimentMetricInterface>(
           metricOverride.regressionAdjustmentDays;
         overrideFields.push("regressionAdjustmentDays");
       }
+    }
+
+    if (metricOverride?.properPriorOverride) {
+      newMetric.priorSettings.override = true;
+      newMetric.priorSettings.proper =
+        metricOverride.properPriorEnabled ?? newMetric.priorSettings.proper;
+      newMetric.priorSettings.mean =
+        metricOverride.properPriorMean ?? newMetric.priorSettings.mean;
+      newMetric.priorSettings.stddev =
+        metricOverride.properPriorStdDev ?? newMetric.priorSettings.stddev;
+      overrideFields.push("prior");
     }
   }
   return { newMetric, overrideFields };

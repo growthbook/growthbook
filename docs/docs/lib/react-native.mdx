@@ -1,0 +1,628 @@
+---
+title: React Native SDK
+description: GrowthBook SDK for React Native
+slug: react-native
+toc_max_heading_level: 5
+---
+
+import ExternalLink from '@site/src/components/ExternalLink'
+
+# React Native
+
+This is a thin wrapper on top of the [Javascript Library](/lib/js), so you might want to view those docs first to familiarize yourself with the basic classes and methods.
+
+## Installation
+
+Install with a package manager
+
+```bash npm2yarn
+npm install --save @growthbook/growthbook-react
+```
+
+## Quick Usage
+
+### Step 1: Configure your app
+
+```tsx
+import { useEffect } from "react";
+import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+
+// Create a GrowthBook instance
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  // Only required for A/B testing
+  // Called every time a user is put into an experiment
+  trackingCallback: (experiment, result) => {
+    console.log("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
+  },
+});
+gb.init()
+
+export default function App() {
+  useEffect(() => {
+    // TODO: Set user attributes for targeting
+    gb.setAttributes({
+      id: user.id,
+      company: user.company,
+    });
+  }, [user])
+
+  return (
+    <GrowthBookProvider growthbook={gb}>
+      <OtherComponent />
+    </GrowthBookProvider>
+  );
+}
+```
+
+### Step 2: Start feature flagging!
+
+There are a few ways to use feature flags in GrowthBook:
+
+#### Feature Hooks
+
+```tsx
+import { useFeatureValue, useFeatureIsOn } from "@growthbook/growthbook-react";
+
+export default function OtherComponent() {
+  // Boolean on/off features
+  const newLogin = useFeatureIsOn("new-login-form");
+
+  // String/Number/JSON features with a fallback value
+  const buttonColor = useFeatureValue("login-button-color", "blue");
+
+  if (newLogin) {
+    return <NewLogin color={buttonColor} />;
+  } else {
+    return <Login color={buttonColor} />;
+  }
+}
+```
+
+#### Feature Wrapper Components
+
+```jsx
+import { IfFeatureEnabled, FeatureString } from "@growthbook/growthbook-react";
+
+export default function OtherComponent() {
+  return (
+    <View>
+      <Text style={heading}>
+        <FeatureString feature="app-title" default="My App"/>
+      </Text>
+      <IfFeatureEnabled feature="welcome-message">
+        <Text>Welcome to our app!</Text>
+      </IfFeatureEnabled>
+    </View>
+  );
+}
+```
+
+#### useGrowthBook hook
+
+If you need low-level access to the GrowthBook instance for any reason, you can use the `useGrowthBook` hook.
+
+One example is updating targeting attributes when a user logs in:
+
+```jsx
+import { useGrowthBook } from "@growthbook/growthbook-react";
+
+export default function Auth() {
+  const growthbook = useGrowthBook();
+
+  const user = useUser();
+  useEffect(() => {
+    if (!user) return;
+    growthbook.setAttributes({
+      loggedIn: true,
+      id: user.id,
+      company: user.company,
+      isPro: user.plan === "pro"
+    })
+  }, [user, growthbook])
+
+  ...
+}
+```
+
+## Loading Features
+
+In order for the GrowthBook SDK to work, it needs to have feature definitions from the GrowthBook API. There are 2 ways to get this data into the SDK.
+
+### Built-in Fetching and Caching
+
+If you pass an `apiHost` and `clientKey` into the GrowthBook constructor, it will handle the network requests, caching, retry logic, etc. for you automatically. If your feature payload is encrypted, you can also pass in a `decryptionKey`.
+
+```ts
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+});
+
+await gb.init({
+  // If the network request takes longer than this (in milliseconds), continue
+  // Default: `0` (no timeout)
+  timeout: 2000,
+})
+```
+
+Until features are loaded, all features will evaluate to `null`. If you're ok with a potential flicker in your application (features going from `null` to their real value), you can call `init` without awaiting the result.
+
+If you want to refresh the features at any time (e.g. when a navigation event occurs), you can call `gb.refreshFeatures()`.
+
+#### Error Handling
+
+In the case of network issues, the `init` call will not throw an error. Instead, it will stay in the default state where every feature evaluates to `null`.
+
+You can still get access to the error if needed:
+
+```ts
+const res = await gb.init({
+  timeout: 1000
+});
+console.log(res);
+```
+
+The return value has 3 properties:
+
+- **status** - `true` if the GrowthBook instance was populated with features/experiments. Otherwise `false`
+- **source** - Where this result came from. One of the following values: `network`, `cache`, `init`, `error`, or `timeout`
+- **error** - If status is `false`, this will contain an `Error` object with more details about the error
+
+### Custom Integration
+
+If you prefer to handle the network and caching logic yourself, you can pass in a full JSON "payload" directly into the SDK. For example, you might store features in Postgres and send it down as part of your app's initial bootstrap API call.
+
+```ts
+await gb.init({
+  payload: {
+    features: {
+      "feature-1": {...},
+      "feature-2": {...},
+      "another-feature": {...},
+    }
+  }
+})
+```
+
+The data structure for "payload" is exactly the same as what is returned by the GrowthBook SDK endpoints and webhooks.
+
+You can update the payload at any time by calling `setPayload(newPayloadJSON)`.
+
+Note: you don't need to specify `clientKey` or `apiHost` on your GrowthBook instance unless you want to enable streaming (see below) or call `refreshFeatures()` later.
+
+#### Synchronous Init
+
+There is a alternate synchronous version of init named `initSync`, which can be especially useful in SSR to prevent hydration mismatches. There are some restrictions/differences:
+
+- You MUST pass in `payload`
+- The `payload` MUST NOT have encrypted features or experiments
+- If you use sticky bucketing, you MUST pass `stickyBucketAssignmentDocs` into your GrowthBook constructor
+- The return value is the GrowthBook instance to enable easy method chaining
+
+## Waiting for Features to Load
+
+There is a helper component `<FeaturesReady>` that lets you render a fallback component until features are done loading. This works for both built-in fetching and custom integrations.
+
+```jsx
+<FeaturesReady timeout={500} fallback={<LoadingSpinner/>}>
+  <ComponentThatUsesFeatures/>
+</FeaturesReady>
+```
+
+- `timeout` is the max time you want to wait for features to load (in ms). The default is `0` (no timeout).
+- `fallback` is the component you want to display before features are loaded. The default is `null`.
+
+If you want more control, you can use the `useGrowthBook()` hook and the `ready` flag:
+
+```ts
+const gb = useGrowthBook();
+
+if (gb.ready) {
+  // Do something
+}
+```
+
+## Streaming Updates
+
+The GrowthBook SDK supports streaming with Server-Sent Events (SSE). When enabled, changes to features within GrowthBook will be streamed to the SDK in realtime as they are published. This is only supported on GrowthBook Cloud or if running a GrowthBook Proxy Server.
+
+React Native does not support SSE out-of-the-box, but there is a small helper library you can install:
+
+```bash npm2yarn
+npm install --save react-native-sse
+```
+
+The, tell GrowthBook to use this polyfill:
+
+```js
+import { setPolyfills } = from "@growthbook/growthbook";
+import EventSource from "react-native-sse";
+
+// Configure GrowthBook to use the eventsource library
+setPolyfills({
+  EventSource: EventSource
+});
+```
+
+And finally, you can simply pass `streaming: true` into your init calls:
+
+```ts
+gb.init({
+  streaming: true,
+})
+```
+
+## Remote Evaluation
+
+The React Native SDK may be run in Remote Evaluation mode. This mode brings the security benefits of a backend SDK to mobile by evaluating feature flags exclusively on a private server. Using Remote Evaluation ensures that any sensitive information within targeting rules or unused feature variations are never seen by the client.
+
+You must enable Remote Evaluation in your SDK Connection settings. Cloud customers are also required to self-host a GrowthBook Proxy Server or custom remote evaluation backend.
+
+To use Remote Evaluation, add the `remoteEval: true` property to your SDK instance. A new evaluation API call will be made any time a user attribute or other dependency changes. You may optionally limit these API calls to specific attribute changes by setting the `cacheKeyAttributes` property (an array of attribute names that, when changed, trigger a new evaluation call).
+
+```ts
+const gb = new GrowthBook({
+  apiHost: "https://gb-proxy.mydomain.io/",
+  clientKey: "sdk-abc123",
+  // Enable remote evaluation
+  remoteEval: true,
+
+  // Optional: only trigger a new evaluation call when the `id` and `email` attribute changes
+  cacheKeyAttributes: ["id", "email"],
+});
+```
+
+:::note
+
+If you would like to implement Sticky Bucketing while using Remote Evaluation, you must configure your remote evaluation backend to support Sticky Bucketing. In the case of the GrowthBook Proxy Server, this means implementing a Redis database for sticky bucketing use. You will not need to provide a StickyBucketService instance to the client side SDK.
+
+:::
+
+## Caching
+
+The React Native SDK has 2 caching layers:
+
+1. In-memory cache (enabled by default)
+2. Persistent localStorage cache (disabled by default, requires configuration)
+
+### Configuring Local Storage
+
+In order to use persistent storage, you must provide a polyfill with the same method signature as browser's localStorage.
+
+Here's an example using AsyncStorage
+
+```bash npm2yarn
+npm install --save @react-native-async-storage/async-storage
+```
+
+```jsx
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { setPolyfills } from "@growthbook/growthbook";
+
+setPolyfills({
+  localStorage: {
+    // Example using Redis
+    getItem: (key) => JSON.parse(AsyncStorage.getItem(key) || "null")
+    setItem: (key, value) => AsyncStorage.setItem(key, JSON.stringify(value))
+  }
+});
+```
+
+### Cache Settings
+
+There are a number of cache settings you can configure within GrowthBook. This must be done BEFORE creating a GrowthBook instance.
+
+Below are all of the default values. You can call `configureCache` with a subset of these fields and the rest will keep their default values.
+
+```ts
+import { configureCache } from "@growthbook/growthbook";
+
+configureCache({
+  // The localStorage key the cache will be stored under
+  cacheKey: "gbFeaturesCache",
+  // Consider features stale after this much time (60 seconds default)
+  staleTTL: 1000 * 60,
+  // Cached features older than this will be ignored (24 hours default)
+  maxAge: 1000 * 60 * 60 * 24,
+  // For Remote Eval only - limit the number of cache entries (~1 entry per user)
+  maxEntries: 10,
+  // Set to `true` to completely disable both in-memory and persistent caching
+  disableCache: false,
+})
+```
+
+## Experimentation (A/B Testing)
+
+In order to run A/B tests, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).
+
+```js
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  trackingCallback: (experiment, result) => {
+    // Example using Segment
+    analytics.track("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
+  },
+});
+```
+
+This same tracking callback is used for both feature flag experiments and Visual Editor experiments.
+
+### Feature Flag Experiments
+
+There is nothing special you have to do for feature flag experiments. Just evaluate the feature flag like you would normally do. If the user is put into an experiment as part of the feature flag, it will call the `trackingCallback` automatically in the background.
+
+```js
+// If this has an active experiment and the user is included,
+// it will call trackingCallback automatically
+useFeatureIsOn("new-signup-form")
+```
+
+If the experiment came from a feature rule, `result.featureId` in the trackingCallback will contain the feature id, which may be useful for tracking/logging purposes.
+
+### Visual Editor Experiments
+
+Visual Editor experiments are not supported in React Native at this time.
+
+### URL Redirect Experiments
+
+URL Redirect experiments are no supported in React Native at this time.
+
+### Sticky Bucketing
+
+Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment supports sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing.
+
+The JS SDK exports several implementations of this service for reference, although you will need to build your own to work in a React Native environments.
+
+Implement the abstract `StickyBucketService` class and connect to your own data store, or custom wrap multiple service implementations.
+
+```js
+import Cookies from 'js-cookie';
+
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  stickyBucketService: new MyStickyBucketService(),
+  // ...
+});
+```
+
+## API Reference
+
+There are a number of configuration options and settings that control how GrowthBook behaves.
+
+### Attributes
+
+You can specify attributes about the current user and request. These are used for two things:
+
+1.  Feature targeting (e.g. paid users get one value, free users get another)
+2.  Assigning persistent variations in A/B tests (e.g. user id "123" always gets variation B)
+
+The following are some commonly used attributes, but use whatever makes sense for your application.
+
+```ts
+new GrowthBook({
+  attributes: {
+    id: "123",
+    loggedIn: true,
+    deviceId: "abc123def456",
+    company: "acme",
+    paid: false,
+    url: "/pricing",
+    browser: "chrome",
+    mobile: false,
+    country: "US",
+  },
+});
+```
+
+#### Updating Attributes
+
+If attributes change, you can call `setAttributes()` to update. This will completely overwrite any existing attributes. To do a partial update, use the following pattern:
+
+```js
+gb.setAttributes({
+  // Only update the `url` attribute, keep the rest the same
+  ...gb.getAttributes(),
+  url: "/new-page"
+})
+```
+
+#### Secure Attributes
+
+When _secure attribute hashing_ is enabled, all targeting conditions in the SDK payload referencing attributes with datatype `secureString` or `secureString[]` will be anonymized via SHA-256 hashing. This allows you to safely target users based on sensitive attributes. You must enable this feature in your SDK Connection for it to take effect.
+
+If your SDK Connection has secure attribute hashing enabled, you will need to manually hash any `secureString` or `secureString[]` attributes that you pass into the GrowthBook SDK.
+
+To hash an attribute, use a cryptographic library with SHA-256 support, and compute the SHA-256 hashed value of your attribute _plus_ your organization's secure attribute salt.
+
+```js
+const salt = "f09jq3fij"; // Your organization's secure attribute salt (see Organization Settings)
+
+// hashing a secureString attribute
+const userEmail = sha256(salt + user.email);
+
+// hashing an secureString[] attribute
+const userTags = user.tags.map(tag => sha256(salt + tag));
+
+gb.setAttributes({
+  id: user.id,
+  loggedIn: true,
+  email: userEmail,
+  tags: userTags,
+});
+
+await gb.init();
+
+// In this example, we are using Node.js's built-in crypto library
+function sha256(str) {
+  return crypto.createHash("sha256").update(str).digest("hex");
+}
+```
+
+Note that in a browser context, we will not be able to natively access the Node.js crypto library. In modern browsers `window.crypto.subtle` is available, although calls are asynchronous. You would need to await all attribute hashing to complete before calling `gb.setAttributes()`.
+
+```js
+async function sha256(str) {
+  const buffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  const hashArray = Array.from(new Uint8Array(buffer));
+  return hashArray.map(byte => byte.toString(16).padStart(2, "0")).join("");
+}
+```
+
+Alternatively, CryptoJS (https://www.npmjs.com/package/crypto-js) provides a synchronous API:
+
+```js
+import sha256 from 'crypto-js/sha256';
+
+const userEmail = sha256(salt + user.email);
+```
+
+### Feature Usage Callback
+
+GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like NewRelic or DataDog.
+
+```ts
+new GrowthBook({
+  onFeatureUsage: (featureKey, result) => {
+    console.log("feature", featureKey, "has value", result.value);
+  },
+});
+```
+
+Note: If you evaluate the same feature multiple times (and the value doesn't change), the callback will only be fired the first time.
+
+### Dev Mode
+
+There is a [GrowthBook Chrome DevTools Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) that can help you debug and test your feature flags in development.
+
+In order for this to work, you must explicitly enable dev mode when creating your GrowthBook instance:
+
+```js
+const gb = new GrowthBook({
+  enableDevMode: true,
+});
+```
+
+To avoid exposing all of your internal feature flags and experiments to users, we recommend setting this to `false` in production in most cases.
+
+### Inline Experiments
+
+Depending on how you configure feature flags, they may run A/B tests behind the scenes to determine which value gets assigned to the user.
+
+Sometimes though, you want to run an inline experiment without going through a feature flag first. For this, you can use either the `useExperiment` hook or the Higher Order Component `withRunExperiment`:
+
+View the [Javascript SDK Docs](/lib/js) for all of the options available for inline experiments
+
+#### useExperiment hook
+
+```tsx
+import { useExperiment } from "@growthbook/growthbook-react";
+
+export default function OtherComponent() {
+  const { value } = useExperiment({
+    key: "new-headline",
+    variations: ["Hello", "Hi", "Good Day"]
+  });
+
+  return <h1>{value}</h1>;
+}
+```
+
+#### withRunExperiment (class components)
+
+**Note:** This library uses hooks internally, so still requires React 16.8 or above.
+
+```tsx
+import { withRunExperiment } from "@growthbook/growthbook-react";
+
+class OtherComponent extends React.Component {
+  render() {
+    // The `runExperiment` prop is identical to the `useExperiment` hook
+    const { value } = this.props.runExperiment({
+      key: "headline-test",
+      variations: ["Hello World", "Hola Mundo"]
+    });
+    return <h1>{value}</h1>;
+  }
+}
+// Wrap your component in `withRunExperiment`
+export default withRunExperiment(OtherComponent);
+```
+
+## TypeScript support
+
+Some hooks are available in type-safe versions. These require you to pass in your generated types as the generic argument.
+
+See the [GrowthBook CLI](/tools/cli) documentation for more information on generating type definitions and [JavaScript &rarr; TypeScript &rarr; Scrict Typing](/lib/js#strict-typing) for how to use them.
+
+### useGrowthBook&lt;T&gt;()
+
+A type-safe version of the `useGrowthBook()` hook is available. Everywhere you use `useGrowthBook()`, pass the generated features as the generic argument:
+
+```ts
+const growthbook = useGrowthBook<AppFeatures>()
+```
+
+In that case, the hook will return `GrowthBook<AppFeatures> | undefined`.
+
+You can reduce this boilerplate by creating your own hook, e.g.:
+
+```ts
+// ./src/utils/growthbook.ts
+import { useGrowthBook as _useGrowthBook } from "@growthbook/growthbook-react";
+
+export const useGrowthBook = (): GrowthBook<AppFeatures> | undefined =>
+  _useGrowthBook<AppFeatures>();
+```
+
+You can now reference the hook you created instead of the one from the official package:
+
+```ts
+import { useGrowthBook } from "@/src/utils/growthbook"
+
+const growthbook = useGrowthBook();
+
+growthbook.getFeatureValue(knownKey, defaultValueOfValidType)
+```
+
+### useFeatureIsOn&lt;T&gt;()
+
+The React SDK also provides access to a type-safe `useFeatureIsOn<AppFeatures>()` hook.
+
+```ts
+const isDarkModeOn = useFeatureIsOn<AppFeatures>("dark_mode");
+```
+
+This will only allow you to pass known keys to the hook.
+
+You can reduce the boilerplate for this hook by creating your own and using that instead:
+
+```ts
+// ./src/utils/growthbook.ts
+import { useFeatureIsOn as _useFeatureIsOn } from "@growthbook/growthbook-react";
+
+export const useFeatureIsOn = (id: keyof AppFeatures & string): boolean =>
+  _useFeatureIsOn<AppFeatures>(id);
+```
+
+And then reference the hook you created instead of the one from the official package:
+
+```ts
+import { useFeatureIsOn } from "@/src/utils/growthbook"
+
+const isDarkModeOn = useFeatureIsOn("dark_mode");
+```
+
+## Examples
+
+- [React Native <ExternalLink />](https://github.com/growthbook/examples/tree/main/react-native-cli)
+- [Typescript example app with strict typing <ExternalLink />](https://github.com/growthbook/examples/tree/main/vanilla-typescript).

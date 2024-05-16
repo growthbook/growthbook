@@ -13,10 +13,6 @@ export interface ApiKeyInterface {
   secret?: boolean;
 }
 
-export type PublishableApiKey = Omit<ApiKeyInterface, "secret"> & {
-  secret: false;
-};
-
 export type SecretApiKey = Omit<
   ApiKeyInterface,
   "secret" | "environment" | "project" | "id"
