@@ -18,6 +18,7 @@ import { AppearanceUIThemeProvider } from "@/services/AppearanceUIThemeProvider"
 import TopNavLite from "@/components/Layout/TopNavLite";
 import { AppFeatures } from "@/./types/app-features";
 import GetStartedProvider from "@/services/GetStartedProvider";
+import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
 
 type ModAppProps = AppProps & {
   Component: {
@@ -102,6 +103,7 @@ function App({
                         <DefinitionsProvider>
                           {!liteLayout && <Layout />}
                           <main className={`main ${parts[0]}`}>
+                            <GuidedGetStartedBar />
                             <OrganizationMessagesContainer />
                             <DemoDataSourceGlobalBannerContainer />
                             <Component {...pageProps} />

@@ -17,7 +17,6 @@ import { GBAddCircle } from "@/components/Icons";
 import FeatureModal from "@/components/Features/FeatureModal";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import track from "@/services/track";
-import FeaturesGetStarted from "@/components/HomePage/FeaturesGetStarted";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   filterFeaturesByEnvironment,
@@ -61,15 +60,10 @@ export default function FeaturesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showArchived, setShowArchived] = useState(false);
-  const [showSteps, setShowSteps] = useState(false);
-  const [
-    featureToDuplicate,
-    setFeatureToDuplicate,
-  ] = useState<FeatureInterface | null>(null);
-  const [
-    featureToToggleStaleDetection,
-    setFeatureToToggleStaleDetection,
-  ] = useState<FeatureInterface | null>(null);
+  const [featureToDuplicate, setFeatureToDuplicate] =
+    useState<FeatureInterface | null>(null);
+  const [featureToToggleStaleDetection, setFeatureToToggleStaleDetection] =
+    useState<FeatureInterface | null>(null);
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
@@ -86,13 +80,6 @@ export default function FeaturesPage() {
     !!router?.query?.mockdata,
     showGraphs
   );
-
-  // Show steps if coming from get started page
-  useEffect(() => {
-    if (router.asPath.match(/getstarted/)) {
-      setShowSteps(true);
-    }
-  }, [router]);
 
   // Searching
   const tagsFilter = useTagsFilter("features");
@@ -521,54 +508,63 @@ export default function FeaturesPage() {
         GrowthBook UI. For example, turn on/off a sales banner or change the
         title of your pricing page.{" "}
       </p>
-      {stepsRequired || showSteps ? (
-        <div className="mb-3">
-          <h4>
-            Setup Steps
-            {!stepsRequired && (
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowSteps(false);
-                }}
-                style={{ fontSize: "0.8em" }}
-                className="ml-3"
-              >
-                hide
-              </a>
-            )}
-          </h4>
-          <FeaturesGetStarted features={features} />
-          {features.length > 0 && <h4 className="mt-3">All Features</h4>}
-        </div>
-      ) : (
-        <div className="mb-3">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setShowSteps(true);
-            }}
+      {stepsRequired ? (
+        <>
+          <div
+            className="appbox d-flex flex-column align-items-center"
+            style={{ padding: "70px 305px 60px 305px" }}
           >
-            Show Setup Steps
-          </a>
-        </div>
-      )}
-      <Tabs newStyle={true} defaultTab="all-features">
-        <Tab id="all-features" display="All Features" padding={false}>
-          {renderFeaturesTable()}
-          <div className="alert alert-info mt-5">
-            Looking for <strong>Attributes</strong>, <strong>Namespaces</strong>
-            , <strong>Environments</strong>, or <strong>Saved Groups</strong>?
-            They have moved to the <Link href="/sdks">SDK Configuration</Link>{" "}
-            tab.
+            <h1>Change your App&apos;s Behavior</h1>
+            <p style={{ fontSize: "17px" }}>
+              Use Feature Flags to change your app&apos;s behavior. For example,
+              turn a sales banner on or off, or enable a new feature for Beta
+              users only.
+            </p>
+            <div className="row">
+              <Link href="/getstarted/feature-flag-guide">
+                {" "}
+                <button className="btn btn-outline-primary mr-2">
+                  Setup Instructions
+                </button>
+              </Link>
+
+              {permissionsUtil.canViewFeatureModal(project) &&
+                canCreateFeatures && (
+                  <button
+                    className="btn btn-primary float-right"
+                    onClick={() => {
+                      setModalOpen(true);
+                      track("Viewed Feature Modal", {
+                        source: "feature-list",
+                      });
+                    }}
+                    type="button"
+                  >
+                    <span className="h4 pr-2 m-0 d-inline-block align-top">
+                      <GBAddCircle />
+                    </span>
+                    Add Feature
+                  </button>
+                )}
+            </div>
           </div>
-        </Tab>
-        <Tab id="drafts" display="Drafts" padding={false} lazy={true}>
-          <FeaturesDraftTable features={features} />
-        </Tab>
-      </Tabs>
+        </>
+      ) : (
+        <Tabs newStyle={true} defaultTab="all-features">
+          <Tab id="all-features" display="All Features" padding={false}>
+            {renderFeaturesTable()}
+            <div className="alert alert-info mt-5">
+              Looking for <strong>Attributes</strong>,{" "}
+              <strong>Namespaces</strong>, <strong>Environments</strong>, or{" "}
+              <strong>Saved Groups</strong>? They have moved to the{" "}
+              <Link href="/sdks">SDK Configuration</Link> tab.
+            </div>
+          </Tab>
+          <Tab id="drafts" display="Drafts" padding={false} lazy={true}>
+            <FeaturesDraftTable features={features} />
+          </Tab>
+        </Tabs>
+      )}
     </div>
   );
 }

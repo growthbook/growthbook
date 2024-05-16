@@ -23,10 +23,6 @@ import { ThemeToggler } from "./ThemeToggler/ThemeToggler";
 import AccountPlanBadge from "./AccountPlanBadge";
 import AccountPlanNotices from "./AccountPlanNotices";
 import { usePageHead } from "./PageHead";
-import { routes, useGetStarted } from "@/services/GetStartedProvider";
-import Button from "../Button";
-import { PiCheckCircle, PiX } from "react-icons/pi";
-import { useRouter } from "next/router";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -45,15 +41,11 @@ const TopNav: FC<{
 
   const { breadcrumb } = usePageHead();
 
-  const { updateUser, name, email, refreshOrganization } = useUser();
+  const { updateUser, name, email } = useUser();
 
   const { datasources } = useDefinitions();
 
   const { apiCall, logout, organizations, orgId, setOrgId } = useAuth();
-
-  // TODO: Move to app.tsx
-  const { currentStep, source, clearStep, stepKey } = useGetStarted();
-  const router = useRouter();
 
   const form = useForm({
     defaultValues: { name: name || "", enableCelebrations },
@@ -326,76 +318,6 @@ const TopNav: FC<{
           </div>
         </div>
       </div>
-
-      {currentStep && (
-        <div
-          className={`navbar ${styles.guidedstepbar} pl-5 p-1`}
-          style={{
-            background: "#7B45EA",
-            color: "#FFFFFF",
-            height: "50px",
-          }}
-        >
-          <span>
-            <strong>Current Task:</strong> {currentStep}
-          </span>
-
-          <div>
-            <Button
-              className="mx-2"
-              style={{
-                background: "none",
-                color: "#EDE9FE",
-                border: "1px solid #C4B8F3",
-                borderRadius: "4px",
-                padding: "0px 10px",
-                fontSize: "13px",
-                height: "25px",
-              }}
-              onClick={async () => {
-                await apiCall("/organization/get-started-checklist", {
-                  method: "PUT",
-                  body: JSON.stringify({
-                    item: { step: stepKey, isCompleted: true },
-                    type: source,
-                  }),
-                });
-                clearStep();
-                refreshOrganization();
-                router.push(routes[source]);
-              }}
-            >
-              <PiCheckCircle />{" "}
-              <span className="align-middle">Mark as Complete</span>
-            </Button>
-            <Link href={source}>
-              <button
-                className="mx-2"
-                style={{
-                  background: "#EDE9FE",
-                  color: "#5746AF",
-                  border: "1px solid #C4B8F3",
-                  borderRadius: "4px",
-                  padding: "0px 10px",
-                  fontSize: "13px",
-                }}
-              >
-                Return to Guide
-              </button>
-            </Link>
-            <PiX
-              className="mx-3"
-              style={{
-                fill: "#FFFFFF",
-                height: "20px",
-                width: "20px",
-                cursor: "pointer",
-              }}
-              onClick={() => clearStep()}
-            />
-          </div>
-        </div>
-      )}
     </>
   );
 };
