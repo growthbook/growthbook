@@ -13,7 +13,6 @@ import {
   deleteAuthCookies,
   getAuthConnection,
   isNewInstallation,
-  markInstalled,
   validatePasswordFormat,
 } from "../services/auth";
 import {
@@ -284,7 +283,6 @@ export async function postFirstTimeRegister(
     userId: user.id,
     name: companyname,
   });
-  markInstalled();
 
   sendLocalSuccessResponse(req, res, user);
 }
