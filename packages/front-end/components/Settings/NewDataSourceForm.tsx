@@ -302,13 +302,10 @@ const NewDataSourceForm: FC<{
       source,
       newDatasourceForm: true,
     });
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    if (s.types.length === 1) {
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+    if (s.types?.length === 1) {
       const data = dataSourcesMap.get(s.types[0]);
       setDatasource({
         ...datasource,
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         type: s.types[0],
         name: `${s.label}`,
         params: data.default,

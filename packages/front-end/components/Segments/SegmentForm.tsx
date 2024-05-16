@@ -113,8 +113,7 @@ const SegmentForm: FC<{
           }))}
           className="portal-overflow-ellipsis"
         />
-        {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-        {datasource?.properties.userIds && (
+        {datasource?.properties?.userIds && (
           <SelectField
             label="Identifier Type"
             required
