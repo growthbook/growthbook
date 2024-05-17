@@ -1,29 +1,42 @@
 import { InformationSchemaInterface } from "@back-end/src/types/Integration";
+import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function RetryInformationSchemaCard({
   informationSchema,
   refreshOrCreateInfoSchema,
+  datasource,
   error,
 }: {
   informationSchema: InformationSchemaInterface;
+  datasource: DataSourceInterfaceWithParams;
   refreshOrCreateInfoSchema: (type: "PUT" | "POST") => void;
   error: string | null;
 }) {
+  const permissionsUtil = usePermissionsUtil();
+  const canRunQueries = permissionsUtil.canRunSchemaQueries(datasource);
   return (
     <div>
       <div className="alert alert-warning d-flex align-items-center">
         {error || informationSchema?.error?.message ? (
           <span>{error || informationSchema?.error?.message}</span>
         ) : null}
-        <button
-          className="btn btn-link"
-          onClick={async (e) => {
-            e.preventDefault();
-            refreshOrCreateInfoSchema("PUT");
-          }}
+        <Tooltip
+          body="You don't have permission to run this query."
+          shouldDisplay={!canRunQueries}
         >
-          Retry
-        </button>
+          <button
+            disabled={!canRunQueries}
+            className="btn btn-link"
+            onClick={async (e) => {
+              e.preventDefault();
+              refreshOrCreateInfoSchema("PUT");
+            }}
+          >
+            Retry
+          </button>
+        </Tooltip>
       </div>
     </div>
   );
