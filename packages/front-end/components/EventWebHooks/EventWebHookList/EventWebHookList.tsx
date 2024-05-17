@@ -45,19 +45,13 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
           <span className="badge badge-purple text-uppercase ml-2">Beta</span>
         </div>
         <p>
-          Event Webhooks are event-based, and allow you to monitor specific
-          events.
+          Event Webhooks allow you to monitor specific events, such as features
+          being created or experiment update warnings. Send messages in raw
+          JSON, <strong>Slack</strong>, or <strong>Discord</strong> format.
           <div className="mt-2">
             <DocLink docSection={"eventWebhooks"}>View Documentation</DocLink>
           </div>
         </p>
-        <div className="alert alert-premium">
-          <h4>Free while in Beta</h4>
-          <p className="mb-0">
-            This feature will be free while we build it out and work out the
-            bugs.
-          </p>
-        </div>
       </div>
 
       {/* Feedback messages */}

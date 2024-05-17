@@ -1,5 +1,4 @@
 import React, { FC, useCallback, useState } from "react";
-import z from "zod";
 import { useForm } from "react-hook-form";
 import { NotificationEventName } from "back-end/src/events/base-types";
 import Modal from "@/components/Modal";
@@ -15,7 +14,6 @@ import {
   EventWebHookEditParams,
   eventWebHookEventOptions,
   EventWebHookModalMode,
-  notificationEventNames,
 } from "@/components/EventWebHooks/utils";
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -42,7 +40,7 @@ const forcedParamsMap: {
 };
 
 const eventWebHookPayloadValues: { [k in EventWebHookPayloadType]: string } = {
-  raw: "Raw",
+  raw: "Raw JSON",
   slack: "Slack",
   discord: "Discord",
   "ms-teams": "Microsoft Teams",
@@ -55,7 +53,6 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   mode,
   error,
 }) => {
-  const [ctaEnabled, setCtaEnabled] = useState(false);
   const [validHeaders, setValidHeaders] = useState(true);
   const environmentSettings = useEnvironments();
   const environments = environmentSettings.map((env) => env.id);
@@ -100,32 +97,21 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
 
   const handleSubmit = form.handleSubmit(async (rawValues) => {
     const values = filteredValues(rawValues);
+
+    if (!values.events?.length) {
+      throw new Error("Please select at least one event trigger");
+    }
+
+    if (!validateHeaders(values.headers)) {
+      throw new Error("Invalid headers");
+    }
+
     onSubmit({ ...values, headers: JSON.parse(values.headers) });
   });
 
   const modalTitle =
     mode.mode == "edit" ? "Edit Webhook" : "Create New Webhook";
   const buttonText = mode.mode == "edit" ? "Save" : "Create";
-
-  const handleFormValidation = useCallback(() => {
-    const formValues = filteredValues(form.getValues());
-    if (!validateHeaders(formValues.headers)) return setCtaEnabled(false);
-
-    const schema = z.object({
-      url: z.string().url(),
-      name: z.string().trim().min(2),
-      enabled: z.boolean(),
-      events: z.array(z.enum(notificationEventNames)).min(1),
-      payloadType: z.enum(eventWebHookPayloadTypes),
-      tags: z.array(z.string()),
-      projects: z.array(z.string()),
-      environments: z.array(z.string()),
-      method: z.enum(eventWebHookMethods),
-      headers: z.string(),
-    });
-
-    setCtaEnabled(schema.safeParse(formValues).success);
-  }, [filteredValues, form]);
 
   if (!isOpen) return null;
 
@@ -137,7 +123,6 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       open={isOpen}
       submit={handleSubmit}
       error={error ?? undefined}
-      ctaEnabled={ctaEnabled}
     >
       <Field
         label="Webhook Name"
@@ -145,63 +130,22 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
         {...form.register("name")}
         onChange={(evt) => {
           form.setValue("name", evt.target.value);
-          handleFormValidation();
         }}
+        required
       />
 
       <Field
         label="Endpoint URL"
         placeholder="https://example.com/growthbook-webhook"
         {...form.register("url")}
-        helpText={
-          <>
-            Must accept <code>{form.watch("method")}</code> requests
-          </>
-        }
         onChange={(evt) => {
           form.setValue("url", evt.target.value);
-          handleFormValidation();
         }}
-      />
-
-      <SelectField
-        label="Method"
-        value={forcedParams?.method || form.watch("method")}
-        placeholder="Choose HTTP method"
-        disabled={!!forcedParams}
-        options={eventWebHookMethods.map((method) => ({
-          label: method,
-          value: method,
-        }))}
-        onChange={(value: EventWebHookMethod) => {
-          form.setValue("method", value);
-          handleFormValidation();
-        }}
-      />
-
-      <CodeTextArea
-        label="Headers"
-        language="json"
-        minLines={1}
-        value={forcedParams?.headers || form.watch("headers")}
-        disabled={!!forcedParams}
-        setValue={(headers) => {
-          form.setValue("headers", headers);
-          handleFormValidation();
-        }}
-        helpText={
-          <>
-            {!validHeaders ? (
-              <div className="alert alert-danger mr-auto">Invalid JSON</div>
-            ) : (
-              <div>JSON format for headers.</div>
-            )}
-          </>
-        }
+        required
       />
 
       <MultiSelectField
-        label="Events"
+        label="Event Triggers"
         value={form.watch("events")}
         placeholder="Choose events"
         sort={false}
@@ -211,7 +155,6 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
         }))}
         onChange={(value: string[]) => {
           form.setValue("events", value as NotificationEventName[]);
-          handleFormValidation();
         }}
       />
 
@@ -225,12 +168,11 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
         }))}
         onChange={(value: EventWebHookPayloadType) => {
           form.setValue("payloadType", value);
-          handleFormValidation();
         }}
       />
 
       <MultiSelectField
-        label="Environment filters"
+        label="Environment filters (optional)"
         helpText="Only receive notifications for matching environments. Leave blank to receive all."
         sort={false}
         value={form.watch("environments")}
@@ -240,12 +182,11 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
         }))}
         onChange={(value: string[]) => {
           form.setValue("environments", value);
-          handleFormValidation();
         }}
       />
 
       <MultiSelectField
-        label="Project filters"
+        label="Project filters (optional)"
         helpText="Only receive notifications for matching projects. Leave blank to receive all."
         sort={false}
         value={form.watch("projects")}
@@ -255,12 +196,11 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
         }))}
         onChange={(value: string[]) => {
           form.setValue("projects", value);
-          handleFormValidation();
         }}
       />
 
       <div className="form-group">
-        <label className="d-block">Tag filters</label>
+        <label className="d-block">Tag filters (optional)</label>
         <div className="mt-1">
           <TagsInput
             tagOptions={tags}
@@ -270,7 +210,6 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
                 "tags",
                 selected.map((item) => item)
               );
-              handleFormValidation();
             }}
           />
           <small className="text-muted">
@@ -286,12 +225,49 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
           value={form.watch("enabled")}
           setValue={(value) => {
             form.setValue("enabled", value);
-            handleFormValidation();
           }}
         />
         <label htmlFor="EventWebHookAddModal-enabled">
           Enable the webhook?
         </label>
+      </div>
+
+      <label>Advanced Request Settings</label>
+      <div className="appbox p-3 bg-light">
+        <SelectField
+          label="Method"
+          value={forcedParams?.method || form.watch("method")}
+          placeholder="Choose HTTP method"
+          disabled={!!forcedParams}
+          options={eventWebHookMethods.map((method) => ({
+            label: method,
+            value: method,
+          }))}
+          onChange={(value: EventWebHookMethod) => {
+            form.setValue("method", value);
+          }}
+        />
+
+        <CodeTextArea
+          label="Headers"
+          language="json"
+          minLines={1}
+          value={forcedParams?.headers || form.watch("headers")}
+          disabled={!!forcedParams}
+          setValue={(headers) => {
+            form.setValue("headers", headers);
+            validateHeaders(headers);
+          }}
+          helpText={
+            <>
+              {!validHeaders ? (
+                <div className="alert alert-danger mr-auto">Invalid JSON</div>
+              ) : (
+                <div>JSON format for headers.</div>
+              )}
+            </>
+          }
+        />
       </div>
     </Modal>
   );
