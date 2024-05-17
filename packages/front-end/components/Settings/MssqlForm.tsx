@@ -102,8 +102,7 @@ const MssqlForm: FC<{
             <Toggle
               id="trust-server-cert"
               label="Trust server certificate"
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-              value={params.options.trustServerCertificate === true}
+              value={params.options?.trustServerCertificate === true}
               setValue={(value) => {
                 const opt = {
                   ...params.options,
@@ -122,8 +121,7 @@ const MssqlForm: FC<{
             <Toggle
               id="encryption"
               label="Enable encryption"
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-              value={params.options.encrypt === true}
+              value={params.options?.encrypt === true}
               setValue={(value) => {
                 const opt = { ...params.options, encrypt: value };
                 setParams({

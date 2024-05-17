@@ -95,6 +95,7 @@ export default function RoleForm({
           disabled={status !== "creating"}
           autoComplete="company"
           maxLength={40}
+          currentLength={currentValue.id.length}
           placeholder="Name your Custom Role"
           labelClassName="font-weight-bold"
           {...form.register("id")}
@@ -112,6 +113,7 @@ export default function RoleForm({
         <Field
           label="Description"
           disabled={status === "viewing"}
+          currentLength={currentValue.description.length}
           placeholder="Briefly describe what this role will permit users to do"
           maxLength={100}
           labelClassName="font-weight-bold"

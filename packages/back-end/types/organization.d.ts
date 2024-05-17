@@ -134,6 +134,7 @@ export type SDKAttributeType = (typeof attributeDataTypes)[number];
 export type SDKAttribute = {
   property: string;
   datatype: SDKAttributeType;
+  description?: string;
   hashAttribute?: boolean;
   enum?: string;
   archived?: boolean;

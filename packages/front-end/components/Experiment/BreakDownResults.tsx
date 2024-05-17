@@ -11,6 +11,7 @@ import {
   StatsEngine,
 } from "back-end/types/stats";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
@@ -112,7 +113,7 @@ const BreakDownResults: FC<{
 
     const metricDefs = [...metrics, ...(guardrails || [])]
       .map((metricId) => getExperimentMetricById(metricId))
-      .filter(Boolean) as ExperimentMetricInterface[];
+      .filter(isDefined);
     const sortedFilteredMetrics = sortAndFilterMetricsByTags(
       metricDefs,
       metricFilter
