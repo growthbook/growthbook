@@ -180,8 +180,6 @@ export async function createDataSource(
     (params as GoogleAnalyticsParams).refreshToken = tokens.refresh_token || "";
   }
 
-  const supportsQueryCancellation = ["athena", "bigquery"].includes(type);
-
   const datasource: DataSourceInterface = {
     id,
     name,
@@ -193,7 +191,6 @@ export async function createDataSource(
     dateUpdated: new Date(),
     params: encryptParams(params),
     projects,
-    supportsQueryCancellation: supportsQueryCancellation,
   };
 
   await testDataSourceConnection(context, datasource);

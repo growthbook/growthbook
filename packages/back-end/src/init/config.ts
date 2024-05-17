@@ -171,7 +171,6 @@ export function getConfigDatasources(
       type: d.type,
       dateCreated: null,
       dateUpdated: null,
-      supportsQueryCancellation: d.supportsQueryCancellation,
     });
   });
 }

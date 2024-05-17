@@ -671,6 +671,14 @@ export async function cancelQuery(
   const context = getContextFromReq(req);
   const { qid, did } = req.params;
 
+  const datasource = await getDataSourceById(context, did);
+  if (!datasource) {
+    throw new Error("Cannot find datasource");
+  }
+  if (!context.permissions.canCancelQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
   const integration = await getIntegrationFromDatasourceId(context, did, true);
 
   if (!integration.cancelQuery) {

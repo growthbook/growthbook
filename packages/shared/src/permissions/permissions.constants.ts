@@ -71,7 +71,12 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "editDatasourceSettings",
     "runQueries",
   ],
-  DataSourceConfiguration: ["readData", "editDatasourceSettings", "runQueries"],
+  DataSourceConfiguration: [
+    "readData",
+    "editDatasourceSettings",
+    "runQueries",
+    "cancelQueries",
+  ],
   RunQueries: ["readData", "runQueries"],
   MetricsFullAccess: ["readData", "createMetrics", "runQueries"],
   FactTablesFullAccess: [
@@ -482,6 +487,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "createDatasources",
   "editDatasourceSettings",
   "runQueries",
+  "cancelQueries",
   "manageTargetingAttributes",
   "manageVisualChanges",
 ] as const;

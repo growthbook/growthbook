@@ -32,6 +32,8 @@ const DataSourceQueries = (): React.ReactElement => {
   const { apiCall } = useAuth();
 
   const canView = d && permissions.check("readData", d.projects || []);
+  const canCancelQueries =
+    d && permissions.check("cancelQueries", d.projects || []);
 
   const { data, error: queriesError } = useApi<{
     queries: QueryInterface[];
@@ -89,6 +91,8 @@ const DataSourceQueries = (): React.ReactElement => {
       </div>
     );
   }
+
+  const supportsQueryCancellation = ["athena", "bigquery"].includes(d.type);
 
   return (
     <div className="container pagecontents">
@@ -252,7 +256,8 @@ const DataSourceQueries = (): React.ReactElement => {
                 <td>{query.externalId || "N/A"}</td>
                 <td>
                   <div className="d-flex align-items-center">
-                    {d.supportsQueryCancellation &&
+                    {supportsQueryCancellation &&
+                      canCancelQueries &&
                       ["running", "queued", "succeeded"].includes(
                         query.status
                       ) && (

@@ -222,7 +222,6 @@ interface DataSourceBase {
   params: string;
   projects?: string[];
   settings: DataSourceSettings;
-  supportsQueryCancellation: boolean;
 }
 
 interface RedshiftDataSource extends DataSourceBase {
