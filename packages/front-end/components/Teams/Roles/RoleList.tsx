@@ -9,6 +9,7 @@ import { useAuth } from "@/services/auth";
 import Tag from "@/components/Tags/Tag";
 import Button from "@/components/Button";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function RoleList() {
   const { roles, refreshOrganization, organization } = useUser();
@@ -32,6 +33,8 @@ export default function RoleList() {
           <tbody>
             {roles.map((r) => {
               const isCustom = !RESERVED_ROLE_IDS.includes(r.id);
+              const isOrgDefault =
+                organization.settings?.defaultRole?.role === r.id;
               const isDeactivated = deactivatedRoles.includes(r.id);
               return (
                 <tr key={r.id}>
@@ -94,7 +97,7 @@ export default function RoleList() {
                         modalHeader={`${
                           isDeactivated ? "Reactivate" : "Deactivate"
                         } ${r.id}`}
-                        disabled={!canManageRoles}
+                        disabled={!canManageRoles || isOrgDefault}
                         ctaColor="danger"
                         confirmationText={
                           <div>
@@ -123,14 +126,21 @@ export default function RoleList() {
                         }}
                         cta={isDeactivated ? "Reactivate" : "Deactivate"}
                       >
-                        <button
-                          className={`dropdown-item ${
-                            !isDeactivated ? "text-danger" : ""
-                          }`}
-                          type="button"
+                        <Tooltip
+                          body="This is your organization's default role and can not be deactivated."
+                          shouldDisplay={isOrgDefault}
+                          tipPosition="left"
                         >
-                          {isDeactivated ? "Reactivate" : "Deactivate"}
-                        </button>
+                          <button
+                            disabled={isOrgDefault}
+                            className={`dropdown-item ${
+                              !isDeactivated ? "text-danger" : ""
+                            }`}
+                            type="button"
+                          >
+                            {isDeactivated ? "Reactivate" : "Deactivate"}
+                          </button>
+                        </Tooltip>
                       </ConfirmButton>
                     </MoreMenu>
                   </td>
