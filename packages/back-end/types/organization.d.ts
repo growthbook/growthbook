@@ -280,6 +280,7 @@ export interface OrganizationInterface {
   messages?: OrganizationMessage[];
 
   customRoles?: Role[];
+  deactivatedRoles?: string[];
 }
 
 export type NamespaceUsage = Record<

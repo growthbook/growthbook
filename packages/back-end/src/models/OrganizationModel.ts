@@ -123,6 +123,7 @@ const organizationSchema = new mongoose.Schema({
   },
   settings: {},
   customRoles: {},
+  deactivatedRoles: [],
 });
 
 organizationSchema.index({ "members.id": 1 });
@@ -548,39 +549,39 @@ export async function removeCustomRole(
   }
 
   await updateOrganization(org.id, { customRoles: newCustomRoles });
+
+  // If the role we're deleting is deactivated, remove it from the deactivatedRoles array
+  if (org.deactivatedRoles?.includes(id)) {
+    const newDeactivatedRoles = org.deactivatedRoles.filter((r) => r !== id);
+
+    await updateOrganization(org.id, { deactivatedRoles: newDeactivatedRoles });
+  }
 }
 
-export async function updateRoleStatus(
-  org: OrganizationInterface,
-  teams: TeamInterface[],
-  id: string,
-  status: "active" | "inactive"
-) {
-  // Make sure the id isn't the org's default
-  if (org.settings?.defaultRole?.role === id) {
-    throw new Error(
-      "Cannot delete role. This role is set as the organization's default role."
-    );
-  }
-  // Make sure no members, invites, pending members, or teams are using the role
-  if (org.members.some((m) => usingRole(m, id))) {
-    throw new Error("Role is currently being used by at least one member");
-  }
-  if (org.pendingMembers?.some((m) => usingRole(m, id))) {
-    throw new Error(
-      "Role is currently being used by at least one pending member"
-    );
-  }
-  if (org.invites?.some((m) => usingRole(m, id))) {
-    throw new Error(
-      "Role is currently being used by at least one invited member"
-    );
-  }
-  if (teams.some((team) => usingRole(team, id))) {
-    throw new Error("Role is currently being used by at least one team");
+export async function deactivateRole(org: OrganizationInterface, id: string) {
+  if (
+    !RESERVED_ROLE_IDS.includes(id) &&
+    !org.customRoles?.some((role) => role.id === id)
+  ) {
+    throw new Error(`Unable to find role id ${id}`);
   }
 
-  // First,
+  const deactivatedRoles = new Set<string>(org.deactivatedRoles);
+  deactivatedRoles.add(id);
 
-  await updateOrganization(org.id, { customRoles: newCustomRoles });
+  await updateOrganization(org.id, {
+    deactivatedRoles: Array.from(deactivatedRoles),
+  });
+}
+
+export async function activateRole(org: OrganizationInterface, id: string) {
+  if (!org.deactivatedRoles || !org.deactivatedRoles?.includes(id)) {
+    throw new Error("Cannot activate a role that isn't deactivated");
+  }
+
+  const newDeactivatedRoles = org.deactivatedRoles.filter(
+    (role) => role !== id
+  );
+
+  await updateOrganization(org.id, { deactivatedRoles: newDeactivatedRoles });
 }

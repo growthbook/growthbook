@@ -93,6 +93,8 @@ import {
   addCustomRole,
   editCustomRole,
   removeCustomRole,
+  activateRole,
+  deactivateRole,
 } from "../../models/OrganizationModel";
 import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { ConfigFile } from "../../init/config";
@@ -734,6 +736,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
       customRoles: org.customRoles,
+      deactivatedRoles: org.deactivatedRoles,
       settings: {
         ...settings,
         attributeSchema: filteredAttributes,
@@ -2158,15 +2161,14 @@ export async function deleteCustomRole(
   });
 }
 
-export async function putRoleStatus(
-  req: AuthRequest<{ status: "active" | "inactive" }, { id: string }>,
+export async function deactivateRoleId(
+  req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { status } = req.body;
 
-  // Only orgs with custom-roles feature can deactivate/activate roles
+  // Only orgs with custom-roles feature can deactivate roles
   if (!context.hasPremiumFeature("custom-roles")) {
     throw new Error("Must have an Enterprise License Key to use custom roles.");
   }
@@ -2175,7 +2177,30 @@ export async function putRoleStatus(
     context.permissions.throwPermissionError();
   }
 
-  await updateRoleStatus(context.org, context.teams, id, status);
+  await deactivateRole(context.org, id);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function activateRoleId(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  // Only orgs with custom-roles feature can activate roles
+  if (!context.hasPremiumFeature("custom-roles")) {
+    throw new Error("Must have an Enterprise License Key to use custom roles.");
+  }
+
+  if (!context.permissions.canManageCustomRoles()) {
+    context.permissions.throwPermissionError();
+  }
+
+  await activateRole(context.org, id);
 
   res.status(200).json({
     status: 200,
