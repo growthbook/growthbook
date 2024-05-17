@@ -8,7 +8,6 @@ import { createApiRequestHandler } from "../../util/handler";
 import { putSdkConnectionValidator } from "../../validators/openapi";
 import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { sdkLanguages } from "../../util/constants";
-import { SDKLanguage } from "../../../types/sdk-connection";
 
 export const putSdkConnection = createApiRequestHandler(
   putSdkConnectionValidator
@@ -24,7 +23,7 @@ export const putSdkConnection = createApiRequestHandler(
 
     const {
       name,
-      languages,
+      language,
       sdkVersion,
       environment,
       projects = [],
@@ -56,20 +55,16 @@ export const putSdkConnection = createApiRequestHandler(
         );
     }
 
+    const languages = sdkLanguages.filter((l) => l === language);
     if (!languages.length)
-      throw new Error("You need to specify some lanuages!");
-
-    languages.forEach((lang) => {
-      if (!(sdkLanguages as readonly string[]).includes(lang))
-        throw new Error(`Language ${lang} is not supported!`);
-    });
+      throw new Error(`Language ${language} is not supported!`);
 
     const updatedSdkConnection = await editSDKConnection(
       req.context,
       sdkConnection,
       {
         name,
-        languages: (languages as unknown) as SDKLanguage[],
+        languages,
         sdkVersion,
         environment,
         projects,

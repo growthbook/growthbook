@@ -1,3 +1,4 @@
+import { getLatestSDKVersion } from "shared/sdk-versioning";
 import { PostSdkConnectionResponse } from "../../../types/openapi";
 import {
   toApiSDKConnectionInterface,
@@ -7,7 +8,6 @@ import { createApiRequestHandler } from "../../util/handler";
 import { postSdkConnectionValidator } from "../../validators/openapi";
 import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { sdkLanguages } from "../../util/constants";
-import { SDKLanguage } from "../../../types/sdk-connection";
 
 export const postSdkConnection = createApiRequestHandler(
   postSdkConnectionValidator
@@ -15,7 +15,7 @@ export const postSdkConnection = createApiRequestHandler(
   async (req): Promise<PostSdkConnectionResponse> => {
     const {
       name,
-      languages,
+      language,
       sdkVersion,
       environment,
       projects = [],
@@ -47,19 +47,18 @@ export const postSdkConnection = createApiRequestHandler(
         );
     }
 
+    const languages = sdkLanguages.filter((l) => l === language);
     if (!languages.length)
-      throw new Error("You need to specify some lanuages!");
-
-    languages.forEach((lang) => {
-      if (!(sdkLanguages as readonly string[]).includes(lang))
-        throw new Error(`Language ${lang} is not supported!`);
-    });
+      throw new Error(`Language ${language} is not supported!`);
 
     const sdkConnection = await createSDKConnection({
       name,
-      languages: (languages as unknown) as SDKLanguage[],
+      languages,
       organization: req.context.org.id,
-      sdkVersion,
+      sdkVersion:
+        sdkVersion === undefined
+          ? getLatestSDKVersion(languages[0])
+          : sdkVersion,
       environment,
       projects,
       encryptPayload,

@@ -801,15 +801,13 @@ paths:
               type: object
               required:
                 - name
-                - languages
+                - language
                 - environment
               properties:
                 name:
                   type: string
-                languages:
-                  type: array
-                  items:
-                    type: string
+                language:
+                  type: string
                 sdkVersion:
                   type: string
                 environment:
@@ -893,10 +891,8 @@ paths:
               properties:
                 name:
                   type: string
-                languages:
-                  type: array
-                  items:
-                    type: string
+                language:
+                  type: string
                 sdkVersion:
                   type: string
                 environment:

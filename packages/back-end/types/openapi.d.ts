@@ -2870,7 +2870,7 @@ export interface operations {
       content: {
         "application/json": {
           name: string;
-          languages: (string)[];
+          language: string;
           sdkVersion?: string;
           environment: string;
           projects?: (string)[];
@@ -2980,7 +2980,7 @@ export interface operations {
       content: {
         "application/json": {
           name?: string;
-          languages?: (string)[];
+          language?: string;
           sdkVersion?: string;
           environment?: string;
           projects?: (string)[];
