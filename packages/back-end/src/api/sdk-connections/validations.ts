@@ -12,6 +12,13 @@ const capabilityParams = [
 type CababilitiesParamKey = typeof capabilityParams[number][1];
 type CababilitiesParams = { [k in CababilitiesParamKey]?: boolean };
 
+const premiumFeatures = [
+  ["encrypt-features-endpoint", "encryptPayload"],
+] as const;
+
+type PremiumFeatureKey = typeof premiumFeatures[number][1];
+type PremiumFeatures = { [k in PremiumFeatureKey]?: boolean };
+
 export const validatePayload = async (
   context: ApiReqContext,
   {
@@ -43,7 +50,8 @@ export const validatePayload = async (
     proxyEnabled?: boolean;
     proxyHost?: string;
     hashSecureAttributes?: boolean;
-  } & CababilitiesParams
+  } & CababilitiesParams &
+    PremiumFeatures
 ) => {
   if (name && name.length < 3) {
     throw Error("Name length must be at least 3 characters");
@@ -97,6 +105,11 @@ export const validatePayload = async (
       throw new Error(
         `SDK version ${sdkVersion} doesn not support ${capability}`
       );
+  });
+
+  premiumFeatures.forEach(([feature, param]) => {
+    if (payload[param] && !context.hasPremiumFeature(feature))
+      throw new Error(`Feature ${feature} requires premium subscription!`);
   });
 
   return payload;
