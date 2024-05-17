@@ -124,11 +124,13 @@ export default function AttributeModal({ close, attribute }: Props) {
         </div>
       ) : null}
       <div className="form-group">
-        <label>
-          Description <small className="text-muted">(optional)</small>
-        </label>
         <Field
           className="form-control"
+          label={
+            <>
+              Description <small className="text-muted">(optional)</small>
+            </>
+          }
           {...form.register("description")}
           textarea={true}
         />
