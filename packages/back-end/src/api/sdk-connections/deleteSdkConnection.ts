@@ -18,6 +18,11 @@ export const deleteSdkConnection = createApiRequestHandler(
       throw new Error("Could not find sdkConnection with that id");
     }
 
+    if (!req.context.permissions.canDeleteSDKConnection(sdkConnection))
+      throw new Error(
+        "You don't have permission to delete this SDK connection!"
+      );
+
     await deleteSDKConnectionById(req.context.org.id, sdkConnection.id);
 
     return {

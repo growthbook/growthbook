@@ -11,13 +11,20 @@ export const postSdkConnection = createApiRequestHandler(
   postSdkConnectionValidator
 )(
   async (req): Promise<PostSdkConnectionResponse> => {
-    const sdkConnection = await createSDKConnection({
+    const params = {
       ...(await validatePayload(req.context, req.body)),
       organization: req.context.org.id,
-    });
+    };
+
+    if (!req.context.permissions.canCreateSDKConnection(params))
+      throw new Error(
+        "You con't have permission to create new SDK connections!"
+      );
 
     return {
-      sdkConnection: toApiSDKConnectionInterface(sdkConnection),
+      sdkConnection: toApiSDKConnectionInterface(
+        await createSDKConnection(params)
+      ),
     };
   }
 );
