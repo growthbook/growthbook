@@ -26,6 +26,7 @@ import { trackSnapshot } from "@/services/track";
 import VariationChooser from "@/components/Experiment/VariationChooser";
 import BaselineChooser from "@/components/Experiment/BaselineChooser";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import AnalysisForm from "./AnalysisForm";
 import ResultMoreMenu from "./ResultMoreMenu";
 import PhaseSelector from "./PhaseSelector";
@@ -62,7 +63,7 @@ export default function AnalysisSettingsBar({
   regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
   regressionAdjustmentHasValidMetrics?: boolean;
-  onRegressionAdjustmentChange?: (enabled: boolean) => void;
+  onRegressionAdjustmentChange?: (enabled: boolean) => Promise<void>;
   showMoreMenu?: boolean;
   variationFilter?: number[];
   setVariationFilter?: (variationFilter: number[]) => void;
@@ -90,6 +91,10 @@ export default function AnalysisSettingsBar({
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
   );
+
+  const permissionsUtil = usePermissionsUtil();
+  const canEditAnalysisSettings =
+    experiment && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -208,12 +213,17 @@ export default function AnalysisSettingsBar({
                         onRegressionAdjustmentChange &&
                         hasRegressionAdjustmentFeature
                       ) {
-                        onRegressionAdjustmentChange(value);
+                        onRegressionAdjustmentChange(value).catch((e) => {
+                          console.error(e);
+                        });
                       }
                     }}
                     className={`teal m-0`}
                     style={{ transform: "scale(0.8)" }}
-                    disabled={!hasRegressionAdjustmentFeature}
+                    disabled={
+                      !hasRegressionAdjustmentFeature ||
+                      !canEditAnalysisSettings
+                    }
                   />
                   {!regressionAdjustmentHasValidMetrics && (
                     <Tooltip
