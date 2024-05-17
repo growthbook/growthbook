@@ -247,8 +247,14 @@ export async function editSDKConnection(
   const {
     proxyEnabled,
     proxyHost,
-    ...otherChanges
+    languages,
+    ...rest
   } = editSDKConnectionValidator.parse(updates);
+
+  const otherChanges = {
+    ...rest,
+    languages: languages as SDKLanguage[],
+  };
 
   let newProxy = {
     ...connection.proxy,
@@ -293,23 +299,22 @@ export async function editSDKConnection(
     }
   });
 
-  const updatedConnection = await SDKConnectionModel.findOneAndUpdate(
+  const fullChanges = {
+    ...otherChanges,
+    proxy: newProxy,
+    project: "",
+    dateUpdated: new Date(),
+  };
+
+  await SDKConnectionModel.updateOne(
     {
       organization: connection.organization,
       id: connection.id,
     },
     {
-      new: true,
-      $set: {
-        ...otherChanges,
-        proxy: newProxy,
-        project: "",
-        dateUpdated: new Date(),
-      },
+      $set: fullChanges,
     }
   );
-
-  if (!updatedConnection) throw "Internal error!";
 
   if (needsProxyUpdate) {
     // Purge CDN if used
@@ -323,7 +328,7 @@ export async function editSDKConnection(
     );
   }
 
-  return toInterface(updatedConnection);
+  return { ...connection, ...fullChanges };
 }
 
 export async function deleteSDKConnectionById(
