@@ -7,8 +7,10 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 
 const ViewSampleDataButton = () => {
-  const { projectId: demoDataSourceProjectId, demoExperimentId } =
-    useDemoDataSourceProject();
+  const {
+    projectId: demoDataSourceProjectId,
+    demoExperimentId,
+  } = useDemoDataSourceProject();
   const router = useRouter();
   const { apiCall } = useAuth();
 
@@ -19,7 +21,7 @@ const ViewSampleDataButton = () => {
       router.push(`/experiment/${demoExperimentId}`);
     } else {
       track("Create Sample Project", {
-        source: "experiments-get-started",
+        source: "get-started",
       });
       const res = await apiCall<{
         project: ProjectInterface;
