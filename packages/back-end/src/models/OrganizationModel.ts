@@ -558,7 +558,10 @@ export async function removeCustomRole(
   }
 }
 
-export async function deactivateRole(org: OrganizationInterface, id: string) {
+export async function deactivateRoleById(
+  org: OrganizationInterface,
+  id: string
+) {
   if (
     !RESERVED_ROLE_IDS.includes(id) &&
     !org.customRoles?.some((role) => role.id === id)
@@ -574,7 +577,7 @@ export async function deactivateRole(org: OrganizationInterface, id: string) {
   });
 }
 
-export async function activateRole(org: OrganizationInterface, id: string) {
+export async function activateRoleById(org: OrganizationInterface, id: string) {
   if (!org.deactivatedRoles || !org.deactivatedRoles?.includes(id)) {
     throw new Error("Cannot activate a role that isn't deactivated");
   }

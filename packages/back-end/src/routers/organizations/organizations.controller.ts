@@ -93,8 +93,8 @@ import {
   addCustomRole,
   editCustomRole,
   removeCustomRole,
-  activateRole,
-  deactivateRole,
+  deactivateRoleById,
+  activateRoleById,
 } from "../../models/OrganizationModel";
 import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { ConfigFile } from "../../init/config";
@@ -2161,7 +2161,7 @@ export async function deleteCustomRole(
   });
 }
 
-export async function deactivateRoleId(
+export async function deactivateRole(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
@@ -2177,14 +2177,14 @@ export async function deactivateRoleId(
     context.permissions.throwPermissionError();
   }
 
-  await deactivateRole(context.org, id);
+  await deactivateRoleById(context.org, id);
 
   res.status(200).json({
     status: 200,
   });
 }
 
-export async function activateRoleId(
+export async function activateRole(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
@@ -2200,7 +2200,7 @@ export async function activateRoleId(
     context.permissions.throwPermissionError();
   }
 
-  await activateRole(context.org, id);
+  await activateRoleById(context.org, id);
 
   res.status(200).json({
     status: 200,
