@@ -36,8 +36,10 @@ const TopNav: FC<{
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   useGlobalMenu(".top-nav-user-menu", () => setUserDropdownOpen(false));
   useGlobalMenu(".top-nav-org-menu", () => setOrgDropdownOpen(false));
-  const [enableCelebrations, setEnableCelebrations] =
-    useCelebrationLocalStorage();
+  const [
+    enableCelebrations,
+    setEnableCelebrations,
+  ] = useCelebrationLocalStorage();
 
   const { breadcrumb } = usePageHead();
 

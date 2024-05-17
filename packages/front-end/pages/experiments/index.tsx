@@ -40,16 +40,18 @@ const NUM_PER_PAGE = 20;
 const ExperimentsPage = (): React.ReactElement => {
   const growthbook = useGrowthBook<AppFeatures>();
 
-  const { ready, project, getExperimentMetricById, getProjectById } =
-    useDefinitions();
+  const {
+    ready,
+    project,
+    getExperimentMetricById,
+    getProjectById,
+  } = useDefinitions();
 
   const { orgId } = useAuth();
 
-  const {
-    experiments: allExperiments,
-    error,
-    loading,
-  } = useExperiments(project);
+  const { experiments: allExperiments, error, loading } = useExperiments(
+    project
+  );
 
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
   const tagsFilter = useTagsFilter("experiments");

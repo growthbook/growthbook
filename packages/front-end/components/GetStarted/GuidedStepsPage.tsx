@@ -4,10 +4,10 @@ import { useState } from "react";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 
-interface Props {
-  title: string;
-  helpText: string | React.ReactNode;
-}
+// interface Props {
+//   title: string;
+//   helpText: string | React.ReactNode;
+// }
 
 const GuidedStepsPage = (): React.ReactElement => {
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
