@@ -1256,8 +1256,8 @@ export default function FeaturesOverview({
                 method: "PUT",
                 body: JSON.stringify({ owner }),
               });
-              mutate();
             }}
+            mutate={mutate}
           />
         )}
         {editValidator && (

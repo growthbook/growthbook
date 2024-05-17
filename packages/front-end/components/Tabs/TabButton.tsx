@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { isNumber } from "lodash";
 import { ReactElement } from "react";
 
 export interface Props {
@@ -53,8 +54,7 @@ export default function TabButton({
       }}
     >
       {display}
-      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-      {(showActiveCount || !active) && (count === 0 || count > 0) ? (
+      {(showActiveCount || !active) && isNumber(count) && count >= 0 ? (
         <span className={`badge badge-gray ml-2`}>{count}</span>
       ) : (
         ""

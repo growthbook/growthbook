@@ -29,7 +29,12 @@ function isValidWatchEntityType(type: string): boolean {
 export async function getUser(req: AuthRequest, res: Response) {
   // If using SSO, auto-create users in Mongo who we don't recognize yet
   if (!req.userId && usingOpenId()) {
-    const user = await createUser(req.name || "", req.email, "", req.verified);
+    const user = await createUser({
+      name: req.name || "",
+      email: req.email,
+      password: "",
+      verified: req.verified,
+    });
     req.userId = user.id;
   }
 
