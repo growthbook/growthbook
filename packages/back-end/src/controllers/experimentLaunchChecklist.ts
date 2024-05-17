@@ -134,7 +134,8 @@ export async function putManualLaunchChecklist(
     throw new Error("Could not find experiment");
   }
 
-  if (!context.permissions.canViewExperimentModal(experiment.project)) {
+  const updatedExperiment = { ...experiment, manualLaunchChecklist: checklist };
+  if (!context.permissions.canUpdateExperiment(experiment, updatedExperiment)) {
     context.permissions.throwPermissionError();
   }
 
