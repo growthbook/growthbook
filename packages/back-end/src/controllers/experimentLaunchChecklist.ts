@@ -135,9 +135,7 @@ export async function putManualLaunchChecklist(
     throw new Error("Could not find experiment");
   }
 
-  const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
-
-  if (!context.permissions.canRunExperiment(experiment, envs)) {
+  if (!context.permissions.canViewExperimentModal(experiment.project)) {
     context.permissions.throwPermissionError();
   }
 
