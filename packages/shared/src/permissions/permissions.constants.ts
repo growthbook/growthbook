@@ -62,7 +62,12 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "canReview",
     "bypassApprovalChecks",
   ],
-  ExperimentsFullAccess: ["readData", "createAnalyses", "runQueries"],
+  ExperimentsFullAccess: [
+    "readData",
+    "createAnalyses",
+    "runQueries",
+    "cancelQueries",
+  ],
   VisualEditorFullAccess: ["readData", "manageVisualChanges"],
   SuperDeleteReports: ["readData", "superDeleteReport"],
   DataSourcesFullAccess: [

@@ -258,9 +258,7 @@ const DataSourceQueries = (): React.ReactElement => {
                   <div className="d-flex align-items-center">
                     {supportsQueryCancellation &&
                       canCancelQueries &&
-                      ["running", "queued", "succeeded"].includes(
-                        query.status
-                      ) && (
+                      ["queued", "running"].includes(query.status) && (
                         <FaStopCircle
                           className="text-danger mr-2"
                           onClick={(e) => {

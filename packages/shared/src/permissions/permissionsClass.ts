@@ -627,6 +627,7 @@ export class Permissions {
   public canCancelQueries = (
     datasource: Pick<DataSourceInterface, "projects">
   ): boolean => {
+    // TODO: should this just be part of runQueries? Run and cancel seem different in intention but the current implementation has them tightly coupled
     return this.checkProjectFilterPermission(datasource, "cancelQueries");
   };
 
