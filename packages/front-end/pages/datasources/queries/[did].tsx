@@ -264,19 +264,12 @@ const DataSourceQueries = (): React.ReactElement => {
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            console.log("Clicked to stop", query.id);
                             apiCall<Response>(
                               `/datasource/${did}/cancel/${query.id}`,
                               {
                                 method: "POST",
                               }
-                            )
-                              .then((res) => {
-                                console.log("Got res with status", res.status);
-                              })
-                              .catch((error) => {
-                                console.error(error.message);
-                              });
+                            );
                           }}
                           title="Force stop"
                         />
