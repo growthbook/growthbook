@@ -1,5 +1,4 @@
 import { Response } from "express";
-import { getAffectedEnvsForExperiment } from "shared/util";
 import { orgHasPremiumFeature } from "enterprise";
 import { getContextFromReq } from "../services/organizations";
 import { AuthRequest } from "../types/AuthRequest";
