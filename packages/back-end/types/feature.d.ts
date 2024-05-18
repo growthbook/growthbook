@@ -38,7 +38,7 @@ export type LegacyFeatureInterface = FeatureInterface & {
   };
   draft?: FeatureDraftChanges;
   // schemaType and simple may not exist in old feature documents
-  jsonSchema?: Pick<JSONSchemaDef, "schema" | "date" | "enabled"> &
+  jsonSchema?: Omit<JSONSchemaDef, "schemaType" | "simple"> &
     Partial<Pick<JSONSchemaDef, "schemaType" | "simple">>;
 };
 

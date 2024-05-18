@@ -480,25 +480,29 @@ function JSONTextEditor({
 
   return (
     <Field
-      labelClassName="d-flex w-100"
+      labelClassName={editAsForm ? "d-flex w-100" : ""}
       placeholder={placeholder}
       label={
-        <>
-          <div>{label}</div>
-          {editAsForm && (
-            <div className="ml-auto">
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  editAsForm();
-                }}
-              >
-                Edit as Form
-              </a>
-            </div>
-          )}
-        </>
+        editAsForm ? (
+          <>
+            <div>{label}</div>
+            {editAsForm && (
+              <div className="ml-auto">
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    editAsForm();
+                  }}
+                >
+                  Edit as Form
+                </a>
+              </div>
+            )}
+          </>
+        ) : (
+          label
+        )
       }
       value={value}
       onChange={(e) => {
@@ -509,18 +513,21 @@ function JSONTextEditor({
       helpText={
         <div className="d-flex align-items-top">
           {helpText && <div>{helpText}</div>}
-          {formatted && formatted !== value ? (
-            <a
-              href="#"
-              className="text-purple ml-auto"
-              onClick={(e) => {
-                e.preventDefault();
+          <a
+            href="#"
+            className={clsx("text-purple ml-auto", {
+              "text-muted cursor-default no-underline":
+                !formatted || formatted === value,
+            })}
+            onClick={(e) => {
+              e.preventDefault();
+              if (formatted && formatted !== value) {
                 setValue(formatted);
-              }}
-            >
-              <FaMagic /> Format JSON
-            </a>
-          ) : null}
+              }
+            }}
+          >
+            <FaMagic /> Format JSON
+          </a>
         </div>
       }
     />

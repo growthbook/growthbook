@@ -426,12 +426,11 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
 
   const defaultJSONSchema = feature.jsonSchema?.schema || "{}";
 
+  // Default to simple schema unless they already have a JSON schema entered
   const defaultSchemaType =
-    feature.jsonSchema?.schemaType === "simple"
+    feature.jsonSchema?.schemaType === "simple" || defaultJSONSchema === "{}"
       ? "simple"
-      : defaultJSONSchema !== "{}"
-      ? "schema"
-      : "simple";
+      : "schema";
 
   const form = useForm<Omit<JSONSchemaDef, "date">>({
     defaultValues: {
