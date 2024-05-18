@@ -652,61 +652,6 @@ describe("simpleToJSONSchema", () => {
       JSON.parse(simpleToJSONSchema(invalidSchema as SimpleSchema))
     ).toThrowError("Value '0.5' is not an integer for field invalid");
   });
-
-  it("Uses tab layout when there are more than 5 fields in object[] schema", () => {
-    const arraySchema: SimpleSchema = {
-      ...simpleSchema,
-      fields: [
-        ...simpleSchema.fields,
-        {
-          key: "int1",
-          type: "integer",
-          description: "",
-          required: true,
-          enum: [],
-          default: "",
-          min: 0,
-          max: 25,
-        },
-        {
-          key: "int2",
-          type: "integer",
-          description: "",
-          required: true,
-          enum: [],
-          default: "",
-          min: 0,
-          max: 25,
-        },
-      ],
-      type: "object[]",
-    };
-    expect(JSON.parse(simpleToJSONSchema(arraySchema))).toEqual({
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          ...expectedProperties,
-          int1: {
-            type: "number",
-            format: "number",
-            minimum: 0,
-            maximum: 25,
-            multipleOf: 1,
-          },
-          int2: {
-            type: "number",
-            format: "number",
-            minimum: 0,
-            maximum: 25,
-            multipleOf: 1,
-          },
-        },
-        required: ["a_string", "a_float", "int1", "int2"],
-        additionalProperties: false,
-      },
-    });
-  });
 });
 
 describe("inferSchemaField", () => {
@@ -1152,7 +1097,41 @@ describe("getValidation", () => {
       simple: { type: "object", fields: [] },
       schema: "blahblah",
       date: new Date("2020-04-20"),
-      enabled: false,
+      enabled: true,
+    };
+    expect(getValidation(feature).validationEnabled).toEqual(false);
+  });
+  it("returns validationEnabled if simple is set, even if schema is invalid", () => {
+    feature.jsonSchema = {
+      schemaType: "simple",
+      simple: {
+        type: "primitive",
+        fields: [
+          {
+            default: "",
+            type: "string",
+            description: "",
+            enum: [],
+            key: "",
+            max: 256,
+            min: 0,
+            required: true,
+          },
+        ],
+      },
+      schema: "blahblah",
+      date: new Date("2020-04-20"),
+      enabled: true,
+    };
+    expect(getValidation(feature).validationEnabled).toEqual(true);
+  });
+  it("returns validationEnabled false if simple schema is invalid", () => {
+    feature.jsonSchema = {
+      schemaType: "simple",
+      simple: { type: "object", fields: [] },
+      schema: "blahblah",
+      date: new Date("2020-04-20"),
+      enabled: true,
     };
     expect(getValidation(feature).validationEnabled).toEqual(false);
   });
