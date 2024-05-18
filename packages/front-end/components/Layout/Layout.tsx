@@ -155,7 +155,7 @@ const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canManageOrgSettings(),
       },
       {
-        name: "Team",
+        name: "Members",
         href: "/settings/team",
         path: /^settings\/team/,
         filter: ({ permissionsUtils }) => permissionsUtils.canManageTeam(),
@@ -194,7 +194,7 @@ const navlinks: SidebarLinkProps[] = [
         name: "Logs",
         href: "/events",
         path: /^events/,
-        filter: ({ permissionsUtils }) => permissionsUtils.canViewEvents(),
+        filter: ({ permissionsUtils }) => permissionsUtils.canViewAuditLogs(),
       },
       {
         name: "Slack",

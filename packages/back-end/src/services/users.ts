@@ -109,12 +109,19 @@ export async function updatePassword(userId: string, password: string) {
   );
 }
 
-export async function createUser(
-  name: string,
-  email: string,
-  password?: string,
-  verified: boolean = false
-) {
+export async function createUser({
+  name,
+  email,
+  password,
+  verified = false,
+  superAdmin = false,
+}: {
+  name: string;
+  email: string;
+  password?: string;
+  verified?: boolean;
+  superAdmin?: boolean;
+}) {
   let passwordHash = "";
 
   if (!usingOpenId()) {
@@ -128,6 +135,7 @@ export async function createUser(
     passwordHash,
     id: uniqid("u_"),
     verified,
+    superAdmin,
   });
 }
 
@@ -203,6 +211,12 @@ export async function trackLoginForUser({
     data: {
       current: auditedData,
     },
+    projects: [],
+    tags: [],
+    environments: [],
+    // The event contains the ip, userAgent, etc. of users
+    // When marked as containing secrets, view access will be restricted to admins
+    containsSecrets: true,
   };
 
   try {

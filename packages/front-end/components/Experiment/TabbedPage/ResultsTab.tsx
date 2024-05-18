@@ -10,9 +10,9 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { MetricInterface } from "back-end/types/metric";
 import { DifferenceType } from "back-end/types/stats";
 import { getAllMetricSettingsForSnapshot } from "shared/experiments";
+import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -120,7 +120,7 @@ export default function ResultsTab({
   );
   const denominatorMetrics = denominatorMetricIds
     .map((m) => getMetricById(m as string))
-    .filter(Boolean) as MetricInterface[];
+    .filter(isDefined);
 
   const orgSettings = useOrgSettings();
 

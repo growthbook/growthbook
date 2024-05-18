@@ -9,6 +9,11 @@ import {
   postSubscriptionUpdateToLicenseServer,
 } from "enterprise";
 import {
+  areProjectRolesValid,
+  isRoleValid,
+  getDefaultRole,
+} from "shared/permissions";
+import {
   createOrganization,
   findAllOrganizations,
   findOrganizationById,
@@ -23,7 +28,6 @@ import {
   ExpandedMember,
   Invite,
   Member,
-  MemberRole,
   MemberRoleInfo,
   MemberRoleWithProjects,
   OrganizationInterface,
@@ -53,7 +57,6 @@ import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 import { logger } from "../util/logger";
-import { getDefaultRole } from "../util/organization.util";
 import { SegmentInterface } from "../../types/segment";
 import {
   createSegment,
@@ -63,7 +66,6 @@ import {
 import { getAllExperiments } from "../models/ExperimentModel";
 import { LegacyExperimentPhase } from "../../types/experiment";
 import { addTags } from "../models/TagModel";
-import { markInstalled } from "./auth";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -285,7 +287,7 @@ export async function addMemberToOrg({
 }: {
   organization: OrganizationInterface;
   userId: string;
-  role: MemberRole;
+  role: string;
   limitAccessByEnvironment: boolean;
   environments: string[];
   projectRoles?: ProjectMemberRole[];
@@ -299,6 +301,14 @@ export async function addMemberToOrg({
   // If member is also a pending member, remove
   let pendingMembers: PendingMember[] = organization?.pendingMembers || [];
   pendingMembers = pendingMembers.filter((m) => m.id !== userId);
+
+  // Ensure roles are valid
+  if (
+    !isRoleValid(role, organization) ||
+    !areProjectRolesValid(projectRoles, organization)
+  ) {
+    throw new Error("Invalid role");
+  }
 
   const members: Member[] = [
     ...organization.members,
@@ -405,7 +415,7 @@ export async function addPendingMemberToOrg({
   name: string;
   userId: string;
   email: string;
-  role: MemberRole;
+  role: string;
   limitAccessByEnvironment: boolean;
   environments: string[];
   projectRoles?: ProjectMemberRole[];
@@ -417,6 +427,14 @@ export async function addPendingMemberToOrg({
   // If member is also a pending member, skip
   if (organization?.pendingMembers?.find((m) => m.id === userId)) {
     return;
+  }
+
+  // Ensure roles are valid
+  if (
+    !isRoleValid(role, organization) ||
+    !areProjectRolesValid(projectRoles, organization)
+  ) {
+    throw new Error("Invalid role");
   }
 
   const pendingMembers: PendingMember[] = [
@@ -507,6 +525,14 @@ export async function inviteUser({
         organization.invites.filter((invite) => invite.email === email)[0].key
       ),
     };
+  }
+
+  // Ensure roles are valid
+  if (
+    !isRoleValid(role, organization) ||
+    !areProjectRolesValid(projectRoles, organization)
+  ) {
+    throw new Error("Invalid role");
   }
 
   // Generate random key for invite
@@ -941,7 +967,6 @@ export async function addMemberFromSSOConnection(
         userId: req.userId,
         name: "My Organization",
       });
-      markInstalled();
       return organization;
     }
 

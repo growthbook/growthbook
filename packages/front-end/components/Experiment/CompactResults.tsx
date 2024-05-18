@@ -15,6 +15,7 @@ import Link from "next/link";
 import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { ExperimentMetricInterface, getMetricLink } from "shared/experiments";
+import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
@@ -168,7 +169,7 @@ const CompactResults: FC<{
 
     const metricDefs = metrics
       .map((metricId) => getExperimentMetricById(metricId))
-      .filter(Boolean) as ExperimentMetricInterface[];
+      .filter(isDefined);
     const sortedFilteredMetrics = sortAndFilterMetricsByTags(
       metricDefs,
       metricFilter
@@ -176,7 +177,7 @@ const CompactResults: FC<{
 
     const guardrailDefs = guardrails
       .map((metricId) => getExperimentMetricById(metricId))
-      .filter(Boolean) as ExperimentMetricInterface[];
+      .filter(isDefined);
     const sortedFilteredGuardrails = sortAndFilterMetricsByTags(
       guardrailDefs,
       metricFilter
@@ -184,10 +185,10 @@ const CompactResults: FC<{
 
     const retMetrics = sortedFilteredMetrics
       .map((metricId) => getRow(metricId, false))
-      .filter((row) => row?.metric) as ExperimentTableRow[];
+      .filter(isDefined);
     const retGuardrails = sortedFilteredGuardrails
       .map((metricId) => getRow(metricId, true))
-      .filter((row) => row?.metric) as ExperimentTableRow[];
+      .filter(isDefined);
     return [...retMetrics, ...retGuardrails];
   }, [
     results,

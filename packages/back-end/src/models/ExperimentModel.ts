@@ -709,6 +709,13 @@ const logExperimentCreated = async (
 ): Promise<string | undefined> => {
   const { org: organization } = context;
   const apiExperiment = await toExperimentApiInterface(context, experiment);
+
+  // If experiment is part of the SDK payload, it affects all environments
+  // Otherwise, it doesn't affect any
+  const changedEnvs = includeExperimentInPayload(experiment)
+    ? getEnvironmentIdsFromOrg(context.org)
+    : [];
+
   const payload: ExperimentCreatedNotificationEvent = {
     object: "experiment",
     event: "experiment.created",
@@ -716,6 +723,10 @@ const logExperimentCreated = async (
     data: {
       current: apiExperiment,
     },
+    projects: [apiExperiment.project],
+    tags: apiExperiment.tags,
+    environments: changedEnvs,
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(organization.id, payload);
@@ -752,6 +763,13 @@ const logExperimentUpdated = async ({
     currentApiExperimentPromise,
   ]);
 
+  // If experiment is part of the SDK payload, it affects all environments
+  // Otherwise, it doesn't affect any
+  const hasPayloadChanges = hasChangesForSDKPayloadRefresh(previous, current);
+  const changedEnvs = hasPayloadChanges
+    ? getEnvironmentIdsFromOrg(context.org)
+    : [];
+
   const payload: ExperimentUpdatedNotificationEvent = {
     object: "experiment",
     event: "experiment.updated",
@@ -760,6 +778,14 @@ const logExperimentUpdated = async ({
       previous: previousApiExperiment,
       current: currentApiExperiment,
     },
+    projects: Array.from(
+      new Set([previousApiExperiment.project, currentApiExperiment.project])
+    ),
+    tags: Array.from(
+      new Set([...previousApiExperiment.tags, ...currentApiExperiment.tags])
+    ),
+    environments: changedEnvs,
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(context.org.id, payload);
@@ -1049,6 +1075,13 @@ export const logExperimentDeleted = async (
   experiment: ExperimentInterface
 ): Promise<string | undefined> => {
   const apiExperiment = await toExperimentApiInterface(context, experiment);
+
+  // If experiment is part of the SDK payload, it affects all environments
+  // Otherwise, it doesn't affect any
+  const changedEnvs = includeExperimentInPayload(experiment)
+    ? getEnvironmentIdsFromOrg(context.org)
+    : [];
+
   const payload: ExperimentDeletedNotificationEvent = {
     object: "experiment",
     event: "experiment.deleted",
@@ -1056,6 +1089,10 @@ export const logExperimentDeleted = async (
     data: {
       previous: apiExperiment,
     },
+    projects: [apiExperiment.project],
+    environments: changedEnvs,
+    tags: apiExperiment.tags,
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(context.org.id, payload);
@@ -1364,7 +1401,9 @@ const onExperimentUpdate = async ({
       isEqual
     );
 
-    refreshSDKPayloadCache(context, payloadKeys);
+    refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
+      logger.error(e, "Error refreshing SDK payload cache");
+    });
   }
 };
 
@@ -1381,5 +1420,7 @@ const onExperimentDelete = async (
   }
 
   const payloadKeys = getPayloadKeys(context, experiment, linkedFeatures);
-  refreshSDKPayloadCache(context, payloadKeys);
+  refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
+    logger.error(e, "Error refreshing SDK payload cache");
+  });
 };

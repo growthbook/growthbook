@@ -21,8 +21,9 @@ import {
   Environment,
 } from "back-end/types/organization";
 import { ProjectInterface } from "back-end/types/project";
+import { ApiFeature } from "back-end/types/openapi";
 import { getValidDate } from "../dates";
-import { getMatchingRules, includeExperimentInPayload } from ".";
+import { getMatchingRules, includeExperimentInPayload, isDefined } from ".";
 
 export function getValidation(feature: FeatureInterface) {
   try {
@@ -260,7 +261,7 @@ export function isFeatureStale({
 
       const linkedExperiments = (feature?.linkedExperiments ?? [])
         .map((id) => experimentMap.get(id))
-        .filter(Boolean) as ExperimentInterfaceStringDates[];
+        .filter(isDefined);
 
       const twoWeeksAgo = subWeeks(new Date(), 2);
       const dateUpdated = getValidDate(feature.dateUpdated);
@@ -1296,4 +1297,15 @@ export function inferSimpleSchemaFromValue(rawValue: string): SimpleSchema {
     // Fall back to a generic schema
     return { type: "object", fields: [] };
   }
+}
+
+export function getApiFeatureEnabledEnvs(feature: ApiFeature) {
+  if (feature.archived) return [];
+  const envs = new Set<string>();
+  Object.entries(feature.environments).forEach(([env, settings]) => {
+    if (settings?.enabled) {
+      envs.add(env);
+    }
+  });
+  return Array.from(envs);
 }
