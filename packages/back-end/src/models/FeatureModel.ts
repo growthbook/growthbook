@@ -7,6 +7,7 @@ import {
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
+  JSONSchemaDef,
   LegacyFeatureInterface,
 } from "../../types/feature";
 import { ExperimentInterface } from "../../types/experiment";
@@ -34,6 +35,7 @@ import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { logger } from "../util/logger";
 import { getEnvironmentIdsFromOrg } from "../services/organizations";
 import { ApiReqContext } from "../../types/api";
+import { simpleSchemaValidator } from "../validators/features";
 import { getChangedApiFeatureEnvironments } from "../events/handlers/utils";
 import { createEvent } from "./EventModel";
 import {
@@ -790,11 +792,15 @@ export async function setDefaultValue(
 export async function setJsonSchema(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
-  schema: string,
-  enabled?: boolean
+  def: Omit<JSONSchemaDef, "date">
 ) {
+  // Validate Simple Schema (sanity check)
+  if (def.schemaType === "simple" && def.simple) {
+    simpleSchemaValidator.parse(def.simple);
+  }
+
   return await updateFeature(context, feature, {
-    jsonSchema: { schema, enabled: enabled ?? true, date: new Date() },
+    jsonSchema: { ...def, date: new Date() },
   });
 }
 
