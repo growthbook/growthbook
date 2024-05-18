@@ -21,7 +21,7 @@ import {
 import { ProjectInterface } from "back-end/types/project";
 import { ApiFeature } from "back-end/types/openapi";
 import { getValidDate } from "../dates";
-import { getMatchingRules, includeExperimentInPayload } from ".";
+import { getMatchingRules, includeExperimentInPayload, isDefined } from ".";
 
 export function getValidation(feature: FeatureInterface) {
   try {
@@ -227,7 +227,7 @@ export function isFeatureStale({
 
       const linkedExperiments = (feature?.linkedExperiments ?? [])
         .map((id) => experimentMap.get(id))
-        .filter(Boolean) as ExperimentInterfaceStringDates[];
+        .filter(isDefined);
 
       const twoWeeksAgo = subWeeks(new Date(), 2);
       const dateUpdated = getValidDate(feature.dateUpdated);

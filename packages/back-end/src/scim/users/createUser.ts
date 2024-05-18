@@ -61,7 +61,7 @@ export async function createUser(
       let newUser = await getUserByEmail(userName);
 
       if (!newUser) {
-        newUser = await createNewUser(displayName, userName);
+        newUser = await createNewUser({ name: displayName, email: userName });
       }
 
       await addMemberToOrg({
