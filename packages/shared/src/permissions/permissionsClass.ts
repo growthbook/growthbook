@@ -19,6 +19,7 @@ import { ExperimentInterface } from "back-end/types/experiment";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { UpdateProps } from "back-end/types/models";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { NotificationEvent } from "back-end/src/events/notification-events";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 class PermissionError extends Error {
   constructor(message: string) {
@@ -128,8 +129,19 @@ export class Permissions {
     return this.checkGlobalPermission("manageNorthStarMetric");
   };
 
-  public canViewEvents = (): boolean => {
-    return this.checkGlobalPermission("viewEvents");
+  public canViewEvent = (
+    event: Pick<NotificationEvent, "containsSecrets" | "projects">
+  ): boolean => {
+    // Contains secrets (or is an old event where we weren't tracking this field yet)
+    if (event.containsSecrets !== false) {
+      return this.canViewAuditLogs();
+    }
+
+    return this.canReadMultiProjectResource(event.projects || []);
+  };
+
+  public canViewAuditLogs = (): boolean => {
+    return this.checkGlobalPermission("viewAuditLog");
   };
 
   public canCreateArchetype = (): boolean => {

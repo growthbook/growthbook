@@ -101,9 +101,9 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   TagsFullAccess: ["readData", "manageTags"],
   APIKeysFullAccess: ["readData", "manageApiKeys"],
   IntegrationsFullAccess: ["readData", "manageIntegrations"],
-  EventWebhooksFullAccess: ["readData", "manageEventWebhooks"],
+  EventWebhooksFullAccess: ["readData", "manageEventWebhooks", "viewAuditLog"],
   BillingFullAccess: ["readData", "manageBilling"],
-  AuditLogsFullAccess: ["readData", "viewEvents"],
+  AuditLogsFullAccess: ["readData", "viewAuditLog"],
   CustomRolesFullAccess: ["readData", "manageTeam", "manageCustomRoles"],
 };
 
@@ -497,7 +497,7 @@ export const GLOBAL_PERMISSIONS = [
   "manageSavedGroups",
   "manageArchetype",
   "manageCustomRoles",
-  "viewEvents",
+  "viewAuditLog",
 ] as const;
 
 export const ALL_PERMISSIONS = [
@@ -508,7 +508,7 @@ export const ALL_PERMISSIONS = [
 
 export const READ_ONLY_PERMISSIONS = [
   "readData",
-  "viewEvents",
+  "viewAuditLog",
   "runQueries",
   "addComments",
 ];

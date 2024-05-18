@@ -2,7 +2,7 @@ import mongoose, { FilterQuery } from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import { MergeResultChanges } from "shared/util";
+import { MergeResultChanges, getApiFeatureEnabledEnvs } from "shared/util";
 import {
   FeatureEnvironment,
   FeatureInterface,
@@ -34,6 +34,7 @@ import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { logger } from "../util/logger";
 import { getEnvironmentIdsFromOrg } from "../services/organizations";
 import { ApiReqContext } from "../../types/api";
+import { getChangedApiFeatureEnvironments } from "../events/handlers/utils";
 import { createEvent } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
@@ -345,24 +346,38 @@ async function logFeatureUpdatedEvent(
   const groupMap = await getSavedGroupMap(context.org);
   const experimentMap = await getExperimentMapForFeature(context, current.id);
 
+  const currentApiFeature = getApiFeatureObj({
+    feature: current,
+    organization: context.org,
+    groupMap,
+    experimentMap,
+  });
+  const previousApiFeature = getApiFeatureObj({
+    feature: previous,
+    organization: context.org,
+    groupMap,
+    experimentMap,
+  });
+
   const payload: FeatureUpdatedNotificationEvent = {
     object: "feature",
     event: "feature.updated",
     data: {
-      current: getApiFeatureObj({
-        feature: current,
-        organization: context.org,
-        groupMap,
-        experimentMap,
-      }),
-      previous: getApiFeatureObj({
-        feature: previous,
-        organization: context.org,
-        groupMap,
-        experimentMap,
-      }),
+      current: currentApiFeature,
+      previous: previousApiFeature,
     },
     user: context.auditUser,
+    projects: Array.from(
+      new Set([previousApiFeature.project, currentApiFeature.project])
+    ),
+    tags: Array.from(
+      new Set([...previousApiFeature.tags, ...currentApiFeature.tags])
+    ),
+    environments: getChangedApiFeatureEnvironments(
+      previousApiFeature,
+      currentApiFeature
+    ),
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(context.org.id, payload);
@@ -384,18 +399,24 @@ async function logFeatureCreatedEvent(
   const groupMap = await getSavedGroupMap(context.org);
   const experimentMap = await getExperimentMapForFeature(context, feature.id);
 
+  const apiFeature = getApiFeatureObj({
+    feature,
+    organization: context.org,
+    groupMap,
+    experimentMap,
+  });
+
   const payload: FeatureCreatedNotificationEvent = {
     object: "feature",
     event: "feature.created",
     user: context.auditUser,
     data: {
-      current: getApiFeatureObj({
-        feature,
-        organization: context.org,
-        groupMap,
-        experimentMap,
-      }),
+      current: apiFeature,
     },
+    projects: [apiFeature.project],
+    tags: apiFeature.tags,
+    environments: getApiFeatureEnabledEnvs(apiFeature),
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(context.org.id, payload);
@@ -419,18 +440,24 @@ async function logFeatureDeletedEvent(
     previousFeature.id
   );
 
+  const apiFeature = getApiFeatureObj({
+    feature: previousFeature,
+    organization: context.org,
+    groupMap,
+    experimentMap,
+  });
+
   const payload: FeatureDeletedNotificationEvent = {
     object: "feature",
     event: "feature.deleted",
     user: context.auditUser,
     data: {
-      previous: getApiFeatureObj({
-        feature: previousFeature,
-        organization: context.org,
-        groupMap,
-        experimentMap,
-      }),
+      previous: apiFeature,
     },
+    projects: [apiFeature.project],
+    tags: apiFeature.tags,
+    environments: getApiFeatureEnabledEnvs(apiFeature),
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(context.org.id, payload);
