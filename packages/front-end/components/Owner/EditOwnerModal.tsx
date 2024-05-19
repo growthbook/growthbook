@@ -8,7 +8,8 @@ const EditOwnerModal: FC<{
   owner: string;
   save: (ownerName: string) => Promise<void>;
   cancel: () => void;
-}> = ({ owner, save, cancel }) => {
+  mutate: () => void;
+}> = ({ owner, save, cancel, mutate }) => {
   const { memberUsernameOptions } = useMembers();
   const form = useForm({
     defaultValues: {
@@ -23,6 +24,7 @@ const EditOwnerModal: FC<{
       close={cancel}
       submit={form.handleSubmit(async (data) => {
         await save(data.owner);
+        mutate();
       })}
       cta="Save"
     >

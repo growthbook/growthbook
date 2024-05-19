@@ -1,66 +1,109 @@
 import {
   Permission,
   UserPermissions,
-  MemberRole,
+  PermissionsObject,
+  OrganizationInterface,
+  Role,
+  ProjectMemberRole,
+  MemberRoleInfo,
 } from "back-end/types/organization";
+import {
+  DEFAULT_ROLES,
+  ENV_SCOPED_PERMISSIONS,
+  POLICY_PERMISSION_MAP,
+  Policy,
+  READ_ONLY_PERMISSIONS,
+  RESERVED_ROLE_IDS,
+} from "./permissions.constants";
 
-export const ENV_SCOPED_PERMISSIONS = [
-  "publishFeatures",
-  "manageEnvironments",
-  "runExperiments",
-] as const;
+export function policiesSupportEnvLimit(policies: Policy[]): boolean {
+  // If any policies have a permission that is env scoped, return true
+  return policies.some((policy) =>
+    POLICY_PERMISSION_MAP[policy]?.some((permission) =>
+      ENV_SCOPED_PERMISSIONS.includes(
+        permission as typeof ENV_SCOPED_PERMISSIONS[number]
+      )
+    )
+  );
+}
 
-export const PROJECT_SCOPED_PERMISSIONS = [
-  "readData",
-  "addComments",
-  "bypassApprovalChecks",
-  "canReview",
-  "manageFeatureDrafts",
-  "manageFeatures",
-  "manageProjects",
-  "createAnalyses",
-  "createIdeas",
-  "createMetrics",
-  "manageFactTables",
-  "createDatasources",
-  "editDatasourceSettings",
-  "runQueries",
-  "manageTargetingAttributes",
-  "manageVisualChanges",
-] as const;
+export function getPermissionsObjectByPolicies(
+  policies: Policy[]
+): PermissionsObject {
+  const permissions: PermissionsObject = {};
 
-export const GLOBAL_PERMISSIONS = [
-  "readData",
-  "createPresentations",
-  "createDimensions",
-  "createSegments",
-  "organizationSettings",
-  "superDeleteReport",
-  "manageTeam",
-  "manageTags",
-  "manageApiKeys",
-  "manageIntegrations",
-  "manageWebhooks",
-  "manageBilling",
-  "manageNorthStarMetric",
-  "manageNamespaces",
-  "manageSavedGroups",
-  "manageArchetype",
-  "viewEvents",
-] as const;
+  policies.forEach((policy) => {
+    POLICY_PERMISSION_MAP[policy]?.forEach((permission) => {
+      permissions[permission] = true;
+    });
+  });
 
-export const ALL_PERMISSIONS = [
-  ...GLOBAL_PERMISSIONS,
-  ...PROJECT_SCOPED_PERMISSIONS,
-  ...ENV_SCOPED_PERMISSIONS,
-];
+  return permissions;
+}
 
-export const READ_ONLY_PERMISSIONS = [
-  "readData",
-  "viewEvents",
-  "runQueries",
-  "addComments",
-];
+export function getRoleById(
+  roleId: string,
+  organization: Partial<OrganizationInterface>
+): Role | null {
+  const roles = getRoles(organization);
+
+  return roles.find((role) => role.id === roleId) || null;
+}
+
+export function getRoles(org: Partial<OrganizationInterface>) {
+  // Always start with default roles
+  const roles = Object.values(DEFAULT_ROLES);
+
+  // TODO: Allow orgs to remove/disable some default roles
+
+  // Role ids must be unique, keep track of used ids
+  const usedIds = new Set(RESERVED_ROLE_IDS);
+
+  // Add additional custom roles
+  if (org.customRoles?.length) {
+    org.customRoles.forEach((role) => {
+      if (usedIds.has(role.id)) return;
+      usedIds.add(role.id);
+      roles.push(role);
+    });
+  }
+
+  return roles;
+}
+
+export function isRoleValid(role: string, org: Partial<OrganizationInterface>) {
+  return !!getRoleById(role, org);
+}
+
+export function areProjectRolesValid(
+  projectRoles: ProjectMemberRole[] | undefined,
+  org: Partial<OrganizationInterface>
+) {
+  if (!projectRoles) {
+    return true;
+  }
+  return projectRoles.every((p) => isRoleValid(p.role, org));
+}
+
+export function getDefaultRole(
+  org: Partial<OrganizationInterface>
+): MemberRoleInfo {
+  // First try the explicitly provided default role
+  if (
+    org.settings?.defaultRole?.role &&
+    isRoleValid(org.settings.defaultRole.role, org)
+  ) {
+    return org.settings.defaultRole;
+  }
+
+  // Fall back to using "collaborator"
+  // TODO: If we allow disabling roles, check to make sure "collaborator" is enabled
+  return {
+    role: "collaborator",
+    environments: [],
+    limitAccessByEnvironment: false,
+  };
+}
 
 export function hasPermission(
   userPermissions: UserPermissions | undefined,
@@ -125,6 +168,13 @@ export const userHasPermission = (
   }
 };
 
-export function roleSupportsEnvLimit(role: MemberRole): boolean {
-  return ["engineer", "experimenter"].includes(role);
+export function roleSupportsEnvLimit(
+  roleId: string,
+  org: Partial<OrganizationInterface>
+): boolean {
+  if (roleId === "admin") return false;
+
+  const role = getRoleById(roleId, org);
+
+  return policiesSupportEnvLimit(role?.policies || []);
 }

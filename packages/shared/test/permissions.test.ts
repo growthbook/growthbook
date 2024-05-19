@@ -1,5 +1,5 @@
 import { roleToPermissionMap } from "back-end/src/util/organization.util";
-import { MemberRole, OrganizationInterface } from "back-end/types/organization";
+import { OrganizationInterface } from "back-end/types/organization";
 import { Permissions } from "../permissions";
 
 describe("Role permissions", () => {
@@ -16,7 +16,7 @@ describe("Role permissions", () => {
     },
   };
 
-  function getPermissions(role: MemberRole) {
+  function getPermissions(role: string) {
     return new Permissions(
       {
         global: {
@@ -36,8 +36,10 @@ describe("Role permissions", () => {
   const projectsResource = { projects: [] };
   const environmentsResource = { projects: [], id: "" };
   const envs = ["production"];
-  const environment = "";
+  const sdkConnection = { projects: [], environment: "" };
   const updates = {};
+  const event = { containsSecrets: false, projects: [] };
+  const secretEvent = { containsSecrets: true, projects: [] };
 
   it("has correct permissions for noaccess", () => {
     const p = getPermissions("noaccess");
@@ -60,7 +62,7 @@ describe("Role permissions", () => {
     expect(p.canCreatePresentation()).toBe(false);
     expect(p.canCreateProjects()).toBe(false);
     expect(p.canCreateReport(projectResource)).toBe(false);
-    expect(p.canCreateSDKWebhook()).toBe(false);
+    expect(p.canCreateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canCreateSavedGroup()).toBe(false);
     expect(p.canCreateSegment()).toBe(false);
     expect(p.canCreateVisualChange(projectResource)).toBe(false);
@@ -80,7 +82,7 @@ describe("Role permissions", () => {
     expect(p.canDeletePresentation()).toBe(false);
     expect(p.canDeleteProject(project)).toBe(false);
     expect(p.canDeleteReport(projectResource)).toBe(false);
-    expect(p.canDeleteSDKWebhook()).toBe(false);
+    expect(p.canDeleteSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canDeleteSavedGroup()).toBe(false);
     expect(p.canDeleteSegment()).toBe(false);
     expect(p.canDeleteTag()).toBe(false);
@@ -117,7 +119,7 @@ describe("Role permissions", () => {
     expect(p.canUpdatePresentation()).toBe(false);
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(false);
-    expect(p.canUpdateSDKWebhook()).toBe(false);
+    expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canUpdateSavedGroup()).toBe(false);
     expect(p.canUpdateSegment()).toBe(false);
     expect(p.canUpdateSomeProjects()).toBe(false);
@@ -127,7 +129,9 @@ describe("Role permissions", () => {
     expect(p.canViewCreateFactTableModal()).toBe(false);
     expect(p.canViewEditFactTableModal(projectsResource)).toBe(false);
     expect(p.canViewEventWebhook()).toBe(false);
-    expect(p.canViewEvents()).toBe(false);
+    expect(p.canViewAuditLogs()).toBe(false);
+    expect(p.canViewEvent(event)).toBe(false);
+    expect(p.canViewEvent(secretEvent)).toBe(false);
     expect(p.canViewExperimentModal()).toBe(false);
     expect(p.canViewFeatureModal()).toBe(false);
     expect(p.canViewIdeaModal()).toBe(false);
@@ -137,13 +141,12 @@ describe("Role permissions", () => {
     expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(false);
     expect(p.canDeleteEnvironment(environmentsResource)).toBe(false);
     expect(p.canViewCreateSDKConnectionModal(project)).toBe(false);
-    expect(p.canCreateSDKConnection({ projects, environment })).toBe(false);
-    expect(p.canUpdateSDKConnection({ projects, environment }, updates)).toBe(
-      false
-    );
-    expect(p.canDeleteSDKConnection({ projects, environment })).toBe(false);
+    expect(p.canCreateSDKConnection(sdkConnection)).toBe(false);
+    expect(p.canUpdateSDKConnection(sdkConnection, updates)).toBe(false);
+    expect(p.canDeleteSDKConnection(sdkConnection)).toBe(false);
     expect(p.canReadSingleProjectResource(project)).toBe(false);
     expect(p.canReadMultiProjectResource(projects)).toBe(false);
+    expect(p.canManageLegacySDKWebhooks()).toBe(false);
   });
 
   it("has correct permissions for readonly", () => {
@@ -167,7 +170,7 @@ describe("Role permissions", () => {
     expect(p.canCreatePresentation()).toBe(false);
     expect(p.canCreateProjects()).toBe(false);
     expect(p.canCreateReport(projectResource)).toBe(false);
-    expect(p.canCreateSDKWebhook()).toBe(false);
+    expect(p.canCreateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canCreateSavedGroup()).toBe(false);
     expect(p.canCreateSegment()).toBe(false);
     expect(p.canCreateVisualChange(projectResource)).toBe(false);
@@ -187,7 +190,7 @@ describe("Role permissions", () => {
     expect(p.canDeletePresentation()).toBe(false);
     expect(p.canDeleteProject(project)).toBe(false);
     expect(p.canDeleteReport(projectResource)).toBe(false);
-    expect(p.canDeleteSDKWebhook()).toBe(false);
+    expect(p.canDeleteSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canDeleteSavedGroup()).toBe(false);
     expect(p.canDeleteSegment()).toBe(false);
     expect(p.canDeleteTag()).toBe(false);
@@ -224,7 +227,7 @@ describe("Role permissions", () => {
     expect(p.canUpdatePresentation()).toBe(false);
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(false);
-    expect(p.canUpdateSDKWebhook()).toBe(false);
+    expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canUpdateSavedGroup()).toBe(false);
     expect(p.canUpdateSegment()).toBe(false);
     expect(p.canUpdateSomeProjects()).toBe(false);
@@ -234,7 +237,9 @@ describe("Role permissions", () => {
     expect(p.canViewCreateFactTableModal()).toBe(false);
     expect(p.canViewEditFactTableModal(projectsResource)).toBe(false);
     expect(p.canViewEventWebhook()).toBe(false);
-    expect(p.canViewEvents()).toBe(false);
+    expect(p.canViewAuditLogs()).toBe(false);
+    expect(p.canViewEvent(event)).toBe(true);
+    expect(p.canViewEvent(secretEvent)).toBe(false);
     expect(p.canViewExperimentModal()).toBe(false);
     expect(p.canViewFeatureModal()).toBe(false);
     expect(p.canViewIdeaModal()).toBe(false);
@@ -244,13 +249,12 @@ describe("Role permissions", () => {
     expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(false);
     expect(p.canDeleteEnvironment(environmentsResource)).toBe(false);
     expect(p.canViewCreateSDKConnectionModal(project)).toBe(false);
-    expect(p.canCreateSDKConnection({ projects, environment })).toBe(false);
-    expect(p.canUpdateSDKConnection({ projects, environment }, updates)).toBe(
-      false
-    );
-    expect(p.canDeleteSDKConnection({ projects, environment })).toBe(false);
+    expect(p.canCreateSDKConnection(sdkConnection)).toBe(false);
+    expect(p.canUpdateSDKConnection(sdkConnection, updates)).toBe(false);
+    expect(p.canDeleteSDKConnection(sdkConnection)).toBe(false);
     expect(p.canReadSingleProjectResource(project)).toBe(true);
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
+    expect(p.canManageLegacySDKWebhooks()).toBe(false);
   });
 
   it("has correct permissions for visualEditor", () => {
@@ -274,7 +278,7 @@ describe("Role permissions", () => {
     expect(p.canCreatePresentation()).toBe(false);
     expect(p.canCreateProjects()).toBe(false);
     expect(p.canCreateReport(projectResource)).toBe(false);
-    expect(p.canCreateSDKWebhook()).toBe(false);
+    expect(p.canCreateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canCreateSavedGroup()).toBe(false);
     expect(p.canCreateSegment()).toBe(false);
     expect(p.canCreateVisualChange(projectResource)).toBe(true);
@@ -294,7 +298,7 @@ describe("Role permissions", () => {
     expect(p.canDeletePresentation()).toBe(false);
     expect(p.canDeleteProject(project)).toBe(false);
     expect(p.canDeleteReport(projectResource)).toBe(false);
-    expect(p.canDeleteSDKWebhook()).toBe(false);
+    expect(p.canDeleteSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canDeleteSavedGroup()).toBe(false);
     expect(p.canDeleteSegment()).toBe(false);
     expect(p.canDeleteTag()).toBe(false);
@@ -331,7 +335,7 @@ describe("Role permissions", () => {
     expect(p.canUpdatePresentation()).toBe(false);
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(false);
-    expect(p.canUpdateSDKWebhook()).toBe(false);
+    expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canUpdateSavedGroup()).toBe(false);
     expect(p.canUpdateSegment()).toBe(false);
     expect(p.canUpdateSomeProjects()).toBe(false);
@@ -341,7 +345,9 @@ describe("Role permissions", () => {
     expect(p.canViewCreateFactTableModal()).toBe(false);
     expect(p.canViewEditFactTableModal(projectsResource)).toBe(false);
     expect(p.canViewEventWebhook()).toBe(false);
-    expect(p.canViewEvents()).toBe(false);
+    expect(p.canViewAuditLogs()).toBe(false);
+    expect(p.canViewEvent(event)).toBe(true);
+    expect(p.canViewEvent(secretEvent)).toBe(false);
     expect(p.canViewExperimentModal()).toBe(false);
     expect(p.canViewFeatureModal()).toBe(false);
     expect(p.canViewIdeaModal()).toBe(false);
@@ -351,13 +357,12 @@ describe("Role permissions", () => {
     expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(false);
     expect(p.canDeleteEnvironment(environmentsResource)).toBe(false);
     expect(p.canViewCreateSDKConnectionModal(project)).toBe(false);
-    expect(p.canCreateSDKConnection({ projects, environment })).toBe(false);
-    expect(p.canUpdateSDKConnection({ projects, environment }, updates)).toBe(
-      false
-    );
-    expect(p.canDeleteSDKConnection({ projects, environment })).toBe(false);
+    expect(p.canCreateSDKConnection(sdkConnection)).toBe(false);
+    expect(p.canUpdateSDKConnection(sdkConnection, updates)).toBe(false);
+    expect(p.canDeleteSDKConnection(sdkConnection)).toBe(false);
     expect(p.canReadSingleProjectResource(project)).toBe(true);
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
+    expect(p.canManageLegacySDKWebhooks()).toBe(false);
   });
 
   it("has correct permissions for collaborator", () => {
@@ -381,7 +386,7 @@ describe("Role permissions", () => {
     expect(p.canCreatePresentation()).toBe(true);
     expect(p.canCreateProjects()).toBe(false);
     expect(p.canCreateReport(projectResource)).toBe(false);
-    expect(p.canCreateSDKWebhook()).toBe(false);
+    expect(p.canCreateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canCreateSavedGroup()).toBe(false);
     expect(p.canCreateSegment()).toBe(false);
     expect(p.canCreateVisualChange(projectResource)).toBe(false);
@@ -401,7 +406,7 @@ describe("Role permissions", () => {
     expect(p.canDeletePresentation()).toBe(true);
     expect(p.canDeleteProject(project)).toBe(false);
     expect(p.canDeleteReport(projectResource)).toBe(false);
-    expect(p.canDeleteSDKWebhook()).toBe(false);
+    expect(p.canDeleteSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canDeleteSavedGroup()).toBe(false);
     expect(p.canDeleteSegment()).toBe(false);
     expect(p.canDeleteTag()).toBe(false);
@@ -438,7 +443,7 @@ describe("Role permissions", () => {
     expect(p.canUpdatePresentation()).toBe(true);
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(false);
-    expect(p.canUpdateSDKWebhook()).toBe(false);
+    expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canUpdateSavedGroup()).toBe(false);
     expect(p.canUpdateSegment()).toBe(false);
     expect(p.canUpdateSomeProjects()).toBe(false);
@@ -448,7 +453,9 @@ describe("Role permissions", () => {
     expect(p.canViewCreateFactTableModal()).toBe(false);
     expect(p.canViewEditFactTableModal(projectsResource)).toBe(false);
     expect(p.canViewEventWebhook()).toBe(false);
-    expect(p.canViewEvents()).toBe(false);
+    expect(p.canViewAuditLogs()).toBe(false);
+    expect(p.canViewEvent(event)).toBe(true);
+    expect(p.canViewEvent(secretEvent)).toBe(false);
     expect(p.canViewExperimentModal()).toBe(false);
     expect(p.canViewFeatureModal()).toBe(false);
     expect(p.canViewIdeaModal()).toBe(true);
@@ -458,13 +465,12 @@ describe("Role permissions", () => {
     expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(false);
     expect(p.canDeleteEnvironment(environmentsResource)).toBe(false);
     expect(p.canViewCreateSDKConnectionModal(project)).toBe(false);
-    expect(p.canCreateSDKConnection({ projects, environment })).toBe(false);
-    expect(p.canUpdateSDKConnection({ projects, environment }, updates)).toBe(
-      false
-    );
-    expect(p.canDeleteSDKConnection({ projects, environment })).toBe(false);
+    expect(p.canCreateSDKConnection(sdkConnection)).toBe(false);
+    expect(p.canUpdateSDKConnection(sdkConnection, updates)).toBe(false);
+    expect(p.canDeleteSDKConnection(sdkConnection)).toBe(false);
     expect(p.canReadSingleProjectResource(project)).toBe(true);
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
+    expect(p.canManageLegacySDKWebhooks()).toBe(false);
   });
 
   it("has correct permissions for engineer", () => {
@@ -488,7 +494,7 @@ describe("Role permissions", () => {
     expect(p.canCreatePresentation()).toBe(true);
     expect(p.canCreateProjects()).toBe(false);
     expect(p.canCreateReport(projectResource)).toBe(false);
-    expect(p.canCreateSDKWebhook()).toBe(false);
+    expect(p.canCreateSDKWebhook(sdkConnection)).toBe(true);
     expect(p.canCreateSavedGroup()).toBe(true);
     expect(p.canCreateSegment()).toBe(false);
     expect(p.canCreateVisualChange(projectResource)).toBe(true);
@@ -508,7 +514,7 @@ describe("Role permissions", () => {
     expect(p.canDeletePresentation()).toBe(true);
     expect(p.canDeleteProject(project)).toBe(false);
     expect(p.canDeleteReport(projectResource)).toBe(false);
-    expect(p.canDeleteSDKWebhook()).toBe(false);
+    expect(p.canDeleteSDKWebhook(sdkConnection)).toBe(true);
     expect(p.canDeleteSavedGroup()).toBe(true);
     expect(p.canDeleteSegment()).toBe(false);
     expect(p.canDeleteTag()).toBe(true);
@@ -545,7 +551,7 @@ describe("Role permissions", () => {
     expect(p.canUpdatePresentation()).toBe(true);
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(false);
-    expect(p.canUpdateSDKWebhook()).toBe(false);
+    expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(true);
     expect(p.canUpdateSavedGroup()).toBe(true);
     expect(p.canUpdateSegment()).toBe(false);
     expect(p.canUpdateSomeProjects()).toBe(false);
@@ -555,7 +561,9 @@ describe("Role permissions", () => {
     expect(p.canViewCreateFactTableModal()).toBe(false);
     expect(p.canViewEditFactTableModal(projectsResource)).toBe(false);
     expect(p.canViewEventWebhook()).toBe(false);
-    expect(p.canViewEvents()).toBe(false);
+    expect(p.canViewAuditLogs()).toBe(false);
+    expect(p.canViewEvent(event)).toBe(true);
+    expect(p.canViewEvent(secretEvent)).toBe(false);
     expect(p.canViewExperimentModal()).toBe(false);
     expect(p.canViewFeatureModal()).toBe(true);
     expect(p.canViewIdeaModal()).toBe(true);
@@ -565,13 +573,12 @@ describe("Role permissions", () => {
     expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(true);
     expect(p.canDeleteEnvironment(environmentsResource)).toBe(true);
     expect(p.canViewCreateSDKConnectionModal(project)).toBe(true);
-    expect(p.canCreateSDKConnection({ projects, environment })).toBe(true);
-    expect(p.canUpdateSDKConnection({ projects, environment }, updates)).toBe(
-      true
-    );
-    expect(p.canDeleteSDKConnection({ projects, environment })).toBe(true);
+    expect(p.canCreateSDKConnection(sdkConnection)).toBe(true);
+    expect(p.canUpdateSDKConnection(sdkConnection, updates)).toBe(true);
+    expect(p.canDeleteSDKConnection(sdkConnection)).toBe(true);
     expect(p.canReadSingleProjectResource(project)).toBe(true);
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
+    expect(p.canManageLegacySDKWebhooks()).toBe(false);
   });
 
   it("has correct permissions for analyst", () => {
@@ -595,7 +602,7 @@ describe("Role permissions", () => {
     expect(p.canCreatePresentation()).toBe(true);
     expect(p.canCreateProjects()).toBe(false);
     expect(p.canCreateReport(projectResource)).toBe(true);
-    expect(p.canCreateSDKWebhook()).toBe(false);
+    expect(p.canCreateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canCreateSavedGroup()).toBe(false);
     expect(p.canCreateSegment()).toBe(true);
     expect(p.canCreateVisualChange(projectResource)).toBe(true);
@@ -615,7 +622,7 @@ describe("Role permissions", () => {
     expect(p.canDeletePresentation()).toBe(true);
     expect(p.canDeleteProject(project)).toBe(false);
     expect(p.canDeleteReport(projectResource)).toBe(true);
-    expect(p.canDeleteSDKWebhook()).toBe(false);
+    expect(p.canDeleteSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canDeleteSavedGroup()).toBe(false);
     expect(p.canDeleteSegment()).toBe(true);
     expect(p.canDeleteTag()).toBe(true);
@@ -652,7 +659,7 @@ describe("Role permissions", () => {
     expect(p.canUpdatePresentation()).toBe(true);
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(true);
-    expect(p.canUpdateSDKWebhook()).toBe(false);
+    expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canUpdateSavedGroup()).toBe(false);
     expect(p.canUpdateSegment()).toBe(true);
     expect(p.canUpdateSomeProjects()).toBe(false);
@@ -662,7 +669,9 @@ describe("Role permissions", () => {
     expect(p.canViewCreateFactTableModal()).toBe(true);
     expect(p.canViewEditFactTableModal(projectsResource)).toBe(true);
     expect(p.canViewEventWebhook()).toBe(false);
-    expect(p.canViewEvents()).toBe(false);
+    expect(p.canViewAuditLogs()).toBe(false);
+    expect(p.canViewEvent(event)).toBe(true);
+    expect(p.canViewEvent(secretEvent)).toBe(false);
     expect(p.canViewExperimentModal()).toBe(true);
     expect(p.canViewFeatureModal()).toBe(false);
     expect(p.canViewIdeaModal()).toBe(true);
@@ -672,13 +681,12 @@ describe("Role permissions", () => {
     expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(false);
     expect(p.canDeleteEnvironment(environmentsResource)).toBe(false);
     expect(p.canViewCreateSDKConnectionModal(project)).toBe(false);
-    expect(p.canCreateSDKConnection({ projects, environment })).toBe(false);
-    expect(p.canUpdateSDKConnection({ projects, environment }, updates)).toBe(
-      false
-    );
-    expect(p.canDeleteSDKConnection({ projects, environment })).toBe(false);
+    expect(p.canCreateSDKConnection(sdkConnection)).toBe(false);
+    expect(p.canUpdateSDKConnection(sdkConnection, updates)).toBe(false);
+    expect(p.canDeleteSDKConnection(sdkConnection)).toBe(false);
     expect(p.canReadSingleProjectResource(project)).toBe(true);
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
+    expect(p.canManageLegacySDKWebhooks()).toBe(false);
   });
 
   it("has correct permissions for experimenter", () => {
@@ -702,7 +710,7 @@ describe("Role permissions", () => {
     expect(p.canCreatePresentation()).toBe(true);
     expect(p.canCreateProjects()).toBe(false);
     expect(p.canCreateReport(projectResource)).toBe(true);
-    expect(p.canCreateSDKWebhook()).toBe(false);
+    expect(p.canCreateSDKWebhook(sdkConnection)).toBe(true);
     expect(p.canCreateSavedGroup()).toBe(true);
     expect(p.canCreateSegment()).toBe(true);
     expect(p.canCreateVisualChange(projectResource)).toBe(true);
@@ -722,7 +730,7 @@ describe("Role permissions", () => {
     expect(p.canDeletePresentation()).toBe(true);
     expect(p.canDeleteProject(project)).toBe(false);
     expect(p.canDeleteReport(projectResource)).toBe(true);
-    expect(p.canDeleteSDKWebhook()).toBe(false);
+    expect(p.canDeleteSDKWebhook(sdkConnection)).toBe(true);
     expect(p.canDeleteSavedGroup()).toBe(true);
     expect(p.canDeleteSegment()).toBe(true);
     expect(p.canDeleteTag()).toBe(true);
@@ -759,7 +767,7 @@ describe("Role permissions", () => {
     expect(p.canUpdatePresentation()).toBe(true);
     expect(p.canUpdateProject(project)).toBe(false);
     expect(p.canUpdateReport(projectResource)).toBe(true);
-    expect(p.canUpdateSDKWebhook()).toBe(false);
+    expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(true);
     expect(p.canUpdateSavedGroup()).toBe(true);
     expect(p.canUpdateSegment()).toBe(true);
     expect(p.canUpdateSomeProjects()).toBe(false);
@@ -769,7 +777,9 @@ describe("Role permissions", () => {
     expect(p.canViewCreateFactTableModal()).toBe(true);
     expect(p.canViewEditFactTableModal(projectsResource)).toBe(true);
     expect(p.canViewEventWebhook()).toBe(false);
-    expect(p.canViewEvents()).toBe(false);
+    expect(p.canViewAuditLogs()).toBe(false);
+    expect(p.canViewEvent(event)).toBe(true);
+    expect(p.canViewEvent(secretEvent)).toBe(false);
     expect(p.canViewExperimentModal()).toBe(true);
     expect(p.canViewFeatureModal()).toBe(true);
     expect(p.canViewIdeaModal()).toBe(true);
@@ -779,13 +789,12 @@ describe("Role permissions", () => {
     expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(true);
     expect(p.canDeleteEnvironment(environmentsResource)).toBe(true);
     expect(p.canViewCreateSDKConnectionModal(project)).toBe(true);
-    expect(p.canCreateSDKConnection({ projects, environment })).toBe(true);
-    expect(p.canUpdateSDKConnection({ projects, environment }, updates)).toBe(
-      true
-    );
-    expect(p.canDeleteSDKConnection({ projects, environment })).toBe(true);
+    expect(p.canCreateSDKConnection(sdkConnection)).toBe(true);
+    expect(p.canUpdateSDKConnection(sdkConnection, updates)).toBe(true);
+    expect(p.canDeleteSDKConnection(sdkConnection)).toBe(true);
     expect(p.canReadSingleProjectResource(project)).toBe(true);
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
+    expect(p.canManageLegacySDKWebhooks()).toBe(false);
   });
 
   it("has correct permissions for admin", () => {
@@ -809,7 +818,7 @@ describe("Role permissions", () => {
     expect(p.canCreatePresentation()).toBe(true);
     expect(p.canCreateProjects()).toBe(true);
     expect(p.canCreateReport(projectResource)).toBe(true);
-    expect(p.canCreateSDKWebhook()).toBe(true);
+    expect(p.canCreateSDKWebhook(sdkConnection)).toBe(true);
     expect(p.canCreateSavedGroup()).toBe(true);
     expect(p.canCreateSegment()).toBe(true);
     expect(p.canCreateVisualChange(projectResource)).toBe(true);
@@ -829,7 +838,7 @@ describe("Role permissions", () => {
     expect(p.canDeletePresentation()).toBe(true);
     expect(p.canDeleteProject(project)).toBe(true);
     expect(p.canDeleteReport(projectResource)).toBe(true);
-    expect(p.canDeleteSDKWebhook()).toBe(true);
+    expect(p.canDeleteSDKWebhook(sdkConnection)).toBe(true);
     expect(p.canDeleteSavedGroup()).toBe(true);
     expect(p.canDeleteSegment()).toBe(true);
     expect(p.canDeleteTag()).toBe(true);
@@ -866,7 +875,7 @@ describe("Role permissions", () => {
     expect(p.canUpdatePresentation()).toBe(true);
     expect(p.canUpdateProject(project)).toBe(true);
     expect(p.canUpdateReport(projectResource)).toBe(true);
-    expect(p.canUpdateSDKWebhook()).toBe(true);
+    expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(true);
     expect(p.canUpdateSavedGroup()).toBe(true);
     expect(p.canUpdateSegment()).toBe(true);
     expect(p.canUpdateSomeProjects()).toBe(true);
@@ -876,7 +885,9 @@ describe("Role permissions", () => {
     expect(p.canViewCreateFactTableModal()).toBe(true);
     expect(p.canViewEditFactTableModal(projectsResource)).toBe(true);
     expect(p.canViewEventWebhook()).toBe(true);
-    expect(p.canViewEvents()).toBe(true);
+    expect(p.canViewAuditLogs()).toBe(true);
+    expect(p.canViewEvent(event)).toBe(true);
+    expect(p.canViewEvent(secretEvent)).toBe(true);
     expect(p.canViewExperimentModal()).toBe(true);
     expect(p.canViewFeatureModal()).toBe(true);
     expect(p.canViewIdeaModal()).toBe(true);
@@ -886,12 +897,11 @@ describe("Role permissions", () => {
     expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(true);
     expect(p.canDeleteEnvironment(environmentsResource)).toBe(true);
     expect(p.canViewCreateSDKConnectionModal(project)).toBe(true);
-    expect(p.canCreateSDKConnection({ projects, environment })).toBe(true);
-    expect(p.canUpdateSDKConnection({ projects, environment }, updates)).toBe(
-      true
-    );
-    expect(p.canDeleteSDKConnection({ projects, environment })).toBe(true);
+    expect(p.canCreateSDKConnection(sdkConnection)).toBe(true);
+    expect(p.canUpdateSDKConnection(sdkConnection, updates)).toBe(true);
+    expect(p.canDeleteSDKConnection(sdkConnection)).toBe(true);
     expect(p.canReadSingleProjectResource(project)).toBe(true);
     expect(p.canReadMultiProjectResource(projects)).toBe(true);
+    expect(p.canManageLegacySDKWebhooks()).toBe(true);
   });
 });

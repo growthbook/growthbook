@@ -20,6 +20,7 @@ import {
   FeaturePrerequisite,
   FeatureRule,
   FeatureTestResult,
+  JSONSchemaDef,
 } from "../../types/feature";
 import { AuthRequest } from "../types/AuthRequest";
 import {
@@ -446,6 +447,11 @@ export async function postFeatures(
     version: 1,
     hasDrafts: false,
     jsonSchema: {
+      schemaType: "schema",
+      simple: {
+        type: "object",
+        fields: [],
+      },
       schema: "",
       date: new Date(),
       enabled: false,
@@ -1444,12 +1450,12 @@ export async function postFeatureDefaultValue(
 }
 
 export async function postFeatureSchema(
-  req: AuthRequest<{ schema: string; enabled: boolean }, { id: string }>,
+  req: AuthRequest<Omit<JSONSchemaDef, "date">, { id: string }>,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { schema, enabled } = req.body;
+  const schemaDef = req.body;
   const feature = await getFeature(context, id);
 
   if (!feature) {
@@ -1463,7 +1469,7 @@ export async function postFeatureSchema(
     context.permissions.throwPermissionError();
   }
 
-  const updatedFeature = await setJsonSchema(context, feature, schema, enabled);
+  const updatedFeature = await setJsonSchema(context, feature, schemaDef);
 
   await req.audit({
     event: "feature.update",

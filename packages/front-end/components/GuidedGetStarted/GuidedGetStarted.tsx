@@ -178,8 +178,9 @@ export default function GuidedGetStarted({
       learnMoreLink: "Learn more about our SDKs.",
       docSection: "sdks",
       completed:
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-        SDKData?.connections.length > 0 || skippedSteps["install-sdk"] || false,
+        (SDKData?.connections?.length || 0) > 0 ||
+        skippedSteps["install-sdk"] ||
+        false,
       render: (
         <InitialSDKConnectionForm
           inline={true}

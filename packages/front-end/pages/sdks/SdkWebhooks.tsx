@@ -3,6 +3,7 @@ import { WebhookInterface } from "back-end/types/webhook";
 import { FaCheck, FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
 import { ago } from "shared/dates";
 import { BsArrowRepeat } from "react-icons/bs";
+import { SDKConnectionInterface } from "@back-end/types/sdk-connection";
 import useApi from "@/hooks/useApi";
 import WebhooksModal from "@/components/Settings/WebhooksModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -16,9 +17,13 @@ import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 
-export default function SdkWebhooks({ sdkid }) {
+export default function SdkWebhooks({
+  connection,
+}: {
+  connection: SDKConnectionInterface;
+}) {
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
-    `/sdk-connections/${sdkid}/webhooks`
+    `/sdk-connections/${connection.id}/webhooks`
   );
   const [
     createWebhookModalOpen,
@@ -28,9 +33,9 @@ export default function SdkWebhooks({ sdkid }) {
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature } = useUser();
 
-  const canCreateWebhooks = permissionsUtil.canCreateSDKWebhook();
-  const canUpdateWebhook = permissionsUtil.canUpdateSDKWebhook();
-  const canDeleteWebhook = permissionsUtil.canDeleteSDKWebhook();
+  const canCreateWebhooks = permissionsUtil.canCreateSDKWebhook(connection);
+  const canUpdateWebhook = permissionsUtil.canUpdateSDKWebhook(connection);
+  const canDeleteWebhook = permissionsUtil.canDeleteSDKWebhook(connection);
   const hasWebhooks = !!data?.webhooks?.length;
   const disableWebhookCreate =
     !canCreateWebhooks ||
@@ -215,7 +220,7 @@ export default function SdkWebhooks({ sdkid }) {
           close={() => setCreateWebhookModalOpen(null)}
           onSave={mutate}
           current={createWebhookModalOpen}
-          sdkConnectionId={sdkid}
+          sdkConnectionId={connection.id}
         />
       )}
       {!isEmpty && renderTable()}

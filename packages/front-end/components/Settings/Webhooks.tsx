@@ -98,7 +98,7 @@ const Webhooks: FC = () => {
                     )}
                   </td>
                   <td>
-                    {permissionsUtil.canDeleteSDKWebhook() ? (
+                    {permissionsUtil.canManageLegacySDKWebhooks() ? (
                       <DeleteButton
                         link={true}
                         className={"text-primary"}

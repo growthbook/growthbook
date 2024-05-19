@@ -29,6 +29,7 @@ interface Props {
   exposureQuery?: ExposureQuery;
   variations: ExperimentReportVariation[];
   healthTabConfigParams: HealthTabConfigParams;
+  canConfigHealthTab: boolean;
 }
 
 type DimensionWithIssues = {
@@ -86,6 +87,7 @@ export const DimensionIssues = ({
   dataSource,
   exposureQuery,
   healthTabConfigParams,
+  canConfigHealthTab,
 }: Props) => {
   const { settings } = useUser();
   const [modalOpen, setModalOpen] = useState(false);
@@ -304,6 +306,7 @@ export const DimensionIssues = ({
             </div>
             {exposureQuery?.dimensions &&
             dataSource &&
+            canConfigHealthTab &&
             exposureQuery.dimensions.length > 0 ? (
               <div className="pt-4 d-flex justify-content-center">
                 <div>

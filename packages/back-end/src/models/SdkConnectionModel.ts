@@ -131,13 +131,19 @@ export async function findSDKConnectionsByOrganization(
   );
 }
 
-export async function findAllSDKConnections() {
+export async function findAllSDKConnectionsAcrossAllOrgs() {
   const docs = await SDKConnectionModel.find();
   return docs.map(toInterface);
 }
 
-export async function findSDKConnectionsByIds(keys: string[]) {
-  const docs = await SDKConnectionModel.find({ id: { $in: keys } });
+export async function findSDKConnectionsByIds(
+  context: ReqContext,
+  ids: string[]
+) {
+  const docs = await SDKConnectionModel.find({
+    organization: context.org.id,
+    id: { $in: ids },
+  });
   return docs.map(toInterface);
 }
 
