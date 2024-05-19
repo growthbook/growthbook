@@ -78,9 +78,9 @@ const defaultSdkVersions: Record<SDKLanguage, string> = {
   flutter: "1.1.2",
   csharp: "0.2.0",
   elixir: "0.2.0",
-  "edge-lambda": "0.0.4",
-  "edge-cloudflare": "0.1.7",
-  "edge-other": "0.1.0",
+  "edge-cloudflare": "0.1.9",
+  "edge-lambda": "0.0.5",
+  "edge-other": "0.1.3",
   other: "0.0.0",
 };
 

@@ -364,9 +364,6 @@ export default function SDKConnectionForm({
       close={close}
       open={true}
       cta={cta}
-      ctaEnabled={
-        languageTypeFilter !== "" && !!form.watch("languages")?.length
-      }
     >
       <div className="px-2 pb-2">
         <Field label="Name" {...form.register("name")} required />

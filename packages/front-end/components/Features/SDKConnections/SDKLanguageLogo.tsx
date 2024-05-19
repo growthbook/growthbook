@@ -27,8 +27,7 @@ export type LanguageType =
   | "backend"
   | "mobile"
   | "nocode"
-  | "edge"
-  | "other";
+  | "edge";
 export const languageMapping: Record<
   SDKLanguage,
   {
@@ -72,7 +71,7 @@ export const languageMapping: Record<
     label: "Generic",
     docLabel: "HTML Script Tag",
     docs: "nocode",
-    type: "nocode",
+    type: "frontend",
     hideVersion: true,
   },
   javascript: {
@@ -136,7 +135,7 @@ export const languageMapping: Record<
     color: "#29BEB0",
     label: "Golang",
     docs: "go",
-    type: "backend",
+    type: "other",
   },
   elixir: {
     Icon: SiElixir,
