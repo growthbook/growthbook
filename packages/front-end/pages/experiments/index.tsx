@@ -12,7 +12,12 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
-import { useAddComputedFields, useSearch } from "@/services/search";
+import {
+  filterExperimentSearchTerms,
+  filterExperimentBySyntax,
+  useAddComputedFields,
+  useSearch,
+} from "@/services/search";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Pagination from "@/components/Pagination";
@@ -111,13 +116,25 @@ const ExperimentsPage = (): React.ReactElement => {
   const { watchedExperiments } = useWatching();
 
   const filterResults = useCallback(
-    (items: typeof experiments) => {
+    (
+      items: typeof experiments,
+      originalQuery: string,
+      syntaxFilters: Record<string, string[]>[]
+    ) => {
       if (showMineOnly) {
         items = items.filter(
           (item) =>
             item.owner === userId || watchedExperiments.includes(item.id)
         );
       }
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-expect-error
+      items = filterExperimentBySyntax(
+        items,
+        originalQuery,
+        syntaxFilters
+        //experiments
+      );
       items = filterByTags(items, tagsFilter.tags);
 
       return items;
@@ -143,6 +160,7 @@ const ExperimentsPage = (): React.ReactElement => {
       "results",
       "analysis",
     ],
+    transformQuery: filterExperimentSearchTerms,
     filterResults,
   });
 

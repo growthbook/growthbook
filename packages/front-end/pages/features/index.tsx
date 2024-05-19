@@ -20,8 +20,8 @@ import track from "@/services/track";
 import FeaturesGetStarted from "@/components/HomePage/FeaturesGetStarted";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
-  filterFeaturesByEnvironment,
-  removeEnvFromSearchTerm,
+  filterFeatureSearchTerms,
+  filterFeatureBySyntax,
   useSearch,
 } from "@/services/search";
 import EnvironmentToggle from "@/components/Features/EnvironmentToggle";
@@ -97,15 +97,21 @@ export default function FeaturesPage() {
   // Searching
   const tagsFilter = useTagsFilter("features");
   const filterResults = useCallback(
-    (items: FeatureInterface[], originalQuery: string) => {
+    (
+      items: FeatureInterface[],
+      originalQuery: string,
+      syntaxFilters: Record<string, string[]>[]
+    ) => {
       if (!showArchived) {
         items = items.filter((f) => !f.archived);
       }
-      items = filterFeaturesByEnvironment(
+      items = filterFeatureBySyntax(
         items,
         originalQuery,
+        syntaxFilters,
         environments.map((e) => e.id)
       );
+
       items = filterByTags(items, tagsFilter.tags);
       return items;
     },
@@ -392,7 +398,7 @@ export default function FeaturesPage() {
     items: features,
     defaultSortField: "id",
     searchFields: ["id^3", "description", "tags^2", "defaultValue"],
-    transformQuery: removeEnvFromSearchTerm,
+    transformQuery: filterFeatureSearchTerms,
     filterResults,
     localStorageKey: "features",
   });
