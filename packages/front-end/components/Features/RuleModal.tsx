@@ -681,6 +681,8 @@ export default function RuleModal({
                     value={form.watch(`variations.${i}.value`) || ""}
                     setValue={(v) => form.setValue(`variations.${i}.value`, v)}
                     valueType={feature.valueType}
+                    feature={feature}
+                    renderJSONInline={false}
                   />
                 ))}
               </div>
@@ -709,6 +711,8 @@ export default function RuleModal({
           value={form.watch("value")}
           setValue={(v) => form.setValue("value", v)}
           valueType={feature.valueType}
+          feature={feature}
+          renderJSONInline={true}
         />
       )}
 
@@ -720,6 +724,8 @@ export default function RuleModal({
             value={form.watch("value")}
             setValue={(v) => form.setValue("value", v)}
             valueType={feature.valueType}
+            feature={feature}
+            renderJSONInline={true}
           />
           <div className="appbox mt-4 mb-4 px-3 pt-3 bg-light">
             <RolloutPercentInput
@@ -861,6 +867,7 @@ export default function RuleModal({
                 }) || []
             }
             setVariations={(variations) => form.setValue("values", variations)}
+            feature={feature}
           />
           {namespaces && namespaces.length > 0 && (
             <NamespaceSelector

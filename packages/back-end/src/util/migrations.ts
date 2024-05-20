@@ -382,6 +382,15 @@ export function upgradeFeatureInterface(
     newFeature.hasDrafts = true;
   }
 
+  if (newFeature.jsonSchema) {
+    newFeature.jsonSchema.schemaType =
+      newFeature.jsonSchema.schemaType || "schema";
+    newFeature.jsonSchema.simple = newFeature.jsonSchema.simple || {
+      type: "object",
+      fields: [],
+    };
+  }
+
   return newFeature;
 }
 
