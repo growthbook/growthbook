@@ -20,7 +20,7 @@ import {
 } from "../models/WebhookModel";
 import { WebhookInterface } from "../../types/webhook";
 import { createSdkWebhookLog } from "../models/SdkWebhookLogModel";
-import { cancellableFetch } from "../util/http.util";
+import { cancellableFetch, CancellableFetchReturn } from "../util/http.util";
 import {
   getContextForAgendaJobByOrgId,
   getContextForAgendaJobByOrgObject,
@@ -192,6 +192,8 @@ async function runWebhookFetch({
       .update(standardSignatureBody)
       .digest("base64");
 
+  let res: CancellableFetchReturn | undefined = undefined;
+
   try {
     let customHeaders: Record<string, string> | undefined;
     if (headers) {
@@ -202,7 +204,7 @@ async function runWebhookFetch({
       }
     }
 
-    const res = await cancellableFetch(
+    res = await cancellableFetch(
       url,
       {
         headers: {
@@ -243,6 +245,7 @@ async function runWebhookFetch({
     if (!global) await setLastSdkWebhookError(webhook, "");
     return res;
   } catch (e) {
+    const message = res?.stringBody || e.message;
     createSdkWebhookLog({
       webhookId,
       webhookRequestId: webhookID,
@@ -250,11 +253,11 @@ async function runWebhookFetch({
       payload: { data: payload },
       result: {
         state: "error",
-        responseBody: e.message,
-        responseCode: 0,
+        responseBody: message,
+        responseCode: res?.responseWithoutBody?.status || 0,
       },
     });
-    if (!global) await setLastSdkWebhookError(webhook, e.message);
+    if (!global) await setLastSdkWebhookError(webhook, message);
     throw e;
   }
 }
@@ -300,7 +303,7 @@ export async function fireSdkWebhook(
       });
       payload = JSON.stringify(defs);
     }
-    await runWebhookFetch({
+    return await runWebhookFetch({
       webhook,
       key: connection.key,
       payload,

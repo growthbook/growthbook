@@ -1713,7 +1713,6 @@ export async function putSDKWebhook(
   fireSdkWebhook(context, updatedWebhook).catch(() => {
     // Do nothing, already being logged in Mongo
   });
-
   res.status(200).json({
     status: 200,
     webhook: updatedWebhook,

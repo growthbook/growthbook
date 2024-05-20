@@ -62,6 +62,10 @@ export type SDKLanguage =
   | "ios"
   | "flutter"
   | "elixir"
+  | "edge-cloudflare"
+  | "edge-fastly"
+  | "edge-lambda"
+  | "edge-other"
   | "other";
 
 export interface SDKConnectionInterface {

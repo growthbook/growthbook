@@ -118,18 +118,19 @@ export const scrubExperiments = (
       continue;
     }
 
-    if (!supportsPrerequisites) {
-      // Filter out experiments that have any parentConditions
-      if ((experiment.parentConditions?.length ?? 0) > 0) {
-        continue;
-      }
-
-      // Scrub fields from the experiment
-      experiment = omit(
-        experiment,
-        removedExperimentKeys
-      ) as AutoExperimentWithProject;
+    // Filter out experiments that have any parentConditions
+    if (
+      !supportsPrerequisites &&
+      (experiment.parentConditions?.length ?? 0) > 0
+    ) {
+      continue;
     }
+
+    // Scrub fields from the experiment
+    experiment = omit(
+      experiment,
+      removedExperimentKeys
+    ) as AutoExperimentWithProject;
 
     newExperiments.push(experiment);
   }

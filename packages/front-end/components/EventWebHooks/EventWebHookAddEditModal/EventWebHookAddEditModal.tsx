@@ -138,6 +138,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       submit={handleSubmit}
       error={error ?? undefined}
       ctaEnabled={ctaEnabled}
+      size="lg"
     >
       <Field
         label="Webhook Name"
@@ -182,7 +183,8 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       <CodeTextArea
         label="Headers"
         language="json"
-        minLines={1}
+        minLines={forcedParams ? 1 : 3}
+        maxLines={6}
         value={forcedParams?.headers || form.watch("headers")}
         disabled={!!forcedParams}
         setValue={(headers) => {
