@@ -1,7 +1,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  PiArrowCircleRight,
   PiArrowFatLineRight,
   PiChartScatter,
   PiFolders,
@@ -50,13 +49,17 @@ const GetStartedPage = (): React.ReactElement => {
                 <div className="pr-3 mb-5" style={{ paddingLeft: "29px" }}>
                   <div className="d-flex text-left align-middle">
                     <h2>Create Feature Flags from Scratch</h2>
-                    <PiArrowCircleRight
-                      className="ml-auto"
-                      style={{
-                        width: "30px",
-                        height: "30px",
-                        color: "#05054926",
-                      }}
+                    <img
+                      className={clsx(styles.imgInactive, "ml-auto")}
+                      width="30px"
+                      height="30px"
+                      src="/images/get-started/icons/inactive-card-arrow.svg"
+                    />
+                    <img
+                      className={clsx(styles.imgActive, "ml-auto")}
+                      width="30px"
+                      height="30px"
+                      src="/images/get-started/icons/active-card-arrow.svg"
                     />
                   </div>
 
@@ -83,13 +86,17 @@ const GetStartedPage = (): React.ReactElement => {
                 <div className="pr-3 mb-5" style={{ paddingLeft: "29px" }}>
                   <div className="d-flex text-left align-middle">
                     <h2>Run an Experiment</h2>
-                    <PiArrowCircleRight
-                      className="ml-auto"
-                      style={{
-                        width: "30px",
-                        height: "30px",
-                        color: "#05054926",
-                      }}
+                    <img
+                      className={clsx(styles.imgInactive, "ml-auto")}
+                      width="30px"
+                      height="30px"
+                      src="/images/get-started/icons/inactive-card-arrow.svg"
+                    />
+                    <img
+                      className={clsx(styles.imgActive, "ml-auto")}
+                      width="30px"
+                      height="30px"
+                      src="/images/get-started/icons/active-card-arrow.svg"
                     />
                   </div>
                   <strong>Explore a guided setup & sample results</strong>
@@ -127,30 +134,35 @@ const GetStartedPage = (): React.ReactElement => {
                       <stop stopColor="#FFC53D" offset="100%" />
                     </linearGradient>
                   </svg>
-                  <PiArrowFatLineRight
-                    className={`${styles.buttonIcon} mr-4`}
-                  />
-                  <span style={{ fontSize: "17px", fontWeight: 600 }}>
+                  <PiArrowFatLineRight className={`${styles.arrowIcon} mr-4`} />
+                  <span
+                    className="align-middle"
+                    style={{ fontSize: "17px", fontWeight: 600 }}
+                  >
                     Migrate from LaunchDarkly
                   </span>
 
-                  <PiArrowCircleRight
-                    className="float-right"
-                    style={{
-                      width: "30px",
-                      height: "30px",
-                      color: "#05054926",
-                    }}
+                  <img
+                    className={clsx(styles.imgInactive, "float-right")}
+                    width="30px"
+                    height="30px"
+                    src="/images/get-started/icons/inactive-button-arrow.svg"
+                  />
+                  <img
+                    className={clsx(styles.imgActive, "float-right")}
+                    width="30px"
+                    height="30px"
+                    src="/images/get-started/icons/active-button-arrow.svg"
                   />
                 </button>
               </Link>
               <Link href="/getstarted/imported-experiment-guide">
                 <button
-                  className={`${styles.animatedButton} p-3 mr-3 text-left align-middle`}
+                  className={`${styles.animatedButton} p-3 mr-3 text-left`}
                 >
                   <svg width="0" height="0">
                     <linearGradient
-                      id="blue-gradient"
+                      id="chart-gradient"
                       x1="100%"
                       y1="100%"
                       x2="0%"
@@ -160,25 +172,27 @@ const GetStartedPage = (): React.ReactElement => {
                       <stop stopColor="#27B08B" offset="100%" />
                     </linearGradient>
                   </svg>
-                  <PiChartScatter
-                    className="mr-4"
-                    style={{
-                      width: "35px",
-                      height: "35px",
-                      color: "#050549A6",
-                      fill: "url(#blue-gradient)",
-                    }}
-                  />
-                  <span style={{ fontSize: "17px", fontWeight: 600 }}>
+                  <PiChartScatter className={`${styles.chartIcon} mr-4`} />
+                  <span
+                    className="align-middle"
+                    style={{ fontSize: "17px", fontWeight: 600 }}
+                  >
                     Analyze Imported Experiments
                   </span>
-                  <PiArrowCircleRight
-                    className="float-right"
-                    style={{
-                      width: "30px",
-                      height: "30px",
-                      color: "#05054926",
-                    }}
+                  <img
+                    className={clsx(
+                      styles.imgInactive,
+                      "float-right align-middle"
+                    )}
+                    width="30px"
+                    height="30px"
+                    src="/images/get-started/icons/inactive-button-arrow.svg"
+                  />
+                  <img
+                    className={clsx(styles.imgActive, "float-right")}
+                    width="30px"
+                    height="30px"
+                    src="/images/get-started/icons/active-button-arrow.svg"
                   />
                 </button>
               </Link>
@@ -363,7 +377,7 @@ const GetStartedPage = (): React.ReactElement => {
             </div>
           </div>
           <div className="col"></div>
-          <div className="col">
+          <div className="col pl-0">
             <DocumentationSidebar
               setUpgradeModal={setUpgradeModal}
               type="get-started"

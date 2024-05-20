@@ -17,7 +17,6 @@ import { GBAddCircle } from "@/components/Icons";
 import FeatureModal from "@/components/Features/FeatureModal";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import track from "@/services/track";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   filterFeaturesByEnvironment,
   removeEnvFromSearchTerm,
@@ -45,7 +44,6 @@ import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
-import useSDKConnections from "@/hooks/useSDKConnections";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import Tab from "@/components/Tabs/Tab";
@@ -75,7 +73,6 @@ export default function FeaturesPage() {
 
   const permissionsUtil = usePermissionsUtil();
   const { project, getProjectById } = useDefinitions();
-  const settings = useOrgSettings();
   const environments = useEnvironments();
   const { features, experiments, loading, error, mutate } = useFeaturesList();
 
@@ -423,11 +420,6 @@ export default function FeaturesPage() {
     setFeatureToDuplicate(null);
   }, [modalOpen]);
 
-  const { data } = useSDKConnections();
-  const connections = data?.connections || [];
-  const hasActiveConnection =
-    connections.some((c) => c.connected) || !!settings?.sdkInstructionsViewed;
-
   if (error) {
     return (
       <div className="alert alert-danger">
@@ -451,7 +443,6 @@ export default function FeaturesPage() {
 
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
   const showArchivedToggle = features.some((f) => f.archived);
-  const stepsRequired = !hasActiveConnection || !hasFeatures;
 
   const canCreateFeatures = permissionsUtil.canManageFeatureDrafts({
     project,
@@ -512,7 +503,7 @@ export default function FeaturesPage() {
         GrowthBook UI. For example, turn on/off a sales banner or change the
         title of your pricing page.{" "}
       </p>
-      {stepsRequired ? (
+      {!hasFeatures ? (
         <>
           <div
             className="appbox d-flex flex-column align-items-center"

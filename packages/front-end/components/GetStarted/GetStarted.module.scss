@@ -59,7 +59,13 @@
   border-style: solid;
   border-radius: 6px;
   transition: box-shadow 0.5s;
-  .buttonIcon {
+  .arrowIcon {
+    width: 35px;
+    height: 35px;
+    fill: #050549a6;
+    transition: 1s;
+  }
+  .chartIcon {
     width: 35px;
     height: 35px;
     fill: #050549a6;
@@ -69,15 +75,28 @@
     opacity: 0;
     transition: 3s;
   }
+  .imgActive {
+    display: none;
+  }
   &:hover {
     transition: 0.5s;
     box-shadow: 1px 1px 10px #05054910;
-    .buttonIcon {
+    .arrowIcon {
       fill: url(#arrow-gradient);
+    }
+    .chartIcon {
+      fill: url(#chart-gradient);
     }
     #arrow-gradient {
       transition: 1s;
       opacity: 1;
+    }
+    .imgActive {
+      display: inline;
+      opacity: 100;
+    }
+    .imgInactive {
+      display: none;
     }
   }
 }

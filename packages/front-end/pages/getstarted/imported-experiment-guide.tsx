@@ -70,7 +70,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
           <PiArrowRight />
         </span>
       </div>
-      <div className="d-flex mt-5">
+      <div className="d-flex mt-4">
         <div className="flex-fill mr-5">
           <div
             className="p-4"
