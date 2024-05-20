@@ -5,7 +5,10 @@ import Modal from "@/components/Modal";
 import { DocLink } from "@/components/DocLink";
 import BooleanFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/BooleanFeatureCodeSnippet";
 import MultivariateFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
-import {LanguageFilter, languageMapping} from "./SDKConnections/SDKLanguageLogo";
+import {
+  LanguageFilter,
+  languageMapping,
+} from "./SDKConnections/SDKLanguageLogo";
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
 import InitialSDKConnectionForm from "./SDKConnections/InitialSDKConnectionForm";
 
@@ -22,7 +25,9 @@ export default function FeatureImplementationModal({
 }: Props) {
   const [language, setLanguage] = useState<SDKLanguage>("javascript");
   const [fullSnippet, setFullSnippet] = useState(false);
-  const [languageFilter, setLanguageFilter] = useState<LanguageFilter>("popular");
+  const [languageFilter, setLanguageFilter] = useState<LanguageFilter>(
+    "popular"
+  );
   const codeType = feature.valueType === "boolean" ? "boolean" : "multivariate";
 
   if (fullSnippet) {

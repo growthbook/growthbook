@@ -20,9 +20,9 @@ import React, { ReactElement } from "react";
 import { isSDKOutdated } from "shared/sdk-versioning";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { BsFiletypeHtml } from "react-icons/bs";
+import { TbCloudCode } from "react-icons/tb";
 import { DocSection } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import {TbCloudCode} from "react-icons/tb";
 
 export type LanguageFilter =
   | "popular"

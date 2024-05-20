@@ -236,7 +236,7 @@ if (growthbook.isOn("my-feature")) {
 return new Response("<h1>bar</h1>");
         `.trim()}
       />
-    )
+    );
   }
   if (language === "edge-fastly") {
     return (
@@ -249,7 +249,7 @@ if (growthbook.isOn("my-feature")) {
 return new Response("<h1>bar</h1>");
         `.trim()}
       />
-    )
+    );
   }
   if (language === "edge-lambda") {
     return (
@@ -264,7 +264,7 @@ const resp = { status: "200", body: "<h1>bar</h1>" };
 callback(null, resp);
         `.trim()}
       />
-    )
+    );
   }
   if (language === "edge-other") {
     return (
@@ -277,7 +277,7 @@ if (growthbook.isOn("my-feature")) {
 return new Response("<h1>bar</h1>");
         `.trim()}
       />
-    )
+    );
   }
 
   return <em>Depends on your platform</em>;
