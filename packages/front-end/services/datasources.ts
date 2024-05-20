@@ -7,11 +7,6 @@ import {
   SchemaInterface,
 } from "back-end/types/datasource";
 import { MetricType } from "back-end/types/metric";
-import {
-  GlobalPermission,
-  ProjectScopedPermission,
-} from "back-end/types/organization";
-import { PermissionFunctions } from "@/services/UserContext";
 
 function camelToUnderscore(orig) {
   return orig
@@ -101,8 +96,7 @@ const SnowplowSchema: SchemaInterface = {
     "os",
   ],
   getExperimentSQL: (tablePrefix, userId, options) => {
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    const actionName = options.actionName || "Experiment Viewed";
+    const actionName = options?.actionName || "Experiment Viewed";
     const userCol = userId === "user_id" ? "user_id" : "domain_userid";
 
     return `SELECT
@@ -186,8 +180,7 @@ const AmplitudeSchema: SchemaInterface = {
   experimentDimensions: ["country", "device", "os", "paying"],
   getExperimentSQL: (tablePrefix, userId, options) => {
     const userCol = userId === "user_id" ? "user_id" : "amplitude_id";
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    const eventType = options.eventType || "Experiment Viewed";
+    const eventType = options?.eventType || "Experiment Viewed";
     const projectId = options?.projectId || "AMPLITUDE_PROJECT_ID";
 
     return `SELECT
@@ -671,21 +664,4 @@ export function validateSQL(sql: string, requiredColumns: string[]): void {
         .join(", ")}`
     );
   }
-}
-
-export function checkDatasourceProjectPermissions(
-  datasource: DataSourceInterfaceWithParams,
-  permissions: Record<GlobalPermission, boolean> & PermissionFunctions,
-  permission: ProjectScopedPermission
-): boolean {
-  let hasPermission = true;
-  if (datasource?.projects?.length) {
-    for (const project of datasource.projects) {
-      hasPermission = permissions.check(permission, project);
-      if (!hasPermission) break;
-    }
-  } else {
-    hasPermission = permissions.check(permission, "");
-  }
-  return hasPermission;
 }

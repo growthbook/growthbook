@@ -23,6 +23,7 @@ interface Props {
   dataSource: DataSourceInterfaceWithParams | null;
   exposureQuery?: ExposureQuery;
   healthTabConfigParams: HealthTabConfigParams;
+  canConfigHealthTab: boolean;
 }
 
 export const srmHealthCheck = ({
@@ -54,6 +55,7 @@ export default function SRMDrawer({
   dataSource,
   exposureQuery,
   healthTabConfigParams,
+  canConfigHealthTab,
 }: Props) {
   const { settings } = useUser();
 
@@ -160,6 +162,7 @@ export default function SRMDrawer({
             dataSource={dataSource}
             exposureQuery={exposureQuery}
             healthTabConfigParams={healthTabConfigParams}
+            canConfigHealthTab={canConfigHealthTab}
           />
         </div>
       </div>

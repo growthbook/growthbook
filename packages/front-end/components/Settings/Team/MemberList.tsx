@@ -1,7 +1,7 @@
 import React, { FC, useEffect, useState } from "react";
 import { FaCheck, FaTimes } from "react-icons/fa";
 import { ExpandedMember } from "back-end/types/organization";
-import { datetime } from "shared/dates";
+import { date, datetime } from "shared/dates";
 import { RxIdCard } from "react-icons/rx";
 import router from "next/router";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
@@ -35,7 +35,7 @@ const MemberList: FC<{
 }) => {
   const [inviting, setInviting] = useState(!!router.query["just-subscribed"]);
   const { apiCall } = useAuth();
-  const { userId, users } = useUser();
+  const { userId, users, organization } = useUser();
   const [roleModal, setRoleModal] = useState<string>("");
   const [passwordResetModal, setPasswordResetModal] = useState<ExpandedMember>(
     // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
@@ -116,6 +116,7 @@ const MemberList: FC<{
                 <th>Name</th>
                 <th>Email</th>
                 <th>Date Joined</th>
+                <th>Last Login</th>
                 <th>{project ? "Project Role" : "Global Role"}</th>
                 {!project && <th>Project Roles</th>}
                 {environments.map((env) => (
@@ -149,6 +150,9 @@ const MemberList: FC<{
                     <td>
                       {member.dateCreated && datetime(member.dateCreated)}
                     </td>
+                    <td>
+                      {member.lastLoginDate && date(member.lastLoginDate)}
+                    </td>
                     <td>{roleInfo.role}</td>
                     {!project && (
                       <td className="col-3">
@@ -171,7 +175,11 @@ const MemberList: FC<{
                       </td>
                     )}
                     {environments.map((env) => {
-                      const access = roleHasAccessToEnv(roleInfo, env.id);
+                      const access = roleHasAccessToEnv(
+                        roleInfo,
+                        env.id,
+                        organization
+                      );
                       return (
                         <td key={env.id}>
                           {access === "N/A" ? (

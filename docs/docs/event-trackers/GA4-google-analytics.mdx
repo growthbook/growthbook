@@ -121,9 +121,16 @@ And then your BigQuery link will show up on the listing page:
   style={{ width: 900, margin: "0 auto 10px auto" }}
 />
 
+:::note
+
+If you are loading Google Analytics via Google Tag Manager (GTM), you may need to add the custom event to GTM to ensure
+the data is passed to GA4 from the datalayer. You can add the custom event by following this [section from the GTM guide](/guide/google-tag-manager-and-growthbook#tracking-via-datalayer-and-gtm).
+
+:::
+
 ### 3. Configure BigQuery for GrowthBook
 
-You'll need to give GrowthBook some permissions to your BigQuery project so that we can access the data. We have created a guide just for this, which you can find [here](https://docs.growthbook.io/guide/bigquery)
+You'll need to give GrowthBook permissions to your BigQuery project so that we can access the data. We have created a guide just for this, which you can find [here](https://docs.growthbook.io/guide/bigquery)
 
 ### 4. Connect GrowthBook to BigQuery
 
@@ -151,7 +158,7 @@ data depending on the way you are tracking your experiments (see the **_tracking
 
 :::
 
-Once connected, you'll be able to add any additional metrics or dimensions, and then you can use your GA4 data for your
+Once connected, you can add any additional metrics or dimensions, and then you can use your GA4 data for your
 experiments. You can use all your existing events and tracking- GrowthBook only requires one additional tracking call
 when a user is exposed to an experiment.
 

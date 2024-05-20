@@ -3,8 +3,8 @@ import {
   useRef,
   useEffect,
   useState,
-  ReactElement,
   ReactNode,
+  CSSProperties,
 } from "react";
 import clsx from "clsx";
 import LoadingOverlay from "./LoadingOverlay";
@@ -13,12 +13,12 @@ import Tooltip from "./Tooltip/Tooltip";
 import { DocLink, DocSection } from "./DocLink";
 
 type ModalProps = {
-  header?: "logo" | string | ReactElement | boolean;
+  header?: "logo" | string | ReactNode | boolean;
   open: boolean;
   className?: string;
   submitColor?: string;
-  cta?: string | ReactElement;
-  closeCta?: string | ReactElement;
+  cta?: string | ReactNode;
+  closeCta?: string | ReactNode;
   includeCloseCta?: boolean;
   ctaEnabled?: boolean;
   disabledMessage?: string;
@@ -35,13 +35,14 @@ type ModalProps = {
   close?: () => void;
   submit?: () => void | Promise<void>;
   fullWidthSubmit?: boolean;
-  secondaryCTA?: ReactElement;
-  tertiaryCTA?: ReactElement;
+  secondaryCTA?: ReactNode;
+  tertiaryCTA?: ReactNode;
   successMessage?: string;
   children: ReactNode;
   bodyClassName?: string;
   formRef?: React.RefObject<HTMLFormElement>;
   customValidation?: () => Promise<boolean> | boolean;
+  increasedElevation?: boolean;
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
@@ -73,6 +74,7 @@ const Modal: FC<ModalProps> = ({
   bodyClassName = "",
   formRef,
   customValidation,
+  increasedElevation,
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -229,11 +231,15 @@ const Modal: FC<ModalProps> = ({
     </div>
   );
 
-  const overlayStyle = solidOverlay
+  const overlayStyle: CSSProperties = solidOverlay
     ? {
         opacity: 1,
       }
     : {};
+
+  if (increasedElevation) {
+    overlayStyle.zIndex = 1500;
+  }
 
   const modalHtml = (
     <div
@@ -241,7 +247,7 @@ const Modal: FC<ModalProps> = ({
       style={{
         display: open ? "block" : "none",
         position: inline ? "relative" : undefined,
-        zIndex: inline ? 1 : undefined,
+        zIndex: inline ? 1 : increasedElevation ? 1550 : undefined,
       }}
     >
       <div
@@ -259,6 +265,7 @@ const Modal: FC<ModalProps> = ({
             ref={formRef}
             onSubmit={async (e) => {
               e.preventDefault();
+              e.stopPropagation();
               if (loading) return;
               setError(null);
               setLoading(true);

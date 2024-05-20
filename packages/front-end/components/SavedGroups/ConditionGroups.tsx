@@ -1,7 +1,6 @@
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import { useMemo, useState } from "react";
 import { ago } from "shared/dates";
-import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
@@ -13,6 +12,7 @@ import Field from "@/components/Forms/Field";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import SavedGroupForm from "./SavedGroupForm";
 
 export interface Props {
@@ -25,7 +25,10 @@ export default function ConditionGroups({ groups, mutate }: Props) {
     savedGroupForm,
     setSavedGroupForm,
   ] = useState<null | Partial<SavedGroupInterface>>(null);
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
+  const canCreate = permissionsUtil.canCreateSavedGroup();
+  const canUpdate = permissionsUtil.canUpdateSavedGroup();
+  const canDelete = permissionsUtil.canDeleteSavedGroup();
   const { apiCall } = useAuth();
 
   const environments = useEnvironments();
@@ -84,7 +87,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
           <h2 className="mb-0">Condition Groups</h2>
         </div>
         <div className="flex-1"></div>
-        {permissions.manageSavedGroups && (
+        {canCreate ? (
           <div className="col-auto">
             <Button
               color="primary"
@@ -95,7 +98,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
               <GBAddCircle /> Add Condition Group
             </Button>
           </div>
-        )}
+        ) : null}
       </div>
       <p className="text-gray mb-1">
         With <strong>Conditions</strong>, you can set up advanced targeting
@@ -125,7 +128,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                     <SortableTH field="condition">Condition</SortableTH>
                     <SortableTH field={"owner"}>Owner</SortableTH>
                     <SortableTH field={"dateUpdated"}>Date Updated</SortableTH>
-                    {permissions.manageSavedGroups && <th></th>}
+                    {(canUpdate || canDelete) && <th></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -141,48 +144,53 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                         </td>
                         <td>{s.owner}</td>
                         <td>{ago(s.dateUpdated)}</td>
-                        {permissions.manageSavedGroups && (
+                        {canUpdate || canDelete ? (
                           <td style={{ width: 30 }}>
                             <MoreMenu>
-                              <a
-                                href="#"
-                                className="dropdown-item"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setSavedGroupForm(s);
-                                }}
-                              >
-                                Edit
-                              </a>
-                              <DeleteButton
-                                displayName="Saved Group"
-                                className="dropdown-item text-danger"
-                                useIcon={false}
-                                text="Delete"
-                                title="Delete SavedGroup"
-                                onClick={async () => {
-                                  await apiCall(`/saved-groups/${s.id}`, {
-                                    method: "DELETE",
-                                  });
-                                  mutate();
-                                }}
-                                getConfirmationContent={getSavedGroupMessage(
-                                  savedGroupFeatureIds[s.id]
-                                )}
-                                canDelete={
-                                  (savedGroupFeatureIds[s.id]?.size || 0) === 0
-                                }
-                              />
+                              {canUpdate ? (
+                                <a
+                                  href="#"
+                                  className="dropdown-item"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setSavedGroupForm(s);
+                                  }}
+                                >
+                                  Edit
+                                </a>
+                              ) : null}
+                              {canDelete ? (
+                                <DeleteButton
+                                  displayName="Saved Group"
+                                  className="dropdown-item text-danger"
+                                  useIcon={false}
+                                  text="Delete"
+                                  title="Delete SavedGroup"
+                                  onClick={async () => {
+                                    await apiCall(`/saved-groups/${s.id}`, {
+                                      method: "DELETE",
+                                    });
+                                    mutate();
+                                  }}
+                                  getConfirmationContent={getSavedGroupMessage(
+                                    savedGroupFeatureIds[s.id]
+                                  )}
+                                  canDelete={
+                                    (savedGroupFeatureIds[s.id]?.size || 0) ===
+                                    0
+                                  }
+                                />
+                              ) : null}
                             </MoreMenu>
                           </td>
-                        )}
+                        ) : null}
                       </tr>
                     );
                   })}
                   {!items.length && isFiltered && (
                     <tr>
                       <td
-                        colSpan={permissions.manageSavedGroups ? 6 : 5}
+                        colSpan={canUpdate || canDelete ? 6 : 5}
                         align={"center"}
                       >
                         No matching saved groups

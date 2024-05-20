@@ -11,15 +11,19 @@ export const postAttribute = async (
 ) => {
   const {
     property,
+    description,
     datatype,
     projects,
     format,
     enum: enumValue,
     hashAttribute,
   } = req.body;
-  req.checkPermissions("manageTargetingAttributes", projects);
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canCreateAttribute({ ...req.body })) {
+    context.permissions.throwPermissionError();
+  }
+  const { org } = context;
 
   const attributeSchema = org.settings?.attributeSchema || [];
 
@@ -34,6 +38,7 @@ export const postAttribute = async (
         ...attributeSchema,
         {
           property,
+          description,
           datatype,
           projects,
           format,
@@ -58,6 +63,7 @@ export const postAttribute = async (
             ...attributeSchema,
             {
               property,
+              description,
               datatype,
               projects,
               format,
@@ -80,6 +86,7 @@ export const putAttribute = async (
 ) => {
   const {
     property,
+    description,
     datatype,
     projects,
     format,
@@ -88,7 +95,8 @@ export const putAttribute = async (
     archived,
     previousName,
   } = req.body;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   const attributeSchema = org.settings?.attributeSchema || [];
 
@@ -101,21 +109,17 @@ export const putAttribute = async (
     throw new Error("Attribute not found");
   }
 
-  // Check permissions for new projects
-  req.checkPermissions("manageTargetingAttributes", projects);
+  const existing = attributeSchema[index];
+  if (!context.permissions.canUpdateAttribute(existing, { projects })) {
+    context.permissions.throwPermissionError();
+  }
 
-  // Check permissions on existing project list
-  req.checkPermissions(
-    "manageTargetingAttributes",
-    attributeSchema[index].projects
-  );
-
-  // If the name is being changed, check if the new name already exists
   if (
     previousName &&
     property !== previousName &&
     attributeSchema.some((a) => a.property === property)
   ) {
+    // If the name is being changed, check if the new name already exists
     throw new Error("An attribute with that name already exists");
   }
 
@@ -123,6 +127,7 @@ export const putAttribute = async (
   attributeSchema[index] = {
     ...attributeSchema[index],
     property,
+    description,
     datatype,
     projects,
     format,
@@ -162,7 +167,8 @@ export const deleteAttribute = async (
   req: AuthRequest<{ id: string }>,
   res: Response<{ status: number }>
 ) => {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.body;
 
   const attributeSchema = org.settings?.attributeSchema || [];
@@ -174,10 +180,9 @@ export const deleteAttribute = async (
   }
 
   // Check permissions on existing project list
-  req.checkPermissions(
-    "manageTargetingAttributes",
-    attributeSchema[index].projects
-  );
+  if (!context.permissions.canDeleteAttribute(attributeSchema[index])) {
+    context.permissions.throwPermissionError();
+  }
 
   const updatedArr = attributeSchema.filter((a) => a.property !== id);
 

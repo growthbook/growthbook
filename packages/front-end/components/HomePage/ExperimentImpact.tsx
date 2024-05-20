@@ -288,12 +288,16 @@ export default function ExperimentImpact({
           : "other";
 
       if (fitsFilters) {
-        console.dir(s, { depth: 3 })
+        console.dir(s, { depth: 3 });
       }
-      const ei: ExperimentWithImpact = { experiment: e, type: summary, impact: {
-        inSample: fitsFilters,
-        variations: [],
-      }};
+      const ei: ExperimentWithImpact = {
+        experiment: e,
+        type: summary,
+        impact: {
+          inSample: fitsFilters,
+          variations: [],
+        },
+      };
 
       if (s) {
         const defaultSettings = getSnapshotAnalysis(s)?.settings;
@@ -367,7 +371,9 @@ export default function ExperimentImpact({
           const adjustedImpact =
             adjustment.mean +
             (1 - adjustment.adjustment) * (v.scaledImpact - adjustment.mean);
-          v.scaledImpactAdjusted = applyAdjustment ? adjustedImpact : v.scaledImpact;
+          v.scaledImpactAdjusted = applyAdjustment
+            ? adjustedImpact
+            : v.scaledImpact;
 
           if (e.type === "winner" && v.selected) {
             e.keyVariationId = vi + 1;
@@ -449,21 +455,23 @@ export default function ExperimentImpact({
             <Field
               type="date"
               {...form.register("endDate")}
-              helpText={form.getValues("endDate") !== "" ? (
-                <div style={{ marginRight: -10 }}>
-                  <a
-                    role="button"
-                    className="a"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      form.setValue("endDate", "");
-                    }}
-                  >
-                    Clear Input
-                  </a>{" "}
-                  to include today
-                </div> 
-  ) : null}
+              helpText={
+                form.getValues("endDate") !== "" ? (
+                  <div style={{ marginRight: -10 }}>
+                    <a
+                      role="button"
+                      className="a"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        form.setValue("endDate", "");
+                      }}
+                    >
+                      Clear Input
+                    </a>{" "}
+                    to include today
+                  </div>
+                ) : null
+              }
             />
           </div>
         </div>
@@ -479,7 +487,9 @@ export default function ExperimentImpact({
                     }
                   </div>
 
-                  {nExpsUsedForAdjustment >= 5 ? <div>{`To estimate the background variance in treatment effects used for the James-Stein estimator, we use all ${nExpsUsedForAdjustment} experiments that have ever used this metric and for which we can compute scaled impact, regardless of your project or date filters.`}</div>: null}
+                  {nExpsUsedForAdjustment >= 5 ? (
+                    <div>{`To estimate the background variance in treatment effects used for the James-Stein estimator, we use all ${nExpsUsedForAdjustment} experiments that have ever used this metric and for which we can compute scaled impact, regardless of your project or date filters.`}</div>
+                  ) : null}
                 </>
               }
             />
@@ -489,7 +499,9 @@ export default function ExperimentImpact({
               id="adjust-scaled-impact"
               className="form-check-input"
               disabled={nExpsUsedForAdjustment < 5}
-              disabledMessage={"Disabled as there are not enough experiments to shrink estimates"}
+              disabledMessage={
+                "Disabled as there are not enough experiments to shrink estimates"
+              }
               setValue={(v) => form.setValue("adjusted", v)}
               value={adjusted && nExpsUsedForAdjustment >= 5}
             />
@@ -796,75 +808,80 @@ function ImpactTab({
     const impactsScaled: JSX.Element[] = [];
     const impactsTotal: JSX.Element[] = [];
     if (!e.error) {
-    e.experiment.variations.forEach((v, i) => {
-      if (i === 0) return;
-      if (experimentImpactType !== "other" && i !== e.keyVariationId) return;
-      const impact = e.impact?.variations?.[i - 1];
-      if (!impact) {
-        anyNullImpact = true;
-      }
-      variations.push(
-        <div
-          className={`variation variation${i} with-variation-label d-flex my-1`}
-        >
-          <span className="label" style={{ width: 20, height: 20 }}>
-            {i}
-          </span>
-          <span
-            className="d-inline-block text-ellipsis hover"
-            style={{
-              maxWidth: 200,
-            }}
+      e.experiment.variations.forEach((v, i) => {
+        if (i === 0) return;
+        if (experimentImpactType !== "other" && i !== e.keyVariationId) return;
+        const impact = e.impact?.variations?.[i - 1];
+        if (!impact) {
+          anyNullImpact = true;
+        }
+        variations.push(
+          <div
+            className={`variation variation${i} with-variation-label d-flex my-1`}
           >
-            {v.name}
-          </span>
-        </div>
-      );
-      impactsScaled.push(
-        <div
-          className={clsx("my-1", { won: experimentImpactType === "winner" })}
-        >
-          {impact ? (
-            formatImpact(impact?.scaledImpact ?? 0, formatter, formatterOptions)
-          ) : (
-            <span className="text-muted">N/A</span>
-          )}
-          {!!impact && (
-            <span className="small text-muted">
-              {" "}
-              X{" "}
-              {Intl.NumberFormat(undefined, {
-                maximumFractionDigits: 3,
-              }).format(
-                (impact.scaledImpactAdjusted ?? 0) / (impact.scaledImpact ?? 0)
-              )}{" "}
-              X 365{" "}
+            <span className="label" style={{ width: 20, height: 20 }}>
+              {i}
             </span>
-          )}
-        </div>
-      );
-      impactsTotal.push(
-        <div
-          className={clsx("my-1", { won: experimentImpactType === "winner" })}
-        >
-          {impact ? (
-            formatImpact(
-              (impact?.scaledImpactAdjusted ?? 0) * 365,
-              formatter,
-              formatterOptions
-            )
-          ) : (
-            <span className="text-muted">N/A</span>
-          )}
-          {!!impact && impact.se && (
-            <span className="plusminus ml-1">
-              ± {formatter(impact.se * 1.96 * 365, formatterOptions)}
+            <span
+              className="d-inline-block text-ellipsis hover"
+              style={{
+                maxWidth: 200,
+              }}
+            >
+              {v.name}
             </span>
-          )}
-        </div>
-      );
-    });
-  }
+          </div>
+        );
+        impactsScaled.push(
+          <div
+            className={clsx("my-1", { won: experimentImpactType === "winner" })}
+          >
+            {impact ? (
+              formatImpact(
+                impact?.scaledImpact ?? 0,
+                formatter,
+                formatterOptions
+              )
+            ) : (
+              <span className="text-muted">N/A</span>
+            )}
+            {!!impact && (
+              <span className="small text-muted">
+                {" "}
+                X{" "}
+                {Intl.NumberFormat(undefined, {
+                  maximumFractionDigits: 3,
+                }).format(
+                  (impact.scaledImpactAdjusted ?? 0) /
+                    (impact.scaledImpact ?? 0)
+                )}{" "}
+                X 365{" "}
+              </span>
+            )}
+          </div>
+        );
+        impactsTotal.push(
+          <div
+            className={clsx("my-1", { won: experimentImpactType === "winner" })}
+          >
+            {impact ? (
+              formatImpact(
+                (impact?.scaledImpactAdjusted ?? 0) * 365,
+                formatter,
+                formatterOptions
+              )
+            ) : (
+              <span className="text-muted">N/A</span>
+            )}
+            {!!impact && impact.se && (
+              <span className="plusminus ml-1">
+                ± {formatter(impact.se * 1.96 * 365, formatterOptions)}
+              </span>
+            )}
+          </div>
+        );
+      });
+    }
     expRows.push(
       <tr key={e.experiment.id} className="hover-highlight">
         <td>
@@ -905,14 +922,20 @@ function ImpactTab({
             )}
           </div>
         </td>
-        {e.error ? 
-        <td colSpan={3}><div className="alert alert-danger px-2 py-1 mb-1 ml-1">
-        <FaExclamationTriangle className="mr-1" />
-        No results available. Check experiment results for errors.
-      </div></td> : <>
-        <td>{variations}</td>
-        <td className="impact-results">{impactsScaled}</td>
-        <td className="impact-results">{impactsTotal}</td></>}
+        {e.error ? (
+          <td colSpan={3}>
+            <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
+              <FaExclamationTriangle className="mr-1" />
+              No results available. Check experiment results for errors.
+            </div>
+          </td>
+        ) : (
+          <>
+            <td>{variations}</td>
+            <td className="impact-results">{impactsScaled}</td>
+            <td className="impact-results">{impactsTotal}</td>
+          </>
+        )}
       </tr>
     );
   });

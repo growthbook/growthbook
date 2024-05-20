@@ -13,10 +13,6 @@ describe("updateVisualChangeset", () => {
       id: "org_123",
       name: "org_name",
     },
-    readAccessFilter: {
-      projects: [],
-      globalReadAccess: true,
-    },
   };
   const experiment = {
     hasVisualChangesets: true,

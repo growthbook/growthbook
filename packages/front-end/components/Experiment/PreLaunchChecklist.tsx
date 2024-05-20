@@ -14,11 +14,11 @@ import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
-import usePermissions from "@/hooks/usePermissions";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 type CheckListItem = {
   display: string | ReactElement;
@@ -52,18 +52,15 @@ export function PreLaunchChecklist({
 }) {
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const [checkListOpen, setCheckListOpen] = useState(true);
   const [showSdkForm, setShowSdkForm] = useState(false);
   const [updatingChecklist, setUpdatingChecklist] = useState(false);
   const showEditChecklistLink =
     hasCommercialFeature("custom-launch-checklist") &&
-    permissions.check("organizationSettings");
-  const canCreateAnalyses = permissions.check(
-    "createAnalyses",
-    experiment.project
-  );
-  const canEditExperiment = !experiment.archived && canCreateAnalyses;
+    permissionsUtil.canManageOrgSettings();
+  const canEditExperiment =
+    !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const { data } = useApi<{ checklist: ExperimentLaunchChecklistInterface }>(
     "/experiments/launch-checklist"

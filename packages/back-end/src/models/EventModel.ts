@@ -43,6 +43,10 @@ const eventSchema = new mongoose.Schema({
             event: z.enum(notificationEventNames),
             object: z.enum(notificationEventResources),
             data: z.any(),
+            projects: z.array(z.string()),
+            environments: z.array(z.string()),
+            tags: z.array(z.string()),
+            containsSecrets: z.boolean(),
             user: z.union([
               z
                 .object({

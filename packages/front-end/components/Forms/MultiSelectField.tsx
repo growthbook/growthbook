@@ -3,9 +3,11 @@ import ReactSelect, {
   components,
   MultiValueGenericProps,
   MultiValueProps,
+  InputProps,
   Props,
   StylesConfig,
   OptionProps,
+  FormatOptionLabelMeta,
 } from "react-select";
 import {
   SortableContainer,
@@ -16,6 +18,7 @@ import {
 } from "react-sortable-hoc";
 import { arrayMove } from "@dnd-kit/sortable";
 import CreatableSelect from "react-select/creatable";
+import { isDefined } from "shared/util";
 import {
   GroupedValue,
   ReactSelectProps,
@@ -65,6 +68,12 @@ const SortableCreatableSelect = SortableContainer(
   CreatableSelect
 ) as React.ComponentClass<Props<SingleValue, true> & SortableContainerProps>;
 
+const Input = (props: InputProps) => {
+  // @ts-expect-error will be passed down
+  const { onPaste } = props.selectProps;
+  return <components.Input onPaste={onPaste} {...props} />;
+};
+
 const MultiSelectField: FC<
   Omit<
     FieldProps,
@@ -80,7 +89,12 @@ const MultiSelectField: FC<
     customClassName?: string;
     closeMenuOnSelect?: boolean;
     creatable?: boolean;
-    formatOptionLabel?: (value: SingleValue) => ReactNode;
+    formatOptionLabel?: (
+      value: SingleValue,
+      meta: FormatOptionLabelMeta<SingleValue>
+    ) => ReactNode;
+    onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
+    noMenu?: boolean;
   }
 > = ({
   value,
@@ -96,10 +110,12 @@ const MultiSelectField: FC<
   creatable,
   closeMenuOnSelect = false,
   formatOptionLabel,
+  onPaste,
+  noMenu,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
-  const selected = value.map((v) => map.get(v)).filter(Boolean);
+  const selected = value.map((v) => map.get(v)).filter(isDefined);
 
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
@@ -109,7 +125,6 @@ const MultiSelectField: FC<
   const onSortEnd: SortEndHandler = ({ oldIndex, newIndex }) => {
     onChange(
       arrayMove(
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         selected.map((v) => v.value),
         oldIndex,
         newIndex
@@ -124,6 +139,7 @@ const MultiSelectField: FC<
       render={(id, ref) => {
         return (
           <Component
+            onPaste={onPaste}
             useDragHandle
             classNamePrefix="gb-multi-select"
             helperClass="multi-select-container"
@@ -146,10 +162,28 @@ const MultiSelectField: FC<
               MultiValue: SortableMultiValue,
               MultiValueLabel: SortableMultiValueLabel,
               Option: OptionWithTitle,
+              Input,
+              ...(creatable && noMenu
+                ? {
+                    Menu: () => null,
+                    DropdownIndicator: () => null,
+                    IndicatorSeparator: () => null,
+                  }
+                : {}),
             }}
+            {...(creatable && noMenu
+              ? {
+                  // Prevent multi-select from submitting if you type the same value twice
+                  onKeyDown: (e) => {
+                    const v = (e.target as HTMLInputElement).value;
+                    if (e.code === "Enter" && (!v || value.includes(v))) {
+                      e.preventDefault();
+                    }
+                  },
+                }
+              : {})}
             closeMenuOnSelect={closeMenuOnSelect}
             autoFocus={autoFocus}
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(SingleValue | undefined)[]' is not assignab... Remove this comment to see the full error message
             value={selected}
             placeholder={initialOption ?? placeholder}
             {...{ ...ReactSelectProps, ...mergeStyles }}

@@ -12,6 +12,8 @@ export const notificationEventNames = [
   "experiment.created",
   "experiment.updated",
   "experiment.deleted",
+  "experiment.warning",
+  "experiment.info",
   // User
   "user.login",
   // Test
@@ -29,13 +31,15 @@ export const notificationEventResources = [
   "user",
   "webhook",
 ] as const;
+
 export type NotificationEventResource = typeof notificationEventResources[number];
 
 /**
  * Event Notification payload
  */
 export type NotificationEventPayload<
-  EventName extends NotificationEventName,
+  EventName extends NotificationEventName &
+    (ResourceType extends string ? `${ResourceType}.${string}` : unknown),
   ResourceType extends NotificationEventResource | unknown,
   DataType
 > = {
@@ -43,4 +47,8 @@ export type NotificationEventPayload<
   object: ResourceType;
   data: DataType;
   user: EventAuditUser;
+  projects: string[];
+  tags: string[];
+  environments: string[];
+  containsSecrets: boolean;
 };

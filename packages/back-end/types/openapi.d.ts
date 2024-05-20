@@ -322,6 +322,17 @@ export interface components {
           /** @enum {string} */
           windowUnit?: "hours" | "days" | "weeks";
         };
+        /** @description Controls the bayesian prior for the metric. */
+        priorSettings?: {
+          /** @description If false, the organization default settings will be used instead of the other settings in this object */
+          override: boolean;
+          /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+          proper: boolean;
+          /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+          mean: number;
+          /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+          stddev: number;
+        };
         /** @deprecated */
         conversionWindowStart?: number;
         /** @deprecated */
@@ -1103,6 +1114,7 @@ export interface components {
               metricId: string;
               variations: ({
                   variationId: string;
+                  users?: number;
                   analyses: ({
                       /** @enum {unknown} */
                       engine: "bayesian" | "frequentist";
@@ -1328,6 +1340,11 @@ export interface components {
         /** @description Number of pre-exposure days to use for the regression adjustment */
         days?: number;
       };
+      riskThresholdSuccess: number;
+      riskThresholdDanger: number;
+      minPercentChange: number;
+      maxPercentChange: number;
+      minSampleSize: number;
       /**
        * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
        * @enum {string}
@@ -3149,6 +3166,12 @@ export interface operations {
           minBucketVersion?: number;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
+          /** @enum {string} */
+          inProgressConversions?: "loose" | "strict";
+          /** @enum {string} */
+          attributionModel?: "firstExposure" | "experimentDuration";
+          /** @enum {string} */
+          statsEngine?: "bayesian" | "frequentist";
           variations: ({
               id?: string;
               key: string;
@@ -3163,9 +3186,9 @@ export interface operations {
             })[];
           phases?: ({
               name: string;
-              /** Format: date */
+              /** Format: date-time */
               dateStarted: string;
-              /** Format: date */
+              /** Format: date-time */
               dateEnded?: string;
               reasonForStopping?: string;
               seed?: string;
@@ -3467,6 +3490,12 @@ export interface operations {
           minBucketVersion?: number;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
+          /** @enum {string} */
+          inProgressConversions?: "loose" | "strict";
+          /** @enum {string} */
+          attributionModel?: "firstExposure" | "experimentDuration";
+          /** @enum {string} */
+          statsEngine?: "bayesian" | "frequentist";
           variations?: ({
               id?: string;
               key: string;
@@ -3481,9 +3510,9 @@ export interface operations {
             })[];
           phases?: ({
               name: string;
-              /** Format: date */
+              /** Format: date-time */
               dateStarted: string;
-              /** Format: date */
+              /** Format: date-time */
               dateEnded?: string;
               reasonForStopping?: string;
               seed?: string;
@@ -3704,6 +3733,7 @@ export interface operations {
                       metricId: string;
                       variations: ({
                           variationId: string;
+                          users?: number;
                           analyses: ({
                               /** @enum {unknown} */
                               engine: "bayesian" | "frequentist";
@@ -3793,6 +3823,17 @@ export interface operations {
                     windowValue?: number;
                     /** @enum {string} */
                     windowUnit?: "hours" | "days" | "weeks";
+                  };
+                  /** @description Controls the bayesian prior for the metric. */
+                  priorSettings?: {
+                    /** @description If false, the organization default settings will be used instead of the other settings in this object */
+                    override: boolean;
+                    /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+                    proper: boolean;
+                    /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+                    mean: number;
+                    /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+                    stddev: number;
                   };
                   /** @deprecated */
                   conversionWindowStart?: number;
@@ -3923,6 +3964,17 @@ export interface operations {
              * @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
              */
             conversionWindowEnd?: number;
+            /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
+            priorSettings?: {
+              /** @description If false, the organization default settings will be used instead of the other settings in this object */
+              override: boolean;
+              /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+              proper: boolean;
+              /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+              mean: number;
+              /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+              stddev: number;
+            };
             /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
             riskThresholdSuccess?: number;
             /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
@@ -4023,6 +4075,17 @@ export interface operations {
                   windowValue?: number;
                   /** @enum {string} */
                   windowUnit?: "hours" | "days" | "weeks";
+                };
+                /** @description Controls the bayesian prior for the metric. */
+                priorSettings?: {
+                  /** @description If false, the organization default settings will be used instead of the other settings in this object */
+                  override: boolean;
+                  /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+                  proper: boolean;
+                  /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+                  mean: number;
+                  /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+                  stddev: number;
                 };
                 /** @deprecated */
                 conversionWindowStart?: number;
@@ -4130,6 +4193,17 @@ export interface operations {
                   windowValue?: number;
                   /** @enum {string} */
                   windowUnit?: "hours" | "days" | "weeks";
+                };
+                /** @description Controls the bayesian prior for the metric. */
+                priorSettings?: {
+                  /** @description If false, the organization default settings will be used instead of the other settings in this object */
+                  override: boolean;
+                  /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+                  proper: boolean;
+                  /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+                  mean: number;
+                  /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+                  stddev: number;
                 };
                 /** @deprecated */
                 conversionWindowStart?: number;
@@ -4257,6 +4331,17 @@ export interface operations {
              * @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
              */
             conversionWindowEnd?: number;
+            /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
+            priorSettings?: {
+              /** @description If false, the organization default settings will be used instead of the other settings in this object */
+              override: boolean;
+              /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+              proper: boolean;
+              /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+              mean: number;
+              /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+              stddev: number;
+            };
             /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
             riskThresholdSuccess?: number;
             /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
@@ -5427,6 +5512,11 @@ export interface operations {
                   /** @description Number of pre-exposure days to use for the regression adjustment */
                   days?: number;
                 };
+                riskThresholdSuccess: number;
+                riskThresholdDanger: number;
+                minPercentChange: number;
+                maxPercentChange: number;
+                minSampleSize: number;
                 /**
                  * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                  * @enum {string}
@@ -5509,6 +5599,17 @@ export interface operations {
             /** @enum {string} */
             windowUnit?: "hours" | "days" | "weeks";
           };
+          /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
+          priorSettings?: {
+            /** @description If false, the organization default settings will be used instead of the other settings in this object */
+            override: boolean;
+            /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+            proper: boolean;
+            /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+            mean: number;
+            /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+            stddev: number;
+          };
           /** @description Controls the regression adjustment (CUPED) settings for the metric */
           regressionAdjustmentSettings?: {
             /** @description If false, the organization default settings will be used */
@@ -5518,6 +5619,15 @@ export interface operations {
             /** @description Number of pre-exposure days to use for the regression adjustment */
             days?: number;
           };
+          /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
+          riskThresholdSuccess?: number;
+          /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
+          riskThresholdDanger?: number;
+          /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
+          minPercentChange?: number;
+          /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
+          maxPercentChange?: number;
+          minSampleSize?: number;
           /**
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
@@ -5594,6 +5704,11 @@ export interface operations {
                 /** @description Number of pre-exposure days to use for the regression adjustment */
                 days?: number;
               };
+              riskThresholdSuccess: number;
+              riskThresholdDanger: number;
+              minPercentChange: number;
+              maxPercentChange: number;
+              minSampleSize: number;
               /**
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
@@ -5685,6 +5800,11 @@ export interface operations {
                 /** @description Number of pre-exposure days to use for the regression adjustment */
                 days?: number;
               };
+              riskThresholdSuccess: number;
+              riskThresholdDanger: number;
+              minPercentChange: number;
+              maxPercentChange: number;
+              minSampleSize: number;
               /**
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
@@ -5770,11 +5890,20 @@ export interface operations {
           regressionAdjustmentSettings?: {
             /** @description If false, the organization default settings will be used */
             override: boolean;
-            /** @description Controls whether or not regresion adjustment is applied to the metric */
+            /** @description Controls whether or not regression adjustment is applied to the metric */
             enabled?: boolean;
             /** @description Number of pre-exposure days to use for the regression adjustment */
             days?: number;
           };
+          /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
+          riskThresholdSuccess?: number;
+          /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
+          riskThresholdDanger?: number;
+          /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
+          minPercentChange?: number;
+          /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
+          maxPercentChange?: number;
+          minSampleSize?: number;
           /**
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
@@ -5851,6 +5980,11 @@ export interface operations {
                 /** @description Number of pre-exposure days to use for the regression adjustment */
                 days?: number;
               };
+              riskThresholdSuccess: number;
+              riskThresholdDanger: number;
+              minPercentChange: number;
+              maxPercentChange: number;
+              minSampleSize: number;
               /**
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
@@ -5995,6 +6129,17 @@ export interface operations {
                   /** @enum {string} */
                   windowUnit?: "hours" | "days" | "weeks";
                 };
+                /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
+                priorSettings?: {
+                  /** @description If false, the organization default settings will be used instead of the other settings in this object */
+                  override: boolean;
+                  /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+                  proper: boolean;
+                  /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+                  mean: number;
+                  /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+                  stddev: number;
+                };
                 /** @description Controls the regression adjustment (CUPED) settings for the metric */
                 regressionAdjustmentSettings?: {
                   /** @description If false, the organization default settings will be used */
@@ -6004,6 +6149,15 @@ export interface operations {
                   /** @description Number of pre-exposure days to use for the regression adjustment */
                   days?: number;
                 };
+                /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
+                riskThresholdSuccess?: number;
+                /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
+                riskThresholdDanger?: number;
+                /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
+                minPercentChange?: number;
+                /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
+                maxPercentChange?: number;
+                minSampleSize?: number;
                 /**
                  * @description Set this to "api" to disable editing in the GrowthBook UI 
                  * @enum {string}

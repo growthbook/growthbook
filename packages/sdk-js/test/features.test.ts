@@ -41,7 +41,7 @@ describe("features", () => {
     const growthbook = new GrowthBook();
 
     const keyString = "Ns04T5n9+59rl2x3SlNHtQ==";
-    const encrypedFeatures =
+    const encryptedFeatures =
       "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
 
     // Make sure it's not using the built-in crypto implementation
@@ -50,7 +50,7 @@ describe("features", () => {
     (globalThis.crypto as any) = undefined;
 
     await growthbook.setEncryptedFeatures(
-      encrypedFeatures,
+      encryptedFeatures,
       keyString,
       webcrypto.subtle
     );
@@ -78,10 +78,10 @@ describe("features", () => {
     globalThis.crypto = webcrypto;
 
     const keyString = "Ns04T5n9+59rl2x3SlNHtQ==";
-    const encrypedFeatures =
+    const encryptedFeatures =
       "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
 
-    await growthbook.setEncryptedFeatures(encrypedFeatures, keyString);
+    await growthbook.setEncryptedFeatures(encryptedFeatures, keyString);
 
     expect(growthbook.getFeatures()).toEqual({
       testfeature1: {
@@ -104,12 +104,12 @@ describe("features", () => {
     const growthbook = new GrowthBook();
 
     const keyString = "fakeT5n9+59rl2x3SlNHtQ==";
-    const encrypedFeatures =
+    const encryptedFeatures =
       "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
 
     await expect(
       growthbook.setEncryptedFeatures(
-        encrypedFeatures,
+        encryptedFeatures,
         keyString,
         webcrypto.subtle
       )
@@ -122,12 +122,12 @@ describe("features", () => {
     const growthbook = new GrowthBook();
 
     const keyString = "Ns04T5n9+59rl2x3SlNHtQ==";
-    const encrypedFeatures =
+    const encryptedFeatures =
       "FAKE2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
 
     await expect(
       growthbook.setEncryptedFeatures(
-        encrypedFeatures,
+        encryptedFeatures,
         keyString,
         webcrypto.subtle
       )
@@ -140,7 +140,7 @@ describe("features", () => {
     const growthbook = new GrowthBook();
 
     const keyString = "Ns04T5n9+59rl2x3SlNHtQ==";
-    const encrypedFeatures =
+    const encryptedFeatures =
       "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
 
     const originalCrypto = globalThis.crypto;
@@ -148,7 +148,7 @@ describe("features", () => {
     (globalThis.crypto as any) = undefined;
 
     await expect(
-      growthbook.setEncryptedFeatures(encrypedFeatures, keyString)
+      growthbook.setEncryptedFeatures(encryptedFeatures, keyString)
     ).rejects.toThrow("No SubtleCrypto implementation found");
 
     growthbook.destroy();

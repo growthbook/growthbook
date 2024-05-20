@@ -110,12 +110,8 @@ In this paragraph we describe the variance of a ratio of means, as described in 
 
 $\text{Var}\left(\bar{X}\right) = \frac{1}{K\bar{N}^{2}}\left[\text{Var}(S)-2\frac{\bar{S}}{\bar{N}}\text{Cov}(S,N)+\frac{\bar{S}^2}{\bar{N}^2}\text{Var}(N)\right]$.
 
-Let $\hat{Y0}_{n\nu}$ be the $\nu^{\text{th}}$ sample quantile for control, and let its associated variance be $\hat{v}_{0}$.
-Analogously define $\hat{Y1}_{n\nu}$ and $\hat{v}_{1}$ for treatment.
-Given these terms, our relative effect estimate is $\hat{\tau} = (\hat{Y1}_{n\nu} - \hat{Y0}_{n\nu}) / \hat{Y0}_{n\nu}$ if $\hat{Y0}_{n\nu}\ne 0$ and is 0 otherwise.
-We calculate $s^{2}$, the variance of $\hat{\tau}$, by using the delta method formula above.
-The statistics ($\hat{\tau}$, $s^{2}$) are used for frequentist inference (e.g., confidence intervals).
-If instead the absolute difference is of interest, then our estimator is $\hat{\tau}_{a} = (\hat{Y1}_{n\nu} - \hat{Y0}_{n\nu})$ and its variance $s^{2}_{a} = \hat{v}_{0} + \hat{v}_{1}$
+This is similar to the delta method approximation of the variance we use for ratio metrics and for relative effects.
 
-For our Bayesian engine, we simply use a normal/normal conjugate prior to construct a Bayesian credible interval, which in turn can be used for risk estimates, probability that $\tau$ is positive, etc. We describe inference in terms of relative change, but our formula is the same for absolute change. We put a normal prior on the true quantile treatment effect, i.e., $\tau \stackrel{}{\sim}\mathcal{N}\left(\mu_{0}, \sigma_{0}^{2}\right)$. Then $\hat{\tau}|\tau \stackrel{}{\sim}\mathcal{N}\left(\tau, s^{2}\right)$ , so the posterior distribution for the treatment effect is $\tau|\hat{\tau} \stackrel{}{\sim}\mathcal{N}\left(\Omega^{-1}\omega, \Omega^{-1}\right),$ where the precision $\Omega = 1/\sigma_{0}^{2} + 1/s^{2}$ and $\omega = \mu_{0}/\sigma_{0}^{2} + \hat{\tau}/s^{2}$.
-In practice we place a flat prior over the effect size (i.e., $\sigma_{0}^{2}=\infty$), so the posterior mean $\Omega^{-1}\omega$ is equivalent to the frequentist estimate.
+Let $\hat{\mu}_{C,n\nu}$ be the $\nu^{\text{th}}$ sample quantile for control, and let its associated variance be $\hat\sigma^2_{C,n\nu}$.
+Analogously define $\hat{\mu}_{T,n\nu}$ and $\hat\sigma^2_{C,n\nu}$ for treatment. These quantities are plugged into our lift estimators as described in the [Statistical Details](/statistics/details) page. The result
+from step 7 is our estimate of the variance and the sample quantile is directly computed in the SQL query.

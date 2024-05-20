@@ -2,12 +2,14 @@
 
 import cloneDeep from "lodash/cloneDeep";
 import {
+  DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import omit from "lodash/omit";
 import { LegacyMetricInterface } from "../types/metric";
 import {
+  migrateReport,
   migrateSavedGroup,
   migrateSnapshot,
   upgradeDatasourceObject,
@@ -32,7 +34,10 @@ import {
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
 } from "../types/experiment-snapshot";
-import { ExperimentReportResultDimension } from "../types/report";
+import {
+  ExperimentReportResultDimension,
+  LegacyReportInterface,
+} from "../types/report";
 import { Queries } from "../types/query";
 import { ExperimentPhase } from "../types/experiment";
 import { LegacySavedGroupInterface } from "../types/saved-group";
@@ -60,6 +65,12 @@ describe("Metric Migration", () => {
       cappingSettings: {
         type: "",
         value: 0,
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
       },
       userIdTypes: ["anonymous_id", "user_id"],
     };
@@ -172,6 +183,12 @@ describe("Metric Migration", () => {
         windowValue: 72,
         delayHours: 0,
       },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+      },
       userIdTypes: ["anonymous_id", "user_id"],
     };
 
@@ -242,6 +259,12 @@ describe("Metric Migration", () => {
         windowValue: 72,
         delayHours: 0,
       },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+      },
       userIdTypes: ["anonymous_id", "user_id"],
     };
 
@@ -287,6 +310,49 @@ describe("Metric Migration", () => {
     });
   });
 
+  it("updates old metric objects - adds prior settings", () => {
+    const baseMetric: LegacyMetricInterface = {
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "",
+      id: "",
+      ignoreNulls: false,
+      inverse: false,
+      name: "",
+      organization: "",
+      owner: "",
+      queries: [],
+      runStarted: null,
+      type: "binomial",
+      userIdColumns: {
+        user_id: "user_id",
+        anonymous_id: "anonymous_id",
+      },
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
+      windowSettings: {
+        type: "conversion",
+        windowUnit: "hours",
+        windowValue: 72,
+        delayHours: 0,
+      },
+      userIdTypes: ["anonymous_id", "user_id"],
+    };
+
+    expect(upgradeMetricDoc(baseMetric)).toEqual({
+      ...baseMetric,
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+      },
+    });
+  });
+
   it("updates old metric objects - userIdType", () => {
     const baseMetric: LegacyMetricInterface = {
       datasource: "",
@@ -311,6 +377,12 @@ describe("Metric Migration", () => {
       cappingSettings: {
         type: "",
         value: 0,
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
       },
     };
 
@@ -389,6 +461,12 @@ describe("Metric Migration", () => {
       cappingSettings: {
         type: "",
         value: 0,
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
       },
     };
 
@@ -1322,6 +1400,9 @@ describe("Snapshot Migration", () => {
               regressionAdjustmentEnabled: false,
               regressionAdjustmentAvailable: false,
               regressionAdjustmentReason: "",
+              properPrior: false,
+              properPriorMean: 0,
+              properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
             },
           },
           {
@@ -1337,9 +1418,18 @@ describe("Snapshot Migration", () => {
               regressionAdjustmentEnabled: false,
               regressionAdjustmentAvailable: false,
               regressionAdjustmentReason: "",
+              properPrior: false,
+              properPriorMean: 0,
+              properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
             },
           },
         ],
+        defaultMetricPriorSettings: {
+          override: false,
+          proper: false,
+          mean: 0,
+          stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+        },
         regressionAdjustmentEnabled: false,
         segment: "seg_123",
         skipPartialData: false,
@@ -1404,6 +1494,12 @@ describe("Snapshot Migration", () => {
         skipPartialData: false,
         startDate: now,
         variations: [],
+        defaultMetricPriorSettings: {
+          override: false,
+          proper: false,
+          mean: 0,
+          stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+        },
       },
       status: "running",
     };
@@ -1515,9 +1611,18 @@ describe("Snapshot Migration", () => {
               regressionAdjustmentEnabled: false,
               regressionAdjustmentAvailable: false,
               regressionAdjustmentReason: "",
+              properPrior: false,
+              properPriorMean: 0,
+              properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
             },
           },
         ],
+        defaultMetricPriorSettings: {
+          override: false,
+          proper: false,
+          mean: 0,
+          stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+        },
         regressionAdjustmentEnabled: false,
         segment: "",
         skipPartialData: false,
@@ -1533,6 +1638,83 @@ describe("Snapshot Migration", () => {
     expect(
       migrateSnapshot(initial as LegacyExperimentSnapshotInterface)
     ).toEqual(result);
+  });
+});
+
+describe("Report Migration", () => {
+  const baseLegacyReport: LegacyReportInterface = {
+    type: "experiment",
+    id: "",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    organization: "",
+    title: "",
+    description: "",
+    runStarted: null,
+    queries: [],
+    args: {
+      trackingKey: "",
+      datasource: "",
+      exposureQueryId: "",
+      startDate: new Date(),
+      variations: [],
+      metrics: [],
+    },
+  };
+
+  it("migrates attribution model", () => {
+    const report = {
+      ...baseLegacyReport,
+      args: {
+        ...baseLegacyReport.args,
+        attributionModel: "allExposures",
+      },
+    };
+
+    expect(migrateReport(report)).toEqual({
+      ...report,
+      args: {
+        ...report.args,
+        attributionModel: "experimentDuration",
+      },
+    });
+  });
+
+  it("migrates metricRegressionAdjustmentStatuses", () => {
+    const report: LegacyReportInterface = {
+      ...baseLegacyReport,
+      args: {
+        ...baseLegacyReport.args,
+        metricRegressionAdjustmentStatuses: [
+          {
+            metric: "met_123",
+            regressionAdjustmentEnabled: true,
+            regressionAdjustmentAvailable: true,
+            regressionAdjustmentDays: 14,
+            reason: "foo",
+          },
+        ],
+      },
+    };
+
+    expect(migrateReport(report)).toEqual({
+      ...report,
+      args: {
+        ...report.args,
+        settingsForSnapshotMetrics: [
+          {
+            metric: "met_123",
+            regressionAdjustmentEnabled: true,
+            regressionAdjustmentAvailable: true,
+            regressionAdjustmentDays: 14,
+            regressionAdjustmentReason: "foo",
+            properPrior: false,
+            properPriorMean: 0,
+            properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
+          },
+        ],
+      },
+    });
   });
 });
 

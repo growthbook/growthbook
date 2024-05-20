@@ -8,11 +8,11 @@ import {
   FeatureRule as FeatureDefinitionRule,
   AutoExperiment,
   GrowthBook,
-  ParentConditionInterface,
 } from "@growthbook/growthbook";
 import {
   evalDeterministicPrereqValue,
   evaluatePrerequisiteState,
+  isDefined,
   PrerequisiteStateResult,
   validateCondition,
   validateFeatureValue,
@@ -192,7 +192,7 @@ export function generateAutoExperimentsPayload({
             condition,
           };
         })
-        .filter(Boolean) as ParentConditionInterface[];
+        .filter(isDefined);
 
       if (!phase) return null;
 
@@ -409,7 +409,9 @@ export async function refreshSDKPayloadCache(
   // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
   await promiseAllChunks(promises, 4);
 
-  triggerWebhookJobs(context, payloadKeys, environments, true);
+  triggerWebhookJobs(context, payloadKeys, environments, true).catch((e) => {
+    logger.error(e, "Error triggering webhook jobs");
+  });
 }
 
 export type FeatureDefinitionsResponseArgs = {
@@ -772,7 +774,7 @@ export function evaluateFeature({
         const rulesWithPrereqs: FeatureDefinitionRule[] = [];
         if (scrubPrerequisites) {
           definition.rules = definition.rules
-            ? (definition?.rules
+            ? definition?.rules
                 ?.map((rule) => {
                   if (rule?.parentConditions?.length) {
                     rulesWithPrereqs.push(rule);
@@ -788,7 +790,7 @@ export function evaluateFeature({
                   }
                   return rule;
                 })
-                .filter(Boolean) as FeatureDefinitionRule[])
+                .filter(isDefined)
             : undefined;
         }
 
