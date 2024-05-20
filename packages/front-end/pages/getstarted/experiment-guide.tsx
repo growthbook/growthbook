@@ -80,8 +80,8 @@ const ExperimentGuide = (): React.ReactElement => {
       <div className="d-flex align-middle justify-content-between mb-4">
         <span>
           Ran experiments on another platform?{" "}
-          <Link href="/importing/launchdarkly">
-            View migration instructions
+          <Link href="/getstarted/imported-experiment-guide">
+            View import instructions
           </Link>{" "}
           <PiArrowRight />
         </span>
