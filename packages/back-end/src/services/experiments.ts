@@ -798,6 +798,10 @@ export async function createMultipleSnapshotAnalysis(
       > = new Map();
       // TODO check for error
       result.results.forEach(({ metric, analyses }) => {
+        // each result can have multiple analyses (a set of computations that
+        // use the same snapshot)
+        // we loop over the analyses requested and pull out the results for each one
+
         const result = analyses[i];
         if (!result) return;
 
