@@ -433,7 +433,7 @@ const sidebars = {
             {
               type: "doc",
               id: "lib/edge/cloudflare",
-              label: "CloudFlare Workers",
+              label: "Cloudflare Workers",
             },
             {
               type: "doc",

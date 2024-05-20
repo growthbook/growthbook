@@ -73,7 +73,7 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     label: "React",
     docs: "tsx",
     type: "frontend",
-    filters: ["browser", "popular"],
+    filters: ["browser", "mobile", "popular"],
   },
   nodejs: {
     Icon: SiNodedotjs,
@@ -166,8 +166,8 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
   "edge-cloudflare": {
     Icon: SiCloudflare,
     color: "#f78220",
-    label: "CloudFlare",
-    docLabel: "CloudFlare Workers",
+    label: "Cloudflare",
+    docLabel: "Cloudflare Workers",
     docs: "cloudflare",
     type: "edge",
     filters: ["edge", "popular"],
@@ -223,10 +223,10 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     filters: ["edge"],
     extra: (
       <span
-        className="badge badge-purple text-uppercase position-absolute"
+        className="badge badge-yellow text-uppercase position-absolute"
         style={{ top: -16, right: -12 }}
       >
-        Beta
+        Alpha
       </span>
     ),
   },

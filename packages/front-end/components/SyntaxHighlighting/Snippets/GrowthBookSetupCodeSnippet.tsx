@@ -651,10 +651,10 @@ features = GrowthBook.Config.features_from_config(features)
         </p>
 
         <div className="h4 mt-4 mb-3">
-          Step 1: Set up a CloudFlare Workers project
+          Step 1: Set up a Cloudflare Workers project
         </div>
         <p>
-          See the official CloudFlare Workers{" "}
+          See the official Cloudflare Workers{" "}
           <a
             href="https://developers.cloudflare.com/workers/get-started/guide/"
             target="_blank"
@@ -677,7 +677,7 @@ features = GrowthBook.Config.features_from_config(features)
           Step 2: Implement our Edge App request handler
         </div>
         <p>
-          To run the edge app, add our CloudFlare request handler to your
+          To run the edge app, add our Cloudflare request handler to your
           project:
         </p>
         <Code
@@ -715,9 +715,9 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
 
         <div className="h4 mt-4 mb-3">Step 4: Set up payload caching</div>
         <p>
-          Set up a <strong>CloudFlare KV</strong> store and use a GrowthBook{" "}
+          Set up a <strong>Cloudflare KV</strong> store and use a GrowthBook{" "}
           <strong>SDK Webhook</strong> to keep feature and experiment values
-          synced between GrowthBook and your CloudFlare Worker. This eliminates
+          synced between GrowthBook and your Cloudflare Worker. This eliminates
           network requests from your edge to GrowthBook.
         </p>
 
@@ -742,7 +742,7 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
         </ul>
         <p>
           See the{" "}
-          <DocLink docSection="cloudflare">CloudFlare Workers docs</DocLink>{" "}
+          <DocLink docSection="cloudflare">Cloudflare Workers docs</DocLink>{" "}
           further instructions.
         </p>
       </>
