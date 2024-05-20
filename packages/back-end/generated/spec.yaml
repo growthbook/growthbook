@@ -2443,7 +2443,7 @@ paths:
                 properties:
                   organization:
                     $ref: '#/components/schemas/Organization'
-  '/organizations/{id}/environments':
+  /environments:
     get:
       summary: Get the organization's environments
       parameters:
@@ -2469,18 +2469,16 @@ paths:
                       environments:
                         type: array
                         items:
-                          $ref: '#/paths/~1organizations~1%7Bid%7D~1environments/post/responses/200/content/application~1json/schema/properties/environment'
+                          $ref: '#/paths/~1environments/post/responses/200/content/application~1json/schema/properties/environment'
     post:
       tags:
         - environments
       summary: Create a new environment
-      parameters:
-        - $ref: '#/components/parameters/id'
       operationId: postEnvironment
       x-codeSamples:
         - lang: cURL
           source: |
-            curl -X POST https://api.growthbook.io/api/v1/organization/org-test/environments \
+            curl -X POST https://api.growthbook.io/api/v1/environments \
                -d '{"id": "new-env", "description": "My new environment" }' \
               -u secret_abc123DEF456:
       requestBody:
@@ -2503,8 +2501,12 @@ paths:
                   type: bool
                   description: Show toggle on feature list
                 defaultState:
-                  type: string
+                  type: bool
                   description: Default state for new features
+                projects:
+                  type: array
+                  items:
+                    type: string
       responses:
         '200':
           content:
@@ -2521,6 +2523,7 @@ paths:
                       - description
                       - toggleOnList
                       - defaultState
+                      - projects
                     properties:
                       id:
                         type: string
@@ -2530,10 +2533,13 @@ paths:
                         type: boolean
                       defaultState:
                         type: boolean
-  '/organizations/{id}/environments/${environmentId}':
+                      projects:
+                        type: array
+                        items:
+                          type: string
+  '/environments/${id}':
     put:
       parameters:
-        - $ref: '#/components/parameters/environmentId'
         - $ref: '#/components/parameters/id'
       tags:
         - environments
@@ -2542,7 +2548,7 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: |
-            curl -X PUT https://api.growthbook.io/api/v1/organization/org-test/environments/env-id \
+            curl -X PUT https://api.growthbook.io/api/v1/environments/env-id \
                -d '{ "description": "My new environment" }' \
               -u secret_abc123DEF456:
       requestBody:
@@ -2559,8 +2565,12 @@ paths:
                   type: bool
                   description: Show toggle on feature list
                 defaultState:
-                  type: string
+                  type: bool
                   description: Default state for new features
+                projects:
+                  type: array
+                  items:
+                    type: string
       responses:
         '200':
           content:
@@ -2571,11 +2581,10 @@ paths:
                   - environment
                 properties:
                   environment:
-                    $ref: '#/paths/~1organizations~1%7Bid%7D~1environments/post/responses/200/content/application~1json/schema/properties/environment'
+                    $ref: '#/paths/~1environments/post/responses/200/content/application~1json/schema/properties/environment'
     delete:
       summary: Deletes a single environment
       parameters:
-        - $ref: '#/components/parameters/environmentId'
         - $ref: '#/components/parameters/id'
       tags:
         - environments
@@ -2583,7 +2592,7 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: |
-            curl -X DELETE https://api.growthbook.io/api/v1/organization/org-test/enviromnents/env-id \
+            curl -X DELETE https://api.growthbook.io/api/v1/enviromnents/env-id \
               -u secret_abc123DEF456:
       responses:
         '200':
@@ -3699,13 +3708,6 @@ components:
       in: path
       required: true
       description: Specify a specific fact table
-      schema:
-        type: string
-    environmentId:
-      name: environmentId
-      in: path
-      required: true
-      description: Specify an environment ID
       schema:
         type: string
     repo:

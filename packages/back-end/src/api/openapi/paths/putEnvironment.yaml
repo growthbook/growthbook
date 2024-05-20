@@ -1,5 +1,4 @@
 parameters:
-  - $ref: "../parameters.yaml#/environmentId"
   - $ref: "../parameters.yaml#/id"
 tags:
   - environments
@@ -8,7 +7,7 @@ operationId: putEnvironment
 x-codeSamples:
   - lang: "cURL"
     source: |
-      curl -X PUT https://api.growthbook.io/api/v1/organization/org-test/environments/env-id \
+      curl -X PUT https://api.growthbook.io/api/v1/environments/env-id \
          -d '{ "description": "My new environment" }' \
         -u secret_abc123DEF456:
 requestBody:
@@ -25,8 +24,12 @@ requestBody:
             type: bool
             description: Show toggle on feature list
           defaultState:
-            type: string
+            type: bool
             description: Default state for new features
+          projects:
+            type: array
+            items:
+              type: string
 responses:
   "200":
     content:

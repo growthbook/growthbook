@@ -199,13 +199,13 @@ export interface paths {
     /** Edit a single organization (only for super admins on multi-org Enterprise Plan only) */
     put: operations["putOrganization"];
   };
-  "/organizations/{id}/environments": {
+  "/environments": {
     /** Get the organization's environments */
     get: operations["listEnvironments"];
     /** Create a new environment */
     post: operations["postEnvironment"];
   };
-  "/organizations/{id}/environments/${environmentId}": {
+  "/environments/${id}": {
     /** Update an environment */
     put: operations["putEnvironment"];
     /** Deletes a single environment */
@@ -1386,8 +1386,6 @@ export interface components {
     visualChangeId: string;
     /** @description Specify a specific fact table */
     factTableId: string;
-    /** @description Specify an environment ID */
-    environmentId: string;
     /** @description Fully qualified name of repo either in GitHub or some other version control platform. */
     repo: string;
     /** @description Name of branch for git repo. */
@@ -5025,6 +5023,7 @@ export interface operations {
                 description: string;
                 toggleOnList: boolean;
                 defaultState: boolean;
+                projects: (string)[];
               })[];
           };
         };
@@ -5033,12 +5032,6 @@ export interface operations {
   };
   postEnvironment: {
     /** Create a new environment */
-    parameters: {
-        /** @description The id of the requested resource */
-      path: {
-        id: string;
-      };
-    };
     requestBody: {
       content: {
         "application/json": {
@@ -5049,7 +5042,8 @@ export interface operations {
           /** @description Show toggle on feature list */
           toggleOnList?: any;
           /** @description Default state for new features */
-          defaultState?: string;
+          defaultState?: any;
+          projects?: (string)[];
         };
       };
     };
@@ -5062,6 +5056,7 @@ export interface operations {
               description: string;
               toggleOnList: boolean;
               defaultState: boolean;
+              projects: (string)[];
             };
           };
         };
@@ -5071,10 +5066,8 @@ export interface operations {
   putEnvironment: {
     /** Update an environment */
     parameters: {
-        /** @description Specify an environment ID */
         /** @description The id of the requested resource */
       path: {
-        environmentId: string;
         id: string;
       };
     };
@@ -5086,7 +5079,8 @@ export interface operations {
           /** @description Show toggle on feature list */
           toggleOnList?: any;
           /** @description Default state for new features */
-          defaultState?: string;
+          defaultState?: any;
+          projects?: (string)[];
         };
       };
     };
@@ -5099,6 +5093,7 @@ export interface operations {
               description: string;
               toggleOnList: boolean;
               defaultState: boolean;
+              projects: (string)[];
             };
           };
         };
@@ -5108,10 +5103,8 @@ export interface operations {
   deleteEnvironment: {
     /** Deletes a single environment */
     parameters: {
-        /** @description Specify an environment ID */
         /** @description The id of the requested resource */
       path: {
-        environmentId: string;
         id: string;
       };
     };

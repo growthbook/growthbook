@@ -14,13 +14,26 @@ export const listEnvironments = createApiRequestHandler(
       throw Error("Organization not found");
     }
 
+    const environments = (
+      org.settings?.environments || []
+    ).filter((environment) =>
+      req.context.permissions.canReadMultiProjectResource(environment.projects)
+    );
+
     return {
-      environments: (org.settings?.environments || []).map(
-        ({ id, description, toggleOnList, defaultState }) => ({
+      environments: environments.map(
+        ({
           id,
-          description: description || "",
-          defaultState: !!defaultState,
-          toggleOnList: !!toggleOnList,
+          description = "",
+          toggleOnList = false,
+          defaultState = false,
+          projects = [],
+        }) => ({
+          id,
+          projects,
+          description,
+          defaultState,
+          toggleOnList,
         })
       ),
     };

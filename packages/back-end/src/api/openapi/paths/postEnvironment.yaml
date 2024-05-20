@@ -1,13 +1,11 @@
 tags:
   - environments
 summary: Create a new environment
-parameters:
-  - $ref: "../parameters.yaml#/id"
 operationId: postEnvironment
 x-codeSamples:
   - lang: "cURL"
     source: |
-      curl -X POST https://api.growthbook.io/api/v1/organization/org-test/environments \
+      curl -X POST https://api.growthbook.io/api/v1/environments \
          -d '{"id": "new-env", "description": "My new environment" }' \
         -u secret_abc123DEF456:
 requestBody:
@@ -30,8 +28,12 @@ requestBody:
             type: bool
             description: Show toggle on feature list
           defaultState:
-            type: string
+            type: bool
             description: Default state for new features
+          projects:
+            type: array
+            items:
+              type: string
 responses:
   "200":
     content:

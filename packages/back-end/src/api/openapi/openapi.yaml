@@ -193,12 +193,12 @@ paths:
   /organizations/{id}:
     put:
       $ref: "./paths/putOrganization.yaml"
-  /organizations/{id}/environments:
+  /environments:
     get:
       $ref: "./paths/listEnvironments.yaml"
     post:
       $ref: "./paths/postEnvironment.yaml"
-  /organizations/{id}/environments/${environmentId}:
+  /environments/${id}:
     put:
       $ref: "./paths/putEnvironment.yaml"
     delete:

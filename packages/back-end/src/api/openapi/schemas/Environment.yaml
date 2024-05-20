@@ -4,6 +4,7 @@ required:
   - description
   - toggleOnList
   - defaultState
+  - projects
 properties:
   id:
     type: string
@@ -13,3 +14,7 @@ properties:
     type: boolean
   defaultState:
     type: boolean
+  projects:
+    type: array
+    items:
+      type: string

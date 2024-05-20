@@ -48,13 +48,6 @@ factTableId:
   description: Specify a specific fact table
   schema:
     type: string
-environmentId:
-  name: environmentId
-  in: path
-  required: true
-  description: Specify an environment ID
-  schema:
-    type: string
 repo:
   name: repo
   in: query

@@ -1,6 +1,5 @@
 summary: Deletes a single environment
 parameters:
-  - $ref: "../parameters.yaml#/environmentId"
   - $ref: "../parameters.yaml#/id"
 tags:
   - environments
@@ -8,7 +7,7 @@ operationId: deleteEnvironment
 x-codeSamples:
   - lang: "cURL"
     source: |
-      curl -X DELETE https://api.growthbook.io/api/v1/organization/org-test/enviromnents/env-id \
+      curl -X DELETE https://api.growthbook.io/api/v1/enviromnents/env-id \
         -u secret_abc123DEF456:
 responses:
   "200":
