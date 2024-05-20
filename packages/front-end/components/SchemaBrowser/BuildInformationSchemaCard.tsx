@@ -1,10 +1,18 @@
+import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Tooltip from "@/components/Tooltip/Tooltip";
+
 export default function BuildInformationSchemaCard({
   refreshOrCreateInfoSchema,
+  datasource,
   error,
 }: {
   refreshOrCreateInfoSchema: (type: "PUT" | "POST") => void;
+  datasource: DataSourceInterfaceWithParams;
   error: string | null;
 }) {
+  const permissionsUtil = usePermissionsUtil();
+  const canRunQueries = permissionsUtil.canRunSchemaQueries(datasource);
   return (
     <div>
       <div className="alert alert-info">
@@ -14,15 +22,21 @@ export default function BuildInformationSchemaCard({
             into what tables and columns are available in the datasource.
           </span>
         </div>
-        <button
-          className="mt-2 btn btn-primary"
-          onClick={async (e) => {
-            e.preventDefault();
-            refreshOrCreateInfoSchema("POST");
-          }}
+        <Tooltip
+          body="You do not have permission to generate an information schema for this datasource."
+          shouldDisplay={!canRunQueries}
         >
-          Generate Information Schema
-        </button>
+          <button
+            disabled={!canRunQueries}
+            className="mt-2 btn btn-primary"
+            onClick={async (e) => {
+              e.preventDefault();
+              refreshOrCreateInfoSchema("POST");
+            }}
+          >
+            Generate Information Schema
+          </button>
+        </Tooltip>
       </div>
       {error && <div className="alert alert-danger">{error}</div>}
     </div>

@@ -267,6 +267,7 @@ export default function SchemaBrowser({
               {!informationSchema && !fetching && (
                 <BuildInformationSchemaCard
                   error={error}
+                  datasource={datasource}
                   refreshOrCreateInfoSchema={(type) =>
                     refreshOrCreateInfoSchema(type)
                   }
@@ -278,6 +279,7 @@ export default function SchemaBrowser({
               {!fetching && informationSchema?.error && (
                 <RetryInformationSchemaCard
                   error={error}
+                  datasource={datasource}
                   informationSchema={informationSchema}
                   refreshOrCreateInfoSchema={(type) =>
                     refreshOrCreateInfoSchema(type)
