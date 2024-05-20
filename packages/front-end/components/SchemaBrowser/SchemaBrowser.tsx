@@ -9,6 +9,7 @@ import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import SchemaBrowserWrapper from "./SchemaBrowserWrapper";
 import RetryInformationSchemaCard from "./RetryInformationSchemaCard";
 import PendingInformationSchemaCard from "./PendingInformationSchemaCard";
@@ -31,6 +32,8 @@ export default function SchemaBrowser({
   }>(`/datasource/${datasource.id}/schema`);
 
   const informationSchema = data?.informationSchema;
+  const permissionsUtil = usePermissionsUtil();
+  const canRunQueries = permissionsUtil.canRunSchemaQueries(datasource);
 
   const { apiCall } = useAuth();
   const [currentTable, setCurrentTable] = useState<string>("");
@@ -153,6 +156,7 @@ export default function SchemaBrowser({
       <SchemaBrowserWrapper
         datasourceName={datasource.name}
         datasourceId={datasource.id}
+        canRunQueries={canRunQueries}
         // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'InformationSchemaInterface | undefined' is n... Remove this comment to see the full error message
         informationSchema={informationSchema}
         setFetching={setFetching}
@@ -267,7 +271,7 @@ export default function SchemaBrowser({
               {!informationSchema && !fetching && (
                 <BuildInformationSchemaCard
                   error={error}
-                  datasource={datasource}
+                  canRunQueries={canRunQueries}
                   refreshOrCreateInfoSchema={(type) =>
                     refreshOrCreateInfoSchema(type)
                   }
@@ -279,7 +283,7 @@ export default function SchemaBrowser({
               {!fetching && informationSchema?.error && (
                 <RetryInformationSchemaCard
                   error={error}
-                  datasource={datasource}
+                  canRunQueries={canRunQueries}
                   informationSchema={informationSchema}
                   refreshOrCreateInfoSchema={(type) =>
                     refreshOrCreateInfoSchema(type)
@@ -292,6 +296,7 @@ export default function SchemaBrowser({
       </SchemaBrowserWrapper>
       {error && <div className="alert alert-danger mt-2 mb-0">{error}</div>}
       <DatasourceTableData
+        canRunQueries={canRunQueries}
         tableId={currentTable}
         datasourceId={datasource.id}
         setError={setError}

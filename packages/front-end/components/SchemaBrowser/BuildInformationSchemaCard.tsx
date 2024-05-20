@@ -1,18 +1,14 @@
-import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function BuildInformationSchemaCard({
   refreshOrCreateInfoSchema,
-  datasource,
+  canRunQueries,
   error,
 }: {
   refreshOrCreateInfoSchema: (type: "PUT" | "POST") => void;
-  datasource: DataSourceInterfaceWithParams;
+  canRunQueries: boolean;
   error: string | null;
 }) {
-  const permissionsUtil = usePermissionsUtil();
-  const canRunQueries = permissionsUtil.canRunSchemaQueries(datasource);
   return (
     <div>
       <div className="alert alert-info">

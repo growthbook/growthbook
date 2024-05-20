@@ -1,21 +1,17 @@
 import { InformationSchemaInterface } from "@back-end/src/types/Integration";
-import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function RetryInformationSchemaCard({
   informationSchema,
   refreshOrCreateInfoSchema,
-  datasource,
+  canRunQueries,
   error,
 }: {
   informationSchema: InformationSchemaInterface;
-  datasource: DataSourceInterfaceWithParams;
+  canRunQueries: boolean;
   refreshOrCreateInfoSchema: (type: "PUT" | "POST") => void;
   error: string | null;
 }) {
-  const permissionsUtil = usePermissionsUtil();
-  const canRunQueries = permissionsUtil.canRunSchemaQueries(datasource);
   return (
     <div>
       <div className="alert alert-warning d-flex align-items-center">
