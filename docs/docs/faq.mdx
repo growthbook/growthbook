@@ -159,11 +159,13 @@ Throughout the GrowthBook application, we randomly celebrate key milestones like
 There are cases when using feature flags client side where the 3rd party identifiers used for assignment will be slow to
 load, and may cause flickering as some of the DOM rerenders. In these cases, generating your
 own identifier will make sure that features are assigned correctly when GrowthBook loads. This id that is generated will
-typically align one to one with the other identifiers, and does not need to be passed outside the SDK.
+typically align one to one with the other identifiers, and does not need to be passed outside the SDK (though can be
+useful for debugging to pass this value in the trackingCallback).
 
 The code below can be used to generate a unique user id and save it in a cookie for the maximum amount of time allowed.
 Note, this technique is already included with our HTML/no-code SDK. Please be aware
-of any cookie policies this code may impact.
+of any cookie policies this code may impact. This id will be unique to the browser and not the user, so if a
+user switches devices, they will have a different id.
 
 ```js
 const getUUID = () => {
