@@ -137,7 +137,7 @@ export default function SDKLanguageSelector({
   if (useTabs) {
     let languages = getLanguagesByFilter(languageFilter);
     if (!includeOther) {
-      languages = languages.filter(l => l !== "other");
+      languages = languages.filter((l) => l !== "other");
     }
     return (
       <ControlledTabs
@@ -152,11 +152,7 @@ export default function SDKLanguageSelector({
             id={tab}
             display={
               <span
-                className={
-                  tab === languageFilter
-                    ? "font-weight-bold text-main"
-                    : undefined
-                }
+                className={tab === languageFilter ? "text-main" : undefined}
               >
                 {tabs[tab]}
               </span>
