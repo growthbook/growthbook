@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
+import { ExperimentInterface } from "@back-end/types/experiment";
 import { getContextFromReq } from "../services/organizations";
 import { AuthRequest } from "../types/AuthRequest";
 import {
@@ -128,21 +129,24 @@ export async function putManualLaunchChecklist(
   const { id } = req.params;
   const { checklist } = req.body;
 
+  const changes: Partial<ExperimentInterface> = {
+    manualLaunchChecklist: checklist,
+  };
+
   const experiment = await getExperimentById(context, id);
 
   if (!experiment) {
     throw new Error("Could not find experiment");
   }
 
-  const updatedExperiment = { ...experiment, manualLaunchChecklist: checklist };
-  if (!context.permissions.canUpdateExperiment(experiment, updatedExperiment)) {
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
 
   await updateExperiment({
     context,
     experiment,
-    changes: { manualLaunchChecklist: checklist },
+    changes,
   });
 
   await req.audit({
