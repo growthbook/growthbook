@@ -141,7 +141,6 @@ export default function SDKConnectionForm({
     form.watch("sdkVersion")
   );
 
-  // todo: fix
   const [languageFilter, setLanguageFilter] = useState<LanguageFilter>(
     getConnectionLanguageFilter(initialValue.languages ?? [])
   );
