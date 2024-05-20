@@ -322,7 +322,7 @@ export async function handler(event, ctx, callback) {
 
 ## Payload Caching via edge datastore
 
-By default, the Edge App will make a network request to the GrowthBook API on each user request in order to fetch the current feature and experiment values. This is a blocking call that delays page delivery.
+By default, the Edge App will make a network request to the GrowthBook API on each user request in order to fetch the current feature and experiment values. This is a blocking call that delays page delivery. There is an in-memory short-lived cache layer on this call, but it won't always protect you.
 
 If you have access to a distributed key-value store such as DynamoDB, you can likely overcome this problem. There are 2 levels of key-value integration available:
 

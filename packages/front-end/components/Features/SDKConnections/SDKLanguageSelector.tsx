@@ -104,6 +104,7 @@ export default function SDKLanguageSelector({
   const mobile = filterLanguages(["ios", "android", "flutter"]);
   const edge = filterLanguages([
     "edge-cloudflare",
+    "edge-fastly",
     "edge-lambda",
     "edge-other",
   ]);

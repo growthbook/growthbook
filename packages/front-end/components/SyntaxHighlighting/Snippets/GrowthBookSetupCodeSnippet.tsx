@@ -748,6 +748,159 @@ GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
       </>
     );
   }
+  if (language === "edge-fastly") {
+    return (
+      <>
+        <p>
+          Our <strong>Edge app</strong> provides turnkey Visual Editor and URL
+          Redirect experimentation on edge without any of the flicker associated
+          with front-end experiments. It runs as a smart proxy layer between
+          your application and your end users. It also can inject a
+          fully-hydrated front-end SDK onto the rendered page, meaning no extra
+          network requests needed.
+        </p>
+
+        <div className="h4 mt-4 mb-3">
+          Step 1: Set up a Fastly Compute project for TypeScript or JavaScript
+        </div>
+        <p>
+          See the official Fastly Compute{" "}
+          <a
+            href="https://www.fastly.com/documentation/guides/compute/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Developer guide <FaExternalLinkAlt />
+          </a>{" "}
+          to set up your project. Or have a look at our{" "}
+          <a
+            href="https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly/example"
+            target="_blank"
+            rel="noreferrer"
+          >
+            example implementation <FaExternalLinkAlt />
+          </a>
+          .
+        </p>
+
+        <div className="h4 mt-4 mb-3">
+          Step 2: Implement our Edge App request handler
+        </div>
+        <p>
+          To run the edge app, add our Fastly request handler to your project:
+        </p>
+        <Code
+          language="javascript"
+          code={`
+/// <reference types="@fastly/js-compute" />
+import { ConfigStore } from "fastly:config-store";
+import { KVStore } from "fastly:kv-store";
+import { gbHandleRequest, getConfigEnvFromStore } from "@growthbook/edge-fastly";
+
+addEventListener("fetch", (event) => event.respondWith(handleRequest(event)));
+
+async function handleRequest(event) {
+  const envVarsStore = new ConfigStore("env_vars");
+  const env = getConfigEnvFromStore(envVarsStore);
+
+  const config = {
+    // Name of Fastly backend pointing to your GrowthBook API Endpoint
+    apiHostBackend: "api_host",
+    
+    // Map of proxy origins to named Fastly backends
+    backends: { "https://internal.mysite.io": "my_site" },
+    
+    // Add one or more caching mechanisms (optional):
+    gbCacheStore: new KVStore("gb_cache"),
+    gbPayloadStore: new KVStore("gb_payload"),
+  };
+
+  return await gbHandleRequest(event.request, env, config);
+}
+          `.trim()}
+        />
+
+        <div className="h4 mt-4 mb-3">Step 3: Set up backends (origins)</div>
+        <p>
+          Allow your worker to connect to both your origin site and your
+          GrowthBook API by setting up backends (origins) for your Compute
+          service from the Fastly dashboard.
+          <ul>
+            <li className="mt-3">
+              In Fastly, create a backend called <code>api_host</code> pointing
+              to your API Host (<code>{apiHost}</code>).
+              <div>
+                In your code, pass this string via{" "}
+                <code>config.apiHostBackend</code> to your request handler, as
+                show in <em>Step 2</em>.
+              </div>
+            </li>
+            <li className="mt-3">
+              In Fastly, create one or more backends pointing to your site
+              origins.
+              <div>
+                In your code, create an object mapping your origin URLs to their
+                named backends. Pass this object via{" "}
+                <code>config.backends</code> to your request handler, as shown
+                in <em>Step 2</em>.
+              </div>
+            </li>
+          </ul>
+        </p>
+
+        <div className="h4 mt-4 mb-3">Step 4: Set up environment variables</div>
+        <p>
+          Create a Config store called <code>env_vars</code> from the Fastly
+          dashboard and link it to your service. Then, at minimum, add these
+          required key/value pairs:
+        </p>
+        <Code
+          language="bash"
+          code={`
+PROXY_TARGET="https://internal.mysite.io"  # The non-edge URL to your website
+GROWTHBOOK_API_HOST=${JSON.stringify(apiHost)}
+GROWTHBOOK_CLIENT_KEY=${JSON.stringify(apiKey)}${
+            encryptionKey
+              ? `\nGROWTHBOOK_DECRYPTION_KEY=${JSON.stringify(encryptionKey)}`
+              : ""
+          }
+          `.trim()}
+        />
+
+        <div className="h4 mt-4 mb-3">Step 5: Set up payload caching</div>
+        <p>
+          Set up a <strong>Fastly KV</strong> store and use a GrowthBook{" "}
+          <strong>SDK Webhook</strong> to keep feature and experiment values
+          synced between GrowthBook and your Fastly worker. This eliminates
+          network requests from your edge to GrowthBook.
+        </p>
+
+        <div className="h4 mt-4 mb-3">Further customization</div>
+        <ul>
+          <li>
+            Enable URL Redirect experiments on edge (off by default) by setting{" "}
+            <code>{`RUN_URL_REDIRECT_EXPERIMENTS="everywhere"`}</code>
+          </li>
+          <li>
+            Enable cookie-based sticky bucketing on edge and browser by setting{" "}
+            <code>{`ENABLE_STICKY_BUCKETING="true"`}</code>
+          </li>
+          <li>
+            Enable streaming in the browser by setting{" "}
+            <code>{`ENABLE_STREAMING="true"`}</code>
+          </li>
+          <li>
+            Add a custom tracking callback for your browser SDK and/or edge
+            worker
+          </li>
+        </ul>
+        <p>
+          See the <DocLink docSection="fastly">Fastly Compute docs</DocLink>{" "}
+          further instructions.
+        </p>
+      </>
+    );
+  }
   if (language === "edge-lambda") {
     return (
       <>

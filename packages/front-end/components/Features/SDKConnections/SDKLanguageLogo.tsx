@@ -14,6 +14,7 @@ import {
   SiWebflow,
   SiWordpress,
   SiElixir,
+  SiFastly,
 } from "react-icons/si";
 import React, { ReactElement } from "react";
 import { isSDKOutdated } from "shared/sdk-versioning";
@@ -27,7 +28,8 @@ export type LanguageType =
   | "backend"
   | "mobile"
   | "nocode"
-  | "edge";
+  | "edge"
+  | "other";
 export const languageMapping: Record<
   SDKLanguage,
   {
@@ -135,7 +137,7 @@ export const languageMapping: Record<
     color: "#29BEB0",
     label: "Golang",
     docs: "go",
-    type: "other",
+    type: "backend",
   },
   elixir: {
     Icon: SiElixir,
@@ -171,6 +173,22 @@ export const languageMapping: Record<
     label: "CloudFlare",
     docLabel: "CloudFlare Workers",
     docs: "cloudflare",
+    type: "edge",
+    extra: (
+      <span
+        className="badge badge-purple text-uppercase position-absolute"
+        style={{ top: -16, right: -12 }}
+      >
+        Beta
+      </span>
+    ),
+  },
+  "edge-fastly": {
+    Icon: SiFastly,
+    color: "#ec1a0c",
+    label: "Fastly",
+    docLabel: "Fastly Compute",
+    docs: "edge",
     type: "edge",
     extra: (
       <span
@@ -228,12 +246,14 @@ export default function SDKLanguageLogo({
   size = 25,
   titlePrefix = "",
   version,
+  hideExtra,
 }: {
   language: SDKLanguage;
   showLabel?: boolean;
   size?: number;
   titlePrefix?: string;
   version?: string;
+  hideExtra?: boolean;
 }) {
   const { Icon, color, label, hideVersion, extra } =
     languageMapping[language] || languageMapping["other"];
@@ -270,7 +290,7 @@ export default function SDKLanguageLogo({
           {versionText}
         </span>
       )}
-      {extra}
+      {!hideExtra ? extra : null}
     </span>
   );
 }

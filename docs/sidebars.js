@@ -435,6 +435,11 @@ const sidebars = {
               id: "lib/edge/cloudflare",
               label: "CloudFlare Workers",
             },
+            {
+              type: "doc",
+              id: "lib/edge/fastly",
+              label: "Fastly Compute",
+            },
             { type: "doc", id: "lib/edge/lambda", label: "Lambda@Edge" },
             {
               type: "doc",

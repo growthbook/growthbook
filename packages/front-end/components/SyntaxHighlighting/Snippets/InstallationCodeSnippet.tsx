@@ -246,6 +246,17 @@ yarn add @growthbook/edge-cloudflare`.trim()}
       />
     );
   }
+  if (language === "edge-fastly") {
+    return (
+      <Code
+        language="sh"
+        code={`
+npm i --save @growthbook/edge-fastly
+# OR
+yarn add @growthbook/edge-fastly`.trim()}
+      />
+    );
+  }
   if (language === "edge-lambda") {
     return (
       <Code
