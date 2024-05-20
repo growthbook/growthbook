@@ -10,7 +10,7 @@ const PaidFeatureBadge = ({ type }: { type: "pro" | "enterprise" }) => {
 
   return (
     <Tooltip
-      body={`This is a ${type === "pro" ? "Pro" : "Enterprise"} feature`}
+      body={`This is ${type === "pro" ? "a Pro" : "an Enterprise"} feature`}
       tipPosition="top"
     >
       <span
