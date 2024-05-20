@@ -1,6 +1,20 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
 import { useState } from "react";
-import SDKLanguageLogo from "./SDKLanguageLogo";
+import ControlledTabs from "@/components/Tabs/ControlledTabs";
+import Tab from "@/components/Tabs/Tab";
+import SDKLanguageLogo, {
+  getLanguagesByFilter,
+  LanguageFilter,
+} from "./SDKLanguageLogo";
+
+const tabs: Record<LanguageFilter, string> = {
+  popular: "Popular",
+  all: "All",
+  browser: "Browser",
+  server: "Server",
+  mobile: "Mobile",
+  edge: "Edge",
+};
 
 function LanguageOption({
   language,
@@ -54,6 +68,8 @@ export default function SDKLanguageSelector({
   limitLanguages,
   skipLabel = false,
   hideShowAllLanguages = false,
+  languageFilter = "popular",
+  setLanguageFilter,
 }: {
   value: SDKLanguage[];
   setValue: (languages: SDKLanguage[]) => void;
@@ -62,7 +78,10 @@ export default function SDKLanguageSelector({
   limitLanguages?: SDKLanguage[];
   skipLabel?: boolean;
   hideShowAllLanguages?: boolean;
+  languageFilter?: LanguageFilter;
+  setLanguageFilter?: (l: LanguageFilter) => void;
 }) {
+  const useTabs = !!setLanguageFilter;
   const selected = new Set(value);
 
   // If the selected language(s) are not in the "limitLanguages" list, add them
@@ -114,6 +133,49 @@ export default function SDKLanguageSelector({
     "nocode-webflow",
     "nocode-other",
   ]);
+
+  if (useTabs) {
+    const languages = getLanguagesByFilter(languageFilter);
+    return (
+      <ControlledTabs
+        buttonsClassName="px-3"
+        buttonsWrapperClassName="mb-3"
+        active={languageFilter}
+        setActive={(v) => setLanguageFilter((v ?? "all") as LanguageFilter)}
+      >
+        {Object.keys(tabs).map((tab) => (
+          <Tab
+            key={tab}
+            id={tab}
+            display={
+              <span
+                className={
+                  tab === languageFilter
+                    ? "font-weight-bold text-main"
+                    : undefined
+                }
+              >
+                {tabs[tab]}
+              </span>
+            }
+            padding={false}
+          >
+            <div className="d-flex flex-wrap">
+              {languages.map((l) => (
+                <LanguageOption
+                  key={l}
+                  language={l}
+                  setValue={setValue}
+                  selected={selected}
+                  multiple={multiple}
+                />
+              ))}
+            </div>
+          </Tab>
+        ))}
+      </ControlledTabs>
+    );
+  }
 
   return (
     <div>

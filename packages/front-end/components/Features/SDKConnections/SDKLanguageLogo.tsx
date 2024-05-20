@@ -23,57 +23,40 @@ import { BsCloudFog2, BsFiletypeHtml } from "react-icons/bs";
 import { DocSection } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
+export type LanguageFilter =
+  | "popular"
+  | "all"
+  | "browser"
+  | "server"
+  | "mobile"
+  | "edge";
 export type LanguageType =
   | "frontend"
   | "backend"
   | "mobile"
-  | "nocode"
   | "edge"
+  | "nocode"
   | "other";
-export const languageMapping: Record<
-  SDKLanguage,
-  {
-    Icon: IconType;
-    color: string;
-    label: string;
-    docLabel?: string;
-    docs: DocSection;
-    type: LanguageType;
-    hideVersion?: boolean;
-    extra?: ReactElement | string;
-  }
-> = {
-  "nocode-shopify": {
-    Icon: SiShopify,
-    color: "#95BF47",
-    label: "Shopify",
-    docs: "shopify",
-    type: "nocode",
-    hideVersion: true,
-  },
-  "nocode-wordpress": {
-    Icon: SiWordpress,
-    color: "#00749C",
-    label: "Wordpress",
-    docs: "wordpress",
-    type: "nocode",
-    hideVersion: true,
-  },
-  "nocode-webflow": {
-    Icon: SiWebflow,
-    color: "#146EF5",
-    label: "Webflow",
-    docs: "webflow",
-    type: "nocode",
-    hideVersion: true,
-  },
+export type LanguageLogo = {
+  Icon: IconType;
+  color: string;
+  label: string;
+  docLabel?: string;
+  docs: DocSection;
+  type: LanguageType;
+  filters: LanguageFilter[];
+  hideVersion?: boolean;
+  extra?: ReactElement | string;
+};
+export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
   "nocode-other": {
     Icon: BsFiletypeHtml,
     color: "#777",
-    label: "Generic",
+    label: "Script Tag",
     docLabel: "HTML Script Tag",
     docs: "nocode",
-    type: "frontend",
+    type: "nocode",
+    filters: ["browser", "popular"],
     hideVersion: true,
   },
   javascript: {
@@ -82,6 +65,7 @@ export const languageMapping: Record<
     label: "JavaScript",
     docs: "javascript",
     type: "frontend",
+    filters: ["browser", "popular"],
   },
   react: {
     Icon: DiReact,
@@ -89,6 +73,7 @@ export const languageMapping: Record<
     label: "React",
     docs: "tsx",
     type: "frontend",
+    filters: ["browser", "popular"],
   },
   nodejs: {
     Icon: SiNodedotjs,
@@ -96,6 +81,7 @@ export const languageMapping: Record<
     label: "Node.js",
     docs: "javascript",
     type: "backend",
+    filters: ["server", "popular"],
   },
   php: {
     Icon: SiPhp,
@@ -103,6 +89,7 @@ export const languageMapping: Record<
     label: "PHP",
     docs: "php",
     type: "backend",
+    filters: ["server", "popular"],
   },
   ruby: {
     Icon: DiRuby,
@@ -110,6 +97,7 @@ export const languageMapping: Record<
     label: "Ruby",
     docs: "ruby",
     type: "backend",
+    filters: ["server", "popular"],
   },
   python: {
     Icon: DiPython,
@@ -117,6 +105,7 @@ export const languageMapping: Record<
     label: "Python",
     docs: "python",
     type: "backend",
+    filters: ["server", "popular"],
   },
   java: {
     Icon: FaJava,
@@ -124,6 +113,7 @@ export const languageMapping: Record<
     label: "Java",
     docs: "java",
     type: "backend",
+    filters: ["server", "popular"],
   },
   csharp: {
     Icon: FaHashtag,
@@ -131,6 +121,7 @@ export const languageMapping: Record<
     label: "C Sharp",
     docs: "csharp",
     type: "backend",
+    filters: ["server"],
   },
   go: {
     Icon: SiGo,
@@ -138,6 +129,7 @@ export const languageMapping: Record<
     label: "Golang",
     docs: "go",
     type: "backend",
+    filters: ["server"],
   },
   elixir: {
     Icon: SiElixir,
@@ -145,6 +137,7 @@ export const languageMapping: Record<
     label: "Elixir",
     docs: "elixir",
     type: "backend",
+    filters: ["server"],
   },
   ios: {
     Icon: FaApple,
@@ -152,6 +145,7 @@ export const languageMapping: Record<
     label: "Swift",
     docs: "swift",
     type: "mobile",
+    filters: ["mobile", "popular"],
   },
   android: {
     Icon: DiAndroid,
@@ -159,6 +153,7 @@ export const languageMapping: Record<
     label: "Kotlin",
     docs: "kotlin",
     type: "mobile",
+    filters: ["mobile", "popular"],
   },
   flutter: {
     Icon: SiFlutter,
@@ -166,6 +161,7 @@ export const languageMapping: Record<
     label: "Flutter",
     docs: "flutter",
     type: "mobile",
+    filters: ["mobile"],
   },
   "edge-cloudflare": {
     Icon: SiCloudflare,
@@ -174,6 +170,7 @@ export const languageMapping: Record<
     docLabel: "CloudFlare Workers",
     docs: "cloudflare",
     type: "edge",
+    filters: ["edge", "popular"],
     extra: (
       <span
         className="badge badge-purple text-uppercase position-absolute"
@@ -190,6 +187,7 @@ export const languageMapping: Record<
     docLabel: "Fastly Compute",
     docs: "edge",
     type: "edge",
+    filters: ["edge"],
     extra: (
       <span
         className="badge badge-purple text-uppercase position-absolute"
@@ -205,6 +203,7 @@ export const languageMapping: Record<
     label: "Lambda@Edge",
     docs: "lambda",
     type: "edge",
+    filters: ["edge"],
     extra: (
       <span
         className="badge badge-yellow text-uppercase position-absolute"
@@ -221,6 +220,7 @@ export const languageMapping: Record<
     docLabel: "Other Edge",
     docs: "edge",
     type: "edge",
+    filters: ["edge"],
     extra: (
       <span
         className="badge badge-purple text-uppercase position-absolute"
@@ -230,12 +230,40 @@ export const languageMapping: Record<
       </span>
     ),
   },
+  "nocode-shopify": {
+    Icon: SiShopify,
+    color: "#95BF47",
+    label: "Shopify",
+    docs: "shopify",
+    type: "nocode",
+    filters: ["browser"],
+    hideVersion: true,
+  },
+  "nocode-wordpress": {
+    Icon: SiWordpress,
+    color: "#00749C",
+    label: "Wordpress",
+    docs: "wordpress",
+    type: "nocode",
+    filters: ["browser"],
+    hideVersion: true,
+  },
+  "nocode-webflow": {
+    Icon: SiWebflow,
+    color: "#146EF5",
+    label: "Webflow",
+    docs: "webflow",
+    type: "nocode",
+    filters: ["browser", "popular"],
+    hideVersion: true,
+  },
   other: {
     Icon: FaCode,
     color: "#777",
     label: "Other",
     docs: "sdks",
     type: "other",
+    filters: [],
     hideVersion: true,
   },
 };
@@ -295,30 +323,39 @@ export default function SDKLanguageLogo({
   );
 }
 
-export function getLanguagesByType(
-  languageType: LanguageType | ""
+export function getLanguagesByFilter(
+  languageFilter: LanguageFilter = "all"
 ): SDKLanguage[] {
-  if (!languageType) return [];
   return Object.entries(languageMapping)
-    .filter(([_, language]) => language.type === languageType)
+    .filter(([_, language]) => {
+      if (languageFilter === "all") return true;
+      return language.filters.includes(languageFilter);
+    })
     .map((o) => o[0]) as SDKLanguage[];
 }
 
-export function getConnectionLanguageType(
+export function getConnectionLanguageFilter(
   languages: SDKLanguage[]
-): LanguageType | "multi" | "" {
-  const languageTypes = new Set<LanguageType>();
+): LanguageFilter {
+  const languageFilters = new Set<LanguageFilter>();
   languages.forEach((language) => {
     const type = languageMapping?.[language]?.type;
     if (type) {
-      languageTypes.add(type);
+      languageFilters.add(
+        type
+          // todo: only use filters (not types) to make this consistent
+          .replace("frontend", "browser")
+          .replace("nocode", "browser")
+          .replace("backend", "server")
+          .replace("other", "all") as LanguageFilter
+      );
     }
   });
-  if (languageTypes.size === 0) {
-    return "";
+  if (languageFilters.size === 0) {
+    return "popular";
   }
-  if (languageTypes.size === 1) {
-    return [...languageTypes][0];
+  if (languageFilters.size === 1) {
+    return [...languageFilters][0];
   }
-  return "multi";
+  return "all";
 }

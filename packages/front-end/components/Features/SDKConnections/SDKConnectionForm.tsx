@@ -42,10 +42,11 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { DocLink } from "@/components/DocLink";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import {
-  getLanguagesByType,
   LanguageType,
   languageMapping,
-  getConnectionLanguageType,
+  getLanguagesByFilter,
+  LanguageFilter,
+  getConnectionLanguageFilter,
 } from "./SDKLanguageLogo";
 
 function getSecurityTabState(
@@ -140,9 +141,10 @@ export default function SDKConnectionForm({
     form.watch("sdkVersion")
   );
 
-  const [languageTypeFilter, setLanguageTypeFilter] = useState<
-    LanguageType | "multi" | ""
-  >(getConnectionLanguageType(initialValue.languages ?? []));
+  // todo: fix
+  const [languageFilter, setLanguageFilter] = useState<LanguageFilter>(
+    getConnectionLanguageFilter(initialValue.languages ?? [])
+  );
 
   const useLatestSdkVersion = () => {
     const language = form.watch("languages")?.[0] || "other";
@@ -368,123 +370,92 @@ export default function SDKConnectionForm({
       <div className="px-2 pb-2">
         <Field label="Name" {...form.register("name")} required />
 
-        <SelectField
-          label="SDK Type"
-          placeholder={
-            languageTypeFilter === "multi" ? "Multiple" : "Choose SDK type..."
-          }
-          autoComplete="off"
-          sort={false}
-          options={[
-            { label: "Back End", value: "backend" },
-            { label: "Front End", value: "frontend" },
-            { label: "Mobile", value: "mobile" },
-            { label: "Edge", value: "edge" },
-            { label: "No / Low Code", value: "nocode" },
-            { label: "Other", value: "other" },
-          ]}
-          value={languageTypeFilter}
-          onChange={(v) => {
-            if (v === languageTypeFilter) return;
-            setLanguageTypeFilter(v as LanguageType);
-            form.setValue("languages", []);
-          }}
-        />
-
-        {languageTypeFilter !== "" ? (
-          <div className="mb-4">
-            <div className="form-group">
-              <label>SDK Language</label>
-              {languageError ? (
-                <span className="ml-3 alert px-1 py-0 mb-0 alert-danger">
-                  {languageError}
-                </span>
-              ) : null}
-              <SDKLanguageSelector
-                value={form.watch("languages")}
-                setValue={(languages) => {
-                  form.setValue("languages", languages);
-                  if (languages?.length === 1) {
-                    form.setValue(
-                      "sdkVersion",
-                      getLatestSDKVersion(languages[0])
-                    );
-                  }
-                }}
-                multiple={languageTypeFilter === "multi"}
-                includeOther={true}
-                limitLanguages={
-                  languageTypeFilter === "multi"
-                    ? undefined
-                    : getLanguagesByType(languageTypeFilter)
-                }
-                skipLabel={languageTypeFilter !== "multi"}
-                hideShowAllLanguages={true}
-              />
-            </div>
-
-            {form.watch("languages")?.length === 1 &&
-              !form.watch("languages")[0].match(/^(other|nocode-.*)$/) && (
-                <div className="form-group" style={{ marginTop: -10 }}>
-                  <label>SDK version</label>
-                  <div className="d-flex align-items-center">
-                    <SelectField
-                      style={{ width: 180 }}
-                      className="mr-4"
-                      placeholder="0.0.0"
-                      autoComplete="off"
-                      sort={false}
-                      options={getSDKVersions(
-                        form.watch("languages")[0]
-                      ).map((ver) => ({ label: ver, value: ver }))}
-                      createable={true}
-                      isClearable={false}
-                      value={
-                        form.watch("sdkVersion") ||
-                        getDefaultSDKVersion(languages[0])
-                      }
-                      onChange={(v) => form.setValue("sdkVersion", v)}
-                      formatOptionLabel={({ value, label }) => {
-                        const latest = getLatestSDKVersion(
-                          form.watch("languages")[0]
-                        );
-                        return (
-                          <span>
-                            {label}
-                            {value === latest && (
-                              <span
-                                className="text-muted uppercase-title float-right position-relative"
-                                style={{ top: 3 }}
-                              >
-                                latest
-                              </span>
-                            )}
-                          </span>
-                        );
-                      }}
-                    />
-                    {!usingLatestVersion && (
-                      <a
-                        role="button"
-                        className="small"
-                        onClick={useLatestSdkVersion}
-                      >
-                        Use latest
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
-          </div>
-        ) : (
-          <>
+        <div className="mb-4">
+          <div className="form-group">
+            <label>SDK Language</label>
             {languageError ? (
-              <div className="alert px-3 py-2 mb-4 alert-danger">
+              <span className="ml-3 alert px-1 py-0 mb-0 alert-danger">
                 {languageError}
-              </div>
+              </span>
             ) : null}
-          </>
-        )}
+            <SDKLanguageSelector
+              value={form.watch("languages")}
+              setValue={(languages) => {
+                form.setValue("languages", languages);
+                if (languages?.length === 1) {
+                  form.setValue(
+                    "sdkVersion",
+                    getLatestSDKVersion(languages[0])
+                  );
+                }
+              }}
+              languageFilter={languageFilter}
+              setLanguageFilter={setLanguageFilter}
+              multiple={form.watch("languages").length > 1}
+              includeOther={true}
+              limitLanguages={
+                form.watch("languages").length > 1
+                  ? undefined
+                  : getLanguagesByFilter(languageFilter)
+              }
+              skipLabel={form.watch("languages").length <= 1}
+              hideShowAllLanguages={true}
+            />
+          </div>
+
+          {form.watch("languages")?.length === 1 &&
+            !form.watch("languages")[0].match(/^(other|nocode-.*)$/) && (
+              <div className="form-group" style={{ marginTop: -10 }}>
+                <label>SDK version</label>
+                <div className="d-flex align-items-center">
+                  <SelectField
+                    style={{ width: 180 }}
+                    className="mr-4"
+                    placeholder="0.0.0"
+                    autoComplete="off"
+                    sort={false}
+                    options={getSDKVersions(
+                      form.watch("languages")[0]
+                    ).map((ver) => ({ label: ver, value: ver }))}
+                    createable={true}
+                    isClearable={false}
+                    value={
+                      form.watch("sdkVersion") ||
+                      getDefaultSDKVersion(languages[0])
+                    }
+                    onChange={(v) => form.setValue("sdkVersion", v)}
+                    formatOptionLabel={({ value, label }) => {
+                      const latest = getLatestSDKVersion(
+                        form.watch("languages")[0]
+                      );
+                      return (
+                        <span>
+                          {label}
+                          {value === latest && (
+                            <span
+                              className="text-muted uppercase-title float-right position-relative"
+                              style={{ top: 3 }}
+                            >
+                              latest
+                            </span>
+                          )}
+                        </span>
+                      );
+                    }}
+                  />
+                  {!usingLatestVersion && (
+                    <a
+                      role="button"
+                      className="small"
+                      onClick={useLatestSdkVersion}
+                    >
+                      Use latest
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+        </div>
 
         <div className="mb-4">
           <SelectField
