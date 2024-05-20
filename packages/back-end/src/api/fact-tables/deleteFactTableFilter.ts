@@ -14,7 +14,7 @@ export const deleteFactTableFilter = createApiRequestHandler(
       );
     }
 
-    if (!req.context.permissions.canUpdateFactTable(factTable, {})) {
+    if (!req.context.permissions.canDeleteFactFilter(factTable)) {
       req.context.permissions.throwPermissionError();
     }
     await deleteFactFilter(req.context, factTable, req.params.id);

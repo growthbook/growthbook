@@ -27,11 +27,15 @@ const githubAuth = hasGithubEnvVars()
   : null;
 
 export const getGithubIntegration = async (req: AuthRequest, res: Response) => {
-  req.checkPermissions("manageIntegrations");
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+
   return res.status(200).json({
     status: 200,
-    githubIntegration: await getGithubIntegrationByOrg(org.id),
+    githubIntegration: await getGithubIntegrationByOrg(context.org.id),
   });
 };
 
@@ -40,7 +44,11 @@ export const postGithubIntegration = async (
   res: Response,
   next: NextFunction
 ) => {
-  req.checkPermissions("manageIntegrations");
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
 
   if (!githubAuth) return next();
 
@@ -93,12 +101,14 @@ export const postRepoWatch = async (
   req: AuthRequest<{ repoId: string }>,
   res: Response
 ) => {
-  req.checkPermissions("manageIntegrations");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
 
   const watching = await toggleWatchingForRepo({
-    orgId: org.id,
+    orgId: context.org.id,
     repoId: req.body.repoId,
   });
 

@@ -209,7 +209,6 @@ export const deleteProject = async (
       if (!context.permissions.canDeleteMetric({ projects: [id] })) {
         context.permissions.throwPermissionError();
       }
-
       await deleteAllMetricsForAProject({
         projectId: id,
         context,
@@ -227,7 +226,9 @@ export const deleteProject = async (
   // Clean up features
   if (deleteFeatures) {
     try {
-      req.checkPermissions("manageFeatures", id);
+      if (!context.permissions.canDeleteFeature({ project: id })) {
+        context.permissions.throwPermissionError();
+      }
 
       await deleteAllFeaturesForAProject({
         projectId: id,
@@ -246,8 +247,9 @@ export const deleteProject = async (
   // Clean up experiments
   if (deleteExperiments) {
     try {
-      req.checkPermissions("createAnalyses", id);
-
+      if (!context.permissions.canDeleteExperiment({ project: id })) {
+        context.permissions.throwPermissionError();
+      }
       await deleteAllExperimentsForAProject({
         projectId: id,
         context,
@@ -265,7 +267,9 @@ export const deleteProject = async (
   // Clean up Slack integrations
   if (deleteSlackIntegrations) {
     try {
-      req.checkPermissions("manageIntegrations");
+      if (!context.permissions.canManageIntegrations()) {
+        context.permissions.throwPermissionError();
+      }
 
       await deleteAllSlackIntegrationsForAProject({
         projectId: id,

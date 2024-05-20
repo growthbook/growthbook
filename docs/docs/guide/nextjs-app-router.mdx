@@ -1,0 +1,202 @@
+---
+title: GrowthBook and Next.js (App Router)
+description: This guide walks you through using GrowthBook with Next.js App Router.
+slug: nextjs-app-router
+---
+
+# GrowthBook and Next.js (App Router)
+
+Note: If you are using the older Next.js Pages Router, check out [our dedicated Pages Router guide](/guide/nextjs-and-growthbook) instead.
+
+This document is a guide on how to add GrowthBook feature flags to your Next.js application. It assumes you are starting from scratch, so if you already have a Next.js application, you can skip to step 2.
+
+## 1. Create your Next.js App
+
+Let's start by getting a basic Next.js app running:
+
+```bash
+yarn create next-app
+```
+
+Then cd into the newly create directory and run:
+
+```bash
+cd my-app
+yarn dev -p 4000
+```
+
+Note: Both GrowthBook and Next.js run on port 3000 by default, so we're making our Next.js app use 4000 instead to avoid conflicts.
+
+Visit `http://localhost:4000` and you should see the application running!
+
+## 2. GrowthBook Account
+
+You will need a GrowthBook account. You can either run GrowthBook locally or using the cloud hosted GrowthBook at [https://app.growthbook.io](https://app.growthbook.io). If you are using the GrowthBook cloud, you can skip to step 3. If you are installing it locally, here is the quick start instructions - or you can follow the [self hosting](/self-host) instructions.
+
+```bash
+git clone https://github.com/growthbook/growthbook.git
+cd growthbook
+docker-compose up -d
+```
+
+After that, visit `http://localhost:3000` and create your first user account.
+
+<img
+  src="/images/guides/nextjs-1-growthbook-signup-screen.jpeg"
+  alt="GrowthBook Signup Screen"
+  style={{ width: 500, margin: "0 auto" }}
+/>
+
+## 3. Set Environment Variables in your Next.js App
+
+In GrowthBook, create a new SDK Connection. After doing this, you should see an API Host and Client Key (and a Decryption Key if you enabled encryption).
+
+Create the file `.env.local` in your Next.js app if it doesn't exist yet and add this info there:
+
+```bash
+NEXT_PUBLIC_GROWTHBOOK_API_HOST=https://cdn.growthbook.io
+NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY=
+# Below is only required if you enabled encryption
+NEXT_PUBLIC_GROWTHBOOK_DECRYPTION_KEY=
+```
+
+## 4. Create a Feature Flag
+
+Back in the GrowthBook application, let's create our first feature flag. Make a simple ON/OFF feature flag with the the key `welcome-message`. Leave the default value set to OFF. We will turn it on in a future step.
+
+<img
+  src="/images/guides/nextjs-3-create-feature.png"
+  alt="GrowthBook Create Feature"
+  style={{ width: 500, margin: "0 auto" }}
+/>
+
+## 5. Integrate the GrowthBook SDK into our Next.js app
+
+Next.js App Router uses Server Components by default, so we need to use the GrowthBook JavaScript SDK, not the React SDK (which only works client-side).
+
+```bash npm2yarn
+npm install --save @growthbook/growthbook
+```
+
+Our Javascript SDK works out-of-the-box with React Server Components, but we can more deeply integrate it with Next.js by creating a small helper function in `app/growthbookServer.ts` with the following contents:
+
+```ts
+// app/growthbookServer.ts
+import { setPolyfills, configureCache } from "@growthbook/growthbook";
+
+export function configureServerSideGrowthBook() {
+  // Tag fetch requests so they can be revalidated on demand
+  setPolyfills({
+    fetch: (url: string, init: RequestInit) =>
+      fetch(url, {
+        ...init,
+        next: {
+          // Cache feature definitions for 10 seconds for dev
+          // In prod, use a higher value and use WebHooks to revalidate on-demand
+          revalidate: 10,
+          tags: ["growthbook"],
+        },
+      }),
+  });
+
+  // Disable the built-in cache since we're using Next.js's fetch cache instead
+  configureCache({
+    disableCache: true,
+  });
+}
+```
+
+Now, let's modify our main `app/page.tsx` file.
+
+Change the top of the file to match the following:
+
+```tsx
+import Image from "next/image";
+import { configureServerSideGrowthBook } from "./growthbookServer";
+import { GrowthBook } from "@growthbook/growthbook";
+
+export default async function Home() {
+  configureServerSideGrowthBook();
+
+  // Create and initialize a GrowthBook instance
+  const gb = new GrowthBook({
+    apiHost: process.env.NEXT_PUBLIC_GROWTHBOOK_API_HOST,
+    clientKey: process.env.NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY,
+    decryptionKey: process.env.NEXT_PUBLIC_GROWTHBOOK_DECRYPTION_KEY,
+  });
+  await gb.init({ timeout: 1000 });
+
+  // Set targeting attributes for the user
+  // TODO: get from cookies/headers/db
+  await gb.setAttributes({
+    id: "123",
+    employee: true,
+  });
+
+  // Evaluate a feature flag
+  const welcomeMessage = gb.isOn("welcome-message");
+
+  // Cleanup
+  gb.destroy();
+```
+
+Next Steps
+And now let's use the feature flag we referenced above. Add the following somewhere on the page so we can see it:
+
+```tsx
+<h2>Welcome Message: {welcomeMessage ? "ON" : "OFF"}</h2>
+```
+
+This will render as `OFF` for now.
+
+## 6. Turn on for your Team
+
+In our page, we hard-coded `employee: true` when setting our targeting attributes. Let's use that to turn on the feature for just employees.
+
+Create a Force Rule for your feature:
+
+<img
+  src="/images/guides/nextjs-4-employee-rule.png"
+  alt="GrowthBook Targeting Rule"
+  style={{ width: 500, margin: "0 auto" }}
+/>
+
+Publish the draft and refresh your Next.js app and you should now see the welcome message showing up as ON! (Note: it might take a few seconds for the cache to refresh).
+
+If you change your targeting attribute to `employee: false` in the page, you should see the welcome message switch back to OFF immediately.
+
+The best part about targeting attributes in GrowthBook is that they are evaluated entirely locally. Sensitive user data is never sent over the network and there is no performance penalty. Some other libraries require an HTTP request to evaluate a feature for a user and this is often a deal breaker for performance.
+
+## 7. Gradually roll out to your users
+
+After you test the new feature within your team, you probably want to start rolling it out to real users.
+
+We can do that with another rule in GrowthBook:
+
+<img
+  src="/images/guides/nextjs-6-rollout-rule.png"
+  alt="GrowthBook Rollout Rule"
+  style={{ width: 500, margin: "0 auto" }}
+/>
+
+In the targeting attributes, make sure you set `employee: false`. That will ensure you skip the first rule we made and fall into the second rollout rule.
+
+:::note
+The GrowthBook SDK uses deterministic hashing to figure out whether or not
+someone is included in a rollout (or A/B test). The SDKs hash together the
+selected targeting attribute (id) and the feature key (welcome-message) and
+coverts it to a float between 0 and 1. If that float is less than or equal to
+the rollout percent, the user is included. This ensures a consistent UX and
+prevents one user from constantly switching between ON and OFF as they
+navigate your app.
+:::
+
+Try changing the id in the targeting attributes to a few different random strings and see what happens. You should notice about half of the time the welcome message will be ON.
+
+## Conclusion and Next Steps
+
+We showed here how to do a targeted rule, and how to do a rollout rule. It's also just as easy to make an A/B test in the same manner. You will need to set up event tracking and connect GrowthBook to your data source.
+
+We support many different rendering strategies in Next.js, not just server components. Check out our [example Next.js app](https://github.com/growthbook/examples/tree/main/next-js), which demonstrates static rendering, client components, streaming server components, and more.
+
+Once you do the initial integration work, it only takes a few seconds to wrap your code in feature flags. Once you realize how easy and stress-free deploys and experimentation can be, there's no going back.

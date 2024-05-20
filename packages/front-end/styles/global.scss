@@ -488,6 +488,13 @@ pre {
         border-color: #ef2bd588 !important;
       }
     }
+    .results-prior {
+      border-radius: 5px;
+      font-size: 14px;
+      border: 1px solid #7a7a7a66;
+      box-sizing: border-box;
+      align-items: center;
+    }
   }
   .results-table {
     width: 100%;
@@ -851,6 +858,12 @@ main.main.report {
 .hover-underline {
   &:hover {
     text-decoration: underline;
+  }
+}
+
+.no-underline {
+  &:hover {
+    text-decoration: none !important;
   }
 }
 
@@ -3041,6 +3054,9 @@ td.disabled {
 .cursor-disabled {
   cursor: not-allowed;
 }
+.cursor-default {
+  cursor: default;
+}
 .gb-select-wrapper.disabled {
   cursor: not-allowed;
 }
@@ -3158,7 +3174,7 @@ input:disabled {
 }
 .gb-webhook-table-container {
   max-height: 300px;
-  overflow-y: scroll;
+  overflow-y: auto;
 }
 .table-tags {
   min-width: 250px;

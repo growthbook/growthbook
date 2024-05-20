@@ -11,13 +11,13 @@ import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import usePermissions from "@/hooks/usePermissions";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FeatureModal from "@/components/Features/FeatureModal";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import { DocLink, DocSection } from "@/components/DocLink";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import MetricForm from "@/components/Metrics/MetricForm";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import styles from "./GuidedGetStarted.module.scss";
 import GetStartedSteps from "./GetStartedSteps";
 import SuccessCard from "./SuccessCard";
@@ -47,7 +47,7 @@ export default function GuidedGetStarted({
     [key: string]: boolean;
   }>("onboarding-steps-skipped", {});
   const [showVideo, setShowVideo] = useState(false);
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const { data: SDKData } = useSDKConnections();
 
@@ -72,7 +72,7 @@ export default function GuidedGetStarted({
         features.length > 0,
       additionalCta: (
         <>
-          {permissions.manageTeam && (
+          {permissionsUtil.canManageTeam() && (
             <Link href="/settings/team" className="font-weight-bold">
               Not an engineer? Invite a developer to get started.
             </Link>
@@ -178,8 +178,9 @@ export default function GuidedGetStarted({
       learnMoreLink: "Learn more about our SDKs.",
       docSection: "sdks",
       completed:
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-        SDKData?.connections.length > 0 || skippedSteps["install-sdk"] || false,
+        (SDKData?.connections?.length || 0) > 0 ||
+        skippedSteps["install-sdk"] ||
+        false,
       render: (
         <InitialSDKConnectionForm
           inline={true}
@@ -302,7 +303,7 @@ export default function GuidedGetStarted({
         "Here are a few more things you can do to get the most out of your GrowthBook account.",
       render: (
         <div className="col-12 col-sm-8 col-lg-6">
-          {permissions.check("manageTeam") ? (
+          {permissionsUtil.canManageTeam() ? (
             <Link href="/settings/team" className={styles.nextStepWrapper}>
               <h2
                 role="button"

@@ -13,7 +13,8 @@
         "remoteEval",
         "visualEditorDragDrop",
         "prerequisites",
-        "redirects"
+        "redirects",
+        "stickyBucketing"
       ]
     }
   ]

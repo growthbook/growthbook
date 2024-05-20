@@ -1,3 +1,4 @@
+import { includeExperimentInPayload } from "shared/util";
 import { Context } from "../models/BaseModel";
 import { createEvent } from "../models/EventModel";
 import { getExperimentById, updateExperiment } from "../models/ExperimentModel";
@@ -14,6 +15,7 @@ import {
 import { ExperimentReportResultDimension } from "../../types/report";
 import { ExperimentWarningNotificationPayload } from "../types/ExperimentNotification";
 import { IfEqual } from "../util/types";
+import { getEnvironmentIdsFromOrg } from "./organizations";
 
 // This ensures that the two types remain equal.
 
@@ -29,8 +31,13 @@ type ExperimentWarningNotificationData = IfEqual<
 
 const dispatchEvent = async (
   context: Context,
+  experiment: ExperimentInterface,
   data: ExperimentWarningNotificationData
 ) => {
+  const changedEnvs = includeExperimentInPayload(experiment)
+    ? getEnvironmentIdsFromOrg(context.org)
+    : [];
+
   const payload: ExperimentWarningNotificationEvent = {
     event: "experiment.warning",
     object: "experiment",
@@ -41,6 +48,10 @@ const dispatchEvent = async (
       email: context.email,
       name: context.userName,
     },
+    projects: [experiment.project || ""],
+    environments: changedEnvs,
+    tags: experiment.tags || [],
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(context.org.id, payload);
@@ -96,7 +107,7 @@ export const notifyAutoUpdate = ({
     type: "auto-update",
     triggered: !success,
     dispatch: () =>
-      dispatchEvent(context, {
+      dispatchEvent(context, experiment, {
         type: "auto-update",
         success,
         experimentId: experiment.id,
@@ -136,7 +147,7 @@ const notifyMultipleExposures = async ({
     dispatch: async () => {
       if (!triggered) return;
 
-      await dispatchEvent(context, {
+      await dispatchEvent(context, experiment, {
         type: "multiple-exposures",
         experimentId: experiment.id,
         experimentName: experiment.name,
@@ -171,7 +182,7 @@ const notifySrm = async ({
     dispatch: async () => {
       if (!triggered) return;
 
-      await dispatchEvent(context, {
+      await dispatchEvent(context, experiment, {
         type: "srm",
         experimentId: experiment.id,
         experimentName: experiment.name,

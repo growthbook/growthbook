@@ -17,6 +17,7 @@ import {
 } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Markdown from "@/components/Markdown/Markdown";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -227,10 +228,16 @@ const Presentation = ({
       const experiment = e.experiment;
       const snapshot = e.snapshot;
       const phase = experiment.phases[snapshot.phase];
-      const snapshotMetricRegressionAdjustmentStatuses =
+      const settingsForSnapshotMetrics =
         snapshot?.settings?.metricSettings?.map((m) => ({
           metric: m.id,
-          reason: m.computedSettings?.regressionAdjustmentReason || "",
+          properPrior: m.computedSettings?.properPrior ?? false,
+          properPriorMean: m.computedSettings?.properPriorMean ?? 0,
+          properPriorStdDev:
+            m.computedSettings?.properPriorStdDev ??
+            DEFAULT_PROPER_PRIOR_STDDEV,
+          regressionAdjustmentReason:
+            m.computedSettings?.regressionAdjustmentReason || "",
           regressionAdjustmentDays:
             m.computedSettings?.regressionAdjustmentDays || 0,
           regressionAdjustmentEnabled: !!m.computedSettings
@@ -296,9 +303,7 @@ const Presentation = ({
               regressionAdjustmentEnabled={
                 snapshot?.analyses[0]?.settings?.regressionAdjusted
               }
-              metricRegressionAdjustmentStatuses={
-                snapshotMetricRegressionAdjustmentStatuses
-              }
+              settingsForSnapshotMetrics={settingsForSnapshotMetrics}
               sequentialTestingEnabled={
                 snapshot?.analyses[0]?.settings?.sequentialTesting
               }

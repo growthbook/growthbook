@@ -1,8 +1,4 @@
-import {
-  getReadAccessFilter,
-  hasReadAccess,
-  Permissions,
-} from "shared/permissions";
+import { Permissions } from "shared/permissions";
 import {
   getUserPermissions,
   roleToPermissionMap,
@@ -1247,7 +1243,7 @@ describe("Build base user permissions", () => {
   });
 });
 
-describe("Build user's readAccessPermissions object", () => {
+describe("PermissionsUtilClass.canReadSingleProjectResource check for features", () => {
   const testOrg: OrganizationInterface = {
     id: "org_sktwi1id9l7z9xkjb",
     name: "Test Org",
@@ -1275,210 +1271,18 @@ describe("Build user's readAccessPermissions object", () => {
     },
   };
 
-  it("user with global no access role should have no read access", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
+  it("User with global noaccess role shouldn't be able to see any features", async () => {
+    const permissions = new Permissions(
       {
-        ...testOrg,
-        members: [{ ...testOrg.members[0], role: "noaccess" }],
-      },
-      []
-    );
-
-    const readAccessFilter = getReadAccessFilter(userPermissions);
-
-    expect(readAccessFilter).toEqual({
-      globalReadAccess: false,
-      projects: [],
-    });
-  });
-
-  it("user with global readonly role should have global read access", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
-      {
-        ...testOrg,
-        members: [{ ...testOrg.members[0], role: "readonly" }],
-      },
-      []
-    );
-
-    const readAccessFilter = getReadAccessFilter(userPermissions);
-
-    expect(readAccessFilter).toEqual({
-      globalReadAccess: true,
-      projects: [],
-    });
-  });
-
-  it("user with global readonly role, and project noaccess should have global read access, but the project should have no read access", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
-      {
-        ...testOrg,
-        members: [
-          {
-            ...testOrg.members[0],
-            role: "readonly",
-            projectRoles: [
-              {
-                project: "prj_exl5jr5dl4rbw856",
-                role: "noaccess",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-            ],
-          },
-        ],
-      },
-      []
-    );
-
-    const readAccessFilter = getReadAccessFilter(userPermissions);
-
-    expect(readAccessFilter).toEqual({
-      globalReadAccess: true,
-      projects: [
-        {
-          id: "prj_exl5jr5dl4rbw856",
-          readAccess: false,
+        global: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
         },
-      ],
-    });
-  });
-
-  it("user with global noaccess role, and project collaborator should not have global read access, but the project should have read access", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
-      {
-        ...testOrg,
-        members: [
-          {
-            ...testOrg.members[0],
-            role: "noaccess",
-            projectRoles: [
-              {
-                project: "prj_exl5jr5dl4rbw856",
-                role: "collaborator",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-            ],
-          },
-        ],
+        projects: {},
       },
-      []
+      false
     );
-
-    const readAccessFilter = getReadAccessFilter(userPermissions);
-
-    expect(readAccessFilter).toEqual({
-      globalReadAccess: false,
-      projects: [
-        {
-          id: "prj_exl5jr5dl4rbw856",
-          readAccess: true,
-        },
-      ],
-    });
-  });
-
-  it("should build the readAccessFilter correctly for a user with multiple project roles", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
-      {
-        ...testOrg,
-        members: [
-          {
-            ...testOrg.members[0],
-            role: "noaccess",
-            projectRoles: [
-              {
-                project: "prj_exl5jr5dl4rbw856",
-                role: "collaborator",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-              {
-                project: "prj_exl5jr5dl4rbw123",
-                role: "engineer",
-                limitAccessByEnvironment: true,
-                environments: [],
-              },
-              {
-                project: "prj_exl5jr5dl4rbw456",
-                role: "engineer",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-            ],
-          },
-        ],
-      },
-      []
-    );
-
-    const readAccessFilter = getReadAccessFilter(userPermissions);
-
-    expect(readAccessFilter).toEqual({
-      globalReadAccess: false,
-      projects: [
-        {
-          id: "prj_exl5jr5dl4rbw856",
-          readAccess: true,
-        },
-        {
-          id: "prj_exl5jr5dl4rbw123",
-          readAccess: true,
-        },
-        {
-          id: "prj_exl5jr5dl4rbw456",
-          readAccess: true,
-        },
-      ],
-    });
-  });
-});
-
-describe("hasReadAccess filter", () => {
-  const testOrg: OrganizationInterface = {
-    id: "org_sktwi1id9l7z9xkjb",
-    name: "Test Org",
-    ownerEmail: "test@test.com",
-    url: "https://test.com",
-    dateCreated: new Date(),
-    invites: [],
-    members: [
-      {
-        id: "base_user_123",
-        role: "readonly",
-        dateCreated: new Date(),
-        limitAccessByEnvironment: false,
-        environments: [],
-        projectRoles: [],
-        teams: [],
-      },
-    ],
-    settings: {
-      environments: [
-        { id: "development" },
-        { id: "staging" },
-        { id: "production" },
-      ],
-    },
-  };
-
-  it("hasReadAccess should filter out all features for user with global no access role", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
-      {
-        ...testOrg,
-        members: [{ ...testOrg.members[0], role: "noaccess" }],
-      },
-      []
-    );
-
-    const readAccessFilter = getReadAccessFilter(userPermissions);
 
     const features: Partial<FeatureInterface>[] = [
       {
@@ -1488,23 +1292,50 @@ describe("hasReadAccess filter", () => {
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      hasReadAccess(readAccessFilter, feature.project)
+      permissions.canReadSingleProjectResource(feature.project)
     );
 
     expect(filteredFeatures).toEqual([]);
   });
 
-  it("hasReadAccess should not filter out all features for user with global readonly role", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
+  it("User with global noaccess role shouldn't be able to see any features if the feature none of the features have the project property defined", async () => {
+    const permissions = new Permissions(
       {
-        ...testOrg,
-        members: [{ ...testOrg.members[0], role: "readonly" }],
+        global: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
       },
-      []
+      false
     );
 
-    const readAccessFilter = getReadAccessFilter(userPermissions);
+    const features: Partial<FeatureInterface>[] = [
+      {
+        id: "test-feature-123",
+      },
+    ];
+
+    const filteredFeatures = features.filter((feature) =>
+      permissions.canReadSingleProjectResource(feature.project)
+    );
+
+    expect(filteredFeatures).toEqual([]);
+  });
+
+  it("User with global readonly role should be able to see any features", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
 
     const features: Partial<FeatureInterface>[] = [
       {
@@ -1514,7 +1345,7 @@ describe("hasReadAccess filter", () => {
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      hasReadAccess(readAccessFilter, feature.project)
+      permissions.canReadSingleProjectResource(feature.project)
     );
 
     expect(filteredFeatures).toEqual([
@@ -1525,30 +1356,29 @@ describe("hasReadAccess filter", () => {
     ]);
   });
 
-  it("hasReadAccess should filter out all projects aside from the project the user has collaborator access to", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
+  it("User with global noaccess role should be able to see any features with a project, but they should be able to see features in the project they have a readonly role for", async () => {
+    const permissions = new Permissions(
       {
-        ...testOrg,
-        members: [
-          {
-            ...testOrg.members[0],
-            role: "noaccess",
-            projectRoles: [
-              {
-                project: "prj_exl5jr5dl4rbw856",
-                role: "collaborator",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-            ],
+        global: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          project1: {
+            permissions: roleToPermissionMap("readonly", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
           },
-        ],
+          project2: {
+            permissions: roleToPermissionMap("readonly", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
       },
-      []
+      false
     );
-
-    const readAccessFilter = getReadAccessFilter(userPermissions);
 
     const features: Partial<FeatureInterface>[] = [
       {
@@ -1556,252 +1386,92 @@ describe("hasReadAccess filter", () => {
         project: "",
       },
       {
-        id: "test-feature-456",
-        project: "prj_exl5jr5dl4rbw856",
+        id: "test-feature-345",
+        project: "project1",
       },
       {
-        id: "test-feature-789",
-        project: "prj_exl5jr5dl4rbw123",
+        id: "test-feature-567",
+        project: "project1",
+      },
+      {
+        id: "test-feature-890",
+        project: "project3",
       },
     ];
 
     const filteredFeatures = features.filter((feature) =>
-      hasReadAccess(readAccessFilter, feature.project)
+      permissions.canReadSingleProjectResource(feature.project)
     );
 
     expect(filteredFeatures).toEqual([
       {
-        id: "test-feature-456",
-        project: "prj_exl5jr5dl4rbw856",
+        id: "test-feature-345",
+        project: "project1",
+      },
+      {
+        id: "test-feature-567",
+        project: "project1",
       },
     ]);
   });
+});
 
-  it("hasReadAccess should filter out all projects aside from the project the user has collaborator access to", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
+describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
       {
-        ...testOrg,
-        members: [
-          {
-            ...testOrg.members[0],
-            role: "collaborator",
-            projectRoles: [
-              {
-                project: "prj_exl5jr5dl4rbw856",
-                role: "noaccess",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-            ],
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("User with global noaccess role should be able to see metrics in 'All Projects' aka - an empty projects array, if they have atleast 1 project level role that grants them access", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          project1: {
+            permissions: roleToPermissionMap("readonly", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
           },
-        ],
+        },
       },
-      []
+      false
     );
-
-    const readAccessFilter = getReadAccessFilter(userPermissions);
-
-    const features: Partial<FeatureInterface>[] = [
-      {
-        id: "test-feature-123",
-        project: "",
-      },
-      {
-        id: "test-feature-456",
-        project: "prj_exl5jr5dl4rbw856",
-      },
-      {
-        id: "test-feature-789",
-        project: "prj_exl5jr5dl4rbw123",
-      },
-    ];
-
-    const filteredFeatures = features.filter((feature) =>
-      hasReadAccess(readAccessFilter, feature.project)
-    );
-
-    expect(filteredFeatures).toEqual([
-      {
-        id: "test-feature-123",
-        project: "",
-      },
-      {
-        id: "test-feature-789",
-        project: "prj_exl5jr5dl4rbw123",
-      },
-    ]);
-  });
-
-  // e.g. user's global role is noaccess, but they have project-level permissions for a singular project - if their collaborator permissions include atleast 1 project on the metric, they should get access
-  it("hasReadAccess should allow access if user has readAccess for atleast 1 project on an experiment", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
-      {
-        ...testOrg,
-        members: [
-          {
-            ...testOrg.members[0],
-            role: "noaccess",
-            projectRoles: [
-              {
-                project: "prj_exl5jr5dl4rbw856",
-                role: "collaborator",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-            ],
-          },
-        ],
-      },
-      []
-    );
-
-    const readAccessFilter = getReadAccessFilter(userPermissions);
 
     const metrics: Partial<MetricInterface>[] = [
       {
         id: "test-feature-123",
         projects: [],
       },
-      {
-        id: "test-feature-456",
-        projects: ["prj_exl5jr5dl4rbw856", "prj_exl5jr5dl4rbw123"],
-      },
-      {
-        id: "test-feature-789",
-        projects: ["prj_exl5jr5dl4rbw123"],
-      },
     ];
 
     const filteredMetrics = metrics.filter((metric) =>
-      hasReadAccess(readAccessFilter, metric.projects || [])
-    );
-
-    expect(filteredMetrics).toEqual([
-      {
-        id: "test-feature-123",
-        projects: [],
-      },
-      {
-        id: "test-feature-456",
-        projects: ["prj_exl5jr5dl4rbw856", "prj_exl5jr5dl4rbw123"],
-      },
-    ]);
-  });
-
-  // The user's global role is collaborator, but they have project-level permissions for two projects that take away readaccess. If a metric is in both of the projects the user has noaccess role, AND a project the user doesn't have a specific permission for, the user should be able to access it due to their global permission
-  it("hasReadAccess should not allow access if user has ", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
-      {
-        ...testOrg,
-        members: [
-          {
-            ...testOrg.members[0],
-            role: "collaborator",
-            projectRoles: [
-              {
-                project: "prj_exl5jr5dl4rbw856",
-                role: "noaccess",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-              {
-                project: "prj_exl5jr5dl4rbw123",
-                role: "noaccess",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-            ],
-          },
-        ],
-      },
-      []
-    );
-
-    const readAccessFilter = getReadAccessFilter(userPermissions);
-
-    const metrics: Partial<MetricInterface>[] = [
-      {
-        id: "test-feature-123",
-        projects: [],
-      },
-      {
-        id: "test-feature-456",
-        projects: ["prj_exl5jr5dl4rbw856", "prj_exl5jr5dl4rbw123", "abc123"],
-      },
-      {
-        id: "test-feature-789",
-        projects: ["prj_exl5jr5dl4rbw123"],
-      },
-    ];
-
-    const filteredMetrics = metrics.filter((metric) =>
-      hasReadAccess(readAccessFilter, metric.projects || [])
-    );
-
-    expect(filteredMetrics).toEqual([
-      {
-        id: "test-feature-123",
-        projects: [],
-      },
-      {
-        id: "test-feature-456",
-        projects: ["prj_exl5jr5dl4rbw856", "prj_exl5jr5dl4rbw123", "abc123"],
-      },
-    ]);
-  });
-
-  // The user's global role is collaborator, but they have project-level permissions for two projects. If a metric is in both of the projects the user has a noaccess role for, the user shouldn't be able to access it
-  it("hasReadAccess should not allow access if user has ", async () => {
-    const userPermissions = getUserPermissions(
-      "base_user_123",
-      {
-        ...testOrg,
-        members: [
-          {
-            ...testOrg.members[0],
-            role: "collaborator",
-            projectRoles: [
-              {
-                project: "prj_exl5jr5dl4rbw856",
-                role: "noaccess",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-              {
-                project: "prj_exl5jr5dl4rbw123",
-                role: "noaccess",
-                limitAccessByEnvironment: true,
-                environments: ["staging"],
-              },
-            ],
-          },
-        ],
-      },
-      []
-    );
-
-    const readAccessFilter = getReadAccessFilter(userPermissions);
-
-    const metrics: Partial<MetricInterface>[] = [
-      {
-        id: "test-feature-123",
-        projects: [],
-      },
-      {
-        id: "test-feature-456",
-        projects: ["prj_exl5jr5dl4rbw856", "prj_exl5jr5dl4rbw123"],
-      },
-      {
-        id: "test-feature-789",
-        projects: ["prj_exl5jr5dl4rbw123"],
-      },
-    ];
-
-    const filteredMetrics = metrics.filter((metric) =>
-      hasReadAccess(readAccessFilter, metric.projects || [])
+      permissions.canReadMultiProjectResource(metric.projects)
     );
 
     expect(filteredMetrics).toEqual([
@@ -1810,6 +1480,173 @@ describe("hasReadAccess filter", () => {
         projects: [],
       },
     ]);
+  });
+
+  it("User with global noaccess role should be able to see metrics in 'All Projects' aka - an undefined projects, if they have atleast 1 project level role that grants them access", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          project1: {
+            permissions: roleToPermissionMap("readonly", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    const metrics: Partial<MetricInterface>[] = [
+      {
+        id: "test-feature-123",
+      },
+    ];
+
+    const filteredMetrics = metrics.filter((metric) =>
+      permissions.canReadMultiProjectResource(metric.projects)
+    );
+
+    expect(filteredMetrics).toEqual([
+      {
+        id: "test-feature-123",
+      },
+    ]);
+    expect(filteredMetrics.length).toEqual(1);
+  });
+
+  it("User with global noaccess role should not be able to see metrics in 'All Projects' aka - an undefined projects, if they don't have atleast 1 project level role that grants them access", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    const metrics: Partial<MetricInterface>[] = [
+      {
+        id: "test-feature-123",
+      },
+    ];
+
+    const filteredMetrics = metrics.filter((metric) =>
+      permissions.canReadMultiProjectResource(metric.projects)
+    );
+
+    expect(filteredMetrics).toEqual([]);
+    expect(filteredMetrics.length).toEqual(0);
+  });
+
+  it("User with global noaccess role shouldn't be able to see metrics if the metrics are exlusively in projects they don't have a specific role that grants them read access for", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    const metrics: Partial<MetricInterface>[] = [
+      {
+        id: "test-feature-123",
+        projects: ["project123"],
+      },
+    ];
+
+    const filteredMetrics = metrics.filter((metric) =>
+      permissions.canReadMultiProjectResource(metric.projects)
+    );
+
+    expect(filteredMetrics).toEqual([]);
+  });
+
+  it("User with global noaccess role should be able to see metrics if the user as readData permission for atleast one of the metrics projects", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          project123: {
+            permissions: roleToPermissionMap("readonly", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    const metrics: Partial<MetricInterface>[] = [
+      {
+        id: "test-feature-123",
+        projects: ["project123", "project345"],
+      },
+    ];
+
+    const filteredMetrics = metrics.filter((metric) =>
+      permissions.canReadMultiProjectResource(metric.projects)
+    );
+
+    expect(filteredMetrics).toEqual([
+      {
+        id: "test-feature-123",
+        projects: ["project123", "project345"],
+      },
+    ]);
+  });
+
+  it("User with global readonly role should not be able to see metrics if the user has noaccess permission for every one of the metrics projects", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          project123: {
+            permissions: roleToPermissionMap("noaccess", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+          project345: {
+            permissions: roleToPermissionMap("noaccess", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    const metrics: Partial<MetricInterface>[] = [
+      {
+        id: "test-feature-123",
+        projects: ["project123", "project345"],
+      },
+    ];
+
+    const filteredMetrics = metrics.filter((metric) =>
+      permissions.canReadMultiProjectResource(metric.projects)
+    );
+
+    expect(filteredMetrics).toEqual([]);
   });
 });
 
@@ -2276,6 +2113,237 @@ describe("PermissionsUtilClass.canDeleteAttribute check", () => {
   });
 });
 
+describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("User with global readonly role can not create segment", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canCreateSegment()).toEqual(false);
+  });
+
+  it("User with global collaborator role can create segment", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canCreateSegment()).toEqual(false);
+  });
+
+  it("User with global analyst role can create segment", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canCreateSegment()).toEqual(true);
+  });
+});
+
+describe("PermissionsUtilClass.canUpdateSegmentcheck", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("User with global readonly role can not update segment", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canUpdateSegment()).toEqual(false);
+  });
+
+  it("User with global collaborator role can update segment", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canUpdateSegment()).toEqual(false);
+  });
+
+  it("User with global analyst role can update segment", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canUpdateSegment()).toEqual(true);
+  });
+});
+
+describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("User with global readonly role can not delete segment", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canDeleteSegment()).toEqual(false);
+  });
+
+  it("User with global collaborator role can delete segment", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canDeleteSegment()).toEqual(false);
+  });
+
+  it("User with global analyst role can delete segment", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canDeleteSegment()).toEqual(true);
+  });
+});
+
 // permissionsClass Global Permissions Test
 describe("PermissionsUtilClass.canCreatePresentation check", () => {
   const testOrg: OrganizationInterface = {
@@ -2738,8 +2806,239 @@ describe("PermissionsUtilClass.canDeleteDimension check", () => {
     expect(permissions.canDeleteDimension()).toEqual(true);
   });
 });
-// permissionsClass Project Permissions Test
 
+describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("User with global readonly role can not create segment", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canCreateSegment()).toEqual(false);
+  });
+
+  it("User with global collaborator role can create segment", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canCreateSegment()).toEqual(false);
+  });
+
+  it("User with global analyst role can create segment", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canCreateSegment()).toEqual(true);
+  });
+});
+
+describe("PermissionsUtilClass.canUpdateSegmentcheck", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("User with global readonly role can not update segment", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canUpdateSegment()).toEqual(false);
+  });
+
+  it("User with global collaborator role can update segment", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canUpdateSegment()).toEqual(false);
+  });
+
+  it("User with global analyst role can update segment", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canUpdateSegment()).toEqual(true);
+  });
+});
+
+describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("User with global readonly role can not delete segment", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canDeleteSegment()).toEqual(false);
+  });
+
+  it("User with global collaborator role can delete segment", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canDeleteSegment()).toEqual(false);
+  });
+
+  it("User with global analyst role can delete segment", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canDeleteSegment()).toEqual(true);
+  });
+});
+
+// permissionsClass Project Permissions Test
 describe("PermissionsUtilClass.canCreateIdea check", () => {
   const testOrg: OrganizationInterface = {
     id: "org_sktwi1id9l7z9xkjb",
@@ -3071,6 +3370,450 @@ describe("PermissionsUtilClass.canDeleteIdea check", () => {
     );
 
     expect(permissions.canDeleteIdea({ project: "abc123" })).toEqual(true);
+  });
+});
+
+describe("PermissionsUtilClass.canViewExperimentModal check", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("User with global readonly role can not create experiment without a project", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canViewExperimentModal()).toEqual(false);
+  });
+
+  it("User with global experimenter role can create experiment without a project", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canViewExperimentModal()).toEqual(true);
+  });
+
+  it("User with global readonly role can not create experiment with a project if they don't have a project specific role that gives them permission", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canViewExperimentModal("abc123")).toEqual(false);
+  });
+
+  it("User with global readonly role can create experiment with a project if they do have a project specific role that gives them permission", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.canViewExperimentModal("abc123")).toEqual(true);
+  });
+});
+
+describe("PermissionsUtilClass.canCreateExperiment check", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("User with global readonly role can not create experiment without a project", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canCreateExperiment({ project: "" })).toEqual(false);
+  });
+
+  it("User with global analyst role can create experiment without a project", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canCreateExperiment({ project: "" })).toEqual(true);
+  });
+
+  it("User with global readonly role can not create experiment with a project if they don't have a project specific role that gives them permission", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canCreateExperiment({ project: "abc123" })).toEqual(
+      false
+    );
+  });
+
+  it("User with global readonly role can create experiment with a project if they do have a project specific role that gives them permission", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("experimenter", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.canCreateExperiment({ project: "abc123" })).toEqual(
+      true
+    );
+  });
+});
+
+describe("PermissionsUtilClass.canUpdateExperiment check", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("User with global readonly role can not update experiment without a project", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(
+      permissions.canUpdateExperiment({ project: "" }, { project: "abc123" })
+    ).toEqual(false);
+  });
+
+  it("User with global analyst role can update experiment without a project", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(
+      permissions.canUpdateExperiment({ project: "" }, { project: "abc123" })
+    ).toEqual(true);
+  });
+
+  it("User with global readonly role can not update experiment with a project if they don't have a project specific role that gives them permission", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(
+      permissions.canUpdateExperiment({ project: "abc123" }, { project: "" })
+    ).toEqual(false);
+  });
+
+  it("User with global readonly role can not remove project from experiment if they do have a project specific role that gives them permission in the new project", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("collaborator", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(
+      permissions.canUpdateExperiment({ project: "abc123" }, { project: "" })
+    ).toEqual(false);
+  });
+
+  it("User with global readonly role can update experiment's project from experiment if they do have a project specific role that gives them permission in the new project", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("experimenter", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+          def456: {
+            permissions: roleToPermissionMap("experimenter", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(
+      permissions.canUpdateExperiment(
+        { project: "abc123" },
+        { project: "def456" }
+      )
+    ).toEqual(true);
+  });
+});
+
+describe("PermissionsUtilClass.canDeleteExperiment check", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("User with global readonly role can not delete experiment without a project", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canDeleteExperiment({ project: "" })).toEqual(false);
+  });
+
+  it("User with global analyst role can delete experiment without a project", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canDeleteExperiment({ project: "" })).toEqual(true);
+  });
+
+  it("User with global readonly role can not delete experiment with a project if they don't have a project specific role that gives them permission", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canDeleteExperiment({ project: "abc123" })).toEqual(
+      false
+    );
+  });
+
+  it("User with global readonly role can delete experiment with a project if they do have a project specific role that gives them permission", async () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("experimenter", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.canDeleteExperiment({ project: "abc123" })).toEqual(
+      true
+    );
   });
 });
 
@@ -5488,5 +6231,398 @@ describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
     );
 
     expect(permissions.canManageFeatureDrafts({})).toEqual(false);
+  });
+});
+
+describe("PermissionsUtilClass.canViewFeatureModal check", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("canViewFeatureModal returns true for user with global 'engineer' role", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canViewFeatureModal()).toEqual(true);
+  });
+
+  it("canViewFeatureModal returns false for user with global 'analyst' role", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canViewFeatureModal()).toEqual(false);
+  });
+
+  it("canViewFeatureModal returns true for user with global 'analyst' role, if their project-specific role gives them access", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          abc123: {
+            permissions: roleToPermissionMap("engineer", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.canViewFeatureModal("abc123")).toEqual(true);
+  });
+});
+
+describe("PermissionsUtilClass.canCreateFeature check", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("canCreateFeature returns true for user with global 'engineer' role when trying to create a feature in all projects", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canCreateFeature({ project: "" })).toEqual(true);
+  });
+
+  it("canCreateFeature returns false for user with global 'analyst' role when trying to create a feature in all projects", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canCreateFeature({ project: "" })).toEqual(false);
+  });
+
+  it("canCreateFeature returns true for user with global 'analyst' role when trying to create a feature in a project they have engineer permissions for", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          ABC123: {
+            permissions: roleToPermissionMap("engineer", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.canCreateFeature({ project: "ABC123" })).toEqual(true);
+  });
+
+  it("canCreateFeature returns false for user with global 'engineer' role when trying to create a feature in a project they have analyst permissions for", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          ABC123: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.canCreateFeature({ project: "ABC123" })).toEqual(false);
+  });
+});
+
+describe("PermissionsUtilClass.canUpdateFeature check", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("canUpdateFeature returns true for user with global 'engineer' role when trying to update a feature in all projects", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canUpdateFeature({}, { project: "abc123" })).toEqual(
+      true
+    );
+  });
+
+  it("canUpdateFeature returns false for user with global 'analyst' role when trying to update a feature in a specific project and move it to all projects", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          ABC123: {
+            permissions: roleToPermissionMap("engineer", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(
+      permissions.canUpdateFeature({ project: "ABC123" }, { project: "" })
+    ).toEqual(false);
+  });
+
+  it("canUpdateFeature returns true for user with global 'analyst' role when trying to move a feature from 1 project they have engineer permissions for to another project they have engineer permissions for", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          ABC123: {
+            permissions: roleToPermissionMap("engineer", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+          DEF456: {
+            permissions: roleToPermissionMap("engineer", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(
+      permissions.canUpdateFeature({ project: "ABC123" }, { project: "DEF456" })
+    ).toEqual(true);
+  });
+});
+
+describe("PermissionsUtilClass.canDeleteFeature check", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [
+      {
+        id: "base_user_123",
+        role: "readonly",
+        dateCreated: new Date(),
+        limitAccessByEnvironment: false,
+        environments: [],
+        projectRoles: [],
+        teams: [],
+      },
+    ],
+    settings: {
+      environments: [
+        { id: "development" },
+        { id: "staging" },
+        { id: "production" },
+      ],
+    },
+  };
+
+  it("canDeleteFeature returns true for user with global 'engineer' role when trying to delete a feature in all projects", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canDeleteFeature({ project: "" })).toEqual(true);
+  });
+
+  it("canDeleteFeature returns false for user with global 'analyst' role when trying to delete a feature in all projects", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    );
+
+    expect(permissions.canDeleteFeature({ project: "" })).toEqual(false);
+  });
+
+  it("canDeleteFeature returns true for user with global 'analyst' role when trying to delete a feature in a project they have engineer permissions for", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          ABC123: {
+            permissions: roleToPermissionMap("engineer", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.canDeleteFeature({ project: "ABC123" })).toEqual(true);
+  });
+
+  it("canDeleteFeature returns false for user with global 'engineer' role when trying to delete a feature in a project they have analyst permissions for", () => {
+    const permissions = new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {
+          ABC123: {
+            permissions: roleToPermissionMap("analyst", testOrg),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      },
+      false
+    );
+
+    expect(permissions.canDeleteFeature({ project: "ABC123" })).toEqual(false);
   });
 });

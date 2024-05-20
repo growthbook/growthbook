@@ -16,6 +16,10 @@ export function applyMetricOverrides(
   metric.regressionAdjustmentEnabled = computed.regressionAdjustmentEnabled;
   metric.regressionAdjustmentDays = computed.regressionAdjustmentDays;
 
+  metric.priorSettings.proper = computed.properPrior;
+  metric.priorSettings.mean = computed.properPriorMean;
+  metric.priorSettings.stddev = computed.properPriorStdDev;
+
   // TODO: move this to the form validation when saving this settings
   if (metric.regressionAdjustmentDays < 0) {
     metric.regressionAdjustmentDays = 0;
