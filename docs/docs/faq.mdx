@@ -180,7 +180,11 @@ const getUUID = () => {
   const getCookie = (name) => {
     let value = `; ${document.cookie}`;
     let parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(';').shift();
+    if (parts.length === 2) {
+      let existing = parts.pop().split(';').shift();
+      setCookie(name, existing);
+      return existing;
+    }
   }
   const setCookie = (name, value) => {
     var d = new Date();
@@ -189,7 +193,8 @@ const getUUID = () => {
   }
 
   // get the existing UUID from cookie if set, otherwise create one and store it in the cookie
-  if(getCookie(COOKIE_NAME)) return getCookie(COOKIE_NAME);
+  let existing = getCookie(COOKIE_NAME);
+  if(existing) return existing;
 
   const uuid = genUUID();
   setCookie(COOKIE_NAME, uuid);
@@ -200,7 +205,7 @@ const getUUID = () => {
 Below is the same code, minified:
 
 ```js
-const getUUID=()=>{let $="gbuuid",e=()=>window.crypto.randomUUID?window.crypto.randomUUID():"10000000-1000-4000-8000-100000000000".replace(/[018]/g,$=>($^crypto.getRandomValues(new Uint8Array(1))[0]&15>>$/4).toString(16)),t=$=>{let e=`; ${document.cookie}`.split(`; ${$}=`);if(2===e.length)return e.pop().split(";").shift()},r=($,e)=>{var t=new Date;t.setTime(t.getTime()+3456e7),document.cookie=$+"="+e+";path=/;expires="+t.toGMTString()};if(t($))return t($);let i=e();return r($,i),i};
+const getUUID=()=>{const a=(a,b)=>{var c=new Date;c.setTime(c.getTime()+86400000*400),document.cookie=a+"="+b+";path=/;expires="+c.toGMTString()};let b=(b=>{let c=`; ${document.cookie}`,d=c.split(`; ${b}=`);if(2===d.length){let c=d.pop().split(";").shift();return a(b,c),c}})("gbuuid");if(b)return b;const c=(()=>window?.crypto?.randomUUID?window.crypto.randomUUID():"10000000-1000-4000-8000-100000000000".replace(/[018]/g,a=>(a^crypto.getRandomValues(new Uint8Array(1))[0]&15>>a/4).toString(16)))();return a("gbuuid",c),c};
 ```
 
 ---
