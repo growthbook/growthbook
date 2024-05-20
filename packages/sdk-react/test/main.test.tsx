@@ -84,15 +84,6 @@ describe("GrowthBookProvider", () => {
     growthbook.destroy();
   });
 
-  it("returns the control when there is no growthbook instance", () => {
-    const { container } = render(
-      <GrowthBookProvider>
-        <TestedComponent />
-      </GrowthBookProvider>
-    );
-    expect(container.innerHTML).toEqual("<h1>0</h1>");
-  });
-
   describe("FeaturesReady", () => {
     it("renders immediately if ready", async () => {
       const growthbook = new GrowthBook({

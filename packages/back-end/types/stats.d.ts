@@ -6,6 +6,7 @@ export type PValueCorrection = null | "benjamini-hochberg" | "holm-bonferroni";
 
 export type DifferenceType = "relative" | "absolute" | "scaled";
 
+export type RiskType = "relative" | "absolute";
 interface BaseVariationResponse {
   cr: number;
   value: number;
@@ -25,6 +26,7 @@ interface BaseVariationResponse {
 interface BayesianVariationResponse extends BaseVariationResponse {
   chanceToWin?: number;
   risk?: [number, number];
+  riskType?: RiskType;
 }
 
 interface FrequentistVariationResponse extends BaseVariationResponse {

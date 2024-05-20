@@ -24,11 +24,11 @@ import {
 } from "@/services/eventSchema";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import usePermissions from "@/hooks/usePermissions";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
 import { GBCircleArrowLeft } from "@/components/Icons";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
 import styles from "./NewDataSourceForm.module.scss";
@@ -67,7 +67,7 @@ const NewDataSourceForm: FC<{
     dataSourceConnections.map((d) => d.type)
   );
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const [datasource, setDatasource] = useState<
     Partial<DataSourceInterfaceWithParams>
@@ -153,7 +153,7 @@ const NewDataSourceForm: FC<{
   let ctaEnabled = true;
   let disabledMessage = null;
 
-  if (!permissions.check("createDatasources", project)) {
+  if (!permissionsUtil.canViewCreateDataSourceModal(project)) {
     ctaEnabled = false;
     // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '"You don't have permission to create data so... Remove this comment to see the full error message
     disabledMessage = "You don't have permission to create data sources.";
@@ -302,13 +302,10 @@ const NewDataSourceForm: FC<{
       source,
       newDatasourceForm: true,
     });
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    if (s.types.length === 1) {
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+    if (s.types?.length === 1) {
       const data = dataSourcesMap.get(s.types[0]);
       setDatasource({
         ...datasource,
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         type: s.types[0],
         name: `${s.label}`,
         params: data.default,

@@ -11,7 +11,6 @@ import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/Demo
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
-import usePermissions from "@/hooks/usePermissions";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -30,6 +29,7 @@ import FeatureModal from "@/components/Features/FeatureModal";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import { FeatureTab } from "@/pages/features/[fid]";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function FeaturesHeader({
   feature,
@@ -63,7 +63,7 @@ export default function FeaturesHeader({
   const [showImplementation, setShowImplementation] = useState(firstFeature);
 
   const { organization } = useUser();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envs = environments.map((e) => e.id);
@@ -88,8 +88,9 @@ export default function FeaturesHeader({
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
 
-  const canEdit = permissions.check("manageFeatures", projectId);
+  const canEdit = permissionsUtil.canViewFeatureModal(projectId);
   const enabledEnvs = getEnabledEnvironments(feature, environments);
+  const canPublish = permissionsUtil.canPublishFeature(feature, enabledEnvs);
   const isArchived = feature.archived;
 
   return (
@@ -153,121 +154,104 @@ export default function FeaturesHeader({
                         : "Disable stale detection"}
                     </a>
                   )}
-                  {canEdit &&
-                    permissions.check(
-                      "publishFeatures",
-                      projectId,
-                      enabledEnvs
-                    ) && (
-                      <a
-                        className="dropdown-item"
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setDuplicateModal(true);
+                  {canEdit && canPublish && (
+                    <a
+                      className="dropdown-item"
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setDuplicateModal(true);
+                      }}
+                    >
+                      Duplicate
+                    </a>
+                  )}
+                  {canEdit && canPublish && (
+                    <Tooltip
+                      shouldDisplay={dependents > 0}
+                      usePortal={true}
+                      body={
+                        <>
+                          <ImBlocked className="text-danger" /> This feature has{" "}
+                          <strong>
+                            {dependents} dependent{dependents !== 1 && "s"}
+                          </strong>
+                          . This feature cannot be archived until{" "}
+                          {dependents === 1 ? "it has" : "they have"} been
+                          removed.
+                        </>
+                      }
+                    >
+                      <ConfirmButton
+                        onClick={async () => {
+                          await apiCall(`/feature/${feature.id}/archive`, {
+                            method: "POST",
+                          });
+                          mutate();
                         }}
-                      >
-                        Duplicate
-                      </a>
-                    )}
-                  {canEdit &&
-                    permissions.check(
-                      "publishFeatures",
-                      projectId,
-                      enabledEnvs
-                    ) && (
-                      <Tooltip
-                        shouldDisplay={dependents > 0}
-                        usePortal={true}
-                        body={
-                          <>
-                            <ImBlocked className="text-danger" /> This feature
-                            has{" "}
-                            <strong>
-                              {dependents} dependent{dependents !== 1 && "s"}
-                            </strong>
-                            . This feature cannot be archived until{" "}
-                            {dependents === 1 ? "it has" : "they have"} been
-                            removed.
-                          </>
+                        modalHeader={
+                          isArchived ? "Unarchive Feature" : "Archive Feature"
                         }
-                      >
-                        <ConfirmButton
-                          onClick={async () => {
-                            await apiCall(`/feature/${feature.id}/archive`, {
-                              method: "POST",
-                            });
-                            mutate();
-                          }}
-                          modalHeader={
-                            isArchived ? "Unarchive Feature" : "Archive Feature"
-                          }
-                          confirmationText={
-                            isArchived ? (
-                              <>
-                                <p>
-                                  Are you sure you want to continue? This will
-                                  make the current feature active again.
-                                </p>
-                              </>
-                            ) : (
-                              <>
-                                <p>
-                                  Are you sure you want to continue? This will
-                                  make the current feature inactive. It will not
-                                  be included in API responses or Webhook
-                                  payloads.
-                                </p>
-                              </>
-                            )
-                          }
-                          cta={isArchived ? "Unarchive" : "Archive"}
-                          ctaColor="danger"
-                          disabled={dependents > 0}
-                        >
-                          <button className="dropdown-item">
-                            {isArchived ? "Unarchive" : "Archive"}
-                          </button>
-                        </ConfirmButton>
-                      </Tooltip>
-                    )}
-                  {canEdit &&
-                    permissions.check(
-                      "publishFeatures",
-                      projectId,
-                      enabledEnvs
-                    ) && (
-                      <Tooltip
-                        shouldDisplay={dependents > 0}
-                        usePortal={true}
-                        body={
-                          <>
-                            <ImBlocked className="text-danger" /> This feature
-                            has{" "}
-                            <strong>
-                              {dependents} dependent{dependents !== 1 && "s"}
-                            </strong>
-                            . This feature cannot be deleted until{" "}
-                            {dependents === 1 ? "it has" : "they have"} been
-                            removed.
-                          </>
+                        confirmationText={
+                          isArchived ? (
+                            <>
+                              <p>
+                                Are you sure you want to continue? This will
+                                make the current feature active again.
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <p>
+                                Are you sure you want to continue? This will
+                                make the current feature inactive. It will not
+                                be included in API responses or Webhook
+                                payloads.
+                              </p>
+                            </>
+                          )
                         }
+                        cta={isArchived ? "Unarchive" : "Archive"}
+                        ctaColor="danger"
+                        disabled={dependents > 0}
                       >
-                        <DeleteButton
-                          useIcon={false}
-                          displayName="Feature"
-                          onClick={async () => {
-                            await apiCall(`/feature/${feature.id}`, {
-                              method: "DELETE",
-                            });
-                            router.push("/features");
-                          }}
-                          className="dropdown-item text-danger"
-                          text="Delete"
-                          disabled={dependents > 0}
-                        />
-                      </Tooltip>
-                    )}
+                        <button className="dropdown-item">
+                          {isArchived ? "Unarchive" : "Archive"}
+                        </button>
+                      </ConfirmButton>
+                    </Tooltip>
+                  )}
+                  {canEdit && canPublish && (
+                    <Tooltip
+                      shouldDisplay={dependents > 0}
+                      usePortal={true}
+                      body={
+                        <>
+                          <ImBlocked className="text-danger" /> This feature has{" "}
+                          <strong>
+                            {dependents} dependent{dependents !== 1 && "s"}
+                          </strong>
+                          . This feature cannot be deleted until{" "}
+                          {dependents === 1 ? "it has" : "they have"} been
+                          removed.
+                        </>
+                      }
+                    >
+                      <DeleteButton
+                        useIcon={false}
+                        displayName="Feature"
+                        onClick={async () => {
+                          await apiCall(`/feature/${feature.id}`, {
+                            method: "DELETE",
+                          });
+                          router.push("/features");
+                        }}
+                        className="dropdown-item text-danger"
+                        text="Delete"
+                        disabled={dependents > 0}
+                      />
+                    </Tooltip>
+                  )}
                 </MoreMenu>
               </div>
             </div>
@@ -303,37 +287,31 @@ export default function FeaturesHeader({
                   ) : (
                     <em className="text-muted">None</em>
                   )}
-                  {canEdit &&
-                    permissions.check(
-                      "publishFeatures",
-                      projectId,
-                      enabledEnvs
-                    ) && (
-                      <Tooltip
-                        shouldDisplay={dependents > 0}
-                        body={
-                          <>
-                            <ImBlocked className="text-danger" /> This feature
-                            has{" "}
-                            <strong>
-                              {dependents} dependent{dependents !== 1 && "s"}
-                            </strong>
-                            . The project cannot be changed until{" "}
-                            {dependents === 1 ? "it has" : "they have"} been
-                            removed.
-                          </>
-                        }
+                  {canEdit && canPublish && (
+                    <Tooltip
+                      shouldDisplay={dependents > 0}
+                      body={
+                        <>
+                          <ImBlocked className="text-danger" /> This feature has{" "}
+                          <strong>
+                            {dependents} dependent{dependents !== 1 && "s"}
+                          </strong>
+                          . The project cannot be changed until{" "}
+                          {dependents === 1 ? "it has" : "they have"} been
+                          removed.
+                        </>
+                      }
+                    >
+                      <a
+                        className="ml-2 cursor-pointer"
+                        onClick={() => {
+                          dependents === 0 && setEditProjectModal(true);
+                        }}
                       >
-                        <a
-                          className="ml-2 cursor-pointer"
-                          onClick={() => {
-                            dependents === 0 && setEditProjectModal(true);
-                          }}
-                        >
-                          <GBEdit />
-                        </a>
-                      </Tooltip>
-                    )}
+                        <GBEdit />
+                      </a>
+                    </Tooltip>
+                  )}
                 </div>
               )}
 

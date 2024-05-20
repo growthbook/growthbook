@@ -1,10 +1,9 @@
 import isEqual from "lodash/isEqual";
 import {
   ConditionInterface,
-  ParentConditionInterface,
   FeatureRule as FeatureDefinitionRule,
 } from "@growthbook/growthbook";
-import { includeExperimentInPayload } from "shared/util";
+import { includeExperimentInPayload, isDefined } from "shared/util";
 import {
   FeatureInterface,
   FeatureRule,
@@ -146,6 +145,13 @@ export function isRuleEnabled(rule: FeatureRule): boolean {
 
   // Disabled because of an automatic schedule
   if (!getCurrentEnabledState(rule.scheduleRules || [], new Date())) {
+    return false;
+  }
+
+  // Disable if percent rollout is 0
+  // Fixes a bug in SDKs where ~1 out of 10,000 users would get a feature even if it was set to 0% rollout
+  // If we ever add sticky bucketing to rollouts, we will need to remove this
+  if (rule.type === "rollout" && rule.coverage === 0) {
     return false;
   }
 
@@ -347,7 +353,7 @@ export function getFeatureDefinition({
         ],
       };
     })
-    .filter(Boolean) as FeatureDefinitionRule[];
+    .filter(isDefined);
 
   const isRule = (
     rule: FeatureDefinitionRule | null
@@ -470,7 +476,7 @@ export function getFeatureDefinition({
               condition,
             };
           })
-          .filter(Boolean) as ParentConditionInterface[];
+          .filter(isDefined);
         if (prerequisites?.length) {
           rule.parentConditions = prerequisites;
         }

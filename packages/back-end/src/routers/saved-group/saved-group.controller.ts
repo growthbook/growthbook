@@ -41,10 +41,13 @@ export const postSavedGroup = async (
   req: CreateSavedGroupRequest,
   res: Response<CreateSavedGroupResponse>
 ) => {
-  const { org, userName } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userName } = context;
   const { groupName, owner, attributeKey, values, type, condition } = req.body;
 
-  req.checkPermissions("manageSavedGroups");
+  if (!context.permissions.canCreateSavedGroup()) {
+    context.permissions.throwPermissionError();
+  }
 
   // If this is a condition group, make sure the condition is valid and not empty
   if (type === "condition") {
@@ -117,7 +120,9 @@ export const putSavedGroup = async (
     throw new Error("Must specify saved group id");
   }
 
-  req.checkPermissions("manageSavedGroups");
+  if (!context.permissions.canUpdateSavedGroup()) {
+    context.permissions.throwPermissionError();
+  }
 
   const savedGroup = await getSavedGroupById(id, org.id);
 
@@ -217,10 +222,14 @@ export const deleteSavedGroup = async (
   req: DeleteSavedGroupRequest,
   res: Response<DeleteSavedGroupResponse>
 ) => {
-  req.checkPermissions("manageSavedGroups");
-
   const { id } = req.params;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canCreateSavedGroup()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
 
   const savedGroup = await getSavedGroupById(id, org.id);
 

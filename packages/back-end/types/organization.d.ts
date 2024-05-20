@@ -3,12 +3,17 @@ import {
   ENV_SCOPED_PERMISSIONS,
   GLOBAL_PERMISSIONS,
   PROJECT_SCOPED_PERMISSIONS,
+  Policy,
 } from "shared/permissions";
 import type { ReqContextClass } from "../src/services/context";
 import { attributeDataTypes } from "../src/util/organization.util";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
-import { MetricCappingSettings, MetricWindowSettings } from "./fact-table";
+import {
+  MetricCappingSettings,
+  MetricPriorSettings,
+  MetricWindowSettings,
+} from "./fact-table";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
@@ -38,26 +43,24 @@ export type RequireReview = {
   projects: string[];
 };
 
-export type MemberRole =
+export type DefaultMemberRole =
   | "noaccess"
   | "readonly"
   | "collaborator"
   | "visualEditor"
-  | "designer"
   | "analyst"
-  | "developer"
   | "engineer"
   | "experimenter"
   | "admin";
 
 export type Role = {
-  id: MemberRole;
+  id: string;
   description: string;
-  permissions: Permission[];
+  policies: Policy[];
 };
 
 export interface MemberRoleInfo {
-  role: MemberRole;
+  role: string;
   limitAccessByEnvironment: boolean;
   environments: string[];
   teams?: string[];
@@ -89,6 +92,7 @@ export interface Member extends MemberRoleWithProjects {
   dateCreated?: Date;
   externalId?: string;
   managedByIdp?: boolean;
+  lastLoginDate?: Date;
 }
 
 export interface ExpandedMember extends Member {
@@ -113,6 +117,7 @@ export interface MetricDefaults {
   minPercentageChange?: number;
   windowSettings?: MetricWindowSettings;
   cappingSettings?: MetricCappingSettings;
+  priorSettings?: MetricPriorSettings;
 }
 
 export interface Namespaces {
@@ -128,6 +133,7 @@ export type SDKAttributeType = typeof attributeDataTypes[number];
 export type SDKAttribute = {
   property: string;
   datatype: SDKAttributeType;
+  description?: string;
   hashAttribute?: boolean;
   enum?: string;
   archived?: boolean;
@@ -195,6 +201,9 @@ export interface OrganizationSettings {
   codeReferencesEnabled?: boolean;
   codeRefsBranchesToFilter?: string[];
   codeRefsPlatformUrl?: string;
+  powerCalculatorEnabled?: boolean;
+  featureKeyExample?: string; // Example Key of feature flag (e.g. "feature-20240201-name")
+  featureRegexValidator?: string; // Regex to validate feature flag name (e.g. ^.+-\d{8}-.+$)
 }
 
 export interface SubscriptionQuote {
@@ -270,6 +279,8 @@ export interface OrganizationInterface {
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
   messages?: OrganizationMessage[];
+
+  customRoles?: Role[];
 }
 
 export type NamespaceUsage = Record<

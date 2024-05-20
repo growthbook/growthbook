@@ -214,6 +214,17 @@ Console.WriteLine(value);
       />
     );
   }
+  if (language === "elixir") {
+    return (
+      <Code
+        language="elixir"
+        code={`
+feature = GrowthBook.feature(context, ${JSON.stringify(featureId)})
+IO.inspect(feature.value)
+    `.trim()}
+      />
+    );
+  }
 
   return <em>Depends on your platform</em>;
 }

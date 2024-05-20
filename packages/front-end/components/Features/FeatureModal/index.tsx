@@ -18,10 +18,10 @@ import {
   useEnvironments,
 } from "@/services/features";
 import { useWatching } from "@/services/WatchProvider";
-import usePermissions from "@/hooks/usePermissions";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FeatureValueField from "@/components/Features/FeatureValueField";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -65,13 +65,13 @@ const genEnvironmentSettings = ({
 }: {
   environments: ReturnType<typeof useEnvironments>;
   featureToDuplicate?: FeatureInterface;
-  permissions: ReturnType<typeof usePermissions>;
+  permissions: ReturnType<typeof usePermissionsUtil>;
   project: string;
 }): Record<string, FeatureEnvironment> => {
   const envSettings: Record<string, FeatureEnvironment> = {};
 
   environments.forEach((e) => {
-    const canPublish = permissions.check("publishFeatures", project, [e.id]);
+    const canPublish = permissions.canPublishFeature({ project }, [e.id]);
     const defaultEnabled = canPublish ? e.defaultState ?? true : false;
     const enabled = canPublish
       ? featureToDuplicate?.environmentSettings?.[e.id]?.enabled ??
@@ -87,12 +87,12 @@ const genEnvironmentSettings = ({
 
 const genFormDefaultValues = ({
   environments,
-  permissions,
+  permissions: permissionsUtil,
   featureToDuplicate,
   project,
 }: {
   environments: ReturnType<typeof useEnvironments>;
-  permissions: ReturnType<typeof usePermissions>;
+  permissions: ReturnType<typeof usePermissionsUtil>;
   featureToDuplicate?: FeatureInterface;
   project: string;
 }): Pick<
@@ -108,7 +108,7 @@ const genFormDefaultValues = ({
   const environmentSettings = genEnvironmentSettings({
     environments,
     featureToDuplicate,
-    permissions,
+    permissions: permissionsUtil,
     project,
   });
   return featureToDuplicate
@@ -142,12 +142,12 @@ export default function FeatureModal({
 }: Props) {
   const { project, refreshTags } = useDefinitions();
   const environments = useEnvironments();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
 
   const defaultValues = genFormDefaultValues({
     environments,
-    permissions,
+    permissions: permissionsUtil,
     featureToDuplicate,
     project,
   });
@@ -171,7 +171,11 @@ export default function FeatureModal({
   let ctaEnabled = true;
   let disabledMessage: string | undefined;
 
-  if (!permissions.check("createFeatureDrafts", project)) {
+  if (
+    !permissionsUtil.canManageFeatureDrafts({
+      project: featureToDuplicate?.project ?? project,
+    })
+  ) {
     ctaEnabled = false;
     disabledMessage =
       "You don't have permission to create feature flag drafts.";

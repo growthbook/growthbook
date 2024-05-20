@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
-import { hasReadAccess } from "shared/permissions";
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -85,7 +84,7 @@ export async function getDataSourcesByOrganization(
   const datasources = docs.map(toInterface);
 
   return datasources.filter((ds) =>
-    hasReadAccess(context.readAccessFilter, ds.projects || [])
+    context.permissions.canReadMultiProjectResource(ds.projects)
   );
 }
 
@@ -109,7 +108,7 @@ export async function getDataSourceById(
 
   const datasource = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, datasource.projects)
+  return context.permissions.canReadMultiProjectResource(datasource.projects)
     ? datasource
     : null;
 }
@@ -157,7 +156,7 @@ export async function deleteAllDataSourcesForAProject({
 }
 
 export async function createDataSource(
-  organization: string,
+  context: ReqContext,
   name: string,
   type: DataSourceType,
   params: DataSourceParams,
@@ -185,7 +184,7 @@ export async function createDataSource(
     id,
     name,
     description,
-    organization,
+    organization: context.org.id,
     type,
     settings,
     dateCreated: new Date(),
@@ -194,10 +193,11 @@ export async function createDataSource(
     projects,
   };
 
-  await testDataSourceConnection(datasource);
+  await testDataSourceConnection(context, datasource);
 
   // Add any missing exposure query ids and check query validity
   settings = await validateExposureQueriesAndAddMissingIds(
+    context,
     datasource,
     settings,
     true
@@ -207,12 +207,12 @@ export async function createDataSource(
     datasource
   )) as DataSourceDocument;
 
-  const integration = getSourceIntegrationObject(datasource);
+  const integration = getSourceIntegrationObject(context, datasource);
   if (
     integration.getInformationSchema &&
     integration.getSourceProperties().supportsInformationSchema
   ) {
-    await queueCreateInformationSchema(datasource.id, organization);
+    await queueCreateInformationSchema(datasource.id, context.org.id);
   }
 
   return toInterface(model);
@@ -220,6 +220,7 @@ export async function createDataSource(
 
 // Add any missing exposure query ids and validate any new, changed, or previously errored queries
 export async function validateExposureQueriesAndAddMissingIds(
+  context: ReqContext,
   datasource: DataSourceInterface,
   updates: Partial<DataSourceSettings>,
   forceCheckValidity: boolean = false
@@ -245,7 +246,7 @@ export async function validateExposureQueriesAndAddMissingIds(
           }
         }
         if (checkValidity) {
-          const integration = getSourceIntegrationObject(datasource);
+          const integration = getSourceIntegrationObject(context, datasource);
           exposure.error = await testQueryValidity(integration, exposure);
         }
       })
@@ -277,6 +278,7 @@ export async function updateDataSource(
 
   if (updates.settings) {
     updates.settings = await validateExposureQueriesAndAddMissingIds(
+      context,
       datasource,
       updates.settings
     );

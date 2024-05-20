@@ -8,11 +8,14 @@ import { pick, sortBy } from "lodash";
 import AsyncLock from "async-lock";
 import { stringToBoolean } from "shared/util";
 import { ProxyAgent } from "proxy-agent";
-import { LicenseModel } from "./models/licenseModel";
+import { getLicenseByKey, LicenseModel } from "./models/licenseModel";
 
 export const LICENSE_SERVER_URL =
   process.env.LICENSE_SERVER_URL ||
   "https://central_license_server.growthbook.io/api/v1/";
+
+// mimic behavior in back-end/src/util/secrets.ts
+const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
 
 const logger = pino();
 
@@ -55,6 +58,7 @@ export type CommercialFeature =
   | "prerequisite-targeting"
   | "redirects"
   | "multiple-sdk-webhooks"
+  | "custom-roles"
   | "quantile-metrics";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -70,7 +74,7 @@ export interface LicenseInterface {
   email: string; // Billing email of the person who signed up for the license
   emailVerified: boolean; // True if the email has been verified
   isTrial: boolean; // True if this is a trial license
-  plan: AccountPlan; // The assigned plan (pro, enterprise, etc.) for this license
+  plan?: AccountPlan; // The assigned plan (pro, enterprise, etc.) for this license
   seatsInUse: number; // Number of seats currently in use
   remoteDowngrade: boolean; // True if the license was downgraded remotely
   message?: {
@@ -102,6 +106,9 @@ export interface LicenseInterface {
   archived: boolean; // True if this license has been deleted/archived
   dateUpdated: string; // Date the license was last updated
   usingMongoCache: boolean; // True if the license data was retrieved from the cache
+  firstFailedFetchDate?: Date; // Date of the first failed fetch
+  lastFailedFetchDate?: Date; // Date of the last failed fetch
+  lastServerErrorMessage?: string; // The last error message from a failed fetch
   signedChecksum: string; // Checksum of the license data signed with the private key
 }
 
@@ -207,6 +214,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "redirects",
     "multiple-sdk-webhooks",
     "quantile-metrics",
+    "custom-roles",
   ]),
 };
 
@@ -278,7 +286,12 @@ function getVerifiedLicenseData(key: string): Partial<LicenseInterface> {
     .split(".")
     .map((s) => Buffer.from(s, "base64url"));
 
-  const decodedLicense: LicenseData = JSON.parse(license.toString());
+  let decodedLicense: LicenseData;
+  try {
+    decodedLicense = JSON.parse(license.toString());
+  } catch {
+    throw new Error("Could not parse license");
+  }
 
   // Support old way of storing expiration date
   decodedLicense.exp = decodedLicense.exp || decodedLicense.eat || "";
@@ -330,6 +343,15 @@ function getVerifiedLicenseData(key: string): Partial<LicenseInterface> {
 }
 
 function verifyLicenseInterface(license: LicenseInterface) {
+  if (
+    license.usingMongoCache &&
+    license.firstFailedFetchDate &&
+    !license.signedChecksum
+  ) {
+    // If there has never been a successful fetch, don't verify the license, it just contains the server error message
+    return;
+  }
+
   const publicKey = getPublicKey();
 
   // In order to verify the license key, we need to strip out the fields that are not part of the signed license data
@@ -410,7 +432,13 @@ async function callLicenseServer(url: string, body: string, method = "POST") {
   }
 
   if (!serverResult.ok) {
-    const errorText = await serverResult.text();
+    let errorText = await serverResult.text();
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorText = errorJson.error;
+    } catch (e) {
+      // errorText is not valid JSON, so do nothing and keep the original text
+    }
     logger.error(`License Server error (${serverResult.status}): ${errorText}`);
     throw new LicenseServerError(
       `License server errored with: ${errorText}`,
@@ -449,7 +477,7 @@ export async function postNewProTrialSubscriptionToLicenseServer(
       name,
       email,
       seats,
-      appOrigin: process.env.APP_ORIGIN,
+      appOrigin: APP_ORIGIN,
       cloudSecret: process.env.CLOUD_SECRET,
     })
   );
@@ -467,7 +495,7 @@ export async function postNewProSubscriptionToLicenseServer(
   return callLicenseServer(
     url,
     JSON.stringify({
-      appOrigin: process.env.APP_ORIGIN,
+      appOrigin: APP_ORIGIN,
       cloudSecret: process.env.CLOUD_SECRET,
       organizationId,
       companyName,
@@ -498,7 +526,7 @@ export async function postCreateBillingSessionToLicenseServer(
   return await callLicenseServer(
     url,
     JSON.stringify({
-      appOrigin: process.env.APP_ORIGIN,
+      appOrigin: APP_ORIGIN,
       licenseId,
     })
   );
@@ -517,7 +545,7 @@ export async function postSubscriptionUpdateToLicenseServer(
     })
   );
 
-  setAndVerifyServerLicenseData(license);
+  verifyAndSetServerLicenseData(license);
   return license;
 }
 
@@ -543,7 +571,7 @@ export async function postCreateTrialEnterpriseLicenseToLicenseServer(
       organizationId,
       companyName,
       context,
-      appOrigin: process.env.APP_ORIGIN,
+      appOrigin: APP_ORIGIN,
       cloudSecret: process.env.CLOUD_SECRET,
     })
   );
@@ -557,26 +585,24 @@ export async function postResendEmailVerificationEmailToLicenseServer(
     url,
     JSON.stringify({
       organizationId,
-      appOrigin: process.env.APP_ORIGIN,
+      appOrigin: APP_ORIGIN,
     })
   );
 }
 
-// Creates or updates the license in the MongoDB cache in case the license server goes down.
-async function createOrUpdateLicenseMongoCache(license: LicenseInterface) {
-  await LicenseModel.findOneAndUpdate(
-    { id: license.id },
-    { $set: license },
-    { upsert: true }
-  );
+// Creates or replaces the license in the MongoDB cache in case the license server goes down.
+async function createOrReplaceLicenseMongoCache(license: LicenseInterface) {
+  await LicenseModel.findOneAndReplace({ id: license.id }, license, {
+    upsert: true,
+  });
 }
 
-// Updates the local daily cache, the one week backup Mongo cache, and verifies the license.
-export function setAndVerifyServerLicenseData(license: LicenseInterface) {
+// Updates the in memory cache, the one week backup Mongo cache, and verifies the license.
+export function verifyAndSetServerLicenseData(license: LicenseInterface) {
   verifyLicenseInterface(license);
   keyToLicenseData[license.id] = license;
   keyToCacheDate[license.id] = new Date();
-  createOrUpdateLicenseMongoCache(license).catch((e) => {
+  createOrReplaceLicenseMongoCache(license).catch((e) => {
     logger.error(`Error creating mongo cache: ${e}`);
     throw e;
   });
@@ -602,6 +628,45 @@ async function getLicenseDataFromServer(
   return license;
 }
 
+async function updateLicenseFromServer(
+  licenseKey: string,
+  userLicenseCodes: string[],
+  metaData: LicenseMetaData,
+  mongoCache: LicenseInterface | null
+) {
+  let license: LicenseInterface;
+  try {
+    license = await getLicenseDataFromServer(
+      licenseKey,
+      userLicenseCodes,
+      metaData
+    );
+    verifyAndSetServerLicenseData(license);
+  } catch (e) {
+    // attach error data to the cache so we know how long the server has been down for
+    const now = new Date();
+    if (mongoCache === null) {
+      // We are erroring on first attempt ever to fetch the license. We record the error
+      // data so that we can show the error message to the user.
+      license = {
+        id: licenseKey,
+        firstFailedFetchDate: now,
+      } as LicenseInterface;
+    } else {
+      license = mongoCache;
+      if (!license.firstFailedFetchDate) {
+        license.firstFailedFetchDate = now;
+      }
+    }
+    license.lastFailedFetchDate = now;
+    license.lastServerErrorMessage = e.message;
+    license.usingMongoCache = true;
+    verifyAndSetServerLicenseData(license);
+    throw e;
+  }
+  return license;
+}
+
 export interface LicenseMetaData {
   installationId: string;
   gitSha: string;
@@ -618,6 +683,8 @@ const lock = new AsyncLock();
 const keyToLicenseData: Record<string, Partial<LicenseInterface>> = {};
 const keyToCacheDate: Record<string, Date> = {};
 
+export let backgroundUpdateLicenseFromServerForTests: Promise<void | LicenseInterface>;
+
 export async function licenseInit(
   licenseKey?: string,
   userLicenseCodes?: string[],
@@ -631,6 +698,7 @@ export async function licenseInit(
   }
 
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
 
   // When hitting a page for a new license we often make many simulataneous requests
   // By acquiring a lock we make sure to only call the license server once, the remaining
@@ -643,7 +711,7 @@ export async function licenseInit(
       if (
         forceRefresh ||
         !keyToLicenseData[key] ||
-        (keyToCacheDate[key] !== null && keyToCacheDate[key] <= oneDayAgo)
+        (keyToCacheDate[key] !== null && keyToCacheDate[key] <= oneMinuteAgo)
       ) {
         if (!isAirGappedLicenseKey(key)) {
           if (!userLicenseCodes || !metaData) {
@@ -653,48 +721,41 @@ export async function licenseInit(
           }
 
           let license: LicenseInterface;
-          const mongoCache = await LicenseModel.findOne({ id: key });
-          const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // 7 days
+          const mongoCache = await getLicenseByKey(key);
+          const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
           if (
-            !forceRefresh &&
-            mongoCache &&
-            new Date(mongoCache?.dateUpdated) > oneDayAgo
+            forceRefresh ||
+            !mongoCache ||
+            !mongoCache.dateUpdated || // If the first call to get the license errors, the cache will be created with no dateUpdated
+            new Date(mongoCache.dateUpdated) < oneWeekAgo
           ) {
-            license = mongoCache.toJSON();
+            license = await updateLicenseFromServer(
+              key,
+              userLicenseCodes,
+              metaData,
+              mongoCache
+            );
           } else {
-            try {
-              license = await getLicenseDataFromServer(
+            // Use the cache
+            license = mongoCache;
+            license.usingMongoCache = true;
+            verifyLicenseInterface(license);
+            keyToLicenseData[key] = license;
+            keyToCacheDate[key] = new Date();
+            if (new Date(mongoCache.dateUpdated) < oneDayAgo) {
+              // But if it is older than a day update it in the background
+              backgroundUpdateLicenseFromServerForTests = updateLicenseFromServer(
                 key,
                 userLicenseCodes,
-                metaData
-              );
-              createOrUpdateLicenseMongoCache(license).catch((e) => {
-                logger.error(`Error creating mongo cache: ${e}`);
-                throw e;
+                metaData,
+                mongoCache
+              ).catch((e) => {
+                logger.error(
+                  `Failed to update license ${key} in the background: ${e}`
+                );
               });
-            } catch (e) {
-              if (
-                mongoCache &&
-                new Date(mongoCache?.dateUpdated) > oneWeekAgo
-              ) {
-                logger.warn(
-                  "Could not connect to license server. Falling back to cache."
-                );
-                license = mongoCache.toJSON();
-              } else if (mongoCache) {
-                throw new Error(
-                  "License server is not working and cached license data is too old"
-                );
-              } else {
-                throw e;
-              }
             }
           }
-
-          verifyLicenseInterface(license);
-
-          keyToLicenseData[key] = license;
-          keyToCacheDate[key] = new Date();
         } else {
           // Old style: the key itself has the encrypted license data in it.
           keyToLicenseData[key] = getVerifiedLicenseData(key);
@@ -756,15 +817,42 @@ export function getLicenseError(org: MinimalOrganization): string {
   const licenseData = getLicense(key);
 
   // If there is no license it can't have an error
-  // Licenses might not have a plan if sign up for pro, but abandon checkout
+  // Licenses might not have a plan if sign up for pro, but abandon checkout, in which case we don't want to show an error
+  // Or it might not have a plan if the license is set in the env var but the license server wasn't whitelisted, in which case we do want to show the error
   if (!licenseData || !licenseData.plan) {
+    if (licenseData?.lastServerErrorMessage?.includes("Could not connect")) {
+      return "License server unreachable for too long";
+    } else if (licenseData?.lastServerErrorMessage) {
+      return "License server erroring for too long";
+    }
     return "";
   }
 
   if (licenseData.usingMongoCache && licenseData.dateUpdated) {
-    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    if (new Date(licenseData.dateUpdated) < oneWeekAgo) {
-      return "License server down for too long";
+    const dateUpdated = new Date(licenseData.dateUpdated);
+
+    let cachedDataGoodUntil = new Date(
+      dateUpdated.getTime() + 7 * 24 * 60 * 60 * 1000
+    );
+    if (
+      licenseData.firstFailedFetchDate &&
+      licenseData.firstFailedFetchDate < cachedDataGoodUntil
+    ) {
+      // As long as the first failed fetch date is within the last week, we allow the cache to be used for seven days from the first failed fetch
+      cachedDataGoodUntil = new Date(
+        licenseData.firstFailedFetchDate.getTime() + 7 * 24 * 60 * 60 * 1000
+      );
+    }
+
+    if (new Date() > cachedDataGoodUntil) {
+      if (
+        !licenseData?.lastServerErrorMessage ||
+        licenseData?.lastServerErrorMessage?.includes("Could not connect")
+      ) {
+        return "License server unreachable for too long";
+      } else {
+        return "License server erroring for too long";
+      }
     }
   }
 

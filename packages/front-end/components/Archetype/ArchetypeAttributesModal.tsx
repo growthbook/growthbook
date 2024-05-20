@@ -6,7 +6,7 @@ import AttributeForm from "@/components/Archetype/AttributeForm";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Modal from "@/components/Modal";
 
 const ArchetypeAttributesModal: FC<{
@@ -28,8 +28,10 @@ const ArchetypeAttributesModal: FC<{
     },
   });
   const { apiCall } = useAuth();
-  const permissions = usePermissions();
-  const hasPermissionToAddEditArchetypes = permissions.check("manageArchetype");
+  const permissionsUtil = usePermissionsUtil();
+  const hasPermissionToAddEditArchetypes =
+    permissionsUtil.canCreateArchetype() ||
+    permissionsUtil.canUpdateArchetype();
 
   return (
     <Modal

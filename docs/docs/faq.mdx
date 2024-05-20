@@ -65,13 +65,7 @@ The recommended way to run an A/B test is by using Feature Flags and our SDKs.
 
 ## What is the best way to redirect users to a URL based on their experiment variation?
 
-Experimenters often want to display different URLs to different users. Unfortunately, waiting to look up a user's experiment variation and rendering a page accordingly can lead to undesirable effects like flickering in the user interface. If only one of the variations suffers from flickering or a delay in loading, these problems can also lead to bias.
-
-In general, we suggest three approaches, ranked from the least risky to the most risky in terms of user experience and potential bias:
-
-1. Render page A or page B conditionally using the GrowthBook SDK within the backend controller logic or middleware layer. This method is quick, unbiased, and avoids any flickering or sudden redirection.
-2. Render page A or page B conditionally using the GrowthBook JS SDK on the front-end. This option is nearly as good as the first one, and while you might be able to implement this without any flickering for users, it might have a slight loading delay. It can be unbiased if both pages A and B result in the same loading delay.
-3. Perform front-end redirection using JS code snippets in the visual editor with the command `window.location.href="mytarget.html"`. This approach is problematic but can be acceptable if executed carefully. It introduces noticeable flickering before and after redirection. For fairness, it's best to initiate the redirection from a neutral or minimally loaded page for both variations A and B. This helps avoid introducing bias—for instance, preventing a scenario where page A appears more favorable simply because it loaded faster due to the implementation of the experiment.
+You can now easily set up URL Redirect experiments within GrowthBook and customize navigation depending on your application. Read more about running a URL Redirect experiment [here](/app/url-redirects).
 
 ## How much traffic do I need to run A/B tests?
 
@@ -159,6 +153,62 @@ When you create an SDK connection, it is linked to a specific environment. You c
 ## How do I disable the on-screen celebrations?
 
 Throughout the GrowthBook application, we randomly celebrate key milestones like launching experiments with on-screen confetti. If you'd like to disable this, you can click on your avatar in the top right corner and select "Edit Profile". From there, you can disable the toggle for "Allow Celebrations". Please note this is persisted in your browser's local storage, so if you clear your browser's local storage, you will need to disable this again.
+
+## How do I make my own identifier?
+
+There are cases when using feature flags client side where the 3rd party identifiers used for assignment will be slow to
+load, and may cause flickering as some of the DOM rerenders. In these cases, generating your
+own identifier will make sure that features are assigned correctly when GrowthBook loads. This id that is generated will
+typically align one to one with the other identifiers, and does not need to be passed outside the SDK (though can be
+useful for debugging to pass this value in the trackingCallback).
+
+The code below can be used to generate a unique user id and save it in a cookie for the maximum amount of time allowed.
+Note, this technique is already included with our HTML/no-code SDK. Please be aware
+of any cookie policies this code may impact. This id will be unique to the browser and not the user, so if a
+user switches devices, they will have a different id.
+
+```js
+const getUUID = () => {
+  const COOKIE_NAME = "gbuuid";
+  const COOKIE_DAYS = 400; // 400 days is the max cookie duration for chrome
+
+  // use the browsers crypto.randomUUID if set
+  const genUUID = () => {
+    if(window?.crypto?.randomUUID) return window.crypto.randomUUID();
+    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+      (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+    );
+  }
+  const getCookie = (name) => {
+    let value = `; ${document.cookie}`;
+    let parts = value.split(`; ${name}=`);
+    if (parts.length === 2) {
+      let existing = parts.pop().split(';').shift();
+      setCookie(name, existing);
+      return existing;
+    }
+  }
+  const setCookie = (name, value) => {
+    var d = new Date();
+    d.setTime(d.getTime() + 24*60*60*1000*COOKIE_DAYS);
+    document.cookie = name + "=" + value + ";path=/;expires=" + d.toGMTString();
+  }
+
+  // get the existing UUID from cookie if set, otherwise create one and store it in the cookie
+  let existing = getCookie(COOKIE_NAME);
+  if(existing) return existing;
+
+  const uuid = genUUID();
+  setCookie(COOKIE_NAME, uuid);
+  return uuid;
+}
+```
+
+Below is the same code, minified:
+
+```js
+const getUUID=()=>{const a=(a,b)=>{var c=new Date;c.setTime(c.getTime()+86400000*400),document.cookie=a+"="+b+";path=/;expires="+c.toGMTString()};let b=(b=>{let c=`; ${document.cookie}`,d=c.split(`; ${b}=`);if(2===d.length){let c=d.pop().split(";").shift();return a(b,c),c}})("gbuuid");if(b)return b;const c=(()=>window?.crypto?.randomUUID?window.crypto.randomUUID():"10000000-1000-4000-8000-100000000000".replace(/[018]/g,a=>(a^crypto.getRandomValues(new Uint8Array(1))[0]&15>>a/4).toString(16)))();return a("gbuuid",c),c};
+```
 
 ---
 

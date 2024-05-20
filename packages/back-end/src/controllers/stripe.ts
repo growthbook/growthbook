@@ -30,10 +30,10 @@ import { logger } from "../util/logger";
 import { updateOrganization } from "../models/OrganizationModel";
 import { initializeLicenseForOrg } from "../services/licenseData";
 
-function withLicenseServerErrorHandling(
-  fn: (req: AuthRequest, res: Response) => Promise<void>
+function withLicenseServerErrorHandling<T>(
+  fn: (req: AuthRequest<T>, res: Response) => Promise<void>
 ) {
-  return async (req: AuthRequest, res: Response) => {
+  return async (req: AuthRequest<T>, res: Response) => {
     try {
       return await fn(req, res);
     } catch (e) {
@@ -54,11 +54,15 @@ export const postNewProTrialSubscription = withLicenseServerErrorHandling(
     req: AuthRequest<{ name: string; email?: string }>,
     res: Response
   ) {
-    req.checkPermissions("manageBilling");
-
     const { name: nameFromForm, email: emailFromForm } = req.body;
 
-    const { org, userName, email } = getContextFromReq(req);
+    const context = getContextFromReq(req);
+
+    const { org, userName, email } = context;
+
+    if (!context.permissions.canManageBilling()) {
+      context.permissions.throwPermissionError();
+    }
 
     const qty = getNumberOfUniqueMembersAndInvites(org);
 
@@ -84,15 +88,19 @@ export const postNewProTrialSubscription = withLicenseServerErrorHandling(
 
 export const postNewProSubscription = withLicenseServerErrorHandling(
   async function (req: AuthRequest<{ returnUrl: string }>, res: Response) {
-    req.checkPermissions("manageBilling");
-
     let { returnUrl } = req.body;
 
     if (returnUrl?.[0] !== "/") {
       returnUrl = "/settings/billing";
     }
 
-    const { org, userName } = getContextFromReq(req);
+    const context = getContextFromReq(req);
+
+    if (!context.permissions.canManageBilling()) {
+      context.permissions.throwPermissionError();
+    }
+
+    const { org, userName } = context;
 
     const qty = getNumberOfUniqueMembersAndInvites(org);
 
@@ -111,9 +119,13 @@ export const postNewProSubscription = withLicenseServerErrorHandling(
 );
 
 export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
-  req.checkPermissions("manageBilling");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
 
   let discountAmount, discountMessage, unitPrice, currentSeatsPaidFor;
 
@@ -160,9 +172,13 @@ export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
 
 export const postCreateBillingSession = withLicenseServerErrorHandling(
   async function (req: AuthRequest, res: Response) {
-    req.checkPermissions("manageBilling");
+    const context = getContextFromReq(req);
 
-    const { org } = getContextFromReq(req);
+    if (!context.permissions.canManageBilling()) {
+      context.permissions.throwPermissionError();
+    }
+
+    const { org } = context;
 
     const license = await getLicense(org.licenseKey);
 
@@ -198,8 +214,13 @@ export const postSubscriptionSuccess = withLicenseServerErrorHandling(
     req: AuthRequest<{ checkoutSessionId: string }>,
     res: Response
   ) {
-    req.checkPermissions("manageBilling");
-    const { org } = getContextFromReq(req);
+    const context = getContextFromReq(req);
+
+    if (!context.permissions.canManageBilling()) {
+      context.permissions.throwPermissionError();
+    }
+
+    const { org } = context;
     const result = await postNewSubscriptionSuccessToLicenseServer(
       req.body.checkoutSessionId
     );

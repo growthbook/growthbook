@@ -5,6 +5,10 @@ import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import { ColumnRef, FactTableInterface } from "back-end/types/fact-table";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { quantileMetricType } from "shared/experiments";
+import {
+  DEFAULT_LOSE_RISK_THRESHOLD,
+  DEFAULT_WIN_RISK_THRESHOLD,
+} from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCuped, GBEdit } from "@/components/Icons";
@@ -21,16 +25,14 @@ import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";
 import RightRailSection from "@/components/Layout/RightRailSection";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import {
-  defaultLoseRiskThreshold,
-  defaultWinRiskThreshold,
-  getPercentileLabel,
-} from "@/services/metrics";
+import { getPercentileLabel } from "@/services/metrics";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
+import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -180,6 +182,7 @@ export default function FactMetricPage() {
 
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
+  const [editOwnerModal, setEditOwnerModal] = useState(false);
 
   const { apiCall } = useAuth();
 
@@ -188,6 +191,7 @@ export default function FactMetricPage() {
   const settings = useOrgSettings();
 
   const {
+    metricDefaults,
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
@@ -216,9 +220,10 @@ export default function FactMetricPage() {
   }
 
   const canEdit =
-    permissionsUtil.canUpdateMetric(factMetric, {}) && !factMetric.managedBy;
+    permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
+    !factMetric.managedBy;
   const canDelete =
-    permissionsUtil.canDeleteMetric(factMetric) && !factMetric.managedBy;
+    permissionsUtil.canDeleteFactMetric(factMetric) && !factMetric.managedBy;
 
   let regressionAdjustmentAvailableForMetric = true;
   let regressionAdjustmentAvailableForMetricReason = <></>;
@@ -252,6 +257,19 @@ export default function FactMetricPage() {
           }}
           mutate={mutateDefinitions}
           entityName="Metric"
+        />
+      )}
+      {editOwnerModal && (
+        <EditOwnerModal
+          cancel={() => setEditOwnerModal(false)}
+          owner={factMetric.owner}
+          save={async (owner) => {
+            await apiCall(`/fact-metrics/${factMetric.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ owner }),
+            });
+          }}
+          mutate={mutateDefinitions}
         />
       )}
       {editTagsModal && (
@@ -342,6 +360,17 @@ export default function FactMetricPage() {
             <a
               className="ml-1 cursor-pointer"
               onClick={() => setEditTagsModal(true)}
+            >
+              <GBEdit />
+            </a>
+          )}
+        </div>
+        <div className="col-auto">
+          Owner:{` ${factMetric.owner ?? ""}`}
+          {canEdit && (
+            <a
+              className="ml-1 cursor-pointer"
+              onClick={() => setEditOwnerModal(true)}
             >
               <GBEdit />
             </a>
@@ -597,7 +626,7 @@ export default function FactMetricPage() {
                     <span className="text-gray">Acceptable risk &lt;</span>{" "}
                     <span className="font-weight-bold">
                       {factMetric?.winRisk * 100 ||
-                        defaultWinRiskThreshold * 100}
+                        DEFAULT_WIN_RISK_THRESHOLD * 100}
                       %
                     </span>
                   </li>
@@ -605,12 +634,17 @@ export default function FactMetricPage() {
                     <span className="text-gray">Unacceptable risk &gt;</span>{" "}
                     <span className="font-weight-bold">
                       {factMetric?.loseRisk * 100 ||
-                        defaultLoseRiskThreshold * 100}
+                        DEFAULT_LOSE_RISK_THRESHOLD * 100}
                       %
                     </span>
                   </li>
                 </ul>
               </RightRailSectionGroup>
+
+              <MetricPriorRightRailSectionGroup
+                metric={factMetric}
+                metricDefaults={metricDefaults}
+              />
 
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-2">
@@ -618,9 +652,6 @@ export default function FactMetricPage() {
                     <span className="uppercase-title lg">
                       <GBCuped size={14} /> Regression Adjustment (CUPED)
                     </span>
-                    <small className="d-block mb-1 text-muted">
-                      Only applicable to frequentist analyses
-                    </small>
                   </li>
                   {!regressionAdjustmentAvailableForMetric ? (
                     <li className="mb-2">

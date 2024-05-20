@@ -1,6 +1,6 @@
 import { Response } from "express";
-import { getAffectedEnvsForExperiment } from "shared/util";
 import { orgHasPremiumFeature } from "enterprise";
+import { ExperimentInterface } from "@back-end/types/experiment";
 import { getContextFromReq } from "../services/organizations";
 import { AuthRequest } from "../types/AuthRequest";
 import {
@@ -17,11 +17,14 @@ export async function postExperimentLaunchChecklist(
   req: AuthRequest<{ tasks: ChecklistTask[]; projectId?: string }>,
   res: Response
 ) {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
+  const { org, userId } = context;
 
   const { tasks, projectId } = req.body;
-
-  req.checkPermissions("organizationSettings");
 
   if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
     throw new Error(
@@ -83,12 +86,14 @@ export async function putExperimentLaunchChecklist(
   req: AuthRequest<{ tasks: ChecklistTask[] }, { id: string }>,
   res: Response
 ) {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  if (!context.permissions.canManageOrgSettings()) {
+    context.permissions.throwPermissionError();
+  }
+  const { org, userId } = context;
   const { tasks } = req.body;
 
   const { id } = req.params;
-
-  req.checkPermissions("organizationSettings");
 
   if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
     throw new Error(
@@ -124,20 +129,24 @@ export async function putManualLaunchChecklist(
   const { id } = req.params;
   const { checklist } = req.body;
 
+  const changes: Partial<ExperimentInterface> = {
+    manualLaunchChecklist: checklist,
+  };
+
   const experiment = await getExperimentById(context, id);
 
   if (!experiment) {
     throw new Error("Could not find experiment");
   }
 
-  const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
-
-  req.checkPermissions("runExperiments", experiment?.project || "", envs);
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+    context.permissions.throwPermissionError();
+  }
 
   await updateExperiment({
     context,
     experiment,
-    changes: { manualLaunchChecklist: checklist },
+    changes,
   });
 
   await req.audit({

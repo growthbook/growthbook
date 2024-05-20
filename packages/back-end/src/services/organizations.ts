@@ -4,9 +4,15 @@ import { cloneDeep } from "lodash";
 import { Request } from "express";
 import {
   getLicense,
+  isActiveSubscriptionStatus,
   isAirGappedLicenseKey,
   postSubscriptionUpdateToLicenseServer,
 } from "enterprise";
+import {
+  areProjectRolesValid,
+  isRoleValid,
+  getDefaultRole,
+} from "shared/permissions";
 import {
   createOrganization,
   findAllOrganizations,
@@ -22,7 +28,6 @@ import {
   ExpandedMember,
   Invite,
   Member,
-  MemberRole,
   MemberRoleInfo,
   MemberRoleWithProjects,
   OrganizationInterface,
@@ -52,7 +57,6 @@ import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 import { logger } from "../util/logger";
-import { getDefaultRole } from "../util/organization.util";
 import { SegmentInterface } from "../../types/segment";
 import {
   createSegment,
@@ -62,7 +66,6 @@ import {
 import { getAllExperiments } from "../models/ExperimentModel";
 import { LegacyExperimentPhase } from "../../types/experiment";
 import { addTags } from "../models/TagModel";
-import { markInstalled } from "./auth";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -258,7 +261,10 @@ async function updateSubscriptionIfProLicense(
     !isAirGappedLicenseKey(organization.licenseKey)
   ) {
     const license = await getLicense(organization.licenseKey);
-    if (license?.plan === "pro") {
+    if (
+      license?.plan === "pro" &&
+      isActiveSubscriptionStatus(license?.stripeSubscription?.status)
+    ) {
       // Only pro plans have a Stripe subscription that needs to get updated
       const seatsInUse = getNumberOfUniqueMembersAndInvites(organization);
       await postSubscriptionUpdateToLicenseServer(
@@ -281,7 +287,7 @@ export async function addMemberToOrg({
 }: {
   organization: OrganizationInterface;
   userId: string;
-  role: MemberRole;
+  role: string;
   limitAccessByEnvironment: boolean;
   environments: string[];
   projectRoles?: ProjectMemberRole[];
@@ -295,6 +301,14 @@ export async function addMemberToOrg({
   // If member is also a pending member, remove
   let pendingMembers: PendingMember[] = organization?.pendingMembers || [];
   pendingMembers = pendingMembers.filter((m) => m.id !== userId);
+
+  // Ensure roles are valid
+  if (
+    !isRoleValid(role, organization) ||
+    !areProjectRolesValid(projectRoles, organization)
+  ) {
+    throw new Error("Invalid role");
+  }
 
   const members: Member[] = [
     ...organization.members,
@@ -401,7 +415,7 @@ export async function addPendingMemberToOrg({
   name: string;
   userId: string;
   email: string;
-  role: MemberRole;
+  role: string;
   limitAccessByEnvironment: boolean;
   environments: string[];
   projectRoles?: ProjectMemberRole[];
@@ -413,6 +427,14 @@ export async function addPendingMemberToOrg({
   // If member is also a pending member, skip
   if (organization?.pendingMembers?.find((m) => m.id === userId)) {
     return;
+  }
+
+  // Ensure roles are valid
+  if (
+    !isRoleValid(role, organization) ||
+    !areProjectRolesValid(projectRoles, organization)
+  ) {
+    throw new Error("Invalid role");
   }
 
   const pendingMembers: PendingMember[] = [
@@ -465,6 +487,8 @@ export async function acceptInvite(key: string, userId: string) {
       role: invite.role || "admin",
       limitAccessByEnvironment: !!invite.limitAccessByEnvironment,
       environments: invite.environments || [],
+      projectRoles: invite.projectRoles,
+      teams: invite.teams,
       dateCreated: new Date(),
     },
   ];
@@ -501,6 +525,14 @@ export async function inviteUser({
         organization.invites.filter((invite) => invite.email === email)[0].key
       ),
     };
+  }
+
+  // Ensure roles are valid
+  if (
+    !isRoleValid(role, organization) ||
+    !areProjectRolesValid(projectRoles, organization)
+  ) {
+    throw new Error("Invalid role");
   }
 
   // Generate random key for invite
@@ -562,7 +594,7 @@ function validateId(id: string) {
   }
 }
 
-function validateConfig(config: ConfigFile, organizationId: string) {
+function validateConfig(context: ReqContext, config: ConfigFile) {
   const errors: string[] = [];
 
   const datasourceIds: string[] = [];
@@ -577,11 +609,11 @@ function validateConfig(config: ConfigFile, organizationId: string) {
         const { params, ...props } = ds;
 
         // This will throw an error if something required is missing
-        getSourceIntegrationObject({
+        getSourceIntegrationObject(context, {
           ...props,
           params: encryptParams(params),
           id: k,
-          organization: organizationId,
+          organization: context.org.id,
           dateCreated: new Date(),
           dateUpdated: new Date(),
         } as DataSourceInterface);
@@ -640,7 +672,7 @@ export async function importConfig(
   config: ConfigFile
 ) {
   const organization = context.org;
-  const errors = validateConfig(config, organization.id);
+  const errors = validateConfig(context, config);
   if (errors.length > 0) {
     throw new Error(errors.join("\n"));
   }
@@ -669,7 +701,7 @@ export async function importConfig(
             let params = existing.params;
             // If params are changing, merge them with existing and test the connection
             if (ds.params) {
-              const integration = getSourceIntegrationObject(existing);
+              const integration = getSourceIntegrationObject(context, existing);
               mergeParams(integration, ds.params);
               await integration.testConnection();
               params = encryptParams(integration.params);
@@ -696,7 +728,7 @@ export async function importConfig(
             await updateDataSource(context, existing, updates);
           } else {
             await createDataSource(
-              organization.id,
+              context,
               ds.name || k,
               ds.type,
               ds.params,
@@ -935,7 +967,6 @@ export async function addMemberFromSSOConnection(
         userId: req.userId,
         name: "My Organization",
       });
-      markInstalled();
       return organization;
     }
 

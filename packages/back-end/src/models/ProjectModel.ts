@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { omit } from "lodash";
-import { hasReadAccess } from "shared/permissions";
 import { ApiProject } from "../../types/openapi";
 import { ProjectInterface, ProjectSettings } from "../../types/project";
 import { ReqContext } from "../../types/organization";
@@ -57,19 +56,21 @@ export async function createProject(
 export async function findAllProjectsByOrganization(
   context: ReqContext | ApiReqContext
 ) {
-  const { org, readAccessFilter } = context;
+  const { org } = context;
   const docs = await ProjectModel.find({
     organization: org.id,
   });
 
   const projects = docs.map(toInterface);
-  return projects.filter((p) => hasReadAccess(readAccessFilter, p.id));
+  return projects.filter((p) =>
+    context.permissions.canReadSingleProjectResource(p.id)
+  );
 }
 export async function findProjectById(
   context: ReqContext | ApiReqContext,
   projectId: string
 ) {
-  const { org, readAccessFilter } = context;
+  const { org } = context;
   const doc = await ProjectModel.findOne({
     id: projectId,
     organization: org.id,
@@ -78,7 +79,9 @@ export async function findProjectById(
 
   const project = toInterface(doc);
 
-  return hasReadAccess(readAccessFilter, project.id) ? project : null;
+  return context.permissions.canReadSingleProjectResource(project.id)
+    ? project
+    : null;
 }
 export async function deleteProjectById(id: string, organization: string) {
   await ProjectModel.deleteOne({

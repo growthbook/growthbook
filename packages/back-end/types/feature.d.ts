@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type { FeatureDefinition, FeatureResult } from "@growthbook/growthbook";
+import { z } from "zod";
+import {
+  simpleSchemaFieldValidator,
+  simpleSchemaValidator,
+} from "../src/validators/features";
 import { UserRef } from "./user";
 import { FeatureRevisionInterface } from "./feature-revision";
 
@@ -9,6 +14,17 @@ export type FeatureValueType = "boolean" | "string" | "number" | "json";
 export interface FeatureEnvironment {
   enabled: boolean;
   rules: FeatureRule[];
+}
+
+export type SchemaField = z.infer<typeof simpleSchemaFieldValidator>;
+export type SimpleSchema = z.infer<typeof simpleSchemaValidator>;
+
+export interface JSONSchemaDef {
+  schemaType: "schema" | "simple";
+  schema: string;
+  simple: SimpleSchema;
+  date: Date;
+  enabled: boolean;
 }
 
 export type LegacyFeatureInterface = FeatureInterface & {
@@ -21,6 +37,9 @@ export type LegacyFeatureInterface = FeatureInterface & {
     publishedBy: UserRef;
   };
   draft?: FeatureDraftChanges;
+  // schemaType and simple may not exist in old feature documents
+  jsonSchema?: Omit<JSONSchemaDef, "schemaType" | "simple"> &
+    Partial<Pick<JSONSchemaDef, "schemaType" | "simple">>;
 };
 
 export interface FeatureDraftChanges {
@@ -49,11 +68,7 @@ export interface FeatureInterface {
   tags?: string[];
   environmentSettings: Record<string, FeatureEnvironment>;
   linkedExperiments?: string[];
-  jsonSchema?: {
-    schema: string;
-    date: Date;
-    enabled: boolean;
-  };
+  jsonSchema?: JSONSchemaDef;
 
   /** @deprecated */
   legacyDraft?: FeatureRevisionInterface | null;

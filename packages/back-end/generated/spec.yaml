@@ -979,6 +979,21 @@ paths:
                   type: string
                 excludeFromPayload:
                   type: boolean
+                inProgressConversions:
+                  type: string
+                  enum:
+                    - loose
+                    - strict
+                attributionModel:
+                  type: string
+                  enum:
+                    - firstExposure
+                    - experimentDuration
+                statsEngine:
+                  type: string
+                  enum:
+                    - bayesian
+                    - frequentist
                 variations:
                   type: array
                   minItems: 2
@@ -1023,10 +1038,10 @@ paths:
                         type: string
                       dateStarted:
                         type: string
-                        format: date
+                        format: date-time
                       dateEnded:
                         type: string
-                        format: date
+                        format: date-time
                       reasonForStopping:
                         type: string
                       seed:
@@ -1204,6 +1219,21 @@ paths:
                   type: string
                 excludeFromPayload:
                   type: boolean
+                inProgressConversions:
+                  type: string
+                  enum:
+                    - loose
+                    - strict
+                attributionModel:
+                  type: string
+                  enum:
+                    - firstExposure
+                    - experimentDuration
+                statsEngine:
+                  type: string
+                  enum:
+                    - bayesian
+                    - frequentist
                 variations:
                   type: array
                   minItems: 2
@@ -1248,10 +1278,10 @@ paths:
                         type: string
                       dateStarted:
                         type: string
-                        format: date
+                        format: date-time
                       dateEnded:
                         type: string
-                        format: date
+                        format: date-time
                       reasonForStopping:
                         type: string
                       seed:
@@ -1527,6 +1557,29 @@ paths:
                       type: number
                       deprecated: true
                       description: 'The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                    priorSettings:
+                      type: object
+                      description: 'Controls the bayesian prior for the metric. If omitted, organization defaults will be used.'
+                      required:
+                        - override
+                        - proper
+                        - mean
+                        - stddev
+                      properties:
+                        override:
+                          type: boolean
+                          description: 'If false, the organization default settings will be used instead of the other settings in this object'
+                        proper:
+                          type: boolean
+                          description: 'If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.'
+                        mean:
+                          type: number
+                          description: The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)
+                        stddev:
+                          type: number
+                          description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
+                          minimum: 0
+                          exclusiveMinimum: true
                     riskThresholdSuccess:
                       type: number
                       description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
@@ -1801,6 +1854,29 @@ paths:
                       type: number
                       deprecated: true
                       description: 'The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                    priorSettings:
+                      type: object
+                      description: 'Controls the bayesian prior for the metric. If omitted, organization defaults will be used.'
+                      required:
+                        - override
+                        - proper
+                        - mean
+                        - stddev
+                      properties:
+                        override:
+                          type: boolean
+                          description: 'If false, the organization default settings will be used instead of the other settings in this object'
+                        proper:
+                          type: boolean
+                          description: 'If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.'
+                        mean:
+                          type: number
+                          description: The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)
+                        stddev:
+                          type: number
+                          description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
+                          minimum: 0
+                          exclusiveMinimum: true
                     riskThresholdSuccess:
                       type: number
                       description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
@@ -2930,6 +3006,29 @@ paths:
                         - hours
                         - days
                         - weeks
+                priorSettings:
+                  type: object
+                  description: 'Controls the bayesian prior for the metric. If omitted, organization defaults will be used.'
+                  required:
+                    - override
+                    - proper
+                    - mean
+                    - stddev
+                  properties:
+                    override:
+                      type: boolean
+                      description: 'If false, the organization default settings will be used instead of the other settings in this object'
+                    proper:
+                      type: boolean
+                      description: 'If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.'
+                    mean:
+                      type: number
+                      description: The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)
+                    stddev:
+                      type: number
+                      description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
+                      minimum: 0
+                      exclusiveMinimum: true
                 regressionAdjustmentSettings:
                   type: object
                   description: Controls the regression adjustment (CUPED) settings for the metric
@@ -2945,6 +3044,25 @@ paths:
                     days:
                       type: number
                       description: Number of pre-exposure days to use for the regression adjustment
+                riskThresholdSuccess:
+                  type: number
+                  description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
+                  minimum: 0
+                riskThresholdDanger:
+                  type: number
+                  description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
+                  minimum: 0
+                minPercentChange:
+                  type: number
+                  description: 'Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)'
+                  minimum: 0
+                maxPercentChange:
+                  type: number
+                  description: 'Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)'
+                  minimum: 0
+                minSampleSize:
+                  type: number
+                  minimum: 0
                 managedBy:
                   type: string
                   description: Set this to "api" to disable editing in the GrowthBook UI
@@ -3126,6 +3244,29 @@ paths:
                         - hours
                         - days
                         - weeks
+                  priorSettings:
+                    type: object
+                    description: 'Controls the bayesian prior for the metric. If omitted, organization defaults will be used.'
+                    required:
+                      - override
+                      - proper
+                      - mean
+                      - stddev
+                    properties:
+                      override:
+                        type: boolean
+                        description: 'If false, the organization default settings will be used instead of the other settings in this object'
+                      proper:
+                        type: boolean
+                        description: 'If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.'
+                      mean:
+                        type: number
+                        description: The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)
+                      stddev:
+                        type: number
+                        description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
+                        minimum: 0
+                        exclusiveMinimum: true
                 regressionAdjustmentSettings:
                   type: object
                   description: Controls the regression adjustment (CUPED) settings for the metric
@@ -3137,10 +3278,29 @@ paths:
                       description: 'If false, the organization default settings will be used'
                     enabled:
                       type: boolean
-                      description: Controls whether or not regresion adjustment is applied to the metric
+                      description: Controls whether or not regression adjustment is applied to the metric
                     days:
                       type: number
                       description: Number of pre-exposure days to use for the regression adjustment
+                riskThresholdSuccess:
+                  type: number
+                  description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
+                  minimum: 0
+                riskThresholdDanger:
+                  type: number
+                  description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
+                  minimum: 0
+                minPercentChange:
+                  type: number
+                  description: 'Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)'
+                  minimum: 0
+                maxPercentChange:
+                  type: number
+                  description: 'Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)'
+                  minimum: 0
+                minSampleSize:
+                  type: number
+                  minimum: 0
                 managedBy:
                   type: string
                   description: Set this to "api" to disable editing in the GrowthBook UI
@@ -3584,6 +3744,27 @@ components:
                     - hours
                     - days
                     - weeks
+            priorSettings:
+              type: object
+              description: Controls the bayesian prior for the metric.
+              required:
+                - override
+                - proper
+                - mean
+                - stddev
+              properties:
+                override:
+                  type: boolean
+                  description: 'If false, the organization default settings will be used instead of the other settings in this object'
+                proper:
+                  type: boolean
+                  description: 'If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.'
+                mean:
+                  type: number
+                  description: The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)
+                stddev:
+                  type: number
+                  description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
             conversionWindowStart:
               type: number
               deprecated: true
@@ -4517,6 +4698,8 @@ components:
                         properties:
                           variationId:
                             type: string
+                          users:
+                            type: number
                           analyses:
                             type: array
                             items:
@@ -4924,7 +5107,13 @@ components:
         - inverse
         - cappingSettings
         - windowSettings
+        - priorSettings
         - regressionAdjustmentSettings
+        - riskThresholdSuccess
+        - riskThresholdDanger
+        - minPercentChange
+        - maxPercentChange
+        - minSampleSize
         - managedBy
         - dateCreated
         - dateUpdated
@@ -5053,6 +5242,27 @@ components:
                 - hours
                 - days
                 - weeks
+          priorSettings:
+            type: object
+            description: Controls the bayesian prior for the metric
+            required:
+              - override
+              - proper
+              - mean
+              - stddev
+            properties:
+              override:
+                type: boolean
+                description: 'If false, the organization default settings will be used instead of the other settings in this object'
+              proper:
+                type: boolean
+                description: 'If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.'
+              mean:
+                type: number
+                description: The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)
+              stddev:
+                type: number
+                description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
         regressionAdjustmentSettings:
           type: object
           description: Controls the regression adjustment (CUPED) settings for the metric
@@ -5068,6 +5278,16 @@ components:
             days:
               type: number
               description: Number of pre-exposure days to use for the regression adjustment
+        riskThresholdSuccess:
+          type: number
+        riskThresholdDanger:
+          type: number
+        minPercentChange:
+          type: number
+        maxPercentChange:
+          type: number
+        minSampleSize:
+          type: number
         managedBy:
           type: string
           description: 'Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere.'

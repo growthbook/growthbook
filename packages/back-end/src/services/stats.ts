@@ -76,6 +76,9 @@ export interface MetricSettingsForStatsEngine {
   denominator_metric_type?: "count" | "binomial" | "quantile";
   covariate_metric_type?: "count" | "binomial" | "quantile";
   quantile_value?: number;
+  prior_proper?: boolean;
+  prior_mean?: number;
+  prior_stddev?: number;
 }
 
 export interface QueryResultsForStatsEngine {
@@ -291,6 +294,7 @@ export function getMetricSettingsForStatsEngine(
   if (isFactMetric(metric) && ratioMetric) {
     denominator = metric;
   }
+
   return {
     id: metric.id,
     name: metric.name,
@@ -315,6 +319,9 @@ export function getMetricSettingsForStatsEngine(
     ...(!!quantileMetric && isFactMetric(metric)
       ? { quantile_value: metric.quantileSettings?.quantile ?? 0 }
       : {}),
+    prior_proper: metric.priorSettings.proper,
+    prior_mean: metric.priorSettings.mean,
+    prior_stddev: metric.priorSettings.stddev,
   };
 }
 

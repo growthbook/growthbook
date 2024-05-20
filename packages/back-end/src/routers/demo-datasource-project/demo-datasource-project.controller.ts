@@ -168,15 +168,19 @@ export const postDemoDatasourceProject = async (
 ) => {
   const context = getContextFromReq(req);
 
-  req.checkPermissions("manageProjects", "");
-  req.checkPermissions("createDatasources", "");
+  if (!context.permissions.canCreateProjects()) {
+    context.permissions.throwPermissionError();
+  }
   req.checkPermissions("createAnalyses", "");
 
   const { org, environments } = context;
 
   const demoProjId = getDemoDatasourceProjectIdForOrganization(org.id);
 
-  if (!context.permissions.canCreateMetric({ projects: [demoProjId] })) {
+  if (
+    !context.permissions.canCreateMetric({ projects: [demoProjId] }) ||
+    !context.permissions.canCreateDataSource({ projects: [demoProjId] })
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -205,7 +209,7 @@ export const postDemoDatasourceProject = async (
       name: "Sample Data",
     });
     const datasource = await createDataSource(
-      org.id,
+      context,
       "Sample Data Source",
       DATASOURCE_TYPE,
       DEMO_DATASOURCE_PARAMS,
@@ -413,7 +417,7 @@ spacing and headings.`,
       phaseIndex: 0,
       defaultAnalysisSettings: analysisSettings,
       additionalAnalysisSettings: [],
-      metricRegressionAdjustmentStatuses: [],
+      settingsForSnapshotMetrics: [],
       metricMap: metricMap,
       factTableMap,
       useCache: true,
