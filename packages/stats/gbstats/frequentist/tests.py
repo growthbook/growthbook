@@ -11,7 +11,7 @@ from gbstats.messages import (
     ZERO_NEGATIVE_VARIANCE_MESSAGE,
     ZERO_SCALED_VARIATION_MESSAGE,
 )
-from gbstats.models.statistics import TestStatistic
+from gbstats.models.statistics import RegressionAdjustedStatistic, TestStatistic, compute_theta
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
 
 
@@ -68,7 +68,7 @@ class TTest(BaseABTest):
             stat_a (Statistic): the "control" or "baseline" statistic
             stat_b (Statistic): the "treatment" or "variation" statistic
         """
-        super().__init__(stat_a, stat_b)
+        super().__init__(stat_a, stat_b, config)
         self.alpha = config.alpha
         self.test_value = config.test_value
         self.relative = config.difference_type == "relative"

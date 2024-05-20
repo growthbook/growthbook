@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import List, Union
 
 import numpy as np
 import scipy.stats
@@ -124,10 +124,12 @@ class RegressionAdjustedStatistic(Statistic):
     pre_statistic: Union[SampleMeanStatistic, ProportionStatistic]
     post_pre_sum_of_products: float
     theta: float
+    pooled_pre_statistic_mean: float
 
     @property
     def mean(self):
-        return self.post_statistic.mean - self.theta * self.pre_statistic.mean
+        return self.post_statistic.mean + self.theta * (self.pooled_pre_statistic_mean - self.pre_statistic.mean)
+
 
     @property
     def sum(self):
@@ -143,7 +145,7 @@ class RegressionAdjustedStatistic(Statistic):
     def variance(self):
         if self.n <= 1:
             return 0
-        return (
+        print (
             self.post_statistic.variance
             + pow(self.theta, 2) * self.pre_statistic.variance
             - 2 * self.theta * self.covariance
@@ -179,6 +181,7 @@ def compute_theta(
         post_pre_sum_of_products=a.post_pre_sum_of_products
         + b.post_pre_sum_of_products,
         theta=0,
+        pooled_pre_statistic_mean=0
     )
     return joint.covariance / joint.pre_statistic.variance
 
