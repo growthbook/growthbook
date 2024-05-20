@@ -1,10 +1,10 @@
-export type MetricParams =
+export type MetricParamsFrequentist =
   | {
       type: "mean";
       name: string;
       effectSize: number;
-      mean: number;
-      standardDeviation: number;
+      metricMean: number;
+      metricStandardDeviation: number;
     }
   | {
       type: "binomial";
@@ -17,36 +17,43 @@ export type MetricParamsBayesian =
   | {
       type: "mean";
       name: string;
+      metricMean: number;
+      metricStandardDeviation: number;
       effectSize: number;
-      mean: number;
-      standardDeviation: number;
-      priorMean: number;
-      priorStandardDeviation: number;
+      priorStandardDeviationDGP: number;
+      priorLiftMean: number;
+      priorLiftStandardDeviation: number;
       proper: boolean;
     }
   | {
       type: "binomial";
       name: string;
-      effectSize: number;
       conversionRate: number;
-      priorMean: number;
-      priorStandardDeviation: number;
+      effectSize: number;
+      priorStandardDeviationDGP: number;
+      priorLiftMean: number;
+      priorLiftStandardDeviation: number;
       proper: boolean;
     };
 
-export interface StatsEngine {
-  type: "frequentist";
+/*export interface StatsEngineFrequentist {*/
+export interface StatsEngineSettings {
+  type: "frequentist" | "bayesian";
   sequentialTesting: false | number;
 }
+/*export interface StatsEngineBayesian {
+  type: "bayesian";
+  sequentialTesting: false;
+}*/
 
 export interface PowerCalculationParams {
-  metrics: { [id: string]: MetricParams };
+  metrics: { [id: string]: MetricParamsFrequentist };
   nVariations: number;
   nWeeks: number;
   alpha: number;
   usersPerWeek: number;
   targetPower: number;
-  statsEngine: StatsEngine;
+  statsEngineSettings: StatsEngineSettings;
 }
 
 export interface PowerCalculationParamsBayesian {
@@ -56,6 +63,7 @@ export interface PowerCalculationParamsBayesian {
   alpha: number;
   usersPerWeek: number;
   targetPower: number;
+  statsEngineSettings: StatsEngineSettings;
 }
 
 export type FullModalPowerCalculationParams = Omit<

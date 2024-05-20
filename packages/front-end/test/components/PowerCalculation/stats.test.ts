@@ -1,5 +1,5 @@
 import {
-  MetricParams,
+  MetricParamsFrequentist,
   MetricParamsBayesian,
   PowerCalculationParams,
   PowerCalculationParamsBayesian,
@@ -14,7 +14,6 @@ import {
   calculatePriorVariance,
   powerEstBayesian,
   findMdeBayesian,
-  powerMetricWeeksBayesian,
 } from "@/components/PowerCalculation/stats";
 
 describe("backend", () => {
@@ -30,21 +29,26 @@ describe("backend", () => {
     );
   });
   it("calculates power correctly", () => {
-    expect(
-      +powerEst(
-        0.05,
-        10.0,
-        3909.9997749994377,
-        400000,
-        3,
-        0.05,
-        true,
-        0
-      ).toFixed(5)
-    ).toEqual(0.52144);
+    const meanMetric: MetricParamsFrequentist = {
+      type: "mean",
+      name: "Conversion Rate",
+      effectSize: 0.05,
+      metricMean: 10,
+      metricStandardDeviation: Math.sqrt(3909.9997749994377),
+    };
+    expect(+powerEst(meanMetric, 400000, 3, 0.05, true, 0).toFixed(5)).toEqual(
+      0.52144
+    );
   });
   it("calculates two-tailed mde correctly", () => {
-    const mde1 = findMde(0.8, 10.0, 3909.9997749994377, 400000, 3, 0.05);
+    const meanMetric: MetricParamsFrequentist = {
+      type: "mean",
+      name: "Conversion Rate",
+      effectSize: 0.05,
+      metricMean: 10,
+      metricStandardDeviation: Math.sqrt(3909.9997749994377),
+    };
+    const mde1 = findMde(meanMetric, 0.8, 400000, 3, 0.05, 0);
     let mde = 100;
     if (mde1.type === "success") {
       mde = mde1.mde;
@@ -52,28 +56,33 @@ describe("backend", () => {
     expect(parseFloat(mde.toFixed(5))).toEqual(0.07027);
   });
   it("calculates sequential power correctly", () => {
+    const meanMetric: MetricParamsFrequentist = {
+      type: "mean",
+      name: "Conversion Rate",
+      effectSize: 0.05,
+      metricMean: 10,
+      metricStandardDeviation: Math.sqrt(3909.9997749994377),
+    };
     expect(
-      +powerEst(
-        0.05,
-        10.0,
-        3909.9997749994377,
-        400000,
-        3,
-        0.05,
-        true,
-        5000
-      ).toFixed(5)
+      +powerEst(meanMetric, 400000, 3, 0.05, true, 5000).toFixed(5)
     ).toEqual(0.20596);
   });
   it("calculates sequential mde correctly", () => {
-    const mde1 = findMde(0.8, 10.0, 3909.9997749994377, 400000, 3, 0.05, 5000);
+    const meanMetric: MetricParamsFrequentist = {
+      type: "mean",
+      name: "Conversion Rate",
+      effectSize: 0.05,
+      metricMean: 10,
+      metricStandardDeviation: Math.sqrt(3909.9997749994377),
+    };
+    const mde1 = findMde(meanMetric, 0.8, 400000, 3, 0.05, 5000);
     let mde = 100;
     if (mde1.type === "success") {
       mde = mde1.mde;
     }
     expect(parseFloat(mde.toFixed(5))).toEqual(0.12821);
   });
-  const metrics: { [id: string]: MetricParams } = {
+  const metrics: { [id: string]: MetricParamsFrequentist } = {
     click_through_rate: {
       effectSize: 0.3,
       name: "click_through_rate",
@@ -83,29 +92,31 @@ describe("backend", () => {
     revenue: {
       effectSize: 0.05,
       name: "revenue",
-      mean: 0.1,
-      standardDeviation: Math.sqrt(0.5),
+      metricMean: 0.1,
+      metricStandardDeviation: Math.sqrt(0.5),
       type: "mean",
     },
   };
   const metricsBayesian: { [id: string]: MetricParamsBayesian } = {
     click_through_rate: {
-      effectSize: 0.3,
       name: "click_through_rate",
-      conversionRate: 0.1,
       type: "binomial",
-      priorMean: 0.2,
-      priorStandardDeviation: Math.sqrt(0.3),
+      conversionRate: 0.1,
+      effectSize: 0.3,
+      priorStandardDeviationDGP: 0,
+      priorLiftMean: 0.2,
+      priorLiftStandardDeviation: Math.sqrt(0.3),
       proper: true,
     },
     revenue: {
-      effectSize: 0.05,
       name: "revenue",
-      mean: 0.1,
-      standardDeviation: Math.sqrt(0.5),
       type: "mean",
-      priorMean: 0.2,
-      priorStandardDeviation: Math.sqrt(0.3),
+      effectSize: 0.05,
+      priorStandardDeviationDGP: 0,
+      metricMean: 0.1,
+      metricStandardDeviation: Math.sqrt(0.5),
+      priorLiftMean: 0.2,
+      priorLiftStandardDeviation: Math.sqrt(0.3),
       proper: true,
     },
   };
@@ -127,7 +138,7 @@ describe("backend", () => {
       nWeeks: nWeeks,
       targetPower: 0.8,
       alpha: alpha,
-      statsEngine: {
+      statsEngineSettings: {
         type: "frequentist",
         sequentialTesting: false,
       },
@@ -139,6 +150,10 @@ describe("backend", () => {
       nWeeks: nWeeks,
       targetPower: 0.8,
       alpha: alpha,
+      statsEngineSettings: {
+        type: "bayesian",
+        sequentialTesting: false,
+      },
     };
     const powerSolution = [
       0.65596,
@@ -223,7 +238,7 @@ describe("backend", () => {
 
     const sampleSizeAndRuntime = [2, undefined];
     const resultsTS = powerMetricWeeks(powerSettings);
-    const resultsTSBayesian = powerMetricWeeksBayesian(powerSettingsBayesian);
+    const resultsTSBayesian = powerMetricWeeks(powerSettingsBayesian);
     let powerMultiple = [0.0, 0.0];
     let mdeMultiple = [1e5, 1e5];
     let powerMultipleBayesian = [0.0, 0.0];
@@ -307,7 +322,7 @@ describe("backend", () => {
       alpha: alpha,
       nWeeks: 9,
       targetPower: 0.8,
-      statsEngine: {
+      statsEngineSettings: {
         type: "frequentist",
         sequentialTesting: 5000,
       },
@@ -404,43 +419,38 @@ it("calculatePriorVariance", () => {
 it("powerEstBayesian", () => {
   const power = 0.8;
   const alpha = 0.05;
-  const effectSizeAbsolute = 0.11431978395869613;
   const effectSizeRelative = 0.12033664690846606;
-  const priorVarianceRelDGP = 0.010000000000000002;
-  const priorMeanRelSpecified = 0.05;
-  const priorVarianceRelSpecified = 0.5476;
-  const mean = 10.0;
-  const variance = 3909.9997749994377;
+  const effectSizeAbsolute = 0.11431978395869613;
   const nPerVariation = 400000 / 3;
 
+  const myMetricRel: MetricParamsBayesian = {
+    type: "mean",
+    name: "Time to completion",
+    metricMean: 10, // Baseline mean value
+    metricStandardDeviation: Math.sqrt(3909.9997749994377), // Baseline standard deviation
+    effectSize: effectSizeRelative, // Expected % change in mean
+    priorStandardDeviationDGP: Math.sqrt(0.010000000000000002),
+    priorLiftMean: 0.05, // Prior mean for lift in mean
+    priorLiftStandardDeviation: Math.sqrt(0.5476), // Prior standard deviation for lift in mean
+    proper: true, // Whether to use a proper prior (affects prior distribution)
+  };
+  const myMetricAbs = { ...myMetricRel };
+  myMetricAbs.effectSize = effectSizeAbsolute;
+
   const mdeRelative = findMdeBayesian(
+    myMetricRel,
     alpha,
     power,
-    priorVarianceRelDGP,
-    priorMeanRelSpecified,
-    priorVarianceRelSpecified,
-    true,
-    mean,
-    variance,
     nPerVariation,
-    true,
-    0
+    true
   );
-
   const mdeAbsolute = findMdeBayesian(
+    myMetricAbs,
     alpha,
     power,
-    priorVarianceRelDGP,
-    priorMeanRelSpecified,
-    priorVarianceRelSpecified,
-    true,
-    mean,
-    variance,
     nPerVariation,
-    false,
-    0
+    false
   );
-
   let mdeRelativeScalar = -999;
   if (mdeRelative.type === "success") {
     mdeRelativeScalar = mdeRelative.mde;
@@ -451,27 +461,15 @@ it("powerEstBayesian", () => {
   }
 
   const powerRelative = powerEstBayesian(
+    myMetricRel,
     alpha,
-    mdeRelativeScalar,
-    priorVarianceRelDGP,
-    priorMeanRelSpecified,
-    priorVarianceRelSpecified,
-    true,
-    mean,
-    variance,
     nPerVariation,
     true
   );
 
   const powerAbsolute = powerEstBayesian(
+    myMetricAbs,
     alpha,
-    mdeAbsoluteScalar,
-    priorVarianceRelDGP,
-    priorMeanRelSpecified,
-    priorVarianceRelSpecified,
-    true,
-    mean,
-    variance,
     nPerVariation,
     false
   );

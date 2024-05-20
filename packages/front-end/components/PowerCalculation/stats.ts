@@ -7,6 +7,8 @@ import {
   MDEResults,
   SampleSizeAndRuntime,
   Week,
+  MetricParamsBayesian,
+  MetricParamsFrequentist,
 } from "./types";
 
 /**
@@ -40,20 +42,35 @@ export function frequentistVariance(
   }
 }
 
+function getMetricMean(
+  metric: MetricParamsFrequentist | MetricParamsBayesian
+): number {
+  return metric.type === "mean" ? metric.metricMean : metric.conversionRate;
+}
+
+function getMetricVariance(
+  metric: MetricParamsFrequentist | MetricParamsBayesian
+): number {
+  return metric.type === "mean"
+    ? Math.pow(metric.metricStandardDeviation, 2)
+    : metric.conversionRate * (1 - metric.conversionRate);
+}
+
 export function powerStandardError(
-  variance: number,
-  mean: number,
+  metric: MetricParamsFrequentist | MetricParamsBayesian,
   nPerVariation: number,
-  effectSize: number,
   relative: boolean
 ): number {
+  const metricMean = getMetricMean(metric);
+  const metricVariance = getMetricVariance(metric);
+
   return Math.sqrt(
     frequentistVariance(
-      variance,
-      mean,
+      metricVariance,
+      metricMean,
       nPerVariation,
-      variance,
-      mean * (1 + effectSize),
+      metricVariance,
+      metricMean * (1 + metric.effectSize),
       nPerVariation,
       relative
     )
@@ -92,21 +109,21 @@ export function sequentialPowerSequentialVariance(
 }
 
 export function sequentialPowerStandardError(
-  variance: number,
-  mean: number,
+  metric: MetricParamsFrequentist,
   n: number,
   nVariations: number,
-  effectSize: number,
   alpha: number,
   sequentialTuningParameter: number,
   relative: boolean
 ): number {
+  const metricMean = getMetricMean(metric);
+  const metricVariance = getMetricVariance(metric);
   const v_rel = frequentistVariance(
-    variance,
-    mean,
+    metricVariance,
+    metricMean,
     n / nVariations,
-    variance,
-    mean * (1.0 + effectSize),
+    metricVariance,
+    metricMean * (1.0 + metric.effectSize),
     n / nVariations,
     relative
   );
@@ -118,6 +135,16 @@ export function sequentialPowerStandardError(
       sequentialTuningParameter
     )
   );
+}
+
+function getSequentialTuningParameter(
+  sequentialTesting: false | number
+): number {
+  let sequentialTuningParameter = 0.0;
+  if (sequentialTesting !== false) {
+    sequentialTuningParameter = sequentialTesting;
+  }
+  return sequentialTuningParameter;
 }
 
 /**
@@ -133,41 +160,34 @@ export function sequentialPowerStandardError(
  * @returns Estimated power.
  */
 export function powerEst(
-  effectSize: number,
-  mean: number,
-  variance: number,
+  metric: MetricParamsFrequentist,
   n: number,
   nVariations: number,
   alpha: number = 0.05,
   twoTailed: boolean = true,
-  sequentialTuningParameter = 0
+  sequentialTesting: false | number
 ): number {
   const zStar = twoTailed
     ? normal.quantile(1.0 - 0.5 * alpha, 0, 1)
     : normal.quantile(1.0 - alpha, 0, 1);
 
   let standardError = 0;
+  const sequentialTuningParameter = getSequentialTuningParameter(
+    sequentialTesting
+  );
   if (sequentialTuningParameter > 0) {
     standardError = sequentialPowerStandardError(
-      variance,
-      mean,
+      metric,
       n,
       nVariations,
-      effectSize,
       alpha,
       sequentialTuningParameter,
       true
     );
   } else {
-    standardError = powerStandardError(
-      variance,
-      mean,
-      n / nVariations,
-      effectSize,
-      true
-    );
+    standardError = powerStandardError(metric, n / nVariations, true);
   }
-  const standardizedEffectSize = effectSize / standardError;
+  const standardizedEffectSize = metric.effectSize / standardError;
   const upperCutpoint = zStar - standardizedEffectSize;
   let power = 1 - normal.cdf(upperCutpoint, 0, 1);
   if (twoTailed) {
@@ -189,13 +209,12 @@ export function powerEst(
  * @returns object of class MDEResults, containing type and either mde or description.
  */
 export function findMde(
+  metric: MetricParamsFrequentist,
   power: number,
-  mean: number,
-  variance: number,
   n: number,
   nVariations: number,
   alpha: number = 0.05,
-  sequentialTuningParameter = 0
+  sequentialTesting: false | number
 ): MDEResults {
   // Error handling:
   if (power <= alpha) {
@@ -209,17 +228,21 @@ export function findMde(
   const z =
     normal.quantile(1.0 - 0.5 * alpha, 0, 1) -
     normal.quantile(1.0 - power, 0, 1);
-  let v = variance;
+  const m = getMetricMean(metric);
+  let v = getMetricVariance(metric);
+  const sequentialTuningParameter = getSequentialTuningParameter(
+    sequentialTesting
+  );
   if (sequentialTuningParameter > 0) {
     v = sequentialPowerSequentialVariance(
-      variance,
+      getMetricVariance(metric),
       2 * nA,
       alpha,
       sequentialTuningParameter
     );
   }
   //ensure the term under the radical is non-negative and that a positive solution exists.
-  if (nA <= (v * z ** 2) / mean ** 2) {
+  if (nA <= (v * z ** 2) / m ** 2) {
     const mdeResults: MDEResults = {
       type: "error",
       description:
@@ -228,85 +251,81 @@ export function findMde(
     return mdeResults;
   }
   const sigma2 = v / nA;
-  const a_star = 1 - (z ** 2 * sigma2) / mean ** 2;
-  const b_star = -2 * mean;
-  const c_star = mean ** 2 - z ** 2 * sigma2;
+  const a_star = 1 - (z ** 2 * sigma2) / m ** 2;
+  const b_star = -2 * m;
+  const c_star = m ** 2 - z ** 2 * sigma2;
   const disc = b_star ** 2 - 4 * a_star * c_star;
   const sol_1 = (-b_star + Math.sqrt(disc)) / (2 * a_star);
   //const sol_2 = (-b_star - Math.sqrt(disc)) / (2 * a_star);
   const mdeResults: MDEResults = {
     type: "success",
-    mde: (sol_1 - mean) / mean,
+    mde: (sol_1 - m) / m,
   };
   return mdeResults;
 }
 
 export function powerMetricWeeks(
-  powerSettings: PowerCalculationParams
+  powerSettings: PowerCalculationParams | PowerCalculationParamsBayesian
 ): PowerCalculationResults {
-  const metrics = powerSettings.metrics;
   const sampleSizeAndRuntimeNumeric: number[] = []; //for each metric, the first week they achieve 80% power.
-  const nWeeks = powerSettings.nWeeks;
-  let sequentialTuningParameter = 0.0;
-  if (powerSettings.statsEngine.sequentialTesting !== false) {
-    sequentialTuningParameter = powerSettings.statsEngine.sequentialTesting;
-  }
-  function getNumberOfMetrics(params: PowerCalculationParams): number {
-    return Object.keys(params.metrics).length;
-  }
-  const nMetrics = getNumberOfMetrics(powerSettings);
-  const metricKeys = Object.keys(metrics);
   const mySampleSizeAndRuntime: {
     [id: string]: SampleSizeAndRuntime | undefined;
   } = {};
 
   const metricThresholds = {};
-  const weeks: Week[] = [...Array(nWeeks).keys()].map((idx) => ({
+  const weeks: Week[] = [...Array(powerSettings.nWeeks).keys()].map((idx) => ({
     users: (idx + 1) * powerSettings.usersPerWeek,
     metrics: {},
   }));
 
-  for (let i = 0; i < nMetrics; i++) {
-    const metricKey = metricKeys[i];
-    const thisMetric = metrics[metricKey];
-    let thisMean = 0;
-    let thisVariance = 1;
-    if (thisMetric.type === "binomial") {
-      thisMean = thisMetric.conversionRate;
-      thisVariance =
-        thisMetric.conversionRate * (1 - thisMetric.conversionRate);
-    } else {
-      thisMean = thisMetric.mean;
-      thisVariance = thisMetric.standardDeviation ** 2;
-    }
+  Object.entries(powerSettings.metrics).forEach(([metricKey, thisMetric]) => {
     let thisMDENumeric = NaN;
     let thisSampleSizeAndRuntimeNumeric = 999;
     let lookingForSampleSizeAndRunTime = true;
-    for (let j = 0; j < nWeeks; j++) {
+    for (let j = 0; j < powerSettings.nWeeks; j++) {
       const n = powerSettings.usersPerWeek * (j + 1);
-      const thisPower = powerEst(
-        thisMetric.effectSize,
-        thisMean,
-        thisVariance,
-        n,
-        powerSettings.nVariations,
-        powerSettings.alpha,
-        true,
-        sequentialTuningParameter
-      );
+      /*initialize block-scoped variables*/
+      let thisPower = 0.0;
+      let thisMde: MDEResults = {
+        type: "success",
+        mde: -999,
+      };
+      if (powerSettings.statsEngineSettings.type === "frequentist") {
+        thisPower = powerEst(
+          thisMetric,
+          n,
+          powerSettings.nVariations,
+          powerSettings.alpha,
+          true,
+          powerSettings.statsEngineSettings.sequentialTesting
+        );
+        thisMde = findMde(
+          thisMetric,
+          0.8,
+          n,
+          powerSettings.nVariations,
+          powerSettings.alpha,
+          powerSettings.statsEngineSettings.sequentialTesting
+        );
+      } else {
+        thisPower = powerEstBayesian(
+          thisMetric,
+          powerSettings.alpha,
+          n / powerSettings.nVariations,
+          true
+        );
+        thisMde = findMdeBayesian(
+          thisMetric,
+          powerSettings.alpha,
+          0.8,
+          n / powerSettings.nVariations,
+          true
+        );
+      }
       if (thisPower >= 0.8 && lookingForSampleSizeAndRunTime) {
         lookingForSampleSizeAndRunTime = false;
         thisSampleSizeAndRuntimeNumeric = j + 1;
       }
-      const thisMde = findMde(
-        0.8,
-        thisMean,
-        thisVariance,
-        powerSettings.usersPerWeek * (j + 1),
-        powerSettings.nVariations,
-        powerSettings.alpha,
-        sequentialTuningParameter
-      );
       if (thisMde.type === "success") {
         thisMDENumeric = thisMde.mde;
       }
@@ -321,7 +340,6 @@ export function powerMetricWeeks(
         isThreshold: metricThresholds[metricKey] === j,
       };
     }
-
     sampleSizeAndRuntimeNumeric.push(thisSampleSizeAndRuntimeNumeric);
     const thisSampleSizeAndRuntime =
       thisSampleSizeAndRuntimeNumeric !== 999
@@ -331,11 +349,8 @@ export function powerMetricWeeks(
           }
         : undefined;
     mySampleSizeAndRuntime[metricKey] = thisSampleSizeAndRuntime;
-  }
-  function findMax(arr: number[]): number {
-    return Math.max(...arr);
-  }
-  const duration = findMax(sampleSizeAndRuntimeNumeric);
+  });
+  const duration = Math.max(...sampleSizeAndRuntimeNumeric);
 
   const results: PowerCalculationResults = {
     sampleSizeAndRuntime: mySampleSizeAndRuntime,
@@ -360,45 +375,70 @@ export function calculatePriorVariance(
   mean: number,
   relative: boolean
 ): number {
-  return relative ? priorVarianceRel : priorVarianceRel * Math.pow(mean, 2);
+  return relative
+    ? priorVarianceRel
+    : priorVarianceRel * Math.pow(Math.abs(mean), 2);
+}
+
+function calculatePriorMeanSpecified(
+  metric: MetricParamsBayesian,
+  relative: boolean
+): number {
+  const metricMean = getMetricMean(metric);
+  return calculatePriorMean(metric.priorLiftMean, metricMean, relative);
+}
+
+function calculatePriorVarianceSpecified(
+  metric: MetricParamsBayesian,
+  relative: boolean
+): number {
+  const metricMean = getMetricMean(metric);
+  return calculatePriorVariance(
+    Math.pow(metric.priorLiftStandardDeviation, 2),
+    metricMean,
+    relative
+  );
+}
+
+function calculatePriorMeanDGP(
+  metric: MetricParamsBayesian,
+  relative: boolean
+): number {
+  const metricMean = getMetricMean(metric);
+  return calculatePriorMean(metric.effectSize, metricMean, relative);
+}
+
+function calculatePriorVarianceDGP(
+  metric: MetricParamsBayesian,
+  relative: boolean
+): number {
+  const metricMean = getMetricMean(metric);
+  return calculatePriorVariance(
+    Math.pow(metric.priorStandardDeviationDGP, 2),
+    metricMean,
+    relative
+  );
 }
 
 // Function to estimate variance of tau hat conditional on tau
 function estimateTauHatVariance(
-  mean: number,
-  effectSize: number,
-  variance: number,
+  metric: MetricParamsFrequentist | MetricParamsBayesian,
   nPerVariation: number,
   relative: boolean
 ): number {
-  const s = powerStandardError(
-    variance,
-    mean,
-    nPerVariation,
-    effectSize,
-    relative
-  );
+  const s = powerStandardError(metric, nPerVariation, relative);
   return Math.pow(s, 2);
 }
 
 // Function to calculate marginal variance of tau hat
 function getMarginalVarianceTauHat(
-  priorVarianceRelDGP: number,
-  mean: number,
-  effectSize: number,
-  variance: number,
+  metric: MetricParamsBayesian,
   nPerVariation: number,
   relative: boolean
 ): number {
-  const priorVarianceDGP = calculatePriorVariance(
-    priorVarianceRelDGP,
-    mean,
-    relative
-  );
+  const priorVarianceDGP = calculatePriorVarianceDGP(metric, relative);
   const tauHatVariance = estimateTauHatVariance(
-    mean,
-    effectSize,
-    variance,
+    metric,
     nPerVariation,
     relative
   );
@@ -407,84 +447,55 @@ function getMarginalVarianceTauHat(
 
 // Function to calculate posterior precision
 function getPosteriorPrecision(
-  priorVarianceRelSpecified: number,
-  mean: number,
-  effectSize: number,
-  variance: number,
+  metric: MetricParamsBayesian,
   nPerVariation: number,
-  relative: boolean,
-  proper: boolean
+  relative: boolean
 ): number {
-  const priorVarianceSpecified = calculatePriorVariance(
-    priorVarianceRelSpecified,
-    mean,
+  const priorVarianceSpecified = calculatePriorVarianceSpecified(
+    metric,
     relative
   );
   const tauHatVariance = estimateTauHatVariance(
-    mean,
-    effectSize,
-    variance,
+    metric,
     nPerVariation,
     relative
   );
-  const properInt = proper ? 1 : 0;
+  const properInt = metric.proper ? 1 : 0;
   return 1 / tauHatVariance + properInt / priorVarianceSpecified;
 }
 
 // Function to calculate upper cutpoint
 export function getCutpoint(
+  metric: MetricParamsBayesian,
   alpha: number,
-  effectSize: number,
-  priorVarianceRelDGP: number,
-  priorMeanRelSpecified: number,
-  priorVarianceRelSpecified: number,
-  proper: boolean,
-  mean: number,
-  variance: number,
   nPerVariation: number,
   relative: boolean,
   upper: boolean
 ): number {
-  const priorMeanSpecified = calculatePriorMean(
-    priorMeanRelSpecified,
-    mean,
+  const priorMeanSpecified = calculatePriorMeanSpecified(metric, relative);
+  const priorVarianceSpecified = calculatePriorVarianceSpecified(
+    metric,
     relative
   );
-  const priorVarianceSpecified = calculatePriorVariance(
-    priorVarianceRelSpecified,
-    mean,
-    relative
-  );
-  const priorMeanDGP = calculatePriorMean(effectSize, mean, relative);
-
+  const priorMeanDGP = calculatePriorMeanDGP(metric, relative);
   const tauHatVariance = estimateTauHatVariance(
-    mean,
-    effectSize,
-    variance,
+    metric,
     nPerVariation,
     relative
   );
-
   const posteriorPrecision = getPosteriorPrecision(
-    priorVarianceRelSpecified,
-    mean,
-    effectSize,
-    variance,
+    metric,
     nPerVariation,
-    relative,
-    proper
+    relative
   );
   const marginalVarianceTauHat = getMarginalVarianceTauHat(
-    priorVarianceRelDGP,
-    mean,
-    effectSize,
-    variance,
+    metric,
     nPerVariation,
     relative
   );
   const zStar = normal.quantile(1.0 - 0.5 * alpha, 0, 1);
   const upperSign = upper ? 1 : -1;
-  const properInt = proper ? 1 : 0;
+  const properInt = metric.proper ? 1 : 0;
   const numerator =
     upperSign * tauHatVariance * Math.sqrt(posteriorPrecision) * zStar -
     (properInt * (tauHatVariance * priorMeanSpecified)) /
@@ -497,52 +508,28 @@ export function getCutpoint(
 /**
  * Performs power calculation
  *
+ * @param metric an object of class MetricParamsBayesian that has info about prior mean and sd, metric mean and sd, and effect size.
  * @param alpha false positive rate (default: 0.05).
- * @param effectSize Scalar lift (relative to the scalar mean of the distribution, expressed as percentage).
- * @param priorVarianceRelDGP variance of the data generating process (relative scale).  use 0 for fixed treatment effect.
- * @param priorMeanRelSpecified mean of the data generating process (relative scale).
- * @param priorVarianceRelSpecified variance of the data generating process (relative scale).
- * @param proper if the specified prior is proper.
- * @param mean Scalar mean of the distribution.
- * @param variance Scalar variance of the distribution.
  * @param nPerVariation sample size per variation.
  * @param relative boolean indicator if relative inference is desired.
  * @returns Estimated power.
  */
 export function powerEstBayesian(
+  metric: MetricParamsBayesian,
   alpha: number,
-  effectSize: number,
-  priorVarianceRelDGP: number,
-  priorMeanRelSpecified: number,
-  priorVarianceRelSpecified: number,
-  proper: boolean,
-  mean: number,
-  variance: number,
   nPerVariation: number,
   relative: boolean
 ): number {
   const upperCutpoint = getCutpoint(
+    metric,
     alpha,
-    effectSize,
-    priorVarianceRelDGP,
-    priorMeanRelSpecified,
-    priorVarianceRelSpecified,
-    proper,
-    mean,
-    variance,
     nPerVariation,
     relative,
     true
   );
   const lowerCutpoint = getCutpoint(
+    metric,
     alpha,
-    effectSize,
-    priorVarianceRelDGP,
-    priorMeanRelSpecified,
-    priorVarianceRelSpecified,
-    proper,
-    mean,
-    variance,
     nPerVariation,
     relative,
     false
@@ -554,41 +541,28 @@ export function powerEstBayesian(
 
 /**
  * Performs mde calc
+ * @param metric an object of class MetricParamsBayesian that has info about prior mean and sd, metric mean and sd, and effect size.
  * @param alpha false positive rate (default: 0.05).
- * @param power statistical power.
- * @param priorVarianceRelDGP variance of the data generating process (relative scale).  use 0 for fixed treatment effect.
- * @param priorMeanRelSpecified mean of the data generating process (relative scale).
- * @param priorVarianceRelSpecified variance of the data generating process (relative scale).
- * @param proper if the specified prior is proper.
- * @param mean Scalar mean of the distribution.
- * @param variance Scalar variance of the distribution.
  * @param nPerVariation sample size per variation.
  * @param relative boolean indicator if relative inference is desired.
  * @returns object of class MDEResults, containing type and either mde or description.
  */
 export function findMdeBayesian(
+  metric: MetricParamsBayesian,
   alpha: number,
   power: number,
-  priorVarianceRelDGP: number,
-  priorMeanRelSpecified: number,
-  priorVarianceRelSpecified: number,
-  proper: boolean,
-  mean: number,
-  variance: number,
   nPerVariation: number,
-  relative: boolean,
-  j: number
+  relative: boolean
 ): MDEResults {
+  /*fixed effect size, so prior variance of data generating process is 0*/
+  const metricMean = getMetricMean(metric);
+  const metricVariance = getMetricVariance(metric);
   let lowerBound = 0.0;
+  const dummyMetric = { ...metric };
+  dummyMetric.effectSize = lowerBound;
   let currentPower = powerEstBayesian(
+    dummyMetric,
     alpha,
-    lowerBound,
-    priorVarianceRelDGP,
-    priorMeanRelSpecified,
-    priorVarianceRelSpecified,
-    proper,
-    mean,
-    variance,
     nPerVariation,
     relative
   );
@@ -601,37 +575,23 @@ export function findMdeBayesian(
     return mdeResults;
   }
   /*now we know mde is positive, need to find a lower bound*/
-  const priorMeanSpecified = calculatePriorMean(
-    priorMeanRelSpecified,
-    mean,
-    relative
-  );
-  const priorVarianceSpecified = calculatePriorVariance(
-    priorVarianceRelSpecified,
-    mean,
+  const priorMeanSpecified = calculatePriorMeanSpecified(dummyMetric, relative);
+  const priorVarianceSpecified = calculatePriorVarianceSpecified(
+    dummyMetric,
     relative
   );
   const tauHatVariance = estimateTauHatVariance(
-    mean,
-    lowerBound,
-    variance,
+    dummyMetric,
     nPerVariation,
     relative
   );
   const posteriorPrecision = getPosteriorPrecision(
-    priorVarianceRelSpecified,
-    mean,
-    lowerBound,
-    variance,
+    dummyMetric,
     nPerVariation,
-    relative,
-    proper
+    relative
   );
   const marginalVarianceTauHat = getMarginalVarianceTauHat(
-    priorVarianceRelDGP,
-    mean,
-    lowerBound,
-    variance,
+    dummyMetric,
     nPerVariation,
     relative
   );
@@ -641,60 +601,43 @@ export function findMdeBayesian(
     marginalVarianceTauHat * Math.sqrt(posteriorPrecision) * zStar -
     (tauHatVariance * priorMeanSpecified) / priorVarianceSpecified -
     Math.sqrt(tauHatVariance) * normal.quantile(1.0 - power, 0, 1);
-  // Handle relative vs. non-relative cases
   if (!relative) {
-    lowerBound /= mean;
+    lowerBound /= metricMean;
   }
-  currentPower = powerEstBayesian(
-    alpha,
-    lowerBound,
-    priorVarianceRelDGP,
-    priorMeanRelSpecified,
-    priorVarianceRelSpecified,
-    proper,
-    mean,
-    variance,
-    nPerVariation,
-    relative
-  );
-  while (currentPower > power) {
+  dummyMetric.effectSize = lowerBound;
+  currentPower = powerEstBayesian(dummyMetric, alpha, nPerVariation, relative);
+  let iters = 0;
+  while (currentPower > power && iters < 1e5) {
     lowerBound *= 0.5;
+    dummyMetric.effectSize = lowerBound;
     currentPower = powerEstBayesian(
+      dummyMetric,
       alpha,
-      lowerBound,
-      priorVarianceRelDGP,
-      priorMeanRelSpecified,
-      priorVarianceRelSpecified,
-      proper,
-      mean,
-      variance,
       nPerVariation,
       relative
     );
   }
   /*maximum solution is 200% increase*/
+  dummyMetric.effectSize = 2;
   const maxPower = powerEstBayesian(
+    dummyMetric,
     alpha,
-    2,
-    priorVarianceRelDGP,
-    priorMeanRelSpecified,
-    priorVarianceRelSpecified,
-    proper,
-    mean,
-    variance,
     nPerVariation,
-    true
+    relative
   );
   if (maxPower < power) {
     console.log(`failing at iteration j: %d`, j);
     console.log(`maxPower: %d`, maxPower);
-    console.log(`priorVariancenRelDGP: %d`, priorVarianceRelDGP);
-    console.log(`priorMeanRelSpecified: %d`, priorMeanRelSpecified);
-    console.log(`priorVarianceRelSpecified: %d`, priorVarianceRelSpecified);
+    console.log(`priorVariancenRelDGP: %d`, 0);
+    console.log(`priorMeanRelSpecified: %d`, metric.priorLiftMean);
+    console.log(
+      `priorVarianceRelSpecified: %d`,
+      metric.priorLiftStandardDeviation
+    );
     console.log(
       `mean: %d, variance: %d, nPerVariation %d`,
-      mean,
-      variance,
+      metricMean,
+      metricVariance,
       nPerVariation
     );
     const mdeResults: MDEResults = {
@@ -705,48 +648,23 @@ export function findMdeBayesian(
     return mdeResults;
   }
   let upperBound = 2 * lowerBound;
-  currentPower = powerEstBayesian(
-    alpha,
-    upperBound,
-    priorVarianceRelDGP,
-    priorMeanRelSpecified,
-    priorVarianceRelSpecified,
-    proper,
-    mean,
-    variance,
-    nPerVariation,
-    relative
-  );
+  dummyMetric.effectSize = upperBound;
+  currentPower = powerEstBayesian(dummyMetric, alpha, nPerVariation, relative);
   while (currentPower < power) {
     upperBound *= 2;
+    dummyMetric.effectSize = upperBound;
     currentPower = powerEstBayesian(
+      dummyMetric,
       alpha,
-      upperBound,
-      priorVarianceRelDGP,
-      priorMeanRelSpecified,
-      priorVarianceRelSpecified,
-      proper,
-      mean,
-      variance,
       nPerVariation,
       relative
     );
   }
   let mde = 0.5 * (lowerBound + upperBound);
-  currentPower = powerEstBayesian(
-    alpha,
-    mde,
-    priorVarianceRelDGP,
-    priorMeanRelSpecified,
-    priorVarianceRelSpecified,
-    proper,
-    mean,
-    variance,
-    nPerVariation,
-    relative
-  );
+  dummyMetric.effectSize = mde;
+  currentPower = powerEstBayesian(dummyMetric, alpha, nPerVariation, relative);
   let diff = currentPower - power;
-  let iters = 0;
+  iters = 0;
   while (Math.abs(diff) >= 1e-5 && iters < 1e5) {
     if (diff > 0) {
       upperBound = mde;
@@ -754,15 +672,10 @@ export function findMdeBayesian(
       lowerBound = mde;
     }
     mde = 0.5 * (lowerBound + upperBound);
+    dummyMetric.effectSize = mde;
     currentPower = powerEstBayesian(
+      dummyMetric,
       alpha,
-      mde,
-      priorVarianceRelDGP,
-      priorMeanRelSpecified,
-      priorVarianceRelSpecified,
-      proper,
-      mean,
-      variance,
       nPerVariation,
       relative
     );
@@ -775,113 +688,4 @@ export function findMdeBayesian(
     mde: mde,
   };
   return mdeResults;
-}
-
-export function powerMetricWeeksBayesian(
-  powerSettings: PowerCalculationParamsBayesian
-): PowerCalculationResults {
-  const metrics = powerSettings.metrics;
-  const sampleSizeAndRuntimeNumeric: number[] = []; //for each metric, the first week they achieve 80% power.
-  const nWeeks = powerSettings.nWeeks;
-  function getNumberOfMetrics(params: PowerCalculationParamsBayesian): number {
-    return Object.keys(params.metrics).length;
-  }
-  const nMetrics = getNumberOfMetrics(powerSettings);
-  const metricKeys = Object.keys(metrics);
-  const mySampleSizeAndRuntime: {
-    [id: string]: SampleSizeAndRuntime | undefined;
-  } = {};
-
-  const metricThresholds = {};
-  const weeks: Week[] = [...Array(nWeeks).keys()].map((idx) => ({
-    users: (idx + 1) * powerSettings.usersPerWeek,
-    metrics: {},
-  }));
-
-  for (let i = 0; i < nMetrics; i++) {
-    const metricKey = metricKeys[i];
-    const thisMetric = metrics[metricKey];
-    let thisMean = 0;
-    let thisVariance = 1;
-    if (thisMetric.type === "binomial") {
-      thisMean = thisMetric.conversionRate;
-      thisVariance =
-        thisMetric.conversionRate * (1 - thisMetric.conversionRate);
-    } else {
-      thisMean = thisMetric.mean;
-      thisVariance = thisMetric.standardDeviation ** 2;
-    }
-    let thisMDENumeric = NaN;
-    let thisSampleSizeAndRuntimeNumeric = 999;
-    let lookingForSampleSizeAndRunTime = true;
-    for (let j = 0; j < nWeeks; j++) {
-      const n = powerSettings.usersPerWeek * (j + 1);
-
-      const thisPower = powerEstBayesian(
-        powerSettings.alpha,
-        thisMetric.effectSize,
-        0 /*fixed effect, so dgp variance is 0*/,
-        thisMetric.priorMean,
-        Math.pow(thisMetric.priorStandardDeviation, 2),
-        thisMetric.proper,
-        thisMean,
-        thisVariance,
-        n / powerSettings.nVariations,
-        true
-      );
-      if (thisPower >= 0.8 && lookingForSampleSizeAndRunTime) {
-        lookingForSampleSizeAndRunTime = false;
-        thisSampleSizeAndRuntimeNumeric = j + 1;
-      }
-      const thisMde = findMdeBayesian(
-        powerSettings.alpha,
-        0.8,
-        0 /*fixed effect, so dgp variance is 0*/,
-        thisMetric.priorMean,
-        Math.pow(thisMetric.priorStandardDeviation, 2),
-        thisMetric.proper,
-        thisMean,
-        thisVariance,
-        (powerSettings.usersPerWeek * (j + 1)) / powerSettings.nVariations,
-        true,
-        j
-      );
-
-      if (thisMde.type === "success") {
-        thisMDENumeric = thisMde.mde;
-      }
-      if (
-        powerSettings.targetPower < thisPower &&
-        metricThresholds[metricKey] === undefined
-      )
-        metricThresholds[metricKey] = j;
-      weeks[j].metrics[metricKey] = {
-        effectSize: thisMDENumeric,
-        power: thisPower,
-        isThreshold: metricThresholds[metricKey] === j,
-      };
-    }
-
-    sampleSizeAndRuntimeNumeric.push(thisSampleSizeAndRuntimeNumeric);
-    const thisSampleSizeAndRuntime =
-      thisSampleSizeAndRuntimeNumeric !== 999
-        ? {
-            weeks: thisSampleSizeAndRuntimeNumeric,
-            users: powerSettings.usersPerWeek * thisSampleSizeAndRuntimeNumeric,
-          }
-        : undefined;
-    mySampleSizeAndRuntime[metricKey] = thisSampleSizeAndRuntime;
-  }
-  function findMax(arr: number[]): number {
-    return Math.max(...arr);
-  }
-  const duration = findMax(sampleSizeAndRuntimeNumeric);
-
-  const results: PowerCalculationResults = {
-    sampleSizeAndRuntime: mySampleSizeAndRuntime,
-    type: "success",
-    weeks,
-    ...(duration !== 999 ? { weekThreshold: duration } : {}),
-  };
-  return results;
 }
