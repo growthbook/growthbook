@@ -236,26 +236,27 @@ export async function analyzeSingleExperiment(
   params: ExperimentMetricAnalysisParams
 ): Promise<ExperimentMetricAnalysis> {
   const result = (
-    await runStatsEngine([{ id: "_", data: createStatsEngineData(params) }])
+    await runStatsEngine([
+      { id: params.id, data: createStatsEngineData(params) },
+    ])
   )?.[0];
 
   if (!result) {
-    throw new Error(
-      "Failed to analyze manual snapshot; Stats Engine returned no results"
-    );
+    throw new Error("Error in stats engine: no rows returned");
+  }
+  if (result.error) {
+    logger.error(result.error, "Failed to run stats model: " + result.error);
+    throw new Error("Error in stats engine: " + result.error);
   }
   return result.results;
 }
 
 export async function analyzeMultipleExperiments(
-  experimentParams: {
-    experiment: string;
-    params: ExperimentMetricAnalysisParams;
-  }[]
+  params: ExperimentMetricAnalysisParams[]
 ): Promise<MultipleExperimentMetricAnalysis[]> {
   const result = await runStatsEngine(
-    experimentParams.map((ep) => {
-      return { id: ep.experiment, data: createStatsEngineData(ep.params) };
+    params.map((p) => {
+      return { id: p.id, data: createStatsEngineData(p) };
     })
   );
 
@@ -453,6 +454,7 @@ export async function analyzeExperimentResults({
   let { unknownVariations } = mdat;
 
   const results = await analyzeSingleExperiment({
+    id: snapshotSettings.experimentId,
     coverage: snapshotSettings.coverage ?? 1,
     phaseLengthHours: Math.max(
       hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
