@@ -17,7 +17,10 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
-import { ExperimentMetricAnalysis } from "../../types/stats";
+import {
+  ExperimentMetricAnalysis,
+  MultipleExperimentMetricAnalysis,
+} from "../../types/stats";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentFactMetricsQueryResponseRows,
@@ -92,6 +95,11 @@ export interface DataForStatsEngine {
   query_results: QueryResultsForStatsEngine[];
 }
 
+export interface ExperimentDataForStatsEngine {
+  id: string;
+  data: DataForStatsEngine;
+}
+
 export const MAX_DIMENSIONS = 20;
 
 export function getAvgCPU(pre: os.CpuInfo[], post: os.CpuInfo[]) {
@@ -150,40 +158,15 @@ export function getAnalysisSettingsForStatsEngine(
   return analysisData;
 }
 
-export async function analyzeExperimentMetric(
-  params: ExperimentMetricAnalysisParams
-): Promise<ExperimentMetricAnalysis> {
-  const {
-    variations,
-    metrics,
-    phaseLengthHours,
-    coverage,
-    analyses,
-    queryResults,
-  } = params;
-
-  const phaseLengthDays = Number(phaseLengthHours / 24);
-
-  const statsData: DataForStatsEngine = {
-    metrics: metrics,
-    query_results: queryResults,
-    analyses: analyses.map((a) =>
-      getAnalysisSettingsForStatsEngine(
-        a,
-        variations,
-        coverage,
-        phaseLengthDays
-      )
-    ),
-  };
-
+async function runStatsEngine(
+  statsData: ExperimentDataForStatsEngine[]
+): Promise<MultipleExperimentMetricAnalysis[]> {
   const escapedStatsData = JSON.stringify(statsData).replace(/\\/g, "\\\\");
-
   const start = Date.now();
   const cpus = os.cpus();
   const result = await promisify(PythonShell.runString)(
     `
-from gbstats.gbstats import process_experiment_results
+from gbstats.gbstats import process_multiple_experiment_results
 import json
 import time
 
@@ -191,7 +174,7 @@ start = time.time()
 
 data = json.loads("""${escapedStatsData}""", strict=False)
 
-results = process_experiment_results(data)
+results = process_multiple_experiment_results(data)
 
 print(json.dumps({
   'results': results,
@@ -202,7 +185,7 @@ print(json.dumps({
 
   try {
     const parsed: {
-      results: ExperimentMetricAnalysis;
+      results: MultipleExperimentMetricAnalysis[];
       time: number;
     } = JSON.parse(result?.[0]);
 
@@ -219,6 +202,65 @@ print(json.dumps({
     logger.error(e, "Failed to run stats model: " + result);
     throw e;
   }
+}
+
+function createStatsEngineData(
+  params: ExperimentMetricAnalysisParams
+): DataForStatsEngine {
+  const {
+    variations,
+    metrics,
+    phaseLengthHours,
+    coverage,
+    analyses,
+    queryResults,
+  } = params;
+
+  const phaseLengthDays = Number(phaseLengthHours / 24);
+
+  return {
+    metrics: metrics,
+    query_results: queryResults,
+    analyses: analyses.map((a) =>
+      getAnalysisSettingsForStatsEngine(
+        a,
+        variations,
+        coverage,
+        phaseLengthDays
+      )
+    ),
+  };
+}
+
+export async function analyzeSingleExperiment(
+  params: ExperimentMetricAnalysisParams
+): Promise<ExperimentMetricAnalysis> {
+  const result = (
+    await runStatsEngine([
+      { id: params.id, data: createStatsEngineData(params) },
+    ])
+  )?.[0];
+
+  if (!result) {
+    throw new Error("Error in stats engine: no rows returned");
+  }
+  if (result.error) {
+    logger.error(result.error, "Failed to run stats model: " + result.error);
+    throw new Error("Error in stats engine: " + result.error);
+  }
+  return result.results;
+}
+
+export async function analyzeMultipleExperiments(
+  params: ExperimentMetricAnalysisParams[]
+): Promise<MultipleExperimentMetricAnalysis[]> {
+  const result = await runStatsEngine(
+    params.map((p) => {
+      return { id: p.id, data: createStatsEngineData(p) };
+    })
+  );
+
+  return result;
 }
 
 export function getMetricSettingsForStatsEngine(
@@ -411,7 +453,8 @@ export async function analyzeExperimentResults({
   const { queryResults, metricSettings } = mdat;
   let { unknownVariations } = mdat;
 
-  const results = await analyzeExperimentMetric({
+  const results = await analyzeSingleExperiment({
+    id: snapshotSettings.experimentId,
     coverage: snapshotSettings.coverage ?? 1,
     phaseLengthHours: Math.max(
       hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),

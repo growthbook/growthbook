@@ -67,3 +67,9 @@ class ExperimentMetricAnalysisResult:
 class ExperimentMetricAnalysis:
     metric: str
     analyses: List[ExperimentMetricAnalysisResult]
+
+
+@dataclass
+class MultipleExperimentMetricAnalysis:
+    id: str
+    results: List[ExperimentMetricAnalysisResult]
