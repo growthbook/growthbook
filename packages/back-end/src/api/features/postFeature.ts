@@ -6,7 +6,7 @@ import { createApiRequestHandler } from "../../util/handler";
 import { postFeatureValidator } from "../../validators/openapi";
 import { createFeature, getFeature } from "../../models/FeatureModel";
 import { getExperimentMapForFeature } from "../../models/ExperimentModel";
-import { FeatureInterface } from "../../../types/feature";
+import { FeatureInterface, JSONSchemaDef } from "../../../types/feature";
 import { getEnabledEnvironments } from "../../util/features";
 import {
   addIdsToRules,
@@ -43,8 +43,10 @@ export const parseJsonSchemaForEnterprise = (
   org: OrganizationInterface,
   jsonSchema: string | undefined
 ) => {
-  const jsonSchemaWrapper = {
+  const jsonSchemaWrapper: JSONSchemaDef = {
+    schemaType: "schema",
     schema: "",
+    simple: { type: "object", fields: [] },
     date: new Date(),
     enabled: false,
   };

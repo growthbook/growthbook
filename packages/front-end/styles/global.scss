@@ -861,6 +861,12 @@ main.main.report {
   }
 }
 
+.no-underline {
+  &:hover {
+    text-decoration: none !important;
+  }
+}
+
 .link-purple {
   color: colors.$highlight-purple;
   text-decoration: none;
@@ -3047,6 +3053,9 @@ td.disabled {
 }
 .cursor-disabled {
   cursor: not-allowed;
+}
+.cursor-default {
+  cursor: default;
 }
 .gb-select-wrapper.disabled {
   cursor: not-allowed;

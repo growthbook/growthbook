@@ -62,26 +62,33 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "canReview",
     "bypassApprovalChecks",
   ],
-  ExperimentsFullAccess: ["readData", "createAnalyses"],
+  ExperimentsFullAccess: ["readData", "createAnalyses", "runQueries"],
   VisualEditorFullAccess: ["readData", "manageVisualChanges"],
   SuperDeleteReports: ["readData", "superDeleteReport"],
   DataSourcesFullAccess: [
     "readData",
     "createDatasources",
     "editDatasourceSettings",
+    "runQueries",
   ],
-  DataSourceConfiguration: ["readData", "editDatasourceSettings"],
+  DataSourceConfiguration: ["readData", "editDatasourceSettings", "runQueries"],
   RunQueries: ["readData", "runQueries"],
-  MetricsFullAccess: ["readData", "createMetrics"],
+  MetricsFullAccess: ["readData", "createMetrics", "runQueries"],
   FactTablesFullAccess: [
     "readData",
     "manageFactTables",
     "manageFactMetrics",
     "manageFactFilters",
+    "runQueries",
   ],
-  FactMetricsFullAccess: ["readData", "manageFactMetrics", "manageFactFilters"],
-  DimensionsFullAccess: ["readData", "createDimensions"],
-  SegmentsFullAccess: ["readData", "createSegments"],
+  FactMetricsFullAccess: [
+    "readData",
+    "manageFactMetrics",
+    "manageFactFilters",
+    "runQueries",
+  ],
+  DimensionsFullAccess: ["readData", "createDimensions", "runQueries"],
+  SegmentsFullAccess: ["readData", "createSegments", "runQueries"],
   IdeasFullAccess: ["readData", "createIdeas"],
   PresentationsFullAccess: ["readData", "createPresentations"],
   SDKPayloadPublish: ["readData", "publishFeatures", "runExperiments"],
@@ -101,9 +108,9 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   TagsFullAccess: ["readData", "manageTags"],
   APIKeysFullAccess: ["readData", "manageApiKeys"],
   IntegrationsFullAccess: ["readData", "manageIntegrations"],
-  EventWebhooksFullAccess: ["readData", "manageEventWebhooks"],
+  EventWebhooksFullAccess: ["readData", "manageEventWebhooks", "viewAuditLog"],
   BillingFullAccess: ["readData", "manageBilling"],
-  AuditLogsFullAccess: ["readData", "viewEvents"],
+  AuditLogsFullAccess: ["readData", "viewAuditLog"],
   CustomRolesFullAccess: ["readData", "manageTeam", "manageCustomRoles"],
 };
 
@@ -497,7 +504,7 @@ export const GLOBAL_PERMISSIONS = [
   "manageSavedGroups",
   "manageArchetype",
   "manageCustomRoles",
-  "viewEvents",
+  "viewAuditLog",
 ] as const;
 
 export const ALL_PERMISSIONS = [
@@ -508,7 +515,7 @@ export const ALL_PERMISSIONS = [
 
 export const READ_ONLY_PERMISSIONS = [
   "readData",
-  "viewEvents",
+  "viewAuditLog",
   "runQueries",
   "addComments",
 ];
