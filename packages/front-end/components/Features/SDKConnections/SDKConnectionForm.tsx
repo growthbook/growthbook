@@ -44,7 +44,6 @@ import SDKLanguageSelector from "./SDKLanguageSelector";
 import {
   LanguageType,
   languageMapping,
-  getLanguagesByFilter,
   LanguageFilter,
   getConnectionLanguageFilter,
 } from "./SDKLanguageLogo";
@@ -392,11 +391,6 @@ export default function SDKConnectionForm({
               setLanguageFilter={setLanguageFilter}
               multiple={form.watch("languages").length > 1}
               includeOther={true}
-              limitLanguages={
-                form.watch("languages").length > 1
-                  ? undefined
-                  : getLanguagesByFilter(languageFilter)
-              }
               skipLabel={form.watch("languages").length <= 1}
               hideShowAllLanguages={true}
             />

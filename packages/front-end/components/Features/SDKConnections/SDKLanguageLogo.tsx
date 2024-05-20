@@ -19,9 +19,10 @@ import {
 import React, { ReactElement } from "react";
 import { isSDKOutdated } from "shared/sdk-versioning";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
-import { BsCloudFog2, BsFiletypeHtml } from "react-icons/bs";
+import { BsFiletypeHtml } from "react-icons/bs";
 import { DocSection } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import {TbCloudCode} from "react-icons/tb";
 
 export type LanguageFilter =
   | "popular"
@@ -214,10 +215,9 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     ),
   },
   "edge-other": {
-    Icon: BsCloudFog2,
+    Icon: TbCloudCode,
     color: "#777",
-    label: "Other",
-    docLabel: "Other Edge",
+    label: "Other Edge",
     docs: "edge",
     type: "edge",
     filters: ["edge"],

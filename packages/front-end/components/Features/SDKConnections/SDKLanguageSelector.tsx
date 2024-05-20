@@ -135,7 +135,10 @@ export default function SDKLanguageSelector({
   ]);
 
   if (useTabs) {
-    const languages = getLanguagesByFilter(languageFilter);
+    let languages = getLanguagesByFilter(languageFilter);
+    if (!includeOther) {
+      languages = languages.filter(l => l !== "other");
+    }
     return (
       <ControlledTabs
         buttonsClassName="px-3"
