@@ -69,6 +69,7 @@ const GuidedGetStartedBar = () => {
               borderRadius: "4px",
               padding: "0px 10px",
               fontSize: "13px",
+              height: "25px",
             }}
           >
             Return to Guide
