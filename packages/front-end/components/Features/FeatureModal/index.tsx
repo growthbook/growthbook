@@ -122,7 +122,7 @@ const genFormDefaultValues = ({
         environmentSettings,
       }
     : {
-        valueType: "boolean",
+        valueType: "" as FeatureValueType,
         defaultValue: getDefaultValue("boolean"),
         description: "",
         id: "",
@@ -197,7 +197,12 @@ export default function FeatureModal({
       secondaryCTA={secondaryCTA}
       submit={form.handleSubmit(async (values) => {
         const { defaultValue, ...feature } = values;
-        const valueType = feature.valueType as FeatureValueType;
+        const valueType = feature.valueType;
+
+        if (!valueType) {
+          throw new Error("Please select a value type");
+        }
+
         const passedFeature = feature as FeatureInterface;
         const newDefaultValue = validateFeatureValue(
           passedFeature,
@@ -310,7 +315,7 @@ export default function FeatureModal({
           decision of which rule to display (out of potentially many) in the
           modal is not deterministic.
       */}
-      {!featureToDuplicate && (
+      {!featureToDuplicate && valueType && (
         <>
           <FeatureValueField
             label={"Default Value when Enabled"}
