@@ -10,7 +10,6 @@ import {
   isFeatureStale,
   StaleFeatureReason,
 } from "shared/util";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle } from "@/components/Icons";
@@ -43,7 +42,6 @@ import Toggle from "@/components/Forms/Toggle";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
-import { useUser } from "@/services/UserContext";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import Tab from "@/components/Tabs/Tab";
@@ -68,8 +66,6 @@ export default function FeaturesPage() {
   ] = useState<FeatureInterface | null>(null);
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
-
-  const { organization } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
   const { project, getProjectById } = useDefinitions();
@@ -435,11 +431,7 @@ export default function FeaturesPage() {
   const showProjectColumn = !project && features.some((f) => f.project);
 
   // Ignore the demo datasource
-  const hasFeatures = features.some(
-    (f) =>
-      f.project !==
-      getDemoDatasourceProjectIdForOrganization(organization.id || "")
-  );
+  const hasFeatures = features.length > 0;
 
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
   const showArchivedToggle = features.some((f) => f.archived);

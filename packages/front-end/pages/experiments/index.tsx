@@ -4,7 +4,6 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { datetime, ago } from "shared/dates";
 import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -25,7 +24,6 @@ import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal
 import { AppFeatures } from "@/types/app-features";
 import { useExperiments } from "@/hooks/useExperiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { useAuth } from "@/services/auth";
 import TagsFilter, {
   filterByTags,
   useTagsFilter,
@@ -46,8 +44,6 @@ const ExperimentsPage = (): React.ReactElement => {
     getExperimentMetricById,
     getProjectById,
   } = useDefinitions();
-
-  const { orgId } = useAuth();
 
   const { experiments: allExperiments, error, loading } = useExperiments(
     project
@@ -99,11 +95,6 @@ const ExperimentsPage = (): React.ReactElement => {
     },
     [getExperimentMetricById, getProjectById]
   );
-
-  const demoExperimentId = useMemo(() => {
-    const projectId = getDemoDatasourceProjectIdForOrganization(orgId || "");
-    return experiments.find((e) => e.project === projectId)?.id || "";
-  }, [orgId, experiments]);
 
   const { watchedExperiments } = useWatching();
 
@@ -177,9 +168,7 @@ const ExperimentsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const hasExperiments = experiments.some(
-    (e) => !e.id.match(/^exp_sample/) && e.id !== demoExperimentId
-  );
+  const hasExperiments = experiments.length > 0;
 
   const canAdd = permissionsUtil.canViewExperimentModal(project);
 
@@ -239,7 +228,8 @@ const ExperimentsPage = (): React.ReactElement => {
               <h1>Test Variations with Targeted Users</h1>
               <p style={{ fontSize: "17px" }}>
                 Run unlimited tests with linked feature flags, URL redirects or
-                the Visual Editor.
+                the Visual Editor. You can also easily import existing
+                experiments from other platforms.
               </p>
               <div className="row">
                 <Link href="/getstarted/experiment-guide">
