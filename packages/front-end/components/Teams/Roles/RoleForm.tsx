@@ -60,8 +60,18 @@ export default function RoleForm({
 
   const saveSettings = form.handleSubmit(async (currentValue) => {
     setError(null);
+
+    if (!currentValue.id.length) {
+      setError("Name field is required");
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(currentValue.id)) {
+      setError("Name field can only contain letters, numbers, and hyphens.");
+      return;
+    }
+
     try {
-      console.log("Hit save");
       if (status === "creating") {
         await apiCall("/custom-roles", {
           method: "POST",
