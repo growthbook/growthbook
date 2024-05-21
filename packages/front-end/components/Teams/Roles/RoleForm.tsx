@@ -29,6 +29,28 @@ export default function RoleForm({
     action
   );
 
+  const validateInputs = (input: {
+    id: string;
+    description: string;
+    policies: Policy[];
+  }): boolean => {
+    if (!input.id.length) {
+      setError("Name field is required");
+      return false;
+    }
+
+    if (RESERVED_ROLE_IDS.includes(input.id)) {
+      setError("That role id is reserved and cannot be used");
+      return false;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(input.id)) {
+      setError("Name field can only contain letters, numbers, and hyphens.");
+      return false;
+    }
+    return true;
+  };
+
   const form = useForm<{
     id: string;
     description: string;
@@ -61,15 +83,7 @@ export default function RoleForm({
   const saveSettings = form.handleSubmit(async (currentValue) => {
     setError(null);
 
-    if (!currentValue.id.length) {
-      setError("Name field is required");
-      return;
-    }
-
-    if (!/^[a-zA-Z0-9_]+$/.test(currentValue.id)) {
-      setError("Name field can only contain letters, numbers, and hyphens.");
-      return;
-    }
+    if (!validateInputs(currentValue)) return;
 
     try {
       if (status === "creating") {
