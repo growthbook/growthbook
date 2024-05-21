@@ -529,11 +529,19 @@ export class Permissions {
     );
   };
 
+  // Used to determine if we should show the Settings > Projects link in SideNav
   public canUpdateSomeProjects = (): boolean => {
-    // TODO: loop through all projects and check if the user has permission to update at least one
-    return this.checkProjectFilterPermission(
-      { projects: [] },
-      "manageProjects"
+    const projects: string[] = [""];
+
+    Object.keys(this.userPermissions.projects).forEach((key) =>
+      projects.push(key)
+    );
+
+    return projects.some((project) =>
+      this.checkProjectFilterPermission(
+        { projects: [project] },
+        "manageProjects"
+      )
     );
   };
 
