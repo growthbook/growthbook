@@ -2,6 +2,7 @@ import { PiArrowRight, PiCheckCircleFill } from "react-icons/pi";
 import { useState } from "react";
 import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import clsx from "clsx";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
@@ -9,6 +10,7 @@ import PageHead from "@/components/Layout/PageHead";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import styles from "@/components/GetStarted/GetStarted.module.scss";
 
 const ImportedExperimentGuide = (): React.ReactElement => {
   const { organization } = useUser();
@@ -48,7 +50,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
   );
 
   return (
-    <div className="container pagecontents p-4">
+    <div className={clsx(styles.getStartedPage, "container pagecontents p-4")}>
       <PageHead
         breadcrumb={[
           { display: "Get Started", href: "/getstarted" },
@@ -72,15 +74,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
       </div>
       <div className="d-flex mt-4">
         <div className="flex-fill mr-5">
-          <div
-            className="p-4"
-            style={{
-              background: "#FFFFFF",
-              border: "1px solid",
-              borderRadius: "4px",
-              borderColor: "#F5F2FF",
-            }}
-          >
+          <div className="appbox p-4">
             <div className="row">
               <div className="col-sm-auto">
                 {hasDatasource ? (
@@ -215,7 +209,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
             </div>
           </div>
         </div>
-        <div className="">
+        <div>
           <DocumentationSidebar
             setUpgradeModal={setUpgradeModal}
             type="imports"
