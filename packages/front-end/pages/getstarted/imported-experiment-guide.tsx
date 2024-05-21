@@ -118,7 +118,8 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                   Connect to Your Data Warehouse
                 </Link>
                 <p className="mt-2">
-                  Allow GrowthBook to communicate with your data warehouse.
+                  Allow GrowthBook to query your warehouse to compute traffic
+                  totals and metric results.
                 </p>
                 <hr />
               </div>
@@ -159,10 +160,11 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                     textDecoration: hasFactTables ? "line-through" : "none",
                   }}
                 >
-                  Define Fact Tables
+                  Define Fact Tables and Metrics
                 </Link>
                 <p className="mt-2">
-                  Define fact tables for the main events you want to report on
+                  Define fact tables for the main events in your data warehouse
+                  and build metrics based on those events.
                 </p>
                 <hr />
               </div>

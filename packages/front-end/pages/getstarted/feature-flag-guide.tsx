@@ -270,8 +270,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                   Create a Test Feature Flag{project && " in this Project"}
                 </Link>
                 <p className="mt-2">
-                  Add first feature flag to test that everything is connected
-                  properly
+                  Add your first feature flag to test your setup.
                 </p>
               </div>
             </div>
