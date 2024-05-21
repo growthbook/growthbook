@@ -290,7 +290,7 @@ export interface OrganizationInterface {
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
   messages?: OrganizationMessage[];
-  getStartedChecklists?: GetStartedChecklist;
+  getStartedChecklistItems?: string[];
   customRoles?: Role[];
 }
 

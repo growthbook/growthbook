@@ -5,12 +5,14 @@ import { routes, useGetStarted } from "@/services/GetStartedProvider";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Button from "@/components/Button";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import styles from "./TopNav.module.scss";
 
 const manualSteps = ["attributes", "environments"];
 
 const GuidedGetStartedBar = () => {
   const { refreshOrganization } = useUser();
+  const { project } = useDefinitions();
   const { currentStep, source, clearStep, stepKey } = useGetStarted();
   const { apiCall } = useAuth();
   const router = useRouter();
@@ -50,8 +52,8 @@ const GuidedGetStartedBar = () => {
               await apiCall("/organization/get-started-checklist", {
                 method: "PUT",
                 body: JSON.stringify({
-                  item: { step: stepKey, isCompleted: true },
-                  type: source,
+                  checklistItem: stepKey,
+                  project,
                 }),
               });
               clearStep();

@@ -32,9 +32,19 @@ const FeaturedCard = ({ handleClick, playTime, imgUrl }: Props) => {
           {playTime ? (
             "Launch Video Player"
           ) : (
-            <span>
-              View Blog Post <PiArrowSquareOut />
-            </span>
+            <div style={{ display: "flex", alignItems: "baseline" }}>
+              <span>
+                View Blog Post{" "}
+                <PiArrowSquareOut
+                  className="ml-1"
+                  style={{
+                    height: "15px",
+                    width: "15px",
+                    verticalAlign: "bottom",
+                  }}
+                />
+              </span>
+            </div>
           )}
         </span>
       </div>

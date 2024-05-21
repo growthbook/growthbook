@@ -51,11 +51,9 @@ const ExperimentGuide = (): React.ReactElement => {
       )
     : experiments.some((e) => e.project !== demoProjectId);
 
-  const manualChecks = organization.getStartedChecklists?.experiments;
-  const environmentsReviewed = manualChecks?.find(
-    (c) => c.step === "environments"
-  );
-  const attributesSet = manualChecks?.find((c) => c.step === "attributes");
+  const manualChecks = organization.getStartedChecklistItems;
+  const environmentsReviewed = manualChecks?.includes("environments");
+  const attributesSet = manualChecks?.includes("attributes");
 
   const hasStartedExperiment = project
     ? experiments.some(

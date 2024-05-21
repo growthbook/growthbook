@@ -39,11 +39,10 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
     return <div className="alert alert-danger">{error.message}</div>;
   }
 
-  const manualChecks = organization.getStartedChecklists?.features;
-  const environmentsReviewed = manualChecks?.find(
-    (c) => c.step === "environments"
-  );
-  const attributesSet = manualChecks?.find((c) => c.step === "attributes");
+  const manualChecks = organization.getStartedChecklistItems;
+  const environmentsReviewed = manualChecks?.includes("environments");
+  const attributesSet = manualChecks?.includes("attributes");
+
   const isSDKIntegrated =
     sdkConnections?.connections.some((c) => c.connected) || false;
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(

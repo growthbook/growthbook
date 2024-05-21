@@ -302,7 +302,7 @@ const GetStartedPage = (): React.ReactElement => {
                     playTime={5}
                   />
                   <a
-                    href="https://blog.growthbook.io/growthbook-version-2-9/"
+                    href="https://blog.growthbook.io/measuring-a-b-test-impacts-on-website-latency-using-quantile-metrics-in-growthbook/"
                     target="_blank"
                     rel="noreferrer"
                   >
