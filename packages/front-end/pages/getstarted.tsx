@@ -21,6 +21,7 @@ import { useGetStarted } from "@/services/GetStartedProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import FeaturedCard from "@/components/GetStarted/FeaturedCard";
 
 function WorkspaceLink({
   Icon,
@@ -293,35 +294,31 @@ const GetStartedPage = (): React.ReactElement => {
               <h6 className="text-muted mb-3">PRODUCT OVERVIEW</h6>
               <div className="container-fluid">
                 <div className="row">
-                  <button
-                    className="border-0 rounded mr-3"
-                    style={{
-                      width: "268px",
-                      height: "151px",
-                      background:
-                        'url("/images/get-started/thumbnails/intro-to-growthbook.png")',
-                    }}
-                    onClick={() => setShowVideoId("b4xUnDGRKRQ")}
+                  <FeaturedCard
+                    imgUrl={
+                      "/images/get-started/thumbnails/intro-to-growthbook.png"
+                    }
+                    handleClick={() => setShowVideoId("b4xUnDGRKRQ")}
+                    playTime={5}
                   />
-                  <button
-                    className="border-0 rounded mr-3"
-                    style={{
-                      width: "268px",
-                      height: "151px",
-                      background:
-                        'url("/images/get-started/thumbnails/intro-to-feature-flags.png")',
-                    }}
-                    onClick={() => setShowVideoId("b4xUnDGRKRQ")}
-                  />
-                  <a href="https://medium.com/growth-book/growthbook-version-2-9-b795d758177f">
-                    <button
-                      className="border-0 rounded"
-                      style={{
-                        width: "268px",
-                        height: "151px",
-                        background:
-                          'url("/images/get-started/thumbnails/new-release.png")',
-                      }}
+                  <a
+                    href="https://blog.growthbook.io/growthbook-version-2-9/"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <FeaturedCard
+                      imgUrl={
+                        "/images/get-started/thumbnails/quantile-metrics-blog.png"
+                      }
+                    />
+                  </a>
+                  <a
+                    href="https://blog.growthbook.io/growthbook-version-2-9/"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <FeaturedCard
+                      imgUrl={"/images/get-started/thumbnails/2.9-release.png"}
                     />
                   </a>
                 </div>
