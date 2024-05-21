@@ -40,7 +40,7 @@ function WorkspaceLink({
   return (
     <div className="col-6">
       <Icon
-        className="mr-1"
+        className="ml-3 mr-1"
         style={{
           width: "20px",
           height: "20px",
@@ -130,10 +130,7 @@ const GetStartedPage = (): React.ReactElement => {
           <div className="col pl-0">
             <Link href={"/getstarted/feature-flag-guide"}>
               <button
-                className={clsx(
-                  styles.animatedCard,
-                  "px-0 py-4 mr-3 text-left"
-                )}
+                className={clsx(styles.animatedCard, "px-0 py-4 text-left")}
               >
                 <div className="pr-3 mb-5" style={{ paddingLeft: "29px" }}>
                   <div className="d-flex text-left align-middle">
@@ -171,6 +168,7 @@ const GetStartedPage = (): React.ReactElement => {
             <Link href={"/getstarted/experiment-guide"}>
               <button
                 className={clsx(styles.animatedCard, "px-0 py-4 text-left")}
+                style={{ marginRight: "0px" }}
               >
                 <div className="pr-3 mb-5" style={{ paddingLeft: "29px" }}>
                   <div className="d-flex text-left align-middle">
@@ -217,7 +215,7 @@ const GetStartedPage = (): React.ReactElement => {
                 <button
                   className={clsx(
                     styles.animatedButton,
-                    `p-3 mr-3 text-left align-middle`,
+                    `p-3 mr-4 text-left align-middle`,
                     { [styles.disabled]: !canImportLaunchDarkly }
                   )}
                   disabled={!canImportLaunchDarkly}
@@ -261,9 +259,7 @@ const GetStartedPage = (): React.ReactElement => {
                 </button>
               </Tooltip>
               <Link href="/getstarted/imported-experiment-guide">
-                <button
-                  className={`${styles.animatedButton} p-3 mr-3 text-left`}
-                >
+                <button className={`${styles.animatedButton} p-3 text-left`}>
                   <svg width="0" height="0">
                     <linearGradient
                       id="chart-gradient"
@@ -304,7 +300,7 @@ const GetStartedPage = (): React.ReactElement => {
 
             <hr />
 
-            <div className="mt-4 mb-4">
+            <div className="mt-4 mb-5">
               <h6 className="text-muted mb-3">PRODUCT OVERVIEW</h6>
               <div className="container-fluid">
                 <div className="row">
@@ -333,12 +329,13 @@ const GetStartedPage = (): React.ReactElement => {
                   >
                     <FeaturedCard
                       imgUrl={"/images/get-started/thumbnails/2.9-release.png"}
+                      lastCard
                     />
                   </a>
                 </div>
               </div>
             </div>
-            <div className="mr-2 mb-2">
+            <div className="mb-2">
               <h6 className="text-muted mb-3">SET UP YOUR WORKSPACE</h6>
               <div
                 className="appbox d-flex px-4 pt-4 pb-3 mr-6 w-100"

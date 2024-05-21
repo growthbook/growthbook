@@ -6,12 +6,17 @@ interface Props {
   handleClick?: () => void;
   playTime?: number;
   imgUrl: string;
+  lastCard?: boolean;
 }
 
-const FeaturedCard = ({ handleClick, playTime, imgUrl }: Props) => {
+const FeaturedCard = ({ handleClick, playTime, imgUrl, lastCard }: Props) => {
   return (
     <button
-      className={clsx(styles.featuredCard, "border-0 rounded mr-3")}
+      className={clsx(
+        styles.featuredCard,
+        "border-0 rounded",
+        !lastCard && "mr-4"
+      )}
       style={{
         width: "268px",
         height: "151px",
