@@ -9,6 +9,7 @@ import {
   PiUsersThree,
   PiWebhooksLogo,
   PiKey,
+  PiArrowSquareOut,
 } from "react-icons/pi";
 import { IconType } from "react-icons";
 import clsx from "clsx";
@@ -39,6 +40,7 @@ function WorkspaceLink({
   return (
     <div className="col-6">
       <Icon
+        className="mr-1"
         style={{
           width: "20px",
           height: "20px",
@@ -63,7 +65,19 @@ function WorkspaceLink({
           className={clsx(styles.workspaceSetupLink, "align-middle")}
           {...(external ? { target: "_blank", rel: "noreferrer" } : {})}
         >
-          <span style={{ fontSize: "15px" }}>{text}</span>
+          <span style={{ fontSize: "15px" }}>
+            {text}{" "}
+            {external && (
+              <PiArrowSquareOut
+                className="ml-1"
+                style={{
+                  height: "15px",
+                  width: "15px",
+                  verticalAlign: "middle",
+                }}
+              />
+            )}
+          </span>
         </Link>
       )}
       <hr />
@@ -327,7 +341,7 @@ const GetStartedPage = (): React.ReactElement => {
             <div className="mr-2 mb-2">
               <h6 className="text-muted mb-3">SET UP YOUR WORKSPACE</h6>
               <div
-                className="appbox d-flex px-4 py-4 mr-6 w-100"
+                className="appbox d-flex px-4 pt-4 pb-3 mr-6 w-100"
                 style={{
                   borderRadius: "5px",
                 }}
