@@ -1,4 +1,3 @@
-import { GetStartedChecklist } from "@back-end/types/organization";
 import {
   FC,
   createContext,
@@ -7,6 +6,11 @@ import {
   useState,
   useCallback,
 } from "react";
+
+type GetStartedChecklistSource =
+  | "features"
+  | "experiments"
+  | "importedExperiments";
 
 type GetStartedValue = {
   currentStep: string;
@@ -20,11 +24,11 @@ type GetStartedValue = {
   }: {
     step: string;
     stepKey: string;
-    source: keyof GetStartedChecklist;
+    source: GetStartedChecklistSource;
   }) => void;
 };
 
-export const routes: Record<keyof GetStartedChecklist, string> = {
+export const routes: Record<GetStartedChecklistSource, string> = {
   features: "/getstarted/feature-flag-guide",
   experiments: "/getstarted/experiment-guide",
   importedExperiments: "/getstarted/imported-experiment-guide",

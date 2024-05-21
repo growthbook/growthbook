@@ -241,17 +241,6 @@ export type OrganizationMessage = {
   level: "info" | "danger" | "warning";
 };
 
-export type GetStartedChecklistItem = {
-  step: string;
-  isCompleted: boolean;
-};
-
-export type GetStartedChecklist = {
-  features: GetStartedChecklistItem[];
-  experiments: GetStartedChecklistItem[];
-  importedExperiments: GetStartedChecklistItem[];
-};
-
 export interface OrganizationInterface {
   id: string;
   url: string;
