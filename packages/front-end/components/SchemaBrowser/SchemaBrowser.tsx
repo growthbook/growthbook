@@ -47,10 +47,10 @@ export default function SchemaBrowser({
   const inputArray = cursorData?.input || [];
 
   const refreshOrCreateInfoSchema = useCallback(
-    (type: "PUT" | "POST") => {
+    async (type: "PUT" | "POST") => {
       setError(null);
       try {
-        apiCall<{
+        await apiCall<{
           status: number;
           message?: string;
         }>(`/datasource/${datasource.id}/schema`, {
