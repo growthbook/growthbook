@@ -35,6 +35,10 @@ const docSections = {
   elixir: "/lib/elixir",
   flutter: "/lib/flutter",
   nocode: "/lib/script-tag",
+  cloudflare: "/lib/edge/cloudflare",
+  fastly: "/lib/edge/fastly",
+  lambda: "/lib/edge/lambda",
+  edge: "/lib/edge/other",
   //Other
   user_guide: "/app",
   config: "/self-host/config",

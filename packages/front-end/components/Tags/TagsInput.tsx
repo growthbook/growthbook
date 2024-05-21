@@ -44,8 +44,7 @@ const TagsInput: FC<{
   tagOptions = [...tagOptions];
   value.forEach((value) => {
     if (!tagSet.has(value)) {
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      tagOptions.push({
+      tagOptions?.push({
         id: value,
         description: "",
         color: getTagById(value)?.color || "#029dd1",

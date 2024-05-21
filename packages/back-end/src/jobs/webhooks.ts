@@ -83,8 +83,9 @@ export default function (ag: Agenda) {
 
     if (!res.responseWithoutBody.ok) {
       const e =
+        res.stringBody ||
         "POST returned an invalid status code: " +
-        res.responseWithoutBody.status;
+          res.responseWithoutBody.status;
       await setLastSdkWebhookError(webhook, e);
       throw new Error(e);
     }
