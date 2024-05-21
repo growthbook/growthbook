@@ -103,7 +103,6 @@ export default function RoleForm({
           required
           autoFocus
           disabled={status !== "creating"}
-          autoComplete="company"
           maxLength={40}
           currentLength={currentValue.id.length}
           placeholder="Name your Custom Role"
