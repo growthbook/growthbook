@@ -2106,8 +2106,12 @@ export async function putGetStartedChecklistItem(
   const { org } = context;
   const { checklistItem, project } = req.body;
 
+  if (checklistItem !== "environments" && checklistItem !== "attributes") {
+    throw new Error("Unexpected Get Started checklist item.");
+  }
+
   if (
-    checklistItem === "enviroments" &&
+    checklistItem === "environments" &&
     !context.permissions.canCreateOrUpdateEnvironment({
       id: "",
       projects: [project],
