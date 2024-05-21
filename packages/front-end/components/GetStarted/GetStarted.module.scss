@@ -88,7 +88,7 @@
   .imgActive {
     display: none;
   }
-  &:hover {
+  &:hover:not(.disabled) {
     transition: 0.5s;
     box-shadow: 1px 1px 10px var(--get-started-box-shadow);
     .arrowIcon {
@@ -109,6 +109,12 @@
       display: none;
     }
   }
+
+  &.disabled {
+    cursor: default;
+    color: var(--text-color-muted);
+    opacity: 0.8;
+  }
 }
 
 #transp {
@@ -124,9 +130,14 @@
   color: inherit;
   text-decoration: none;
   cursor: pointer;
-  &:hover {
+  &:hover:not(.disabled) {
     color: var(--text-color-muted);
     text-decoration: none;
+  }
+
+  &.disabled {
+    cursor: default;
+    color: var(--text-color-muted);
   }
 }
 

@@ -1,6 +1,7 @@
 import { PiSealQuestion } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import styles from "@/components/GetStarted/GetStarted.module.scss";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PaidFeatureBadge from "./PaidFeatureBadge";
 
 interface Props {
@@ -14,7 +15,10 @@ const DocumentationSidebar = ({
 }: Props): React.ReactElement => {
   const { accountPlan } = useUser();
 
-  const canUpgrade = accountPlan !== "enterprise";
+  const permissionsUtil = usePermissionsUtil();
+
+  const canUpgrade =
+    accountPlan !== "enterprise" && permissionsUtil.canManageBilling();
 
   return (
     <div id={styles.documentationSection} className="rounded p-4">

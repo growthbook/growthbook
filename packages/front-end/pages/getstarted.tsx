@@ -10,17 +10,84 @@ import {
   PiWebhooksLogo,
   PiKey,
 } from "react-icons/pi";
+import { IconType } from "react-icons";
 import clsx from "clsx";
+import { useRouter } from "next/router";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import styles from "@/components/GetStarted/GetStarted.module.scss";
 import YouTubeLightBox from "@/components/GetStarted/YoutubeLightbox";
 import { useGetStarted } from "@/services/GetStartedProvider";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { useDefinitions } from "@/services/DefinitionsContext";
+
+function WorkspaceLink({
+  Icon,
+  url,
+  text,
+  external,
+  disabled,
+}: {
+  Icon: IconType;
+  url: string;
+  text: string;
+  disabled?: boolean;
+  external?: boolean;
+}) {
+  return (
+    <div className="col-6">
+      <Icon
+        style={{
+          width: "20px",
+          height: "20px",
+          color: "var(--text-color-muted)",
+        }}
+      />{" "}
+      {disabled ? (
+        <Tooltip body="You do not have permission to complete this action">
+          <span
+            className={clsx(
+              styles.workspaceSetupLink,
+              styles.disabled,
+              "align-middle"
+            )}
+          >
+            <span style={{ fontSize: "15px" }}>{text}</span>
+          </span>
+        </Tooltip>
+      ) : (
+        <Link
+          href={url}
+          className={clsx(styles.workspaceSetupLink, "align-middle")}
+          {...(external ? { target: "_blank", rel: "noreferrer" } : {})}
+        >
+          <span style={{ fontSize: "15px" }}>{text}</span>
+        </Link>
+      )}
+      <hr />
+    </div>
+  );
+}
 
 const GetStartedPage = (): React.ReactElement => {
   const [showVideoId, setShowVideoId] = useState<string>("");
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { clearStep } = useGetStarted();
+
+  const router = useRouter();
+
+  const permissionsUtils = usePermissionsUtil();
+
+  const { project } = useDefinitions();
+
+  const canImportLaunchDarkly =
+    permissionsUtils.canViewFeatureModal() &&
+    permissionsUtils.canCreateOrUpdateEnvironment({
+      projects: [],
+      id: "",
+    }) &&
+    permissionsUtils.canCreateProjects();
 
   // If they view the guide, clear the current step
   useEffect(() => {
@@ -125,9 +192,24 @@ const GetStartedPage = (): React.ReactElement => {
             </Link>
 
             <div className="d-flex flex-row mt-4 mb-4">
-              <Link href="/importing/launchdarkly">
+              <Tooltip
+                body={
+                  canImportLaunchDarkly
+                    ? ""
+                    : "You do not have permission to complete this action"
+                }
+              >
                 <button
-                  className={`${styles.animatedButton} p-3 mr-3 text-left align-middle`}
+                  className={clsx(
+                    styles.animatedButton,
+                    `p-3 mr-3 text-left align-middle`,
+                    { [styles.disabled]: !canImportLaunchDarkly }
+                  )}
+                  disabled={!canImportLaunchDarkly}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    router.push("/importing/launchdarkly");
+                  }}
                 >
                   <svg width="0" height="0">
                     <linearGradient
@@ -162,7 +244,7 @@ const GetStartedPage = (): React.ReactElement => {
                     src="/images/get-started/icons/active-button-arrow.svg"
                   />
                 </button>
-              </Link>
+              </Tooltip>
               <Link href="/getstarted/imported-experiment-guide">
                 <button
                   className={`${styles.animatedButton} p-3 mr-3 text-left`}
@@ -253,133 +335,48 @@ const GetStartedPage = (): React.ReactElement => {
                   borderRadius: "5px",
                 }}
               >
-                <div className="col mt-2">
-                  <div className="mr-3 w-100">
-                    <PiUsersThree
-                      style={{
-                        width: "20px",
-                        height: "20px",
-                        color: "var(--text-color-muted)",
-                      }}
-                    />{" "}
-                    <Link
-                      href="/settings/team"
-                      className={clsx(
-                        styles.workspaceSetupLink,
-                        "align-middle"
-                      )}
-                    >
-                      <span style={{ fontSize: "15px" }}>
-                        Teams & Permissions
-                      </span>
-                    </Link>
-                    <hr />
-                  </div>
-                  <div className="mr-3 w-100">
-                    <PiFolders
-                      style={{
-                        width: "20px",
-                        height: "20px",
-                        color: "var(--text-color-muted)",
-                      }}
-                    />{" "}
-                    <Link
-                      href="/projects"
-                      className={clsx(
-                        styles.workspaceSetupLink,
-                        "align-middle"
-                      )}
-                    >
-                      <span style={{ fontSize: "15px" }}>Create Projects</span>
-                    </Link>
-                    <hr />
-                  </div>
-                  <div>
-                    <PiTable
-                      style={{
-                        width: "20px",
-                        height: "20px",
-                        color: "var(--text-color-muted)",
-                      }}
-                    />{" "}
-                    <Link
-                      href="/fact-tables"
-                      className={clsx(
-                        styles.workspaceSetupLink,
-                        "align-middle"
-                      )}
-                    >
-                      <span style={{ fontSize: "15px" }}>
-                        Configure Metric Library
-                      </span>
-                    </Link>
-                    <hr />
-                  </div>
-                </div>
-                <div className="col mt-2">
-                  <div>
-                    <PiGoogleChromeLogo
-                      style={{
-                        width: "20px",
-                        height: "20px",
-                        color: "var(--text-color-muted)",
-                      }}
-                    />{" "}
-                    <a
-                      href="https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia"
-                      className={clsx(
-                        styles.workspaceSetupLink,
-                        "align-middle"
-                      )}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <span style={{ fontSize: "15px" }}>
-                        Install Chrome DevTools Extension
-                      </span>
-                    </a>
-                    <hr />
-                  </div>
-                  <div>
-                    <PiWebhooksLogo
-                      style={{
-                        width: "20px",
-                        height: "20px",
-                        color: "var(--text-color-muted)",
-                      }}
-                    />{" "}
-                    <Link
-                      href="/settings/webhooks"
-                      className={clsx(
-                        styles.workspaceSetupLink,
-                        "align-middle"
-                      )}
-                    >
-                      <span style={{ fontSize: "15px" }}>
-                        Integrate Slack or Discord
-                      </span>
-                    </Link>
-                    <hr />
-                  </div>
-                  <div>
-                    <PiKey
-                      style={{
-                        width: "20px",
-                        height: "20px",
-                        color: "var(--text-color-muted)",
-                      }}
-                    />{" "}
-                    <Link
-                      href="/settings/keys"
-                      className={clsx(
-                        styles.workspaceSetupLink,
-                        "align-middle"
-                      )}
-                    >
-                      <span style={{ fontSize: "15px" }}>Create API Token</span>
-                    </Link>
-                    <hr />
-                  </div>
+                <div className="row mt-2">
+                  <WorkspaceLink
+                    Icon={PiUsersThree}
+                    url="/settings/team"
+                    text="Teams & Permissions"
+                    disabled={!permissionsUtils.canManageTeam()}
+                  />
+                  <WorkspaceLink
+                    Icon={PiGoogleChromeLogo}
+                    url="https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia"
+                    text="Install Chrome DevTools Extension"
+                    external
+                  />
+                  <WorkspaceLink
+                    Icon={PiFolders}
+                    url="/projects"
+                    text="Create Projects"
+                    disabled={!permissionsUtils.canCreateProjects()}
+                  />
+                  <WorkspaceLink
+                    Icon={PiWebhooksLogo}
+                    url="/settings/webhooks"
+                    text="Integrate Slack or Discord"
+                    disabled={!permissionsUtils.canCreateEventWebhook()}
+                  />
+                  <WorkspaceLink
+                    Icon={PiTable}
+                    url="/fact-tables"
+                    text="Configure Metric Library"
+                    disabled={
+                      !permissionsUtils.canViewCreateFactTableModal(project) &&
+                      !permissionsUtils.canCreateFactMetric({
+                        projects: project ? [project] : [],
+                      })
+                    }
+                  />
+                  <WorkspaceLink
+                    Icon={PiKey}
+                    url="/settings/keys"
+                    text="Create API Token"
+                    disabled={!permissionsUtils.canCreateApiKey()}
+                  />
                 </div>
               </div>
             </div>

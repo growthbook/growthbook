@@ -5,6 +5,7 @@ import Button from "@/components/Button";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const ViewSampleDataButton = ({
   resource = "experiment",
@@ -18,6 +19,8 @@ const ViewSampleDataButton = ({
   } = useDemoDataSourceProject();
   const router = useRouter();
   const { apiCall } = useAuth();
+
+  const permissionsUtils = usePermissionsUtil();
 
   const { mutateDefinitions } = useDefinitions();
 
@@ -61,6 +64,9 @@ const ViewSampleDataButton = ({
         border: "1px solid #C4B8F3",
       }}
       onClick={openSample}
+      disabled={
+        (!exists || !demoExperimentId) && !permissionsUtils.canCreateProjects()
+      }
     >
       View Sample {resource === "experiment" ? "Experiment" : "Feature"}
     </Button>
