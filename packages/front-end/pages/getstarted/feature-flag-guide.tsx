@@ -112,6 +112,13 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                     fontWeight: 600,
                     textDecoration: isSDKIntegrated ? "line-through" : "none",
                   }}
+                  onClick={() =>
+                    setStep({
+                      step: "Integrate the GrowthBook SDK into your app",
+                      source: "features",
+                      stepKey: "sdk",
+                    })
+                  }
                 >
                   Integrate the GrowthBook SDK into your app
                 </Link>
@@ -260,6 +267,15 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
                     fontWeight: 600,
                     textDecoration: hasFeatures ? "line-through" : "none",
                   }}
+                  onClick={() =>
+                    setStep({
+                      step: `Create a Test Feature Flag${
+                        project && " in this Project"
+                      }`,
+                      source: "features",
+                      stepKey: "createFeatureFlag",
+                    })
+                  }
                 >
                   Create a Test Feature Flag{project && " in this Project"}
                 </Link>

@@ -11,6 +11,7 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import styles from "@/components/GetStarted/GetStarted.module.scss";
+import { useGetStarted } from "@/services/GetStartedProvider";
 
 const ImportedExperimentGuide = (): React.ReactElement => {
   const { organization } = useUser();
@@ -22,6 +23,8 @@ const ImportedExperimentGuide = (): React.ReactElement => {
     ready: definitionsReady,
     project,
   } = useDefinitions();
+  const { setStep } = useGetStarted();
+
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
     organization.id || ""
   );
@@ -108,6 +111,13 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                     fontWeight: 600,
                     textDecoration: hasDatasource ? "line-through" : "none",
                   }}
+                  onClick={() =>
+                    setStep({
+                      step: "Connect to Your Data Warehouse",
+                      source: "importedExperiments",
+                      stepKey: "connectDataWarehouse",
+                    })
+                  }
                 >
                   Connect to Your Data Warehouse
                 </Link>
@@ -153,6 +163,13 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                     fontWeight: 600,
                     textDecoration: hasFactTables ? "line-through" : "none",
                   }}
+                  onClick={() =>
+                    setStep({
+                      step: "Define Fact Tables and Metrics",
+                      source: "importedExperiments",
+                      stepKey: "createFactTables",
+                    })
+                  }
                 >
                   Define Fact Tables and Metrics
                 </Link>
@@ -197,6 +214,16 @@ const ImportedExperimentGuide = (): React.ReactElement => {
                     fontWeight: 600,
                     textDecoration: hasExperiments ? "line-through" : "none",
                   }}
+                  onClick={() =>
+                    setStep({
+                      step: `Import Your First Experiment${
+                        project && " in this Project"
+                      } &
+                      View Results`,
+                      source: "importedExperiments",
+                      stepKey: "importExperiment",
+                    })
+                  }
                 >
                   Import Your First Experiment{project && " in this Project"} &
                   View Results

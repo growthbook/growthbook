@@ -125,6 +125,13 @@ const ExperimentGuide = (): React.ReactElement => {
                     fontWeight: 600,
                     textDecoration: isSDKIntegrated ? "line-through" : "none",
                   }}
+                  onClick={() =>
+                    setStep({
+                      step: "Integrate the GrowthBook SDK into your app",
+                      source: "experiments",
+                      stepKey: "sdk",
+                    })
+                  }
                 >
                   Integrate the GrowthBook SDK into your app
                 </Link>
@@ -273,6 +280,15 @@ const ExperimentGuide = (): React.ReactElement => {
                     fontWeight: 600,
                     textDecoration: hasExperiments ? "line-through" : "none",
                   }}
+                  onClick={() =>
+                    setStep({
+                      step: project
+                        ? "Design the First Experiment for this Project"
+                        : "Design Your Organization’s First Experiment",
+                      source: "experiments",
+                      stepKey: "createExperiment",
+                    })
+                  }
                 >
                   {project
                     ? "Design the First Experiment for this Project"
@@ -321,6 +337,13 @@ const ExperimentGuide = (): React.ReactElement => {
                       ? "line-through"
                       : "none",
                   }}
+                  onClick={() =>
+                    setStep({
+                      step: "Start the Test",
+                      source: "experiments",
+                      stepKey: "startExperiment",
+                    })
+                  }
                 >
                   <Tooltip
                     body={
