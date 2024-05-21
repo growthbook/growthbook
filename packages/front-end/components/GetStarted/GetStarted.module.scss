@@ -10,36 +10,45 @@
   inherits: false;
 }
 
+.getStartedPage {
+  hr {
+    border-color: var(--border-color-100);
+  }
+}
+
 .animatedCard {
+  --myColor1: var(--get-started-background-inactive);
+  --myColor2: var(--get-started-background-inactive);
   -webkit-transition: --myColor1 0.5s, --myColor2 0.5s;
   -ms-transition: --myColor1 0.5s, --myColor2 0.5s;
   transition: --myColor1 1s, --myColor2 1s;
   width: 415px;
   height: 254px;
   background: linear-gradient(var(--myColor1), var(--myColor2));
-  border-color: #ede9fe;
+  border-color: var(--get-started-background-inactive);
   border-style: solid;
   border-radius: 6px;
   border-width: 1px;
   h2 {
     transition: 0.5s;
   }
-  strong {
+  p {
     transition: 0.5s;
-    color: #05054973;
+    color: var(--text-color-muted);
+    font-weight: 500;
   }
   .imgActive {
     display: none;
   }
   &:hover {
-    --myColor1: #7b45eab2;
-    --myColor2: #7b45ea1a;
-    color: #ffffff;
+    --myColor1: var(--get-started-background-gradient-1);
+    --myColor2: var(--get-started-background-gradient-2);
+    color: var(--get-started-hover-text);
     background: linear-gradient(var(--myColor1), var(--myColor2));
-    box-shadow: 2px 2px 5px #05054920;
+    box-shadow: 2px 2px 5px var(--get-started-box-shadow);
     text-decoration: none;
-    strong {
-      color: #ffffffd9;
+    p {
+      color: rgba(var(--get-started-hover-text), 0.85);
     }
     .imgActive {
       display: inline;
@@ -54,21 +63,22 @@
 .animatedButton {
   width: 415px;
   height: 83px;
-  background-color: #ffffff;
-  border-color: #f5f2ff;
+  background-color: var(--surface-background-color);
+  border-color: var(--border-color-100);
   border-style: solid;
   border-radius: 6px;
+  border-width: 1px;
   transition: box-shadow 0.5s;
   .arrowIcon {
     width: 35px;
     height: 35px;
-    fill: #050549a6;
+    fill: var(--text-color-muted);
     transition: 1s;
   }
   .chartIcon {
     width: 35px;
     height: 35px;
-    fill: #050549a6;
+    fill: var(--text-color-muted);
     transition: 1s;
   }
   #arrow-gradient {
@@ -80,7 +90,7 @@
   }
   &:hover {
     transition: 0.5s;
-    box-shadow: 1px 1px 10px #05054910;
+    box-shadow: 1px 1px 10px var(--get-started-box-shadow);
     .arrowIcon {
       fill: url(#arrow-gradient);
     }
@@ -115,12 +125,18 @@
   text-decoration: none;
   cursor: pointer;
   &:hover {
-    color: #050549a6;
+    color: var(--text-color-muted);
     text-decoration: none;
   }
 }
 
 #documentationSection {
+  background: var(--surface-background-color);
+  border-color: var(--border-color-100);
+  border-width: 1px;
+  border-style: solid;
+  min-width: 250px;
+  max-width: 250px;
   a {
     color: inherit;
     text-decoration: none;

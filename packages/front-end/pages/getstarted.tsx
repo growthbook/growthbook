@@ -21,7 +21,7 @@ const GetStartedPage = (): React.ReactElement => {
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
 
   return (
-    <div className="container pagecontents p-4">
+    <div className={clsx(styles.getStartedPage, "container pagecontents p-4")}>
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
@@ -63,7 +63,7 @@ const GetStartedPage = (): React.ReactElement => {
                     />
                   </div>
 
-                  <strong>Explore a guided setup & sample feature flag</strong>
+                  <p>Explore a guided setup & sample feature flag</p>
                 </div>
                 <img
                   className={clsx(styles.imgActive, "float-right")}
@@ -99,7 +99,7 @@ const GetStartedPage = (): React.ReactElement => {
                       src="/images/get-started/icons/active-card-arrow.svg"
                     />
                   </div>
-                  <strong>Explore a guided setup & sample results</strong>
+                  <p>Explore a guided setup & sample results</p>
                 </div>
 
                 <img
@@ -241,9 +241,8 @@ const GetStartedPage = (): React.ReactElement => {
             <div className="mr-2 mb-2">
               <h6 className="text-muted mb-3">SET UP YOUR WORKSPACE</h6>
               <div
-                className="d-flex px-4 py-4 mr-6 w-100"
+                className="appbox d-flex px-4 py-4 mr-6 w-100"
                 style={{
-                  background: "#FFFFFF",
                   borderRadius: "5px",
                 }}
               >
@@ -253,7 +252,7 @@ const GetStartedPage = (): React.ReactElement => {
                       style={{
                         width: "20px",
                         height: "20px",
-                        color: "#050549A6",
+                        color: "var(--text-color-muted)",
                       }}
                     />{" "}
                     <Link
@@ -274,7 +273,7 @@ const GetStartedPage = (): React.ReactElement => {
                       style={{
                         width: "20px",
                         height: "20px",
-                        color: "#050549A6",
+                        color: "var(--text-color-muted)",
                       }}
                     />{" "}
                     <Link
@@ -293,7 +292,7 @@ const GetStartedPage = (): React.ReactElement => {
                       style={{
                         width: "20px",
                         height: "20px",
-                        color: "#050549A6",
+                        color: "var(--text-color-muted)",
                       }}
                     />{" "}
                     <Link
@@ -316,7 +315,7 @@ const GetStartedPage = (): React.ReactElement => {
                       style={{
                         width: "20px",
                         height: "20px",
-                        color: "#050549A6",
+                        color: "var(--text-color-muted)",
                       }}
                     />{" "}
                     <a
@@ -337,7 +336,7 @@ const GetStartedPage = (): React.ReactElement => {
                       style={{
                         width: "20px",
                         height: "20px",
-                        color: "#050549A6",
+                        color: "var(--text-color-muted)",
                       }}
                     />{" "}
                     <Link
@@ -356,7 +355,7 @@ const GetStartedPage = (): React.ReactElement => {
                       style={{
                         width: "20px",
                         height: "20px",
-                        color: "#050549A6",
+                        color: "var(--text-color-muted)",
                       }}
                     />{" "}
                     <Link

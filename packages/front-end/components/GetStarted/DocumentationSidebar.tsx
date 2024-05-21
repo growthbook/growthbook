@@ -17,18 +17,7 @@ const DocumentationSidebar = ({
   const canUpgrade = accountPlan !== "enterprise";
 
   return (
-    <div
-      id={styles.documentationSection}
-      className="rounded p-4"
-      style={{
-        borderColor: "#F5F2FF",
-        borderWidth: "1px",
-        borderStyle: "solid",
-        background: "#FFFFFF",
-        minWidth: "250px",
-        maxWidth: "250px",
-      }}
-    >
+    <div id={styles.documentationSection} className="rounded p-4">
       <h6 className="text-muted mb-3">FEATURED DOCS</h6>
       {type === "features" ? (
         <ul

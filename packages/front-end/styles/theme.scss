@@ -49,6 +49,12 @@
   --alert-premium-background-gradient-1: #fcf8ff;
   --alert-premium-background-gradient-2: #ece0ff;
 
+  --get-started-background-inactive: #ede9fe;
+  --get-started-background-gradient-1: #7b45eab2;
+  --get-started-background-gradient-2: #7b45ea1a;
+  --get-started-box-shadow: #05054920;
+  --get-started-hover-text: #{colors.$white};
+
   --border-color-100: #e0e2eb;
   --border-color-200: #dee2e6;
   --border-color-300: #cacaca;
@@ -152,6 +158,12 @@
 
   --alert-premium-background-gradient-1: #5f5279;
   --alert-premium-background-gradient-2: #3e256e;
+
+  --get-started-background-inactive: #2a2e31;
+  --get-started-background-gradient-1: rgba(255, 255, 255, 0.2);
+  --get-started-background-gradient-2: rgba(255, 255, 255, 0.2);
+  --get-started-box-shadow: #05054920;
+  --get-started-hover-text: #{colors.$white};
 
   --border-color-100: #616161;
   --border-color-200: #424242;
