@@ -14,6 +14,7 @@ import {
 import { IconType } from "react-icons";
 import clsx from "clsx";
 import { useRouter } from "next/router";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import styles from "@/components/GetStarted/GetStarted.module.scss";
@@ -89,6 +90,7 @@ const GetStartedPage = (): React.ReactElement => {
   const [showVideoId, setShowVideoId] = useState<string>("");
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { clearStep } = useGetStarted();
+  const showNewReleasePost = useFeatureIsOn("show-3.0-release");
 
   const router = useRouter();
 
@@ -322,16 +324,33 @@ const GetStartedPage = (): React.ReactElement => {
                       }
                     />
                   </a>
-                  <a
-                    href="https://blog.growthbook.io/growthbook-version-2-9/"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <FeaturedCard
-                      imgUrl={"/images/get-started/thumbnails/2.9-release.png"}
-                      lastCard
-                    />
-                  </a>
+                  {showNewReleasePost ? (
+                    <a
+                      href="https://blog.growthbook.io/growthbook-version-3-0/"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <FeaturedCard
+                        imgUrl={
+                          "/images/get-started/thumbnails/3.0-release.png"
+                        }
+                        lastCard
+                      />
+                    </a>
+                  ) : (
+                    <a
+                      href="https://blog.growthbook.io/growthbook-version-2-9/"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <FeaturedCard
+                        imgUrl={
+                          "/images/get-started/thumbnails/2.9-release.png"
+                        }
+                        lastCard
+                      />
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
