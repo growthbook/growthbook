@@ -11,7 +11,7 @@ const ValueTypeField: FC<{
       label="Value Type"
       value={value}
       onChange={onChange}
-      initialOption="Select Type..."
+      placeholder="Select Type..."
       options={[
         {
           label: "Boolean (true/false)",
