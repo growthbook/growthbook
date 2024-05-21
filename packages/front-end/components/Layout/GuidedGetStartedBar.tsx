@@ -34,7 +34,7 @@ const GuidedGetStartedBar = () => {
       </span>
 
       <div>
-        {manualSteps.includes(currentStep) && (
+        {manualSteps.includes(stepKey) && (
           <Button
             className="mx-2"
             style={{

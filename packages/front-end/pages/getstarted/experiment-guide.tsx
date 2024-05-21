@@ -1,5 +1,5 @@
 import { PiArrowRight, PiCheckCircleFill } from "react-icons/pi";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import clsx from "clsx";
@@ -22,7 +22,12 @@ const ExperimentGuide = (): React.ReactElement => {
   const { data: sdkConnections } = useSDKConnections();
   const { experiments, loading: experimentsLoading, error } = useExperiments();
   const { project, ready: definitionsReady } = useDefinitions();
-  const { setStep } = useGetStarted();
+  const { setStep, clearStep } = useGetStarted();
+
+  // If they view the guide, clear the current step
+  useEffect(() => {
+    clearStep();
+  }, [clearStep]);
 
   const loading = experimentsLoading && !sdkConnections && !definitionsReady;
 

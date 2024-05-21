@@ -25,20 +25,38 @@ const DocumentationSidebar = ({
           style={{ listStyleType: "none", padding: 0 }}
         >
           <li className="mb-2">
-            <a href="https://docs.growthbook.io/lib/">GrowthBook SDK</a>
+            <a
+              href="https://docs.growthbook.io/lib/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GrowthBook SDK
+            </a>
           </li>
           <li className="mb-2">
-            <a href="https://docs.growthbook.io/features/basics">
+            <a
+              href="https://docs.growthbook.io/features/basics"
+              target="_blank"
+              rel="noreferrer"
+            >
               Feature Flag Basics
             </a>
           </li>
           <li className="mb-2">
-            <a href="https://docs.growthbook.io/features/targeting">
+            <a
+              href="https://docs.growthbook.io/features/targeting"
+              target="_blank"
+              rel="noreferrer"
+            >
               Targeting Attributes
             </a>
           </li>
           <li className="mb-2">
-            <a href="https://docs.growthbook.io/warehouses">
+            <a
+              href="https://docs.growthbook.io/warehouses"
+              target="_blank"
+              rel="noreferrer"
+            >
               Connect Your Data Source
             </a>
           </li>
@@ -49,22 +67,40 @@ const DocumentationSidebar = ({
           style={{ listStyleType: "none", padding: 0 }}
         >
           <li className="mb-2">
-            <a href="https://docs.growthbook.io/experiments">
+            <a
+              href="https://docs.growthbook.io/experiments"
+              target="_blank"
+              rel="noreferrer"
+            >
               Running Experiments
             </a>
           </li>
           <li className="mb-2">
-            <a href="https://docs.growthbook.io/app/sticky-bucketing">
+            <a
+              href="https://docs.growthbook.io/app/sticky-bucketing"
+              target="_blank"
+              rel="noreferrer"
+            >
               Sticky Bucketing
             </a>
             <PaidFeatureBadge type="pro" />
           </li>
           <li className="mb-2">
-            <a href="https://docs.growthbook.io/app/visual">Visual Editor</a>
+            <a
+              href="https://docs.growthbook.io/app/visual"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Visual Editor
+            </a>
             <PaidFeatureBadge type="pro" />
           </li>
           <li className="mb-2">
-            <a href="https://docs.growthbook.io/app/url-redirects">
+            <a
+              href="https://docs.growthbook.io/app/url-redirects"
+              target="_blank"
+              rel="noreferrer"
+            >
               URL Redirects
             </a>
             <PaidFeatureBadge type="pro" />
@@ -76,21 +112,39 @@ const DocumentationSidebar = ({
           style={{ listStyleType: "none", padding: 0 }}
         >
           <li className="mb-2">
-            <a href="https://docs.growthbook.io/warehouses">
+            <a
+              href="https://docs.growthbook.io/warehouses"
+              target="_blank"
+              rel="noreferrer"
+            >
               Connect to Your Data Warehouse
             </a>
           </li>
           <li className="mb-2">
-            <a href="https://docs.growthbook.io/app/fact-tables">Fact Tables</a>
+            <a
+              href="https://docs.growthbook.io/app/fact-tables"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Fact Tables
+            </a>
           </li>
           <li className="mb-2">
-            <a href="https://docs.growthbook.io/app/data-pipeline">
+            <a
+              href="https://docs.growthbook.io/app/data-pipeline"
+              target="_blank"
+              rel="noreferrer"
+            >
               Data Pipeline Mode
             </a>
             <PaidFeatureBadge type="enterprise" />
           </li>
           <li className="mb-2">
-            <a href="https://docs.growthbook.io/app/experiment-results">
+            <a
+              href="https://docs.growthbook.io/app/experiment-results"
+              target="_blank"
+              rel="noreferrer"
+            >
               Experiment Results
             </a>
           </li>
@@ -101,15 +155,31 @@ const DocumentationSidebar = ({
           style={{ listStyleType: "none", padding: 0 }}
         >
           <li className="mb-2">
-            <a href="https://docs.growthbook.io/quick-start">
+            <a
+              href="https://docs.growthbook.io/quick-start"
+              target="_blank"
+              rel="noreferrer"
+            >
               QuickStart Guide
             </a>
           </li>
           <li className="mb-2">
-            <a href="https://docs.growthbook.io/overview">How it Works</a>
+            <a
+              href="https://docs.growthbook.io/overview"
+              target="_blank"
+              rel="noreferrer"
+            >
+              How it Works
+            </a>
           </li>
           <li className="mb-2">
-            <a href="https://docs.growthbook.io/lib/">SDK Docs</a>
+            <a
+              href="https://docs.growthbook.io/lib/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              SDK Docs
+            </a>
           </li>
         </ul>
       )}
@@ -119,7 +189,11 @@ const DocumentationSidebar = ({
       <h6 className="text-muted mb-3">QUESTIONS?</h6>
       <ul id={styles.questions} style={{ listStyleType: "none", padding: 0 }}>
         <li className="mb-2">
-          <a href="https://slack.growthbook.io/?ref=community-page">
+          <a
+            href="https://slack.growthbook.io/?ref=getstarted"
+            target="_blank"
+            rel="noreferrer"
+          >
             <img
               className="mr-1"
               src="/images/get-started/slack-logo.svg"
@@ -132,7 +206,11 @@ const DocumentationSidebar = ({
           </a>
         </li>
         <li className="mb-2">
-          <a href="https://docs.growthbook.io/faq">
+          <a
+            href="https://docs.growthbook.io/faq"
+            target="_blank"
+            rel="noreferrer"
+          >
             <PiSealQuestion
               className="mr-1"
               style={{ width: "20px", height: "20px" }}

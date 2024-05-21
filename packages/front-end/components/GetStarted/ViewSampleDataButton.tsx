@@ -6,19 +6,28 @@ import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 
-const ViewSampleDataButton = () => {
+const ViewSampleDataButton = ({
+  resource = "experiment",
+}: {
+  resource?: "experiment" | "feature";
+}) => {
   const {
-    projectId: demoDataSourceProjectId,
     demoExperimentId,
+    demoFeatureId,
+    exists,
   } = useDemoDataSourceProject();
   const router = useRouter();
   const { apiCall } = useAuth();
 
   const { mutateDefinitions } = useDefinitions();
 
-  const openSampleExperiment = async () => {
-    if (demoDataSourceProjectId && demoExperimentId) {
-      router.push(`/experiment/${demoExperimentId}`);
+  const openSample = async () => {
+    if (exists && demoExperimentId) {
+      if (resource === "experiment") {
+        router.push(`/experiment/${demoExperimentId}`);
+      } else {
+        router.push(`/features/${demoFeatureId}`);
+      }
     } else {
       track("Create Sample Project", {
         source: "get-started",
@@ -31,7 +40,11 @@ const ViewSampleDataButton = () => {
       });
       await mutateDefinitions();
       if (res.experimentId) {
-        router.push(`/experiment/${res.experimentId}`);
+        if (resource === "experiment") {
+          router.push(`/experiment/${res.experimentId}`);
+        } else {
+          router.push(`/feature/${demoFeatureId}`);
+        }
       } else {
         throw new Error("Could not create sample experiment");
       }
@@ -47,9 +60,9 @@ const ViewSampleDataButton = () => {
         fontWeight: 400,
         border: "1px solid #C4B8F3",
       }}
-      onClick={openSampleExperiment}
+      onClick={openSample}
     >
-      View Sample Data
+      View Sample {resource === "experiment" ? "Experiment" : "Feature"}
     </Button>
   );
 };

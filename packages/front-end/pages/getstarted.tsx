@@ -1,24 +1,31 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   PiArrowFatLineRight,
   PiChartScatter,
   PiFolders,
   PiGoogleChromeLogo,
-  PiPlugs,
   PiTable,
   PiUsersThree,
   PiWebhooksLogo,
+  PiKey,
 } from "react-icons/pi";
 import clsx from "clsx";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import styles from "@/components/GetStarted/GetStarted.module.scss";
 import YouTubeLightBox from "@/components/GetStarted/YoutubeLightbox";
+import { useGetStarted } from "@/services/GetStartedProvider";
 
 const GetStartedPage = (): React.ReactElement => {
   const [showVideoId, setShowVideoId] = useState<string>("");
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
+  const { clearStep } = useGetStarted();
+
+  // If they view the guide, clear the current step
+  useEffect(() => {
+    clearStep();
+  }, [clearStep]);
 
   return (
     <div className={clsx(styles.getStartedPage, "container pagecontents p-4")}>
@@ -296,7 +303,7 @@ const GetStartedPage = (): React.ReactElement => {
                       }}
                     />{" "}
                     <Link
-                      href="/metrics"
+                      href="/fact-tables"
                       className={clsx(
                         styles.workspaceSetupLink,
                         "align-middle"
@@ -324,6 +331,8 @@ const GetStartedPage = (): React.ReactElement => {
                         styles.workspaceSetupLink,
                         "align-middle"
                       )}
+                      target="_blank"
+                      rel="noreferrer"
                     >
                       <span style={{ fontSize: "15px" }}>
                         Install Chrome DevTools Extension
@@ -346,12 +355,14 @@ const GetStartedPage = (): React.ReactElement => {
                         "align-middle"
                       )}
                     >
-                      <span style={{ fontSize: "15px" }}>Add Webhooks</span>
+                      <span style={{ fontSize: "15px" }}>
+                        Integrate Slack or Discord
+                      </span>
                     </Link>
                     <hr />
                   </div>
                   <div>
-                    <PiPlugs
+                    <PiKey
                       style={{
                         width: "20px",
                         height: "20px",
@@ -359,15 +370,13 @@ const GetStartedPage = (): React.ReactElement => {
                       }}
                     />{" "}
                     <Link
-                      href="/integrations/slack"
+                      href="/settings/keys"
                       className={clsx(
                         styles.workspaceSetupLink,
                         "align-middle"
                       )}
                     >
-                      <span style={{ fontSize: "15px" }}>
-                        Integrate Slack or Discord
-                      </span>
+                      <span style={{ fontSize: "15px" }}>Create API Token</span>
                     </Link>
                     <hr />
                   </div>

@@ -1,5 +1,12 @@
 import { GetStartedChecklist } from "@back-end/types/organization";
-import { FC, createContext, useContext, ReactNode, useState } from "react";
+import {
+  FC,
+  createContext,
+  useContext,
+  ReactNode,
+  useState,
+  useCallback,
+} from "react";
 
 type GetStartedValue = {
   currentStep: string;
@@ -44,22 +51,25 @@ const GetStartedProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [stepKey, setStepKey] = useState("");
   const [source, setSource] = useState("");
 
+  const clearStep = useCallback(() => {
+    setCurrentStep("");
+    setSource("");
+    setStepKey("");
+  }, []);
+  const setStep = useCallback(({ step, source, stepKey }) => {
+    setCurrentStep(step);
+    setSource(source);
+    setStepKey(stepKey);
+  }, []);
+
   return (
     <GetStartedContext.Provider
       value={{
         currentStep: currentStep,
         source: source,
         stepKey,
-        clearStep: () => {
-          setCurrentStep("");
-          setSource("");
-          setStepKey("");
-        },
-        setStep: ({ step, source, stepKey }) => {
-          setCurrentStep(step);
-          setSource(source);
-          setStepKey(stepKey);
-        },
+        clearStep,
+        setStep,
       }}
     >
       {children}

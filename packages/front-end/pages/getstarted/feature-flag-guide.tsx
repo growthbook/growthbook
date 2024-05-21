@@ -1,5 +1,5 @@
 import { PiArrowRight, PiCheckCircleFill } from "react-icons/pi";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import clsx from "clsx";
@@ -20,11 +20,16 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
   const { data: sdkConnections } = useSDKConnections();
   const { features, loading: featuresLoading, error } = useFeaturesList();
   const { project, ready: definitionsReady } = useDefinitions();
-  const { setStep } = useGetStarted();
+  const { setStep, clearStep } = useGetStarted();
 
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
 
   const loading = featuresLoading && !sdkConnections && !definitionsReady;
+
+  // If they view the guide, clear the current step
+  useEffect(() => {
+    clearStep();
+  }, [clearStep]);
 
   if (loading) {
     return <LoadingOverlay />;
@@ -74,7 +79,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
           </Link>{" "}
           <PiArrowRight />
         </span>
-        <ViewSampleDataButton />
+        <ViewSampleDataButton resource="feature" />
       </div>
       <div className="d-flex">
         <div className="flex-fill mr-5">
