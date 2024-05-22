@@ -550,14 +550,15 @@ export async function removeCustomRole(
     throw new Error("Role not found");
   }
 
-  await updateOrganization(org.id, { customRoles: newCustomRoles });
+  const updates: Partial<OrganizationInterface> = {
+    customRoles: newCustomRoles,
+  };
 
-  // If the role we're deleting is deactivated, remove it from the deactivatedRoles array
   if (org.deactivatedRoles?.includes(id)) {
-    const newDeactivatedRoles = org.deactivatedRoles.filter((r) => r !== id);
-
-    await updateOrganization(org.id, { deactivatedRoles: newDeactivatedRoles });
+    updates.deactivatedRoles = org.deactivatedRoles.filter((r) => r !== id);
   }
+
+  await updateOrganization(org.id, updates);
 }
 
 export async function deactivateRoleById(
