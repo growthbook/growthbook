@@ -45,7 +45,7 @@ export default function RoleForm({
     }
 
     if (!/^[a-zA-Z0-9_]+$/.test(input.id)) {
-      setError("Name field can only contain letters, numbers, and hyphens.");
+      setError("Name can only contain letters, numbers, and underscores.");
       return false;
     }
     return true;
