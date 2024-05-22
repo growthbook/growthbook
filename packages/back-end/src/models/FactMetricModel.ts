@@ -29,7 +29,7 @@ const BaseClass = MakeModelClass({
 
 export class FactMetricModel extends BaseClass {
   protected canRead(doc: FactMetricInterface): boolean {
-    return this.context.hasPermission("readData", doc.projects || []);
+    return this.context.permissions.canReadMultiProjectResource(doc.projects);
   }
   protected canCreate(doc: FactMetricInterface): boolean {
     return this.context.permissions.canCreateFactMetric(doc);

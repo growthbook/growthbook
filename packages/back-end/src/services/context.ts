@@ -1,11 +1,10 @@
-import { Permissions, userHasPermission } from "shared/permissions";
+import { Permissions } from "shared/permissions";
 import { uniq } from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
 import { CommercialFeature, orgHasPremiumFeature } from "enterprise";
 import {
   OrganizationInterface,
-  Permission,
   UserPermissions,
 } from "../../types/organization";
 import { EventAuditUser } from "../events/event-types";
@@ -117,32 +116,6 @@ export class ReqContextClass {
     this.permissions = new Permissions(this.userPermissions, this.superAdmin);
 
     this.initModels();
-  }
-
-  // Check permissions
-  public hasPermission(
-    permission: Permission,
-    project?: string | (string | undefined)[] | undefined,
-    envs?: string[] | Set<string>
-  ) {
-    return userHasPermission(
-      this.superAdmin,
-      this.userPermissions,
-      permission,
-      project,
-      envs ? [...envs] : undefined
-    );
-  }
-
-  // Helper if you want to throw an error if the user does not have permission
-  public requirePermission(
-    permission: Permission,
-    project?: string | (string | undefined)[] | undefined,
-    envs?: string[] | Set<string>
-  ) {
-    if (!this.hasPermission(permission, project, envs)) {
-      throw new Error("You do not have permission to complete that action.");
-    }
   }
 
   public hasPremiumFeature(feature: CommercialFeature) {

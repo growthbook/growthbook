@@ -1,19 +1,11 @@
 import { Request, Response, NextFunction } from "express";
-import { hasPermission } from "shared/permissions";
 import { ApiRequestLocals } from "../../types/api";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import { getOrganizationById } from "../services/organizations";
 import { getCustomLogProps } from "../util/logger";
 import { EventAuditUserApiKey } from "../events/event-types";
 import { isApiKeyForUserInOrganization } from "../util/api-key.util";
-import { OrganizationInterface, Permission } from "../../types/organization";
-import {
-  getUserPermissions,
-  roleToPermissionMap,
-} from "../util/organization.util";
-import { ApiKeyInterface } from "../../types/apikey";
 import { getTeamsForOrganization } from "../models/TeamModel";
-import { TeamInterface } from "../../types/team";
 import { getUserById } from "../services/users";
 import { initializeLicenseForOrg } from "../services/licenseData";
 import { ReqContextClass } from "../services/context";
@@ -148,87 +140,4 @@ export default function authenticateApiRequestMiddleware(
         message: e.message,
       });
     });
-}
-
-function doesUserHavePermission(
-  org: OrganizationInterface,
-  permission: Permission,
-  apiKeyPartial: Partial<ApiKeyInterface>,
-  teams: TeamInterface[],
-  project?: string,
-  envs?: string[]
-): boolean {
-  try {
-    const userId = apiKeyPartial.userId;
-    if (!userId) {
-      return false;
-    }
-
-    // Generate full list of permissions for the user
-    const userPermissions = getUserPermissions(userId, org, teams);
-
-    // Check if the user has the permission
-    return hasPermission(userPermissions, permission, project, envs);
-  } catch (e) {
-    return false;
-  }
-}
-
-type VerifyApiKeyPermissionOptions = {
-  apiKey: Partial<ApiKeyInterface>;
-  permission: Permission;
-  organization: OrganizationInterface;
-  project?: string;
-  environments?: string[];
-  teams: TeamInterface[];
-};
-
-/**
- * @param apiKey
- * @param permission
- * @param envs
- * @param project
- * @throws an error if there are no permissions
- */
-export function verifyApiKeyPermission({
-  apiKey,
-  permission,
-  organization,
-  environments,
-  project,
-  teams,
-}: VerifyApiKeyPermissionOptions) {
-  if (apiKey.userId) {
-    if (
-      !doesUserHavePermission(
-        organization,
-        permission,
-        apiKey,
-        teams,
-        project,
-        environments
-      )
-    ) {
-      throw new Error("API key user does not have this level of access");
-    }
-
-    if (apiKey.secret !== true) {
-      throw new Error("API key does not have this level of access");
-    }
-  } else if (apiKey.secret && apiKey.role) {
-    // Because of the JIT migration, `role` will always be set here, even for old secret keys
-    // This will check a valid role is provided.
-    const rolePermissions = roleToPermissionMap(
-      apiKey.role as string,
-      organization
-    );
-
-    // No need to treat "readonly" differently, it will return an empty array permissions array and fail this check
-    if (!rolePermissions[permission]) {
-      throw new Error("API key user does not have this level of access");
-    }
-  } else {
-    // This shouldn't happen (old SDK key with secret === false being used)
-    throw new Error("API key does not have this level of access");
-  }
 }
