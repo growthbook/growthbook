@@ -530,7 +530,7 @@ export class Permissions {
   };
 
   // Used to determine if we should show the Settings > Projects link in SideNav
-  public canUpdateSomeProjects = (): boolean => {
+  public canManageSomeProjects = (): boolean => {
     const projects: string[] = [""];
 
     Object.keys(this.userPermissions.projects).forEach((key) =>
