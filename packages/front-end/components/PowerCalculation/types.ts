@@ -54,7 +54,6 @@ export type PartialPowerCalculationParams = Partial<
 type Config = {
   title: string;
   tooltip?: string;
-  showFor?: "frequentist" | "bayesian";
 } & (
   | {
       type: "percent" | "number";
@@ -104,14 +103,12 @@ export const config = checkConfig({
   priorLiftMean: {
     title: "Prior mean",
     type: "percent",
-    showFor: "bayesian",
     tooltip: "Prior mean for the relative effect size.",
     defaultValue: (s) => s.metricDefaults?.priorSettings?.mean,
   },
   priorLiftStandardDeviation: {
     title: "Prior standard deviation",
     type: "percent",
-    showFor: "bayesian",
     tooltip: "Prior standard deviation for the relative effect size.",
     minValue: 0,
     defaultValue: (s) => s.metricDefaults?.priorSettings?.stddev,
@@ -119,7 +116,6 @@ export const config = checkConfig({
   proper: {
     title: "Use proper prior",
     type: "boolean",
-    showFor: "bayesian",
     defaultValue: (s) => !!s.metricDefaults?.priorSettings?.override,
   },
 });
@@ -146,6 +142,7 @@ const validEntry = (
 };
 
 export const isValidPowerCalculationParams = (
+  engineType: "frequentist" | "bayesian",
   v: PartialPowerCalculationParams
 ): v is FullModalPowerCalculationParams =>
   validEntry("usersPerWeek", v.usersPerWeek) &&
@@ -154,6 +151,9 @@ export const isValidPowerCalculationParams = (
     if (!params) return false;
     return ([
       "effectSize",
+      ...(engineType === "bayesian"
+        ? (["proper", "priorLiftMean", "priorLiftStandardDeviation"] as const)
+        : []),
       ...(params.type === "binomial"
         ? (["conversionRate"] as const)
         : (["mean", "standardDeviation"] as const)),
@@ -161,9 +161,10 @@ export const isValidPowerCalculationParams = (
   });
 
 export const ensureAndReturnPowerCalculationParams = (
+  engineType: "frequentist" | "bayesian",
   v: PartialPowerCalculationParams
 ): FullModalPowerCalculationParams => {
-  if (!isValidPowerCalculationParams(v)) throw "internal error";
+  if (!isValidPowerCalculationParams(engineType, v)) throw "internal error";
   return v;
 };
 

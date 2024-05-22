@@ -13,6 +13,7 @@ import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Field from "@/components/Forms/Field";
 import PercentField from "@/components/Forms/PercentField";
+import Toggle from "@/components/Forms/Toggle";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ensureAndReturn } from "@/types/utils";
@@ -184,23 +185,25 @@ const SelectStep = ({
   );
 };
 
+const bayesianParams = [
+  "priorLiftMean",
+  "priorLiftStandardDeviation",
+  "proper",
+] as const;
+
 const InputField = ({
   entry,
   form,
-  engineType,
   metricId,
 }: {
   entry: keyof typeof config;
   form: Form;
-  engineType: "bayesian" | "frequentist";
   metricId: string;
 }) => {
   const metrics = form.watch("metrics");
   const params = ensureAndReturn(metrics[metricId]);
   const entryValue = params[entry];
-  const { title, tooltip, showFor, ...c } = config[entry];
-
-  if (showFor && engineType !== showFor) return null;
+  const { title, tooltip, ...c } = config[entry];
 
   const isKeyInvalid = (() => {
     if (entryValue === undefined) return false;
@@ -244,7 +247,7 @@ const InputField = ({
   };
 
   return (
-    <div className="col">
+    <div className="col-4">
       {c.type === "percent" && (
         <PercentField
           {...commonOptions}
@@ -259,6 +262,22 @@ const InputField = ({
             valueAsNumber: true,
           })}
         />
+      )}
+      {c.type === "boolean" && (
+        <div className="form-group h-100">
+          <div className="row align-items-center h-100 mt-2">
+            <div className="col-auto">
+              <Toggle
+                id={`input-value-${metricId}-${entry}`}
+                value={entryValue}
+                setValue={(v) =>
+                  form.setValue(`metrics.${metricId}.${entry}`, v)
+                }
+              />
+            </div>
+            <div>{title}</div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -281,18 +300,31 @@ const MetricParamsInput = ({
     <div className="card gsbox mb-3 p-3 mb-2 power-analysis-params">
       <div className="card-title uppercase-title mb-3">{name}</div>
       <div className="row">
-        {Object.keys(params).map(
-          (entry: keyof Omit<MetricParams, "name" | "type">) => (
+        {Object.keys(params)
+          .filter((v) => !(bayesianParams as readonly string[]).includes(v))
+          .map((entry: keyof Omit<MetricParams, "name" | "type">) => (
             <InputField
               key={`${name}-${entry}`}
               entry={entry}
-              engineType={engineType}
               form={form}
               metricId={metricId}
             />
-          )
-        )}
+          ))}
       </div>
+      {engineType === "bayesian" && (
+        <div className="row">
+          {Object.keys(params)
+            .filter((v) => (bayesianParams as readonly string[]).includes(v))
+            .map((entry: keyof Omit<MetricParams, "name" | "type">) => (
+              <InputField
+                key={`${name}-${entry}`}
+                entry={entry}
+                form={form}
+                metricId={metricId}
+              />
+            ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -328,10 +360,17 @@ const SetParamsStep = ({
       }
       tertiaryCTA={
         <button
-          disabled={!isValidPowerCalculationParams(form.getValues())}
+          disabled={
+            !isValidPowerCalculationParams(engineType, form.getValues())
+          }
           className="btn btn-primary"
           onClick={() =>
-            onSubmit(ensureAndReturnPowerCalculationParams(form.getValues()))
+            onSubmit(
+              ensureAndReturnPowerCalculationParams(
+                engineType,
+                form.getValues()
+              )
+            )
           }
         >
           Submit

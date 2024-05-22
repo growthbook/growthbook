@@ -621,7 +621,6 @@ export function findMdeBayesian(
     relative
   );
   if (maxPower < power) {
-    console.log(`failing at iteration j: %d`, j);
     console.log(`maxPower: %d`, maxPower);
     console.log(`priorVariancenRelDGP: %d`, 0);
     console.log(`priorMeanRelSpecified: %d`, metric.priorLiftMean);
