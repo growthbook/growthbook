@@ -9,19 +9,6 @@ import { AuditInterface } from "../../types/audit";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 import { TeamInterface } from "../../types/team";
 
-export type PermissionFunctions = {
-  checkPermissions(permission: GlobalPermission): void;
-  checkPermissions(
-    permission: ProjectScopedPermission,
-    project: string | string[] | undefined
-  ): void;
-  checkPermissions(
-    permission: EnvScopedPermission,
-    project: string | (string | undefined)[] | undefined,
-    envs: string[] | Set<string>
-  ): void;
-};
-
 // eslint-disable-next-line
 export type AuthRequest<
   Body = unknown,
@@ -40,7 +27,7 @@ export type AuthRequest<
   audit: (
     data: Omit<AuditInterface, "organization" | "id" | "user" | "dateCreated">
   ) => Promise<void>;
-} & PermissionFunctions;
+};
 
 export type ResponseWithStatusAndError<T = unknown> = Response<
   | (T & { status: 200 })

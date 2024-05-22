@@ -127,35 +127,6 @@ export default function authenticateApiRequestMiddleware(
         req,
       });
 
-      // Check permissions for user API keys
-      req.checkPermissions = (
-        permission: Permission,
-        project?: string | (string | undefined)[] | undefined,
-        envs?: string[] | Set<string>
-      ) => {
-        // Super admins have full access to every organization
-        if (req.user?.superAdmin) {
-          return;
-        }
-        let checkProjects: (string | undefined)[];
-        if (Array.isArray(project)) {
-          checkProjects = project.length > 0 ? project : [undefined];
-        } else {
-          checkProjects = [project];
-        }
-
-        for (const p of checkProjects) {
-          verifyApiKeyPermission({
-            apiKey: apiKeyPartial,
-            permission,
-            organization: org,
-            project: p,
-            environments: envs ? [...envs] : undefined,
-            teams,
-          });
-        }
-      };
-
       // Add user info to logger
       res.log = req.log = req.log.child(getCustomLogProps(req as Request));
 

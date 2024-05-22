@@ -87,33 +87,6 @@ export async function processJWT(
   req.verified = verified || false;
   req.teams = [];
 
-  // Throw error if permissions don't pass
-  req.checkPermissions = (
-    permission: Permission,
-    project?: string | string[],
-    envs?: string[] | Set<string>
-  ) => {
-    if (!req.userId || !req.organization) return false;
-
-    const userPermissions = getUserPermissions(
-      req.userId,
-      req.organization,
-      req.teams
-    );
-
-    if (
-      !userHasPermission(
-        req.superAdmin || false,
-        userPermissions,
-        permission,
-        project,
-        envs ? [...envs] : undefined
-      )
-    ) {
-      throw new Error("You do not have permission to complete that action.");
-    }
-  };
-
   const user = await getUserFromJWT(req.user);
 
   if (user) {
