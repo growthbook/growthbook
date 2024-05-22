@@ -492,8 +492,12 @@ const ImportExperimentList: FC<{
 
                 return (
                   <tr key={key}>
-                    <td>{e.exposureQueryName}</td>
-                    <td>{e.experimentName || e.trackingKey}</td>
+                    <td style={{ wordBreak: "break-word" }}>
+                      {e.exposureQueryName}
+                    </td>
+                    <td style={{ wordBreak: "break-word" }}>
+                      {e.experimentName || e.trackingKey}
+                    </td>
                     <td>
                       <Tooltip
                         body={
