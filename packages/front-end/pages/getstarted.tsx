@@ -127,86 +127,99 @@ const GetStartedPage = (): React.ReactElement => {
         />
       )}
       <h1 className="mb-3">Get Started</h1>
-      <div className="container-fluid mx-0 mb-4">
+      <div className="container-fluid mx-0 mb-3">
         <div className="row">
-          <div className="col pl-0">
-            <Link href={"/getstarted/feature-flag-guide"}>
-              <button
-                className={clsx(styles.animatedCard, "px-0 py-4 text-left")}
+          <div
+            className="col pl-0 mr-auto col-md-12"
+            style={{
+              maxWidth: 862,
+            }}
+          >
+            <div className="d-flex flex-wrap">
+              <Link
+                href={"/getstarted/feature-flag-guide"}
+                className="mb-3 d-block"
               >
-                <div className="pr-3 mb-5" style={{ paddingLeft: "29px" }}>
-                  <div className="d-flex text-left align-middle">
-                    <h2>Create Feature Flags from Scratch</h2>
-                    <img
-                      className={clsx(styles.imgInactive, "ml-auto")}
-                      width="30px"
-                      height="30px"
-                      src="/images/get-started/icons/inactive-card-arrow.svg"
-                    />
-                    <img
-                      className={clsx(styles.imgActive, "ml-auto")}
-                      width="30px"
-                      height="30px"
-                      src="/images/get-started/icons/active-card-arrow.svg"
-                    />
+                <button
+                  className={clsx(styles.animatedCard, "px-0 py-4 text-left")}
+                >
+                  <div className="pr-3 mb-5" style={{ paddingLeft: "29px" }}>
+                    <div className="d-flex text-left align-middle">
+                      <h2>Create Feature Flags from Scratch</h2>
+                      <img
+                        className={clsx(styles.imgInactive, "ml-auto")}
+                        width="30px"
+                        height="30px"
+                        src="/images/get-started/icons/inactive-card-arrow.svg"
+                      />
+                      <img
+                        className={clsx(styles.imgActive, "ml-auto")}
+                        width="30px"
+                        height="30px"
+                        src="/images/get-started/icons/active-card-arrow.svg"
+                      />
+                    </div>
+
+                    <p>Explore a guided setup & sample feature flag</p>
+                  </div>
+                  <img
+                    className={clsx(styles.imgActive, "float-right")}
+                    src="/images/get-started/feature-flag-active.svg"
+                    width={"384px"}
+                    height={"80px"}
+                  />
+                  <img
+                    className={clsx(styles.imgInactive, "float-right")}
+                    src="/images/get-started/feature-flag-inactive.svg"
+                    width={"384px"}
+                    height={"80px"}
+                  />
+                </button>
+              </Link>
+              <Link
+                href={"/getstarted/experiment-guide"}
+                className="mb-3 d-block"
+              >
+                <button
+                  className={clsx(styles.animatedCard, "px-0 py-4 text-left")}
+                  style={{ marginRight: "0px" }}
+                >
+                  <div className="pr-3 mb-5" style={{ paddingLeft: "29px" }}>
+                    <div className="d-flex text-left align-middle">
+                      <h2>Run an Experiment</h2>
+                      <img
+                        className={clsx(styles.imgInactive, "ml-auto")}
+                        width="30px"
+                        height="30px"
+                        src="/images/get-started/icons/inactive-card-arrow.svg"
+                      />
+                      <img
+                        className={clsx(styles.imgActive, "ml-auto")}
+                        width="30px"
+                        height="30px"
+                        src="/images/get-started/icons/active-card-arrow.svg"
+                      />
+                    </div>
+                    <p>Explore a guided setup & sample results</p>
                   </div>
 
-                  <p>Explore a guided setup & sample feature flag</p>
-                </div>
-                <img
-                  className={clsx(styles.imgActive, "float-right")}
-                  src="/images/get-started/feature-flag-active.svg"
-                  width={"384px"}
-                  height={"80px"}
-                />
-                <img
-                  className={clsx(styles.imgInactive, "float-right")}
-                  src="/images/get-started/feature-flag-inactive.svg"
-                  width={"384px"}
-                  height={"80px"}
-                />
-              </button>
-            </Link>
-            <Link href={"/getstarted/experiment-guide"}>
-              <button
-                className={clsx(styles.animatedCard, "px-0 py-4 text-left")}
-                style={{ marginRight: "0px" }}
-              >
-                <div className="pr-3 mb-5" style={{ paddingLeft: "29px" }}>
-                  <div className="d-flex text-left align-middle">
-                    <h2>Run an Experiment</h2>
-                    <img
-                      className={clsx(styles.imgInactive, "ml-auto")}
-                      width="30px"
-                      height="30px"
-                      src="/images/get-started/icons/inactive-card-arrow.svg"
-                    />
-                    <img
-                      className={clsx(styles.imgActive, "ml-auto")}
-                      width="30px"
-                      height="30px"
-                      src="/images/get-started/icons/active-card-arrow.svg"
-                    />
-                  </div>
-                  <p>Explore a guided setup & sample results</p>
-                </div>
+                  <img
+                    className={clsx(styles.imgActive, "float-right")}
+                    src="/images/get-started/traffic-split-active.svg"
+                    width={"384px"}
+                    height={"80px"}
+                  />
+                  <img
+                    className={clsx(styles.imgInactive, "float-right")}
+                    src="/images/get-started/traffic-split-inactive.svg"
+                    width={"384px"}
+                    height={"80px"}
+                  />
+                </button>
+              </Link>
+            </div>
 
-                <img
-                  className={clsx(styles.imgActive, "float-right")}
-                  src="/images/get-started/traffic-split-active.svg"
-                  width={"384px"}
-                  height={"80px"}
-                />
-                <img
-                  className={clsx(styles.imgInactive, "float-right")}
-                  src="/images/get-started/traffic-split-inactive.svg"
-                  width={"384px"}
-                  height={"80px"}
-                />
-              </button>
-            </Link>
-
-            <div className="d-flex flex-row mt-4 mb-4">
+            <div className="d-flex flex-row flex-wrap mt-3 mb-3">
               <Tooltip
                 body={
                   canImportLaunchDarkly
@@ -217,7 +230,7 @@ const GetStartedPage = (): React.ReactElement => {
                 <button
                   className={clsx(
                     styles.animatedButton,
-                    `p-3 mr-4 text-left align-middle`,
+                    `p-3 mr-4 mb-3 text-left align-middle`,
                     { [styles.disabled]: !canImportLaunchDarkly }
                   )}
                   disabled={!canImportLaunchDarkly}
@@ -302,7 +315,7 @@ const GetStartedPage = (): React.ReactElement => {
 
             <hr />
 
-            <div className="mt-4 mb-5">
+            <div className="mt-4 mb-4">
               <h6 className="text-muted mb-3">PRODUCT OVERVIEW</h6>
               <div className="container-fluid">
                 <div className="row">
@@ -408,8 +421,7 @@ const GetStartedPage = (): React.ReactElement => {
               </div>
             </div>
           </div>
-          <div className="col"></div>
-          <div className="col pl-0">
+          <div className="col-auto pl-0">
             <DocumentationSidebar
               setUpgradeModal={setUpgradeModal}
               type="get-started"
