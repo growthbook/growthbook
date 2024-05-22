@@ -8,6 +8,7 @@ import {
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Field from "@/components/Forms/Field";
@@ -22,12 +23,14 @@ import {
   MetricParams,
   FullModalPowerCalculationParams,
   PartialPowerCalculationParams,
+  StatsEngineSettings,
 } from "./types";
 
 export type Props = {
   close?: () => void;
   onSuccess: (_: FullModalPowerCalculationParams) => void;
   params: PartialPowerCalculationParams;
+  statsEngineSettings: StatsEngineSettings;
 };
 
 type Form = UseFormReturn<PartialPowerCalculationParams>;
@@ -46,6 +49,9 @@ const SelectStep = ({
     factMetrics: appFactMetrics,
     getExperimentMetricById,
   } = useDefinitions();
+
+  const settings = useOrgSettings();
+
   // combine both metrics and remove ratio and quntile metrics
   const allAppMetrics: ExperimentMetricInterface[] = [
     ...appMetrics,
@@ -70,9 +76,16 @@ const SelectStep = ({
     isNaN(usersPerWeek) ||
     isUsersPerDayInvalid;
 
-  const field = (key: keyof typeof config) => ({
-    [key]: config[key].defaultValue,
-  });
+  const field = (key: keyof typeof config) => {
+    const defaultValue = config[key].defaultValue;
+
+    return {
+      [key]:
+        typeof defaultValue === "function"
+          ? defaultValue(settings)
+          : defaultValue,
+    };
+  };
 
   return (
     <Modal
@@ -133,6 +146,9 @@ const SelectStep = ({
                         ...field("standardDeviation"),
                         standardDeviation: undefined,
                       }),
+                  ...field("priorLiftMean"),
+                  ...field("priorLiftStandardDeviation"),
+                  ...field("proper"),
                 },
               };
             }, {})
@@ -171,27 +187,34 @@ const SelectStep = ({
 const InputField = ({
   entry,
   form,
+  engineType,
   metricId,
 }: {
   entry: keyof typeof config;
   form: Form;
+  engineType: "bayesian" | "frequentist";
   metricId: string;
 }) => {
   const metrics = form.watch("metrics");
   const params = ensureAndReturn(metrics[metricId]);
   const entryValue = params[entry];
-  const { title, isPercent, tooltip, maxValue, minValue } = config[entry];
+  const { title, tooltip, showFor, ...c } = config[entry];
+
+  if (showFor && engineType !== showFor) return null;
 
   const isKeyInvalid = (() => {
     if (entryValue === undefined) return false;
-    if (minValue !== undefined && entryValue <= minValue) return true;
-    if (maxValue !== undefined && maxValue < entryValue) return true;
+    if (c.type === "boolean") return false;
+    if (c.minValue !== undefined && entryValue <= c.minValue) return true;
+    if (c.maxValue !== undefined && c.maxValue < entryValue) return true;
     return false;
   })();
 
   const helpText = (() => {
-    const min = isPercent && minValue ? minValue * 100 : minValue;
-    const max = isPercent && maxValue ? maxValue * 100 : maxValue;
+    if (c.type === "boolean") return;
+
+    const min = c.minValue ? c.minValue * 100 : c.minValue;
+    const max = c.maxValue ? c.maxValue * 100 : c.maxValue;
 
     if (min !== undefined && max !== undefined)
       return `Must be greater than ${min} and less than or equal to ${max}`;
@@ -213,8 +236,7 @@ const InputField = ({
         )}
       </>
     ),
-    min: minValue,
-    max: maxValue,
+    ...(c.type !== "boolean" ? { min: c.minValue, max: c.maxValue } : {}),
     className: clsx("w-50", isKeyInvalid && "border border-danger"),
     helpText: isKeyInvalid ? (
       <div className="text-danger">{helpText}</div>
@@ -223,13 +245,14 @@ const InputField = ({
 
   return (
     <div className="col">
-      {isPercent ? (
+      {c.type === "percent" && (
         <PercentField
           {...commonOptions}
           value={entryValue}
           onChange={(v) => form.setValue(`metrics.${metricId}.${entry}`, v)}
         />
-      ) : (
+      )}
+      {c.type === "number" && (
         <Field
           {...commonOptions}
           {...form.register(`metrics.${metricId}.${entry}`, {
@@ -244,9 +267,11 @@ const InputField = ({
 const MetricParamsInput = ({
   form,
   metricId,
+  engineType,
 }: {
   form: Form;
   metricId: string;
+  engineType: "bayesian" | "frequentist";
 }) => {
   const metrics = form.watch("metrics");
   // eslint-disable-next-line
@@ -261,6 +286,7 @@ const MetricParamsInput = ({
             <InputField
               key={`${name}-${entry}`}
               entry={entry}
+              engineType={engineType}
               form={form}
               metricId={metricId}
             />
@@ -276,11 +302,13 @@ const SetParamsStep = ({
   close,
   onBack,
   onSubmit,
+  engineType,
 }: {
   form: Form;
   close?: () => void;
   onBack: () => void;
   onSubmit: (_: FullModalPowerCalculationParams) => void;
+  engineType: "bayesian" | "frequentist";
 }) => {
   const metrics = form.watch("metrics");
   const metricIds = Object.keys(metrics);
@@ -314,7 +342,12 @@ const SetParamsStep = ({
         <p>Customize metric details for calculating experiment duration.</p>
 
         {metricIds.map((metricId) => (
-          <MetricParamsInput key={metricId} metricId={metricId} form={form} />
+          <MetricParamsInput
+            key={metricId}
+            metricId={metricId}
+            engineType={engineType}
+            form={form}
+          />
         ))}
       </div>
     </Modal>
@@ -324,6 +357,7 @@ const SetParamsStep = ({
 export default function PowerCalculationModal({
   close,
   onSuccess,
+  statsEngineSettings,
   params,
 }: Props) {
   const [step, setStep] = useState<"select" | "set-params">("select");
@@ -345,6 +379,7 @@ export default function PowerCalculationModal({
         <SetParamsStep
           form={form}
           close={close}
+          engineType={statsEngineSettings.type}
           onBack={() => setStep("select")}
           onSubmit={onSuccess}
         />

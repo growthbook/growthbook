@@ -2,13 +2,11 @@ import normal from "@stdlib/stats/base/dists/normal";
 
 import {
   PowerCalculationParams,
-  PowerCalculationParamsBayesian,
   PowerCalculationResults,
   MDEResults,
   SampleSizeAndRuntime,
   Week,
-  MetricParamsBayesian,
-  MetricParamsFrequentist,
+  MetricParams,
 } from "./types";
 
 /**
@@ -42,22 +40,18 @@ export function frequentistVariance(
   }
 }
 
-function getMetricMean(
-  metric: MetricParamsFrequentist | MetricParamsBayesian
-): number {
-  return metric.type === "mean" ? metric.metricMean : metric.conversionRate;
+function getMetricMean(metric: MetricParams): number {
+  return metric.type === "mean" ? metric.mean : metric.conversionRate;
 }
 
-function getMetricVariance(
-  metric: MetricParamsFrequentist | MetricParamsBayesian
-): number {
+function getMetricVariance(metric: MetricParams): number {
   return metric.type === "mean"
-    ? Math.pow(metric.metricStandardDeviation, 2)
+    ? Math.pow(metric.standardDeviation, 2)
     : metric.conversionRate * (1 - metric.conversionRate);
 }
 
 export function powerStandardError(
-  metric: MetricParamsFrequentist | MetricParamsBayesian,
+  metric: MetricParams,
   nPerVariation: number,
   relative: boolean
 ): number {
@@ -109,7 +103,7 @@ export function sequentialPowerSequentialVariance(
 }
 
 export function sequentialPowerStandardError(
-  metric: MetricParamsFrequentist,
+  metric: MetricParams,
   n: number,
   nVariations: number,
   alpha: number,
@@ -160,7 +154,7 @@ function getSequentialTuningParameter(
  * @returns Estimated power.
  */
 export function powerEst(
-  metric: MetricParamsFrequentist,
+  metric: MetricParams,
   n: number,
   nVariations: number,
   alpha: number = 0.05,
@@ -209,7 +203,7 @@ export function powerEst(
  * @returns object of class MDEResults, containing type and either mde or description.
  */
 export function findMde(
-  metric: MetricParamsFrequentist,
+  metric: MetricParams,
   power: number,
   n: number,
   nVariations: number,
@@ -265,7 +259,7 @@ export function findMde(
 }
 
 export function powerMetricWeeks(
-  powerSettings: PowerCalculationParams | PowerCalculationParamsBayesian
+  powerSettings: PowerCalculationParams
 ): PowerCalculationResults {
   const sampleSizeAndRuntimeNumeric: number[] = []; //for each metric, the first week they achieve 80% power.
   const mySampleSizeAndRuntime: {
@@ -381,7 +375,7 @@ export function calculatePriorVariance(
 }
 
 function calculatePriorMeanSpecified(
-  metric: MetricParamsBayesian,
+  metric: MetricParams,
   relative: boolean
 ): number {
   const metricMean = getMetricMean(metric);
@@ -389,7 +383,7 @@ function calculatePriorMeanSpecified(
 }
 
 function calculatePriorVarianceSpecified(
-  metric: MetricParamsBayesian,
+  metric: MetricParams,
   relative: boolean
 ): number {
   const metricMean = getMetricMean(metric);
@@ -401,7 +395,7 @@ function calculatePriorVarianceSpecified(
 }
 
 function calculatePriorMeanDGP(
-  metric: MetricParamsBayesian,
+  metric: MetricParams,
   relative: boolean
 ): number {
   const metricMean = getMetricMean(metric);
@@ -409,12 +403,13 @@ function calculatePriorMeanDGP(
 }
 
 function calculatePriorVarianceDGP(
-  metric: MetricParamsBayesian,
+  metric: MetricParams,
   relative: boolean
 ): number {
   const metricMean = getMetricMean(metric);
+  const priorStandardDeviationDGP = 0;
   return calculatePriorVariance(
-    Math.pow(metric.priorStandardDeviationDGP, 2),
+    Math.pow(priorStandardDeviationDGP, 2),
     metricMean,
     relative
   );
@@ -422,7 +417,7 @@ function calculatePriorVarianceDGP(
 
 // Function to estimate variance of tau hat conditional on tau
 function estimateTauHatVariance(
-  metric: MetricParamsFrequentist | MetricParamsBayesian,
+  metric: MetricParams,
   nPerVariation: number,
   relative: boolean
 ): number {
@@ -432,7 +427,7 @@ function estimateTauHatVariance(
 
 // Function to calculate marginal variance of tau hat
 function getMarginalVarianceTauHat(
-  metric: MetricParamsBayesian,
+  metric: MetricParams,
   nPerVariation: number,
   relative: boolean
 ): number {
@@ -447,7 +442,7 @@ function getMarginalVarianceTauHat(
 
 // Function to calculate posterior precision
 function getPosteriorPrecision(
-  metric: MetricParamsBayesian,
+  metric: MetricParams,
   nPerVariation: number,
   relative: boolean
 ): number {
@@ -466,7 +461,7 @@ function getPosteriorPrecision(
 
 // Function to calculate upper cutpoint
 export function getCutpoint(
-  metric: MetricParamsBayesian,
+  metric: MetricParams,
   alpha: number,
   nPerVariation: number,
   relative: boolean,
@@ -508,14 +503,14 @@ export function getCutpoint(
 /**
  * Performs power calculation
  *
- * @param metric an object of class MetricParamsBayesian that has info about prior mean and sd, metric mean and sd, and effect size.
+ * @param metric an object of class MetricParams that has info about prior mean and sd, metric mean and sd, and effect size.
  * @param alpha false positive rate (default: 0.05).
  * @param nPerVariation sample size per variation.
  * @param relative boolean indicator if relative inference is desired.
  * @returns Estimated power.
  */
 export function powerEstBayesian(
-  metric: MetricParamsBayesian,
+  metric: MetricParams,
   alpha: number,
   nPerVariation: number,
   relative: boolean
@@ -541,14 +536,14 @@ export function powerEstBayesian(
 
 /**
  * Performs mde calc
- * @param metric an object of class MetricParamsBayesian that has info about prior mean and sd, metric mean and sd, and effect size.
+ * @param metric an object of class MetricParams that has info about prior mean and sd, metric mean and sd, and effect size.
  * @param alpha false positive rate (default: 0.05).
  * @param nPerVariation sample size per variation.
  * @param relative boolean indicator if relative inference is desired.
  * @returns object of class MDEResults, containing type and either mde or description.
  */
 export function findMdeBayesian(
-  metric: MetricParamsBayesian,
+  metric: MetricParams,
   alpha: number,
   power: number,
   nPerVariation: number,

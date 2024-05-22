@@ -10,7 +10,7 @@ import {
   PowerCalculationResults,
   PartialPowerCalculationParams,
   FullModalPowerCalculationParams,
-  StatsEngine,
+  StatsEngineSettings,
 } from "@/components/PowerCalculation/types";
 
 import { powerMetricWeeks } from "@/components/PowerCalculation/stats";
@@ -23,7 +23,7 @@ type PageSettings = {
   powerCalculationParams?: FullModalPowerCalculationParams;
   settingsModalParams: PartialPowerCalculationParams;
   variations: number;
-  statsEngine?: StatsEngine;
+  statsEngineSettings?: StatsEngineSettings;
 };
 
 const INITIAL_PAGE_SETTINGS: PageSettings = {
@@ -55,8 +55,11 @@ const PowerCalculationPage = (): React.ReactElement => {
 
   const [variations, setVariations] = useState(initialParams.variations);
 
-  const [statsEngine, setStatsEngine] = useState<StatsEngine>(
-    initialParams.statsEngine || {
+  const [
+    statsEngineSettings,
+    setStatsEngineSettings,
+  ] = useState<StatsEngineSettings>(
+    initialParams.statsEngineSettings || {
       type: "frequentist",
       sequentialTesting: orgSettings.sequentialTestingEnabled
         ? orgSettings.sequentialTestingTuningParameter ||
@@ -72,23 +75,28 @@ const PowerCalculationPage = (): React.ReactElement => {
         powerCalculationParams,
         settingsModalParams,
         variations,
-        statsEngine,
+        statsEngineSettings,
       })
     );
-  }, [powerCalculationParams, settingsModalParams, variations, statsEngine]);
+  }, [
+    powerCalculationParams,
+    settingsModalParams,
+    variations,
+    statsEngineSettings,
+  ]);
 
   const finalParams: PowerCalculationParams | undefined = useMemo(() => {
     if (!powerCalculationParams) return;
 
     return {
       ...powerCalculationParams,
-      statsEngine,
+      statsEngineSettings,
       nVariations: variations,
       nWeeks: WEEKS,
       targetPower: 0.8,
       alpha: 0.05,
     };
-  }, [powerCalculationParams, variations, statsEngine]);
+  }, [powerCalculationParams, variations, statsEngineSettings]);
 
   const results: PowerCalculationResults | undefined = useMemo(() => {
     if (!finalParams) return;
@@ -106,6 +114,7 @@ const PowerCalculationPage = (): React.ReactElement => {
             setPowerCalculationParams(p);
             setShowModal(false);
           }}
+          statsEngineSettings={statsEngineSettings}
           params={settingsModalParams}
         />
       )}
@@ -121,7 +130,7 @@ const PowerCalculationPage = (): React.ReactElement => {
             setShowModal(true);
           }}
           updateVariations={setVariations}
-          updateStatsEngine={setStatsEngine}
+          updateStatsEngineSettings={setStatsEngineSettings}
           newCalculation={() => {
             setSettingsModalParams(INITIAL_FORM_PARAMS);
             setShowModal(true);
