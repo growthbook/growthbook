@@ -321,7 +321,7 @@ const GetStartedPage = (): React.ReactElement => {
                 <div className="row">
                   <FeaturedCard
                     imgUrl={
-                      "/images/get-started/thumbnails/intro-to-growthbook.png"
+                      "/images/get-started/thumbnails/intro-to-growthbook.svg"
                     }
                     handleClick={() => setShowVideoId("b4xUnDGRKRQ")}
                     playTime={5}
@@ -342,10 +342,11 @@ const GetStartedPage = (): React.ReactElement => {
                       href="https://blog.growthbook.io/growthbook-version-3-0/"
                       target="_blank"
                       rel="noreferrer"
+                      key="3-0-release"
                     >
                       <FeaturedCard
                         imgUrl={
-                          "/images/get-started/thumbnails/3.0-release.png"
+                          "/images/get-started/thumbnails/3.0-release.svg"
                         }
                         lastCard
                       />
@@ -355,6 +356,7 @@ const GetStartedPage = (): React.ReactElement => {
                       href="https://blog.growthbook.io/growthbook-version-2-9/"
                       target="_blank"
                       rel="noreferrer"
+                      key="2-9-release"
                     >
                       <FeaturedCard
                         imgUrl={
