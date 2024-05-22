@@ -513,8 +513,8 @@ const ImportExperimentList: FC<{
                     <td>{date(e.endDate)}</td>
                     <td>{e.numVariations}</td>
                     <td>{numberFormatter.format(e.users)}</td>
-                    <td>
-                      {e.weights.map((w) => Math.round(w * 100)).join("/")}
+                    <td style={{ maxWidth: 180 }}>
+                      {e.weights.map((w) => Math.round(w * 100)).join(" / ")}
                     </td>
                     <td>
                       {existingId ? (
