@@ -279,7 +279,7 @@ export interface OrganizationInterface {
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
   messages?: OrganizationMessage[];
-
+  getStartedChecklistItems?: string[];
   customRoles?: Role[];
   deactivatedRoles?: string[];
 }

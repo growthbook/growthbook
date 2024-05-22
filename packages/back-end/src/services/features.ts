@@ -5,8 +5,8 @@ import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import { orgHasPremiumFeature } from "enterprise";
 import {
-  FeatureRule as FeatureDefinitionRule,
   AutoExperiment,
+  FeatureRule as FeatureDefinitionRule,
   GrowthBook,
 } from "@growthbook/growthbook";
 import {
@@ -30,15 +30,15 @@ import {
   FeatureDefinitionWithProject,
 } from "../../types/api";
 import {
+  ExperimentRefRule,
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
+  FeaturePrerequisite,
   FeatureRule,
+  FeatureTestResult,
   ForceRule,
   RolloutRule,
-  FeatureTestResult,
-  ExperimentRefRule,
-  FeaturePrerequisite,
 } from "../../types/feature";
 import { getAllFeatures } from "../models/FeatureModel";
 import {
@@ -161,12 +161,12 @@ export function generateAutoExperimentsPayload({
     prereqStateCache
   );
 
-  const sortedVisualExperiments = [
+  const sortedAutoExperiments = [
     ...newURLRedirectExperiments,
     ...newVisualExperiments,
   ];
 
-  const sdkExperiments: Array<AutoExperimentWithProject | null> = sortedVisualExperiments.map(
+  const sdkExperiments: Array<AutoExperimentWithProject | null> = sortedAutoExperiments.map(
     (data) => {
       const { experiment: e } = data;
       if (e.status === "stopped" && e.excludeFromPayload) return null;
@@ -196,8 +196,17 @@ export function generateAutoExperimentsPayload({
 
       if (!phase) return null;
 
+      const implementationId =
+        data.type === "redirect"
+          ? data.urlRedirect.id
+          : data.visualChangeset.id;
+
       const exp: AutoExperimentWithProject = {
         key: e.trackingKey,
+        changeId: sha256(
+          `${e.trackingKey}_${data.type}_${implementationId}`,
+          ""
+        ),
         status: e.status,
         project: e.project,
         variations: e.variations.map((v) => {
@@ -255,7 +264,6 @@ export function generateAutoExperimentsPayload({
           : undefined,
         condition,
         coverage: phase.coverage,
-        changeType: data.type,
       };
 
       if (prerequisites.length) {
@@ -521,8 +529,6 @@ async function getFeatureDefinitionsResponse({
       experiments = experiments.filter((e) => e.changeType === "redirect");
     }
   }
-
-  experiments = experiments.map((exp) => omit(exp, ["changeType"]));
 
   if (!encryptionKey) {
     return {

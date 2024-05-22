@@ -55,6 +55,10 @@ router.put(
   "/organization/default-role",
   organizationsController.putDefaultRole
 );
+router.put(
+  "/organization/get-started-checklist",
+  organizationsController.putGetStartedChecklistItem
+);
 
 // API keys
 router.get("/keys", organizationsController.getApiKeys);
