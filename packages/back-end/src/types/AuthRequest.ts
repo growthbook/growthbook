@@ -1,10 +1,5 @@
 import { Request, Response } from "express";
-import {
-  EnvScopedPermission,
-  GlobalPermission,
-  OrganizationInterface,
-  ProjectScopedPermission,
-} from "../../types/organization";
+import { OrganizationInterface } from "../../types/organization";
 import { AuditInterface } from "../../types/audit";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 import { TeamInterface } from "../../types/team";
