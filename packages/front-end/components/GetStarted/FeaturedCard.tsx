@@ -14,7 +14,7 @@ const FeaturedCard = ({ handleClick, playTime, imgUrl, lastCard }: Props) => {
     <button
       className={clsx(
         styles.featuredCard,
-        "border-0 rounded",
+        "border-0 rounded mb-3",
         !lastCard && "mr-4"
       )}
       style={{

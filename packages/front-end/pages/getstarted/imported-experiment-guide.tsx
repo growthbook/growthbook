@@ -80,8 +80,8 @@ const ImportedExperimentGuide = (): React.ReactElement => {
           <PiArrowRight />
         </span>
       </div>
-      <div className="d-flex mt-4">
-        <div className="flex-fill mr-5">
+      <div className="row mt-4">
+        <div className="col mr-auto" style={{ minWidth: 500 }}>
           <div className="appbox p-4">
             <div className="row">
               <div className="col-sm-auto">
@@ -241,7 +241,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
             </div>
           </div>
         </div>
-        <div>
+        <div className="col-auto">
           <DocumentationSidebar
             setUpgradeModal={setUpgradeModal}
             type="imports"

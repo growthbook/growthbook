@@ -71,7 +71,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
       )}
       <h1 className="mb-3">Create Feature Flags</h1>
       <div className="d-flex align-middle justify-content-between mb-4">
-        <span>
+        <span className="mr-3">
           Have feature flags in LaunchDarkly?{" "}
           <Link href="/importing/launchdarkly">
             View migration instructions
@@ -80,8 +80,8 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
         </span>
         <ViewSampleDataButton resource="feature" />
       </div>
-      <div className="d-flex">
-        <div className="flex-fill mr-5">
+      <div className="row">
+        <div className="col mr-auto" style={{ minWidth: 500 }}>
           <div className="appbox p-4">
             <div className="row">
               <div className="col-sm-auto">
@@ -290,7 +290,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
             </div>
           </div>
         </div>
-        <div className="">
+        <div className="col-auto">
           <DocumentationSidebar
             setUpgradeModal={setUpgradeModal}
             type="features"
