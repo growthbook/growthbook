@@ -73,11 +73,6 @@ export default function PowerCalculationStatsEngineSettingsModal({
                       ? "(Org default)"
                       : ""}
                   </div>
-                  {currentParams.type === "bayesian" && (
-                    <div className="row mt-2">
-                      <span>Edit </span>
-                    </div>
-                  )}
                 </div>
               ),
             },

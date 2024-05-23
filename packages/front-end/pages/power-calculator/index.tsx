@@ -60,7 +60,7 @@ const PowerCalculationPage = (): React.ReactElement => {
     setStatsEngineSettings,
   ] = useState<StatsEngineSettings>(
     initialParams.statsEngineSettings || {
-      type: "frequentist",
+      type: orgSettings.statsEngine || "frequentist",
       sequentialTesting: orgSettings.sequentialTestingEnabled
         ? orgSettings.sequentialTestingTuningParameter ||
           DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
