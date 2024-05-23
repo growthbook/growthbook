@@ -422,10 +422,16 @@ export default function PowerCalculationModal({
 
   const metrics = form.watch("metrics");
   const defaultValues = Object.keys(config).reduce(
-    (defaultValues, key) => ({
-      ...defaultValues,
-      [key]: defaultValue(config[key], settings),
-    }),
+    (defaultValues, key) =>
+      config[key].metricType
+        ? {
+            ...defaultValues,
+            [key]: {
+              type: config[key].metricType,
+              value: defaultValue(config[key], settings),
+            },
+          }
+        : defaultValues,
     {}
   );
 
@@ -433,10 +439,17 @@ export default function PowerCalculationModal({
     form.setValue(
       "metrics",
       Object.keys(metrics).reduce(
-        (metrics, id) => ({
-          ...metrics,
+        (m, id) => ({
+          ...m,
           [id]: {
-            ...defaultValues,
+            ...Object.keys(defaultValues).reduce(
+              (values, key) =>
+                metrics[id].type === defaultValues[key].type ||
+                defaultValues[key].type === "all"
+                  ? { ...values, [key]: defaultValues[key].value }
+                  : {},
+              {}
+            ),
             ...metrics[id],
           },
         }),

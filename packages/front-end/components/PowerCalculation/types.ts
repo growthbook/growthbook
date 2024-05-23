@@ -53,6 +53,7 @@ export type PartialPowerCalculationParams = Partial<
 
 type Config = {
   title: string;
+  metricType?: "all" | "mean" | "binomial";
   tooltip?: string;
 } & (
   | {
@@ -87,21 +88,25 @@ export const config = checkConfig({
   },
   mean: {
     title: "Mean",
+    metricType: "mean",
     type: "number",
   },
   standardDeviation: {
     title: "Standard Deviation",
+    metricType: "mean",
     type: "number",
     minValue: 0,
   },
   conversionRate: {
     title: "Conversion Rate",
+    metricType: "binomial",
     type: "percent",
     minValue: 0,
     maxValue: 1,
   },
   priorLiftMean: {
     title: "Prior mean",
+    metricType: "all",
     type: "percent",
     tooltip: "Prior mean for the relative effect size.",
     defaultSettingsValue: (s) => s.metricDefaults?.priorSettings?.mean,
@@ -109,6 +114,7 @@ export const config = checkConfig({
   },
   priorLiftStandardDeviation: {
     title: "Prior standard deviation",
+    metricType: "all",
     type: "percent",
     tooltip: "Prior standard deviation for the relative effect size.",
     minValue: 0,
@@ -117,6 +123,7 @@ export const config = checkConfig({
   },
   proper: {
     title: "Use proper prior",
+    metricType: "all",
     type: "boolean",
     defaultSettingsValue: (s) => s.metricDefaults?.priorSettings?.override,
     defaultValue: false,
