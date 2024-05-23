@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, UseFormReturn } from "react-hook-form";
 import clsx from "clsx";
 import {
@@ -8,6 +8,7 @@ import {
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
+import { OrganizationSettings } from "@back-end/types/organization";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -35,6 +36,26 @@ export type Props = {
 };
 
 type Form = UseFormReturn<PartialPowerCalculationParams>;
+
+type Config =
+  | {
+      defaultSettingsValue?: (_: OrganizationSettings) => number | undefined;
+      defaultValue?: number;
+    }
+  | {
+      defaultSettingsValue?: (_: OrganizationSettings) => boolean | undefined;
+      defaultValue?: boolean;
+    };
+
+const defaultValue = (
+  { defaultSettingsValue, defaultValue }: Config,
+  settings: OrganizationSettings
+) => {
+  const settingsDefault = defaultSettingsValue?.(settings);
+  if (settingsDefault !== undefined) return settingsDefault;
+
+  return defaultValue;
+};
 
 const SelectStep = ({
   form,
@@ -77,16 +98,9 @@ const SelectStep = ({
     isNaN(usersPerWeek) ||
     isUsersPerDayInvalid;
 
-  const field = (key: keyof typeof config) => {
-    const defaultValue = config[key].defaultValue;
-
-    return {
-      [key]:
-        typeof defaultValue === "function"
-          ? defaultValue(settings)
-          : defaultValue,
-    };
-  };
+  const field = (key: keyof typeof config) => ({
+    [key]: defaultValue(config[key], settings),
+  });
 
   return (
     <Modal
@@ -400,10 +414,37 @@ export default function PowerCalculationModal({
   params,
 }: Props) {
   const [step, setStep] = useState<"select" | "set-params">("select");
+  const settings = useOrgSettings();
 
   const form = useForm<PartialPowerCalculationParams>({
     defaultValues: params,
   });
+
+  const metrics = form.watch("metrics");
+  const defaultValues = Object.keys(config).reduce(
+    (defaultValues, key) => ({
+      ...defaultValues,
+      [key]: defaultValue(config[key], settings),
+    }),
+    {}
+  );
+
+  useEffect(() => {
+    form.setValue(
+      "metrics",
+      Object.keys(metrics).reduce(
+        (metrics, id) => ({
+          ...metrics,
+          [id]: {
+            ...defaultValues,
+            ...metrics[id],
+          },
+        }),
+        {}
+      )
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>

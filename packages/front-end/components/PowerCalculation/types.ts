@@ -59,13 +59,13 @@ type Config = {
       type: "percent" | "number";
       minValue?: number;
       maxValue?: number;
-      defaultValue?: number | ((_: OrganizationSettings) => number | undefined);
+      defaultSettingsValue?: (_: OrganizationSettings) => number | undefined;
+      defaultValue?: number;
     }
   | {
       type: "boolean";
-      defaultValue?:
-        | boolean
-        | ((_: OrganizationSettings) => boolean | undefined);
+      defaultSettingsValue?: (_: OrganizationSettings) => boolean | undefined;
+      defaultValue?: boolean;
     }
 );
 
@@ -104,19 +104,22 @@ export const config = checkConfig({
     title: "Prior mean",
     type: "percent",
     tooltip: "Prior mean for the relative effect size.",
-    defaultValue: (s) => s.metricDefaults?.priorSettings?.mean,
+    defaultSettingsValue: (s) => s.metricDefaults?.priorSettings?.mean,
+    defaultValue: 0,
   },
   priorLiftStandardDeviation: {
     title: "Prior standard deviation",
     type: "percent",
     tooltip: "Prior standard deviation for the relative effect size.",
     minValue: 0,
-    defaultValue: (s) => s.metricDefaults?.priorSettings?.stddev,
+    defaultSettingsValue: (s) => s.metricDefaults?.priorSettings?.stddev,
+    defaultValue: 1,
   },
   proper: {
     title: "Use proper prior",
     type: "boolean",
-    defaultValue: (s) => !!s.metricDefaults?.priorSettings?.override,
+    defaultSettingsValue: (s) => s.metricDefaults?.priorSettings?.override,
+    defaultValue: false,
   },
 });
 
