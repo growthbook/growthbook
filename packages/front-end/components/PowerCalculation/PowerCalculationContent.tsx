@@ -8,9 +8,9 @@ import {
   PowerCalculationParams,
   PowerCalculationResults,
   PowerCalculationSuccessResults,
-  StatsEngine,
+  StatsEngineSettings,
 } from "./types";
-import PowerCalculationStatsEngineModal from "./PowerCalculationStatsEngineModal";
+import PowerCalculationStatsEngineSettingsModal from "./PowerCalculationStatsEngineSettingsModal";
 
 const percentFormatter = (
   v: number,
@@ -40,18 +40,21 @@ const AnalysisSettings = ({
   params,
   results,
   updateVariations,
-  updateStatsEngine,
+  updateStatsEngineSettings,
 }: {
   params: PowerCalculationParams;
   results: PowerCalculationResults;
   updateVariations: (_: number) => void;
-  updateStatsEngine: (_: StatsEngine) => void;
+  updateStatsEngineSettings: (_: StatsEngineSettings) => void;
 }) => {
   const [currentVariations, setCurrentVariations] = useState<
     number | undefined
   >(params.nVariations);
 
-  const [showStatsEngineModal, setShowStatsEngineModal] = useState(false);
+  const [
+    showStatsEngineSettingsModal,
+    setShowStatsEngineSettingsModal,
+  ] = useState(false);
 
   const isValidCurrentVariations =
     currentVariations &&
@@ -60,13 +63,13 @@ const AnalysisSettings = ({
 
   return (
     <>
-      {showStatsEngineModal && (
-        <PowerCalculationStatsEngineModal
-          close={() => setShowStatsEngineModal(false)}
-          params={params.statsEngine}
+      {showStatsEngineSettingsModal && (
+        <PowerCalculationStatsEngineSettingsModal
+          close={() => setShowStatsEngineSettingsModal(false)}
+          params={params.statsEngineSettings}
           onSubmit={(v) => {
-            updateStatsEngine(v);
-            setShowStatsEngineModal(false);
+            updateStatsEngineSettings(v);
+            setShowStatsEngineSettingsModal(false);
           }}
         />
       )}
@@ -76,8 +79,14 @@ const AnalysisSettings = ({
             <h2>Analysis Settings</h2>
             <p>
               {params.nVariations} Variations · Frequentist (Sequential Testing{" "}
-              {params.statsEngine.sequentialTesting ? "enabled" : "disabled"}) ·{" "}
-              <Link href="#" onClick={() => setShowStatsEngineModal(true)}>
+              {params.statsEngineSettings.sequentialTesting
+                ? "enabled"
+                : "disabled"}
+              ) ·{" "}
+              <Link
+                href="#"
+                onClick={() => setShowStatsEngineSettingsModal(true)}
+              >
                 Edit
               </Link>
             </p>
@@ -546,14 +555,14 @@ export default function PowerCalculationContent({
   results,
   params,
   updateVariations,
-  updateStatsEngine,
+  updateStatsEngineSettings,
   edit,
   newCalculation,
 }: {
   results: PowerCalculationResults;
   params: PowerCalculationParams;
   updateVariations: (_: number) => void;
-  updateStatsEngine: (_: StatsEngine) => void;
+  updateStatsEngineSettings: (_: StatsEngineSettings) => void;
   edit: () => void;
   newCalculation: () => void;
 }) {
@@ -600,7 +609,7 @@ export default function PowerCalculationContent({
         params={params}
         results={results}
         updateVariations={updateVariations}
-        updateStatsEngine={updateStatsEngine}
+        updateStatsEngineSettings={updateStatsEngineSettings}
       />
       {results.type !== "error" && (
         <>
