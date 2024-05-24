@@ -651,7 +651,7 @@ export class Permissions {
     );
   };
 
-  //TODO: Refactor this into two separate methods and eliminate updating envs from organizations.controller.putOrganization - Github Issue #2494
+  //MKTODO: Refactor this into two separate methods and eliminate updating envs from organizations.controller.putOrganization - Github Issue #2494
   public canCreateOrUpdateEnvironment = (
     environment: Pick<Environment, "projects" | "id">
   ): boolean => {

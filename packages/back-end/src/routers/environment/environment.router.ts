@@ -20,6 +20,8 @@ router.put(
               description: z.string(),
               toggleOnList: z.boolean().optional(),
               defaultState: z.boolean().optional(),
+              //MKTODO: I feel like I need to add projects here
+              // projects: z.array(z.string()).optional(),
             })
             .strict()
         ),
@@ -27,6 +29,18 @@ router.put(
       .strict(),
   }),
   environmentController.putEnvironments
+);
+
+router.put(
+  "/order",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        environments: z.array(z.string()),
+      })
+      .strict(),
+  }),
+  environmentController.putEnvironmentOrder
 );
 
 router.post(
@@ -39,11 +53,46 @@ router.post(
           description: z.string(),
           toggleOnList: z.boolean().optional(),
           defaultState: z.any().optional(),
+          projects: z.array(z.string()).optional(),
         }),
       })
       .strict(),
   }),
   environmentController.postEnvironment
+);
+
+router.put(
+  "/:id",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        environment: z.object({
+          id: z.string(),
+          description: z.string(),
+          toggleOnList: z.boolean().optional(),
+          defaultState: z.any().optional(),
+        }),
+      })
+      .strict(),
+    params: z
+      .object({
+        id: z.string(),
+      })
+      .strict(),
+  }),
+  environmentController.putEnvironment
+);
+
+router.delete(
+  "/:id",
+  validateRequestMiddleware({
+    params: z
+      .object({
+        id: z.string(),
+      })
+      .strict(),
+  }),
+  environmentController.deleteEnvironment
 );
 
 export { router as environmentRouter };
