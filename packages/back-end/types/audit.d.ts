@@ -48,6 +48,7 @@ export type EventType =
   | "organization.delete"
   | "environment.create"
   | "environment.update"
+  | "environments.update"
   | "environment.delete"
   | "savedGroup.created"
   | "savedGroup.deleted"

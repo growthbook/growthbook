@@ -1,6 +1,12 @@
 import type { Response } from "express";
 import { removeEnvironmentFromSlackIntegration } from "@back-end/src/models/SlackIntegrationModel";
-import { auditDetailsDelete } from "@back-end/src/services/audit";
+import {
+  auditDetailsCreate,
+  auditDetailsDelete,
+  auditDetailsUpdate,
+} from "@back-end/src/services/audit";
+import { triggerSingleSDKWebhookJobs } from "@back-end/src/jobs/updateAllJobs";
+import { findSDKConnectionsByOrganization } from "@back-end/src/models/SdkConnectionModel";
 import { AuthRequest } from "../../types/AuthRequest";
 import { PrivateApiErrorResponse } from "../../../types/api";
 import {
@@ -75,6 +81,7 @@ export const putEnvironments = async (
   const context = getContextFromReq(req);
   const { org } = context;
   const environments = req.body.environments;
+  const existingEnvs = org.settings?.environments || [];
 
   //MKTODO: When I break this out, I need to check if it exists, if so, check update, otherwise check canCreate logic
   environments.forEach((environment) => {
@@ -95,7 +102,15 @@ export const putEnvironments = async (
     },
   });
 
-  //MKTODO: Do I need to trigger any webhooks?
+  await req.audit({
+    event: "environments.update",
+    entity: {
+      object: "organization",
+      id: org.id,
+    },
+    details: auditDetailsUpdate(existingEnvs, updatedEnvironments),
+  });
+
   res.json({ environments });
 };
 
@@ -112,20 +127,13 @@ export const putEnvironment = async (
   const context = getContextFromReq(req);
   const { org } = context;
 
-  const envsArr = org.settings?.environments;
-
-  if (!envsArr) {
-    return res.status(400).json({
-      status: 400,
-      message: "Unable to find organization's environments",
-    });
-  }
+  const envsArr = org.settings?.environments || [];
 
   const existingEnvIndex = envsArr.findIndex(
     (env) => env.id === environment.id
   );
 
-  if (!existingEnvIndex || existingEnvIndex < 0) {
+  if (existingEnvIndex < 0) {
     return res.status(400).json({
       status: 400,
       message: `Could not find environment: ${environment.id}`,
@@ -137,17 +145,50 @@ export const putEnvironment = async (
     context.permissions.throwPermissionError();
   }
 
-  envsArr[existingEnvIndex] = environment;
+  const updatedEnvs = [...envsArr];
+  updatedEnvs[existingEnvIndex] = environment;
 
   try {
     await updateOrganization(org.id, {
       settings: {
         ...org.settings,
-        environments: envsArr,
+        environments: updatedEnvs,
       },
     });
 
-    //MKTODO: Do I need to trigger any webhooks?
+    if ("projects" in environment) {
+      const existingProjects = envsArr[existingEnvIndex].projects || [];
+      const newProjects = environment.projects || [];
+
+      if (JSON.stringify(existingProjects) !== JSON.stringify(newProjects)) {
+        const connections = await findSDKConnectionsByOrganization(context);
+        const affectedConnections = connections.filter(
+          (c) => c.environment === environment.id
+        );
+
+        for (const connection of affectedConnections) {
+          const isUsingProxy = !!(
+            connection.proxy.enabled && connection.proxy.host
+          );
+          await triggerSingleSDKWebhookJobs(
+            context,
+            connection,
+            {},
+            connection.proxy,
+            isUsingProxy
+          );
+        }
+      }
+    }
+
+    await req.audit({
+      event: "environment.update",
+      entity: {
+        object: "organization",
+        id: org.id,
+      },
+      details: auditDetailsUpdate(envsArr[existingEnvIndex], environment),
+    });
 
     res.status(200).json({
       status: 200,
@@ -207,6 +248,15 @@ export const postEnvironment = async (
       },
     });
 
+    await req.audit({
+      event: "environment.create",
+      entity: {
+        object: "organization",
+        id: org.id,
+      },
+      details: auditDetailsCreate(environment),
+    });
+
     res.status(200).json({
       status: 200,
       environment,
@@ -229,18 +279,11 @@ export const deleteEnvironment = async (
   const context = getContextFromReq(req);
   const { org } = context;
 
-  const envsArr = org.settings?.environments;
-
-  if (!envsArr) {
-    return res.status(400).json({
-      status: 400,
-      message: `Could not find environment: ${id}`,
-    });
-  }
+  const envsArr = org.settings?.environments || [];
 
   const existingEnvIndex = envsArr.findIndex((env) => env.id === id);
 
-  if (!existingEnvIndex || existingEnvIndex < 0) {
+  if (existingEnvIndex < 0) {
     return res.status(400).json({
       status: 400,
       message: `Could not find environment: ${id}`,
