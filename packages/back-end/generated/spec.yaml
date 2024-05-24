@@ -2446,15 +2446,13 @@ paths:
   /environments:
     get:
       summary: Get the organization's environments
-      parameters:
-        - $ref: '#/components/parameters/id'
       tags:
         - environments
       operationId: listEnvironments
       x-codeSamples:
         - lang: cURL
           source: |
-            curl https://api.growthbook.io/api/v1/organization/org-test/environments \
+            curl https://api.growthbook.io/api/v1/environments \
               -u secret_abc123DEF456:
       responses:
         '200':

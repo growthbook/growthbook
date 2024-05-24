@@ -6,9 +6,9 @@ import { deleteEnvironment } from "./deleteEnvironment";
 
 const router = Router();
 
-router.get("/:environments", listEnvironments);
-router.post("/environments", postEnvironment);
-router.put("/environments/:environmentId", putEnvironment);
-router.delete("/environments/:environmentId", deleteEnvironment);
+router.get("/", listEnvironments);
+router.post("/", postEnvironment);
+router.put("/:environmentId", putEnvironment);
+router.delete("/:environmentId", deleteEnvironment);
 
 export default router;

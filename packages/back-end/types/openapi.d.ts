@@ -5008,12 +5008,6 @@ export interface operations {
   };
   listEnvironments: {
     /** Get the organization's environments */
-    parameters: {
-        /** @description The id of the requested resource */
-      path: {
-        id: string;
-      };
-    };
     responses: {
       200: {
         content: {

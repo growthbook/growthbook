@@ -243,7 +243,7 @@ export const putOrganizationValidator = {
 export const listEnvironmentsValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string() }).strict(),
+  paramsSchema: z.never(),
 };
 
 export const postEnvironmentValidator = {

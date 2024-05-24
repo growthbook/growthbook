@@ -9,7 +9,9 @@ export const listEnvironments = createApiRequestHandler(
     const environments = (
       req.context.org.settings?.environments || []
     ).filter((environment) =>
-      req.context.permissions.canReadMultiProjectResource(environment.projects)
+      req.context.permissions.canReadMultiProjectResource(
+        environment.projects || []
+      )
     );
 
     return {
