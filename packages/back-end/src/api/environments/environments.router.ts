@@ -8,7 +8,7 @@ const router = Router();
 
 router.get("/", listEnvironments);
 router.post("/", postEnvironment);
-router.put("/:environmentId", putEnvironment);
-router.delete("/:environmentId", deleteEnvironment);
+router.put("/:id", putEnvironment);
+router.delete("/:id", deleteEnvironment);
 
 export default router;

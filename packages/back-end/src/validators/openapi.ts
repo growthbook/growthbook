@@ -253,7 +253,7 @@ export const postEnvironmentValidator = {
 };
 
 export const putEnvironmentValidator = {
-  bodySchema: z.object({ "description": z.string().describe("The description of the new environment").optional(), "toggleOnList": z.any().describe("Show toggle on feature list").optional(), "defaultState": z.any().describe("Default state for new features").optional(), "projects": z.array(z.string()).optional() }).strict(),
+  bodySchema: z.object({ "description": z.string().describe("The description of the new environment").optional(), "toggleOnList": z.boolean().describe("Show toggle on feature list").optional(), "defaultState": z.boolean().describe("Default state for new features").optional(), "projects": z.array(z.string()).optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };

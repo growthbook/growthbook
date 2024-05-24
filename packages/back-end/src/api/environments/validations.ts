@@ -24,11 +24,12 @@ export const validatePayload = async (
     const nonexistentProjects = projects.filter(
       (p) => !allProjects.some(({ id }) => p === id)
     );
+
     if (nonexistentProjects.length)
       throw new Error(
         `The following projects do not exist: ${nonexistentProjects.join(", ")}`
       );
   }
 
-  return { id, projects, name, description, toggleOnList, defaultState };
+  return { id, projects, description, toggleOnList, defaultState };
 };

@@ -5071,9 +5071,9 @@ export interface operations {
           /** @description The description of the new environment */
           description?: string;
           /** @description Show toggle on feature list */
-          toggleOnList?: any;
+          toggleOnList?: boolean;
           /** @description Default state for new features */
-          defaultState?: any;
+          defaultState?: boolean;
           projects?: (string)[];
         };
       };

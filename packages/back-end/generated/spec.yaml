@@ -2560,10 +2560,10 @@ paths:
                   type: string
                   description: The description of the new environment
                 toggleOnList:
-                  type: bool
+                  type: boolean
                   description: Show toggle on feature list
                 defaultState:
-                  type: bool
+                  type: boolean
                   description: Default state for new features
                 projects:
                   type: array
