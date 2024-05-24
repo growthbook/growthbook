@@ -4,7 +4,6 @@ import type pino from "pino";
 import type { Request } from "express";
 import { CommercialFeature, orgHasPremiumFeature } from "enterprise";
 import {
-  MemberRole,
   OrganizationInterface,
   Permission,
   UserPermissions,
@@ -41,7 +40,7 @@ export class ReqContextClass {
   public userName = "";
   public superAdmin = false;
   public teams: TeamInterface[] = [];
-  public role?: MemberRole;
+  public role?: string;
   public isApiRequest = false;
   public environments: string[];
   public auditUser: EventAuditUser;
@@ -69,7 +68,7 @@ export class ReqContextClass {
       superAdmin?: boolean;
     };
     apiKey?: string;
-    role?: MemberRole;
+    role?: string;
     teams?: TeamInterface[];
     auditUser: EventAuditUser;
     req?: Request;

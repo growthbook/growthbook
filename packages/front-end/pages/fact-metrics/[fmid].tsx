@@ -32,6 +32,7 @@ import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
+import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -181,6 +182,7 @@ export default function FactMetricPage() {
 
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
+  const [editOwnerModal, setEditOwnerModal] = useState(false);
 
   const { apiCall } = useAuth();
 
@@ -255,6 +257,19 @@ export default function FactMetricPage() {
           }}
           mutate={mutateDefinitions}
           entityName="Metric"
+        />
+      )}
+      {editOwnerModal && (
+        <EditOwnerModal
+          cancel={() => setEditOwnerModal(false)}
+          owner={factMetric.owner}
+          save={async (owner) => {
+            await apiCall(`/fact-metrics/${factMetric.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ owner }),
+            });
+          }}
+          mutate={mutateDefinitions}
         />
       )}
       {editTagsModal && (
@@ -345,6 +360,17 @@ export default function FactMetricPage() {
             <a
               className="ml-1 cursor-pointer"
               onClick={() => setEditTagsModal(true)}
+            >
+              <GBEdit />
+            </a>
+          )}
+        </div>
+        <div className="col-auto">
+          Owner:{` ${factMetric.owner ?? ""}`}
+          {canEdit && (
+            <a
+              className="ml-1 cursor-pointer"
+              onClick={() => setEditOwnerModal(true)}
             >
               <GBEdit />
             </a>

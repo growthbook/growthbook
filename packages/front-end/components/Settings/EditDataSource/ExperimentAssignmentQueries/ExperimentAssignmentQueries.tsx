@@ -59,10 +59,8 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   }, [onCancel]);
 
   const experimentExposureQueries = useMemo(
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    () => dataSource.settings?.queries.exposure || [],
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    [dataSource.settings?.queries.exposure]
+    () => dataSource.settings?.queries?.exposure || [],
+    [dataSource.settings?.queries?.exposure]
   );
 
   const handleAdd = useCallback(() => {

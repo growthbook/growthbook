@@ -4,7 +4,6 @@ import { TeamInterface } from "back-end/types/team";
 import {
   EnvScopedPermission,
   GlobalPermission,
-  MemberRole,
   ExpandedMember,
   OrganizationInterface,
   OrganizationSettings,
@@ -31,7 +30,11 @@ import {
 } from "react";
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import { Permissions, userHasPermission } from "shared/permissions";
+import {
+  Permissions,
+  getDefaultRole,
+  userHasPermission,
+} from "shared/permissions";
 import { isCloud, isMultiOrg, isSentryEnabled } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
@@ -89,8 +92,9 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   manageIntegrations: false,
   organizationSettings: false,
   superDeleteReport: false,
-  viewEvents: false,
+  viewAuditLog: false,
   readData: false,
+  manageCustomRoles: false,
 };
 
 export interface UserContextValue {
@@ -171,7 +175,7 @@ export function useUser() {
 let currentUser: null | {
   id: string;
   org: string;
-  role: MemberRole | "";
+  role: string;
 } = null;
 export function getCurrentUser() {
   return currentUser;
@@ -254,7 +258,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   const role =
     (data?.superAdmin && "admin") ||
-    (user?.role ?? currentOrg?.organization?.settings?.defaultRole?.role);
+    (user?.role ?? getDefaultRole(currentOrg?.organization || {}).role);
 
   // Update current user data for telemetry data
   useEffect(() => {

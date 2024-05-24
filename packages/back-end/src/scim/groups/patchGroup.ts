@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { parse, filter } from "scim2-parse-filter";
+import { isRoleValid } from "shared/permissions";
 import {
   BasicScimGroup,
   ScimError,
@@ -14,7 +15,6 @@ import {
   removeMembersFromTeam,
 } from "../../services/organizations";
 import { Member } from "../../../types/organization";
-import { isRoleValid } from "../users/createUser";
 
 export async function patchGroup(
   req: ScimGroupPatchRequest,
@@ -96,7 +96,7 @@ export async function patchGroup(
         const role = (value as BasicScimGroup).growthbookRole;
 
         if (role && role !== team.role) {
-          if (!isRoleValid(role)) {
+          if (!isRoleValid(role, org)) {
             return res.status(400).json({
               schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
               status: "400",

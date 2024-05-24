@@ -3,6 +3,7 @@ import {
   ENV_SCOPED_PERMISSIONS,
   GLOBAL_PERMISSIONS,
   PROJECT_SCOPED_PERMISSIONS,
+  Policy,
 } from "shared/permissions";
 import type { ReqContextClass } from "../src/services/context";
 import { attributeDataTypes } from "../src/util/organization.util";
@@ -42,26 +43,24 @@ export type RequireReview = {
   projects: string[];
 };
 
-export type MemberRole =
+export type DefaultMemberRole =
   | "noaccess"
   | "readonly"
   | "collaborator"
   | "visualEditor"
-  | "designer"
   | "analyst"
-  | "developer"
   | "engineer"
   | "experimenter"
   | "admin";
 
 export type Role = {
-  id: MemberRole;
+  id: string;
   description: string;
-  permissions: Permission[];
+  policies: Policy[];
 };
 
 export interface MemberRoleInfo {
-  role: MemberRole;
+  role: string;
   limitAccessByEnvironment: boolean;
   environments: string[];
   teams?: string[];
@@ -134,6 +133,7 @@ export type SDKAttributeType = typeof attributeDataTypes[number];
 export type SDKAttribute = {
   property: string;
   datatype: SDKAttributeType;
+  description?: string;
   hashAttribute?: boolean;
   enum?: string;
   archived?: boolean;
@@ -279,6 +279,8 @@ export interface OrganizationInterface {
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
   messages?: OrganizationMessage[];
+  getStartedChecklistItems?: string[];
+  customRoles?: Role[];
 }
 
 export type NamespaceUsage = Record<

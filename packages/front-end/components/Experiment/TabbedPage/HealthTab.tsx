@@ -235,6 +235,7 @@ export default function HealthTab({
           dataSource={datasource}
           exposureQuery={exposureQuery}
           healthTabConfigParams={healthTabConfigParams}
+          canConfigHealthTab={hasPermissionToConfigHealthTag}
         />
       </div>
 
