@@ -375,7 +375,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       if (orgs.length > 0) {
         try {
           const pickedOrg = localStorage.getItem("gb-last-picked-org");
-          if (pickedOrg && !router.query.org) {
+          if (
+            pickedOrg &&
+            !router.query.org &&
+            orgs.map((o) => o.id).includes(JSON.parse(pickedOrg))
+          ) {
             try {
               setOrgId(JSON.parse(pickedOrg));
             } catch (e) {
