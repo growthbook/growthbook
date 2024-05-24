@@ -20,8 +20,7 @@ router.put(
               description: z.string(),
               toggleOnList: z.boolean().optional(),
               defaultState: z.boolean().optional(),
-              //MKTODO: I feel like I need to add projects here
-              // projects: z.array(z.string()).optional(),
+              projects: z.array(z.string()).optional(),
             })
             .strict()
         ),
@@ -48,13 +47,15 @@ router.post(
   validateRequestMiddleware({
     body: z
       .object({
-        environment: z.object({
-          id: z.string(),
-          description: z.string(),
-          toggleOnList: z.boolean().optional(),
-          defaultState: z.any().optional(),
-          projects: z.array(z.string()).optional(),
-        }),
+        environment: z
+          .object({
+            id: z.string(),
+            description: z.string(),
+            toggleOnList: z.boolean().optional(),
+            defaultState: z.any().optional(),
+            projects: z.array(z.string()).optional(),
+          })
+          .strict(),
       })
       .strict(),
   }),
