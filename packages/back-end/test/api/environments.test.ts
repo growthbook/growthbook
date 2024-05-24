@@ -106,7 +106,7 @@ describe("environements API", () => {
     });
   });
 
-  it("can list all enviromnets", async () => {
+  it("can filter enviromnets", async () => {
     authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
       req.context = {
         org: {
