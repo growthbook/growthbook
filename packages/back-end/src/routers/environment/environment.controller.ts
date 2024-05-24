@@ -1,4 +1,6 @@
 import type { Response } from "express";
+import { removeEnvironmentFromSlackIntegration } from "@back-end/src/models/SlackIntegrationModel";
+import { auditDetailsDelete } from "@back-end/src/services/audit";
 import { AuthRequest } from "../../types/AuthRequest";
 import { PrivateApiErrorResponse } from "../../../types/api";
 import {
@@ -257,7 +259,19 @@ export const deleteEnvironment = async (
       },
     });
 
-    //MKTODO: Do I need to trigger any webhooks?
+    await req.audit({
+      event: "environment.delete",
+      entity: {
+        object: "organization",
+        id: org.id,
+      },
+      details: auditDetailsDelete(id),
+    });
+
+    removeEnvironmentFromSlackIntegration({
+      organizationId: org.id,
+      envId: id,
+    });
 
     res.status(200).json({
       status: 200,
