@@ -205,11 +205,15 @@ Next, you'll need to create a helper function to convert from our internal DB in
 import { ApiProject } from "../../types/openapi";
 import { ProjectInterface } from "../../types/project";
 
-export function toProjectApiInterface(project: ProjectInterface): ApiProject {
-  return {
-    id: project.id,
-    name: project.name,
-  };
+export class ProjectModel extends BaseClass {
+  ...
+
+  public toApiInterface(project: ProjectInterface): ApiProject {
+    return {
+      id: project.id,
+      name: project.name,
+    };
+  }
 }
 ```
 
@@ -217,22 +221,20 @@ Then, create a route for your endpoint at `src/api/projects/listProjects.ts`:
 
 ```ts
 import { ListProjectsResponse } from "../../../types/openapi";
-import {
-  findAllProjects,
-  toProjectApiInterface,
-} from "../../models/ProjectModel";
 import { applyPagination, createApiRequestHandler } from "../../util/handler";
 import { listProjectsValidator } from "../../validators/openapi";
 
 export const listProjects = createApiRequestHandler(listProjectsValidator)(
   async (req): Promise<ListProjectsResponse> => {
-    const projects = await findAllProjects(req.organization.id);
+    const projects = await req.context.models.projects.getAll();
     const { filtered, returnFields } = applyPagination(
       projects.sort((a, b) => a.id.localeCompare(b.id)),
       req.query
     );
     return {
-      projects: filtered.map((project) => toProjectApiInterface(project)),
+      projects: filtered.map((project) =>
+        req.context.models.projects.toApiInterface(project)
+      ),
       ...returnFields,
     };
   }

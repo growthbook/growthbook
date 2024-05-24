@@ -96,7 +96,6 @@ import {
   updateExperimentValidator,
 } from "../validators/openapi";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { findProjectById } from "../models/ProjectModel";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
@@ -769,7 +768,7 @@ export async function toExperimentApiInterface(
   let project = null;
   const organization = context.org;
   if (experiment.project) {
-    project = await findProjectById(context, experiment.project);
+    project = await context.models.projects.getById(experiment.project);
   }
   const { settings: scopedSettings } = getScopedSettings({
     organization,

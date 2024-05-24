@@ -59,7 +59,7 @@
     "rimraf": "^3.0.2",
     "rollup": "^2.56.3",
     "ts-jest": "^27.0.5",
-    "typescript": "5.3.3"
+    "typescript": "5.4.5"
   },
   "browserslist": [
     "defaults",
