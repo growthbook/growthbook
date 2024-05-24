@@ -575,6 +575,7 @@ export const dataSourceConnections: {
       database: "",
       user: "",
       password: "",
+      requestTimeout: 120,
       options: {
         trustServerCertificate: true,
         encrypt: true,
