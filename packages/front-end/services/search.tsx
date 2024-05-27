@@ -7,10 +7,8 @@ import {
   useCallback,
 } from "react";
 import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
-import { FeatureInterface } from "back-end/types/feature";
 import { useRouter } from "next/router";
 import Fuse from "fuse.js";
-import { ExperimentInterface } from "back-end/types/experiment";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 export function useAddComputedFields<T, ExtraFields>(
@@ -213,7 +211,7 @@ export function useSearch<T>({
 // Helpers for searching features by syntax
 const featureSyntaxRegex = /(on|off|is|has|owner|key|name|desc|project|tag|created|updated|type):([^\s].*)/gi;
 // Helpers for searching experiments by syntax
-const experimentSyntaxRegex = /(is|has|status|owner|name|desc|project|tag|created|updated|datasource):([^\s].*)/gi;
+const experimentSyntaxRegex = /(is|has|status|owner|name|desc|project|tag|created|updated|datasource|metric):([^\s].*)/gi;
 // Helpers for searching features by environment
 const envRegex = /(^|\s)(on|off):([^\s]*)/gi;
 
@@ -226,11 +224,9 @@ export function filterFeatureSearchTerms(searchTerm: string) {
 export function filterExperimentSearchTerms(searchTerm: string) {
   return parseQuery(searchTerm, experimentSyntaxRegex);
 }
-export function filterFeaturesByEnvironment(
-  filtered: FeatureInterface[],
-  searchTerm: string,
-  environments: string[]
-) {
+export function filterFeaturesByEnvironment<
+  T extends { environmentSettings?: Record<string, { enabled: boolean }> }
+>(filtered: T[], searchTerm: string, environments: string[]) {
   // Determine which environments (if any) are being filtered by the search term
   const environmentFilter: Map<string, boolean> = new Map();
   const matches = searchTerm.matchAll(envRegex);
@@ -288,110 +284,13 @@ export function parseQuery(query: string, regex: RegExp = featureSyntaxRegex) {
   return { searchTerm: searchTerms.join(" "), syntaxFilters };
 }
 
-export function filterFeatureBySyntax(
-  features: FeatureInterface[],
-  searchTerm: string,
-  syntaxFilters: Record<string, string[]>[],
-  environments: string[]
-) {
-  let filtered = features;
-  // name:foo,bar
-  syntaxFilters.forEach((filter) => {
-    if (filter.name) {
-      filtered = filtered.filter((f) =>
-        // exact matches on id/name for the feature (which supports comma separated list)
-        filter.name.includes(f.id.toLowerCase())
-      );
-    }
-    if (filter.key) {
-      filtered = filtered.filter((f) => {
-        // exact matches on id/name for the feature (which supports comma separated list)
-        return filter.key.includes(f.id.toLowerCase());
-      });
-    }
-    // desc:foo (no comma supported)
-    if (filter.desc) {
-      filtered = filtered.filter((f) => {
-        if (f.description) {
-          return f.description
-            .toLowerCase()
-            .includes(filter.desc[0].toLowerCase());
-        }
-        return false;
-      });
-    }
-    // on:[env1,env2] off:[env3,env4]
-    if (filter.on || filter.off) {
-      filtered = filterFeaturesByEnvironment(
-        filtered,
-        searchTerm,
-        environments
-      );
-    }
-    // project:foo,bar (exact match on project)
-    if (filter.project) {
-      filtered = filtered.filter((f) => {
-        if (f.project) {
-          return filter.project.includes(f.project.toLowerCase());
-        }
-      });
-    }
-    // tag:foo (exact match on tag, no comma supported)
-    if (filter.tag) {
-      filtered = filtered.filter((f) =>
-        f.tags?.includes(filter.tag[0].toLowerCase())
-      );
-    }
-    // owner:abbie,barry (exact match on owner)
-    if (filter.owner) {
-      filtered = filtered.filter((f) =>
-        filter.owner.includes(f.owner.toLowerCase())
-      );
-    }
-    // type: [boolean, string, number, json]
-    if (filter.type) {
-      filtered = filtered.filter((f) =>
-        filter.type.includes(f.valueType.toLowerCase())
-      );
-    }
-    // rule: [experiment, force, rollout] - not supported yet.
-    // if (syntaxFilters.rules) {
-    //   filtered = filtered.filter((f) =>
-    //     f. ?.toLowerCase().includes(syntaxFilters.rules.toLowerCase())
-    //   );
-    // }
-    //
-    if (filter.is) {
-      if (filter.is.includes("draft")) {
-        filtered = filtered.filter((f) => f.hasDrafts);
-      }
-      if (filter.is.includes("stale")) {
-        filtered = filtered.filter((f) => !f.neverStale);
-      }
-    }
-    if (filter.has) {
-      if (filter.has.includes("draft")) {
-        filtered = filtered.filter((f) => f.hasDrafts);
-      }
-      if (filter.has.includes("stale")) {
-        filtered = filtered.filter((f) => !f.neverStale);
-      }
-    }
-    if (filter.created) {
-      filtered = featureDateFilter(filtered, "dateCreated", filter.created[0]);
-    }
-    if (filter.updated) {
-      filtered = featureDateFilter(filtered, "dateUpdated", filter.updated[0]);
-    }
-  });
-  return filtered;
-}
-
-function featureDateFilter(
-  filtered: FeatureInterface[],
-  dateField: string,
+function dateFilter<
+  T extends { dateCreated: Date | string; dateUpdated: Date | string }
+>(
+  filtered: T[],
+  dateField: "dateCreated" | "dateUpdated",
   filterString: string
-) {
+): T[] {
   //let filteredItems: Array<FeatureInterface | ExperimentInterface> = [];
   if (
     filterString.substring(0, 1) === ">" ||
@@ -417,52 +316,43 @@ function featureDateFilter(
   }
   return filtered;
 }
-function experimentDateFilter(
-  filtered: ExperimentInterface[],
-  dateField: string,
-  filterString: string
-) {
-  //let filteredItems: Array<FeatureInterface | ExperimentInterface> = [];
-  if (
-    filterString.substring(0, 1) === ">" ||
-    filterString.substring(0, 1) === "<"
-  ) {
-    const filterDate = new Date(Date.parse(filterString.substring(1)));
-    filtered = filtered.filter((e) => {
-      const checkDate = new Date(e[dateField]);
-      if (filterString.substring(0, 1) === ">") {
-        return checkDate > filterDate;
-      } else {
-        return checkDate < filterDate;
-      }
-    });
-  } else {
-    filtered = filtered.filter((e) => {
-      const created = new Date(e.dateCreated);
-      return created
-        .toDateString()
-        .toLowerCase()
-        .includes(filterString.toLowerCase());
-    });
-  }
-  return filtered;
-}
 
-export function filterExperimentBySyntax(
-  experimentList: ExperimentInterface[],
+export function filterBySyntax<
+  T extends {
+    id?: string;
+    dateCreated: Date | string;
+    dateUpdated: Date | string;
+    name?: string;
+    ownerName?: string;
+    owner?: string;
+    description?: string;
+    project?: string;
+    tags?: string[];
+    status?: string;
+    datasource?: string;
+    results?: string;
+    environmentSettings?: Record<string, { enabled: boolean }>;
+  }
+>(
+  list: T[],
   searchTerm: string,
-  syntaxFilters: Record<string, string[]>[]
+  syntaxFilters: Record<string, string[]>[],
+  environments: string[] = []
   //experiments: unknown[]
 ) {
-  let filtered = experimentList;
+  let filtered = list;
   //const { syntaxFilters } = parseQuery(searchTerm);
   // name:foo,bar
   syntaxFilters.forEach((filter) => {
+    // exact matches on id/name for the feature (which supports comma separated list)
     if (filter.name) {
-      filtered = filtered.filter((e) =>
-        // exact matches on id/name for the feature (which supports comma separated list)
-        filter.name.includes(e.name.toLowerCase())
-      );
+      filtered = filtered.filter((e) => {
+        if ("name" in e && typeof e.name === "string") {
+          return filter.name.includes(e.name.toLowerCase());
+        } else if ("id" in e && typeof e.id === "string") {
+          return filter.name.includes(e.id.toLowerCase());
+        }
+      });
     }
     // desc:foo (no comma supported)
     if (filter.desc) {
@@ -473,6 +363,51 @@ export function filterExperimentBySyntax(
             .includes(filter.desc[0].toLowerCase());
         }
         return false;
+      });
+    }
+    if (filter.key) {
+      filtered = filtered.filter((f) => {
+        if ("id" in f && typeof f.id === "string") {
+          // exact matches on id/name for the feature (which supports comma separated list)
+          return filter.key.includes(f.id.toLowerCase());
+        }
+      });
+    }
+    // on:[env1,env2] off:[env3,env4]
+    if (filter.on || filter.off) {
+      filtered = filterFeaturesByEnvironment(
+        filtered,
+        searchTerm,
+        environments
+      );
+    }
+    // rule: [experiment, force, rollout] - not supported yet.
+    // if (syntaxFilters.rules) {
+    //   filtered = filtered.filter((f) =>
+    //     f. ?.toLowerCase().includes(syntaxFilters.rules.toLowerCase())
+    //   );
+    // }
+    //
+    // project:foo,bar (exact match on project)
+    if (filter.project) {
+      filtered = filtered.filter((f) => {
+        if (f.project) {
+          return filter.project.includes(f.project.toLowerCase());
+        }
+      });
+    }
+    // tag:foo (exact match on tag, no comma supported)
+    if (filter.tag) {
+      filtered = filtered.filter((f) =>
+        f.tags?.includes(filter.tag[0].toLowerCase())
+      );
+    }
+    // type: [boolean, string, number, json]
+    if (filter.type) {
+      filtered = filtered.filter((f) => {
+        if ("valueType" in f && typeof f.valueType === "string") {
+          return filter.type.includes(f.valueType.toLowerCase());
+        }
       });
     }
     // project:foo,bar (exact match on project)
@@ -490,35 +425,58 @@ export function filterExperimentBySyntax(
       );
     }
     // owner:abbie,barry (exact match on owner)
-    // if (filter.owner) {
-    //   console.log("filtering on owner", filter.owner);
-    //   filtered = filtered.filter((e) => {
-    //     console.log(
-    //       e.ownerName.toLowerCase(),
-    //       filter.owner.includes(e.owner.toLowerCase()));
-    //     return filter.owner.includes(e.ownerName.toLowerCase());
-    //   });
-    // }
+    if (filter.owner) {
+      filtered = filtered.filter((e) => {
+        if ("ownerName" in e && typeof e.ownerName === "string") {
+          return filter.owner.includes(e.ownerName.toLowerCase());
+        } else if ("owner" in e && typeof e.owner === "string") {
+          return filter.owner.includes(e.owner.toLowerCase());
+        } else {
+          // if no owner somehow, include them? I guess so
+          return true;
+        }
+      });
+    }
     // status: [stopped, running, draft, archived]
     if (filter.status) {
-      filtered = filtered.filter((e) =>
-        filter.status.includes(e.status.toLowerCase())
-      );
+      filtered = filtered.filter((e) => {
+        if ("status" in e && typeof e.status === "string") {
+          return filter.status.includes(e.status.toLowerCase());
+        }
+      });
     }
     // datasource:bigQuery (match on datasource)
     if (filter.datasource) {
-      filtered = filtered.filter((e) =>
-        e.datasource.toLowerCase().includes(filter.datasource[0].toLowerCase())
-      );
+      filtered = filtered.filter((e) => {
+        if ("datasource" in e && typeof e.datasource === "string") {
+          return e.datasource
+            .toLowerCase()
+            .includes(filter.datasource[0].toLowerCase());
+        }
+      });
     }
-    // is:running, stopped, draft
+    // is:running, stopped, draft, draft, stale
     if (filter.is) {
       if (filter.is.includes("running")) {
-        filtered = filtered.filter((e) => e.status === "running");
+        filtered = filtered.filter(
+          (e) => "status" in e && e.status === "running"
+        );
       } else if (filter.is.includes("stopped")) {
-        filtered = filtered.filter((e) => e.status === "stopped");
+        filtered = filtered.filter((e) => "status" && e.status === "stopped");
       } else if (filter.is.includes("draft")) {
-        filtered = filtered.filter((e) => e.status === "draft");
+        filtered = filtered.filter((e) => {
+          if ("status" in e && typeof e.status === "string") {
+            return e.status === "draft";
+          } else if ("hasDrafts" in e) {
+            return e.hasDrafts;
+          }
+        });
+      } else if (filter.is.includes("stale")) {
+        filtered = filtered.filter((e) => {
+          if ("neverStale" in e) {
+            return !e.neverStale;
+          }
+        });
       } else {
         // none match
         filtered = [];
@@ -526,34 +484,50 @@ export function filterExperimentBySyntax(
     }
     // has:won, dnf, lost, inconclusive
     if (filter.has) {
-      let returnFiltered: ExperimentInterface[] = [];
+      let returnFiltered: T[] = [];
       if (filter.has.includes("won")) {
-        returnFiltered = filtered.filter((e) => e.results === "won");
+        returnFiltered = filtered.filter(
+          (e) => "results" in e && e.results === "won"
+        );
       }
       if (filter.has.includes("dnf")) {
-        returnFiltered = filtered.filter((e) => e.results === "dnf");
+        returnFiltered = filtered.filter(
+          (e) => "results" in e && e.results === "dnf"
+        );
       }
       if (filter.has.includes("lost")) {
-        returnFiltered = filtered.filter((e) => e.results === "lost");
+        returnFiltered = filtered.filter(
+          (e) => "results" in e && e.results === "lost"
+        );
       }
       if (filter.has.includes("inconclusive")) {
-        returnFiltered = filtered.filter((e) => e.results === "inconclusive");
+        returnFiltered = filtered.filter(
+          (e) => "results" in e && e.results === "inconclusive"
+        );
+      }
+      if (filter.has.includes("draft")) {
+        returnFiltered = filtered.filter((e) => {
+          if ("status" in e && typeof e.status === "string") {
+            return e.status === "draft";
+          } else if ("hasDrafts" in e) {
+            return e.hasDrafts;
+          }
+        });
+      }
+      if (filter.has.includes("stale")) {
+        returnFiltered = filtered.filter((e) => {
+          if ("neverStale" in e) {
+            return !e.neverStale;
+          }
+        });
       }
       filtered = returnFiltered;
     }
     if (filter.created) {
-      filtered = experimentDateFilter(
-        filtered,
-        "dateCreated",
-        filter.created[0]
-      );
+      filtered = dateFilter(filtered, "dateCreated", filter.created[0]);
     }
     if (filter.updated) {
-      filtered = experimentDateFilter(
-        filtered,
-        "dateUpdated",
-        filter.updated[0]
-      );
+      filtered = dateFilter(filtered, "dateUpdated", filter.updated[0]);
     }
   });
   return filtered;

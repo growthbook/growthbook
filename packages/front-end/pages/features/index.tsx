@@ -21,8 +21,8 @@ import FeaturesGetStarted from "@/components/HomePage/FeaturesGetStarted";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   filterFeatureSearchTerms,
-  filterFeatureBySyntax,
   useSearch,
+  filterBySyntax,
 } from "@/services/search";
 import EnvironmentToggle from "@/components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "@/components/Features/RealTimeFeatureGraph";
@@ -105,7 +105,7 @@ export default function FeaturesPage() {
       if (!showArchived) {
         items = items.filter((f) => !f.archived);
       }
-      items = filterFeatureBySyntax(
+      items = filterBySyntax(
         items,
         originalQuery,
         syntaxFilters,

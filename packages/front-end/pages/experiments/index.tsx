@@ -14,7 +14,7 @@ import { phaseSummary } from "@/services/utils";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import {
   filterExperimentSearchTerms,
-  filterExperimentBySyntax,
+  filterBySyntax,
   useAddComputedFields,
   useSearch,
 } from "@/services/search";
@@ -127,9 +127,7 @@ const ExperimentsPage = (): React.ReactElement => {
             item.owner === userId || watchedExperiments.includes(item.id)
         );
       }
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
-      items = filterExperimentBySyntax(
+      items = filterBySyntax(
         items,
         originalQuery,
         syntaxFilters
