@@ -45,6 +45,15 @@ export const putEnvironmentOrder = async (
     });
   }
 
+  // If the user doesn't have permission to update any envs, don't allow this action
+  if (
+    existingEnvs.every(
+      (env) => !context.permissions.canCreateOrUpdateEnvironment(env)
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
   const updatedEnvs: Environment[] = [];
 
   // Loop through env ids, to get the full env object and add it to the updatedEnvs arr
@@ -61,22 +70,37 @@ export const putEnvironmentOrder = async (
     updatedEnvs.push(existingEnvs[index]);
   });
 
-  await updateOrganization(org.id, {
-    settings: {
-      ...org.settings,
-      environments: updatedEnvs,
-    },
-  });
-  res.json({ environments: updatedEnvs });
+  try {
+    await updateOrganization(org.id, {
+      settings: {
+        ...org.settings,
+        environments: updatedEnvs,
+      },
+    });
+
+    await req.audit({
+      event: "environments.update",
+      entity: {
+        object: "organization",
+        id: org.id,
+      },
+      details: auditDetailsUpdate(existingEnvs, updatedEnvs),
+    });
+
+    res.json({ environments: updatedEnvs });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
 };
 
 export const putEnvironments = async (
   req: AuthRequest<{
     environments: Environment[];
   }>,
-  res: Response<{
-    environments: Environment[];
-  }>
+  res: Response
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -95,23 +119,30 @@ export const putEnvironments = async (
     return addEnvironmentToOrganizationEnvironments(environment, acc, false);
   }, getEnvironments(org));
 
-  await updateOrganization(org.id, {
-    settings: {
-      ...org.settings,
-      environments: updatedEnvironments,
-    },
-  });
+  try {
+    await updateOrganization(org.id, {
+      settings: {
+        ...org.settings,
+        environments: updatedEnvironments,
+      },
+    });
 
-  await req.audit({
-    event: "environments.update",
-    entity: {
-      object: "organization",
-      id: org.id,
-    },
-    details: auditDetailsUpdate(existingEnvs, updatedEnvironments),
-  });
+    await req.audit({
+      event: "environments.update",
+      entity: {
+        object: "organization",
+        id: org.id,
+      },
+      details: auditDetailsUpdate(existingEnvs, updatedEnvironments),
+    });
 
-  res.json({ environments });
+    res.json({ environments, status: 200 });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
 };
 
 export const putEnvironment = async (
