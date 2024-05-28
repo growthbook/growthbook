@@ -1,3 +1,4 @@
+import qs from "query-string";
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import express, { ErrorRequestHandler, Request, Response } from "express";
@@ -24,6 +25,26 @@ import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
 import scimRouter from "./scim/scim.router";
+import { ExperimentModel } from "./models/ExperimentModel";
+import { VisualChangesetModel } from "./models/VisualChangesetModel";
+
+function appendQueryParamsToURL(
+  url: string,
+  params: Record<string, string | number | undefined>
+): string {
+  const [_root, hash] = url.split("#");
+  const [root, query] = _root.split("?");
+  const parsed = qs.parse(query ?? "");
+  console.log("debug parsed", parsed);
+  const queryParams = qs.stringify(
+    { ...parsed, ...params },
+    {
+      sort: false,
+    }
+  );
+  console.log("debug queryParams", queryParams);
+  return `${root}?${queryParams}${hash ? `#${hash}` : ""}`;
+}
 
 if (SENTRY_DSN) {
   Sentry.init({ dsn: SENTRY_DSN });
@@ -123,6 +144,61 @@ if (SENTRY_DSN) {
 if (!process.env.NO_INIT) {
   init();
 }
+
+app.options(
+  "/create-visual-experiment",
+  cors({
+    origin: "*",
+  }),
+  (_req, res) => {
+    res.json({
+      message: "OK",
+    });
+  }
+);
+
+app.post(
+  "/create-visual-experiment",
+  cors({
+    origin: "*",
+  }),
+  bodyParser.json(),
+  async (req, res) => {
+    const { url, mutations } = req.body;
+
+    // find or create experiment with key 'dom-mutation-playground-exp'
+    const exp = await ExperimentModel.findOne({
+      trackingKey: "dom-mutation-playground",
+    });
+
+    const vch = await VisualChangesetModel.findOne({
+      experiment: exp?.id,
+    });
+
+    await VisualChangesetModel.updateOne(
+      {
+        id: vch?.id,
+      },
+      {
+        editorUrl: url,
+        visualChanges: [
+          { ...vch?.toJSON().visualChanges[0] },
+          {
+            ...vch?.toJSON().visualChanges[1],
+            domMutations: mutations,
+          },
+        ],
+      }
+    );
+
+    res.json({
+      visualExperimentUrl: appendQueryParamsToURL(url, {
+        "vc-id": vch?.id,
+        "v-idx": 1,
+      }),
+    });
+  }
+);
 
 app.set("port", process.env.PORT || 3100);
 app.set("trust proxy", EXPRESS_TRUST_PROXY_OPTS);
