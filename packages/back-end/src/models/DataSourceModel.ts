@@ -22,7 +22,6 @@ import { queueCreateInformationSchema } from "../jobs/createInformationSchema";
 import { IS_CLOUD } from "../util/secrets";
 import { ReqContext } from "../../types/organization";
 import { ApiReqContext } from "../../types/api";
-import { findAllOrganizations } from "./OrganizationModel";
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
@@ -61,9 +60,8 @@ export async function getInstallationDatasources(): Promise<
     throw new Error("Cannot get all installation data sources in cloud mode");
   }
   if (usingFileConfig()) {
-    const organizationId = (await findAllOrganizations(0, "", 1))
-      .organizations[0].id;
-    return getConfigDatasources(organizationId);
+    // We don't need the correct organization part of the response so passing "".
+    return getConfigDatasources("");
   }
   const docs: DataSourceDocument[] = await DataSourceModel.find();
   return docs.map(toInterface);
