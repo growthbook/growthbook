@@ -64,7 +64,7 @@ export const validatePayload = async (
   )
     throw new Error(`Environment ${environment} does not exist!`);
 
-  if (projects) {
+  if (projects && projects.length) {
     const allProjects = await findAllProjectsByOrganization(context);
     const nonexistentProjects = projects.filter(
       (p) => !allProjects.some(({ id }) => p === id)
