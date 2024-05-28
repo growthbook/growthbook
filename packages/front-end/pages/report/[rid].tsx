@@ -407,10 +407,12 @@ export default function ReportPage() {
                     notebookFilename={report.title}
                     queries={report.queries}
                     queryError={report.error}
-                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                    results={report.results.dimensions}
+                    results={report.results?.dimensions}
                     variations={variations}
-                    metrics={report.args.metrics}
+                    metrics={[
+                      ...report.args.metrics,
+                      ...(report.args.guardrails || []),
+                    ]}
                     trackingKey={report.title}
                     project={experimentData?.experiment.project || ""}
                   />
