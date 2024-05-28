@@ -13,41 +13,45 @@ import { logger } from "../util/logger";
 import { getUsersByIds } from "./users";
 
 export async function getLicenseMetaData() {
-  const installationId = await getInstallationId();
-  const rootPath = path.join(__dirname, "..", "..", "..", "..");
-
+  let installationId = "unknown";
   let gitSha = "";
   let gitCommitDate = "";
-  if (fs.existsSync(path.join(rootPath, "buildinfo", "SHA"))) {
-    gitSha = fs
-      .readFileSync(path.join(rootPath, "buildinfo", "SHA"))
-      .toString();
-  }
-  if (fs.existsSync(path.join(rootPath, "buildinfo", "DATE"))) {
-    gitCommitDate = fs
-      .readFileSync(path.join(rootPath, "buildinfo", "DATE"))
-      .toString();
-  }
-
   let sdkLanguages: string[] = [];
   let dataSourceTypes: string[] = [];
   let eventTrackers: string[] = [];
+  try {
+    installationId = await getInstallationId();
+    const rootPath = path.join(__dirname, "..", "..", "..", "..");
 
-  if (!IS_CLOUD) {
-    sdkLanguages = Array.from(
-      new Set(
-        (await findAllSDKConnectionsAcrossAllOrgs())
-          .map((connection) => connection.languages)
-          .flat()
-      )
-    );
+    if (fs.existsSync(path.join(rootPath, "buildinfo", "SHA"))) {
+      gitSha = fs
+        .readFileSync(path.join(rootPath, "buildinfo", "SHA"))
+        .toString();
+    }
+    if (fs.existsSync(path.join(rootPath, "buildinfo", "DATE"))) {
+      gitCommitDate = fs
+        .readFileSync(path.join(rootPath, "buildinfo", "DATE"))
+        .toString();
+    }
 
-    const dataSources = await getInstallationDatasources();
-    dataSourceTypes = Array.from(new Set(dataSources.map((ds) => ds.type)));
+    if (!IS_CLOUD) {
+      sdkLanguages = Array.from(
+        new Set(
+          (await findAllSDKConnectionsAcrossAllOrgs())
+            .map((connection) => connection.languages)
+            .flat()
+        )
+      );
 
-    eventTrackers = Array.from(
-      new Set(dataSources.map((ds) => ds.settings?.schemaFormat ?? "custom"))
-    );
+      const dataSources = await getInstallationDatasources();
+      dataSourceTypes = Array.from(new Set(dataSources.map((ds) => ds.type)));
+
+      eventTrackers = Array.from(
+        new Set(dataSources.map((ds) => ds.settings?.schemaFormat ?? "custom"))
+      );
+    }
+  } catch (e) {
+    logger.error("Error getting license metadata: " + e.message);
   }
 
   return {
@@ -120,12 +124,7 @@ export async function initializeLicenseForOrg(
       );
     }
 
-    let metaData;
-    try {
-      metaData = await getLicenseMetaData();
-    } catch (e) {
-      logger.error("Error getting license metadata: " + e.message);
-    }
+    const metaData = await getLicenseMetaData();
 
     return await licenseInit(key, userLicenseCodes, metaData, forceRefresh);
   }

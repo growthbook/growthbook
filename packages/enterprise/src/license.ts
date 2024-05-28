@@ -611,7 +611,7 @@ export function verifyAndSetServerLicenseData(license: LicenseInterface) {
 async function getLicenseDataFromServer(
   licenseId: string,
   userLicenseCodes: string[],
-  metaData?: LicenseMetaData
+  metaData: LicenseMetaData
 ): Promise<LicenseInterface> {
   logger.info("Getting license data from server for " + licenseId);
   const url = `${LICENSE_SERVER_URL}license/${licenseId}/check`;
@@ -631,7 +631,7 @@ async function getLicenseDataFromServer(
 async function updateLicenseFromServer(
   licenseKey: string,
   userLicenseCodes: string[],
-  metaData: LicenseMetaData | undefined,
+  metaData: LicenseMetaData,
   mongoCache: LicenseInterface | null
 ) {
   let license: LicenseInterface;
@@ -714,8 +714,10 @@ export async function licenseInit(
         (keyToCacheDate[key] !== null && keyToCacheDate[key] <= oneMinuteAgo)
       ) {
         if (!isAirGappedLicenseKey(key)) {
-          if (!userLicenseCodes) {
-            throw new Error("Missing userLicenseCodes for license key");
+          if (!userLicenseCodes || !metaData) {
+            throw new Error(
+              "Missing userLicenseCodes or metaData for license key"
+            );
           }
 
           let license: LicenseInterface;

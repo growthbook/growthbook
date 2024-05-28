@@ -482,12 +482,20 @@ describe("src/license", () => {
           expect(result).toEqual(licenseData);
         });
 
-        it("should throw an error if we call the function without userLicenseCodes", async () => {
-          expect.assertions(1);
+        it("should throw an error if we call the function without userLicenseCodes or metadata", async () => {
+          expect.assertions(2);
+
+          await expect(
+            licenseInit(licenseKey, userLicenseCodes, undefined)
+          ).rejects.toThrowError(
+            "Missing userLicenseCodes or metaData for license key"
+          );
 
           await expect(
             licenseInit(licenseKey, undefined, metaData)
-          ).rejects.toThrowError("Missing userLicenseCodes for license key");
+          ).rejects.toThrowError(
+            "Missing userLicenseCodes or metaData for license key"
+          );
         });
 
         it("should call fetch once and the second time return in-memory cached license data if it exists and is not too old", async () => {
