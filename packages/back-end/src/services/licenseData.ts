@@ -9,6 +9,7 @@ import { getInstallationDatasources } from "../models/DataSourceModel";
 import { OrganizationInterface } from "../../types/organization";
 import { getAllInviteEmailsInDb } from "../models/OrganizationModel";
 import { UserModel } from "../models/UserModel";
+import { logger } from "../util/logger";
 import { getUsersByIds } from "./users";
 
 export async function getLicenseMetaData() {
@@ -119,7 +120,13 @@ export async function initializeLicenseForOrg(
       );
     }
 
-    const metaData = await getLicenseMetaData();
+    let metaData;
+    try {
+      metaData = await getLicenseMetaData();
+    } catch (e) {
+      logger.error("Error getting license metadata: " + e.message);
+    }
+
     return await licenseInit(key, userLicenseCodes, metaData, forceRefresh);
   }
   return await licenseInit(key);

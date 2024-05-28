@@ -22,7 +22,6 @@ import { queueCreateInformationSchema } from "../jobs/createInformationSchema";
 import { IS_CLOUD } from "../util/secrets";
 import { ReqContext } from "../../types/organization";
 import { ApiReqContext } from "../../types/api";
-import { getSelfHostedOrganization } from "./OrganizationModel";
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
@@ -61,15 +60,8 @@ export async function getInstallationDatasources(): Promise<
     throw new Error("Cannot get all installation data sources in cloud mode");
   }
   if (usingFileConfig()) {
-    // For multi-org self-hosted using config file, we don't care about which org the
-    // datasource is assigned to, so getting any arbitrary one is fine.  All organizations
-    // share the same datasource config.
-    const organizationId = (await getSelfHostedOrganization())?.id;
-    if (organizationId) {
-      return getConfigDatasources(organizationId);
-    } else {
-      throw new Error("No self-hosted organization found");
-    }
+    // We don't need the correct organization part of the response so passing "".
+    return getConfigDatasources("");
   }
   const docs: DataSourceDocument[] = await DataSourceModel.find();
   return docs.map(toInterface);
