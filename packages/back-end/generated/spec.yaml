@@ -2467,7 +2467,7 @@ paths:
                       environments:
                         type: array
                         items:
-                          $ref: '#/paths/~1environments/post/responses/200/content/application~1json/schema/properties/environment'
+                          $ref: '#/components/schemas/Environment'
     post:
       tags:
         - environments
@@ -2515,26 +2515,7 @@ paths:
                   - environment
                 properties:
                   environment:
-                    type: object
-                    required:
-                      - id
-                      - description
-                      - toggleOnList
-                      - defaultState
-                      - projects
-                    properties:
-                      id:
-                        type: string
-                      description:
-                        type: string
-                      toggleOnList:
-                        type: boolean
-                      defaultState:
-                        type: boolean
-                      projects:
-                        type: array
-                        items:
-                          type: string
+                    $ref: '#/components/schemas/Environment'
   '/environments/${id}':
     put:
       parameters:
@@ -2579,7 +2560,7 @@ paths:
                   - environment
                 properties:
                   environment:
-                    $ref: '#/paths/~1environments/post/responses/200/content/application~1json/schema/properties/environment'
+                    $ref: '#/components/schemas/Environment'
     delete:
       summary: Deletes a single environment
       parameters:
@@ -4061,6 +4042,27 @@ components:
           properties:
             statsEngine:
               type: string
+    Environment:
+      type: object
+      required:
+        - id
+        - description
+        - toggleOnList
+        - defaultState
+        - projects
+      properties:
+        id:
+          type: string
+        description:
+          type: string
+        toggleOnList:
+          type: boolean
+        defaultState:
+          type: boolean
+        projects:
+          type: array
+          items:
+            type: string
     Segment:
       type: object
       required:
