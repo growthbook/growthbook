@@ -6,6 +6,7 @@ import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
+import { useRouter } from "next/router";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
@@ -32,6 +33,8 @@ import { useWatching } from "@/services/WatchProvider";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import { useAuth } from "@/services/auth";
 
 const NUM_PER_PAGE = 20;
 
@@ -56,6 +59,24 @@ const ExperimentsPage = (): React.ReactElement => {
     false
   );
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
+
+  const router = useRouter();
+  const params = router.query;
+  const { apiCall } = useAuth();
+  const [generatedHypothesis, setGeneratedHypothesis] = useState(false);
+
+  useEffect(() => {
+    if (!params.hypId) return;
+    const load = async () => {
+      // Fetch hypothesis row from supabase
+      const res = await apiCall(`/generated-hypothesis/${params.hypId}`);
+      // @ts-expect-error w/e
+      const { hypothesis } = res;
+      // set row to generatedHypothesis
+      setGeneratedHypothesis(hypothesis);
+    };
+    load();
+  }, [params.hypId]);
 
   const { getUserDisplay, userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -480,6 +501,14 @@ const ExperimentsPage = (): React.ReactElement => {
           )}
         </div>
       </div>
+      {generatedHypothesis && (
+        <NewExperimentForm
+          isNewExperiment
+          onClose={() => setGeneratedHypothesis(null)}
+          source="experiment-list"
+          generatedHypothesis={generatedHypothesis}
+        />
+      )}
       {openNewExperimentModal &&
         (growthbook?.isOn("new-experiment-modal") ? (
           <AddExperimentModal

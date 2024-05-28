@@ -698,6 +698,12 @@ app.post(
 );
 app.post("/license/verify-email", licenseController.postVerifyEmail);
 
+app.get("/generated-hypothesis/:id", (req, res) => {
+  // eslint-disable-next-line no-console
+  console.log("received generated hypothesis endpoint", req.params.id);
+  res.send("OK");
+});
+
 // Meta info
 app.get("/meta/ai", (req, res) => {
   res.json({
