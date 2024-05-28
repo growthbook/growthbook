@@ -80,7 +80,7 @@
     "mongodb": "^4.17.2",
     "mongoose": "^6.11.6",
     "mssql": "^10.0.2",
-    "mysql2": "^2.3.0",
+    "mysql2": "^3.9.8",
     "node-fetch": "^2.6.1",
     "nodemailer": "^6.9.12",
     "number-format.js": "^2.0.9",
