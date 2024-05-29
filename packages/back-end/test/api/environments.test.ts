@@ -664,7 +664,7 @@ describe("environements API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      message: "Request body: [id] Required, [description] Required",
+      message: "Request body: [id] Required",
     });
     expect(updateOrganization).not.toHaveBeenCalledWith();
     expect(auditMock).not.toHaveBeenCalledWith();

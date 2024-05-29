@@ -247,7 +247,7 @@ export const listEnvironmentsValidator = {
 };
 
 export const postEnvironmentValidator = {
-  bodySchema: z.object({ "id": z.string().describe("The ID of the new environment"), "description": z.string().describe("The description of the new environment"), "toggleOnList": z.any().describe("Show toggle on feature list").optional(), "defaultState": z.any().describe("Default state for new features").optional(), "projects": z.array(z.string()).optional() }).strict(),
+  bodySchema: z.object({ "id": z.string().describe("The ID of the new environment"), "description": z.string().describe("The description of the new environment").optional(), "toggleOnList": z.any().describe("Show toggle on feature list").optional(), "defaultState": z.any().describe("Default state for new features").optional(), "projects": z.array(z.string()).optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
 };

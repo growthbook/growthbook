@@ -16,7 +16,6 @@ requestBody:
         type: object
         required:
           - id
-          - description
         properties:
           id:
             type: string
