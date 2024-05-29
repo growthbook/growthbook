@@ -1,12 +1,13 @@
 import type { Response } from "express";
-import { removeEnvironmentFromSlackIntegration } from "@back-end/src/models/SlackIntegrationModel";
+import { isEqual } from "lodash";
+import { findSDKConnectionsByOrganization } from "../../models/SdkConnectionModel";
+import { triggerSingleSDKWebhookJobs } from "../../jobs/updateAllJobs";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
   auditDetailsUpdate,
-} from "@back-end/src/services/audit";
-import { triggerSingleSDKWebhookJobs } from "@back-end/src/jobs/updateAllJobs";
-import { findSDKConnectionsByOrganization } from "@back-end/src/models/SdkConnectionModel";
+} from "../../services/audit";
+import { removeEnvironmentFromSlackIntegration } from "../../models/SlackIntegrationModel";
 import { AuthRequest } from "../../types/AuthRequest";
 import { PrivateApiErrorResponse } from "../../../types/api";
 import {
@@ -57,17 +58,17 @@ export const putEnvironmentOrder = async (
   const updatedEnvs: Environment[] = [];
 
   // Loop through env ids, to get the full env object and add it to the updatedEnvs arr
-  envIds.forEach((environment) => {
-    const index = existingEnvs.findIndex((env) => env.id === environment);
+  envIds.forEach((envId) => {
+    const env = existingEnvs.find((existing) => existing.id === envId);
 
-    if (index < 0) {
+    if (!env) {
       return res.status(400).json({
         status: 400,
-        message: `Unable to find environment: ${environment}`,
+        message: `Unable to find environment: ${envId}`,
       });
     }
 
-    updatedEnvs.push(existingEnvs[index]);
+    updatedEnvs.push(env);
   });
 
   try {
@@ -187,11 +188,11 @@ export const putEnvironment = async (
       },
     });
 
-    if ("projects" in environment) {
+    if (environment.projects) {
       const existingProjects = envsArr[existingEnvIndex].projects || [];
-      const newProjects = environment.projects || [];
+      const newProjects = environment.projects;
 
-      if (JSON.stringify(existingProjects) !== JSON.stringify(newProjects)) {
+      if (!isEqual(existingProjects, newProjects)) {
         const connections = await findSDKConnectionsByOrganization(context);
         const affectedConnections = connections.filter(
           (c) => c.environment === environment.id
@@ -215,8 +216,8 @@ export const putEnvironment = async (
     await req.audit({
       event: "environment.update",
       entity: {
-        object: "organization",
-        id: org.id,
+        object: "environment",
+        id: environment.id,
       },
       details: auditDetailsUpdate(envsArr[existingEnvIndex], environment),
     });
@@ -282,8 +283,8 @@ export const postEnvironment = async (
     await req.audit({
       event: "environment.create",
       entity: {
-        object: "organization",
-        id: org.id,
+        object: "environment",
+        id: environment.id,
       },
       details: auditDetailsCreate(environment),
     });
@@ -310,18 +311,18 @@ export const deleteEnvironment = async (
   const context = getContextFromReq(req);
   const { org } = context;
 
-  const envsArr = org.settings?.environments || [];
+  const existingEnvs = org.settings?.environments || [];
 
-  const existingEnvIndex = envsArr.findIndex((env) => env.id === id);
+  const envToDelete = existingEnvs.find((existing) => existing.id === id);
 
-  if (existingEnvIndex < 0) {
+  if (!envToDelete) {
     return res.status(400).json({
       status: 400,
-      message: `Could not find environment: ${id}`,
+      message: `Unable to find environment: ${id}`,
     });
   }
 
-  if (!context.permissions.canDeleteEnvironment(envsArr[existingEnvIndex])) {
+  if (!context.permissions.canDeleteEnvironment(envToDelete)) {
     context.permissions.throwPermissionError();
   }
 
@@ -329,15 +330,15 @@ export const deleteEnvironment = async (
     await updateOrganization(org.id, {
       settings: {
         ...org.settings,
-        environments: envsArr.filter((env) => env.id !== id),
+        environments: existingEnvs.filter((env) => env.id !== id),
       },
     });
 
     await req.audit({
       event: "environment.delete",
       entity: {
-        object: "organization",
-        id: org.id,
+        object: "environment",
+        id,
       },
       details: auditDetailsDelete(id),
     });
