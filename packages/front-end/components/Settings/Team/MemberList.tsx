@@ -108,8 +108,12 @@ const MemberList: FC<{
             )}
           </div>
         </div>
-        {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ maxHeight: number; overflowY: "auto"; } | ... Remove this comment to see the full error message */}
-        <div style={maxHeight ? { maxHeight, overflowY: "auto" } : null}>
+        <div
+          style={{
+            overflowY: "auto",
+            ...(maxHeight ? { maxHeight } : {}),
+          }}
+        >
           <table className="table appbox gbtable">
             <thead>
               <tr>
