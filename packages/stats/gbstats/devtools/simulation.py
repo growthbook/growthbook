@@ -56,6 +56,9 @@ class SimulationStudy(ABC):
         self.lower_limit = np.empty(array_shape)
         self.upper_limit = np.empty(array_shape)
         self.results = np.empty(array_shape, dtype=object)
+        self.stat_a = np.empty(array_shape, dtype=object)
+        self.stat_b = np.empty(array_shape, dtype=object)
+        self.estimand = np.empty(array_shape)
 
     @abstractmethod
     def generate_data(self) -> Tuple[TestStatistic, TestStatistic, float]:

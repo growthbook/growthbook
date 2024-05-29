@@ -57,7 +57,6 @@ export function powerStandardError(
 ): number {
   const metricMean = getMetricMean(metric);
   const metricVariance = getMetricVariance(metric);
-
   return Math.sqrt(
     frequentistVariance(
       metricVariance,
@@ -153,7 +152,7 @@ function getSequentialTuningParameter(
  * @param twoTailed Binary indicator if the test is 1 or 2-tailed (default: true).
  * @returns Estimated power.
  */
-export function powerEst(
+export function powerEstFrequentist(
   metric: MetricParams,
   n: number,
   nVariations: number,
@@ -202,7 +201,7 @@ export function powerEst(
  * @param alpha false positive rate (default: 0.05).
  * @returns object of class MDEResults, containing type and either mde or description.
  */
-export function findMde(
+export function findMdeFrequentist(
   metric: MetricParams,
   power: number,
   n: number,
@@ -285,7 +284,7 @@ export function powerMetricWeeks(
         mde: -999,
       };
       if (powerSettings.statsEngineSettings.type === "frequentist") {
-        thisPower = powerEst(
+        thisPower = powerEstFrequentist(
           thisMetric,
           n,
           powerSettings.nVariations,
@@ -293,7 +292,7 @@ export function powerMetricWeeks(
           true,
           powerSettings.statsEngineSettings.sequentialTesting
         );
-        thisMde = findMde(
+        thisMde = findMdeFrequentist(
           thisMetric,
           0.8,
           n,
@@ -316,7 +315,10 @@ export function powerMetricWeeks(
           true
         );
       }
-      if (thisPower >= 0.8 && lookingForSampleSizeAndRunTime) {
+      if (
+        Math.round(thisPower * 100) / 100 >= 0.8 &&
+        lookingForSampleSizeAndRunTime
+      ) {
         lookingForSampleSizeAndRunTime = false;
         thisSampleSizeAndRuntimeNumeric = j + 1;
       }
@@ -491,6 +493,7 @@ export function getCutpoint(
   const zStar = normal.quantile(1.0 - 0.5 * alpha, 0, 1);
   const upperSign = upper ? 1 : -1;
   const properInt = metric.proper ? 1 : 0;
+
   const numerator =
     upperSign * tauHatVariance * Math.sqrt(posteriorPrecision) * zStar -
     (properInt * (tauHatVariance * priorMeanSpecified)) /
@@ -540,6 +543,48 @@ export function powerEstBayesian(
  * @param alpha false positive rate (default: 0.05).
  * @param nPerVariation sample size per variation.
  * @param relative boolean indicator if relative inference is desired.
+ * @param stepSize step size used in initial grid search.
+ * @returns object of class MDEResults, containing type and either mde or description.
+ */
+function sweepGridFine(
+  metric: MetricParams,
+  alpha: number,
+  power: number,
+  nPerVariation: number,
+  relative: boolean,
+  stepSize: number
+): MDEResults {
+  const effectSize = metric.effectSize;
+  const stepSizeFiner = stepSize / 100;
+  const lowerBound = effectSize - stepSize;
+  for (
+    let effectSizeFiner = lowerBound;
+    effectSizeFiner < effectSize;
+    effectSizeFiner += stepSizeFiner
+  ) {
+    metric.effectSize = effectSizeFiner;
+    const p = powerEstBayesian(metric, alpha, nPerVariation, relative);
+    if (p >= power) {
+      const mdeResults: MDEResults = {
+        type: "success",
+        mde: effectSizeFiner,
+      };
+      return mdeResults;
+    }
+  }
+  const mdeResults: MDEResults = {
+    type: "error",
+    description: "MDE achieving power = 0.8 does not exist in this range. ",
+  };
+  return mdeResults;
+}
+
+/**
+ * Performs mde calc
+ * @param metric an object of class MetricParams that has info about prior mean and sd, metric mean and sd, and effect size.
+ * @param alpha false positive rate (default: 0.05).
+ * @param nPerVariation sample size per variation.
+ * @param relative boolean indicator if relative inference is desired.
  * @returns object of class MDEResults, containing type and either mde or description.
  */
 export function findMdeBayesian(
@@ -550,136 +595,55 @@ export function findMdeBayesian(
   relative: boolean
 ): MDEResults {
   /*fixed effect size, so prior variance of data generating process is 0*/
-  const metricMean = getMetricMean(metric);
-  const metricVariance = getMetricVariance(metric);
-  let lowerBound = 0.0;
   const dummyMetric = { ...metric };
-  dummyMetric.effectSize = lowerBound;
+  /*first compute lower and upper bounds within stepSize*/
+  let effectSize = 0;
+  dummyMetric.effectSize = effectSize;
   let currentPower = powerEstBayesian(
     dummyMetric,
     alpha,
     nPerVariation,
     relative
   );
+  /*case where 0 effect size results in at least 80% power*/
   if (currentPower >= power) {
-    /*case where prior is so strong that mde of 0 results in power of 0.8*/
     const mdeResults: MDEResults = {
       type: "success",
-      mde: 0,
+      mde: effectSize,
     };
     return mdeResults;
   }
-  /*now we know mde is positive, need to find a lower bound*/
-  const priorMeanSpecified = calculatePriorMeanSpecified(dummyMetric, relative);
-  const priorVarianceSpecified = calculatePriorVarianceSpecified(
-    dummyMetric,
-    relative
-  );
-  const tauHatVariance = estimateTauHatVariance(
-    dummyMetric,
-    nPerVariation,
-    relative
-  );
-  const posteriorPrecision = getPosteriorPrecision(
-    dummyMetric,
-    nPerVariation,
-    relative
-  );
-  const marginalVarianceTauHat = getMarginalVarianceTauHat(
-    dummyMetric,
-    nPerVariation,
-    relative
-  );
-  const zStar = normal.quantile(1.0 - alpha, 0, 1);
-
-  lowerBound =
-    marginalVarianceTauHat * Math.sqrt(posteriorPrecision) * zStar -
-    (tauHatVariance * priorMeanSpecified) / priorVarianceSpecified -
-    Math.sqrt(tauHatVariance) * normal.quantile(1.0 - power, 0, 1);
-  if (!relative) {
-    lowerBound /= metricMean;
-  }
-  dummyMetric.effectSize = lowerBound;
-  currentPower = powerEstBayesian(dummyMetric, alpha, nPerVariation, relative);
-  let iters = 0;
-  while (currentPower > power && iters < 1e5) {
-    lowerBound *= 0.5;
-    dummyMetric.effectSize = lowerBound;
+  /*maximum effect size we check is 500%*/
+  const maxEffectSize = 5;
+  const stepSizeCoarse = 1e-3;
+  const maxError = normal.pdf(0, 0, 1) * stepSizeCoarse;
+  while (currentPower < power && effectSize <= maxEffectSize) {
+    effectSize += stepSizeCoarse;
+    dummyMetric.effectSize = effectSize;
     currentPower = powerEstBayesian(
       dummyMetric,
       alpha,
       nPerVariation,
       relative
     );
-  }
-  /*maximum solution is 200% increase*/
-  dummyMetric.effectSize = 2;
-  const maxPower = powerEstBayesian(
-    dummyMetric,
-    alpha,
-    nPerVariation,
-    relative
-  );
-  if (maxPower < power) {
-    console.log(`maxPower: %d`, maxPower);
-    console.log(`priorVariancenRelDGP: %d`, 0);
-    console.log(`priorMeanRelSpecified: %d`, metric.priorLiftMean);
-    console.log(
-      `priorVarianceRelSpecified: %d`,
-      metric.priorLiftStandardDeviation
-    );
-    console.log(
-      `mean: %d, variance: %d, nPerVariation %d`,
-      metricMean,
-      metricVariance,
-      nPerVariation
-    );
-    const mdeResults: MDEResults = {
-      type: "error",
-      description:
-        "need to increase number of users or reduce number of variations.",
-    };
-    return mdeResults;
-  }
-  let upperBound = 2 * lowerBound;
-  dummyMetric.effectSize = upperBound;
-  currentPower = powerEstBayesian(dummyMetric, alpha, nPerVariation, relative);
-  while (currentPower < power) {
-    upperBound *= 2;
-    dummyMetric.effectSize = upperBound;
-    currentPower = powerEstBayesian(
-      dummyMetric,
-      alpha,
-      nPerVariation,
-      relative
-    );
-  }
-  let mde = 0.5 * (lowerBound + upperBound);
-  dummyMetric.effectSize = mde;
-  currentPower = powerEstBayesian(dummyMetric, alpha, nPerVariation, relative);
-  let diff = currentPower - power;
-  iters = 0;
-  while (Math.abs(diff) >= 1e-5 && iters < 1e5) {
-    if (diff > 0) {
-      upperBound = mde;
-    } else {
-      lowerBound = mde;
+    if (currentPower >= power - maxError) {
+      const currentPowerFine = sweepGridFine(
+        dummyMetric,
+        alpha,
+        power,
+        nPerVariation,
+        relative,
+        stepSizeCoarse
+      );
+      if (currentPowerFine.type === "success") {
+        return currentPowerFine;
+      }
     }
-    mde = 0.5 * (lowerBound + upperBound);
-    dummyMetric.effectSize = mde;
-    currentPower = powerEstBayesian(
-      dummyMetric,
-      alpha,
-      nPerVariation,
-      relative
-    );
-    diff = currentPower - power;
-    iters += 1;
   }
-  /*case where mde converged to nonzero value*/
+  /*case where mde is greater than 500% or doesn't exist*/
   const mdeResults: MDEResults = {
-    type: "success",
-    mde: mde,
+    type: "error",
+    description: "MDE achieving power = 0.8 does not exist. ",
   };
   return mdeResults;
 }

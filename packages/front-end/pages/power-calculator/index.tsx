@@ -84,10 +84,8 @@ const PowerCalculationPage = (): React.ReactElement => {
     variations,
     statsEngineSettings,
   ]);
-
   const finalParams: PowerCalculationParams | undefined = useMemo(() => {
     if (!powerCalculationParams) return;
-
     return {
       ...powerCalculationParams,
       statsEngineSettings,
@@ -103,7 +101,6 @@ const PowerCalculationPage = (): React.ReactElement => {
 
     return powerMetricWeeks(finalParams);
   }, [finalParams]);
-
   return (
     <div className="contents power-calculator container-fluid pagecontents">
       {showModal && (

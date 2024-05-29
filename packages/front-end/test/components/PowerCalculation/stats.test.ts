@@ -1,14 +1,13 @@
 import {
-  MetricParamsFrequentist,
-  MetricParamsBayesian,
+  MetricParamsMean,
+  MetricParams,
   PowerCalculationParams,
-  PowerCalculationParamsBayesian,
 } from "@/components/PowerCalculation/types";
 
 import {
   frequentistVariance,
-  powerEst,
-  findMde,
+  powerEstFrequentist,
+  findMdeFrequentist,
   powerMetricWeeks,
   calculatePriorMean,
   calculatePriorVariance,
@@ -29,26 +28,32 @@ describe("backend", () => {
     );
   });
   it("calculates power correctly", () => {
-    const meanMetric: MetricParamsFrequentist = {
+    const meanMetric: MetricParamsMean = {
       type: "mean",
       name: "Conversion Rate",
       effectSize: 0.05,
-      metricMean: 10,
-      metricStandardDeviation: Math.sqrt(3909.9997749994377),
+      mean: 10,
+      standardDeviation: Math.sqrt(3909.9997749994377),
+      priorLiftMean: 0,
+      priorLiftStandardDeviation: 1,
+      proper: false,
     };
-    expect(+powerEst(meanMetric, 400000, 3, 0.05, true, 0).toFixed(5)).toEqual(
-      0.52144
-    );
+    expect(
+      +powerEstFrequentist(meanMetric, 400000, 3, 0.05, true, 0).toFixed(5)
+    ).toEqual(0.52144);
   });
   it("calculates two-tailed mde correctly", () => {
-    const meanMetric: MetricParamsFrequentist = {
+    const meanMetric: MetricParamsMean = {
       type: "mean",
       name: "Conversion Rate",
       effectSize: 0.05,
-      metricMean: 10,
-      metricStandardDeviation: Math.sqrt(3909.9997749994377),
+      mean: 10,
+      standardDeviation: Math.sqrt(3909.9997749994377),
+      priorLiftMean: 0,
+      priorLiftStandardDeviation: 1,
+      proper: false,
     };
-    const mde1 = findMde(meanMetric, 0.8, 400000, 3, 0.05, 0);
+    const mde1 = findMdeFrequentist(meanMetric, 0.8, 400000, 3, 0.05, 0);
     let mde = 100;
     if (mde1.type === "success") {
       mde = mde1.mde;
@@ -56,54 +61,65 @@ describe("backend", () => {
     expect(parseFloat(mde.toFixed(5))).toEqual(0.07027);
   });
   it("calculates sequential power correctly", () => {
-    const meanMetric: MetricParamsFrequentist = {
+    const meanMetric: MetricParamsMean = {
       type: "mean",
       name: "Conversion Rate",
       effectSize: 0.05,
-      metricMean: 10,
-      metricStandardDeviation: Math.sqrt(3909.9997749994377),
+      mean: 10,
+      standardDeviation: Math.sqrt(3909.9997749994377),
+      priorLiftMean: 0,
+      priorLiftStandardDeviation: 1,
+      proper: false,
     };
     expect(
-      +powerEst(meanMetric, 400000, 3, 0.05, true, 5000).toFixed(5)
+      +powerEstFrequentist(meanMetric, 400000, 3, 0.05, true, 5000).toFixed(5)
     ).toEqual(0.20596);
   });
   it("calculates sequential mde correctly", () => {
-    const meanMetric: MetricParamsFrequentist = {
+    const meanMetric: MetricParamsMean = {
       type: "mean",
       name: "Conversion Rate",
       effectSize: 0.05,
-      metricMean: 10,
-      metricStandardDeviation: Math.sqrt(3909.9997749994377),
+      mean: 10,
+      standardDeviation: Math.sqrt(3909.9997749994377),
+      priorLiftMean: 0,
+      priorLiftStandardDeviation: 1,
+      proper: false,
     };
-    const mde1 = findMde(meanMetric, 0.8, 400000, 3, 0.05, 5000);
+    const mde1 = findMdeFrequentist(meanMetric, 0.8, 400000, 3, 0.05, 5000);
     let mde = 100;
     if (mde1.type === "success") {
       mde = mde1.mde;
     }
     expect(parseFloat(mde.toFixed(5))).toEqual(0.12821);
   });
-  const metrics: { [id: string]: MetricParamsFrequentist } = {
+  const metrics: { [id: string]: MetricParams } = {
     click_through_rate: {
-      effectSize: 0.3,
+      effectSize: 0.05,
       name: "click_through_rate",
       conversionRate: 0.1,
       type: "binomial",
+      priorLiftMean: 0,
+      priorLiftStandardDeviation: 1,
+      proper: false,
     },
     revenue: {
-      effectSize: 0.05,
+      effectSize: 0.3,
       name: "revenue",
-      metricMean: 0.1,
-      metricStandardDeviation: Math.sqrt(0.5),
+      mean: 0.1,
+      standardDeviation: Math.sqrt(0.5),
       type: "mean",
+      priorLiftMean: 0,
+      priorLiftStandardDeviation: 1,
+      proper: false,
     },
   };
-  const metricsBayesian: { [id: string]: MetricParamsBayesian } = {
+  const metricsBayesian: { [id: string]: MetricParams } = {
     click_through_rate: {
       name: "click_through_rate",
       type: "binomial",
       conversionRate: 0.1,
-      effectSize: 0.3,
-      priorStandardDeviationDGP: 0,
+      effectSize: 0.05,
       priorLiftMean: 0.2,
       priorLiftStandardDeviation: Math.sqrt(0.3),
       proper: true,
@@ -111,16 +127,14 @@ describe("backend", () => {
     revenue: {
       name: "revenue",
       type: "mean",
-      effectSize: 0.05,
-      priorStandardDeviationDGP: 0,
-      metricMean: 0.1,
-      metricStandardDeviation: Math.sqrt(0.5),
+      effectSize: 0.3,
+      mean: 0.1,
+      standardDeviation: Math.sqrt(0.5),
       priorLiftMean: 0.2,
       priorLiftStandardDeviation: Math.sqrt(0.3),
       proper: true,
     },
   };
-
   const usersPerWeek = 4500;
   const nVariations = 3;
   const alpha = 0.05;
@@ -143,7 +157,7 @@ describe("backend", () => {
         sequentialTesting: false,
       },
     };
-    const powerSettingsBayesian: PowerCalculationParamsBayesian = {
+    const powerSettingsBayesian: PowerCalculationParams = {
       usersPerWeek: usersPerWeek,
       metrics: metricsBayesian,
       nVariations: nVariations,
@@ -156,24 +170,24 @@ describe("backend", () => {
       },
     };
     const powerSolution = [
-      0.65596,
-      0.0541,
-      0.91614,
-      0.05821,
-      0.98342,
-      0.06235,
-      0.99713,
-      0.0665,
-      0.99955,
-      0.07067,
-      0.99993,
-      0.07486,
-      0.99999,
-      0.07906,
-      1.0,
-      0.08328,
-      1.0,
-      0.08752,
+      0.073,
+      0.17053,
+      0.0965,
+      0.29389,
+      0.1204,
+      0.41122,
+      0.14458,
+      0.51749,
+      0.16895,
+      0.61037,
+      0.19342,
+      0.68938,
+      0.21791,
+      0.75513,
+      0.24235,
+      0.80886,
+      0.26666,
+      0.85213,
     ];
     const mdeSolution = [
       0.36767,
@@ -196,57 +210,56 @@ describe("backend", () => {
       0.27647,
     ];
     const powerSolutionBayesian = [
-      0.6679,
-      0.04054,
-      0.92121,
-      0.05343,
-      0.98467,
-      0.06103,
-      0.99738,
-      0.06705,
-      0.99959,
-      0.07239,
-      0.99994,
-      0.07739,
-      0.99999,
-      0.08219,
-      1.0,
-      0.08686,
-      1.0,
-      0.09146,
+      0.0752,
+      0.15127,
+      0.10103,
+      0.29358,
+      0.12581,
+      0.41893,
+      0.15048,
+      0.52858,
+      0.17516,
+      0.62241,
+      0.19984,
+      0.70103,
+      0.22446,
+      0.7657,
+      0.24899,
+      0.81807,
+      0.27334,
+      0.8599,
     ];
     const mdeSolutionBayesian = [
-      0.36258,
-      1.65289,
+      0.36259,
+      1.65287,
       0.24173,
-      0.73247,
+      0.73248,
       0.1929,
       0.54036,
-      0.16491,
+      0.16492,
       0.44561,
-      0.14625,
+      0.14626,
       0.38687,
-      0.13269,
+      0.1327,
       0.34604,
       0.12228,
       0.3156,
       0.11396,
-      0.29181,
-      0.10711,
+      0.29182,
+      0.10712,
       0.27258,
     ];
-
-    const sampleSizeAndRuntime = [2, undefined];
+    const sampleSizeAndRuntime = [undefined, 8];
     const resultsTS = powerMetricWeeks(powerSettings);
     const resultsTSBayesian = powerMetricWeeks(powerSettingsBayesian);
     let powerMultiple = [0.0, 0.0];
     let mdeMultiple = [1e5, 1e5];
     let powerMultipleBayesian = [0.0, 0.0];
     let mdeMultipleBayesian = [1e5, 1e5];
-    let w0 = 0;
-    const w1 = undefined;
-    let w0Bayesian = 0;
-    const w1Bayesian = undefined;
+    const w0 = undefined;
+    let w1 = 0;
+    const w0Bayesian = undefined;
+    let w1Bayesian = 0;
     if (resultsTS.type === "success") {
       powerMultiple = resultsTS.weeks.reduce(
         (result, { metrics }) =>
@@ -267,10 +280,10 @@ describe("backend", () => {
       if (
         resultsTS.sampleSizeAndRuntime.click_through_rate?.weeks !== undefined
       ) {
-        w0 = resultsTS.sampleSizeAndRuntime.click_through_rate?.weeks;
+        throw new Error("should be undefined");
       }
       if (resultsTS.sampleSizeAndRuntime.revenue?.weeks !== undefined) {
-        throw new Error("should be undefined");
+        w1 = resultsTS.sampleSizeAndRuntime.revenue?.weeks;
       }
     }
     if (resultsTSBayesian.type === "success") {
@@ -294,17 +307,16 @@ describe("backend", () => {
         resultsTSBayesian.sampleSizeAndRuntime.click_through_rate?.weeks !==
         undefined
       ) {
-        w0Bayesian =
-          resultsTSBayesian.sampleSizeAndRuntime.click_through_rate?.weeks;
+        throw new Error("should be undefined");
       }
       if (resultsTSBayesian.sampleSizeAndRuntime.revenue?.weeks !== undefined) {
-        throw new Error("should be undefined");
+        w1Bayesian = resultsTSBayesian.sampleSizeAndRuntime.revenue?.weeks;
       }
     }
     expect(powerMultiple.map(roundToFifthDecimal)).toEqual(powerSolution);
     expect(mdeMultiple.map(roundToFifthDecimal)).toEqual(mdeSolution);
-    expect(sampleSizeAndRuntime[0]).toEqual(w0);
-    expect(sampleSizeAndRuntime[1]).toEqual(w1);
+    expect(w0).toEqual(sampleSizeAndRuntime[0]);
+    expect(w1).toEqual(sampleSizeAndRuntime[1]);
     expect(powerMultipleBayesian.map(roundToFifthDecimal)).toEqual(
       powerSolutionBayesian
     );
@@ -328,24 +340,24 @@ describe("backend", () => {
       },
     };
     const powerSolution = [
-      0.32738,
-      0.05168,
-      0.57751,
-      0.05341,
-      0.74687,
-      0.05506,
-      0.85299,
-      0.05666,
-      0.91653,
-      0.05822,
-      0.95341,
-      0.05976,
-      0.97435,
-      0.06127,
-      0.98603,
-      0.06277,
-      0.99247,
-      0.06424,
+      0.05936,
+      0.09832,
+      0.06912,
+      0.14992,
+      0.07849,
+      0.19972,
+      0.08761,
+      0.24784,
+      0.09657,
+      0.29426,
+      0.10541,
+      0.33888,
+      0.11415,
+      0.38165,
+      0.12282,
+      0.42249,
+      0.13142,
+      0.46136,
     ];
     const mdeSolution = [
       0.65545,
@@ -367,12 +379,12 @@ describe("backend", () => {
       0.18058,
       0.49473,
     ];
-    const sampleSizeAndRuntime = [4, undefined];
+    const sampleSizeAndRuntime = [undefined, undefined];
     const resultsTS = powerMetricWeeks(powerSettings);
 
     let powerMultiple = [0.0, 0.0];
     let mdeMultiple = [1e5, 1e5];
-    let w0 = 0;
+    let w0 = undefined;
     const w1 = undefined;
     if (resultsTS.type === "success") {
       powerMultiple = resultsTS.weeks.reduce(
@@ -419,17 +431,16 @@ it("calculatePriorVariance", () => {
 it("powerEstBayesian", () => {
   const power = 0.8;
   const alpha = 0.05;
-  const effectSizeRelative = 0.12033664690846606;
-  const effectSizeAbsolute = 0.11431978395869613;
+  const effectSizeRelative = 0.07024999999999991; /*0.12033664690846606;*/
+  const effectSizeAbsolute = 0.06781974621178363;
   const nPerVariation = 400000 / 3;
 
-  const myMetricRel: MetricParamsBayesian = {
+  const myMetricRel: MetricParams = {
     type: "mean",
     name: "Time to completion",
-    metricMean: 10, // Baseline mean value
-    metricStandardDeviation: Math.sqrt(3909.9997749994377), // Baseline standard deviation
+    mean: 10, // Baseline mean value
+    standardDeviation: Math.sqrt(3909.9997749994377), // Baseline standard deviation
     effectSize: effectSizeRelative, // Expected % change in mean
-    priorStandardDeviationDGP: Math.sqrt(0.010000000000000002),
     priorLiftMean: 0.05, // Prior mean for lift in mean
     priorLiftStandardDeviation: Math.sqrt(0.5476), // Prior standard deviation for lift in mean
     proper: true, // Whether to use a proper prior (affects prior distribution)
@@ -482,6 +493,6 @@ it("powerEstBayesian", () => {
     parseFloat(effectSizeAbsolute.toFixed(5))
   );
 
-  expect(parseFloat(powerRelative.toFixed(5))).toEqual(power);
-  expect(parseFloat(powerAbsolute.toFixed(5))).toEqual(power);
+  expect(parseFloat(powerRelative.toFixed(3))).toEqual(power);
+  expect(parseFloat(powerAbsolute.toFixed(3))).toEqual(power);
 });

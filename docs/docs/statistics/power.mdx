@@ -109,7 +109,7 @@ That being said, running an experiment with less than 80% power can still help y
 
 ## How do I run Bayesian power analysis?
 
-For Bayesian power analysis, you specify the prior distribution of the treatment effect (see here [to be written] for guidance regarding prior selection). We then estimate Bayesian power, which is the probability that the $(1 - \alpha)$ credible interval after the test does not contain 0.
+For Bayesian power analysis, you specify the prior distribution of the treatment effect (see [here](/statistics/details#bayesian-engine)) for guidance regarding prior selection). We then estimate Bayesian power, which is the probability that the $(1 - \alpha)$ credible interval does not contain 0.
 
 If your organizational default is Bayesian, then Bayesian will be your default power analysis. You can switch to and from frequentist and Bayesian power calculations by toggling "Statistics Engine" under "Settings" on the Power Results page.
 
@@ -126,12 +126,12 @@ Frequently asked questions:
 
 ## GrowthBook implementation (frequentist)
 
-Below we describe technical details of our implementation. First we start with the definition of power.  
+Below we describe high-level technical details of our implementation. All technical details can be found [here](/Power.pdf).
+
 Define:
 
 1. the false positive rate as $\alpha$ (GrowthBook default is $\alpha=0.05$).
 2. the critical values $Z_{1- \alpha / 2}= \Phi^{-1}(1-\alpha/2)$ and $Z_{1-\alpha}= \Phi^{-1}(1-\alpha)$ where $\Phi$ is the inverse CDF of the standard normal distribution.
-3. the true treatment effect as $\Delta$ (it could be relative or absolute), its estimate as $\hat{\Delta}$ and its estimated standard error as $\hat{\sigma}_{\Delta}$. Note that as the sample size $n$ increases, $\hat{\sigma}_{\Delta}$ decreases by a factor of $1/\sqrt{n}$. Below, if these parameters or statistics pertain to the relative case or the absolute case only, we will denote with an "r" subscript or "a" subscript respectively.
 
 We make the following assumptions:
 
@@ -141,157 +141,44 @@ We make the following assumptions:
 4. all metrics have finite variance.
 5. you are running a two-sample t-test. If in practice you use [CUPED](/statistics/cuped), your power will be higher. Use CUPED!
 
-For a 1-sided test, the probability of a statistically significant result (i.e., the power) is
-
-$$\pi = P\left(\frac{\hat{\Delta}}{\hat{\sigma}_{\Delta}} > Z_{1-\alpha}\right)=P\left(\frac{\hat{\Delta}-\Delta}{\hat{\sigma}_{\Delta}} > Z_{1-\alpha}-\frac{\Delta}{\hat{\sigma}_{\Delta}}\right)=1 - \Phi\left(Z_{1-\alpha}-\frac{\Delta}{\hat{\sigma}_{\Delta}}\right)$$.
-
-For a 2-sided test (all GrowthBook tests are 2-sided), the power is composed of the probability of a statistically significant positive result and a statistically significant negative result. Using the same algebra as above (except using $Z_{1-0.5\alpha}$ for the critical value), the probability of a statistically significant positive result is
-$\pi_{pos} = 1 - \Phi\left(Z_{1-\alpha/2}-\frac{\Delta}{\hat{\sigma}_{\Delta}}\right)$. The probability of a statistically significant negative result is $\pi_{neg} = P\left(\frac{\hat{\Delta}}{\hat{\sigma}_{\Delta}} < Z_{\alpha/2}\right)=P\left(\frac{\hat{\Delta}-\Delta}{\hat{\sigma}_{\Delta}} < Z_{\alpha/2}-\frac{\Delta}{\hat{\sigma}_{\Delta}}\right)=\Phi\left(Z_{\alpha/2}-\frac{\Delta}{\hat{\sigma}_{\Delta}}\right)$.  
-For a 2-sided test, the power equals
+For a 2-sided test (all GrowthBook tests are 2-sided), power is the probability of rejecting the null hypothesis of no effect, given that a nonzero effect exists.  
+Mathematically, power equals
 
 $$\pi = 1 - \Phi\left(Z_{1-\alpha/2}-\frac{\Delta}{\hat{\sigma}_{\Delta}}\right) + \Phi(Z_{\alpha/2} - \frac{\Delta}{\hat{\sigma}_{\Delta}})$$.
 
-The MDE is the smallest $\Delta$ for which nominal power (i.e., 80%) is achieved. For a 1-sided test there is a closed form solution for the MDE. Solving the 1-sided power equation for $\Delta$ produces
-$\text{MDE} = \hat{\sigma}_{\Delta}\left(Z_{1-\alpha/2}-\Phi^{-1}(1 - \pi)\right) = \hat{\sigma}_{\Delta}\left(\Phi^{-1}(1 - \alpha/2)-\Phi^{-1}(1 - \pi)\right)$.
-
+The MDE is the smallest effect size for which nominal power (i.e., 80%) is achieved.
 In the 2-sided case there is no closed form solution, so we instead invert the equation below, which ignores the neglible term $\Phi(Z_{\alpha/2} - \frac{\Delta}{\hat{\sigma}_{\Delta}})$, and produces power estimates very close to 0.8:
 
-$$\pi = 1 - \Phi\left(Z_{1-\alpha/2}-\frac{\Delta}{\hat{\sigma}_{\Delta}}\right)$$
+$$\pi = 1 - \Phi\left(Z_{1-\alpha/2}-\frac{\Delta}{\hat{\sigma}_{\Delta}}\right).$$
 
-One subtlety with finding MDEs for relative treatment effects is that the uncertainty of the estimate depends upon the mean.
-So when inverting the power formula above to find the minimum $\Delta$ that produces at least 80% power, the uncertainty term $s$ changes as $\Delta$ changes.  
-We solve for the equation below, where we make explicit the dependence of $\hat{\sigma}_{\Delta}$ on $\Delta$:
+Inverting this equation requires some care, as the uncertainty estimate $\hat{\sigma}_{\Delta}$ depends upon $\Delta$. Details can be found [here](/Power.pdf).
 
-$$\frac{\Delta}{\hat{\sigma}_{\Delta}(\Delta)} =  \Phi^{-1}\left({1-\alpha/2}\right) - \Phi^{-1}(1 - \pi).$$
-
-Define $\mu_{A}$ as the population mean of variation $A$ and $\sigma^{2}$ as the population variance.
-For variation $B$ analogously define $\mu_{B}$; recall that we assume equal variance across treatment arms.  
-Define $N$ as the per-variation sample size.
-Define the sample counterparts as ($\hat{\mu}_{A}$, $\hat{\sigma}_{A}^{2}$, $\hat{\mu}_{B}$, and $\hat{\sigma}_{B}^{2}$).
-
-Recall that our lift is defined as $$\Delta = (\mu_{B}-\mu_{A})/\mu_{A}$$ and the variance of the sample lift $$\hat{\Delta} = (\hat{\mu_{B}}-\hat{\mu_{A}})/\hat{\mu_{A}}$$ is
-
-$$\text{Var}(\hat{\Delta}) = \frac{\sigma^{2}}{N}\frac{1}{\mu_{A}^{2}}  + \frac{\sigma^{2}}{N} *\frac{\mu_{B}^{2}}{\mu_{A}^{4}}.$$
-
-Define the constant $k = \Phi^{-1}\left({1-\alpha/2}\right) - \Phi^{-1}(1 - \pi)$.
-We solve for $\mu_{B}$ in:
-
-$$\frac{(\mu_{B}-\mu_{A})/\mu_{A}}{\sqrt{\text{Var}(\hat{\Delta})}} = k^{2} \iff (\mu_{B}-\mu_{A})^{2} =k^{2}\mu_{A}^{2}\text{Var}(\hat{\Delta}) = k^{2}\mu_{A}^{2}\left(\frac{\sigma^{2}}{N}\frac{1}{\mu_{A}^{2}}  + \frac{\sigma^{2}}{N} *\frac{\mu_{B}^{2}}{\mu_{A}^{4}}\right).$$
-
-Rearranging terms shows that
-$$\mu_{B}^{2}\left(1-\frac{\sigma^{2}}{N}\frac{k^{2}}{\mu_{A}^{2}}\right) + \mu_{B}\left(-2\mu_{A}\right) + \left(\mu_{A}^{2}-k^{2}\frac{\sigma^{2}}{N}\right) = 0.$$
-
-This is quadratic in $\mu_{B}$ and has solution
-
-$$
-\mu_{B} = \frac{2 \mu_{A} \pm \sqrt{4 \mu_{A}^{2}-4\left(1-\frac{\sigma^{2}}{N}\frac{k^{2}}{\mu_{A}^{2}}\right)\left(\mu_{A}^{2}-k^{2}\frac{\sigma^{2}}{N}\right)}}{2\left(1-\frac{\sigma^{2}}{N}\frac{k^{2}}{\mu_{A}^{2}}\right)}
-= \frac{\mu_{A} \pm \sqrt{\mu_{A}^{2}-\left(1-\frac{\sigma^{2}}{N}\frac{k^{2}}{\mu_{A}^{2}}\right)\left(\mu_{A}^{2}-k^{2}\frac{\sigma^{2}}{N}\right)}}{\left(1-\frac{\sigma^{2}}{N}\frac{k^{2}}{\mu_{A}^{2}}\right)}
-.
-$$
-
-The discriminant reduces to
-
-$$k^{2} * \frac{\sigma^{2}}{N} \left(2 - \frac{\sigma^{2}}{N} * \frac{k^{2}}{\mu_{A}^{2}}\right).$$
-
-so a solution for $\mu_{B}$ exists if and only if
-
-$$
-2 - \frac{\sigma^{2}}{N} * \frac{k^{2}}{\mu_{A}^{2}} > 0 \iff 2  > \frac{\sigma^{2}}{N} * \frac{k^{2}}{\mu_{A}^{2}}
-\iff N  > \frac{\sigma^{2}k^{2}}{2\mu_{A}^{2}}.
-$$
-
-Similarly, the MDE returned can be negative if the denominator is negative, which is nonsensical.  
-We return cases only where the denominator is positive, which occurs if and only if:
-
-$$\left(1-\frac{\sigma^{2}}{N}\frac{k^{2}}{\mu_{A}^{2}}\right) > 0 \iff \left(1-\frac{\sigma^{2}}{N}\frac{k^{2}}{\mu_{A}^{2}}\right) > 0 \iff  N  > \frac{\sigma^{2}k^{2}}{\mu_{A}^{2}}.$$
-
-This condition is stricter than the condition guaranteeing existence of a solution.
-
-Therefore, there will be some combinations of $(\mu_{A}, \sigma_{2})$ where the MDE does not exist for a given $N$. If $\alpha=0.05$ and $\pi=0.8$, then $k\approx 2.8$. Therefore, a rule of thumb is that $N$ needs to be roughly 9 times larger than the ratio of the variance to the squared mean to return an MDE.
-In these cases, $N$ needs to be increased.
-
-To estimate power under sequential testing, we adjust the variance term $s$ to account for sequential testing, and then input this adjusted variance into our power formula. We assume that you look at the data only once, so our power estimate below is a lower bound for the actual power under sequential testing. Otherwise we would have to make assumptions about the temporal correlation of the data generating process.
-
-In [sequential testing](/statistics/sequential) we construct confidence intervals as
-
-$\left(\hat{\Delta} \pm \hat{\sigma}*\sqrt{N} * \sqrt{\frac{2(N\rho^2 + 1)}{N^2\rho^2}\log\left(\frac{\sqrt{N\rho^2 + 1}}{\alpha}\right)}\right)$
-
-where
-
-$\rho = \sqrt{\frac{-2\text{log}(\alpha) + \text{log}(-2 \text{log}(\alpha) + 1)}{N^*}}$
-
-and $N^{\star}$ is a tuning parameter. This approach relies upon asymptotic normality. For power analysis we rewrite the confidence interval as
-
-$\left(\hat{\Delta} \pm \hat{\sigma}*\sqrt{N} * \sqrt{\frac{2(N\rho^2 + 1)}{N^2\rho^2}\log\left(\frac{\sqrt{N\rho^2 + 1}}{\alpha}\right)}\frac{Z_{1-\alpha/2}}{Z_{1-\alpha/2}}\right)$$=\left(\hat{\Delta_{r}} \pm \tilde{\sigma}Z_{1-\alpha/2}\right)$
-
-where
-
-$\tilde{\sigma} = \hat{\sigma}*\sqrt{N}\sqrt{\frac{2(N\rho^2 + 1)}{N^2\rho^2}\log\left(\frac{\sqrt{N\rho^2 + 1}}{\alpha}\right)}\frac{1}{Z_{1-\alpha/2}}$.
-
-We use power analysis described above, except we substitute $\tilde{\sigma}^{2}$ for $\hat{\sigma}_{\Delta}^{2}$.
+To estimate power under [sequential testing](/statistics/sequential), we adjust the variance term $\hat{\sigma}_{\Delta}^{2}$ to account for sequential testing, and then input this adjusted variance into our power formula. We assume that you look at the data only once, so our power estimate below is a lower bound for the actual power under sequential testing.
+Otherwise we would have to make assumptions about the temporal correlation of the data generating process.
 
 ## GrowthBook implementation (Bayesian)
 
-For Bayesian power analysis, we let users specify the prior distribution of the treatment effect (see here [to be written] for guidance regarding prior selection). We then estimate Bayesian power, which is the probability that the $(1 - \alpha)$ credible interval after the test does not contain 0.
+For Bayesian power analysis, we let users specify the prior distribution of the treatment effect (see [here](/statistics/details#bayesian-engine) for guidance regarding prior selection). We then estimate Bayesian power, which is the probability that the $(1 - \alpha)$ credible interval does not contain 0.
 
-Our prior is as follows. The customer puts a normal prior on the treatment effect, i.e., $\Delta \stackrel{}{\sim}\mathcal{N}\left(\mu_{0}, \sigma_{0}^{2}\right)$. During the experiment we use the data to construct a treatment effect estimate $(\hat{\Delta})$ and its variance $(\hat{\sigma}_{\Delta}^{2})$. Then $\hat{\Delta}|\tau \stackrel{}{\sim}\mathcal{N}\left(\tau, \hat{\sigma}_{\Delta}^{2}\right)$ , so the posterior distribution for the treatment effect is $\tau|\hat{\Delta} \stackrel{}{\sim}\mathcal{N}\left(\Omega^{-1}\omega, \Omega^{-1}\right),$ where the precision $\Omega = 1/\sigma_{0}^{2} + 1/\hat{\sigma}_{\Delta}^{2}$ and $\omega = \mu_{0}/\sigma_{0}^{2} + \hat{\Delta}/\hat{\sigma}_{\Delta}^{2}$. Note that we permit misspecification of the prior for $\tau$, as we assume that the true data generating process is $\tau \stackrel{}{\sim}\mathcal{N}\left(\mu_{\star}, \sigma_{\star}^{2}\right)$, while the specified DGP has $\tau \stackrel{}{\sim}\mathcal{N}\left(\mu_{0}, \sigma_{0}^{2}\right)$. For inference in the relative case, we assume the prior is specified on the relative scale; for the absolute case, the absolute scale. The test statistics change depending upon the scale used.
+For a 2-sided test the probability of rejection is
 
-We reject if the posterior mean for $\tau|\hat{\Delta}$ (i.e., $\Omega^{-1}\omega$) divided by its posterior standard deviation$\left(\text{i.e.,  }\sqrt{\Omega^{-1}}\right)$ is beyond the the appropriate critical threshold $Z^{\star}$ $\left(\text{e.g., } \Phi^{-1}(0.975)\right)$.
-
-In derivations below we use the marginal distribution of $\hat{\Delta}$, which we find using its moment generating function:
-
-$E\left[\exp^{t\hat{\Delta}}\right] = E_{\tau}\left[E\left[\exp^{t\hat{\Delta}}|\tau\right]\right] = E_{\tau}\left[\exp^{t\tau + t^{2}\hat{\sigma}_{\Delta}^{2}}\right]= \exp^{ t^{2}\hat{\sigma}_{\Delta}^{2}}E_{\tau}\left[\exp^{t\tau}\right]= \exp^{ t^{2}\hat{\sigma}_{\Delta}^{2}}\exp^{t\mu^{\star} + t^{2}\sigma_{\star}^{2}}\stackrel{}{\sim}\mathcal{N}\left(\mu^{\star}, \sigma_{\star}^{2}+\hat{\sigma}_{\Delta}^{2}\right)$.
-
-For a 1-sided test we reject if $\frac{\Omega^{-1}\omega}{\Omega^{-1/2}} > Z_{1-\alpha} \iff\left(\frac{1}{\sigma_{0}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{-1/2} \left(\frac{\mu_{0}}{\sigma_{0}^{2}} + \frac{\hat{\Delta}}{\hat{\sigma}_{\Delta}^{2}}\right)> Z_{1-\alpha}$
-
-$\iff \hat{\Delta}> \hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{0}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2}Z_{1-\alpha} - \frac{\mu_{0}}{\sigma_{0}^{2}}\right]$
-
-$\iff \frac{\hat{\Delta}-\mu^{\star}}{\sqrt{\hat{\sigma}_{\Delta}^{2} + \sigma_{\star}^{2}}}> \frac{\hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{0}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2}Z_{1-\alpha} - \frac{\mu_{0}}{\sigma_{0}^{2}}\right]-\mu_{\star}}{\sqrt{\hat{\sigma}_{\Delta}^{2} + \sigma_{\star}^{2}}}$
-
-$=1-\Phi\left(\frac{\hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{0}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2}Z_{1-\alpha} - \frac{\mu_{0}}{\sigma_{0}^{2}}\right]-\mu_{\star}}{\sqrt{\hat{\sigma}_{\Delta}^{2} + \sigma_{\star}^{2}}}\right)$.
-
-For a 2-sided test we reject if $\left|\frac{\Omega^{-1}\omega}{\Omega^{-1/2}}\right| > Z_{1-\alpha/2} \iff\left|\left(\frac{1}{\sigma_{0}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{-1/2} \left(\frac{\mu_{0}}{\sigma_{0}^{2}} + \frac{\hat{\Delta}}{\hat{\sigma}_{\Delta}^{2}}\right)\right|> Z_{1-\alpha/2}$
-
-$\iff \left|\left(\frac{\mu_{0}}{\sigma_{0}^{2}} + \frac{\hat{\Delta}}{\hat{\sigma}_{\Delta}^{2}}\right)\right|> \left(\frac{1}{\sigma_{0}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2} Z_{1-\alpha/2}$
-
-$\iff\left(\frac{\mu_{0}}{\sigma_{0}^{2}} + \frac{\hat{\Delta}}{\hat{\sigma}_{\Delta}^{2}}\right)> \left(\frac{1}{\sigma_{0}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2} Z_{1-\alpha/2}$ or $\left(\frac{\mu_{0}}{\sigma_{0}^{2}} + \frac{\hat{\Delta}}{\hat{\sigma}_{\Delta}^{2}}\right)< -\left(\frac{1}{\sigma_{0}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2} Z_{1-\alpha/2}$
-
-$\iff \hat{\Delta}> \hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{0}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2} Z_{1-\alpha/2} - \frac{\mu_{0}}{\sigma_{0}^{2}}\right]$or $\hat{\Delta}< -\hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{0}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2} Z_{1-\alpha/2} + \frac{\mu_{0}}{\sigma_{0}^{2}}\right]$
-
-$\iff \frac{\hat{\Delta}-\mu_{\star}}{\sqrt{\hat{\sigma}_{\Delta}^{2}+\sigma_{\star}^{2}}}> \frac{\hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{0}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2} Z_{1-\alpha/2} - \frac{\mu_{0}}{\sigma_{0}^{2}}\right]-\mu_{\star}}{\sqrt{\hat{\sigma}_{\Delta}^{2}+\sigma^{2}_{\star}}}$or $\frac{\hat{\Delta}-\mu_{\star}}{\sqrt{\hat{\sigma}_{\Delta}^{2}+\sigma_{\star}^{2}}}< \frac{-\hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{0}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2} Z_{1-\alpha/2} + \frac{\mu_{0}}{\sigma_{0}^{2}}\right]-\mu_{\star}}{\sqrt{\hat{\sigma}_{\Delta}^{2}+\sigma_{\star}^{2}}}$
-
-This event has probability $1-\Phi\left(\frac{\hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{0}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2} Z_{1-\alpha/2} - \frac{\mu_{0}}{\sigma_{0}^{2}}\right]-\mu_{\star}}{\sqrt{\hat{\sigma}_{\Delta}^{2}+\sigma^{2}_{\star}}}\right) + \Phi\left(\frac{-\hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{0}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2} Z_{1-\alpha/2} + \frac{\mu_{0}}{\sigma_{0}^{2}}\right]-\mu_{\star}}{\sqrt{\hat{\sigma}_{\Delta}^{2}+\sigma_{\star}^{2}}}\right)$
+$$
+\begin{align}
+\begin{split}
+\pi &= 1-\Phi\left(
+\frac{
+\hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{prior}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2} Z_{1-\alpha/2} - \frac{\mu_{prior}}{\sigma_{prior}^{2}}\right]-\Delta}
+{\sqrt{\hat{\sigma}_{\Delta}^{2}}}
+\right)
+\\&+\Phi\left(
+\frac{
+-\hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{prior}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2} Z_{1-\alpha/2} - \frac{\mu_{prior}}{\sigma_{prior}^{2}}\right]-\Delta}
+{\sqrt{\hat{\sigma}_{\Delta}^{2}}}
+\right).
+\end{split}
+\end{align}
+$$
 
 Bayesian MDE
 
-MDEs are not well defined in Bayesian literature. Our approach is to solve for $\mu_{\star}$. While in practice we assume that $\sigma_{\star} = 0$ so that $\tau = \mu_{\star}$, we present the general case below.
-
-In the 1-sided case, inverting the Bayesian power equation above results in:
-
-$MDE = \hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{0}^{2}}+\frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2}Z_{1-\alpha} - \frac{\mu_{0}}{\sigma_{0}^{2}}\right]-\sqrt{\hat{\sigma}_{\Delta}^{2} + \sigma_{\star}^{2}}\Phi^{-1}(1-\pi)$
-
-If $\sigma_{0}^{2}=\infty$ and $\sigma_{\star}^{2}=0$ then this is the same as the 1-sided frequentist MDE.
-
-For the two-sided case, we use a bisection method, as there is no closed-form solution. We solve for the absolute case, and then scale appropriately.
-
-Below we discuss two subtlties. First, there are some combinations of parameters where the MDE is 0. These cases often occur when the prior variance $\sigma_{\star}^{2}$ is large. This is easily checked by plugging $\mu_{\star}=\mu_{0}=0$ into the Bayesian power formula above, and the resultant power exceeding $\pi$. Having a large prior variance results in realizations of $\tau$ that are far from 0, resulting in large power.
-
-This is why in practice we frame our Bayesian MDE as, “if our prior beliefs are X, what's the probability we can detect an effect of size Y if Y is the true effect size?” In this case $\sigma_{\star}^{2}=0$ and $\mu_{\star} = \tau$, the true treatment effect.
-
-$\pi=1-\Phi\left(\frac{\hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{0}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2} Z_{1-\alpha/2} - \frac{\mu_{0}}{\sigma_{0}^{2}}\right]-\mu_{\star}}{\sqrt{\hat{\sigma}_{\Delta}^{2}}}\right) + \Phi\left(\frac{-\hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{0}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2} Z_{1-\alpha/2} + \frac{\mu_{0}}{\sigma_{0}^{2}}\right]-\mu_{\star}}{\sqrt{\hat{\sigma}_{\Delta}^{2}}}\right)$
-
-To get a lower bound for the MDE, we can solve for the 1-sided case (one-sided test is more powerful than 2-sided, so the required MDE is smaller):
-
-$\pi=1-\Phi\left(\frac{\hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{0}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2} Z_{1-\alpha} - \frac{\mu_{0}}{\sigma_{0}^{2}}\right]-\mu_{L}}{\sqrt{\hat{\sigma}_{\Delta}^{2}}}\right) \iff$
-
-$s\Phi^{-1}(1-\pi)=\hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{0}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2} Z_{1-\alpha} - \frac{\mu_{0}}{\sigma_{0}^{2}}\right]-\mu_{L} \iff$
-
-$\mu_{L}=\hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{0}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2} Z_{1-\alpha} - \frac{\mu_{0}}{\sigma_{0}^{2}}\right]-s\Phi^{-1}(1-\pi)$
-
-An upper bound for the MDE is:
-
-$\mu_{U}=\hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{0}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2} Z_{1-\alpha/2} - \frac{\mu_{0}}{\sigma_{0}^{2}}\right]-s\Phi^{-1}(1-\pi)$.
-
-The second subtlety is that Bayesian power can be decreasing in effect size. This can be seen by noting that as $\mu_{\star}$ increases, so does $\hat{\sigma}_{\Delta}^{2}$, which can drive power down after a certain limit.
-
-This is challenging for two reasons. First, the MDE may not exist. Second, finding an upper bound for the MDE when it does exist can be tricky. (More to follow later).
+MDEs are not well defined in Bayesian literature. We provide MDEs in Bayesian power analysis for customers that are used to conceptualizing MDEs and want to be able to leverage prior information in their analysis. We define the MDE as the minimum value of $\Delta$ such that at least $\pi$ power is achieved. To find $\Delta$, we use a grid search.

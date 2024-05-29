@@ -284,9 +284,8 @@ const InputField = ({
               <Toggle
                 id={`input-value-${metricId}-${entry}`}
                 value={entryValue}
-                setValue={(v) =>
-                  form.setValue(`metrics.${metricId}.${entry}`, v)
-                }
+                setValue={(v) => {console.log(`metrics.${metricId}.${entry}`, v)
+                                  form.setValue(`metrics.${metricId}.${entry}`, v)}}
               />
             </div>
             <div>{title}</div>
