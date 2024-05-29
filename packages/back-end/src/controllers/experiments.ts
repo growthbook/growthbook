@@ -35,6 +35,7 @@ import {
   deleteVisualChangesetById,
   findVisualChangesetById,
   findVisualChangesetsByExperiment,
+  genNewVisualChange,
   syncVisualChangesWithVariations,
   updateVisualChangeset,
 } from "../models/VisualChangesetModel";
@@ -101,6 +102,10 @@ import {
   syncURLRedirectsWithVariations,
 } from "../models/UrlRedirectModel";
 import { logger } from "../util/logger";
+import {
+  getGeneratedHypothesisById,
+  linkExperimentToHypothesis,
+} from "../models/GeneratedHypothesis";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -2533,5 +2538,57 @@ export async function findOrCreateVisualEditorToken(
 
   res.status(200).json({
     key: visualEditorKey.key,
+  });
+}
+export async function linkGeneratedHypothesis(
+  req: AuthRequest<{
+    expId: string;
+    hypId: string;
+  }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const experiment = await getExperimentById(context, req.body.expId);
+
+  if (!experiment) throw new Error("Experiment not found");
+
+  const generatedHyp = await getGeneratedHypothesisById(
+    context,
+    req.body.hypId
+  );
+
+  if (!generatedHyp) throw new Error("Generated hypothesis not found");
+
+  const payload = generatedHyp.payload.experiments?.[0];
+
+  if (!payload) throw new Error("Generated hypothess payload is malformed");
+
+  const urlPatterns = payload.urlPatterns;
+  const editorUrl = generatedHyp.url;
+  const visualChanges = experiment.variations
+    .map(genNewVisualChange)
+    .map((v, i) => ({
+      ...v,
+      domMutations: payload.variations[i].domMutations || [],
+    }));
+
+  if (!urlPatterns || !editorUrl || !visualChanges)
+    throw new Error("Generated hypothess payload is malformed");
+
+  await createVisualChangeset({
+    context,
+    experiment,
+    urlPatterns,
+    editorUrl,
+    // @ts-expect-error SDK types are slightly inaccurate w.r.t. DOM mutations
+    visualChanges,
+  });
+
+  await linkExperimentToHypothesis(context, generatedHyp.id, experiment.id);
+
+  const updated = await getExperimentById(context, req.body.expId);
+
+  res.json({
+    experiment: updated,
   });
 }

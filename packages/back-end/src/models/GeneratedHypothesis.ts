@@ -1,6 +1,7 @@
 import { omit } from "lodash";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import { createClient } from "@supabase/supabase-js";
 import { ReqContext } from "@back-end/types/organization";
 import { GeneratedHypothesisInterface } from "@back-end/types/generated-hypothesis";
 import { getExperimentById } from "./ExperimentModel";
@@ -10,7 +11,7 @@ type GeneratedHypothesisDocument = mongoose.Document &
 
 const generatedHypothesisSchema = new mongoose.Schema({
   id: String,
-  hypothesisUuid: String,
+  uuid: String,
   createdAt: Date,
   organization: String,
   url: String,
@@ -23,7 +24,7 @@ const generatedHypothesisSchema = new mongoose.Schema({
   },
 });
 
-generatedHypothesisSchema.index({ hypothesisUuid: 1 }, { unique: true });
+generatedHypothesisSchema.index({ uuid: 1 }, { unique: true });
 
 const GeneratedHypothesisModel = mongoose.model<GeneratedHypothesisDocument>(
   "GeneratedHypothesis",
@@ -37,61 +38,33 @@ const toInterface = (
 
 export const findOrCreateGeneratedHypothesis = async (
   context: ReqContext,
-  hypothesisUuid: string
-) => {
+  uuid: string
+): Promise<GeneratedHypothesisInterface> => {
   const existing = await GeneratedHypothesisModel.findOne({
-    hypothesisUuid,
+    uuid,
   });
   if (existing) return toInterface(existing);
-  // TODO fetch hypothesis from supabase
-  // placeholder
-  const generatedHypothesis = {
-    id: 32,
-    uuid: "ae68795d-9d2d-4b6e-ba3b-53950f69de03",
-    created_at: "2024-05-28 18:33:31.010623+00",
-    url: "https://www.statsig.com",
-    hypothesis: `Adding a short explainer video demonstrating the product's key features and benefits will increase user engagement.`,
-    payload: {
-      experiments: [
-        {
-          key: "abc123",
-          weights: [0.5, 0.5],
-          targetUrl: "https://www.statsig.com",
-          hypothesis:
-            "Adding a short explainer video demonstrating the product's key features and benefits will increase user engagement.",
-          variations: [
-            { domMutations: [] },
-            {
-              domMutations: [
-                {
-                  value:
-                    '<video width="320" height="240" controls><source src="https://example.com/explainer_video.mp4" type="video/mp4">Your browser does not support the video tag.</video>',
-                  action: "append",
-                  selector: "div.subHeading",
-                  attribute: "html",
-                },
-              ],
-            },
-          ],
-          urlPatterns: [
-            {
-              type: "simple",
-              include: true,
-              pattern: "https://www.statsig.com/*",
-            },
-          ],
-        },
-      ],
-    },
-  };
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+    throw new Error("Supabase keys missing");
+  }
+  const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_ANON_KEY
+  );
+  const { data: generatedHypothesis, error: payloadErr } = await supabase
+    .from("hypotheses")
+    .select()
+    .eq("uuid", uuid)
+    .single();
+  if (payloadErr) throw new Error(payloadErr.message);
   const created = await GeneratedHypothesisModel.create({
     id: uniqid("genhyp_"),
-    hypothesisUuid,
+    uuid,
     createdAt: new Date(),
     organization: context.org.id,
     url: generatedHypothesis.url,
     hypothesis: generatedHypothesis.hypothesis,
-    payload: generatedHypothesis.payload,
+    payload: generatedHypothesis.translated_payload,
   });
   return toInterface(created);
 };
@@ -124,4 +97,14 @@ export const linkExperimentToHypothesis = async (
     organization: context.org.id,
   });
   return updated;
+};
+
+export const getGeneratedHypothesisById = async (
+  context: ReqContext,
+  id: string
+) => {
+  return await GeneratedHypothesisModel.findOne({
+    id,
+    organization: context.org.id,
+  });
 };

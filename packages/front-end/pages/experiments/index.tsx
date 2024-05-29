@@ -77,7 +77,8 @@ const ExperimentsPage = (): React.ReactElement => {
           generatedHypothesis: GeneratedHypothesisInterface;
         }>(`/generated-hypothesis/${params.hypId}`);
         if (generatedHypothesis.experiment) {
-          // TODO route to existing experiment
+          // route to existing experiment
+          router.replace(`/experiment/${generatedHypothesis.experiment}`);
         } else {
           setGeneratedHypothesis(generatedHypothesis);
         }
@@ -519,8 +520,8 @@ const ExperimentsPage = (): React.ReactElement => {
         <NewExperimentForm
           isNewExperiment
           onClose={() => setGeneratedHypothesis(null)}
-          source="experiment-list"
           generatedHypothesis={generatedHypothesis}
+          source="experiment-list"
         />
       )}
       {openNewExperimentModal &&

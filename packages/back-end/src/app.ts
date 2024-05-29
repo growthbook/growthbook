@@ -109,6 +109,8 @@ import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
 import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
+import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
+import { getContextFromReq } from "./services/organizations";
 
 const app = express();
 
@@ -698,12 +700,22 @@ app.post(
 );
 app.post("/license/verify-email", licenseController.postVerifyEmail);
 
-app.get("/generated-hypothesis/:uuid", (req, res) => {
-  // find or create hypothesis
-  // eslint-disable-next-line no-console
-  console.log("received generated hypothesis endpoint", req.params.uuid);
-  res.send("OK");
-});
+app.get(
+  "/generated-hypothesis/:uuid",
+  async (req: AuthRequest<null, { uuid: string }>, res) => {
+    const context = getContextFromReq(req);
+    const generatedHypothesis = await findOrCreateGeneratedHypothesis(
+      context,
+      req.params.uuid
+    );
+    return res.json({ generatedHypothesis });
+  }
+);
+
+app.post(
+  "/link-generated-hypothesis",
+  experimentsController.linkGeneratedHypothesis
+);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {
