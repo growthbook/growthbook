@@ -12,7 +12,9 @@
         "visualEditorJS",
         "remoteEval",
         "visualEditorDragDrop",
-        "prerequisites"
+        "prerequisites",
+        "redirects",
+        "stickyBucketing"
       ]
     }
   ]

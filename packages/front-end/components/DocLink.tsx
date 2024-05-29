@@ -12,7 +12,8 @@ const docSections = {
   datasources: "/app/datasources",
   dashboard: "/app/experiment-configuration",
   api: "/app/api",
-  webhooks: "/app/webhooks",
+  eventWebhooks: "/app/webhooks/event-webhooks",
+  sdkWebhooks: "/app/webhooks/sdk-webhooks",
   //DataSourceType
   athena: "/app/datasources#aws-athena",
   mixpanel: "/guide/mixpanel",
@@ -31,7 +32,13 @@ const docSections = {
   python: "/lib/python",
   java: "/lib/java",
   csharp: "/lib/csharp",
+  elixir: "/lib/elixir",
   flutter: "/lib/flutter",
+  nocode: "/lib/script-tag",
+  cloudflare: "/lib/edge/cloudflare",
+  fastly: "/lib/edge/fastly",
+  lambda: "/lib/edge/lambda",
+  edge: "/lib/edge/other",
   //Other
   user_guide: "/app",
   config: "/self-host/config",
@@ -40,6 +47,7 @@ const docSections = {
   config_organization_settings: "/self-host/config#organization-settings",
   env_prod: "/self-host/env#production-settings",
   visual_editor: "/app/visual",
+  url_redirects: "/app/url-redirects",
   temporaryRollout: "/app/visual#stopping-an-experiment",
   encryptedSDKEndpoints: "/lib/js#loading-features",
   hashSecureAttributes: "/lib/js#secure-attributes",
@@ -50,6 +58,7 @@ const docSections = {
   webflow: "/integrations/webflow",
   wordpress: "/integrations/wordpress",
   prerequisites: "/features/prerequisites",
+  statisticsSequential: "/statistics/sequential",
 };
 
 export type DocSection = keyof typeof docSections;
@@ -67,7 +76,7 @@ const urlPathMapping: Record<string, DocSection> = {
   "/dashboard": "experimentConfiguration",
   "/settings/keys": "api",
   "/environments": "api",
-  "/settings/webhooks": "webhooks",
+  "/settings/webhooks": "eventWebhooks",
 };
 
 //for testing use "http://localhost:3200"

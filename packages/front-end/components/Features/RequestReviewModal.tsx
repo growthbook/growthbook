@@ -1,11 +1,15 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { useState, useMemo, useRef } from "react";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { autoMerge, mergeResultHasChanges } from "shared/util";
+import {
+  autoMerge,
+  filterEnvironmentsByFeature,
+  mergeResultHasChanges,
+} from "shared/util";
 import { useForm } from "react-hook-form";
 import { EventAuditUserLoggedIn } from "back-end/src/events/event-types";
+import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
 import { getCurrentUser } from "@/services/UserContext";
-import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -14,6 +18,7 @@ import Button from "@/components/Button";
 import RadioSelector from "@/components/Forms/RadioSelector";
 import { ExpandableDiff } from "@/components/Features/DraftModal";
 import Revisionlog, { MutateLog } from "@/components/Features/RevisionLog";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 export interface Props {
   feature: FeatureInterface;
   version: number;
@@ -33,7 +38,8 @@ export default function RequestReviewModal({
   mutate,
   onDiscard,
 }: Props) {
-  const environments = useEnvironments();
+  const allEnvironments = useEnvironments();
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const [showSubmitReview, setShowSumbmitReview] = useState(false);
   const [adminPublish, setAdminPublish] = useState(false);
   const revisionLogRef = useRef<MutateLog>(null);
@@ -41,11 +47,8 @@ export default function RequestReviewModal({
 
   const { apiCall } = useAuth();
   const user = getCurrentUser();
-  const permissions = usePermissions();
-  const canAdminPublish = permissions.check(
-    "bypassApprovalChecks",
-    feature.project
-  );
+  const permissionsUtil = usePermissionsUtil();
+  const canAdminPublish = permissionsUtil.canBypassApprovalChecks(feature);
   const revision = revisions.find((r) => r.version === version);
   const isPendingReview =
     revision?.status === "pending-review" ||
@@ -54,7 +57,7 @@ export default function RequestReviewModal({
   const canReview =
     isPendingReview &&
     createdBy?.id !== user?.id &&
-    permissions.check("canReview", feature.project);
+    permissionsUtil.canReviewFeatureDrafts(feature);
   const approved = revision?.status === "approved" || adminPublish;
   const baseRevision = revisions.find(
     (r) => r.version === revision?.baseVersion
@@ -161,6 +164,43 @@ export default function RequestReviewModal({
   } else if (canReview) {
     ctaCopy = "Next";
   }
+  const showRevisionStatus = () => {
+    switch (revision.status) {
+      case "approved":
+        return (
+          <div className="alert alert-success">
+            <span className="h4">
+              <PiCheckCircleFill className="mr-1" /> Approved
+            </span>
+          </div>
+        );
+      case "pending-review":
+        return (
+          <div className="alert alert-warning">
+            <span className="h4">
+              <PiCircleDuotone className="mr-1" /> Pending Review
+            </span>
+            <div></div>
+          </div>
+        );
+      case "changes-requested":
+        return (
+          <div className="alert alert-danger">
+            <span className="h4">
+              <PiFileX className="mr-1" /> Changes Requested
+            </span>
+          </div>
+        );
+      case "draft":
+        return (
+          <div className="alert alert-warning">
+            <span className="h5">Publishing requires approval.</span>
+          </div>
+        );
+      default:
+        return;
+    }
+  };
   const renderRequestAndViewModal = () => {
     return (
       <Modal
@@ -195,7 +235,7 @@ export default function RequestReviewModal({
                 close();
               }}
             >
-              Discard
+              Discard Draft
             </Button>
           ) : undefined
         }
@@ -216,37 +256,35 @@ export default function RequestReviewModal({
 
         {mergeResult.success && hasChanges && (
           <div>
-            <div
-              className={`callout callout-color-${
-                isPendingReview ? "amber" : "gray"
-              }`}
-            >
-              <div>Publishing requires approval.</div>
-            </div>
+            <div className="mb-2">{showRevisionStatus()}</div>
             {canAdminPublish && (
-              <div className="mt-3 ml-1">
+              <div className="mt-3 mb-4 ml-1">
                 <div className="d-flex">
                   <input
+                    id="adminPublish"
                     type="checkbox"
-                    className="mr-2"
+                    className="mr-2 cursor-pointer"
                     checked={adminPublish}
                     onChange={async (e) => setAdminPublish(e.target.checked)}
                   />
-                  <span className="font-weight-bold mr-1">
-                    Bypass approval requirement to publish
-                  </span>
-                  (optional for Admins only)
+                  <label
+                    htmlFor="adminPublish"
+                    className="cursor-pointer font-weight-bold mb-0 mr-1"
+                  >
+                    Bypass approval requirement to publish (optional for Admins
+                    only)
+                  </label>
                 </div>
               </div>
             )}
-            <div className="list-group mb-4 mt-4">
+
+            <div className="list-group mb-4">
               <h4 className="mb-3">Diffs by Enviroment</h4>
               {resultDiffs.map((diff) => (
                 <ExpandableDiff {...diff} key={diff.title} />
               ))}
             </div>
             <h4 className="mb-3"> Change Request Log</h4>
-
             <Revisionlog
               feature={feature}
               revision={revision}

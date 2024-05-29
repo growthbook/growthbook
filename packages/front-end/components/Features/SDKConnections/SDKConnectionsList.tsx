@@ -4,26 +4,40 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { BsLightningFill } from "react-icons/bs";
 import { RxDesktop } from "react-icons/rx";
+import { PiShuffle } from "react-icons/pi";
+import {
+  filterProjectsByEnvironment,
+  getDisallowedProjects,
+} from "shared/util";
+import clsx from "clsx";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import StatusCircle from "@/components/Helpers/StatusCircle";
 import ProjectBadges from "@/components/ProjectBadges";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useEnvironments } from "@/services/features";
+import Badge from "@/components/Badge";
 import SDKLanguageLogo from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
 
 export default function SDKConnectionsList() {
   const { data, mutate, error } = useSDKConnections();
+  const connections = data?.connections ?? [];
 
   const [modalOpen, setModalOpen] = useState(false);
 
-  const { projects } = useDefinitions();
+  const environments = useEnvironments();
+  const { projects, project } = useDefinitions();
 
   const router = useRouter();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
+
+  const canCreateSDKConnections = permissionsUtil.canViewCreateSDKConnectionModal(
+    project
+  );
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -31,8 +45,6 @@ export default function SDKConnectionsList() {
   if (!data) {
     return <LoadingOverlay />;
   }
-
-  const connections = data.connections;
 
   return (
     <div>
@@ -48,7 +60,7 @@ export default function SDKConnectionsList() {
         <div className="col-auto">
           <h1 className="mb-0">SDK Connections</h1>
         </div>
-        {connections.length > 0 ? (
+        {connections.length > 0 && canCreateSDKConnections ? (
           <div className="col-auto ml-auto">
             <button
               className="btn btn-primary"
@@ -84,6 +96,29 @@ export default function SDKConnectionsList() {
                 connection.connected &&
                 (!hasProxy || connection.proxy.connected);
 
+              const environment = environments.find(
+                (e) => e.id === connection.environment
+              );
+              const envProjects = environment?.projects ?? [];
+              const filteredProjectIds = filterProjectsByEnvironment(
+                connection.projects,
+                environment,
+                true
+              );
+              const showAllEnvironmentProjects =
+                connection.projects.length === 0 &&
+                filteredProjectIds.length > 0;
+              const disallowedProjects = getDisallowedProjects(
+                projects,
+                connection?.projects ?? [],
+                environment
+              );
+              const disallowedProjectIds = disallowedProjects.map((p) => p.id);
+              const filteredProjectIdsWithDisallowed = [
+                ...filteredProjectIds,
+                ...disallowedProjectIds,
+              ];
+
               return (
                 <tr
                   key={connection.id}
@@ -114,15 +149,31 @@ export default function SDKConnectionsList() {
                     </Link>
                   </td>
                   {projects.length > 0 && (
-                    <td className="d-flex align-items-center">
-                      <ProjectBadges
-                        projectIds={
-                          connection.projects.length
-                            ? connection.projects
-                            : undefined
-                        }
-                        resourceType="sdk connection"
-                      />
+                    <td>
+                      {showAllEnvironmentProjects && (
+                        <Badge
+                          content={`All env projects (${envProjects.length})`}
+                          key="All env projects"
+                          className="badge-muted-info border-info"
+                          skipMargin={true}
+                        />
+                      )}
+                      <div
+                        className={clsx("d-flex align-items-center", {
+                          "small mt-1": showAllEnvironmentProjects,
+                        })}
+                      >
+                        <ProjectBadges
+                          projectIds={
+                            filteredProjectIdsWithDisallowed.length
+                              ? filteredProjectIdsWithDisallowed
+                              : undefined
+                          }
+                          invalidProjectIds={disallowedProjectIds}
+                          invalidProjectMessage="This project is not allowed in the selected environment and will not be included in the SDK payload."
+                          resourceType="sdk connection"
+                        />
+                      </div>
                     </td>
                   )}
                   <td>{connection.environment}</td>
@@ -185,12 +236,26 @@ export default function SDKConnectionsList() {
                         <RxDesktop className="mx-1 text-blue" />
                       </Tooltip>
                     )}
+                    {connection.includeRedirectExperiments && (
+                      <Tooltip
+                        body={
+                          <>
+                            <strong>URL Redirects</strong> are supported
+                          </>
+                        }
+                      >
+                        <PiShuffle className="mx-1 text-blue" />
+                      </Tooltip>
+                    )}
                   </td>
                   <td style={{ maxWidth: 200 }}>
                     <div className="d-flex flex-wrap">
                       {connection.languages.map((language) => (
                         <span className="mx-1" key={language}>
-                          <SDKLanguageLogo language={language} />
+                          <SDKLanguageLogo
+                            language={language}
+                            hideExtra={true}
+                          />
                         </span>
                       ))}
                     </div>
@@ -205,7 +270,7 @@ export default function SDKConnectionsList() {
         </table>
       )}
 
-      {permissions.check("manageEnvironments", "", []) && (
+      {canCreateSDKConnections ? (
         <>
           {connections.length === 0 ? (
             <div className="appbox p-5 text-center">
@@ -225,7 +290,7 @@ export default function SDKConnectionsList() {
             </div>
           ) : null}
         </>
-      )}
+      ) : null}
     </div>
   );
 }

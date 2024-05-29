@@ -6,7 +6,6 @@ import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "back-end/types/project";
 import { getScopedSettings } from "shared/settings";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import usePermissions from "@/hooks/usePermissions";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import Button from "@/components/Button";
@@ -16,6 +15,7 @@ import MemberList from "@/components/Settings/Team/MemberList";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 function hasChanges(value: ProjectSettings, existing: ProjectSettings) {
   if (!existing) return true;
@@ -43,10 +43,10 @@ const ProjectPage: FC = () => {
   const [saveMsg, setSaveMsg] = useState(false);
   const [originalValue, setOriginalValue] = useState<ProjectSettings>({});
 
-  const permissions = usePermissions();
-  const canEditSettings = permissions.check("manageProjects", pid);
+  const permissionsUtil = usePermissionsUtil();
+  const canEditSettings = permissionsUtil.canUpdateProject(pid);
   // todo: should this also be project scoped?
-  const canManageTeam = permissions.check("manageTeam");
+  const canManageTeam = permissionsUtil.canManageTeam();
 
   const form = useForm<ProjectSettings>();
 
@@ -118,7 +118,7 @@ const ProjectPage: FC = () => {
       <div className="container pagecontents">
         <div className="mb-2">
           <Link href="/projects">
-            <GBCircleArrowLeft />
+            <GBCircleArrowLeft className="mr-1" />
             Back to all projects
           </Link>
         </div>

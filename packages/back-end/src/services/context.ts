@@ -1,13 +1,9 @@
-import {
-  ReadAccessFilter,
-  getReadAccessFilter,
-  userHasPermission,
-} from "shared/permissions";
+import { Permissions, userHasPermission } from "shared/permissions";
 import { uniq } from "lodash";
-import pino from "pino";
-import { Request } from "express";
+import type pino from "pino";
+import type { Request } from "express";
+import { CommercialFeature, orgHasPremiumFeature } from "enterprise";
 import {
-  MemberRole,
   OrganizationInterface,
   Permission,
   UserPermissions,
@@ -16,34 +12,44 @@ import { EventAuditUser } from "../events/event-types";
 import {
   getUserPermissions,
   roleToPermissionMap,
+  getEnvironmentIdsFromOrg,
 } from "../util/organization.util";
 import { TeamInterface } from "../../types/team";
+import { FactMetricModel } from "../models/FactMetricModel";
 import { ProjectInterface } from "../../types/project";
 import { findAllProjectsByOrganization } from "../models/ProjectModel";
 import { addTags, getAllTags } from "../models/TagModel";
 import { AuditInterface } from "../../types/audit";
 import { insertAudit } from "../models/AuditModel";
 import { logger } from "../util/logger";
-import { ReqContextInterface } from "../../types/context";
-import { getEnvironmentIdsFromOrg } from "./organizations";
 
-export class ReqContextClass implements ReqContextInterface {
+export class ReqContextClass {
+  // Models
+  public models!: {
+    factMetrics: FactMetricModel;
+  };
+  private initModels() {
+    this.models = {
+      factMetrics: new FactMetricModel(this),
+    };
+  }
+
   public org: OrganizationInterface;
   public userId = "";
   public email = "";
   public userName = "";
   public superAdmin = false;
   public teams: TeamInterface[] = [];
-  public role?: MemberRole;
+  public role?: string;
   public isApiRequest = false;
   public environments: string[];
-  public readAccessFilter: ReadAccessFilter;
   public auditUser: EventAuditUser;
   public apiKey?: string;
   public req?: Request;
   public logger: pino.BaseLogger;
+  public permissions: Permissions;
 
-  protected permissions: UserPermissions;
+  protected userPermissions: UserPermissions;
 
   public constructor({
     org,
@@ -62,7 +68,7 @@ export class ReqContextClass implements ReqContextInterface {
       superAdmin?: boolean;
     };
     apiKey?: string;
-    role?: MemberRole;
+    role?: string;
     teams?: TeamInterface[];
     auditUser: EventAuditUser;
     req?: Request;
@@ -90,7 +96,7 @@ export class ReqContextClass implements ReqContextInterface {
       this.email = user.email;
       this.userName = user.name || "";
       this.superAdmin = user.superAdmin || false;
-      this.permissions = getUserPermissions(user.id, org, teams || []);
+      this.userPermissions = getUserPermissions(user.id, org, teams || []);
     }
     // If an API key or background job is making this request
     else {
@@ -98,7 +104,7 @@ export class ReqContextClass implements ReqContextInterface {
         throw new Error("Role must be provided for API key or background job");
       }
 
-      this.permissions = {
+      this.userPermissions = {
         global: {
           permissions: roleToPermissionMap(role, org),
           limitAccessByEnvironment: false,
@@ -107,7 +113,10 @@ export class ReqContextClass implements ReqContextInterface {
         projects: {},
       };
     }
-    this.readAccessFilter = getReadAccessFilter(this.permissions);
+
+    this.permissions = new Permissions(this.userPermissions, this.superAdmin);
+
+    this.initModels();
   }
 
   // Check permissions
@@ -118,7 +127,7 @@ export class ReqContextClass implements ReqContextInterface {
   ) {
     return userHasPermission(
       this.superAdmin,
-      this.permissions,
+      this.userPermissions,
       permission,
       project,
       envs ? [...envs] : undefined
@@ -134,6 +143,10 @@ export class ReqContextClass implements ReqContextInterface {
     if (!this.hasPermission(permission, project, envs)) {
       throw new Error("You do not have permission to complete that action.");
     }
+  }
+
+  public hasPremiumFeature(feature: CommercialFeature) {
+    return orgHasPremiumFeature(this.org, feature);
   }
 
   // Record an audit log entry

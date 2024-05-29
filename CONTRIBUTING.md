@@ -7,7 +7,7 @@ If you just want to contribute a client library in a new language and not make c
 ## Requirements
 
 - MacOS or Linux (Windows may work too, but we haven't tested it)
-- [NodeJS](https://nodejs.org/en/download/package-manager/) between 16.x and 18.x
+- [NodeJS](https://nodejs.org/en/download/package-manager/) 16.x or above
   - Check version by running `node -v` on terminal
 - [Yarn](https://classic.yarnpkg.com/en/docs/install)
 - [Python](https://www.python.org/downloads/) 3.8+ (for the stats engine)
@@ -160,19 +160,22 @@ Releasing SDK updates is a very manual process right now. It requires bumping ve
    - Add new entry to `packages/sdk-js/CHANGELOG.md`
    - Add new entry to `packages/shared/src/sdk-versioning/sdk-versions/javascript.json`
    - Add new entry to `packages/shared/src/sdk-versioning/sdk-versions/nodejs.json`
+   - If any new capabilities were introduced and they work by default, update `packages/shared/src/sdk-versioning/sdk-versions/nocode.json`.
+   - Update resolutions in `package.json`
 3. Bump versions of the React SDK
    - Bump version in `packages/sdk-react/package.json`
    - Bump dependency version in `package/front-end/package.json`
    - Add new entry to `packages/shared/src/sdk-versioning/sdk-versions/react.json`
 4. Do a global search for the old version strings for both Javascript and React to make sure nothing was missed. Update these instructions if needed.
-5. Create a PR and let CI complete successfully
-6. Publish the Javascript SDK
+5. Run `yarn install`. There should be zero changes to `yarn.lock`. If there are, you missed something above.
+6. Create a PR and let CI complete successfully. Use the changelog entry as the PR description.
+7. Publish the Javascript SDK
    - `yarn build`
    - `npm publish`
-7. Publish the React SDK
+8. Publish the React SDK
    - `yarn build`
    - `npm publish`
-8. Merge the PR
+9. Merge the PR
 
 ### Working on the stats engine
 

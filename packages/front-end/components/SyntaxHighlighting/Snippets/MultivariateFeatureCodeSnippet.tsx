@@ -214,6 +214,71 @@ Console.WriteLine(value);
       />
     );
   }
+  if (language === "elixir") {
+    return (
+      <Code
+        language="elixir"
+        code={`
+feature = GrowthBook.feature(context, ${JSON.stringify(featureId)})
+IO.inspect(feature.value)
+    `.trim()}
+      />
+    );
+  }
+  if (language === "edge-cloudflare") {
+    return (
+      <Code
+        language="javascript"
+        code={`
+if (growthbook.isOn("my-feature")) {
+  return new Response("<h1>foo</h1>");
+}
+return new Response("<h1>bar</h1>");
+        `.trim()}
+      />
+    );
+  }
+  if (language === "edge-fastly") {
+    return (
+      <Code
+        language="javascript"
+        code={`
+if (growthbook.isOn("my-feature")) {
+  return new Response("<h1>foo</h1>");
+}
+return new Response("<h1>bar</h1>");
+        `.trim()}
+      />
+    );
+  }
+  if (language === "edge-lambda") {
+    return (
+      <Code
+        language="javascript"
+        code={`
+if (growthbook.isOn("my-feature")) {
+  const resp = { status: "200", body: "<h1>foo</h1>" };
+  callback(null, resp);
+}
+const resp = { status: "200", body: "<h1>bar</h1>" };
+callback(null, resp);
+        `.trim()}
+      />
+    );
+  }
+  if (language === "edge-other") {
+    return (
+      <Code
+        language="javascript"
+        code={`
+if (growthbook.isOn("my-feature")) {
+  return new Response("<h1>foo</h1>");
+}
+return new Response("<h1>bar</h1>");
+        `.trim()}
+      />
+    );
+  }
 
   return <em>Depends on your platform</em>;
 }

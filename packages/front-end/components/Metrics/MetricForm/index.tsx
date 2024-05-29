@@ -8,8 +8,11 @@ import {
 import { useFieldArray, useForm } from "react-hook-form";
 import { FaArrowRight, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import {
+  DEFAULT_LOSE_RISK_THRESHOLD,
+  DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { isProjectListValidForProject } from "shared/util";
@@ -17,11 +20,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
-import {
-  defaultLoseRiskThreshold,
-  defaultWinRiskThreshold,
-  getMetricFormatter,
-} from "@/services/metrics";
+import { getMetricFormatter } from "@/services/metrics";
 import { useAuth } from "@/services/auth";
 import RadioSelector from "@/components/Forms/RadioSelector";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -41,11 +40,12 @@ import { useUser } from "@/services/UserContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import useSchemaFormOptions from "@/hooks/useSchemaFormOptions";
 import { GBCuped } from "@/components/Icons";
-import usePermissions from "@/hooks/usePermissions";
 import { useCurrency } from "@/hooks/useCurrency";
 import ConfirmModal from "@/components/ConfirmModal";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
 import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
 import { MetricDelayHours } from "./MetricDelayHours";
@@ -215,7 +215,7 @@ const MetricForm: FC<MetricFormProps> = ({
   } = useDefinitions();
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
@@ -334,8 +334,8 @@ const MetricForm: FC<MetricFormProps> = ({
           : project
           ? [project]
           : [],
-      winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
-      loseRisk: (current.loseRisk || defaultLoseRiskThreshold) * 100,
+      winRisk: (current.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100,
+      loseRisk: (current.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100,
       maxPercentChange: getMaxPercentageChangeForMetric(current) * 100,
       minPercentChange: getMinPercentageChangeForMetric(current) * 100,
       minSampleSize: getMinSampleSizeForMetric(current),
@@ -348,6 +348,14 @@ const MetricForm: FC<MetricFormProps> = ({
         current.regressionAdjustmentDays ??
         settings.regressionAdjustmentDays ??
         DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+      priorSettings:
+        current.priorSettings ||
+        (metricDefaults.priorSettings ?? {
+          override: false,
+          proper: false,
+          mean: 0,
+          stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+        }),
     },
   });
 
@@ -380,6 +388,7 @@ const MetricForm: FC<MetricFormProps> = ({
     regressionAdjustmentOverride: form.watch("regressionAdjustmentOverride"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
+    priorSettings: form.watch("priorSettings"),
   };
 
   // We want to show a warning when someone tries to create a metric for just the demo project
@@ -408,9 +417,7 @@ const MetricForm: FC<MetricFormProps> = ({
         // If the numerator has a value (not binomial),
         // then count metrics can be used as the denominator as well (as long as they don't have their own denominator)
         // This makes it act like a true ratio metric
-        return (
-          value.type !== "binomial" && m.type === "count" && !m.denominator
-        );
+        return value.type !== "binomial" && !m.denominator;
       })
       .map((m) => {
         return {
@@ -580,15 +587,13 @@ const MetricForm: FC<MetricFormProps> = ({
   );
 
   let ctaEnabled = true;
-  let disabledMessage = null;
+  let disabledMessage: string | null = null;
 
   if (riskError) {
     ctaEnabled = false;
-    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '"The acceptable risk percentage cannot be hi... Remove this comment to see the full error message
     disabledMessage = riskError;
-  } else if (!permissions.check("createMetrics", project)) {
+  } else if (!permissionsUtil.canCreateMetric({ projects: value.projects })) {
     ctaEnabled = false;
-    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '"You don't have permission to create metrics... Remove this comment to see the full error message
     disabledMessage = "You don't have permission to create metrics.";
   }
 
@@ -1215,6 +1220,15 @@ const MetricForm: FC<MetricFormProps> = ({
           ) : (
             <>
               <MetricDelayHours form={form} />
+
+              <MetricPriorSettingsForm
+                priorSettings={form.watch("priorSettings")}
+                setPriorSettings={(priorSettings) =>
+                  form.setValue("priorSettings", priorSettings)
+                }
+                metricDefaults={metricDefaults}
+              />
+
               {ignoreNullsSupported && value.type !== "binomial" && (
                 <div className="form-group">
                   <SelectField
@@ -1301,9 +1315,6 @@ const MetricForm: FC<MetricFormProps> = ({
                   <GBCuped /> Regression Adjustment (CUPED)
                 </label>
               </PremiumTooltip>
-              <small className="d-block mb-1 text-muted">
-                Only applicable to frequentist analyses
-              </small>
               <div className="px-3 py-2 pb-0 mb-2 border rounded">
                 {regressionAdjustmentAvailableForMetric ? (
                   <>

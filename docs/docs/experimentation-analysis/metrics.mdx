@@ -27,7 +27,7 @@ Metrics can have different units and statistical distributions. Below are the on
 For experiment analysis, each of these metric types uses some aggregation (often defaulting to `SUM`) per user and then takes an average with respect to the total number of users. In the case of SQL metrics, the only meaningful difference between count, duration, and revenue is how we render the units in the metric and experiment results pages.
 
 :::note
-Revenue Metrics are displayed in USD by default. You can change your display currency under **Settings** > **General** > **Metric Settings**
+Revenue Metrics are displayed in USD by default. You can change your display currency under **Settings** → **General** → **Metric Settings**
 :::
 
 ## Query settings
@@ -168,6 +168,10 @@ For example, if you want to look at the Average Order Value (AOV), what you're r
 
 1. `Orders per User` - selects the count of orders for each user
 2. `AOV` - selects total revenue per user and picks `Orders per User` as the denominator.
+
+##### Quantile Metrics
+
+[Quantile Metrics](/statistics/quantile) are available only as Fact Tables, as described [here](/app/fact-tables).
 
 ### 2. Javascript (Mixpanel only)
 

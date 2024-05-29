@@ -157,6 +157,12 @@ export default function EditTargetingModal({
       forceConditionRender();
     });
 
+    if (value.prerequisites) {
+      if (value.prerequisites.some((p) => !p.id)) {
+        throw new Error("Cannot have empty prerequisites");
+      }
+    }
+
     if (prerequisiteTargetingSdkIssues) {
       throw new Error("Prerequisite targeting issues must be resolved");
     }
@@ -230,16 +236,17 @@ export default function EditTargetingModal({
       }}
       secondaryCTA={
         step === lastStepNumber ? (
-          <div className="col ml-1 pl-0" style={{ minWidth: 500 }}>
-            <div className="d-flex m-0 pl-3 pr-2 py-1 alert alert-warning">
+          <div className="col ml-1 pl-0" style={{ minWidth: 520 }}>
+            <div className="d-flex m-0 pl-2 pr-2 py-1 alert alert-warning align-items-center">
               <div>
-                <strong>Warning:</strong> Changes made will apply to all linked
-                Feature Flags and Visual Editor changes immediately upon
-                publishing.
+                <strong>Warning:</strong> Changes made will apply to linked
+                Feature Flags, Visual Changes, and URL Redirects immediately
+                upon publishing.
               </div>
               <label
                 htmlFor="confirm-changes"
                 className="btn btn-sm btn-warning d-flex my-1 ml-1 px-2 d-flex align-items-center justify-content-md-center"
+                style={{ height: 35 }}
               >
                 <strong className="mr-2 user-select-none">Confirm</strong>
                 <input
@@ -394,9 +401,25 @@ function TargetingForm({
   const hasLinkedChanges =
     !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
 
-  const attributeSchema = useAttributeSchema();
+  const attributeSchema = useAttributeSchema(false, experiment.project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
+
+  const hashAttributeOptions = attributeSchema
+    .filter((s) => !hasHashAttributes || s.hashAttribute)
+    .map((s) => ({ label: s.property, value: s.property }));
+
+  // If the current hashAttribute isn't in the list, add it for backwards compatibility
+  // this could happen if the hashAttribute has been archived, or removed from the experiment's project after the experiment was creaetd
+  if (
+    form.watch("hashAttribute") &&
+    !hashAttributeOptions.find((o) => o.value === form.watch("hashAttribute"))
+  ) {
+    hashAttributeOptions.push({
+      label: form.watch("hashAttribute"),
+      value: form.watch("hashAttribute"),
+    });
+  }
 
   const { getDatasourceById } = useDefinitions();
   const datasource = experiment.datasource
@@ -436,9 +459,7 @@ function TargetingForm({
               containerClassName="flex-1"
               label="Assign variation based on attribute"
               labelClassName="font-weight-bold"
-              options={attributeSchema
-                .filter((s) => !hasHashAttributes || s.hashAttribute)
-                .map((s) => ({ label: s.property, value: s.property }))}
+              options={hashAttributeOptions}
               sort={false}
               value={form.watch("hashAttribute")}
               onChange={(v) => {
@@ -448,7 +469,10 @@ function TargetingForm({
                 "Will be hashed together with the Tracking Key to determine which variation to assign"
               }
             />
-            <FallbackAttributeSelector form={form} />
+            <FallbackAttributeSelector
+              form={form}
+              attributeSchema={attributeSchema}
+            />
           </div>
           <HashVersionSelector
             value={form.watch("hashVersion")}
@@ -480,6 +504,7 @@ function TargetingForm({
             defaultValue={form.watch("condition")}
             onChange={(condition) => form.setValue("condition", condition)}
             key={conditionKey}
+            project={experiment.project || ""}
           />
           <hr />
           <PrerequisiteTargetingField
@@ -488,6 +513,7 @@ function TargetingForm({
               form.setValue("prerequisites", prerequisites)
             }
             environments={envs}
+            project={experiment.project}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }

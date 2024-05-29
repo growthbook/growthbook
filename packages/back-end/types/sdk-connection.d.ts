@@ -23,6 +23,7 @@ export type EditSDKConnectionParams = {
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  includeRedirectExperiments?: boolean;
   remoteEvalEnabled?: boolean;
 };
 export type CreateSDKConnectionParams = {
@@ -39,6 +40,7 @@ export type CreateSDKConnectionParams = {
   includeVisualExperiments: boolean;
   includeDraftExperiments: boolean;
   includeExperimentNames: boolean;
+  includeRedirectExperiments: boolean;
   remoteEvalEnabled?: boolean;
 };
 
@@ -59,6 +61,11 @@ export type SDKLanguage =
   | "android"
   | "ios"
   | "flutter"
+  | "elixir"
+  | "edge-cloudflare"
+  | "edge-fastly"
+  | "edge-lambda"
+  | "edge-other"
   | "other";
 
 export interface SDKConnectionInterface {
@@ -82,6 +89,7 @@ export interface SDKConnectionInterface {
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  includeRedirectExperiments?: boolean;
 
   // URL slug for fetching features from the API
   key: string;

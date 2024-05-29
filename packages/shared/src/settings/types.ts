@@ -12,6 +12,7 @@ import {
   ExperimentUpdateSchedule,
   MemberRoleInfo,
   OrganizationInterface,
+  RequireReview,
 } from "back-end/types/organization";
 import { StatsEngine } from "back-end/types/stats";
 import { ProjectInterface } from "back-end/types/project";
@@ -80,7 +81,9 @@ interface BaseSettings {
   attributionModel: AttributionModel;
   secureAttributeSalt: string;
   killswitchConfirmation: boolean;
-  requireReviews: boolean;
+  requireReviews: boolean | RequireReview[];
+  featureKeyExample: string;
+  featureRegexValidator: string;
 }
 
 // todo: encapsulate all settings, including experiment

@@ -85,7 +85,7 @@ export default function RuleModal({
   setVersion,
   revisions,
 }: Props) {
-  const attributeSchema = useAttributeSchema();
+  const attributeSchema = useAttributeSchema(false, feature.project);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const { namespaces } = useOrgSettings();
@@ -171,10 +171,11 @@ export default function RuleModal({
     if (newRevision) {
       // merge form values into revision
       const newRule = form.getValues() as FeatureRule;
+      newRevision.rules[environment] = newRevision.rules[environment] || [];
       newRevision.rules[environment][i] = newRule;
     }
     const featuresMap = new Map(features.map((f) => [f.id, f]));
-    return isFeatureCyclic(newFeature, featuresMap, newRevision);
+    return isFeatureCyclic(newFeature, featuresMap, newRevision, [environment]);
   }, [
     // eslint-disable-next-line react-hooks/exhaustive-deps
     JSON.stringify(prerequisites),
@@ -680,6 +681,8 @@ export default function RuleModal({
                     value={form.watch(`variations.${i}.value`) || ""}
                     setValue={(v) => form.setValue(`variations.${i}.value`, v)}
                     valueType={feature.valueType}
+                    feature={feature}
+                    renderJSONInline={false}
                   />
                 ))}
               </div>
@@ -708,6 +711,8 @@ export default function RuleModal({
           value={form.watch("value")}
           setValue={(v) => form.setValue("value", v)}
           valueType={feature.valueType}
+          feature={feature}
+          renderJSONInline={true}
         />
       )}
 
@@ -719,6 +724,8 @@ export default function RuleModal({
             value={form.watch("value")}
             setValue={(v) => form.setValue("value", v)}
             valueType={feature.valueType}
+            feature={feature}
+            renderJSONInline={true}
           />
           <div className="appbox mt-4 mb-4 px-3 pt-3 bg-light">
             <RolloutPercentInput
@@ -810,6 +817,7 @@ export default function RuleModal({
             defaultValue={form.watch("condition") || ""}
             onChange={(value) => form.setValue("condition", value)}
             key={conditionKey}
+            project={feature.project || ""}
           />
           <hr />
           <PrerequisiteTargetingField
@@ -859,6 +867,7 @@ export default function RuleModal({
                 }) || []
             }
             setVariations={(variations) => form.setValue("values", variations)}
+            feature={feature}
           />
           {namespaces && namespaces.length > 0 && (
             <NamespaceSelector

@@ -9,6 +9,7 @@ import { useEnvironments } from "@/services/features";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
+import { useUser } from "@/services/UserContext";
 
 const PendingMemberList: FC<{
   pendingMembers: PendingMember[];
@@ -21,10 +22,15 @@ const PendingMemberList: FC<{
   );
   const { projects } = useDefinitions();
   const environments = useEnvironments();
+  const { organization } = useUser();
 
   return (
     <div className="my-4">
       <h5>Pending Members{` (${pendingMembers.length})`}</h5>
+      <div className="text-muted mb-2">
+        Members who have requested to join this organization. They must be
+        manually approved.
+      </div>
       {roleModalUser && (
         <ChangeRoleModal
           displayInfo={roleModalUser.name || roleModalUser.email}
@@ -82,7 +88,7 @@ const PendingMemberList: FC<{
                             <ProjectBadges
                               resourceType="member"
                               projectIds={[p.id]}
-                              className="badge-ellipsis align-middle font-weight-normal"
+                              className="badge-ellipsis short align-middle font-weight-normal"
                             />
                             — {pr.role}
                           </div>
@@ -93,7 +99,11 @@ const PendingMemberList: FC<{
                   </td>
                 )}
                 {environments.map((env) => {
-                  const access = roleHasAccessToEnv(roleInfo, env.id);
+                  const access = roleHasAccessToEnv(
+                    roleInfo,
+                    env.id,
+                    organization
+                  );
                   return (
                     <td key={env.id}>
                       {access === "N/A" ? (

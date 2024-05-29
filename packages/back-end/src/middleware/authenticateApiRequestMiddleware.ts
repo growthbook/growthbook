@@ -6,11 +6,7 @@ import { getOrganizationById } from "../services/organizations";
 import { getCustomLogProps } from "../util/logger";
 import { EventAuditUserApiKey } from "../events/event-types";
 import { isApiKeyForUserInOrganization } from "../util/api-key.util";
-import {
-  MemberRole,
-  OrganizationInterface,
-  Permission,
-} from "../../types/organization";
+import { OrganizationInterface, Permission } from "../../types/organization";
 import {
   getUserPermissions,
   roleToPermissionMap,
@@ -19,7 +15,7 @@ import { ApiKeyInterface } from "../../types/apikey";
 import { getTeamsForOrganization } from "../models/TeamModel";
 import { TeamInterface } from "../../types/team";
 import { getUserById } from "../services/users";
-import { initializeLicense } from "../services/licenseData";
+import { initializeLicenseForOrg } from "../services/licenseData";
 import { ReqContextClass } from "../services/context";
 
 export default function authenticateApiRequestMiddleware(
@@ -126,7 +122,7 @@ export default function authenticateApiRequestMiddleware(
         auditUser: eventAudit,
         teams,
         user: req.user,
-        role: role as MemberRole | undefined,
+        role: role,
         apiKey: id,
         req,
       });
@@ -171,7 +167,7 @@ export default function authenticateApiRequestMiddleware(
       };
 
       // init license for org if it exists
-      await initializeLicense(req.organization.licenseKey);
+      await initializeLicenseForOrg(req.organization);
 
       // Continue to the actual request handler
       next();
@@ -252,7 +248,7 @@ export function verifyApiKeyPermission({
     // Because of the JIT migration, `role` will always be set here, even for old secret keys
     // This will check a valid role is provided.
     const rolePermissions = roleToPermissionMap(
-      apiKey.role as MemberRole,
+      apiKey.role as string,
       organization
     );
 

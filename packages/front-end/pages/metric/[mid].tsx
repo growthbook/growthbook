@@ -21,6 +21,10 @@ import { BsGear } from "react-icons/bs";
 import { IdeaInterface } from "back-end/types/idea";
 import { date } from "shared/dates";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import {
+  DEFAULT_LOSE_RISK_THRESHOLD,
+  DEFAULT_WIN_RISK_THRESHOLD,
+} from "shared/constants";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -28,13 +32,8 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
-import {
-  defaultWinRiskThreshold,
-  defaultLoseRiskThreshold,
-  checkMetricProjectPermissions,
-  getMetricFormatter,
-} from "@/services/metrics";
-import MetricForm from "@/components/Metrics/MetricForm";
+import { getMetricFormatter } from "@/services/metrics";
+import MetricForm, { usesValueColumn } from "@/components/Metrics/MetricForm";
 import Tabs from "@/components/Tabs/Tabs";
 import Tab from "@/components/Tabs/Tab";
 import StatusIndicator from "@/components/Experiment/StatusIndicator";
@@ -53,7 +52,6 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import PickSegmentModal from "@/components/Segments/PickSegmentModal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/components/Button";
-import usePermissions from "@/hooks/usePermissions";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
@@ -69,11 +67,13 @@ import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
 
 const MetricPage: FC = () => {
   const router = useRouter();
   const { mid } = router.query;
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const displayCurrency = useCurrency();
   const { apiCall } = useAuth();
   const {
@@ -115,6 +115,7 @@ const MetricPage: FC = () => {
   }>(`/metric/${mid}`);
 
   const {
+    metricDefaults,
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
@@ -138,12 +139,14 @@ const MetricPage: FC = () => {
 
   const metric = data.metric;
   const canEditMetric =
-    checkMetricProjectPermissions(metric, permissions) && !metric.managedBy;
-  const canEditProjects =
-    permissions.check("createMetrics", "") && !metric.managedBy;
+    permissionsUtil.canUpdateMetric(metric, {}) && !metric.managedBy;
+  const canDeleteMetric =
+    permissionsUtil.canDeleteMetric(metric) && !metric.managedBy;
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
+  const canRunMetricQuery =
+    datasource && permissionsUtil.canRunMetricQueries(datasource);
   const experiments = data.experiments;
 
   let analysis = data.metric.analysis || null;
@@ -339,8 +342,8 @@ const MetricPage: FC = () => {
               method: "PUT",
               body: JSON.stringify({ owner }),
             });
-            mutate();
           }}
+          mutate={mutate}
         />
       )}
       {segmentOpen && (
@@ -403,9 +406,9 @@ const MetricPage: FC = () => {
           <MetricName id={metric.id} />
         </h1>
         <div style={{ flex: 1 }} />
-        {canEditMetric && (
-          <div className="col-auto">
-            <MoreMenu>
+        <div className="col-auto">
+          <MoreMenu>
+            {canDeleteMetric ? (
               <DeleteButton
                 className="btn dropdown-item py-2"
                 text="Delete"
@@ -421,6 +424,8 @@ const MetricPage: FC = () => {
                 useIcon={true}
                 displayName={"Metric '" + metric.name + "'"}
               />
+            ) : null}
+            {canEditMetric ? (
               <Button
                 className="btn dropdown-item py-2"
                 color=""
@@ -440,9 +445,9 @@ const MetricPage: FC = () => {
                 <FaArchive />{" "}
                 {metric.status === "archived" ? "Unarchive" : "Archive"}
               </Button>
-            </MoreMenu>
-          </div>
-        )}
+            ) : null}
+          </MoreMenu>
+        </div>
       </div>
       <div className="row mb-3 align-items-center">
         <div className="col">
@@ -459,7 +464,7 @@ const MetricPage: FC = () => {
               className="badge-ellipsis align-middle"
             />
           )}
-          {canEditProjects && (
+          {canEditMetric && (
             <a
               href="#"
               className="ml-2"
@@ -565,30 +570,23 @@ const MetricPage: FC = () => {
                               ) : (
                                 <span className="mr-1">Apply a segment</span>
                               )}
-                              {canEditMetric &&
-                                permissions.check(
-                                  "runQueries",
-                                  metric.projects || []
-                                ) && (
-                                  <a
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      setSegmentOpen(true);
-                                    }}
-                                    href="#"
-                                  >
-                                    <BsGear />
-                                  </a>
-                                )}
+                              {canEditMetric && canRunMetricQuery && (
+                                <a
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setSegmentOpen(true);
+                                  }}
+                                  href="#"
+                                >
+                                  <BsGear />
+                                </a>
+                              )}
                             </>
                           )}
                         </div>
                         <div style={{ flex: 1 }} />
                         <div className="col-auto">
-                          {permissions.check(
-                            "runQueries",
-                            metric.projects || []
-                          ) && (
+                          {canRunMetricQuery && (
                             <form
                               onSubmit={async (e) => {
                                 e.preventDefault();
@@ -845,8 +843,10 @@ const MetricPage: FC = () => {
                       {!analysis && (
                         <div>
                           <em>
-                            No data for this metric yet. Click the Run Analysis
-                            button above.
+                            No data for this metric yet.{" "}
+                            {canRunMetricQuery
+                              ? "Click the Run Analysis button above."
+                              : null}
                           </em>
                         </div>
                       )}
@@ -895,7 +895,11 @@ const MetricPage: FC = () => {
             </Tab>
             <Tab display="Discussion" anchor="discussion" lazy={true}>
               <h3>Comments</h3>
-              <DiscussionThread type="metric" id={data.metric.id} />
+              <DiscussionThread
+                type="metric"
+                id={data.metric.id}
+                projects={metric.projects || []}
+              />
             </Tab>
             <Tab display="History" anchor="history" lazy={true}>
               <HistoryTable type="metric" id={metric.id} />
@@ -963,7 +967,7 @@ const MetricPage: FC = () => {
             <RightRailSection
               title="Projects"
               open={() => setEditProjects(true)}
-              canOpen={canEditProjects}
+              canOpen={canEditMetric}
             >
               <RightRailSectionGroup>
                 {metric?.projects?.length ? (
@@ -1009,7 +1013,8 @@ const MetricPage: FC = () => {
                         </RightRailSectionGroup>
                       )}
                       {metric.type != "binomial" &&
-                        metric.templateVariables?.valueColumn && (
+                        metric.templateVariables?.valueColumn &&
+                        usesValueColumn(metric.sql) && (
                           <RightRailSectionGroup
                             title="Value Column"
                             type="custom"
@@ -1278,17 +1283,22 @@ const MetricPage: FC = () => {
                   <li className="mb-2">
                     <span className="text-gray">Acceptable risk &lt;</span>{" "}
                     <span className="font-weight-bold">
-                      {(metric.winRisk || defaultWinRiskThreshold) * 100}%
+                      {(metric.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100}%
                     </span>
                   </li>
                   <li className="mb-2">
                     <span className="text-gray">Unacceptable risk &gt;</span>{" "}
                     <span className="font-weight-bold">
-                      {(metric.loseRisk || defaultLoseRiskThreshold) * 100}%
+                      {(metric.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100}%
                     </span>
                   </li>
                 </ul>
               </RightRailSectionGroup>
+
+              <MetricPriorRightRailSectionGroup
+                metric={metric}
+                metricDefaults={metricDefaults}
+              />
 
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-2">
@@ -1296,9 +1306,6 @@ const MetricPage: FC = () => {
                     <span className="uppercase-title lg">
                       <GBCuped size={14} /> Regression Adjustment (CUPED)
                     </span>
-                    <small className="d-block mb-1 text-muted">
-                      Only applicable to frequentist analyses
-                    </small>
                   </li>
                   {!regressionAdjustmentAvailableForMetric ? (
                     <li className="mb-2">

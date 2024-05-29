@@ -10,23 +10,20 @@ import ProjectBadges from "@/components/ProjectBadges";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useEnvironments } from "@/services/features";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const TeamsList: FC = () => {
-  const { teams, refreshOrganization } = useUser();
+  const { teams, refreshOrganization, organization } = useUser();
   const { projects } = useDefinitions();
   const router = useRouter();
   const environments = useEnvironments();
   const { apiCall } = useAuth();
-  const permissions = usePermissions();
-  const canManageTeam = permissions.check("manageTeam");
+  const permissionsUtil = usePermissionsUtil();
+  const canManageTeam = permissionsUtil.canManageTeam();
 
   return (
-    <div className="my-4">
-      <p>
-        Place organization members into teams to grant permissions by group.
-      </p>
+    <div className="mb-4">
       <div>
         {teams && teams.length > 0 ? (
           <table className="table appbox gbtable table-hover">
@@ -79,7 +76,7 @@ const TeamsList: FC = () => {
                                 <ProjectBadges
                                   resourceType="team"
                                   projectIds={[p.id]}
-                                  className="badge-ellipsis align-middle font-weight-normal"
+                                  className="badge-ellipsis short align-middle font-weight-normal"
                                 />{" "}
                                 — {pr.role}
                               </div>
@@ -89,7 +86,11 @@ const TeamsList: FC = () => {
                         })}
                     </td>
                     {environments.map((env) => {
-                      const access = roleHasAccessToEnv(t, env.id);
+                      const access = roleHasAccessToEnv(
+                        t,
+                        env.id,
+                        organization
+                      );
                       return (
                         <td key={env.id}>
                           {access === "N/A" ? (

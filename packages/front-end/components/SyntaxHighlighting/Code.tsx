@@ -24,6 +24,7 @@ export type Language =
   | "ruby"
   | "json"
   | "javascript"
+  | "typescript"
   | "tsx"
   | "html"
   | "css"
@@ -37,7 +38,8 @@ export type Language =
   | "xml"
   | "dart"
   | "csharp"
-  | "java";
+  | "java"
+  | "elixir";
 
 const LanguageDisplay: Record<string, string> = {
   sh: "Terminal",

@@ -23,12 +23,14 @@
     "migrate-encryption-key": "yarn workspace back-end migrate-encryption-key",
     "generate-api-types": "yarn workspace back-end generate-api-types",
     "ci": "yarn lint:ci && yarn run type-check && yarn run test",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "generate-sdk-report": "yarn workspace shared generate-sdk-report"
   },
   "workspaces": [
     "packages/*"
   ],
   "dependencies": {
+    "patch-package": "^8.0.0",
     "wsrun": "^5.2.4"
   },
   "devDependencies": {
@@ -47,7 +49,6 @@
     "growthbook": "^0.2.1",
     "husky": "^7.0.0",
     "lint-staged": "^10.2.7",
-    "patch-package": "^8.0.0",
     "plop": "^3.1.1",
     "prettier": "^2.2.1",
     "typescript": "5.3.3"
@@ -62,6 +63,9 @@
     "./packages/stats/{gbstats,tests}/**/*.py": [
       "bash -c \"yarn workspace stats lint\" && :"
     ]
+  },
+  "resolutions": {
+    "@growthbook/growthbook": "1.0.0"
   },
   "prettier": {
     "overrides": [

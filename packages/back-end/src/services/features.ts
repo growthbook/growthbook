@@ -5,14 +5,14 @@ import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import { orgHasPremiumFeature } from "enterprise";
 import {
-  FeatureRule as FeatureDefinitionRule,
   AutoExperiment,
+  FeatureRule as FeatureDefinitionRule,
   GrowthBook,
-  ParentConditionInterface,
 } from "@growthbook/growthbook";
 import {
   evalDeterministicPrereqValue,
   evaluatePrerequisiteState,
+  isDefined,
   PrerequisiteStateResult,
   validateCondition,
   validateFeatureValue,
@@ -30,19 +30,20 @@ import {
   FeatureDefinitionWithProject,
 } from "../../types/api";
 import {
+  ExperimentRefRule,
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
+  FeaturePrerequisite,
   FeatureRule,
+  FeatureTestResult,
   ForceRule,
   RolloutRule,
-  FeatureTestResult,
-  ExperimentRefRule,
-  FeaturePrerequisite,
 } from "../../types/feature";
 import { getAllFeatures } from "../models/FeatureModel";
 import {
   getAllPayloadExperiments,
+  getAllURLRedirectExperiments,
   getAllVisualExperiments,
 } from "../models/ExperimentModel";
 import { getFeatureDefinition, getParsedCondition } from "../util/features";
@@ -69,6 +70,7 @@ import {
 import { ArchetypeAttributeValues } from "../../types/archetype";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { triggerWebhookJobs } from "../jobs/updateAllJobs";
+import { URLRedirectInterface } from "../../types/url-redirect";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
@@ -114,18 +116,26 @@ export function generateFeaturesPayload({
 }
 
 export type VisualExperiment = {
+  type: "visual";
   experiment: ExperimentInterface;
   visualChangeset: VisualChangesetInterface;
 };
+export type URLRedirectExperiment = {
+  type: "redirect";
+  experiment: ExperimentInterface;
+  urlRedirect: URLRedirectInterface;
+};
 
-export function generateVisualExperimentsPayload({
+export function generateAutoExperimentsPayload({
   visualExperiments,
+  urlRedirectExperiments,
   groupMap,
   features,
   environment,
   prereqStateCache = {},
 }: {
   visualExperiments: VisualExperiment[];
+  urlRedirectExperiments: URLRedirectExperiment[];
   groupMap: GroupMap;
   features: FeatureInterface[];
   environment: string;
@@ -143,8 +153,22 @@ export function generateVisualExperimentsPayload({
     environment,
     prereqStateCache
   );
-  const sdkExperiments: Array<AutoExperimentWithProject | null> = newVisualExperiments.map(
-    ({ experiment: e, visualChangeset: v }) => {
+
+  const newURLRedirectExperiments = reduceExperimentsWithPrerequisites(
+    urlRedirectExperiments,
+    features,
+    environment,
+    prereqStateCache
+  );
+
+  const sortedAutoExperiments = [
+    ...newURLRedirectExperiments,
+    ...newVisualExperiments,
+  ];
+
+  const sdkExperiments: Array<AutoExperimentWithProject | null> = sortedAutoExperiments.map(
+    (data) => {
+      const { experiment: e } = data;
       if (e.status === "stopped" && e.excludeFromPayload) return null;
 
       const phase: ExperimentPhase | null = e.phases.slice(-1)?.[0] ?? null;
@@ -168,26 +192,58 @@ export function generateVisualExperimentsPayload({
             condition,
           };
         })
-        .filter(Boolean) as ParentConditionInterface[];
+        .filter(isDefined);
 
       if (!phase) return null;
 
+      const implementationId =
+        data.type === "redirect"
+          ? data.urlRedirect.id
+          : data.visualChangeset.id;
+
       const exp: AutoExperimentWithProject = {
         key: e.trackingKey,
+        changeId: sha256(
+          `${e.trackingKey}_${data.type}_${implementationId}`,
+          ""
+        ),
         status: e.status,
         project: e.project,
-        variations: v.visualChanges.map((vc) => ({
-          css: vc.css,
-          js: vc.js || "",
-          domMutations: vc.domMutations,
-        })) as AutoExperimentWithProject["variations"],
+        variations: e.variations.map((v) => {
+          if (data.type === "redirect") {
+            const match = data.urlRedirect.destinationURLs.find(
+              (d) => d.variation === v.id
+            );
+            return {
+              urlRedirect: match?.url || "",
+            };
+          }
+
+          const match = data.visualChangeset.visualChanges.find(
+            (vc) => vc.variation === v.id
+          );
+          return {
+            css: match?.css || "",
+            js: match?.js || "",
+            domMutations: match?.domMutations || [],
+          };
+        }) as AutoExperimentWithProject["variations"],
         hashVersion: e.hashVersion,
         hashAttribute: e.hashAttribute,
         fallbackAttribute: e.fallbackAttribute,
         disableStickyBucketing: e.disableStickyBucketing,
         bucketVersion: e.bucketVersion,
         minBucketVersion: e.minBucketVersion,
-        urlPatterns: v.urlPatterns,
+        urlPatterns:
+          data.type === "redirect"
+            ? [
+                {
+                  include: true,
+                  pattern: data.urlRedirect.urlPattern,
+                  type: "simple",
+                },
+              ]
+            : data.visualChangeset.urlPatterns,
         weights: phase.variationWeights,
         meta: e.variations.map((v) => ({ key: v.key, name: v.name })),
         filters: phase.namespace.enabled
@@ -212,6 +268,10 @@ export function generateVisualExperimentsPayload({
 
       if (prerequisites.length) {
         exp.parentConditions = prerequisites;
+      }
+
+      if (data.type === "redirect" && data.urlRedirect.persistQueryString) {
+        exp.persistQueryString = true;
       }
 
       return exp;
@@ -304,6 +364,10 @@ export async function refreshSDKPayloadCache(
     context,
     experimentMap
   );
+  const allURLRedirectExperiments = await getAllURLRedirectExperiments(
+    context,
+    experimentMap
+  );
 
   // For each affected environment, generate a new SDK payload and update the cache
   const environments = Array.from(
@@ -325,8 +389,9 @@ export async function refreshSDKPayloadCache(
       prereqStateCache,
     });
 
-    const experimentsDefinitions = generateVisualExperimentsPayload({
+    const experimentsDefinitions = generateAutoExperimentsPayload({
       visualExperiments: allVisualExperiments,
+      urlRedirectExperiments: allURLRedirectExperiments,
       groupMap,
       features: allFeatures,
       environment,
@@ -352,7 +417,9 @@ export async function refreshSDKPayloadCache(
   // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
   await promiseAllChunks(promises, 4);
 
-  triggerWebhookJobs(context, payloadKeys, environments, true);
+  triggerWebhookJobs(context, payloadKeys, environments, true).catch((e) => {
+    logger.error(e, "Error triggering webhook jobs");
+  });
 }
 
 export type FeatureDefinitionsResponseArgs = {
@@ -363,6 +430,7 @@ export type FeatureDefinitionsResponseArgs = {
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  includeRedirectExperiments?: boolean;
   attributes?: SDKAttributeSchema;
   secureAttributeSalt?: string;
   projects: string[];
@@ -376,6 +444,7 @@ async function getFeatureDefinitionsResponse({
   includeVisualExperiments,
   includeDraftExperiments,
   includeExperimentNames,
+  includeRedirectExperiments,
   attributes,
   secureAttributeSalt,
   projects,
@@ -449,10 +518,22 @@ async function getFeatureDefinitionsResponse({
   features = scrubFeatures(features, capabilities);
   experiments = scrubExperiments(experiments, capabilities);
 
+  const includeAutoExperiments =
+    !!includeRedirectExperiments || !!includeVisualExperiments;
+
+  if (includeAutoExperiments) {
+    if (!includeRedirectExperiments) {
+      experiments = experiments.filter((e) => e.changeType !== "redirect");
+    }
+    if (!includeVisualExperiments) {
+      experiments = experiments.filter((e) => e.changeType === "redirect");
+    }
+  }
+
   if (!encryptionKey) {
     return {
       features,
-      ...(includeVisualExperiments && { experiments }),
+      ...(includeAutoExperiments && { experiments }),
       dateUpdated,
     };
   }
@@ -461,16 +542,16 @@ async function getFeatureDefinitionsResponse({
     JSON.stringify(features),
     encryptionKey
   );
-  const encryptedExperiments = includeVisualExperiments
+  const encryptedExperiments = includeAutoExperiments
     ? await encrypt(JSON.stringify(experiments || []), encryptionKey)
     : undefined;
 
   return {
     features: {},
-    ...(includeVisualExperiments && { experiments: [] }),
+    ...(includeAutoExperiments && { experiments: [] }),
     dateUpdated,
     encryptedFeatures,
-    ...(includeVisualExperiments && { encryptedExperiments }),
+    ...(includeAutoExperiments && { encryptedExperiments }),
   };
 }
 
@@ -478,11 +559,12 @@ export type FeatureDefinitionArgs = {
   context: ReqContext | ApiReqContext;
   capabilities: SDKCapability[];
   environment?: string;
-  projects?: string[];
+  projects?: string[] | null;
   encryptionKey?: string;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  includeRedirectExperiments?: boolean;
   hashSecureAttributes?: boolean;
 };
 
@@ -503,6 +585,7 @@ export async function getFeatureDefinitions({
   includeVisualExperiments,
   includeDraftExperiments,
   includeExperimentNames,
+  includeRedirectExperiments,
   hashSecureAttributes,
 }: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
   // Return cached payload from Mongo if exists
@@ -512,6 +595,14 @@ export async function getFeatureDefinitions({
       environment,
     });
     if (cached) {
+      if (projects === null) {
+        // null projects have nothing in the payload. They result from environment project scrubbing.
+        return {
+          features: {},
+          experiments: [],
+          dateUpdated: cached.dateUpdated,
+        };
+      }
       let attributes: SDKAttributeSchema | undefined = undefined;
       let secureAttributeSalt: string | undefined = undefined;
       if (hashSecureAttributes) {
@@ -530,6 +621,7 @@ export async function getFeatureDefinitions({
         includeVisualExperiments,
         includeDraftExperiments,
         includeExperimentNames,
+        includeRedirectExperiments,
         attributes,
         secureAttributeSalt,
         projects: projects || [],
@@ -558,6 +650,7 @@ export async function getFeatureDefinitions({
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
+      includeRedirectExperiments,
       attributes,
       secureAttributeSalt,
       projects: projects || [],
@@ -587,10 +680,15 @@ export async function getFeatureDefinitions({
     context,
     experimentMap
   );
+  const allURLRedirectExperiments = await getAllURLRedirectExperiments(
+    context,
+    experimentMap
+  );
 
   // Generate visual experiments
-  const experimentsDefinitions = generateVisualExperimentsPayload({
+  const experimentsDefinitions = generateAutoExperimentsPayload({
     visualExperiments: allVisualExperiments,
+    urlRedirectExperiments: allURLRedirectExperiments,
     groupMap,
     features,
     environment,
@@ -605,6 +703,15 @@ export async function getFeatureDefinitions({
     experimentsDefinitions,
   });
 
+  if (projects === null) {
+    // null projects have nothing in the payload. They result from environment project scrubbing.
+    return {
+      features: {},
+      experiments: [],
+      dateUpdated: new Date(),
+    };
+  }
+
   return await getFeatureDefinitionsResponse({
     features: featureDefinitions,
     experiments: experimentsDefinitions,
@@ -613,6 +720,7 @@ export async function getFeatureDefinitions({
     includeVisualExperiments,
     includeDraftExperiments,
     includeExperimentNames,
+    includeRedirectExperiments,
     attributes,
     secureAttributeSalt,
     projects: projects || [],
@@ -672,7 +780,7 @@ export function evaluateFeature({
         const rulesWithPrereqs: FeatureDefinitionRule[] = [];
         if (scrubPrerequisites) {
           definition.rules = definition.rules
-            ? (definition?.rules
+            ? definition?.rules
                 ?.map((rule) => {
                   if (rule?.parentConditions?.length) {
                     rulesWithPrereqs.push(rule);
@@ -688,7 +796,7 @@ export function evaluateFeature({
                   }
                   return rule;
                 })
-                .filter(Boolean) as FeatureDefinitionRule[])
+                .filter(isDefined)
             : undefined;
         }
 
@@ -1260,23 +1368,25 @@ export const reduceFeaturesWithPrerequisites = (
   return newFeatures;
 };
 
-export const reduceExperimentsWithPrerequisites = (
-  visualExperiments: VisualExperiment[],
+export const reduceExperimentsWithPrerequisites = <
+  T extends { experiment: ExperimentInterface }
+>(
+  experiments: T[],
   features: FeatureInterface[],
   environment: string,
   prereqStateCache: Record<string, Record<string, PrerequisiteStateResult>> = {}
-): VisualExperiment[] => {
+): T[] => {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
   const featuresMap = new Map(features.map((f) => [f.id, f]));
 
-  const newVisualExperiments: VisualExperiment[] = [];
-  for (const visualExperiment of visualExperiments) {
-    const phaseIndex = visualExperiment.experiment.phases.length - 1;
+  const newExperiments: T[] = [];
+  for (const data of experiments) {
+    const phaseIndex = data.experiment.phases.length - 1;
     const phase: ExperimentPhase | null =
-      visualExperiment.experiment.phases?.[phaseIndex] ?? null;
+      data.experiment.phases?.[phaseIndex] ?? null;
     if (!phase) continue;
-    const newVisualExperiment = cloneDeep(visualExperiment);
+    const newData = cloneDeep(data);
 
     const {
       removeRule,
@@ -1288,13 +1398,11 @@ export const reduceExperimentsWithPrerequisites = (
       prereqStateCache
     );
     if (!removeRule) {
-      newVisualExperiment.experiment.phases[
-        phaseIndex
-      ].prerequisites = newPrerequisites;
-      newVisualExperiments.push(newVisualExperiment);
+      newData.experiment.phases[phaseIndex].prerequisites = newPrerequisites;
+      newExperiments.push(newData);
     }
   }
-  return newVisualExperiments;
+  return newExperiments;
 };
 
 const getInlinePrerequisitesReductionInfo = (

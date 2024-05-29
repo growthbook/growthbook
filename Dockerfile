@@ -1,5 +1,5 @@
 ARG PYTHON_MAJOR=3.11
-ARG NODE_MAJOR=18
+ARG NODE_MAJOR=20
 
 # Build the python gbstats package
 FROM python:${PYTHON_MAJOR}-slim AS pybuild
@@ -12,8 +12,19 @@ RUN \
   && poetry export -f requirements.txt --output requirements.txt
 
 # Build the nodejs app
-FROM node:${NODE_MAJOR}-slim AS nodebuild
+FROM python:${PYTHON_MAJOR}-slim AS nodebuild
+ARG NODE_MAJOR
 WORKDIR /usr/local/src/app
+RUN apt-get update && \
+  apt-get install -y wget gnupg2 build-essential && \
+  echo "deb https://deb.nodesource.com/node_$NODE_MAJOR.x buster main" > /etc/apt/sources.list.d/nodesource.list && \
+  wget -qO- https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - && \
+  echo "deb https://dl.yarnpkg.com/debian/ stable main" > /etc/apt/sources.list.d/yarn.list && \
+  wget -qO- https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - && \
+  apt-get update && \
+  apt-get install -yqq nodejs=$(apt-cache show nodejs|grep Version|grep nodesource|cut -c 10-) yarn && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/*
 # Copy over minimum files to install dependencies
 COPY package.json ./package.json
 COPY yarn.lock ./yarn.lock
@@ -26,6 +37,8 @@ COPY packages/enterprise/package.json ./packages/enterprise/package.json
 COPY patches ./patches
 # Yarn install with dev dependencies (will be cached as long as dependencies don't change)
 RUN yarn install --frozen-lockfile --ignore-optional
+# Apply patches this is not ideal since this should run at the end of yarn install but since node 20 it is not
+RUN yarn postinstall
 # Build the app and do a clean install with only production dependencies
 COPY packages ./packages
 RUN \
@@ -39,6 +52,7 @@ RUN \
   && rm -rf packages/sdk-js/node_modules \
   && rm -rf packages/sdk-react/node_modules \
   && yarn install --frozen-lockfile --production=true --ignore-optional
+RUN yarn postinstall
 
 
 # Package the full app together

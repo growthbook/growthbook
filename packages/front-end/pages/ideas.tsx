@@ -12,6 +12,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const IdeasPage = (): React.ReactElement => {
   const [includeArchived, setIncludeArchived] = useState(false);
@@ -24,7 +25,8 @@ const IdeasPage = (): React.ReactElement => {
 
   const [current, setCurrent] = useState<Partial<IdeaInterface> | null>(null);
 
-  const { getUserDisplay, permissions } = useUser();
+  const { getUserDisplay } = useUser();
+  const permissionsUtil = usePermissionsUtil();
 
   const { items: displayedIdeas, searchInputProps } = useSearch({
     items: data?.ideas || [],
@@ -39,6 +41,9 @@ const IdeasPage = (): React.ReactElement => {
   if (!data) {
     return <LoadingOverlay />;
   }
+
+  const canCreateIdeas = permissionsUtil.canViewIdeaModal(project);
+
   if (!data.ideas.length) {
     return (
       <div className="container p-4">
@@ -56,7 +61,7 @@ const IdeasPage = (): React.ReactElement => {
           When you&apos;re ready to test an idea, easily convert it to a full
           blown Experiment.
         </p>
-        {permissions.check("createIdeas", project) && (
+        {canCreateIdeas ? (
           <button
             className="btn btn-success btn-lg"
             onClick={() => {
@@ -65,7 +70,7 @@ const IdeasPage = (): React.ReactElement => {
           >
             <FaPlus /> Add your first Idea
           </button>
-        )}
+        ) : null}
         {current && (
           <IdeaForm
             mutate={mutate}
@@ -114,7 +119,7 @@ const IdeasPage = (): React.ReactElement => {
             </div>
           )}
           <div style={{ flex: 1 }} />
-          {permissions.check("createIdeas", project) && (
+          {canCreateIdeas ? (
             <div className="col-auto">
               <button
                 className="btn btn-primary float-left"
@@ -125,7 +130,7 @@ const IdeasPage = (): React.ReactElement => {
                 New Idea
               </button>
             </div>
-          )}
+          ) : null}
         </div>
         <div className="row">
           {displayedIdeas

@@ -9,13 +9,17 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import { BsArrowRepeat, BsLightningFill } from "react-icons/bs";
+import {
+  filterProjectsByEnvironment,
+  getDisallowedProjects,
+} from "shared/util";
+import clsx from "clsx";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBEdit, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import usePermissions from "@/hooks/usePermissions";
 import SDKConnectionForm from "@/components/Features/SDKConnections/SDKConnectionForm";
 import CodeSnippetModal, {
   getApiBaseUrl,
@@ -27,7 +31,11 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { isCloud } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PageHead from "@/components/Layout/PageHead";
-import Webhooks from "./webhooks";
+import { useEnvironments } from "@/services/features";
+import Badge from "@/components/Badge";
+import ProjectBadges from "@/components/ProjectBadges";
+import SdkWebhooks from "@/pages/sdks/SdkWebhooks";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 function ConnectionDot({ left }: { left: boolean }) {
   return (
@@ -43,6 +51,7 @@ function ConnectionDot({ left }: { left: boolean }) {
         borderRadius: 20,
         border: "3px solid var(--text-color-primary)",
         background: "#fff",
+        zIndex: 1,
       }}
     />
   );
@@ -108,7 +117,8 @@ function ConnectionStatus({
               </span>
               {errorTxt !== undefined && (
                 <Tooltip
-                  className="ml-2"
+                  className="ml-1"
+                  innerClassName="pb-1"
                   usePortal={true}
                   body={
                     <>
@@ -155,9 +165,37 @@ export default function SDKConnectionPage() {
     initialValue?: SDKConnectionInterface;
   }>({ mode: "closed" });
 
-  const { getProjectById, projects } = useDefinitions();
+  const environments = useEnvironments();
+  const { projects } = useDefinitions();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
+
+  const connection:
+    | SDKConnectionInterface
+    | undefined = data?.connections?.find((conn) => conn.id === sdkid);
+  const environment = environments.find(
+    (e) => e.id === connection?.environment
+  );
+  const envProjects = environment?.projects ?? [];
+  const filteredProjectIds = filterProjectsByEnvironment(
+    connection?.projects ?? [],
+    environment,
+    true
+  );
+  const showAllEnvironmentProjects =
+    (connection?.projects?.length ?? 0) === 0 && filteredProjectIds.length > 0;
+  const disallowedProjects = getDisallowedProjects(
+    projects,
+    connection?.projects ?? [],
+    environment
+  );
+  const disallowedProjectIds = disallowedProjects.map((p) => p.id);
+  const filteredProjectIdsWithDisallowed = [
+    ...filteredProjectIds,
+    ...disallowedProjectIds,
+  ];
+
+  const hasProxy = connection?.proxy?.enabled && !!connection?.proxy?.host;
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -165,22 +203,13 @@ export default function SDKConnectionPage() {
   if (!data) {
     return <LoadingOverlay />;
   }
-
-  const connection: SDKConnectionInterface | undefined = data.connections.find(
-    (conn) => conn.id === sdkid
-  );
-
   if (!connection) {
     return <div className="alert alert-danger">Invalid SDK Connection id</div>;
   }
 
-  const hasPermission = permissions.check(
-    "manageEnvironments",
-    connection.projects,
-    [connection.environment]
-  );
-
-  const hasProxy = connection.proxy.enabled && !!connection.proxy.host;
+  const canDuplicate = permissionsUtil.canCreateSDKConnection(connection);
+  const canUpdate = permissionsUtil.canUpdateSDKConnection(connection, {});
+  const canDelete = permissionsUtil.canDeleteSDKConnection(connection);
 
   return (
     <div className="contents container pagecontents">
@@ -202,54 +231,60 @@ export default function SDKConnectionPage() {
 
       <div className="row align-items-center mb-2">
         <h1 className="col-auto mb-0">{connection.name}</h1>
-        {hasPermission && (
+        {canDelete || canUpdate || canDuplicate ? (
           <>
-            <div className="col-auto ml-auto">
-              <a
-                role="button"
-                className="btn btn-outline-primary"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setModalState({
-                    mode: "edit",
-                    initialValue: connection,
-                  });
-                }}
-              >
-                <GBEdit /> Edit
-              </a>
-            </div>
-            <div className="col-auto">
-              <MoreMenu>
-                <button
-                  className="dropdown-item"
+            {canUpdate ? (
+              <div className="col-auto ml-auto">
+                <a
+                  role="button"
+                  className="btn btn-outline-primary"
                   onClick={(e) => {
                     e.preventDefault();
                     setModalState({
-                      mode: "create",
+                      mode: "edit",
                       initialValue: connection,
                     });
                   }}
                 >
-                  Duplicate
-                </button>
-                <DeleteButton
-                  className="dropdown-item"
-                  displayName="SDK Connection"
-                  text="Delete"
-                  useIcon={false}
-                  onClick={async () => {
-                    await apiCall(`/sdk-connections/${connection.id}`, {
-                      method: "DELETE",
-                    });
-                    mutate();
-                    router.push(`/sdks`);
-                  }}
-                />
+                  <GBEdit /> Edit
+                </a>
+              </div>
+            ) : null}
+            <div className="col-auto">
+              <MoreMenu>
+                {canDuplicate ? (
+                  <button
+                    className="dropdown-item"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setModalState({
+                        mode: "create",
+                        initialValue: connection,
+                      });
+                    }}
+                  >
+                    Duplicate
+                  </button>
+                ) : null}
+                {canDelete ? (
+                  <DeleteButton
+                    className="dropdown-item text-danger"
+                    displayName="SDK Connection"
+                    text="Delete"
+                    useIcon={false}
+                    onClick={async () => {
+                      await apiCall(`/sdk-connections/${connection.id}`, {
+                        method: "DELETE",
+                      });
+                      mutate();
+                      router.push(`/sdks`);
+                    }}
+                  />
+                ) : null}
               </MoreMenu>
             </div>
           </>
-        )}
+        ) : null}
       </div>
 
       <div className="mb-4 row">
@@ -258,39 +293,35 @@ export default function SDKConnectionPage() {
         </div>
 
         {(projects.length > 0 || connection.projects.length > 0) && (
-          <div className="col-auto">
-            Projects:{" "}
-            {connection.projects.length > 0 ? (
-              <>
-                {connection.projects.map((p) => {
-                  const proj = getProjectById(p);
-                  if (proj) {
-                    return (
-                      <span className="badge badge-secondary mr-1" key={p}>
-                        {proj.name}
-                      </span>
-                    );
-                  } else {
-                    return (
-                      <Tooltip
-                        body={
-                          <>
-                            Project <code>{p}</code> not found
-                          </>
-                        }
-                        key={p}
-                      >
-                        <span className="badge badge-danger mr-1">
-                          <FaExclamationTriangle /> Invalid project
-                        </span>
-                      </Tooltip>
-                    );
-                  }
+          <div className="col-auto d-flex">
+            <div className="mr-2">Projects:</div>
+
+            <div>
+              {showAllEnvironmentProjects && (
+                <Badge
+                  content={`All env projects (${envProjects.length})`}
+                  key="All env projects"
+                  className="badge-muted-info border-info"
+                  skipMargin={true}
+                />
+              )}
+              <div
+                className={clsx("d-flex align-items-center", {
+                  "small mt-1": showAllEnvironmentProjects,
                 })}
-              </>
-            ) : (
-              <em>All Projects</em>
-            )}
+              >
+                <ProjectBadges
+                  projectIds={
+                    filteredProjectIdsWithDisallowed.length
+                      ? filteredProjectIdsWithDisallowed
+                      : undefined
+                  }
+                  invalidProjectIds={disallowedProjectIds}
+                  invalidProjectMessage="This project is not allowed in the selected environment and will not be included in the SDK payload."
+                  resourceType="sdk connection"
+                />
+              </div>
+            </div>
           </div>
         )}
 
@@ -367,7 +398,7 @@ export default function SDKConnectionPage() {
 
         <ConnectionStatus
           connected={connection.connected}
-          canRefresh={hasPermission && !connection.connected}
+          canRefresh={canUpdate && !connection.connected}
           refresh={
             <Button
               color="link"
@@ -396,7 +427,7 @@ export default function SDKConnectionPage() {
 
             <ConnectionStatus
               connected={connection.proxy.connected}
-              canRefresh={hasPermission}
+              canRefresh={canUpdate}
               error={!connection.proxy.connected}
               errorTxt={connection.proxy.error}
               refresh={
@@ -455,7 +486,7 @@ export default function SDKConnectionPage() {
           </Tooltip>
         </div>
       </div>
-      <Webhooks sdkid={sdkid} />
+      <SdkWebhooks connection={connection} />
       <div className="mt-4">
         <CodeSnippetModal
           connections={data.connections}

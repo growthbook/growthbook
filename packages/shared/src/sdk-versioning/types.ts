@@ -9,7 +9,7 @@ export type SDKCapability =
   | "remoteEval"
   | "visualEditorDragDrop"
   | "stickyBucketing"
-  | "urlRedirects"
+  | "redirects"
   | "prerequisites";
 
 export type CapabilityStrategy =

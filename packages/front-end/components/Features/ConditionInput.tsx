@@ -25,6 +25,7 @@ import styles from "./ConditionInput.module.scss";
 interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
+  project: string;
   labelClassName?: string;
   emptyText?: string;
   title?: string;
@@ -34,7 +35,7 @@ interface Props {
 export default function ConditionInput(props: Props) {
   const { savedGroups } = useDefinitions();
 
-  const attributes = useAttributeMap();
+  const attributes = useAttributeMap(props.project);
 
   const title = props.title || "Target by Attributes";
   const emptyText = props.emptyText || "Applied to everyone by default.";
@@ -49,7 +50,7 @@ export default function ConditionInput(props: Props) {
   );
   const [rawTextMode, setRawTextMode] = useState(false);
 
-  const attributeSchema = useAttributeSchema();
+  const attributeSchema = useAttributeSchema(false, props.project);
 
   useEffect(() => {
     if (advanced) return;
@@ -298,7 +299,11 @@ export default function ConditionInput(props: Props) {
                       options={attributeSchema.map((s) => ({
                         label: s.property,
                         value: s.property,
+                        tooltip: s.description || "",
                       }))}
+                      formatOptionLabel={(o) => (
+                        <span title={o.tooltip}>{o.label}</span>
+                      )}
                       name="field"
                       className={styles.firstselect}
                       onChange={(value) => {

@@ -9,7 +9,7 @@ slug: cuped
 
 :::note
 
-Regression Adjustment (CUPED) is only implemented for the Frequentist statistics engine, and is a premium feature.
+Regression Adjustment (CUPED) is a premium feature.
 
 :::
 
@@ -69,17 +69,18 @@ Why use a shorter lookback window?
 
 ### Availability
 
-CUPED works for all metrics that are analyzed using the Frequentist engine, except for:
+CUPED works for all metrics except for:
 
 - Ratio metrics where the denominator is a count metric
+- Quantile metrics
 - Metrics with custom user value aggregations
-- Metrics from MixPanel and Google Analytics data sources
+- Metrics from a MixPanel data sources
 
 ## Configuring CUPED
 
 ### Organization-level settings
 
-You can turn CUPED on for all Frequentist analyses under Settings -> General. On that page, you can set the default behavior for metrics analyzed with the Frequentist engine. CUPED can be turned on or off by default for all analyses and you can set the default number of days to use for a lookback window. This setting will set the default for all of your metrics, which will then flow through to all analyses that use those metrics.
+You can turn CUPED on for all analyses under Settings → General. CUPED can be turned on or off by default for all analyses and you can set the default number of days to use for a lookback window. This setting will set the default for all of your metrics, which will then flow through to all analyses that use those metrics.
 
 <img
   src="/images/statistics/cuped-org.png"
@@ -103,7 +104,7 @@ Finally, you could also, if you wanted, override these metric-level settings for
 
 ### Experiment settings and results
 
-By default, each experiment analyzed using the Frequentist engine will use your organization-level defaults, unless they are overriden by a metric. However, you can always toggle CUPED on or off for a Frequentist analysis using the new toggle added to the top of the results table. You may need to re-run your analysis if you change this setting.
+By default, each experiment will use your organization-level defaults, unless they are overriden by a metric. However, you can always toggle CUPED on or off using the toggle added to the top of the results table. You may need to re-run your analysis if you change this setting.
 
 - If the toggle is Off, then CUPED will not be applied to any metrics.
 - If the toggle is On, then it will be applied for all metrics that:

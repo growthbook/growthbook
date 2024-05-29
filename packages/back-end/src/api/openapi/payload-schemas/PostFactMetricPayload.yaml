@@ -23,6 +23,7 @@ properties:
     enum:
       - proportion
       - mean
+      - quantile
       - ratio
   numerator:
     type: object
@@ -59,6 +60,29 @@ properties:
   inverse:
     type: boolean
     description: Set to true for things like Bounce Rate, where you want the metric to decrease
+  quantileSettings:
+    description: Controls the settings for quantile metrics (mandatory if metricType is "quantile")
+    type: object
+    required:
+      - type
+      - quantile
+      - ignoreZeros
+    properties:
+      type:
+        type: string
+        enum:
+          - "event"
+          - "unit"
+        description: Whether the quantile is over unit aggregations or raw event values
+      ignoreZeros:
+        type: boolean
+        description: If true, zero values will be ignored when calculating the quantile
+      quantile:
+        type: number
+        description: The quantile value (from 0.001 to 0.999)
+        multipleOf: 0.001
+        minimum: 0.001
+        maximum: 0.999
   cappingSettings:
     description: Controls how outliers are handled
     type: object
@@ -100,6 +124,30 @@ properties:
           - "hours"
           - "days"
           - "weeks"
+  priorSettings:
+    type: object
+    description: Controls the bayesian prior for the metric. If omitted, organization defaults will be used.
+    required:
+      - override
+      - proper
+      - mean
+      - stddev
+    properties:
+      override:
+        type: boolean
+        description: If false, the organization default settings will be used instead of the other settings in this object
+      proper:
+        type: boolean
+        description: If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.
+      mean:
+        type: number
+        description: The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)
+      stddev:
+        type: number
+        description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
+        minimum: 0
+        exclusiveMinimum: true
+
   regressionAdjustmentSettings:
     type: object
     description: Controls the regression adjustment (CUPED) settings for the metric
@@ -115,6 +163,25 @@ properties:
       days:
         type: number
         description: Number of pre-exposure days to use for the regression adjustment
+  riskThresholdSuccess:
+    type: number
+    description: Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.
+    minimum: 0
+  riskThresholdDanger:
+    type: number
+    description: Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.
+    minimum: 0
+  minPercentChange:
+    type: number
+    description: Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)
+    minimum: 0
+  maxPercentChange:
+    type: number
+    description: Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)
+    minimum: 0
+  minSampleSize:
+    type: number
+    minimum: 0
   managedBy:
     type: string
     description: Set this to "api" to disable editing in the GrowthBook UI

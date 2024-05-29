@@ -25,9 +25,9 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "20"
           cache: "yarn"
 
       - name: Set up Python 3.11
@@ -73,7 +73,7 @@ jobs:
       - name: Check api types
         run: |
           yarn generate-api-types
-          [[ -n $(git status --porcelain) ]] && echo "You need to run yarn generate-api-types" && exit 1 || true
+          [[ -n $(git status --porcelain) ]] && echo "You need to run yarn generate-api-types" && git status --porcelain && exit 1 || true
 
       - name: Type-check
         run: |

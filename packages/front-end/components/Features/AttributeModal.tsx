@@ -5,6 +5,7 @@ import {
   SDKAttributeType,
 } from "back-end/types/organization";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
+import React from "react";
 import { useAttributeSchema } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -15,6 +16,8 @@ import Toggle from "@/components/Forms/Toggle";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useUser } from "@/services/UserContext";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import MinSDKVersionsList from "./MinSDKVersionsList";
 
 export interface Props {
   close: () => void;
@@ -33,6 +36,7 @@ export default function AttributeModal({ close, attribute }: Props) {
   const form = useForm<SDKAttribute>({
     defaultValues: {
       property: attribute || "",
+      description: current?.description || "",
       datatype: current?.datatype || "string",
       projects: attribute ? current?.projects || [] : project ? [project] : [],
       format: current?.format || "",
@@ -80,6 +84,7 @@ export default function AttributeModal({ close, attribute }: Props) {
         const attributeObj: SDKAttribute & { previousName?: string } = {
           property: value.property,
           datatype: value.datatype,
+          description: value.description,
           projects: value.projects,
           format: value.format,
           enum: value.enum,
@@ -101,7 +106,16 @@ export default function AttributeModal({ close, attribute }: Props) {
         refreshOrganization();
       })}
     >
-      <Field label="Attribute" {...form.register("property")} />
+      <Field
+        label={
+          <>
+            Attribute{" "}
+            <Tooltip body={"This is the attribute name used in the SDK"} />
+          </>
+        }
+        required={true}
+        {...form.register("property")}
+      />
       {attribute && form.watch("property") !== attribute ? (
         <div className="alert alert-warning">
           Be careful changing the attribute name. Any existing targeting
@@ -109,6 +123,18 @@ export default function AttributeModal({ close, attribute }: Props) {
           and will still reference the old attribute name.
         </div>
       ) : null}
+      <div className="form-group">
+        <Field
+          className="form-control"
+          label={
+            <>
+              Description <small className="text-muted">(optional)</small>
+            </>
+          }
+          {...form.register("description")}
+          textarea={true}
+        />
+      </div>
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
@@ -195,10 +221,14 @@ export default function AttributeModal({ close, attribute }: Props) {
           {form.watch("format") === "version" && (
             <div className="alert alert-warning">
               <strong>Warning:</strong> Version string attributes are only
-              supported in the latest Javascript and React SDK versions. Other
-              language support is coming soon. Do not use this format if you are
-              using an older SDK version or a different language as it will
-              break any filtering based on the attribute.
+              supported in{" "}
+              <Tooltip
+                body={<MinSDKVersionsList capability="semverTargeting" />}
+              >
+                <span className="text-primary">some SDK versions</span>
+              </Tooltip>
+              . Do not use this format if you are using an incompatible SDK as
+              it will break any filtering based on the attribute.
             </div>
           )}
         </>

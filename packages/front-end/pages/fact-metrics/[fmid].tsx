@@ -4,13 +4,17 @@ import { useState } from "react";
 import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import { ColumnRef, FactTableInterface } from "back-end/types/fact-table";
 import { FaTriangleExclamation } from "react-icons/fa6";
+import { quantileMetricType } from "shared/experiments";
+import {
+  DEFAULT_LOSE_RISK_THRESHOLD,
+  DEFAULT_WIN_RISK_THRESHOLD,
+} from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCuped, GBEdit } from "@/components/Icons";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
@@ -21,14 +25,14 @@ import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";
 import RightRailSection from "@/components/Layout/RightRailSection";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import {
-  defaultLoseRiskThreshold,
-  defaultWinRiskThreshold,
-} from "@/services/metrics";
+import { getPercentileLabel } from "@/services/metrics";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
+import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -67,7 +71,13 @@ export function FilterBadges({
   );
 }
 
-function MetricType({ type }: { type: "proportion" | "mean" | "ratio" }) {
+function MetricType({
+  type,
+  quantileType,
+}: {
+  type: "proportion" | "mean" | "ratio" | "quantile";
+  quantileType?: "" | "unit" | "event";
+}) {
   if (type === "proportion") {
     return (
       <div>
@@ -92,6 +102,14 @@ function MetricType({ type }: { type: "proportion" | "mean" | "ratio" }) {
       </div>
     );
   }
+  if (type === "quantile") {
+    return (
+      <div>
+        <strong>Quantile Metric</strong> - The quantile of values{" "}
+        {quantileType === "unit" ? "after aggregating per user" : ""}
+      </div>
+    );
+  }
 
   return null;
 }
@@ -99,10 +117,12 @@ function MetricType({ type }: { type: "proportion" | "mean" | "ratio" }) {
 function ColumnRefSQL({
   columnRef,
   isProportion,
+  quantileType,
   showFrom,
 }: {
   columnRef: ColumnRef | null;
   isProportion?: boolean;
+  quantileType?: "" | "unit" | "event";
   showFrom?: boolean;
 }) {
   const { getFactTableById } = useDefinitions();
@@ -129,15 +149,18 @@ function ColumnRefSQL({
       ? "COUNT(*)"
       : id === "$$distinctUsers"
       ? `COUNT(DISTINCT \`User Identifier\`)`
+      : quantileType === "event"
+      ? `\`${name || columnRef.column}\``
       : `SUM(\`${name || columnRef.column}\`)`;
 
   const from = showFrom ? `\nFROM \`${factTable.name}\`` : "";
 
   const sqlExtra = where.length > 0 ? `\nWHERE ${where.join(" AND ")}` : "";
+  const groupBy = quantileType === "unit" ? `\nGROUP BY \`Identifier\`` : "";
 
   return (
     <div className="d-flex align-items-center">
-      <InlineCode language="sql" code={column + from + sqlExtra} />
+      <InlineCode language="sql" code={column + from + sqlExtra + groupBy} />
       {colData?.deleted && (
         <div className="ml-2">
           <Tooltip body="This column is no longer being returned from the Fact Table">
@@ -159,14 +182,16 @@ export default function FactMetricPage() {
 
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
+  const [editOwnerModal, setEditOwnerModal] = useState(false);
 
   const { apiCall } = useAuth();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const settings = useOrgSettings();
 
   const {
+    metricDefaults,
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
@@ -195,8 +220,10 @@ export default function FactMetricPage() {
   }
 
   const canEdit =
-    !factMetric.managedBy &&
-    permissions.check("createMetrics", factMetric.projects || "");
+    permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
+    !factMetric.managedBy;
+  const canDelete =
+    permissionsUtil.canDeleteFactMetric(factMetric) && !factMetric.managedBy;
 
   let regressionAdjustmentAvailableForMetric = true;
   let regressionAdjustmentAvailableForMetricReason = <></>;
@@ -232,6 +259,19 @@ export default function FactMetricPage() {
           entityName="Metric"
         />
       )}
+      {editOwnerModal && (
+        <EditOwnerModal
+          cancel={() => setEditOwnerModal(false)}
+          owner={factMetric.owner}
+          save={async (owner) => {
+            await apiCall(`/fact-metrics/${factMetric.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ owner }),
+            });
+          }}
+          mutate={mutateDefinitions}
+        />
+      )}
       {editTagsModal && (
         <EditTagsForm
           tags={factMetric.tags}
@@ -257,9 +297,9 @@ export default function FactMetricPage() {
             <MetricName id={factMetric.id} />
           </h1>
         </div>
-        {canEdit && (
-          <div className="ml-auto">
-            <MoreMenu>
+        <div className="ml-auto">
+          <MoreMenu>
+            {canEdit ? (
               <button
                 className="dropdown-item"
                 onClick={(e) => {
@@ -269,6 +309,8 @@ export default function FactMetricPage() {
               >
                 Edit Metric
               </button>
+            ) : null}
+            {canDelete ? (
               <DeleteButton
                 className="dropdown-item"
                 displayName="Metric"
@@ -282,9 +324,9 @@ export default function FactMetricPage() {
                   router.push("/metrics");
                 }}
               />
-            </MoreMenu>
-          </div>
-        )}
+            ) : null}
+          </MoreMenu>
+        </div>
       </div>
       <div className="row mb-4">
         {projects.length > 0 ? (
@@ -324,6 +366,17 @@ export default function FactMetricPage() {
           )}
         </div>
         <div className="col-auto">
+          Owner:{` ${factMetric.owner ?? ""}`}
+          {canEdit && (
+            <a
+              className="ml-1 cursor-pointer"
+              onClick={() => setEditOwnerModal(true)}
+            >
+              <GBEdit />
+            </a>
+          )}
+        </div>
+        <div className="col-auto">
           Data source:{" "}
           <Link
             href={`/datasources/${factMetric.datasource}`}
@@ -356,17 +409,38 @@ export default function FactMetricPage() {
           <div className="mb-5">
             <h3>Metric Definition</h3>
             <div className="mb-2">
-              <MetricType type={factMetric.metricType} />
+              <MetricType
+                type={factMetric.metricType}
+                quantileType={quantileMetricType(factMetric)}
+              />
             </div>
             <div className="appbox p-3 mb-3">
               <div className="d-flex mb-3">
                 <strong className="mr-2" style={{ width: 120 }}>
-                  Numerator
+                  {factMetric.metricType === "quantile"
+                    ? `${capitalizeFirstLetter(
+                        quantileMetricType(factMetric)
+                      )} Quantile`
+                    : "Numerator"}
                 </strong>
                 <div>
+                  {factMetric.metricType === "quantile" ? (
+                    <div className="mb-1">
+                      {factMetric.metricType === "quantile"
+                        ? `${getPercentileLabel(
+                            factMetric.quantileSettings?.quantile ?? 0.5
+                          )} ${
+                            factMetric.quantileSettings?.ignoreZeros
+                              ? ", ignoring zeros, "
+                              : ""
+                          } of`
+                        : null}
+                    </div>
+                  ) : null}
                   <ColumnRefSQL
                     columnRef={factMetric.numerator}
                     showFrom={true}
+                    quantileType={quantileMetricType(factMetric)}
                     isProportion={factMetric.metricType === "proportion"}
                   />
                 </div>
@@ -375,31 +449,37 @@ export default function FactMetricPage() {
                   <FactTableLink id={factMetric.numerator.factTableId} />
                 </div>
               </div>
-              <hr />
-              <div className="d-flex">
-                <strong className="mr-2" style={{ width: 120 }}>
-                  Denominator
-                </strong>
-                <div>
-                  {factMetric.metricType === "ratio" ? (
-                    <ColumnRefSQL
-                      columnRef={factMetric.denominator}
-                      showFrom={true}
-                    />
-                  ) : (
-                    <em>All Experiment Users</em>
-                  )}
-                </div>
-                {factMetric.metricType === "ratio" &&
-                  factMetric.denominator?.factTableId &&
-                  factMetric.denominator.factTableId !==
-                    factMetric.numerator.factTableId && (
-                    <div className="ml-auto">
-                      View Fact Table:{" "}
-                      <FactTableLink id={factMetric.denominator.factTableId} />
+              {factMetric.metricType !== "quantile" ? (
+                <>
+                  <hr />
+                  <div className="d-flex">
+                    <strong className="mr-2" style={{ width: 120 }}>
+                      Denominator
+                    </strong>
+                    <div>
+                      {factMetric.metricType === "ratio" ? (
+                        <ColumnRefSQL
+                          columnRef={factMetric.denominator}
+                          showFrom={true}
+                        />
+                      ) : (
+                        <em>All Experiment Users</em>
+                      )}
                     </div>
-                  )}
-              </div>
+                    {factMetric.metricType === "ratio" &&
+                      factMetric.denominator?.factTableId &&
+                      factMetric.denominator.factTableId !==
+                        factMetric.numerator.factTableId && (
+                        <div className="ml-auto">
+                          View Fact Table:{" "}
+                          <FactTableLink
+                            id={factMetric.denominator.factTableId}
+                          />
+                        </div>
+                      )}
+                  </div>{" "}
+                </>
+              ) : null}
             </div>
           </div>
 
@@ -546,7 +626,7 @@ export default function FactMetricPage() {
                     <span className="text-gray">Acceptable risk &lt;</span>{" "}
                     <span className="font-weight-bold">
                       {factMetric?.winRisk * 100 ||
-                        defaultWinRiskThreshold * 100}
+                        DEFAULT_WIN_RISK_THRESHOLD * 100}
                       %
                     </span>
                   </li>
@@ -554,12 +634,17 @@ export default function FactMetricPage() {
                     <span className="text-gray">Unacceptable risk &gt;</span>{" "}
                     <span className="font-weight-bold">
                       {factMetric?.loseRisk * 100 ||
-                        defaultLoseRiskThreshold * 100}
+                        DEFAULT_LOSE_RISK_THRESHOLD * 100}
                       %
                     </span>
                   </li>
                 </ul>
               </RightRailSectionGroup>
+
+              <MetricPriorRightRailSectionGroup
+                metric={factMetric}
+                metricDefaults={metricDefaults}
+              />
 
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-2">
@@ -567,9 +652,6 @@ export default function FactMetricPage() {
                     <span className="uppercase-title lg">
                       <GBCuped size={14} /> Regression Adjustment (CUPED)
                     </span>
-                    <small className="d-block mb-1 text-muted">
-                      Only applicable to frequentist analyses
-                    </small>
                   </li>
                   {!regressionAdjustmentAvailableForMetric ? (
                     <li className="mb-2">

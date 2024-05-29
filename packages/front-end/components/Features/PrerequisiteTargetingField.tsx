@@ -38,11 +38,13 @@ import { useUser } from "@/services/UserContext";
 import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
 import { GBAddCircle } from "@/components/Icons";
+import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 
 export interface Props {
   value: FeaturePrerequisite[];
   setValue: (prerequisites: FeaturePrerequisite[]) => void;
   feature?: FeatureInterface;
+  project?: string; // only used if feature is not provided
   revisions?: FeatureRevisionInterface[];
   version?: number;
   environments: string[];
@@ -53,6 +55,7 @@ export default function PrerequisiteTargetingField({
   value,
   setValue,
   feature,
+  project,
   revisions,
   version,
   environments,
@@ -67,7 +70,7 @@ export default function PrerequisiteTargetingField({
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithPrerequisites = getConnectionsSDKCapabilities({
     connections: sdkConnectionsData?.connections ?? [],
-    project: feature?.project ?? "",
+    project: (feature ? feature?.project : project) ?? "",
   }).includes("prerequisites");
 
   const { hasCommercialFeature } = useUser();
@@ -152,6 +155,8 @@ export default function PrerequisiteTargetingField({
           enabled: true,
         };
         if (newRevision) {
+          newRevision.rules[environments[0]] =
+            newRevision.rules[environments[0]] || [];
           newRevision.rules[environments[0]].push(fakeRule);
         } else {
           newFeature.environmentSettings[environments[0]].rules.push(fakeRule);
@@ -160,7 +165,8 @@ export default function PrerequisiteTargetingField({
         wouldBeCyclic = isFeatureCyclic(
           newFeature,
           featuresMap,
-          newRevision
+          newRevision,
+          environments
         )[0];
       }
       wouldBeCyclicStates[f.id] = wouldBeCyclic;
@@ -188,7 +194,10 @@ export default function PrerequisiteTargetingField({
 
   const featureOptions = features
     .filter((f) => f.id !== feature?.id)
-    .filter((f) => (f.project || "") === (feature?.project || ""))
+    .filter(
+      (f) =>
+        (f.project || "") === ((feature ? feature?.project : project) || "")
+    )
     .map((f) => {
       const conditional = Object.values(featuresStates[f.id]).some(
         (s) => s.state === "conditional"
@@ -222,7 +231,6 @@ export default function PrerequisiteTargetingField({
         <>
           {value.map((v, i) => {
             const parentFeature = features.find((f) => f.id === v.id);
-
             const prereqStates = prereqStatesArr[i];
             const hasConditionalState = Object.values(prereqStates || {}).some(
               (s) => s.state === "conditional"
@@ -600,10 +608,7 @@ export const PrerequisiteAlerts = ({
             <>
               Prerequisite evaluation is only supported in the following SDKs
               and versions:
-              <ul className="mb-1">
-                <li>Javascript &gt;= 0.33.0</li>
-                <li>React &gt;= 0.23.0</li>
-              </ul>
+              <MinSDKVersionsList capability="prerequisites" />
             </>
           }
         />

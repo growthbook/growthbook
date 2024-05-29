@@ -4,16 +4,18 @@ import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ago, datetime } from "shared/dates";
-import { isFeatureStale, StaleFeatureReason } from "shared/util";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import {
+  featureHasEnvironment,
+  filterEnvironmentsByFeature,
+  isFeatureStale,
+  StaleFeatureReason,
+} from "shared/util";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle } from "@/components/Icons";
 import FeatureModal from "@/components/Features/FeatureModal";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import track from "@/services/track";
-import FeaturesGetStarted from "@/components/HomePage/FeaturesGetStarted";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   filterFeaturesByEnvironment,
   removeEnvFromSearchTerm,
@@ -37,16 +39,14 @@ import TagsFilter, {
 } from "@/components/Tags/TagsFilter";
 import SortedTags from "@/components/Tags/SortedTags";
 import Toggle from "@/components/Forms/Toggle";
-import usePermissions from "@/hooks/usePermissions";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
-import { useUser } from "@/services/UserContext";
-import useSDKConnections from "@/hooks/useSDKConnections";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import Tab from "@/components/Tabs/Tab";
 import Tabs from "@/components/Tabs/Tabs";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
@@ -56,7 +56,6 @@ export default function FeaturesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showArchived, setShowArchived] = useState(false);
-  const [showSteps, setShowSteps] = useState(false);
   const [
     featureToDuplicate,
     setFeatureToDuplicate,
@@ -68,13 +67,9 @@ export default function FeaturesPage() {
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
-  const { organization } = useUser();
-
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { project, getProjectById } = useDefinitions();
-  const settings = useOrgSettings();
   const environments = useEnvironments();
-  const envs = environments.map((e) => e.id);
   const { features, experiments, loading, error, mutate } = useFeaturesList();
 
   const { usage, usageDomain } = useRealtimeData(
@@ -82,13 +77,6 @@ export default function FeaturesPage() {
     !!router?.query?.mockdata,
     showGraphs
   );
-
-  // Show steps if coming from get started page
-  useEffect(() => {
-    if (router.asPath.match(/getstarted/)) {
-      setShowSteps(true);
-    }
-  }, [router]);
 
   // Searching
   const tagsFilter = useTagsFilter("features");
@@ -251,11 +239,13 @@ export default function FeaturesPage() {
                     </td>
                     {toggleEnvs.map((en) => (
                       <td key={en.id} className="position-relative text-center">
-                        <EnvironmentToggle
-                          feature={feature}
-                          environment={en.id}
-                          mutate={mutate}
-                        />
+                        {featureHasEnvironment(feature, en) && (
+                          <EnvironmentToggle
+                            feature={feature}
+                            environment={en.id}
+                            mutate={mutate}
+                          />
+                        )}
                       </td>
                     ))}
                     <td>
@@ -329,7 +319,11 @@ export default function FeaturesPage() {
                         <StaleFeatureIcon
                           staleReason={staleReason}
                           onClick={() => {
-                            if (permissions.check("manageFeatures", project))
+                            if (
+                              permissionsUtil.canViewFeatureModal(
+                                feature.project
+                              )
+                            )
                               setFeatureToToggleStaleDetection(feature);
                           }}
                         />
@@ -337,15 +331,20 @@ export default function FeaturesPage() {
                     </td>
                     <td>
                       <MoreMenu>
-                        <button
-                          className="dropdown-item"
-                          onClick={() => {
-                            setFeatureToDuplicate(feature);
-                            setModalOpen(true);
-                          }}
-                        >
-                          Duplicate
-                        </button>
+                        {permissionsUtil.canCreateFeature(feature) &&
+                        permissionsUtil.canManageFeatureDrafts({
+                          project: projectId,
+                        }) ? (
+                          <button
+                            className="dropdown-item"
+                            onClick={() => {
+                              setFeatureToDuplicate(feature);
+                              setModalOpen(true);
+                            }}
+                          >
+                            Duplicate
+                          </button>
+                        ) : null}
                       </MoreMenu>
                     </td>
                   </tr>
@@ -391,6 +390,11 @@ export default function FeaturesPage() {
       { stale: boolean; reason?: StaleFeatureReason }
     > = {};
     featureItems.forEach((feature) => {
+      const featureEnvironments = filterEnvironmentsByFeature(
+        environments,
+        feature
+      );
+      const envs = featureEnvironments.map((e) => e.id);
       staleFeatures[feature.id] = isFeatureStale({
         feature,
         features,
@@ -399,7 +403,7 @@ export default function FeaturesPage() {
       });
     });
     return staleFeatures;
-  }, [featureItems, features, experiments, envs]);
+  }, [featureItems, features, experiments, environments]);
 
   // Reset to page 1 when a filter is applied
   useEffect(() => {
@@ -411,11 +415,6 @@ export default function FeaturesPage() {
     if (modalOpen) return;
     setFeatureToDuplicate(null);
   }, [modalOpen]);
-
-  const { data } = useSDKConnections();
-  const connections = data?.connections || [];
-  const hasActiveConnection =
-    connections.some((c) => c.connected) || !!settings?.sdkInstructionsViewed;
 
   if (error) {
     return (
@@ -432,15 +431,14 @@ export default function FeaturesPage() {
   const showProjectColumn = !project && features.some((f) => f.project);
 
   // Ignore the demo datasource
-  const hasFeatures = features.some(
-    (f) =>
-      f.project !==
-      getDemoDatasourceProjectIdForOrganization(organization.id || "")
-  );
+  const hasFeatures = features.length > 0;
 
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
   const showArchivedToggle = features.some((f) => f.archived);
-  const stepsRequired = !hasActiveConnection || !hasFeatures;
+
+  const canCreateFeatures = permissionsUtil.canManageFeatureDrafts({
+    project,
+  });
 
   return (
     <div className="contents container pagecontents">
@@ -471,8 +469,8 @@ export default function FeaturesPage() {
           <h1>Features</h1>
         </div>
         {features.length > 0 &&
-          permissions.check("manageFeatures", project) &&
-          permissions.check("createFeatureDrafts", project) && (
+          permissionsUtil.canViewFeatureModal(project) &&
+          canCreateFeatures && (
             <div className="col-auto">
               <button
                 className="btn btn-primary float-right"
@@ -497,54 +495,63 @@ export default function FeaturesPage() {
         GrowthBook UI. For example, turn on/off a sales banner or change the
         title of your pricing page.{" "}
       </p>
-      {stepsRequired || showSteps ? (
-        <div className="mb-3">
-          <h4>
-            Setup Steps
-            {!stepsRequired && (
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowSteps(false);
-                }}
-                style={{ fontSize: "0.8em" }}
-                className="ml-3"
-              >
-                hide
-              </a>
-            )}
-          </h4>
-          <FeaturesGetStarted features={features} />
-          {features.length > 0 && <h4 className="mt-3">All Features</h4>}
-        </div>
-      ) : (
-        <div className="mb-3">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setShowSteps(true);
-            }}
+      {!hasFeatures ? (
+        <>
+          <div
+            className="appbox d-flex flex-column align-items-center"
+            style={{ padding: "70px 305px 60px 305px" }}
           >
-            Show Setup Steps
-          </a>
-        </div>
-      )}
-      <Tabs newStyle={true} defaultTab="all-features">
-        <Tab id="all-features" display="All Features" padding={false}>
-          {renderFeaturesTable()}
-          <div className="alert alert-info mt-5">
-            Looking for <strong>Attributes</strong>, <strong>Namespaces</strong>
-            , <strong>Environments</strong>, or <strong>Saved Groups</strong>?
-            They have moved to the <Link href="/sdks">SDK Configuration</Link>{" "}
-            tab.
+            <h1>Change your App&apos;s Behavior</h1>
+            <p style={{ fontSize: "17px" }}>
+              Use Feature Flags to change your app&apos;s behavior. For example,
+              turn a sales banner on or off, or enable a new feature for Beta
+              users only.
+            </p>
+            <div className="row">
+              <Link href="/getstarted/feature-flag-guide">
+                {" "}
+                <button className="btn btn-outline-primary mr-2">
+                  Setup Instructions
+                </button>
+              </Link>
+
+              {permissionsUtil.canViewFeatureModal(project) &&
+                canCreateFeatures && (
+                  <button
+                    className="btn btn-primary float-right"
+                    onClick={() => {
+                      setModalOpen(true);
+                      track("Viewed Feature Modal", {
+                        source: "feature-list",
+                      });
+                    }}
+                    type="button"
+                  >
+                    <span className="h4 pr-2 m-0 d-inline-block align-top">
+                      <GBAddCircle />
+                    </span>
+                    Add Feature
+                  </button>
+                )}
+            </div>
           </div>
-        </Tab>
-        <Tab id="drafts" display="Drafts" padding={false} lazy={true}>
-          <FeaturesDraftTable features={features} />
-        </Tab>
-      </Tabs>
+        </>
+      ) : (
+        <Tabs newStyle={true} defaultTab="all-features">
+          <Tab id="all-features" display="All Features" padding={false}>
+            {renderFeaturesTable()}
+            <div className="alert alert-info mt-5">
+              Looking for <strong>Attributes</strong>,{" "}
+              <strong>Namespaces</strong>, <strong>Environments</strong>, or{" "}
+              <strong>Saved Groups</strong>? They have moved to the{" "}
+              <Link href="/sdks">SDK Configuration</Link> tab.
+            </div>
+          </Tab>
+          <Tab id="drafts" display="Drafts" padding={false} lazy={true}>
+            <FeaturesDraftTable features={features} />
+          </Tab>
+        </Tabs>
+      )}
     </div>
   );
 }

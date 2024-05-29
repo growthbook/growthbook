@@ -3,7 +3,6 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
-import { hasReadAccess } from "shared/permissions";
 import {
   Changeset,
   ExperimentInterface,
@@ -25,7 +24,11 @@ import {
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { logger } from "../util/logger";
 import { upgradeExperimentDoc } from "../util/migrations";
-import { refreshSDKPayloadCache, VisualExperiment } from "../services/features";
+import {
+  refreshSDKPayloadCache,
+  URLRedirectExperiment,
+  VisualExperiment,
+} from "../services/features";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import { FeatureInterface } from "../../types/feature";
 import { getAffectedSDKPayloadKeys } from "../util/features";
@@ -39,6 +42,7 @@ import {
   VisualChangesetModel,
 } from "./VisualChangesetModel";
 import { getFeaturesByIds } from "./FeatureModel";
+import { findURLRedirects } from "./UrlRedirectModel";
 
 type FindOrganizationOptions = {
   experimentId: string;
@@ -78,6 +82,7 @@ const experimentSchema = new mongoose.Schema({
   observations: String,
   hypothesis: String,
   metrics: [String],
+  pastNotifications: [String],
   metricOverrides: [
     {
       _id: false,
@@ -87,6 +92,10 @@ const experimentSchema = new mongoose.Schema({
       delayHours: Number,
       winRisk: Number,
       loseRisk: Number,
+      properPriorOverride: Boolean,
+      properPriorEnabled: Boolean,
+      properPriorMean: Number,
+      properPriorStdDev: Number,
       regressionAdjustmentOverride: Boolean,
       regressionAdjustmentEnabled: Boolean,
       regressionAdjustmentDays: Number,
@@ -180,6 +189,7 @@ const experimentSchema = new mongoose.Schema({
   ideaSource: String,
   regressionAdjustmentEnabled: Boolean,
   hasVisualChangesets: Boolean,
+  hasURLRedirects: Boolean,
   linkedFeatures: [String],
   sequentialTestingEnabled: Boolean,
   sequentialTestingTuningParameter: Number,
@@ -197,7 +207,7 @@ const experimentSchema = new mongoose.Schema({
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
 
-const ExperimentModel = mongoose.model<ExperimentInterface>(
+export const ExperimentModel = mongoose.model<ExperimentInterface>(
   "Experiment",
   experimentSchema
 );
@@ -229,7 +239,7 @@ async function findExperiments(
   const experiments = (await cursor).map(toInterface);
 
   return experiments.filter((exp) =>
-    hasReadAccess(context.readAccessFilter, exp.project)
+    context.permissions.canReadSingleProjectResource(exp.project)
   );
 }
 
@@ -246,7 +256,7 @@ export async function getExperimentById(
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
+  return context.permissions.canReadSingleProjectResource(experiment.project)
     ? experiment
     : null;
 }
@@ -279,7 +289,7 @@ export async function getExperimentByTrackingKey(
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
+  return context.permissions.canReadSingleProjectResource(experiment.project)
     ? experiment
     : null;
 }
@@ -378,7 +388,7 @@ export async function updateExperiment({
   experiment: ExperimentInterface;
   changes: Changeset;
   bypassWebhooks?: boolean;
-}): Promise<ExperimentInterface | null> {
+}): Promise<ExperimentInterface> {
   await ExperimentModel.updateOne(
     {
       id: experiment.id,
@@ -462,7 +472,7 @@ export async function getExperimentByIdea(
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
+  return context.permissions.canReadSingleProjectResource(experiment.project)
     ? experiment
     : null;
 }
@@ -539,7 +549,9 @@ export async function getExperimentsToUpdateLegacy(
 export async function getPastExperimentsByDatasource(
   context: ReqContext | ApiReqContext,
   datasource: string
-): Promise<Pick<ExperimentInterface, "id" | "trackingKey">[]> {
+): Promise<
+  Pick<ExperimentInterface, "id" | "trackingKey" | "exposureQueryId">[]
+> {
   const experiments = await ExperimentModel.find(
     {
       organization: context.org.id,
@@ -549,17 +561,19 @@ export async function getPastExperimentsByDatasource(
       _id: false,
       id: true,
       trackingKey: true,
+      exposureQueryId: true,
       project: true,
     }
   );
 
   const experimentsUserCanAccess = experiments.filter((exp) =>
-    hasReadAccess(context.readAccessFilter, exp.project)
+    context.permissions.canReadSingleProjectResource(exp.project)
   );
 
   return experimentsUserCanAccess.map((exp) => ({
     id: exp.id,
     trackingKey: exp.trackingKey,
+    exposureQueryId: exp.exposureQueryId,
   }));
 }
 
@@ -650,7 +664,7 @@ export async function getExperimentsForActivityFeed(
   );
 
   const filteredExperiments = experiments.filter((exp) =>
-    hasReadAccess(context.readAccessFilter, exp.project)
+    context.permissions.canReadSingleProjectResource(exp.project)
   );
 
   return filteredExperiments.map((exp) => ({
@@ -677,7 +691,7 @@ const findExperiment = async ({
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
+  return context.permissions.canReadSingleProjectResource(experiment.project)
     ? experiment
     : null;
 };
@@ -695,6 +709,13 @@ const logExperimentCreated = async (
 ): Promise<string | undefined> => {
   const { org: organization } = context;
   const apiExperiment = await toExperimentApiInterface(context, experiment);
+
+  // If experiment is part of the SDK payload, it affects all environments
+  // Otherwise, it doesn't affect any
+  const changedEnvs = includeExperimentInPayload(experiment)
+    ? getEnvironmentIdsFromOrg(context.org)
+    : [];
+
   const payload: ExperimentCreatedNotificationEvent = {
     object: "experiment",
     event: "experiment.created",
@@ -702,6 +723,10 @@ const logExperimentCreated = async (
     data: {
       current: apiExperiment,
     },
+    projects: [apiExperiment.project],
+    tags: apiExperiment.tags,
+    environments: changedEnvs,
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(organization.id, payload);
@@ -738,6 +763,13 @@ const logExperimentUpdated = async ({
     currentApiExperimentPromise,
   ]);
 
+  // If experiment is part of the SDK payload, it affects all environments
+  // Otherwise, it doesn't affect any
+  const hasPayloadChanges = hasChangesForSDKPayloadRefresh(previous, current);
+  const changedEnvs = hasPayloadChanges
+    ? getEnvironmentIdsFromOrg(context.org)
+    : [];
+
   const payload: ExperimentUpdatedNotificationEvent = {
     object: "experiment",
     event: "experiment.updated",
@@ -746,6 +778,14 @@ const logExperimentUpdated = async ({
       previous: previousApiExperiment,
       current: currentApiExperiment,
     },
+    projects: Array.from(
+      new Set([previousApiExperiment.project, currentApiExperiment.project])
+    ),
+    tags: Array.from(
+      new Set([...previousApiExperiment.tags, ...currentApiExperiment.tags])
+    ),
+    environments: changedEnvs,
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(context.org.id, payload);
@@ -1035,6 +1075,13 @@ export const logExperimentDeleted = async (
   experiment: ExperimentInterface
 ): Promise<string | undefined> => {
   const apiExperiment = await toExperimentApiInterface(context, experiment);
+
+  // If experiment is part of the SDK payload, it affects all environments
+  // Otherwise, it doesn't affect any
+  const changedEnvs = includeExperimentInPayload(experiment)
+    ? getEnvironmentIdsFromOrg(context.org)
+    : [];
+
   const payload: ExperimentDeletedNotificationEvent = {
     object: "experiment",
     event: "experiment.deleted",
@@ -1042,6 +1089,10 @@ export const logExperimentDeleted = async (
     data: {
       previous: apiExperiment,
     },
+    projects: [apiExperiment.project],
+    environments: changedEnvs,
+    tags: apiExperiment.tags,
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(context.org.id, payload);
@@ -1088,6 +1139,9 @@ export async function getAllPayloadExperiments(
       {
         hasVisualChangesets: true,
       },
+      {
+        hasURLRedirects: true,
+      },
     ],
   });
 
@@ -1126,9 +1180,10 @@ export const getAllVisualExperiments = async (
   };
 
   return visualChangesets
-    .map((c) => ({
-      experiment: experimentMap.get(c.experiment),
+    .map<VisualExperiment>((c) => ({
+      experiment: experimentMap.get(c.experiment) as ExperimentInterface,
       visualChangeset: c,
+      type: "visual",
     }))
     .filter(_isValidVisualExperiment)
     .filter((e) => {
@@ -1147,6 +1202,41 @@ export const getAllVisualExperiments = async (
       }
       return true;
     });
+};
+
+export const getAllURLRedirectExperiments = async (
+  context: ReqContext | ApiReqContext,
+  experimentMap: Map<string, ExperimentInterface>
+): Promise<Array<URLRedirectExperiment>> => {
+  const redirects = await findURLRedirects(context.org.id);
+
+  if (!redirects.length) return [];
+
+  const exps: URLRedirectExperiment[] = [];
+
+  redirects.forEach((r) => {
+    const experiment = experimentMap.get(r.experiment);
+    if (!experiment) return;
+
+    // Exclude experiments from SDK payload
+    if (!includeExperimentInPayload(experiment)) return;
+
+    // Exclude experiments that are stopped and the released variation doesn’t have a destination URL
+    if (experiment.status === "stopped") {
+      const destination = r.destinationURLs.find(
+        (d) => d.variation === experiment.releasedVariationId
+      );
+      if (!destination || !destination.url) return;
+    }
+
+    exps.push({
+      type: "redirect",
+      experiment,
+      urlRedirect: r,
+    });
+  });
+
+  return exps;
 };
 
 export function getPayloadKeysForAllEnvs(
@@ -1182,8 +1272,8 @@ export const getPayloadKeys = (
   const environments: string[] = getEnvironmentIdsFromOrg(context.org);
   const project = experiment.project ?? "";
 
-  // Visual editor experiments always affect all environments
-  if (experiment.hasVisualChangesets) {
+  // Visual editor and URL redirect experiments always affect all environments
+  if (experiment.hasVisualChangesets || experiment.hasURLRedirects) {
     const keys: SDKPayloadKey[] = [];
 
     environments.forEach((e) => {
@@ -1208,7 +1298,7 @@ export const getPayloadKeys = (
     );
   }
 
-  // Otherwise, if no linked visual editor or feature flag changes, there are no affected payload keys
+  // Otherwise, if no linked changes, there are no affected payload keys
   return [];
 };
 
@@ -1244,7 +1334,7 @@ const hasChangesForSDKPayloadRefresh = (
   oldExperiment: ExperimentInterface,
   newExperiment: ExperimentInterface
 ): boolean => {
-  // Skip experiments that don't have linked features or visual changesets
+  // Skip experiments that don't have linked changes
   if (
     !includeExperimentInPayload(oldExperiment) &&
     !includeExperimentInPayload(newExperiment)
@@ -1312,7 +1402,9 @@ const onExperimentUpdate = async ({
       isEqual
     );
 
-    refreshSDKPayloadCache(context, payloadKeys);
+    refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
+      logger.error(e, "Error refreshing SDK payload cache");
+    });
   }
 };
 
@@ -1329,5 +1421,7 @@ const onExperimentDelete = async (
   }
 
   const payloadKeys = getPayloadKeys(context, experiment, linkedFeatures);
-  refreshSDKPayloadCache(context, payloadKeys);
+  refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
+    logger.error(e, "Error refreshing SDK payload cache");
+  });
 };

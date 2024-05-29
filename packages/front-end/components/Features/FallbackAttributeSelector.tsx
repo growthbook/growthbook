@@ -8,29 +8,34 @@ import {
 } from "react-icons/fa";
 import { FaGear } from "react-icons/fa6";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
+import { SDKAttribute } from "@back-end/types/organization";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useAttributeSchema } from "@/services/features";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import usePermissions from "@/hooks/usePermissions";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
 import Toggle from "@/components/Forms/Toggle";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 
 export interface Props {
   // eslint-disable-next-line
   form: UseFormReturn<any>;
+  attributeSchema: SDKAttribute[];
 }
 
-export default function FallbackAttributeSelector({ form }: Props) {
+export default function FallbackAttributeSelector({
+  form,
+  attributeSchema,
+}: Props) {
   const [showSBInformation, setShowSBInformation] = useState(false);
 
   const { apiCall } = useAuth();
   const { refreshOrganization, hasCommercialFeature } = useUser();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const settings = useOrgSettings();
   const orgStickyBucketing = settings.useStickyBucketing;
   const orgFallbackAttribute = settings.useFallbackAttributes;
@@ -41,7 +46,6 @@ export default function FallbackAttributeSelector({ form }: Props) {
     connections: sdkConnectionsData?.connections || [],
   }).includes("stickyBucketing");
 
-  const attributeSchema = useAttributeSchema();
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
@@ -69,18 +73,31 @@ export default function FallbackAttributeSelector({ form }: Props) {
     return null;
   }
 
+  const fallbackAttributeOptions = [
+    { label: "none", value: "" },
+    ...attributeSchema
+      .filter((s) => !hasHashAttributes || s.hashAttribute)
+      .filter((s) => s.property !== form.watch("hashAttribute"))
+      .map((s) => ({ label: s.property, value: s.property })),
+  ];
+
+  // If the current fallbackAttribute isn't in the list (it was archived or has been project-scoped), add it for backwards compatibility
+  if (
+    fallbackAttribute &&
+    !fallbackAttributeOptions.find((o) => o.value === fallbackAttribute)
+  ) {
+    fallbackAttributeOptions.push({
+      label: fallbackAttribute,
+      value: fallbackAttribute,
+    });
+  }
+
   return (
     <SelectField
       containerClassName="flex-1"
       label="Fallback attribute"
       labelClassName="font-weight-bold"
-      options={[
-        { label: "none", value: "" },
-        ...attributeSchema
-          .filter((s) => !hasHashAttributes || s.hashAttribute)
-          .filter((s) => s.property !== form.watch("hashAttribute"))
-          .map((s) => ({ label: s.property, value: s.property })),
-      ]}
+      options={fallbackAttributeOptions}
       formatOptionLabel={({ value, label }) => {
         if (!value) {
           return <em className="text-muted">{label}</em>;
@@ -108,7 +125,7 @@ export default function FallbackAttributeSelector({ form }: Props) {
               {!showSBInformation ? (
                 <>
                   {!orgStickyBucketing && <span>(disabled by org)</span>}
-                  {permissions.organizationSettings && (
+                  {permissionsUtil.canManageOrgSettings() && (
                     <a
                       role="button"
                       className="a ml-2"
@@ -183,10 +200,7 @@ export function StickyBucketingTooltip() {
       <div className="mb-2">
         Sticky Bucketing requires changes to your SDK implementation and is only
         supported in the following SDKs and versions:
-        <ul className="mb-1">
-          <li>Javascript &gt;= 0.32.0</li>
-          <li>React &gt;= 0.22.0</li>
-        </ul>
+        <MinSDKVersionsList capability="stickyBucketing" />
       </div>
     </>
   );

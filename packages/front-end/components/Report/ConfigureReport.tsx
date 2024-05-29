@@ -1,9 +1,6 @@
 import React, { useMemo } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
-import {
-  MetricRegressionAdjustmentStatus,
-  ReportInterface,
-} from "back-end/types/report";
+import { MetricSnapshotSettings, ReportInterface } from "back-end/types/report";
 import { FaQuestionCircle } from "react-icons/fa";
 import {
   AttributionModel,
@@ -17,7 +14,9 @@ import {
 import { getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
 import { MetricInterface } from "back-end/types/metric";
-import { getRegressionAdjustmentsForMetric } from "shared/experiments";
+import { DifferenceType } from "@back-end/types/stats";
+import { getMetricSnapshotSettings } from "shared/experiments";
+import { isDefined } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
@@ -38,6 +37,8 @@ import SelectField from "@/components/Forms/SelectField";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 import MetricSelector from "@/components/Experiment/MetricSelector";
+import Toggle from "@/components/Forms/Toggle";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function ConfigureReport({
   report,
@@ -96,13 +97,14 @@ export default function ConfigureReport({
   const denominatorMetrics: MetricInterface[] = useMemo(() => {
     return denominatorMetricIds
       .map((m) => getMetricById(m as string))
-      .filter(Boolean) as MetricInterface[];
+      .filter(isDefined);
   }, [denominatorMetricIds, getMetricById]);
 
   // todo: type this form
   const form = useForm({
     defaultValues: {
       ...report.args,
+      differenceType: report.args.differenceType ?? "relative",
       exposureQueryId:
         getExposureQuery(
           datasource?.settings,
@@ -120,12 +122,12 @@ export default function ConfigureReport({
         ? getValidDate(report.args.endDate).toISOString().substr(0, 16)
         : undefined,
       statsEngine: report.args.statsEngine || parentSettings.statsEngine.value,
+      useLatestPriorSettings: report.args.useLatestPriorSettings || false,
       regressionAdjustmentEnabled:
         (hasRegressionAdjustmentFeature &&
           report.args.regressionAdjustmentEnabled) ??
         DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-      metricRegressionAdjustmentStatuses:
-        report.args.metricRegressionAdjustmentStatuses || [],
+      settingsForSnapshotMetrics: report.args.settingsForSnapshotMetrics || [],
       sequentialTestingEnabled:
         hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled,
       sequentialTestingTuningParameter:
@@ -134,13 +136,11 @@ export default function ConfigureReport({
   });
 
   // CUPED adjustments
-  const metricRegressionAdjustmentStatuses = useMemo(() => {
-    const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
+  const settingsForSnapshotMetrics = useMemo(() => {
+    const settingsForSnapshotMetrics: MetricSnapshotSettings[] = [];
     for (const metric of allExperimentMetrics) {
       if (!metric) continue;
-      const {
-        metricRegressionAdjustmentStatus,
-      } = getRegressionAdjustmentsForMetric({
+      const { metricSnapshotSettings } = getMetricSnapshotSettings({
         metric: metric,
         denominatorMetrics: denominatorMetrics,
         experimentRegressionAdjustmentEnabled: !!form.watch(
@@ -149,9 +149,9 @@ export default function ConfigureReport({
         organizationSettings: orgSettings,
         metricOverrides: report.args.metricOverrides,
       });
-      metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
+      settingsForSnapshotMetrics.push(metricSnapshotSettings);
     }
-    return metricRegressionAdjustmentStatuses;
+    return settingsForSnapshotMetrics;
   }, [
     allExperimentMetrics,
     denominatorMetrics,
@@ -190,9 +190,8 @@ export default function ConfigureReport({
           ...value,
           skipPartialData: !!value.skipPartialData,
         };
-        if (value.regressionAdjustmentEnabled) {
-          args.metricRegressionAdjustmentStatuses = metricRegressionAdjustmentStatuses;
-        }
+
+        args.settingsForSnapshotMetrics = settingsForSnapshotMetrics;
 
         const res = await apiCall<{ updatedReport: ReportInterface }>(
           `/report/${report.id}`,
@@ -304,19 +303,33 @@ export default function ConfigureReport({
             labelClassName="font-weight-bold"
             type="datetime-local"
             {...form.register("startDate")}
-            helpText="Only include users who entered the experiment on or after this date"
+            helpText="Only include users who entered the experiment between the start and end dates"
           />
         </div>
         <div className="col">
-          {form.watch("endDate") && (
-            <Field
-              label="End Date (UTC)"
-              labelClassName="font-weight-bold"
-              type="datetime-local"
-              {...form.register("endDate")}
-              helpText="Only include users who entered the experiment on or before this date"
-            />
-          )}
+          <Field
+            label="End Date (UTC)"
+            labelClassName="font-weight-bold"
+            type="datetime-local"
+            {...form.register("endDate")}
+            helpText={
+              <div>
+                <div style={{ marginRight: -10 }}>
+                  <a
+                    role="button"
+                    className="a"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      form.setValue("endDate", "");
+                    }}
+                  >
+                    Clear input
+                  </a>{" "}
+                  to use latest data whenever report is run
+                </div>
+              </div>
+            }
+          />
         </div>
       </div>
 
@@ -365,6 +378,29 @@ export default function ConfigureReport({
         userIdType={report.args.userIdType}
         labelClassName="font-weight-bold"
         showHelp={true}
+        newUi={false}
+      />
+      <SelectField
+        label="Difference Type"
+        labelClassName="font-weight-bold"
+        value={form.watch("differenceType")}
+        onChange={(v) => form.setValue("differenceType", v as DifferenceType)}
+        sort={false}
+        options={[
+          {
+            label: "Relative",
+            value: "relative",
+          },
+          {
+            label: "Absolute",
+            value: "absolute",
+          },
+          {
+            label: "Scaled Impact",
+            value: "scaled",
+          },
+        ]}
+        helpText="Choose the units to display lifts in"
       />
       <MetricSelector
         datasource={form.watch("datasource")}
@@ -455,97 +491,115 @@ export default function ConfigureReport({
       />
 
       {form.watch("statsEngine") === "frequentist" && (
-        <>
-          <div className="d-flex flex-row no-gutters align-items-center">
-            <div className="col-3">
-              <SelectField
-                label={
-                  <PremiumTooltip commercialFeature="regression-adjustment">
-                    <GBCuped /> Use Regression Adjustment (CUPED)
-                  </PremiumTooltip>
-                }
-                labelClassName="font-weight-bold"
-                value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
-                onChange={(v) => {
-                  form.setValue("regressionAdjustmentEnabled", v === "on");
-                }}
-                options={[
-                  {
-                    label: "On",
-                    value: "on",
-                  },
-                  {
-                    label: "Off",
-                    value: "off",
-                  },
-                ]}
-                helpText="Only applicable to frequentist analyses"
-                disabled={!hasRegressionAdjustmentFeature}
-              />
-            </div>
-          </div>
-
-          <div className="d-flex flex-row no-gutters align-items-top">
-            <div className="col-3">
-              <SelectField
-                label={
-                  <PremiumTooltip commercialFeature="sequential-testing">
-                    <GBSequential /> Use Sequential Testing
-                  </PremiumTooltip>
-                }
-                labelClassName="font-weight-bold"
-                value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
-                onChange={(v) => {
-                  form.setValue("sequentialTestingEnabled", v === "on");
-                }}
-                options={[
-                  {
-                    label: "On",
-                    value: "on",
-                  },
-                  {
-                    label: "Off",
-                    value: "off",
-                  },
-                ]}
-                helpText="Only applicable to frequentist analyses"
-                disabled={!hasSequentialTestingFeature}
-              />
-            </div>
-            <div
-              className="col-2 px-4"
-              style={{
-                opacity: form.watch("sequentialTestingEnabled") ? "1" : "0.5",
+        <div className="d-flex flex-row no-gutters align-items-top ml-1">
+          <div className="col-3">
+            <SelectField
+              label={
+                <PremiumTooltip commercialFeature="sequential-testing">
+                  <GBSequential /> Use Sequential Testing
+                </PremiumTooltip>
+              }
+              labelClassName="font-weight-bold"
+              value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
+              onChange={(v) => {
+                form.setValue("sequentialTestingEnabled", v === "on");
               }}
-            >
-              <Field
-                label="Tuning parameter"
-                type="number"
-                containerClassName="mb-0"
-                min="0"
-                disabled={!hasSequentialTestingFeature || hasFileConfig()}
-                helpText={
-                  <>
-                    <span className="ml-2">
-                      (
-                      {orgSettings.sequentialTestingTuningParameter ??
-                        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
-                      is organization default)
-                    </span>
-                  </>
-                }
-                {...form.register("sequentialTestingTuningParameter", {
-                  valueAsNumber: true,
-                  validate: (v) => {
-                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                    return !(v <= 0);
-                  },
-                })}
-              />
-            </div>
+              options={[
+                {
+                  label: "On",
+                  value: "on",
+                },
+                {
+                  label: "Off",
+                  value: "off",
+                },
+              ]}
+              helpText="Only applicable to frequentist analyses"
+              disabled={!hasSequentialTestingFeature}
+            />
           </div>
-        </>
+          <div
+            className="col-2 px-4"
+            style={{
+              opacity: form.watch("sequentialTestingEnabled") ? "1" : "0.5",
+            }}
+          >
+            <Field
+              label="Tuning parameter"
+              type="number"
+              containerClassName="mb-0"
+              min="0"
+              disabled={!hasSequentialTestingFeature || hasFileConfig()}
+              helpText={
+                <>
+                  <span className="ml-2">
+                    (
+                    {orgSettings.sequentialTestingTuningParameter ??
+                      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
+                    is organization default)
+                  </span>
+                </>
+              }
+              {...form.register("sequentialTestingTuningParameter", {
+                valueAsNumber: true,
+                validate: (v) => {
+                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                  return !(v <= 0);
+                },
+              })}
+            />
+          </div>
+        </div>
       )}
+      {form.watch("statsEngine") === "bayesian" && (
+        <div className="align-items-center">
+          <label
+            className="ml-1 mr-1 mb-3 font-weight-bold"
+            htmlFor="useLatestPriorSettings"
+          >
+            Use latest metric prior settings{" "}
+            <Tooltip
+              body={
+                "Enabling this ensures the report uses the latest priors set for your organization and metrics. You can disable it to freeze the priors for this report and keep them from changing when metric definitions change."
+              }
+            >
+              <FaQuestionCircle />
+            </Tooltip>
+          </label>
+          <Toggle
+            id="useLatestPriorSettings"
+            value={form.watch("useLatestPriorSettings")}
+            setValue={(v) => form.setValue("useLatestPriorSettings", v)}
+          />
+        </div>
+      )}
+      <div className="d-flex flex-row no-gutters align-items-center mb-3 ml-1">
+        <div className="col-3">
+          <SelectField
+            label={
+              <PremiumTooltip commercialFeature="regression-adjustment">
+                <GBCuped /> Use Regression Adjustment (CUPED)
+              </PremiumTooltip>
+            }
+            labelClassName="font-weight-bold"
+            value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
+            onChange={(v) => {
+              form.setValue("regressionAdjustmentEnabled", v === "on");
+            }}
+            options={[
+              {
+                label: "On",
+                value: "on",
+              },
+              {
+                label: "Off",
+                value: "off",
+              },
+            ]}
+            disabled={!hasRegressionAdjustmentFeature}
+          />
+        </div>
+      </div>
 
       {datasourceProperties?.queryLanguage === "sql" && (
         <div className="row">

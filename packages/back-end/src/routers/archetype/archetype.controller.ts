@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
+import { filterEnvironmentsByFeature } from "shared/util";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse, PrivateApiErrorResponse } from "../../../types/api";
 import {
@@ -38,8 +39,6 @@ export const getArchetype = async (
   res: Response<GetArchetypeResponse>
 ) => {
   const { org, userId } = getContextFromReq(req);
-
-  req.checkPermissions("manageArchetype");
 
   const archetype = await getAllArchetypes(org.id, userId);
 
@@ -102,15 +101,14 @@ export const getArchetypeAndEval = async (
     throw new Error("Could not find feature revision");
   }
 
-  req.checkPermissions("manageArchetype");
-
   const archetype = await getAllArchetypes(org.id, userId);
   const featureResults: { [key: string]: FeatureTestResult[] } = {};
 
   if (archetype.length) {
     const groupMap = await getSavedGroupMap(org);
     const experimentMap = await getAllPayloadExperiments(context);
-    const environments = getEnvironments(org);
+    const allEnvironments = getEnvironments(org);
+    const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
     archetype.forEach((arch) => {
       try {
@@ -160,7 +158,8 @@ export const postArchetype = async (
   req: CreateArchetypeRequest,
   res: Response<CreateArchetypeResponse | PrivateApiErrorResponse>
 ) => {
-  const { org, userId } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   const { name, attributes, description, isPublic } = req.body;
 
   if (!orgHasPremiumFeature(org, "archetypes")) {
@@ -170,7 +169,9 @@ export const postArchetype = async (
     });
   }
 
-  req.checkPermissions("manageArchetype");
+  if (!context.permissions.canCreateArchetype()) {
+    context.permissions.throwPermissionError();
+  }
 
   const archetype = await createArchetype({
     attributes,
@@ -218,7 +219,8 @@ export const putArchetype = async (
     PutArchetypeResponse | ApiErrorResponse | PrivateApiErrorResponse
   >
 ) => {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { name, description, isPublic, owner, attributes } = req.body;
   const { id } = req.params;
 
@@ -233,7 +235,9 @@ export const putArchetype = async (
     });
   }
 
-  req.checkPermissions("manageArchetype");
+  if (!context.permissions.canUpdateArchetype()) {
+    context.permissions.throwPermissionError();
+  }
 
   const archetype = await getArchetypeById(id, org.id);
 
@@ -285,10 +289,13 @@ export const deleteArchetype = async (
   req: DeleteArchetypeRequest,
   res: Response<DeleteArchetypeResponse>
 ) => {
-  req.checkPermissions("manageArchetype");
-
   const { id } = req.params;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  if (!context.permissions.canDeleteArchetype()) {
+    context.permissions.throwPermissionError();
+  }
 
   const archetype = await getArchetypeById(id, org.id);
 

@@ -6,18 +6,17 @@ import { ago, datetime } from "shared/dates";
 import clsx from "clsx";
 import { getMetricLink } from "shared/experiments";
 import { DocLink } from "@/components/DocLink";
-import { canCreateMetrics } from "@/services/env";
+import { envAllowsCreatingMetrics } from "@/services/env";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricForm from "@/components/Metrics/MetricForm";
-import { checkMetricProjectPermissions } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
-import usePermissions from "@/hooks/usePermissions";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { DataSourceQueryEditingModalBaseProps } from "./types";
 
 type DataSourceMetricsProps = Omit<
@@ -29,7 +28,7 @@ export default function DataSourceMetrics({
   dataSource,
   canEdit,
 }: DataSourceMetricsProps) {
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const [
     showAutoGenerateMetricsModal,
     setShowAutoGenerateMetricsModal,
@@ -49,13 +48,20 @@ export default function DataSourceMetrics({
 
   const metrics: MetricInterface[] | undefined = data?.metrics;
 
-  const editMetricsPermissions: { [id: string]: boolean } = {};
+  const editMetricsPermissions: {
+    [id: string]: { canDuplicate: boolean; canUpdate: boolean };
+  } = {};
   metrics?.forEach((m) => {
-    editMetricsPermissions[m.id] = checkMetricProjectPermissions(
-      m,
-      permissions
-    );
+    editMetricsPermissions[m.id] = {
+      canDuplicate: permissionsUtil.canCreateMetric(m),
+      canUpdate: permissionsUtil.canUpdateMetric(m, {}),
+    };
   });
+
+  // Auto-generated metrics inherit the data source's projects, so check that the user has createMetric permission for all of them
+  const canCreateMetricsInAllDataSourceProjects = permissionsUtil.canCreateMetric(
+    { projects: dataSource.projects }
+  );
 
   return (
     <>
@@ -93,7 +99,9 @@ export default function DataSourceMetrics({
           </p>
         </div>
         <div className="d-flex flex-row pl-3">
-          {canEdit && canCreateMetrics() ? (
+          {canEdit &&
+          envAllowsCreatingMetrics() &&
+          canCreateMetricsInAllDataSourceProjects ? (
             <>
               <AutoGenerateMetricsButton
                 setShowAutoGenerateMetricsModal={
@@ -244,8 +252,8 @@ export default function DataSourceMetrics({
                               </Tooltip>
                             ) : null}
                           </div>
-                          {editMetricsPermissions[metric.id] ? (
-                            <MoreMenu className="px-2">
+                          <MoreMenu className="px-2">
+                            {editMetricsPermissions[metric.id].canDuplicate ? (
                               <button
                                 className="btn dropdown-item py-2"
                                 onClick={(e) => {
@@ -264,33 +272,34 @@ export default function DataSourceMetrics({
                               >
                                 <FaRegCopy /> Duplicate
                               </button>
-                              {!metric.managedBy ? (
-                                <button
-                                  className="btn dropdown-item py-2"
-                                  color=""
-                                  onClick={async () => {
-                                    const newStatus =
-                                      metric.status === "archived"
-                                        ? "active"
-                                        : "archived";
-                                    await apiCall(`/metric/${metric.id}`, {
-                                      method: "PUT",
-                                      body: JSON.stringify({
-                                        status: newStatus,
-                                      }),
-                                    });
-                                    mutateDefinitions({});
-                                    mutate();
-                                  }}
-                                >
-                                  <FaArchive />{" "}
-                                  {metric.status === "archived"
-                                    ? "Unarchive"
-                                    : "Archive"}
-                                </button>
-                              ) : null}
-                            </MoreMenu>
-                          ) : null}
+                            ) : null}
+                            {!metric.managedBy &&
+                            editMetricsPermissions[metric.id].canUpdate ? (
+                              <button
+                                className="btn dropdown-item py-2"
+                                color=""
+                                onClick={async () => {
+                                  const newStatus =
+                                    metric.status === "archived"
+                                      ? "active"
+                                      : "archived";
+                                  await apiCall(`/metric/${metric.id}`, {
+                                    method: "PUT",
+                                    body: JSON.stringify({
+                                      status: newStatus,
+                                    }),
+                                  });
+                                  mutateDefinitions({});
+                                  mutate();
+                                }}
+                              >
+                                <FaArchive />{" "}
+                                {metric.status === "archived"
+                                  ? "Unarchive"
+                                  : "Archive"}
+                              </button>
+                            ) : null}
+                          </MoreMenu>
                         </div>
                       </div>
                     </Link>

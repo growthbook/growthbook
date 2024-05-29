@@ -1,8 +1,11 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import React, { DetailedHTMLProps, HTMLAttributes } from "react";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  hasEnoughData,
+  isStatSig,
+} from "shared/experiments";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
-import { hasEnoughData, isStatSig } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import AlignedGraph from "./AlignedGraph";
@@ -19,7 +22,6 @@ interface Props
   significant?: boolean;
   graphWidth?: number;
   height?: number;
-  newUi?: boolean;
   className?: string;
   isHovered?: boolean;
   percent?: boolean;
@@ -40,7 +42,6 @@ export default function PercentGraph({
   significant,
   graphWidth,
   height,
-  newUi = false,
   className,
   isHovered = false,
   percent = true,
@@ -59,14 +60,15 @@ export default function PercentGraph({
   const showGraph = metric && enoughData;
 
   if (significant === undefined) {
-    significant = showGraph
-      ? (stats.chanceToWin ?? 0) > ciUpper || (stats.chanceToWin ?? 0) < ciLower
-      : false;
-
-    if (newUi && barType === "pill") {
+    if (barType === "pill") {
       // frequentist
       significant = showGraph
         ? isStatSig(stats.pValueAdjusted ?? stats.pValue ?? 1, pValueThreshold)
+        : false;
+    } else {
+      significant = showGraph
+        ? (stats.chanceToWin ?? 0) > ciUpper ||
+          (stats.chanceToWin ?? 0) < ciLower
         : false;
     }
   }
@@ -86,7 +88,6 @@ export default function PercentGraph({
       graphWidth={graphWidth}
       height={height}
       inverse={!!metric?.inverse}
-      newUi={newUi}
       className={className}
       isHovered={isHovered}
       percent={percent}

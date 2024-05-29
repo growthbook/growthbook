@@ -45,6 +45,7 @@ import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
+import Toggle from "@/components/Forms/Toggle";
 import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
 
 const weekAgo = new Date();
@@ -135,6 +136,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     false
   );
 
+  const [autoRefreshResults, setAutoRefreshResults] = useState(true);
+
   const {
     datasources,
     getDatasourceById,
@@ -167,7 +170,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
-  const attributeSchema = useAttributeSchema();
+  const attributeSchema = useAttributeSchema(false, project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
@@ -285,6 +288,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
     if (source === "duplicate" && initialValue?.id) {
       params.originalId = initialValue.id;
+    }
+
+    if (autoRefreshResults && isImport) {
+      params.autoRefreshResults = true;
     }
 
     const res = await apiCall<
@@ -469,7 +476,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     "Will be hashed together with the Experiment Id (tracking key) to determine which variation to assign"
                   }
                 />
-                <FallbackAttributeSelector form={form} />
+                <FallbackAttributeSelector
+                  form={form}
+                  attributeSchema={attributeSchema}
+                />
               </div>
 
               {hasSDKWithNoBucketingV2 && (
@@ -492,6 +502,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 defaultValue={form.watch("phases.0.condition") || ""}
                 onChange={(value) => form.setValue("phases.0.condition", value)}
                 key={conditionKey}
+                project={project}
               />
               <hr />
               <PrerequisiteTargetingField
@@ -500,6 +511,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   form.setValue("phases.0.prerequisites", prerequisites)
                 }
                 environments={envs}
+                project={form.watch("project")}
                 setPrerequisiteTargetingSdkIssues={
                   setPrerequisiteTargetingSdkIssues
                 }
@@ -515,6 +527,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           )}
 
           <hr />
+          {isImport && (
+            <div className="alert alert-info">
+              We guessed at the variation percents below based on the data we
+              saw. They might need to be adjusted.
+            </div>
+          )}
           <FeatureVariationsInput
             valueType={"string"}
             coverage={form.watch("phases.0.coverage")}
@@ -617,6 +635,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               />
             )}
             <div className="form-group">
+              <label className="font-weight-bold mb-1">Goal Metrics</label>
               <div className="mb-1">
                 <span className="font-italic">
                   Metrics you are trying to improve with this experiment.{" "}
@@ -651,6 +670,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               />
             </div>
           </div>
+
+          {isImport && (
+            <div className="form-group">
+              <Toggle
+                id="auto_refresh_results"
+                label="Auto Refresh Results"
+                value={autoRefreshResults}
+                setValue={setAutoRefreshResults}
+              />
+              <label>Populate Results on Save</label>
+            </div>
+          )}
         </Page>
       )}
     </PagedModal>

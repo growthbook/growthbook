@@ -10,7 +10,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 
 const ImpactModal: FC<{
-  idea?: IdeaInterface;
+  idea: IdeaInterface;
   estimate?: ImpactEstimateInterface;
   close: () => void;
   mutate: () => void;
@@ -23,12 +23,9 @@ const ImpactModal: FC<{
     defaultValues: {
       metric: estimate?.metric || metrics[0]?.id || "",
       segment: estimate?.segment || "",
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      userAdjustment: idea.estimateParams?.userAdjustment || 100,
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      numVariations: idea.estimateParams?.numVariations || 2,
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      improvement: idea.estimateParams?.improvement || 10,
+      userAdjustment: idea.estimateParams.userAdjustment || 100,
+      numVariations: idea.estimateParams.numVariations || 2,
+      improvement: idea.estimateParams.improvement || 10,
     },
   });
 
@@ -61,7 +58,7 @@ const ImpactModal: FC<{
               body: JSON.stringify({
                 metric: value.metric,
                 segment: value.segment || null,
-                idea: idea?.id || null,
+                ideaId: idea.id || null,
               }),
             }
           );
@@ -100,7 +97,6 @@ const ImpactModal: FC<{
           },
         };
 
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         await apiCall(`/idea/${idea.id}`, {
           method: "POST",
           body: JSON.stringify(data),

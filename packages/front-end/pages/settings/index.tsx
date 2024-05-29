@@ -65,7 +65,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
 
   const { metricDefaults } = useOrganizationMetricDefaults();
-
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
       visualEditorEnabled: false,
@@ -86,6 +85,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         //startDate?: Date;
       },
       metricDefaults: {
+        priorSettings: metricDefaults.priorSettings,
         minimumSampleSize: metricDefaults.minimumSampleSize,
         maxPercentageChange: metricDefaults.maxPercentageChange * 100,
         minPercentageChange: metricDefaults.minPercentageChange * 100,
@@ -106,26 +106,36 @@ const GeneralSettingsPage = (): React.ReactElement => {
       regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
       sequentialTestingEnabled: false,
       sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+      powerCalculatorEnabled: false,
       attributionModel: "firstExposure",
       displayCurrency,
       secureAttributeSalt: "",
       killswitchConfirmation: false,
-      requireReviews: false,
+      requireReviews: [
+        {
+          requireReviewOn: false,
+          resetReviewOnChange: false,
+          environments: [],
+          projects: [],
+        },
+      ],
       defaultDataSource: settings.defaultDataSource || "",
       useStickyBucketing: false,
       useFallbackAttributes: false,
       codeReferencesEnabled: false,
       codeRefsBranchesToFilter: [],
       codeRefsPlatformUrl: "",
+      featureKeyExample: "",
+      featureRegexValidator: "",
     },
   });
   const { apiCall } = useAuth();
-
-  const value = {
+  const value: OrganizationSettingsWithMetricDefaults = {
     visualEditorEnabled: form.watch("visualEditorEnabled"),
     pastExperimentsMinLength: form.watch("pastExperimentsMinLength"),
     metricAnalysisDays: form.watch("metricAnalysisDays"),
     metricDefaults: {
+      priorSettings: form.watch("metricDefaults.priorSettings"),
       minimumSampleSize: form.watch("metricDefaults.minimumSampleSize"),
       maxPercentageChange: form.watch("metricDefaults.maxPercentageChange"),
       minPercentageChange: form.watch("metricDefaults.minPercentageChange"),
@@ -146,6 +156,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     pValueCorrection: form.watch("pValueCorrection"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
+    powerCalculatorEnabled: form.watch("powerCalculatorEnabled"),
     sequentialTestingEnabled: form.watch("sequentialTestingEnabled"),
     sequentialTestingTuningParameter: form.watch(
       "sequentialTestingTuningParameter"
@@ -179,20 +190,31 @@ const GeneralSettingsPage = (): React.ReactElement => {
     if (settings) {
       const newVal = { ...form.getValues() };
       Object.keys(newVal).forEach((k) => {
-        const hasExistingMetrics = typeof settings?.[k] !== "undefined";
-        newVal[k] = settings?.[k] || newVal[k];
-
-        // Existing values are stored as a multiplier, e.g. 50% on the UI is stored as 0.5
-        // Transform these values from the UI format
-        if (k === "metricDefaults" && hasExistingMetrics) {
-          newVal.metricDefaults = {
-            ...newVal.metricDefaults,
-            maxPercentageChange:
-              newVal.metricDefaults.maxPercentageChange * 100,
-            minPercentageChange:
-              newVal.metricDefaults.minPercentageChange * 100,
+        if (k === "metricDefaults") {
+          // Metric defaults are nested, so take existing metric defaults only if
+          // they exist and are not empty
+          const existingMaxChange = settings?.[k]?.maxPercentageChange;
+          const existingMinChange = settings?.[k]?.minPercentageChange;
+          newVal[k] = {
+            ...newVal[k],
+            ...settings?.[k],
+            // Existing values are stored as a multiplier, e.g. 50% on the UI is stored as 0.5
+            // Transform these values from the UI format
+            ...(existingMaxChange !== undefined
+              ? {
+                  maxPercentageChange: existingMaxChange * 100,
+                }
+              : {}),
+            ...(existingMinChange !== undefined
+              ? {
+                  minPercentageChange: existingMinChange * 100,
+                }
+              : {}),
           };
+        } else {
+          newVal[k] = settings?.[k] || newVal[k];
         }
+
         if (k === "confidenceLevel" && (newVal?.confidenceLevel ?? 0.95) <= 1) {
           newVal.confidenceLevel = (newVal.confidenceLevel ?? 0.95) * 100;
         }
@@ -245,6 +267,39 @@ const GeneralSettingsPage = (): React.ReactElement => {
       multipleExposureMinPercent:
         (value.multipleExposureMinPercent ?? 0.01) / 100,
     };
+
+    // Make sure the feature key example is valid
+    if (
+      transformedOrgSettings.featureKeyExample &&
+      !transformedOrgSettings.featureKeyExample.match(/^[a-zA-Z0-9_.:|-]+$/)
+    ) {
+      throw new Error(
+        "Feature key examples can only include letters, numbers, hyphens, and underscores."
+      );
+    }
+
+    // If the regex validator exists, then the feature key example must match the regex and be valid.
+    if (transformedOrgSettings.featureRegexValidator) {
+      if (
+        !transformedOrgSettings.featureKeyExample ||
+        !transformedOrgSettings.featureRegexValidator
+      ) {
+        throw new Error(
+          "Feature key example must not be empty when a regex validator is defined."
+        );
+      }
+
+      const regexValidator = transformedOrgSettings.featureRegexValidator;
+      if (
+        !new RegExp(regexValidator).test(
+          transformedOrgSettings.featureKeyExample
+        )
+      ) {
+        throw new Error(
+          `Feature key example does not match the regex validator. '${transformedOrgSettings.featureRegexValidator}' Example: '${transformedOrgSettings.featureKeyExample}'`
+        );
+      }
+    }
 
     await apiCall(`/organization`, {
       method: "PUT",

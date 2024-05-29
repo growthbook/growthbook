@@ -2,16 +2,15 @@ import { cloneDeep } from "lodash";
 import {
   ALL_PERMISSIONS,
   ENV_SCOPED_PERMISSIONS,
+  getPermissionsObjectByPolicies,
+  getRoleById,
   roleSupportsEnvLimit,
 } from "shared/permissions";
 import {
-  MemberRole,
-  MemberRoleInfo,
   OrganizationInterface,
   Permission,
   PermissionsObject,
   ProjectMemberRole,
-  Role,
   UserPermission,
   UserPermissions,
 } from "../../types/organization";
@@ -30,19 +29,35 @@ function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
   return false;
 }
 
+export function getEnvironmentIdsFromOrg(org: OrganizationInterface): string[] {
+  return getEnvironments(org).map((e) => e.id);
+}
+
+export function getEnvironments(org: OrganizationInterface) {
+  if (!org.settings?.environments || !org.settings?.environments?.length) {
+    return [
+      {
+        id: "dev",
+        description: "",
+        toggleOnList: true,
+      },
+      {
+        id: "production",
+        description: "",
+        toggleOnList: true,
+      },
+    ];
+  }
+  return org.settings.environments;
+}
+
 export function roleToPermissionMap(
-  role: MemberRole | undefined,
+  roleId: string,
   org: OrganizationInterface
 ): PermissionsObject {
-  const roles = getRoles(org);
-  const orgRole = roles.find((r) => r.id === role);
-  const permissions = new Set<Permission>(orgRole?.permissions || []);
-
-  const permissionsObj: PermissionsObject = {};
-  ALL_PERMISSIONS.forEach((p) => {
-    permissionsObj[p] = permissions.has(p);
-  });
-  return permissionsObj;
+  const role = getRoleById(roleId || "readonly", org);
+  const policies = role?.policies || [];
+  return getPermissionsObjectByPolicies(policies);
 }
 
 function isValidPermission(permission: string): permission is Permission {
@@ -202,7 +217,7 @@ function getUserPermission(
   info: {
     environments?: string[];
     limitAccessByEnvironment?: boolean;
-    role: MemberRole;
+    role: string;
   },
   org: OrganizationInterface
 ): UserPermission {
@@ -210,7 +225,7 @@ function getUserPermission(
 
   // Only some roles can be limited by environment
   // TODO: This will have to change when we support custom roles
-  if (limitAccessByEnvironment && !roleSupportsEnvLimit(info.role)) {
+  if (limitAccessByEnvironment && !roleSupportsEnvLimit(info.role, org)) {
     limitAccessByEnvironment = false;
   }
 
@@ -272,126 +287,6 @@ export function getUserPermissions(
   }
 
   return userPermissions;
-}
-
-export function getRoles(_organization: OrganizationInterface): Role[] {
-  // TODO: support custom roles?
-  return [
-    {
-      id: "noaccess",
-      description:
-        "Cannot view any features or experiments. Most useful when combined with project-scoped roles.",
-      permissions: [],
-    },
-    {
-      id: "readonly",
-      description: "View all features and experiment results",
-      permissions: ["readData"],
-    },
-    {
-      id: "visualEditor",
-      description: "Make visual changes for an experiment",
-      permissions: ["readData", "manageVisualChanges"],
-    },
-    {
-      id: "collaborator",
-      description: "Add comments and contribute ideas",
-      permissions: [
-        "readData",
-        "addComments",
-        "createIdeas",
-        "createPresentations",
-      ],
-    },
-    {
-      id: "engineer",
-      description: "Manage features",
-      permissions: [
-        "readData",
-        "addComments",
-        "createIdeas",
-        "createPresentations",
-        "publishFeatures",
-        "manageFeatures",
-        "manageTags",
-        "createFeatureDrafts",
-        "manageTargetingAttributes",
-        "manageEnvironments",
-        "manageNamespaces",
-        "manageSavedGroups",
-        "manageArchetype",
-        "runExperiments",
-        "canReview",
-        "manageVisualChanges",
-      ],
-    },
-    {
-      id: "analyst",
-      description: "Analyze experiments",
-      permissions: [
-        "readData",
-        "addComments",
-        "createIdeas",
-        "createPresentations",
-        "createAnalyses",
-        "createDimensions",
-        "createMetrics",
-        "createSegments",
-        "manageFactTables",
-        "manageTags",
-        "runQueries",
-        "editDatasourceSettings",
-        "manageVisualChanges",
-      ],
-    },
-    {
-      id: "experimenter",
-      description: "Manage features AND Analyze experiments",
-      permissions: [
-        "readData",
-        "addComments",
-        "createIdeas",
-        "createPresentations",
-        "publishFeatures",
-        "manageFeatures",
-        "createFeatureDrafts",
-        "manageTargetingAttributes",
-        "manageEnvironments",
-        "manageNamespaces",
-        "manageSavedGroups",
-        "manageArchetype",
-        "manageTags",
-        "runExperiments",
-        "createAnalyses",
-        "createDimensions",
-        "createSegments",
-        "createMetrics",
-        "manageFactTables",
-        "runQueries",
-        "editDatasourceSettings",
-        "canReview",
-        "manageVisualChanges",
-      ],
-    },
-    {
-      id: "admin",
-      description:
-        "All access + invite teammates and configure organization settings",
-      permissions: [...ALL_PERMISSIONS],
-    },
-  ];
-}
-
-export function getDefaultRole(
-  organization: OrganizationInterface
-): MemberRoleInfo {
-  return (
-    organization.settings?.defaultRole || {
-      environments: [],
-      limitAccessByEnvironment: false,
-      role: "collaborator",
-    }
-  );
 }
 
 export const attributeDataTypes = [

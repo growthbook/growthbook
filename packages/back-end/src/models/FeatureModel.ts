@@ -2,12 +2,12 @@ import mongoose, { FilterQuery } from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import { MergeResultChanges } from "shared/util";
-import { hasReadAccess } from "shared/permissions";
+import { MergeResultChanges, getApiFeatureEnabledEnvs } from "shared/util";
 import {
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
+  JSONSchemaDef,
   LegacyFeatureInterface,
 } from "../../types/feature";
 import { ExperimentInterface } from "../../types/experiment";
@@ -35,6 +35,8 @@ import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { logger } from "../util/logger";
 import { getEnvironmentIdsFromOrg } from "../services/organizations";
 import { ApiReqContext } from "../../types/api";
+import { simpleSchemaValidator } from "../validators/features";
+import { getChangedApiFeatureEnvironments } from "../events/handlers/utils";
 import { createEvent } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
@@ -162,7 +164,7 @@ export async function getAllFeatures(
   );
 
   return features.filter((feature) =>
-    hasReadAccess(context.readAccessFilter, feature.project)
+    context.permissions.canReadSingleProjectResource(feature.project)
   );
 }
 
@@ -184,7 +186,7 @@ export async function getAllFeaturesWithLinkedExperiments(
   const allFeatures = await FeatureModel.find(q);
 
   const features = allFeatures.filter((feature) =>
-    hasReadAccess(context.readAccessFilter, feature.project)
+    context.permissions.canReadSingleProjectResource(feature.project)
   );
   const expIds = new Set<string>(
     features
@@ -210,7 +212,7 @@ export async function getFeature(
   });
   if (!feature) return null;
 
-  return hasReadAccess(context.readAccessFilter, feature.project)
+  return context.permissions.canReadSingleProjectResource(feature.project)
     ? upgradeFeatureInterface(toInterface(feature))
     : null;
 }
@@ -248,7 +250,7 @@ export async function getFeaturesByIds(
   ).map((m) => upgradeFeatureInterface(toInterface(m)));
 
   return features.filter((feature) =>
-    hasReadAccess(context.readAccessFilter, feature.project)
+    context.permissions.canReadSingleProjectResource(feature.project)
   );
 }
 
@@ -346,24 +348,38 @@ async function logFeatureUpdatedEvent(
   const groupMap = await getSavedGroupMap(context.org);
   const experimentMap = await getExperimentMapForFeature(context, current.id);
 
+  const currentApiFeature = getApiFeatureObj({
+    feature: current,
+    organization: context.org,
+    groupMap,
+    experimentMap,
+  });
+  const previousApiFeature = getApiFeatureObj({
+    feature: previous,
+    organization: context.org,
+    groupMap,
+    experimentMap,
+  });
+
   const payload: FeatureUpdatedNotificationEvent = {
     object: "feature",
     event: "feature.updated",
     data: {
-      current: getApiFeatureObj({
-        feature: current,
-        organization: context.org,
-        groupMap,
-        experimentMap,
-      }),
-      previous: getApiFeatureObj({
-        feature: previous,
-        organization: context.org,
-        groupMap,
-        experimentMap,
-      }),
+      current: currentApiFeature,
+      previous: previousApiFeature,
     },
     user: context.auditUser,
+    projects: Array.from(
+      new Set([previousApiFeature.project, currentApiFeature.project])
+    ),
+    tags: Array.from(
+      new Set([...previousApiFeature.tags, ...currentApiFeature.tags])
+    ),
+    environments: getChangedApiFeatureEnvironments(
+      previousApiFeature,
+      currentApiFeature
+    ),
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(context.org.id, payload);
@@ -385,18 +401,24 @@ async function logFeatureCreatedEvent(
   const groupMap = await getSavedGroupMap(context.org);
   const experimentMap = await getExperimentMapForFeature(context, feature.id);
 
+  const apiFeature = getApiFeatureObj({
+    feature,
+    organization: context.org,
+    groupMap,
+    experimentMap,
+  });
+
   const payload: FeatureCreatedNotificationEvent = {
     object: "feature",
     event: "feature.created",
     user: context.auditUser,
     data: {
-      current: getApiFeatureObj({
-        feature,
-        organization: context.org,
-        groupMap,
-        experimentMap,
-      }),
+      current: apiFeature,
     },
+    projects: [apiFeature.project],
+    tags: apiFeature.tags,
+    environments: getApiFeatureEnabledEnvs(apiFeature),
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(context.org.id, payload);
@@ -420,18 +442,24 @@ async function logFeatureDeletedEvent(
     previousFeature.id
   );
 
+  const apiFeature = getApiFeatureObj({
+    feature: previousFeature,
+    organization: context.org,
+    groupMap,
+    experimentMap,
+  });
+
   const payload: FeatureDeletedNotificationEvent = {
     object: "feature",
     event: "feature.deleted",
     user: context.auditUser,
     data: {
-      previous: getApiFeatureObj({
-        feature: previousFeature,
-        organization: context.org,
-        groupMap,
-        experimentMap,
-      }),
+      previous: apiFeature,
     },
+    projects: [apiFeature.project],
+    tags: apiFeature.tags,
+    environments: getApiFeatureEnabledEnvs(apiFeature),
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(context.org.id, payload);
@@ -640,7 +668,8 @@ export async function addFeatureRule(
   revision: FeatureRevisionInterface,
   env: string,
   rule: FeatureRule,
-  user: EventAuditUser
+  user: EventAuditUser,
+  resetReview: boolean
 ) {
   if (!rule.id) {
     rule.id = generateRuleId();
@@ -648,16 +677,21 @@ export async function addFeatureRule(
 
   const changes = {
     rules: revision.rules || {},
+    status: revision.status,
   };
   changes.rules[env] = changes.rules[env] || [];
   changes.rules[env].push(rule);
-
-  await updateRevision(revision, changes, {
-    user,
-    action: "add rule",
-    subject: `to ${env}`,
-    value: JSON.stringify(rule),
-  });
+  await updateRevision(
+    revision,
+    changes,
+    {
+      user,
+      action: "add rule",
+      subject: `to ${env}`,
+      value: JSON.stringify(rule),
+    },
+    resetReview
+  );
 }
 
 export async function editFeatureRule(
@@ -665,9 +699,10 @@ export async function editFeatureRule(
   environment: string,
   i: number,
   updates: Partial<FeatureRule>,
-  user: EventAuditUser
+  user: EventAuditUser,
+  resetReview: boolean
 ) {
-  const changes = { rules: revision.rules || {} };
+  const changes = { rules: revision.rules || {}, status: revision.status };
 
   changes.rules[environment] = changes.rules[environment] || [];
   if (!changes.rules[environment][i]) {
@@ -678,13 +713,17 @@ export async function editFeatureRule(
     ...changes.rules[environment][i],
     ...updates,
   } as FeatureRule;
-
-  await updateRevision(revision, changes, {
-    user,
-    action: "edit rule",
-    subject: `in ${environment} (position ${i + 1})`,
-    value: JSON.stringify(updates),
-  });
+  await updateRevision(
+    revision,
+    changes,
+    {
+      user,
+      action: "edit rule",
+      subject: `in ${environment} (position ${i + 1})`,
+      value: JSON.stringify(updates),
+    },
+    resetReview
+  );
 }
 
 export async function removeTagInFeature(
@@ -734,7 +773,8 @@ export async function removeProjectFromFeatures(
 export async function setDefaultValue(
   revision: FeatureRevisionInterface,
   defaultValue: string,
-  user: EventAuditUser
+  user: EventAuditUser,
+  requireReview: boolean
 ) {
   await updateRevision(
     revision,
@@ -744,18 +784,23 @@ export async function setDefaultValue(
       action: "edit default value",
       subject: ``,
       value: JSON.stringify({ defaultValue }),
-    }
+    },
+    requireReview
   );
 }
 
 export async function setJsonSchema(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
-  schema: string,
-  enabled?: boolean
+  def: Omit<JSONSchemaDef, "date">
 ) {
+  // Validate Simple Schema (sanity check)
+  if (def.schemaType === "simple" && def.simple) {
+    simpleSchemaValidator.parse(def.simple);
+  }
+
   return await updateFeature(context, feature, {
-    jsonSchema: { schema, enabled: enabled ?? true, date: new Date() },
+    jsonSchema: { ...def, date: new Date() },
   });
 }
 

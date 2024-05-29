@@ -1,4 +1,4 @@
-import { validateFeatureValue } from "shared/util";
+import { featureRequiresReview, validateFeatureValue } from "shared/util";
 import { isEqual } from "lodash";
 import { UpdateFeatureResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
@@ -34,23 +34,23 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const orgEnvs = getEnvironmentIdsFromOrg(req.organization);
 
-    // check permissions for previous project and new one
-    req.checkPermissions("manageFeatures", [
-      feature.project ?? "",
-      project ?? "",
-    ]);
+    if (!req.context.permissions.canUpdateFeature(feature, req.body)) {
+      req.context.permissions.throwPermissionError();
+    }
 
     if (project != null) {
-      req.checkPermissions(
-        "publishFeatures",
-        feature.project,
-        getEnabledEnvironments(feature, orgEnvs)
-      );
-      req.checkPermissions(
-        "publishFeatures",
-        project,
-        getEnabledEnvironments(feature, orgEnvs)
-      );
+      if (
+        !req.context.permissions.canPublishFeature(
+          feature,
+          Array.from(getEnabledEnvironments(feature, orgEnvs))
+        ) ||
+        !req.context.permissions.canPublishFeature(
+          { project },
+          Array.from(getEnabledEnvironments(feature, orgEnvs))
+        )
+      ) {
+        req.context.permissions.throwPermissionError();
+      }
     }
 
     // ensure environment keys are valid
@@ -94,21 +94,28 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       updates.project != null ||
       updates.archived != null
     ) {
-      req.checkPermissions(
-        "publishFeatures",
-        updates.project,
-        getEnabledEnvironments(
-          {
-            ...feature,
-            ...updates,
-          },
-          orgEnvs
+      if (
+        !req.context.permissions.canPublishFeature(
+          updates,
+          Array.from(
+            getEnabledEnvironments(
+              {
+                ...feature,
+                ...updates,
+              },
+              orgEnvs
+            )
+          )
         )
-      );
+      ) {
+        req.context.permissions.throwPermissionError();
+      }
       addIdsToRules(updates.environmentSettings, feature.id);
     }
 
     // Create a revision for the changes and publish them immediately
+    let defaultValueChanged = false;
+    const changedEnvironments: string[] = [];
     if ("defaultValue" in updates || "environmentSettings" in updates) {
       const revisionChanges: Partial<FeatureRevisionInterface> = {};
 
@@ -119,6 +126,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       ) {
         revisionChanges.defaultValue = updates.defaultValue;
         hasChanges = true;
+        defaultValueChanged = true;
       }
       if (updates.environmentSettings) {
         Object.entries(updates.environmentSettings).forEach(
@@ -130,6 +138,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
               )
             ) {
               hasChanges = true;
+              changedEnvironments.push(env);
               revisionChanges.rules = revisionChanges.rules || {};
               revisionChanges.rules[env] = settings.rules;
             }
@@ -138,6 +147,20 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       }
 
       if (hasChanges) {
+        const reviewRequired = featureRequiresReview(
+          feature,
+          changedEnvironments,
+          defaultValueChanged,
+          req.organization.settings
+        );
+        if (reviewRequired) {
+          if (!req.context.permissions.canBypassApprovalChecks(feature)) {
+            throw new Error(
+              "This feature requires a review and the API key being used does not have permission to bypass reviews."
+            );
+          }
+        }
+
         const revision = await createRevision({
           feature,
           user: req.eventAudit,
@@ -146,6 +169,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           environments: orgEnvs,
           publish: true,
           changes: revisionChanges,
+          org: req.organization,
+          canBypassApprovalChecks: true,
         });
         updates.version = revision.version;
       }

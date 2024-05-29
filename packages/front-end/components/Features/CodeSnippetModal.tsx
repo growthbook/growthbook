@@ -11,6 +11,7 @@ import {
 } from "react-icons/fa";
 import { FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
+import { getLatestSDKVersion } from "shared/sdk-versioning";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getApiHost, getCdnHost } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -83,6 +84,9 @@ export default function CodeSnippetModal({
   const [showTestModal, setShowTestModal] = useState(false);
 
   const [language, setLanguage] = useState<SDKLanguage>("javascript");
+  const [version, setVersion] = useState<string>(
+    getLatestSDKVersion("javascript")
+  );
 
   const [configOpen, setConfigOpen] = useState(true);
   const [installationOpen, setInstallationOpen] = useState(true);
@@ -96,17 +100,21 @@ export default function CodeSnippetModal({
   useEffect(() => {
     if (!currentConnection) return;
 
-    // connection changes & current language isn't included in new connection, reset to default
-    if (!currentConnection.languages.includes(language)) {
-      setLanguage(currentConnection.languages[0] || "javascript");
-    }
+    const language = currentConnection.languages[0] ?? "javascript";
+    const version =
+      (currentConnection?.languages?.length === 1 &&
+      currentConnection?.languages?.[0] === language
+        ? currentConnection?.sdkVersion
+        : undefined) ?? getLatestSDKVersion(language);
+    setLanguage(language);
+    setVersion(version);
   }, [currentConnection]);
 
   if (!currentConnection) {
     return null;
   }
 
-  const { docs, label } = languageMapping[language];
+  const { docs, docLabel, label } = languageMapping[language];
   const hasProxy =
     currentConnection.proxy.enabled && !!currentConnection.proxy.host;
   const apiHost = getApiBaseUrl(currentConnection);
@@ -202,7 +210,13 @@ export default function CodeSnippetModal({
               <SDKLanguageSelector
                 value={[language]}
                 setValue={([language]) => {
+                  const version =
+                    (currentConnection?.languages?.length === 1 &&
+                    currentConnection?.languages?.[0] === language
+                      ? currentConnection?.sdkVersion
+                      : undefined) ?? getLatestSDKVersion(language);
                   setLanguage(language);
+                  setVersion(version);
                 }}
                 multiple={false}
                 includeOther={false}
@@ -229,7 +243,8 @@ export default function CodeSnippetModal({
           ) : (
             <p>
               Below is some starter code to integrate GrowthBook into your app.
-              Read the <DocLink docSection={docs}>{label} docs</DocLink> for
+              Read the{" "}
+              <DocLink docSection={docs}>{docLabel || label} docs</DocLink> for
               more details.
             </p>
           )}
@@ -242,7 +257,7 @@ export default function CodeSnippetModal({
                   setConfigOpen(!configOpen);
                 }}
               >
-                {label} Config Settings{" "}
+                {docLabel || label} Config Settings{" "}
                 {configOpen ? <FaAngleDown /> : <FaAngleRight />}
               </h4>
               {configOpen && (
@@ -354,6 +369,7 @@ export default function CodeSnippetModal({
                 <div className="appbox bg-light p-3">
                   <GrowthBookSetupCodeSnippet
                     language={language}
+                    version={version}
                     apiHost={apiHost}
                     apiKey={clientKey}
                     encryptionKey={encryptionKey}
@@ -364,7 +380,7 @@ export default function CodeSnippetModal({
             </div>
           )}
 
-          {language !== "other" && (
+          {!(language.match(/^edge-/) || language === "other") && (
             <div className="mb-3">
               <h4
                 className="cursor-pointer"
@@ -475,7 +491,7 @@ myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
             </div>
           )}
 
-          {language !== "other" && (
+          {!(language.match(/^edge-/) || language === "other") && (
             <div className="mb-3">
               <h4
                 className="cursor-pointer"

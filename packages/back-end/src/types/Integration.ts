@@ -1,8 +1,9 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { ReqContext } from "../../types/organization";
 import {
+  DataSourceInterface,
   DataSourceProperties,
-  DataSourceSettings,
   SchemaFormat,
 } from "../../types/datasource";
 import { DimensionInterface } from "../../types/dimension";
@@ -13,7 +14,10 @@ import { SegmentInterface } from "../../types/segment";
 import { FormatDialect } from "../util/sql";
 import { TemplateVariables } from "../../types/sql";
 import { FactTableMap } from "../models/FactTableModel";
-import { FactMetricInterface } from "../../types/fact-table";
+import {
+  FactMetricInterface,
+  MetricQuantileSettings,
+} from "../../types/fact-table";
 
 export type ExternalIdCallback = (id: string) => Promise<void>;
 
@@ -32,6 +36,32 @@ export class DataSourceNotSupportedError extends Error {
 }
 
 export type MetricAggregationType = "pre" | "post" | "noWindow";
+
+export type FactMetricData = {
+  alias: string;
+  id: string;
+  metric: ExperimentMetricInterface;
+  ratioMetric: boolean;
+  funnelMetric: boolean;
+  quantileMetric: "" | MetricQuantileSettings["type"];
+  metricQuantileSettings: MetricQuantileSettings;
+  regressionAdjusted: boolean;
+  regressionAdjustmentHours: number;
+  overrideConversionWindows: boolean;
+  isPercentileCapped: boolean;
+  capCoalesceMetric: string;
+  capCoalesceDenominator: string;
+  capCoalesceCovariate: string;
+  minMetricDelay: number;
+  raMetricSettings: {
+    hours: number;
+    minDelay: number;
+    alias: string;
+  };
+  metricStart: Date;
+  metricEnd: Date | null;
+  maxHoursToConvert: number;
+};
 
 export interface ExperimentMetricStats {
   metric_type: MetricType;
@@ -140,6 +170,7 @@ export type DimensionSlicesQueryParams = {
 
 export type PastExperimentParams = {
   from: Date;
+  forceRefresh?: boolean;
 };
 
 export type MetricValueParams = {
@@ -166,6 +197,7 @@ export type MetricValueResult = {
 };
 
 export type PastExperimentResult = {
+  mergeResults: boolean;
   experiments: {
     exposureQueryId: string;
     experiment_id: string;
@@ -175,6 +207,8 @@ export type PastExperimentResult = {
     start_date: Date;
     end_date: Date;
     users: number;
+    latest_data: Date;
+    start_of_range: boolean;
   }[];
 };
 
@@ -219,6 +253,7 @@ export type PastExperimentResponseRows = {
   start_date: string;
   end_date: string;
   users: number;
+  latest_data: string;
 }[];
 
 export type ExperimentMetricQueryResponseRows = {
@@ -236,6 +271,12 @@ export type ExperimentMetricQueryResponseRows = {
   covariate_sum?: number;
   covariate_sum_squares?: number;
   main_covariate_sum_product?: number;
+
+  quantile?: number;
+  quantile_n?: number;
+  quantile_lower?: number;
+  quantile_upper?: number;
+  quantile_nstar?: number;
 }[];
 
 export type ExperimentFactMetricsQueryResponseRows = {
@@ -273,13 +314,6 @@ export type ExperimentFactMetricsQueryResponse = QueryResponse<ExperimentFactMet
 export type ExperimentUnitsQueryResponse = QueryResponse;
 export type ExperimentAggregateUnitsQueryResponse = QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
 export type DimensionSlicesQueryResponse = QueryResponse<DimensionSlicesQueryResponseRows>;
-
-export interface SourceIntegrationConstructor {
-  new (
-    encryptedParams: string,
-    settings: DataSourceSettings
-  ): SourceIntegrationInterface;
-}
 
 export interface TestQueryRow {
   [key: string]: unknown;
@@ -360,10 +394,8 @@ export interface InformationSchemaTablesInterface {
 }
 
 export interface SourceIntegrationInterface {
-  datasource: string;
-  organization: string;
-  type: string;
-  settings: DataSourceSettings;
+  datasource: DataSourceInterface;
+  context: ReqContext;
   decryptionError: boolean;
   // eslint-disable-next-line
   params: any;
