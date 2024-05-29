@@ -7,6 +7,7 @@ import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
 import { useRouter } from "next/router";
+import { GeneratedHypothesisInterface } from "@back-end/types/generated-hypothesis";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
@@ -63,17 +64,30 @@ const ExperimentsPage = (): React.ReactElement => {
   const router = useRouter();
   const params = router.query;
   const { apiCall } = useAuth();
-  const [generatedHypothesis, setGeneratedHypothesis] = useState(false);
+  const [
+    generatedHypothesis,
+    setGeneratedHypothesis,
+  ] = useState<GeneratedHypothesisInterface | null>(null);
 
   useEffect(() => {
     if (!params.hypId) return;
     const load = async () => {
-      // Fetch hypothesis row from supabase
-      const res = await apiCall(`/generated-hypothesis/${params.hypId}`);
-      // @ts-expect-error w/e
-      const { hypothesis } = res;
-      // set row to generatedHypothesis
-      setGeneratedHypothesis(hypothesis);
+      try {
+        const { generatedHypothesis } = await apiCall<{
+          generatedHypothesis: GeneratedHypothesisInterface;
+        }>(`/generated-hypothesis/${params.hypId}`);
+        if (generatedHypothesis.experiment) {
+          // TODO route to existing experiment
+        } else {
+          setGeneratedHypothesis(generatedHypothesis);
+        }
+      } catch (e) {
+        console.error("Error loading generated hypothesis", {
+          hypId: params.hypId,
+          error: e,
+        });
+        setGeneratedHypothesis(null);
+      }
     };
     load();
   }, [params.hypId]);

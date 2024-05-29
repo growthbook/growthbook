@@ -698,9 +698,10 @@ app.post(
 );
 app.post("/license/verify-email", licenseController.postVerifyEmail);
 
-app.get("/generated-hypothesis/:id", (req, res) => {
+app.get("/generated-hypothesis/:uuid", (req, res) => {
+  // find or create hypothesis
   // eslint-disable-next-line no-console
-  console.log("received generated hypothesis endpoint", req.params.id);
+  console.log("received generated hypothesis endpoint", req.params.uuid);
   res.send("OK");
 });
 
