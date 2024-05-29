@@ -1,11 +1,7 @@
-import mongoose from "mongoose";
-import { MongoMemoryServer } from "mongodb-memory-server";
 import request from "supertest";
-import { getAuthConnection } from "../../src/services/auth";
-import authenticateApiRequestMiddleware from "../../src/middleware/authenticateApiRequestMiddleware";
-import app from "../../src/app";
 import { updateOrganization } from "../../src/models/OrganizationModel";
 import { findAllProjectsByOrganization } from "../../src/models/ProjectModel";
+import { setupApp } from "./api.setup";
 
 jest.mock("../../src/models/ProjectModel", () => ({
   findAllProjectsByOrganization: jest.fn(),
@@ -15,80 +11,34 @@ jest.mock("../../src/models/OrganizationModel", () => ({
   updateOrganization: jest.fn(),
 }));
 
-jest.mock("../../src/init/queue", () => ({
-  queueInit: () => undefined,
-}));
-
-jest.mock("../../src/services/auth", () => ({
-  ...jest.requireActual("../../src/services/auth"),
-  getAuthConnection: () => ({
-    middleware: jest.fn(),
-  }),
-}));
-
-jest.mock("../../src/middleware/authenticateApiRequestMiddleware", () => ({
-  ...jest.requireActual(
-    "../../src/middleware/authenticateApiRequestMiddleware"
-  ),
-  __esModule: true,
-  default: jest.fn(),
-}));
-
-let mongod;
-
 describe("environements API", () => {
-  const OLD_ENV = process.env;
-
-  beforeAll(async () => {
-    jest.resetModules();
-    mongod = await MongoMemoryServer.create();
-    const uri = mongod.getUri();
-    process.env.MONGO_URL = uri;
-    getAuthConnection().middleware.mockImplementation((req, res, next) => {
-      next();
-    });
-  });
-
-  afterAll(async () => {
-    await mongoose.connection.close();
-    await mongod.stop();
-    process.env = OLD_ENV;
-  });
+  const { app, auditMock, setReqContext } = setupApp();
 
   afterEach(async () => {
     jest.clearAllMocks();
-    const collections = mongoose.connection.collections;
-    for (const key in collections) {
-      const collection = collections[key];
-      await collection.deleteMany();
-    }
   });
 
   it("can list all environments", async () => {
-    authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
-      req.context = {
-        org: {
-          settings: {
-            environments: [
-              {
-                id: "env1",
-                description: "env1",
-                toggleOnList: true,
-                defaultState: true,
-                projects: ["bla"],
-              },
-              {
-                id: "env2",
-              },
-            ],
-          },
+    setReqContext({
+      org: {
+        settings: {
+          environments: [
+            {
+              id: "env1",
+              description: "env1",
+              toggleOnList: true,
+              defaultState: true,
+              projects: ["bla"],
+            },
+            {
+              id: "env2",
+            },
+          ],
         },
-        permissions: {
-          canReadMultiProjectResource: () => true,
-        },
-      };
-
-      next();
+      },
+      permissions: {
+        canReadMultiProjectResource: () => true,
+      },
     });
 
     const response = await request(app)
@@ -117,30 +67,26 @@ describe("environements API", () => {
   });
 
   it("can filter environments", async () => {
-    authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
-      req.context = {
-        org: {
-          settings: {
-            environments: [
-              {
-                id: "env1",
-                description: "env1",
-                toggleOnList: true,
-                defaultState: true,
-                projects: ["bla"],
-              },
-              {
-                id: "env2",
-              },
-            ],
-          },
+    setReqContext({
+      org: {
+        settings: {
+          environments: [
+            {
+              id: "env1",
+              description: "env1",
+              toggleOnList: true,
+              defaultState: true,
+              projects: ["bla"],
+            },
+            {
+              id: "env2",
+            },
+          ],
         },
-        permissions: {
-          canReadMultiProjectResource: (projects) => projects.includes("bla"),
-        },
-      };
-
-      next();
+      },
+      permissions: {
+        canReadMultiProjectResource: (projects) => projects.includes("bla"),
+      },
     });
 
     const response = await request(app)
@@ -162,34 +108,27 @@ describe("environements API", () => {
   });
 
   it("can delete environments", async () => {
-    const auditMock = jest.fn();
-
-    authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
-      req.audit = auditMock;
-      req.context = {
-        org: {
-          id: "org1",
-          settings: {
-            environments: [
-              {
-                id: "env1",
-                description: "env1",
-                toggleOnList: true,
-                defaultState: true,
-                projects: ["bla"],
-              },
-              {
-                id: "env2",
-              },
-            ],
-          },
+    setReqContext({
+      org: {
+        id: "org1",
+        settings: {
+          environments: [
+            {
+              id: "env1",
+              description: "env1",
+              toggleOnList: true,
+              defaultState: true,
+              projects: ["bla"],
+            },
+            {
+              id: "env2",
+            },
+          ],
         },
-        permissions: {
-          canDeleteEnvironment: () => true,
-        },
-      };
-
-      next();
+      },
+      permissions: {
+        canDeleteEnvironment: () => true,
+      },
     });
 
     const response = await request(app)
@@ -210,31 +149,27 @@ describe("environements API", () => {
   });
 
   it("checks for permission to delete environments", async () => {
-    authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
-      req.context = {
-        org: {
-          id: "org1",
-          settings: {
-            environments: [
-              {
-                id: "env1",
-                description: "env1",
-                toggleOnList: true,
-                defaultState: true,
-                projects: ["bla"],
-              },
-              {
-                id: "env2",
-              },
-            ],
-          },
+    setReqContext({
+      org: {
+        id: "org1",
+        settings: {
+          environments: [
+            {
+              id: "env1",
+              description: "env1",
+              toggleOnList: true,
+              defaultState: true,
+              projects: ["bla"],
+            },
+            {
+              id: "env2",
+            },
+          ],
         },
-        permissions: {
-          canDeleteEnvironment: () => false,
-        },
-      };
-
-      next();
+      },
+      permissions: {
+        canDeleteEnvironment: () => false,
+      },
     });
 
     const response = await request(app)
@@ -249,39 +184,33 @@ describe("environements API", () => {
   });
 
   it("can update environments", async () => {
-    const auditMock = jest.fn();
     findAllProjectsByOrganization.mockReturnValue([
       { id: "proj1" },
       { id: "proj2" },
       { id: "proj3" },
     ]);
 
-    authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
-      req.audit = auditMock;
-      req.context = {
-        org: {
-          id: "org1",
-          settings: {
-            environments: [
-              {
-                id: "env1",
-                description: "env1",
-                toggleOnList: true,
-                defaultState: true,
-                projects: ["bla"],
-              },
-              {
-                id: "env2",
-              },
-            ],
-          },
+    setReqContext({
+      org: {
+        id: "org1",
+        settings: {
+          environments: [
+            {
+              id: "env1",
+              description: "env1",
+              toggleOnList: true,
+              defaultState: true,
+              projects: ["bla"],
+            },
+            {
+              id: "env2",
+            },
+          ],
         },
-        permissions: {
-          canCreateOrUpdateEnvironment: () => true,
-        },
-      };
-
-      next();
+      },
+      permissions: {
+        canCreateOrUpdateEnvironment: () => true,
+      },
     });
 
     const response = await request(app)
@@ -330,38 +259,32 @@ describe("environements API", () => {
   });
 
   it("refuses to update projects when they do not exist", async () => {
-    const auditMock = jest.fn();
     findAllProjectsByOrganization.mockReturnValue([
       { id: "proj1" },
       { id: "proj3" },
     ]);
 
-    authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
-      req.audit = auditMock;
-      req.context = {
-        org: {
-          id: "org1",
-          settings: {
-            environments: [
-              {
-                id: "env1",
-                description: "env1",
-                toggleOnList: true,
-                defaultState: true,
-                projects: ["bla"],
-              },
-              {
-                id: "env2",
-              },
-            ],
-          },
+    setReqContext({
+      org: {
+        id: "org1",
+        settings: {
+          environments: [
+            {
+              id: "env1",
+              description: "env1",
+              toggleOnList: true,
+              defaultState: true,
+              projects: ["bla"],
+            },
+            {
+              id: "env2",
+            },
+          ],
         },
-        permissions: {
-          canCreateOrUpdateEnvironment: () => true,
-        },
-      };
-
-      next();
+      },
+      permissions: {
+        canCreateOrUpdateEnvironment: () => true,
+      },
     });
 
     const response = await request(app)
@@ -383,34 +306,27 @@ describe("environements API", () => {
   });
 
   it("validates update payload", async () => {
-    const auditMock = jest.fn();
-
-    authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
-      req.audit = auditMock;
-      req.context = {
-        org: {
-          id: "org1",
-          settings: {
-            environments: [
-              {
-                id: "env1",
-                description: "env1",
-                toggleOnList: true,
-                defaultState: true,
-                projects: ["bla"],
-              },
-              {
-                id: "env2",
-              },
-            ],
-          },
+    setReqContext({
+      org: {
+        id: "org1",
+        settings: {
+          environments: [
+            {
+              id: "env1",
+              description: "env1",
+              toggleOnList: true,
+              defaultState: true,
+              projects: ["bla"],
+            },
+            {
+              id: "env2",
+            },
+          ],
         },
-        permissions: {
-          canCreateOrUpdateEnvironment: () => true,
-        },
-      };
-
-      next();
+      },
+      permissions: {
+        canCreateOrUpdateEnvironment: () => true,
+      },
     });
 
     const response = await request(app)
@@ -430,35 +346,29 @@ describe("environements API", () => {
   });
 
   it("checks for update permission", async () => {
-    const auditMock = jest.fn();
     findAllProjectsByOrganization.mockReturnValue([{ id: "bla" }]);
 
-    authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
-      req.audit = auditMock;
-      req.context = {
-        org: {
-          id: "org1",
-          settings: {
-            environments: [
-              {
-                id: "env1",
-                description: "env1",
-                toggleOnList: true,
-                defaultState: true,
-                projects: ["bla"],
-              },
-              {
-                id: "env2",
-              },
-            ],
-          },
+    setReqContext({
+      org: {
+        id: "org1",
+        settings: {
+          environments: [
+            {
+              id: "env1",
+              description: "env1",
+              toggleOnList: true,
+              defaultState: true,
+              projects: ["bla"],
+            },
+            {
+              id: "env2",
+            },
+          ],
         },
-        permissions: {
-          canCreateOrUpdateEnvironment: () => false,
-        },
-      };
-
-      next();
+      },
+      permissions: {
+        canCreateOrUpdateEnvironment: () => false,
+      },
     });
 
     const response = await request(app)
@@ -478,39 +388,33 @@ describe("environements API", () => {
   });
 
   it("can create environments", async () => {
-    const auditMock = jest.fn();
     findAllProjectsByOrganization.mockReturnValue([
       { id: "proj1" },
       { id: "proj2" },
       { id: "proj3" },
     ]);
 
-    authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
-      req.audit = auditMock;
-      req.context = {
-        org: {
-          id: "org1",
-          settings: {
-            environments: [
-              {
-                id: "env1",
-                description: "env1",
-                toggleOnList: true,
-                defaultState: true,
-                projects: ["bla"],
-              },
-              {
-                id: "env2",
-              },
-            ],
-          },
+    setReqContext({
+      org: {
+        id: "org1",
+        settings: {
+          environments: [
+            {
+              id: "env1",
+              description: "env1",
+              toggleOnList: true,
+              defaultState: true,
+              projects: ["bla"],
+            },
+            {
+              id: "env2",
+            },
+          ],
         },
-        permissions: {
-          canCreateOrUpdateEnvironment: () => true,
-        },
-      };
-
-      next();
+      },
+      permissions: {
+        canCreateOrUpdateEnvironment: () => true,
+      },
     });
 
     const response = await request(app)
@@ -569,38 +473,32 @@ describe("environements API", () => {
   });
 
   it("refuses to create with projects that do not exist", async () => {
-    const auditMock = jest.fn();
     findAllProjectsByOrganization.mockReturnValue([
       { id: "proj1" },
       { id: "proj3" },
     ]);
 
-    authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
-      req.audit = auditMock;
-      req.context = {
-        org: {
-          id: "org1",
-          settings: {
-            environments: [
-              {
-                id: "env1",
-                description: "env1",
-                toggleOnList: true,
-                defaultState: true,
-                projects: ["bla"],
-              },
-              {
-                id: "env2",
-              },
-            ],
-          },
+    setReqContext({
+      org: {
+        id: "org1",
+        settings: {
+          environments: [
+            {
+              id: "env1",
+              description: "env1",
+              toggleOnList: true,
+              defaultState: true,
+              projects: ["bla"],
+            },
+            {
+              id: "env2",
+            },
+          ],
         },
-        permissions: {
-          canCreateOrUpdateEnvironment: () => true,
-        },
-      };
-
-      next();
+      },
+      permissions: {
+        canCreateOrUpdateEnvironment: () => true,
+      },
     });
 
     const response = await request(app)
@@ -623,34 +521,27 @@ describe("environements API", () => {
   });
 
   it("validates create payload", async () => {
-    const auditMock = jest.fn();
-
-    authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
-      req.audit = auditMock;
-      req.context = {
-        org: {
-          id: "org1",
-          settings: {
-            environments: [
-              {
-                id: "env1",
-                description: "env1",
-                toggleOnList: true,
-                defaultState: true,
-                projects: ["bla"],
-              },
-              {
-                id: "env2",
-              },
-            ],
-          },
+    setReqContext({
+      org: {
+        id: "org1",
+        settings: {
+          environments: [
+            {
+              id: "env1",
+              description: "env1",
+              toggleOnList: true,
+              defaultState: true,
+              projects: ["bla"],
+            },
+            {
+              id: "env2",
+            },
+          ],
         },
-        permissions: {
-          canCreateOrUpdateEnvironment: () => true,
-        },
-      };
-
-      next();
+      },
+      permissions: {
+        canCreateOrUpdateEnvironment: () => true,
+      },
     });
 
     const response = await request(app)
@@ -670,35 +561,29 @@ describe("environements API", () => {
   });
 
   it("checks for create permission", async () => {
-    const auditMock = jest.fn();
     findAllProjectsByOrganization.mockReturnValue([{ id: "bla" }]);
 
-    authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
-      req.audit = auditMock;
-      req.context = {
-        org: {
-          id: "org1",
-          settings: {
-            environments: [
-              {
-                id: "env1",
-                description: "env1",
-                toggleOnList: true,
-                defaultState: true,
-                projects: ["bla"],
-              },
-              {
-                id: "env2",
-              },
-            ],
-          },
+    setReqContext({
+      org: {
+        id: "org1",
+        settings: {
+          environments: [
+            {
+              id: "env1",
+              description: "env1",
+              toggleOnList: true,
+              defaultState: true,
+              projects: ["bla"],
+            },
+            {
+              id: "env2",
+            },
+          ],
         },
-        permissions: {
-          canCreateOrUpdateEnvironment: () => false,
-        },
-      };
-
-      next();
+      },
+      permissions: {
+        canCreateOrUpdateEnvironment: () => false,
+      },
     });
 
     const response = await request(app)
@@ -720,39 +605,33 @@ describe("environements API", () => {
   });
 
   it("fails to create environments with an empty ID", async () => {
-    const auditMock = jest.fn();
     findAllProjectsByOrganization.mockReturnValue([
       { id: "proj1" },
       { id: "proj2" },
       { id: "proj3" },
     ]);
 
-    authenticateApiRequestMiddleware.mockImplementation((req, res, next) => {
-      req.audit = auditMock;
-      req.context = {
-        org: {
-          id: "org1",
-          settings: {
-            environments: [
-              {
-                id: "env1",
-                description: "env1",
-                toggleOnList: true,
-                defaultState: true,
-                projects: ["bla"],
-              },
-              {
-                id: "env2",
-              },
-            ],
-          },
+    setReqContext({
+      org: {
+        id: "org1",
+        settings: {
+          environments: [
+            {
+              id: "env1",
+              description: "env1",
+              toggleOnList: true,
+              defaultState: true,
+              projects: ["bla"],
+            },
+            {
+              id: "env2",
+            },
+          ],
         },
-        permissions: {
-          canCreateOrUpdateEnvironment: () => true,
-        },
-      };
-
-      next();
+      },
+      permissions: {
+        canCreateOrUpdateEnvironment: () => true,
+      },
     });
 
     const response = await request(app)
