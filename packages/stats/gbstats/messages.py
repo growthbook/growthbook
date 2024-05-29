@@ -1,6 +1,3 @@
-RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR = (
-    "RegressionAdjustedStatistic cannot be used with the Bayesian statistics engine"
-)
 COMPARE_PROPORTION_NON_PROPORTION_ERROR = (
     "Cannot compare proportion and non-proportion statistics."
 )

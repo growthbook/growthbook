@@ -4,7 +4,7 @@ import {
 } from "back-end/types/experiment";
 import { IdeaInterface } from "back-end/types/idea";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { includeExperimentInPayload } from "shared/util";
+import { includeExperimentInPayload, isDefined } from "shared/util";
 import { useCallback, useEffect, useState } from "react";
 import { FaChartBar } from "react-icons/fa";
 import clsx from "clsx";
@@ -178,8 +178,8 @@ export default function TabbedPage({
   // Get name or email of all active users watching this experiment
   const usersWatching = (watcherIds?.data?.userIds || [])
     .map((id) => users.get(id))
-    .filter(Boolean)
-    .map((u) => u?.name || u?.email);
+    .filter(isDefined)
+    .map((u) => u.name || u.email);
 
   const safeToEdit = experiment.status !== "running" || !hasLiveLinkedChanges;
 

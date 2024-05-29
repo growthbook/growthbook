@@ -51,6 +51,7 @@ function ConnectionDot({ left }: { left: boolean }) {
         borderRadius: 20,
         border: "3px solid var(--text-color-primary)",
         background: "#fff",
+        zIndex: 1,
       }}
     />
   );
@@ -116,7 +117,8 @@ function ConnectionStatus({
               </span>
               {errorTxt !== undefined && (
                 <Tooltip
-                  className="ml-2"
+                  className="ml-1"
+                  innerClassName="pb-1"
                   usePortal={true}
                   body={
                     <>
@@ -484,7 +486,7 @@ export default function SDKConnectionPage() {
           </Tooltip>
         </div>
       </div>
-      <SdkWebhooks sdkid={sdkid} />
+      <SdkWebhooks connection={connection} />
       <div className="mt-4">
         <CodeSnippetModal
           connections={data.connections}

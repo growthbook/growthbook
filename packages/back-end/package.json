@@ -27,6 +27,8 @@
     "generate-api-types": "yarn generate-api-models && swagger-cli bundle -t yaml src/api/openapi/openapi.tmp.yaml -o generated/spec.yaml && node src/scripts/generate-openapi.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-sts": "^3.567.0",
+    "@aws-sdk/client-athena": "^3.564.0",
     "@clickhouse/client": "^1.0.1",
     "@databricks/sql": "^1.8.1",
     "@dqbd/tiktoken": "^1.0.7",
@@ -94,6 +96,7 @@
     "shared": "0.0.1",
     "snowflake-sdk": "1.10.1",
     "sql-formatter": "^11.0.2",
+    "ssrf-req-filter": "^1.1.1",
     "string-env-interpolation": "^1.0.1",
     "stripe": "^12.0.0",
     "uniqid": "^5.3.0",

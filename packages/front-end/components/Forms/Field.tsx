@@ -41,6 +41,7 @@ export type BaseFieldProps = {
   prepend?: ReactElement | string;
   append?: ReactElement | string;
   comboBox?: boolean;
+  currentLength?: number;
 };
 
 export type FieldProps = BaseFieldProps &
@@ -214,11 +215,18 @@ const Field = forwardRef(
           render ? customClassName : ""
         )}
       >
-        {label && (
-          <label htmlFor={fieldId} className={clsx(labelClassName)}>
-            {label}
-          </label>
-        )}
+        <div className="d-flex flex-row justify-content-between">
+          {label && (
+            <label htmlFor={fieldId} className={clsx(labelClassName)}>
+              {label}
+            </label>
+          )}
+          {otherProps.currentLength !== undefined && otherProps.maxLength ? (
+            <div className="font-weight-light">
+              <small>{`${otherProps.currentLength} / ${otherProps.maxLength}`}</small>
+            </div>
+          ) : null}
+        </div>
         {component}
         {error && <div className="form-text text-danger">{error}</div>}
         {helpText && <small className="form-text text-muted">{helpText}</small>}

@@ -1,4 +1,5 @@
 import { omit } from "lodash";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import {
   FactMetricInterface,
   FactTableInterface,
@@ -61,6 +62,15 @@ export class FactMetricModel extends BaseClass {
       newDoc.cappingSettings = {
         type: doc.capping || "",
         value: doc.capValue || 0,
+      };
+    }
+
+    if (doc.priorSettings === undefined) {
+      newDoc.priorSettings = {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
       };
     }
 

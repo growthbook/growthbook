@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { WebhookInterface } from "back-end/types/webhook";
-import { FaCheck, FaInfoCircle } from "react-icons/fa";
+import { FaCheck, FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
 import { ago } from "shared/dates";
 import { BsArrowRepeat } from "react-icons/bs";
+import { SDKConnectionInterface } from "@back-end/types/sdk-connection";
 import useApi from "@/hooks/useApi";
 import WebhooksModal from "@/components/Settings/WebhooksModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -14,10 +15,15 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle } from "@/components/Icons";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import ClickToReveal from "@/components/Settings/ClickToReveal";
 
-export default function SdkWebhooks({ sdkid }) {
+export default function SdkWebhooks({
+  connection,
+}: {
+  connection: SDKConnectionInterface;
+}) {
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
-    `/webhooks/sdk/${sdkid}`
+    `/sdk-connections/${connection.id}/webhooks`
   );
   const [
     createWebhookModalOpen,
@@ -27,9 +33,9 @@ export default function SdkWebhooks({ sdkid }) {
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature } = useUser();
 
-  const canCreateWebhooks = permissionsUtil.canCreateSDKWebhook();
-  const canUpdateWebhook = permissionsUtil.canUpdateSDKWebhook();
-  const canDeleteWebhook = permissionsUtil.canDeleteSDKWebhook();
+  const canCreateWebhooks = permissionsUtil.canCreateSDKWebhook(connection);
+  const canUpdateWebhook = permissionsUtil.canUpdateSDKWebhook(connection);
+  const canDeleteWebhook = permissionsUtil.canDeleteSDKWebhook(connection);
   const hasWebhooks = !!data?.webhooks?.length;
   const disableWebhookCreate =
     !canCreateWebhooks ||
@@ -39,17 +45,48 @@ export default function SdkWebhooks({ sdkid }) {
     // only render table if there is data to show
     return data?.webhooks?.map((webhook) => (
       <tr key={webhook.name}>
-        <td>{webhook.name}</td>
-        <td>{webhook.endpoint}</td>
+        <td style={{ minWidth: 150 }}>{webhook.name}</td>
+        <td
+          style={{
+            wordBreak: "break-word",
+            overflowWrap: "anywhere",
+          }}
+        >
+          <code className="text-main small">{webhook.endpoint}</code>
+        </td>
         <td>{webhook.sendPayload ? "yes" : "no"}</td>
-        <td>{webhook.signingKey}</td>
+        <td className="nowrap">
+          {webhook.signingKey ? (
+            <ClickToReveal
+              valueWhenHidden="wk_abc123def456ghi789"
+              getValue={async () => webhook.signingKey}
+            />
+          ) : (
+            <em className="text-muted">hidden</em>
+          )}
+        </td>
         <td>
           {webhook.error ? (
-            <pre className="text-danger">Error</pre>
+            <>
+              <span className="text-danger">
+                <FaExclamationTriangle /> error
+              </span>
+              <Tooltip
+                className="ml-1"
+                innerClassName="pb-1"
+                usePortal={true}
+                body={
+                  <>
+                    <div className="alert alert-danger mt-2">
+                      {webhook.error}
+                    </div>
+                  </>
+                }
+              />
+            </>
           ) : webhook.lastSuccess ? (
-            <em>
-              <FaCheck className="text-success" /> last fired{" "}
-              {ago(webhook.lastSuccess)}
+            <em className="small">
+              <FaCheck className="text-success" /> {ago(webhook.lastSuccess)}
             </em>
           ) : (
             <em>never fired</em>
@@ -57,12 +94,13 @@ export default function SdkWebhooks({ sdkid }) {
         </td>
         <td>
           <Button
-            color="link"
+            color="outline-primary"
             className="btn-sm"
+            style={{ width: 120 }}
             disabled={!canUpdateWebhook}
             onClick={async () => {
-              await apiCall(`/webhook/test/${webhook.id}`, {
-                method: "get",
+              await apiCall(`/sdk-webhooks/${webhook.id}/test`, {
+                method: "post",
               });
               mutate();
             }}
@@ -91,7 +129,7 @@ export default function SdkWebhooks({ sdkid }) {
                   text="Delete"
                   useIcon={false}
                   onClick={async () => {
-                    await apiCall(`/webhook/${webhook.id}`, {
+                    await apiCall(`/sdk-webhooks/${webhook.id}`, {
                       method: "DELETE",
                     });
                     mutate();
@@ -159,13 +197,13 @@ export default function SdkWebhooks({ sdkid }) {
         <table className="table appbox gbtable mb-0">
           <thead>
             <tr>
-              <td>WEBHOOK</td>
-              <td>ENDPOINT</td>
-              <td>SEND PAYLOAD</td>
-              <td>SHARED SECRET</td>
-              <td>LAST SUCCESS</td>
-              <td>TEST WEBHOOK</td>
-              <td>EDIT</td>
+              <th>Webhook</th>
+              <th>Endpoint</th>
+              <th>Send Payload</th>
+              <th>Shared Secret</th>
+              <th>Last Success</th>
+              <th />
+              <th style={{ width: 50 }} />
             </tr>
           </thead>
           <tbody>{renderTableRows()}</tbody>
@@ -182,8 +220,7 @@ export default function SdkWebhooks({ sdkid }) {
           close={() => setCreateWebhookModalOpen(null)}
           onSave={mutate}
           current={createWebhookModalOpen}
-          showSDKMode={true}
-          sdkid={sdkid}
+          sdkConnectionId={connection.id}
         />
       )}
       {!isEmpty && renderTable()}

@@ -26,6 +26,7 @@ export default class Mssql extends SqlIntegration {
       user: this.params.user,
       password: this.params.password,
       database: this.params.database,
+      requestTimeout: (this.params.requestTimeout ?? 0) * 1000,
       options: this.params.options,
     });
 

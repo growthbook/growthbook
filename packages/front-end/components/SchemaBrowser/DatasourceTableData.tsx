@@ -10,12 +10,14 @@ type Props = {
   datasourceId: string;
   tableId: string;
   setError: (error: string | null) => void;
+  canRunQueries: boolean;
 };
 
 export default function DatasourceSchema({
   tableId,
   datasourceId,
   setError,
+  canRunQueries,
 }: Props) {
   const { data, mutate } = useApi<{
     table: InformationSchemaTablesInterface;
@@ -98,9 +100,21 @@ export default function DatasourceSchema({
         {table && (
           <label>
             <Tooltip
-              body={`Last Updated: ${new Date(
-                table.dateUpdated
-              ).toLocaleString()}`}
+              body={
+                <div>
+                  <div>
+                    {`Last Updated: ${new Date(
+                      table.dateUpdated
+                    ).toLocaleString()}`}
+                  </div>
+                  {!canRunQueries ? (
+                    <div className="alert alert-warning mt-2">
+                      You do not have permission to refresh this information
+                      schema.
+                    </div>
+                  ) : null}
+                </div>
+              }
               tipPosition="top"
             >
               <button

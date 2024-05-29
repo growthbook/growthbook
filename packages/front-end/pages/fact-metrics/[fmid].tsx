@@ -31,6 +31,8 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
+import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -180,6 +182,7 @@ export default function FactMetricPage() {
 
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
+  const [editOwnerModal, setEditOwnerModal] = useState(false);
 
   const { apiCall } = useAuth();
 
@@ -188,6 +191,7 @@ export default function FactMetricPage() {
   const settings = useOrgSettings();
 
   const {
+    metricDefaults,
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
@@ -253,6 +257,19 @@ export default function FactMetricPage() {
           }}
           mutate={mutateDefinitions}
           entityName="Metric"
+        />
+      )}
+      {editOwnerModal && (
+        <EditOwnerModal
+          cancel={() => setEditOwnerModal(false)}
+          owner={factMetric.owner}
+          save={async (owner) => {
+            await apiCall(`/fact-metrics/${factMetric.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ owner }),
+            });
+          }}
+          mutate={mutateDefinitions}
         />
       )}
       {editTagsModal && (
@@ -343,6 +360,17 @@ export default function FactMetricPage() {
             <a
               className="ml-1 cursor-pointer"
               onClick={() => setEditTagsModal(true)}
+            >
+              <GBEdit />
+            </a>
+          )}
+        </div>
+        <div className="col-auto">
+          Owner:{` ${factMetric.owner ?? ""}`}
+          {canEdit && (
+            <a
+              className="ml-1 cursor-pointer"
+              onClick={() => setEditOwnerModal(true)}
             >
               <GBEdit />
             </a>
@@ -613,15 +641,17 @@ export default function FactMetricPage() {
                 </ul>
               </RightRailSectionGroup>
 
+              <MetricPriorRightRailSectionGroup
+                metric={factMetric}
+                metricDefaults={metricDefaults}
+              />
+
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-2">
                   <li className="mt-3 mb-2">
                     <span className="uppercase-title lg">
                       <GBCuped size={14} /> Regression Adjustment (CUPED)
                     </span>
-                    <small className="d-block mb-1 text-muted">
-                      Only applicable to frequentist analyses
-                    </small>
                   </li>
                   {!regressionAdjustmentAvailableForMetric ? (
                     <li className="mb-2">

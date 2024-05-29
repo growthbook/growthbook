@@ -1,11 +1,11 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { MemberRoleWithProjects } from "back-end/types/organization";
+import { getDefaultRole } from "shared/permissions";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
@@ -22,8 +22,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   mutate,
   close,
 }) => {
-  const { defaultRole } = useOrgSettings();
-  const { license, seatsInUse } = useUser();
+  const { license, seatsInUse, organization } = useUser();
 
   const form = useForm<{
     email: string[];
@@ -32,11 +31,8 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     defaultValues: {
       email: [],
       roleInfo: {
-        role: "admin",
-        limitAccessByEnvironment: false,
-        environments: [],
         projectRoles: [],
-        ...defaultRole,
+        ...getDefaultRole(organization),
       },
     },
   });
@@ -152,6 +148,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       header="Invite Member"
       open={true}
       cta="Invite"
+      size="lg"
       closeCta={
         successfulInvites.length || failedInvites.length ? "Close" : "Cancel"
       }

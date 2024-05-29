@@ -23,7 +23,7 @@ export const getDataExportForEvents = async (
   const context = getContextFromReq(req);
   const { org } = context;
 
-  if (!context.permissions.canViewEvents()) {
+  if (!context.permissions.canViewAuditLogs()) {
     context.permissions.throwPermissionError();
   }
 

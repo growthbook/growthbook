@@ -5,14 +5,14 @@ import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import { orgHasPremiumFeature } from "enterprise";
 import {
-  FeatureRule as FeatureDefinitionRule,
   AutoExperiment,
+  FeatureRule as FeatureDefinitionRule,
   GrowthBook,
-  ParentConditionInterface,
 } from "@growthbook/growthbook";
 import {
   evalDeterministicPrereqValue,
   evaluatePrerequisiteState,
+  isDefined,
   PrerequisiteStateResult,
   validateCondition,
   validateFeatureValue,
@@ -30,15 +30,15 @@ import {
   FeatureDefinitionWithProject,
 } from "../../types/api";
 import {
+  ExperimentRefRule,
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
+  FeaturePrerequisite,
   FeatureRule,
+  FeatureTestResult,
   ForceRule,
   RolloutRule,
-  FeatureTestResult,
-  ExperimentRefRule,
-  FeaturePrerequisite,
 } from "../../types/feature";
 import { getAllFeatures } from "../models/FeatureModel";
 import {
@@ -161,12 +161,12 @@ export function generateAutoExperimentsPayload({
     prereqStateCache
   );
 
-  const sortedVisualExperiments = [
+  const sortedAutoExperiments = [
     ...newURLRedirectExperiments,
     ...newVisualExperiments,
   ];
 
-  const sdkExperiments: Array<AutoExperimentWithProject | null> = sortedVisualExperiments.map(
+  const sdkExperiments: Array<AutoExperimentWithProject | null> = sortedAutoExperiments.map(
     (data) => {
       const { experiment: e } = data;
       if (e.status === "stopped" && e.excludeFromPayload) return null;
@@ -192,12 +192,21 @@ export function generateAutoExperimentsPayload({
             condition,
           };
         })
-        .filter(Boolean) as ParentConditionInterface[];
+        .filter(isDefined);
 
       if (!phase) return null;
 
+      const implementationId =
+        data.type === "redirect"
+          ? data.urlRedirect.id
+          : data.visualChangeset.id;
+
       const exp: AutoExperimentWithProject = {
         key: e.trackingKey,
+        changeId: sha256(
+          `${e.trackingKey}_${data.type}_${implementationId}`,
+          ""
+        ),
         status: e.status,
         project: e.project,
         variations: e.variations.map((v) => {
@@ -255,7 +264,6 @@ export function generateAutoExperimentsPayload({
           : undefined,
         condition,
         coverage: phase.coverage,
-        changeType: data.type,
       };
 
       if (prerequisites.length) {
@@ -409,7 +417,9 @@ export async function refreshSDKPayloadCache(
   // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
   await promiseAllChunks(promises, 4);
 
-  triggerWebhookJobs(context, payloadKeys, environments, true);
+  triggerWebhookJobs(context, payloadKeys, environments, true).catch((e) => {
+    logger.error(e, "Error triggering webhook jobs");
+  });
 }
 
 export type FeatureDefinitionsResponseArgs = {
@@ -519,8 +529,6 @@ async function getFeatureDefinitionsResponse({
       experiments = experiments.filter((e) => e.changeType === "redirect");
     }
   }
-
-  experiments = experiments.map((exp) => omit(exp, ["changeType"]));
 
   if (!encryptionKey) {
     return {
@@ -775,7 +783,7 @@ export function evaluateFeature({
         const rulesWithPrereqs: FeatureDefinitionRule[] = [];
         if (scrubPrerequisites) {
           definition.rules = definition.rules
-            ? (definition?.rules
+            ? definition?.rules
                 ?.map((rule) => {
                   if (rule?.parentConditions?.length) {
                     rulesWithPrereqs.push(rule);
@@ -791,7 +799,7 @@ export function evaluateFeature({
                   }
                   return rule;
                 })
-                .filter(Boolean) as FeatureDefinitionRule[])
+                .filter(isDefined)
             : undefined;
         }
 
