@@ -75,3 +75,23 @@ export async function resetMinTokenDate(userId: string) {
     }
   );
 }
+
+export async function findUsersByIds(ids: string[]): Promise<UserInterface[]> {
+  const users: UserDocument[] = await UserModel.find({
+    id: { $in: ids },
+  });
+  return users.map((u) => u.toJSON<UserDocument>());
+}
+
+export async function updateUserById(
+  id: string,
+  updates: Partial<UserInterface>
+): Promise<UserInterface | null> {
+  await UserModel.updateOne(
+    { id },
+    {
+      $set: updates,
+    }
+  );
+  return await UserModel.findOne({ id });
+}
