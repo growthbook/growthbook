@@ -308,7 +308,6 @@ describe("environements API", () => {
     expect(updateOrganization).toHaveBeenCalledWith("org1", {
       settings: {
         environments: [
-          { id: "env2" },
           {
             id: "env1",
             description: "new description",
@@ -316,6 +315,7 @@ describe("environements API", () => {
             defaultState: false,
             projects: ["proj1", "proj2"],
           },
+          { id: "env2" },
         ],
       },
     });
