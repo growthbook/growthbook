@@ -31,10 +31,7 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
       settings: {
         ...org.settings,
         environments: environments.reduce(
-          (environment, env) => [
-            ...environments,
-            env.id === id ? updatedEnvironment : env,
-          ],
+          (ret, env) => [...ret, env.id === id ? updatedEnvironment : env],
           []
         ),
       },
