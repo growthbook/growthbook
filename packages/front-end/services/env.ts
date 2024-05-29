@@ -6,7 +6,7 @@ const env: EnvironmentInitValue = {
   cloud: false,
   isMultiOrg: false,
   allowSelfOrgCreation: true,
-  showMultiOrgSelfSelector: false,
+  showMultiOrgSelfSelector: true,
   appOrigin: "",
   apiHost: "",
   s3domain: "",

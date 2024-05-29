@@ -380,11 +380,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             !router.query.org &&
             orgs.map((o) => o.id).includes(JSON.parse(pickedOrg))
           ) {
-            try {
-              setOrgId(JSON.parse(pickedOrg));
-            } catch (e) {
-              setOrgId(orgs[0].id);
-            }
+            setOrgId(JSON.parse(pickedOrg));
           } else {
             setOrgId(orgs[0].id);
           }

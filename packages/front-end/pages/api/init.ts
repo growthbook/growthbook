@@ -87,7 +87,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     allowSelfOrgCreation: stringToBoolean(ALLOW_SELF_ORG_CREATION, true), // Default to true
     showMultiOrgSelfSelector: stringToBoolean(
       SHOW_MULTI_ORG_SELF_SELECTOR,
-      false
+      true
     ),
     config: hasConfigFile ? "file" : "db",
     allowCreateMetrics: !hasConfigFile || stringToBoolean(ALLOW_CREATE_METRICS),
