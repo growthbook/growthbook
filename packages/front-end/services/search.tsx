@@ -29,20 +29,30 @@ export type SearchFields<T> = (
   | `${Exclude<keyof T, symbol>}^${number}`
 )[];
 
+const searchTermOperators = [">", "<", "^", "=", "~", ""] as const;
+
+export type SearchTermFilterOperator = typeof searchTermOperators[number];
+
 export interface SearchProps<T> {
   items: T[];
   searchFields: SearchFields<T>;
   localStorageKey: string;
   defaultSortField: keyof T;
   defaultSortDir?: number;
-  transformQuery?: (
-    q: string
-  ) => { searchTerm: string; syntaxFilters: Record<string, string[]>[] };
-  filterResults?: (
-    items: T[],
-    originalQuery: string,
-    syntaxFilters: Record<string, string[]>[]
-  ) => T[];
+  searchTermFilters?: {
+    [key: string]: (
+      item: T
+    ) =>
+      | number
+      | string
+      | null
+      | undefined
+      | Date
+      | (number | null | undefined)[]
+      | (string | null | undefined)[]
+      | (Date | null | undefined)[];
+  };
+  filterResults?: (items: T[]) => T[];
 }
 
 export interface SearchReturn<T> {
@@ -63,11 +73,11 @@ export interface SearchReturn<T> {
 export function useSearch<T>({
   items,
   searchFields,
-  transformQuery,
   filterResults,
   localStorageKey,
   defaultSortField,
   defaultSortDir,
+  searchTermFilters,
 }: SearchProps<T>): SearchReturn<T> {
   const [sort, setSort] = useLocalStorage(`${localStorageKey}:sort-dir`, {
     field: defaultSortField,
@@ -98,16 +108,34 @@ export function useSearch<T>({
 
   const filtered = useMemo(() => {
     // remove any syntax filters from the search term
-    const { searchTerm, syntaxFilters } = transformQuery
-      ? transformQuery(value)
+    const { searchTerm, syntaxFilters } = searchTermFilters
+      ? transformQuery(value, Object.keys(searchTermFilters))
       : { searchTerm: value, syntaxFilters: [] };
 
     let filtered = items;
     if (searchTerm.length > 0) {
       filtered = fuse.search(searchTerm).map((item) => item.item);
     }
+
+    // Search term filters
+    if (syntaxFilters.length > 0) {
+      // If multiple filters are present, we want to match all of them
+      filtered = filtered.filter((item) =>
+        syntaxFilters.every((filter) => {
+          // If a filter has multiple values, at least one has to match
+          const res = filter.values.some((searchValue) => {
+            const itemValue = searchTermFilters?.[filter.field]?.(item) ?? null;
+            return filterSearchTerm(itemValue, filter.operator, searchValue);
+          });
+
+          return filter.negated ? !res : res;
+        })
+      );
+    }
+
+    // Custom filtering logic
     if (filterResults) {
-      filtered = filterResults(filtered, value, syntaxFilters);
+      filtered = filterResults(filtered);
     }
     return filtered;
   }, [value, fuse, filterResults, transformQuery]);
@@ -208,327 +236,113 @@ export function useSearch<T>({
   };
 }
 
-// Helpers for searching features by syntax
-const featureSyntaxRegex = /(on|off|is|has|owner|key|name|desc|project|tag|created|updated|type):([^\s].*)/gi;
-// Helpers for searching experiments by syntax
-const experimentSyntaxRegex = /(is|has|status|owner|name|desc|project|tag|created|updated|datasource|metric):([^\s].*)/gi;
-// Helpers for searching features by environment
-const envRegex = /(^|\s)(on|off):([^\s]*)/gi;
-
-export function removeEnvFromSearchTerm(searchTerm: string) {
-  return parseQuery(searchTerm, envRegex);
-}
-export function filterFeatureSearchTerms(searchTerm: string) {
-  return parseQuery(searchTerm, featureSyntaxRegex);
-}
-export function filterExperimentSearchTerms(searchTerm: string) {
-  return parseQuery(searchTerm, experimentSyntaxRegex);
-}
-export function filterFeaturesByEnvironment<
-  T extends { environmentSettings?: Record<string, { enabled: boolean }> }
->(filtered: T[], searchTerm: string, environments: string[]) {
-  // Determine which environments (if any) are being filtered by the search term
-  const environmentFilter: Map<string, boolean> = new Map();
-  const matches = searchTerm.matchAll(envRegex);
-  for (const match of matches) {
-    const enabled = match[2].toLowerCase() === "on";
-    match[3]?.split(",").forEach((env) => {
-      environmentFilter.set(env, enabled);
-    });
-  }
-  if (environmentFilter.has("all")) {
-    environments.forEach((env) => {
-      const value = environmentFilter.get("all");
-      if (value) environmentFilter.set(env, value);
-    });
+export function filterSearchTerm(
+  itemValue: unknown,
+  op: SearchTermFilterOperator,
+  searchValue: string
+): boolean {
+  if (!itemValue || !searchValue) {
+    return false;
   }
 
-  // No filtering required
-  if (!environmentFilter.size) return filtered;
-  return filtered.filter((f) => {
-    for (const env of environments) {
-      if (environmentFilter.has(env)) {
-        const enabled = !!f.environmentSettings?.[env]?.enabled;
-        if (enabled !== environmentFilter.get(env)) {
-          return false;
-        }
+  if (Array.isArray(itemValue)) {
+    return itemValue.some((v) => filterSearchTerm(v, op, searchValue));
+  }
+
+  const strVal =
+    itemValue instanceof Date ? itemValue.toISOString() : itemValue + "";
+  const [comp1, comp2]: [number, number] | [string, string] =
+    typeof itemValue === "number"
+      ? [itemValue, parseFloat(searchValue)]
+      : [strVal, searchValue];
+
+  switch (op) {
+    case ">":
+      return comp1 > comp2;
+    case "<":
+      return comp1 < comp2;
+    case "=":
+      return strVal === searchValue;
+    case "~":
+      return strVal.includes(searchValue);
+    case "^":
+      return strVal.startsWith(searchValue);
+    // The default comparison depends on the type
+    case "":
+      if (typeof itemValue === "number") {
+        return strVal === searchValue;
+      } else if (itemValue instanceof Date) {
+        return strVal.includes(searchValue);
+      } else {
+        return strVal.startsWith(searchValue);
       }
-    }
-    return true;
-  });
+  }
 }
 
-export function parseQuery(query: string, regex: RegExp = featureSyntaxRegex) {
+export function transformQuery(
+  searchTerm: string,
+  searchTermFilterKeys: string[]
+) {
+  const regex = new RegExp(
+    `(^|\\s)(${searchTermFilterKeys.join("|")}):([^\\s].*)`,
+    "gi"
+  );
+  return parseQuery(searchTerm, regex);
+}
+
+export function parseQuery(query: string, regex: RegExp) {
   const parts = query.split(" ");
   const searchTerms: string[] = [];
-  const syntaxFilters: Record<string, string[]>[] = [];
+  const syntaxFilters: {
+    field: string;
+    values: string[];
+    operator: SearchTermFilterOperator;
+    negated: boolean;
+  }[] = [];
   parts.forEach((p) => {
     if (p.includes(":")) {
       // this could be a syntax filter
       const matches = p.matchAll(regex);
+      let hasMatches = false;
       for (const match of matches) {
-        if (match && match.length >= 2) {
-          const newFilter: Record<string, string[]> = {};
-          newFilter[match[1]] = match[2]
-            .split(",")
-            .map((s) => s.trim().toLowerCase());
-          syntaxFilters.push(newFilter);
+        hasMatches = true;
+        if (match && match.length >= 3) {
+          const field = match[2];
+          let rawValue = match[3];
+
+          let negated = false;
+          if (rawValue.startsWith("!")) {
+            negated = true;
+            rawValue = rawValue.substring(1);
+          }
+
+          let operator: SearchTermFilterOperator = "";
+          const firstChar = rawValue.substring(0, 1);
+          for (const op of searchTermOperators) {
+            if (op && firstChar === op) {
+              operator = firstChar;
+              rawValue = rawValue.substring(op.length);
+              break;
+            }
+          }
+
+          syntaxFilters.push({
+            field,
+            operator,
+            negated,
+            values: rawValue.split(",").map((s) => s.trim()),
+          });
         } else {
           searchTerms.push(p);
         }
+      }
+
+      if (!hasMatches) {
+        searchTerms.push(p);
       }
     } else {
       searchTerms.push(p);
     }
   });
   return { searchTerm: searchTerms.join(" "), syntaxFilters };
-}
-
-function dateFilter<
-  T extends { dateCreated: Date | string; dateUpdated: Date | string }
->(
-  filtered: T[],
-  dateField: "dateCreated" | "dateUpdated",
-  filterString: string
-): T[] {
-  //let filteredItems: Array<FeatureInterface | ExperimentInterface> = [];
-  if (
-    filterString.substring(0, 1) === ">" ||
-    filterString.substring(0, 1) === "<"
-  ) {
-    const filterDate = new Date(Date.parse(filterString.substring(1)));
-    filtered = filtered.filter((f) => {
-      const checkDate = new Date(f[dateField]);
-      if (filterString.substring(0, 1) === ">") {
-        return checkDate > filterDate;
-      } else {
-        return checkDate < filterDate;
-      }
-    });
-  } else {
-    filtered = filtered.filter((f) => {
-      const created = new Date(f.dateCreated);
-      return created
-        .toDateString()
-        .toLowerCase()
-        .includes(filterString.toLowerCase());
-    });
-  }
-  return filtered;
-}
-
-export function filterBySyntax<
-  T extends {
-    id?: string;
-    dateCreated: Date | string;
-    dateUpdated: Date | string;
-    name?: string;
-    ownerName?: string;
-    owner?: string;
-    description?: string;
-    project?: string;
-    tags?: string[];
-    status?: string;
-    datasource?: string;
-    results?: string;
-    environmentSettings?: Record<string, { enabled: boolean }>;
-  }
->(
-  list: T[],
-  searchTerm: string,
-  syntaxFilters: Record<string, string[]>[],
-  environments: string[] = []
-  //experiments: unknown[]
-) {
-  let filtered = list;
-  //const { syntaxFilters } = parseQuery(searchTerm);
-  // name:foo,bar
-  syntaxFilters.forEach((filter) => {
-    // exact matches on id/name for the feature (which supports comma separated list)
-    if (filter.name) {
-      filtered = filtered.filter((e) => {
-        if ("name" in e && typeof e.name === "string") {
-          return filter.name.includes(e.name.toLowerCase());
-        } else if ("id" in e && typeof e.id === "string") {
-          return filter.name.includes(e.id.toLowerCase());
-        }
-      });
-    }
-    // desc:foo (no comma supported)
-    if (filter.desc) {
-      filtered = filtered.filter((e) => {
-        if (e.description) {
-          return e.description
-            .toLowerCase()
-            .includes(filter.desc[0].toLowerCase());
-        }
-        return false;
-      });
-    }
-    if (filter.key) {
-      filtered = filtered.filter((f) => {
-        if ("id" in f && typeof f.id === "string") {
-          // exact matches on id/name for the feature (which supports comma separated list)
-          return filter.key.includes(f.id.toLowerCase());
-        }
-      });
-    }
-    // on:[env1,env2] off:[env3,env4]
-    if (filter.on || filter.off) {
-      filtered = filterFeaturesByEnvironment(
-        filtered,
-        searchTerm,
-        environments
-      );
-    }
-    // rule: [experiment, force, rollout] - not supported yet.
-    // if (syntaxFilters.rules) {
-    //   filtered = filtered.filter((f) =>
-    //     f. ?.toLowerCase().includes(syntaxFilters.rules.toLowerCase())
-    //   );
-    // }
-    //
-    // project:foo,bar (exact match on project)
-    if (filter.project) {
-      filtered = filtered.filter((f) => {
-        if (f.project) {
-          return filter.project.includes(f.project.toLowerCase());
-        }
-      });
-    }
-    // tag:foo (exact match on tag, no comma supported)
-    if (filter.tag) {
-      filtered = filtered.filter((f) =>
-        f.tags?.includes(filter.tag[0].toLowerCase())
-      );
-    }
-    // type: [boolean, string, number, json]
-    if (filter.type) {
-      filtered = filtered.filter((f) => {
-        if ("valueType" in f && typeof f.valueType === "string") {
-          return filter.type.includes(f.valueType.toLowerCase());
-        }
-      });
-    }
-    // project:foo,bar (exact match on project)
-    if (filter.project) {
-      filtered = filtered.filter((e) => {
-        if (e.project) {
-          return filter.project.includes(e.project.toLowerCase());
-        }
-      });
-    }
-    // tag:foo (exact match on tag, no comma supported)
-    if (filter.tag) {
-      filtered = filtered.filter((e) =>
-        e.tags?.includes(filter.tag[0].toLowerCase())
-      );
-    }
-    // owner:abbie,barry (exact match on owner)
-    if (filter.owner) {
-      filtered = filtered.filter((e) => {
-        if ("ownerName" in e && typeof e.ownerName === "string") {
-          return filter.owner.includes(e.ownerName.toLowerCase());
-        } else if ("owner" in e && typeof e.owner === "string") {
-          return filter.owner.includes(e.owner.toLowerCase());
-        } else {
-          // if no owner somehow, include them? I guess so
-          return true;
-        }
-      });
-    }
-    // status: [stopped, running, draft, archived]
-    if (filter.status) {
-      filtered = filtered.filter((e) => {
-        if ("status" in e && typeof e.status === "string") {
-          return filter.status.includes(e.status.toLowerCase());
-        }
-      });
-    }
-    // datasource:bigQuery (match on datasource)
-    if (filter.datasource) {
-      filtered = filtered.filter((e) => {
-        if ("datasource" in e && typeof e.datasource === "string") {
-          return e.datasource
-            .toLowerCase()
-            .includes(filter.datasource[0].toLowerCase());
-        }
-      });
-    }
-    // is:running, stopped, draft, draft, stale
-    if (filter.is) {
-      if (filter.is.includes("running")) {
-        filtered = filtered.filter(
-          (e) => "status" in e && e.status === "running"
-        );
-      } else if (filter.is.includes("stopped")) {
-        filtered = filtered.filter((e) => "status" && e.status === "stopped");
-      } else if (filter.is.includes("draft")) {
-        filtered = filtered.filter((e) => {
-          if ("status" in e && typeof e.status === "string") {
-            return e.status === "draft";
-          } else if ("hasDrafts" in e) {
-            return e.hasDrafts;
-          }
-        });
-      } else if (filter.is.includes("stale")) {
-        filtered = filtered.filter((e) => {
-          if ("neverStale" in e) {
-            return !e.neverStale;
-          }
-        });
-      } else {
-        // none match
-        filtered = [];
-      }
-    }
-    // has:won, dnf, lost, inconclusive
-    if (filter.has) {
-      let returnFiltered: T[] = [];
-      if (filter.has.includes("won")) {
-        returnFiltered = filtered.filter(
-          (e) => "results" in e && e.results === "won"
-        );
-      }
-      if (filter.has.includes("dnf")) {
-        returnFiltered = filtered.filter(
-          (e) => "results" in e && e.results === "dnf"
-        );
-      }
-      if (filter.has.includes("lost")) {
-        returnFiltered = filtered.filter(
-          (e) => "results" in e && e.results === "lost"
-        );
-      }
-      if (filter.has.includes("inconclusive")) {
-        returnFiltered = filtered.filter(
-          (e) => "results" in e && e.results === "inconclusive"
-        );
-      }
-      if (filter.has.includes("draft")) {
-        returnFiltered = filtered.filter((e) => {
-          if ("status" in e && typeof e.status === "string") {
-            return e.status === "draft";
-          } else if ("hasDrafts" in e) {
-            return e.hasDrafts;
-          }
-        });
-      }
-      if (filter.has.includes("stale")) {
-        returnFiltered = filtered.filter((e) => {
-          if ("neverStale" in e) {
-            return !e.neverStale;
-          }
-        });
-      }
-      filtered = returnFiltered;
-    }
-    if (filter.created) {
-      filtered = dateFilter(filtered, "dateCreated", filter.created[0]);
-    }
-    if (filter.updated) {
-      filtered = dateFilter(filtered, "dateUpdated", filter.updated[0]);
-    }
-  });
-  return filtered;
 }

@@ -7,6 +7,7 @@ import { ago, datetime } from "shared/dates";
 import {
   featureHasEnvironment,
   filterEnvironmentsByFeature,
+  getMatchingRules,
   isFeatureStale,
   StaleFeatureReason,
 } from "shared/util";
@@ -19,11 +20,7 @@ import ValueDisplay from "@/components/Features/ValueDisplay";
 import track from "@/services/track";
 import FeaturesGetStarted from "@/components/HomePage/FeaturesGetStarted";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import {
-  filterFeatureSearchTerms,
-  useSearch,
-  filterBySyntax,
-} from "@/services/search";
+import { useAddComputedFields, useSearch } from "@/services/search";
 import EnvironmentToggle from "@/components/Features/EnvironmentToggle";
 import RealTimeFeatureGraph from "@/components/Features/RealTimeFeatureGraph";
 import {
@@ -73,16 +70,22 @@ export default function FeaturesPage() {
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
-  const { organization } = useUser();
+  const { organization, getUserDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
   const { project, getProjectById } = useDefinitions();
   const settings = useOrgSettings();
   const environments = useEnvironments();
-  const { features, experiments, loading, error, mutate } = useFeaturesList();
+  const {
+    features: allFeatures,
+    experiments,
+    loading,
+    error,
+    mutate,
+  } = useFeaturesList();
 
   const { usage, usageDomain } = useRealtimeData(
-    features,
+    allFeatures,
     !!router?.query?.mockdata,
     showGraphs
   );
@@ -94,28 +97,63 @@ export default function FeaturesPage() {
     }
   }, [router]);
 
+  const staleFeatures = useMemo(() => {
+    const staleFeatures: Record<
+      string,
+      { stale: boolean; reason?: StaleFeatureReason }
+    > = {};
+    allFeatures.forEach((feature) => {
+      const featureEnvironments = filterEnvironmentsByFeature(
+        environments,
+        feature
+      );
+      const envs = featureEnvironments.map((e) => e.id);
+      staleFeatures[feature.id] = isFeatureStale({
+        feature,
+        features: allFeatures,
+        experiments,
+        environments: envs,
+      });
+    });
+    return staleFeatures;
+  }, [allFeatures, experiments, environments]);
+
+  const features = useAddComputedFields(
+    allFeatures,
+    (f) => {
+      const projectId = f.project;
+      const projectName = projectId ? getProjectById(projectId)?.name : "";
+      const projectIsDeReferenced = projectId && !projectName;
+
+      const { stale, reason: staleReason } = staleFeatures?.[f.id] || {
+        stale: false,
+      };
+
+      return {
+        ...f,
+        projectId,
+        projectName,
+        projectIsDeReferenced,
+        stale,
+        staleReason,
+        ownerName: getUserDisplay(f.owner, false) || "",
+      };
+    },
+    [staleFeatures, getProjectById]
+  );
+
   // Searching
   const tagsFilter = useTagsFilter("features");
   const filterResults = useCallback(
-    (
-      items: FeatureInterface[],
-      originalQuery: string,
-      syntaxFilters: Record<string, string[]>[]
-    ) => {
+    (items: typeof features) => {
       if (!showArchived) {
         items = items.filter((f) => !f.archived);
       }
-      items = filterBySyntax(
-        items,
-        originalQuery,
-        syntaxFilters,
-        environments.map((e) => e.id)
-      );
 
       items = filterByTags(items, tagsFilter.tags);
       return items;
     },
-    [showArchived, tagsFilter.tags, environments]
+    [showArchived, tagsFilter.tags]
   );
 
   const renderFeaturesTable = () => {
@@ -202,11 +240,6 @@ export default function FeaturesPage() {
 
                 const version = feature.version;
 
-                const projectId = feature.project;
-                const projectName = projectId
-                  ? getProjectById(projectId)?.name || null
-                  : null;
-                const projectIsDeReferenced = projectId && !projectName;
                 const { stale, reason: staleReason } = staleFeatures?.[
                   feature.id
                 ] || { stale: false };
@@ -241,7 +274,7 @@ export default function FeaturesPage() {
                     </td>
                     {showProjectColumn && (
                       <td>
-                        {projectIsDeReferenced ? (
+                        {feature.projectIsDeReferenced ? (
                           <Tooltip
                             body={
                               <>
@@ -252,7 +285,7 @@ export default function FeaturesPage() {
                             <span className="text-danger">Invalid project</span>
                           </Tooltip>
                         ) : (
-                          projectName ?? <em>None</em>
+                          feature.projectName ?? <em>None</em>
                         )}
                       </td>
                     )}
@@ -355,7 +388,7 @@ export default function FeaturesPage() {
                       <MoreMenu>
                         {permissionsUtil.canCreateFeature(feature) &&
                         permissionsUtil.canManageFeatureDrafts({
-                          project: projectId,
+                          project: feature.projectId,
                         }) ? (
                           <button
                             className="dropdown-item"
@@ -398,34 +431,95 @@ export default function FeaturesPage() {
     items: features,
     defaultSortField: "id",
     searchFields: ["id^3", "description", "tags^2", "defaultValue"],
-    transformQuery: filterFeatureSearchTerms,
     filterResults,
     localStorageKey: "features",
+    searchTermFilters: {
+      is: (item) => {
+        const is: string[] = [item.valueType];
+        if (item.archived) is.push("archived");
+        if (item.hasDrafts) is.push("draft");
+        if (item.stale) is.push("stale");
+        return is;
+      },
+      has: (item) => {
+        const has: string[] = [];
+        if (item.project) has.push("project");
+        if (item.hasDrafts) has.push("draft", "drafts");
+        if (item.prerequisites?.length) has.push("prerequisites", "prereqs");
+
+        if (item.valueType === "json" && item.jsonSchema?.enabled) {
+          has.push("validation", "schema", "jsonSchema");
+        }
+
+        const rules = getMatchingRules(
+          item,
+          () => true,
+          environments.map((e) => e.id)
+        );
+
+        if (rules.length) has.push("rule", "rules");
+        if (
+          rules.some((r) =>
+            ["experiment", "experiment-ref"].includes(r.rule.type)
+          )
+        ) {
+          has.push("experiment", "experiments");
+        }
+        if (rules.some((r) => r.rule.type === "rollout")) {
+          has.push("rollout", "percent");
+        }
+        if (rules.some((r) => r.rule.type === "force")) {
+          has.push("force", "targeting");
+        }
+
+        return has;
+      },
+      key: (item) => item.id,
+      project: (item) => [item.project, item.projectName],
+      created: (item) => item.dateCreated,
+      updated: (item) => item.dateUpdated,
+      experiment: (item) => item.linkedExperiments || [],
+      version: (item) => item.version,
+      revision: (item) => item.version,
+      owner: (item) => item.owner,
+      tag: (item) => item.tags,
+      rules: (item) => {
+        const rules = getMatchingRules(
+          item,
+          () => true,
+          environments.map((e) => e.id)
+        );
+        return rules.length;
+      },
+      on: (item) => {
+        const on: string[] = [];
+        environments.forEach((e) => {
+          if (
+            featureHasEnvironment(item, e) &&
+            item.environmentSettings?.[e.id]?.enabled
+          ) {
+            on.push(e.id);
+          }
+        });
+        return on;
+      },
+      off: (item) => {
+        const off: string[] = [];
+        environments.forEach((e) => {
+          if (
+            featureHasEnvironment(item, e) &&
+            !item.environmentSettings?.[e.id]?.enabled
+          ) {
+            off.push(e.id);
+          }
+        });
+        return off;
+      },
+    },
   });
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
   const featureItems = items.slice(start, end);
-
-  const staleFeatures = useMemo(() => {
-    const staleFeatures: Record<
-      string,
-      { stale: boolean; reason?: StaleFeatureReason }
-    > = {};
-    featureItems.forEach((feature) => {
-      const featureEnvironments = filterEnvironmentsByFeature(
-        environments,
-        feature
-      );
-      const envs = featureEnvironments.map((e) => e.id);
-      staleFeatures[feature.id] = isFeatureStale({
-        feature,
-        features,
-        experiments,
-        environments: envs,
-      });
-    });
-    return staleFeatures;
-  }, [featureItems, features, experiments, environments]);
 
   // Reset to page 1 when a filter is applied
   useEffect(() => {

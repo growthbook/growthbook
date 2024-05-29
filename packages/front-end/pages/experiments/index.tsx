@@ -12,12 +12,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
-import {
-  filterExperimentSearchTerms,
-  filterBySyntax,
-  useAddComputedFields,
-  useSearch,
-} from "@/services/search";
+import { useAddComputedFields, useSearch } from "@/services/search";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Pagination from "@/components/Pagination";
@@ -116,23 +111,14 @@ const ExperimentsPage = (): React.ReactElement => {
   const { watchedExperiments } = useWatching();
 
   const filterResults = useCallback(
-    (
-      items: typeof experiments,
-      originalQuery: string,
-      syntaxFilters: Record<string, string[]>[]
-    ) => {
+    (items: typeof experiments) => {
       if (showMineOnly) {
         items = items.filter(
           (item) =>
             item.owner === userId || watchedExperiments.includes(item.id)
         );
       }
-      items = filterBySyntax(
-        items,
-        originalQuery,
-        syntaxFilters
-        //experiments
-      );
+
       items = filterByTags(items, tagsFilter.tags);
 
       return items;
@@ -158,7 +144,53 @@ const ExperimentsPage = (): React.ReactElement => {
       "results",
       "analysis",
     ],
-    transformQuery: filterExperimentSearchTerms,
+    searchTermFilters: {
+      is: (item) => {
+        const is: string[] = [];
+        if (item.archived) is.push("archived");
+        if (item.status === "draft") is.push("draft");
+        if (item.status === "running") is.push("running");
+        if (item.status === "stopped") is.push("stopped");
+        if (item.results === "won") is.push("winner");
+        if (item.results === "lost") is.push("loser");
+        if (item.results === "inconclusive") is.push("inconclusive");
+        return is;
+      },
+      has: (item) => {
+        const has: string[] = [];
+        if (item.project) has.push("project");
+        if (item.hasVisualChangesets) {
+          has.push("visualChange", "visualChanges");
+        }
+        if (item.hasURLRedirects) has.push("redirect", "redirects");
+        if (item.linkedFeatures?.length) has.push("features", "feature");
+        if (item.hypothesis?.trim()?.length) has.push("hypothesis");
+        if (item.description?.trim()?.length) has.push("description");
+        if (item.variations.some((v) => !!v.screenshots?.length)) {
+          has.push("screenshots");
+        }
+        return has;
+      },
+      variations: (item) => item.variations.length,
+      variation: (item) => item.variations.map((v) => v.name),
+      created: (item) => item.dateCreated,
+      updated: (item) => item.dateUpdated,
+      key: (item) => item.trackingKey,
+      trackingKey: (item) => item.trackingKey,
+      status: (item) => item.status,
+      result: (item) =>
+        item.status === "stopped" ? item.results || "unfinished" : "unfinished",
+      owner: (item) => [item.owner, item.ownerName],
+      tag: (item) => item.tags,
+      project: (item) => [item.project, item.projectName],
+      feature: (item) => item.linkedFeatures || [],
+      metric: (item) => [
+        ...item.metricNames,
+        ...item.metrics,
+        ...(item.guardrails || []),
+        item.activationMetric,
+      ],
+    },
     filterResults,
   });
 
