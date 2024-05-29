@@ -100,7 +100,7 @@ SELECT user_id, device_id FROM logins
 
 #### SQL Templates
 
-We use {{[Handlebars](https://handlebarsjs.com/guide/#language-features)}} to compile the assignment sql, identity queries, etc. into what is actually called to your database.
+We use \{\{[Handlebars](https://handlebarsjs.com/guide/#language-features)\}\} to compile the assignment sql, identity queries, etc. into what is actually called to your database.
 
 You can use any of the in-built variables that Growthbook automatically sets:
 
@@ -156,7 +156,7 @@ WHERE
 
 :::note
 
-The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use <code>'{{&nbsp;startDate&nbsp;}}'</code> instead of just <code>{{&nbsp;startDate&nbsp;}}</code>)
+The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use `'{{&nbsp;startDate&nbsp;}}'` instead of just `{{&nbsp;startDate&nbsp;}}`)
 
 :::
 

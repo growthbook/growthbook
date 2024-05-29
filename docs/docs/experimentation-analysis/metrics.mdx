@@ -81,7 +81,7 @@ When we go to conduct experiment analysis, any `user_id` that has a conversion i
 
 #### SQL Templates
 
-We use {{[Handlebars](https://handlebarsjs.com/guide/#language-features)}} to compile the sql into what is actually called to your database. This allows you to create template metrics that can be copied and reused by changing the variable values associate with the metrics.
+We use \{\{[Handlebars](https://handlebarsjs.com/guide/#language-features)\}\} to compile the sql into what is actually called to your database. This allows you to create template metrics that can be copied and reused by changing the variable values associate with the metrics.
 
 You can use the following user configurable variables within SQL templates:
 
@@ -138,7 +138,7 @@ WHERE
 
 :::note
 
-The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use <code>'{{&nbsp;startDate&nbsp;}}'</code> instead of just <code>{{&nbsp;startDate&nbsp;}}</code>)
+The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use `'{{&nbsp;startDate&nbsp;}}'` instead of just `{{&nbsp;startDate&nbsp;}}`
 
 :::
 

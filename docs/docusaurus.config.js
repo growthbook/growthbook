@@ -8,6 +8,7 @@ const config = {
   url: "https://docs.growthbook.io",
   baseUrl: "/",
   onBrokenLinks: "throw",
+  onBrokenAnchors: "throw",
   onBrokenMarkdownLinks: "warn",
   favicon: "img/favicon.ico",
 
