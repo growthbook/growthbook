@@ -80,7 +80,15 @@ You can read more about the [rules for changing experiment targeting](/app/exper
 
 If your experiment is suffering from these issues, unfortunately the only solution may be to restart the experiment (you can do this by creating a new phase and choosing to re-randomize traffic). Of course, some amount of bias and SRM may be preferable to throwing out your data, but this depends on the magnitude of the problem.
 
-## Problem 3: Metric averages don't look as expected
+## Problem 3: Multiple Exposure Errors
+
+We default to allowing 1 percent of units (e.g. users) in an experiment have multiple exposures without raising a warning due to the fact that many experimenters have slight mismatches in hashing attributes and warehouse tracking that can cause minor errors. You can adjust this in your organization settings under Settings > General > Experiment Settings.
+
+If you have multiple exposure errors, the issue is fundamentally caused by a mismatch between the attribute that you are randomizing on (your "hash attribute") and the identifier being stored in your data warehouse. You can [read more about this problem and how to solve it here](#solution-3-ensure-the-hash-attribute-and-identifier-type-match).
+
+Another potential issue is that you made unsafe changes to your experiment targeting and randomization. We attempt to prevent this by having a curated flow for making changes, but we provide you with flexibility to make a whole host of changes that could result in multiple exposures if you choose to override our warnings. YOu can read more about our [rules for changing experiments while running here](/app/experiment-configuration#making-changes-while-running).
+
+## Problem 4: Metric averages don't look as expected
 
 It's important to ensure that the Metric values in the baseline and variation are what you would expect. This helps confirm that the Metrics are set up correctly and that they are joining properly to the Experiment Assignment Queries.
 
