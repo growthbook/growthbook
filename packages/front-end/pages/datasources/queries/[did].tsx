@@ -3,7 +3,9 @@ import {
   FaCheck,
   FaCircle,
   FaExclamationTriangle,
+  FaExternalLinkAlt,
   FaSquare,
+  FaStopCircle,
 } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { ago, datetime } from "shared/dates";
@@ -18,6 +20,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import ExpandableQuery from "@/components/Queries/ExpandableQuery";
 import usePermissions from "@/hooks/usePermissions";
+import { useAuth } from "@/services/auth";
 
 const DataSourceQueries = (): React.ReactElement => {
   const permissions = usePermissions();
@@ -26,8 +29,11 @@ const DataSourceQueries = (): React.ReactElement => {
   const { did } = router.query as { did: string };
   const { getDatasourceById, ready, error: datasourceError } = useDefinitions();
   const d = getDatasourceById(did);
+  const { apiCall } = useAuth();
 
   const canView = d && permissions.check("readData", d.projects || []);
+  const canCancelQueries =
+    d && permissions.check("cancelQueries", d.projects || []);
 
   const { data, error: queriesError } = useApi<{
     queries: QueryInterface[];
@@ -86,6 +92,8 @@ const DataSourceQueries = (): React.ReactElement => {
     );
   }
 
+  const supportsQueryCancellation = ["athena", "bigquery"].includes(d.type);
+
   return (
     <div className="container pagecontents">
       {modalData && (
@@ -143,6 +151,7 @@ const DataSourceQueries = (): React.ReactElement => {
             <SortableTH field="externalId" className="col-2">
               External ID
             </SortableTH>
+            <th className="col-1">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -152,6 +161,36 @@ const DataSourceQueries = (): React.ReactElement => {
               const comments = query.query.match(/(\n|^)\s*-- ([^\n]+)/);
               if (comments && comments[2]) {
                 title = comments[2];
+              }
+            }
+
+            let LinkToQuerySource = <></>;
+            if (query.querySource) {
+              // Backlinks are supported for Metrics and Experiments as they have canonical pages to link to
+              switch (query.querySource.sourceType) {
+                case "Experiment":
+                  LinkToQuerySource = (
+                    <a
+                      onClick={(e) => e.stopPropagation()}
+                      href={`/experiment/${query.querySource.id}`}
+                    >
+                      <FaExternalLinkAlt
+                        title="View experiment"
+                        className="ml-1"
+                      />
+                    </a>
+                  );
+                  break;
+                case "Metric":
+                  LinkToQuerySource = (
+                    <a
+                      onClick={(e) => e.stopPropagation()}
+                      href={`/metric/${query.querySource.id}`}
+                    >
+                      <FaExternalLinkAlt title="View metric" className="ml-1" />
+                    </a>
+                  );
+                  break;
               }
             }
 
@@ -215,6 +254,29 @@ const DataSourceQueries = (): React.ReactElement => {
                   </Tooltip>
                 </td>
                 <td>{query.externalId || "N/A"}</td>
+                <td>
+                  <div className="d-flex align-items-center">
+                    {supportsQueryCancellation &&
+                      canCancelQueries &&
+                      ["queued", "running"].includes(query.status) && (
+                        <FaStopCircle
+                          className="text-danger mr-2"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            apiCall<Response>(
+                              `/datasource/${did}/cancel/${query.id}`,
+                              {
+                                method: "POST",
+                              }
+                            );
+                          }}
+                          title="Force stop"
+                        />
+                      )}
+                    {LinkToQuerySource}
+                  </div>
+                </td>
               </tr>
             );
           })}

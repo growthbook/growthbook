@@ -70,7 +70,6 @@ import { formatInformationSchema } from "../util/informationSchemas";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 import { SQLVars, TemplateVariables } from "../../types/sql";
 import { FactTableMap } from "../models/FactTableModel";
-import { logger } from "../util/logger";
 import {
   FactFilterInterface,
   FactMetricInterface,
@@ -117,9 +116,6 @@ export default abstract class SqlIntegration
     sql: string,
     setExternalId?: ExternalIdCallback
   ): Promise<QueryResponse>;
-  async cancelQuery(externalId: string): Promise<void> {
-    logger.debug(`Cancel query: ${externalId} - not implemented`);
-  }
   abstract getSensitiveParamKeys(): string[];
 
   constructor(context: ReqContextClass, datasource: DataSourceInterface) {

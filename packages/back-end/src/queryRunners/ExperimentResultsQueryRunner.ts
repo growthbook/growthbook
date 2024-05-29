@@ -63,6 +63,7 @@ export type ExperimentResultsQueryParams = {
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   queryParentId: string;
+  experimentId?: string;
 };
 
 export const TRAFFIC_QUERY_NAME = "traffic";
@@ -268,6 +269,12 @@ export const startExperimentResultQueries = async (
         integration.runExperimentUnitsQuery(query, setExternalId),
       process: (rows) => rows,
       queryType: "experimentUnits",
+      querySource: params.experimentId
+        ? {
+            sourceType: "Experiment",
+            id: params.experimentId,
+          }
+        : undefined,
     });
     queries.push(unitQuery);
   }
@@ -311,6 +318,12 @@ export const startExperimentResultQueries = async (
           integration.runExperimentMetricQuery(query, setExternalId),
         process: (rows) => rows,
         queryType: "experimentMetric",
+        querySource: params.experimentId
+          ? {
+              sourceType: "Experiment",
+              id: params.experimentId,
+            }
+          : undefined,
       })
     );
   });
@@ -346,6 +359,12 @@ export const startExperimentResultQueries = async (
           ),
         process: (rows) => rows,
         queryType: "experimentMultiMetric",
+        querySource: params.experimentId
+          ? {
+              sourceType: "Experiment",
+              id: params.experimentId,
+            }
+          : undefined,
       })
     );
   });
@@ -365,6 +384,12 @@ export const startExperimentResultQueries = async (
         integration.runExperimentAggregateUnitsQuery(query, setExternalId),
       process: (rows) => rows,
       queryType: "experimentTraffic",
+      querySource: params.experimentId
+        ? {
+            sourceType: "Experiment",
+            id: params.experimentId,
+          }
+        : undefined,
     });
     queries.push(trafficQuery);
   }
@@ -541,6 +566,12 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         },
         process: (rows: ExperimentQueryResponses) =>
           this.processLegacyExperimentResultsResponse(snapshotSettings, rows),
+        querySource: params.experimentId
+          ? {
+              sourceType: "Experiment",
+              id: params.experimentId,
+            }
+          : undefined,
       }),
     ];
   }

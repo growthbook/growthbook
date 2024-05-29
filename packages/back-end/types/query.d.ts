@@ -35,6 +35,18 @@ export type QueryType =
   | "experimentTraffic"
   | "experimentMultiMetric";
 
+// The object responsible for creating and running this query
+export type QuerySourceType =
+  | "Experiment"
+  | "Metric"
+  | "DimensionSlices"
+  | "PastExperiments";
+
+export interface QuerySource {
+  sourceType: QuerySourceType;
+  id: string;
+}
+
 export interface QueryInterface {
   id: string;
   organization: string;
@@ -55,4 +67,5 @@ export interface QueryInterface {
   cachedQueryUsed?: string;
   statistics?: QueryStatistics;
   externalId?: string;
+  querySource?: QuerySource;
 }
