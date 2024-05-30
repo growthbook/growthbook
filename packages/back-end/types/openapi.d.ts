@@ -199,6 +199,18 @@ export interface paths {
     /** Edit a single organization (only for super admins on multi-org Enterprise Plan only) */
     put: operations["putOrganization"];
   };
+  "/environments": {
+    /** Get the organization's environments */
+    get: operations["listEnvironments"];
+    /** Create a new environment */
+    post: operations["postEnvironment"];
+  };
+  "/environments/${id}": {
+    /** Update an environment */
+    put: operations["putEnvironment"];
+    /** Deletes a single environment */
+    delete: operations["deleteEnvironment"];
+  };
   "/fact-tables": {
     /** Get all fact tables */
     get: operations["listFactTables"];
@@ -385,6 +397,13 @@ export interface components {
       settings?: {
         statsEngine?: string;
       };
+    };
+    Environment: {
+      id: string;
+      description: string;
+      toggleOnList: boolean;
+      defaultState: boolean;
+      projects: (string)[];
     };
     Segment: {
       id: string;
@@ -4994,6 +5013,112 @@ export interface operations {
       };
     };
   };
+  listEnvironments: {
+    /** Get the organization's environments */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            environments: ({
+                id: string;
+                description: string;
+                toggleOnList: boolean;
+                defaultState: boolean;
+                projects: (string)[];
+              })[];
+          };
+        };
+      };
+    };
+  };
+  postEnvironment: {
+    /** Create a new environment */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The ID of the new environment */
+          id: string;
+          /** @description The description of the new environment */
+          description?: string;
+          /** @description Show toggle on feature list */
+          toggleOnList?: any;
+          /** @description Default state for new features */
+          defaultState?: any;
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            environment: {
+              id: string;
+              description: string;
+              toggleOnList: boolean;
+              defaultState: boolean;
+              projects: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  putEnvironment: {
+    /** Update an environment */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The description of the new environment */
+          description?: string;
+          /** @description Show toggle on feature list */
+          toggleOnList?: boolean;
+          /** @description Default state for new features */
+          defaultState?: boolean;
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            environment: {
+              id: string;
+              description: string;
+              toggleOnList: boolean;
+              defaultState: boolean;
+              projects: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteEnvironment: {
+    /** Deletes a single environment */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
   listFactTables: {
     /** Get all fact tables */
     parameters: {
@@ -6218,6 +6343,7 @@ export type ApiPaginationFields = components["schemas"]["PaginationFields"];
 export type ApiDimension = components["schemas"]["Dimension"];
 export type ApiMetric = components["schemas"]["Metric"];
 export type ApiProject = components["schemas"]["Project"];
+export type ApiEnvironment = components["schemas"]["Environment"];
 export type ApiSegment = components["schemas"]["Segment"];
 export type ApiFeature = components["schemas"]["Feature"];
 export type ApiFeatureEnvironment = components["schemas"]["FeatureEnvironment"];
@@ -6281,6 +6407,10 @@ export type DeleteSavedGroupResponse = operations["deleteSavedGroup"]["responses
 export type ListOrganizationsResponse = operations["listOrganizations"]["responses"]["200"]["content"]["application/json"];
 export type PostOrganizationResponse = operations["postOrganization"]["responses"]["200"]["content"]["application/json"];
 export type PutOrganizationResponse = operations["putOrganization"]["responses"]["200"]["content"]["application/json"];
+export type ListEnvironmentsResponse = operations["listEnvironments"]["responses"]["200"]["content"]["application/json"];
+export type PostEnvironmentResponse = operations["postEnvironment"]["responses"]["200"]["content"]["application/json"];
+export type PutEnvironmentResponse = operations["putEnvironment"]["responses"]["200"]["content"]["application/json"];
+export type DeleteEnvironmentResponse = operations["deleteEnvironment"]["responses"]["200"]["content"]["application/json"];
 export type ListFactTablesResponse = operations["listFactTables"]["responses"]["200"]["content"]["application/json"];
 export type PostFactTableResponse = operations["postFactTable"]["responses"]["200"]["content"]["application/json"];
 export type GetFactTableResponse = operations["getFactTable"]["responses"]["200"]["content"]["application/json"];

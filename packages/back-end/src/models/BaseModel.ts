@@ -10,8 +10,8 @@ import { ApiReqContext } from "../../types/api";
 import { ReqContext } from "../../types/organization";
 import { CreateProps, UpdateProps } from "../../types/models";
 import { logger } from "../util/logger";
-import { EventType } from "../../types/audit";
-import { EntityType } from "../types/Audit";
+import { EntityType, EventTypes, EventType } from "../types/Audit";
+import { AuditInterfaceTemplate } from "../../types/audit";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
@@ -31,16 +31,18 @@ export const baseSchema = z
 
 export type BaseSchema = typeof baseSchema;
 
-export interface ModelConfig<T extends BaseSchema> {
+type AuditLogConfig<Entity extends EntityType> = {
+  entity: Entity;
+  createEvent: EventTypes<Entity>;
+  updateEvent: EventTypes<Entity>;
+  deleteEvent: EventTypes<Entity>;
+};
+
+export interface ModelConfig<T extends BaseSchema, Entity extends EntityType> {
   schema: T;
   collectionName: string;
   idPrefix?: string;
-  auditLog: {
-    entity: EntityType;
-    createEvent: EventType;
-    updateEvent: EventType;
-    deleteEvent: EventType;
-  };
+  auditLog: AuditLogConfig<Entity>;
   projectScoping: "none" | "single" | "multiple";
   globallyUniqueIds?: boolean;
   skipDateUpdatedFields?: (keyof z.infer<T>)[];
@@ -59,7 +61,7 @@ export interface ModelConfig<T extends BaseSchema> {
 // We only need to add indexes once at server start-up
 const indexesAdded: Set<string> = new Set();
 
-export abstract class BaseModel<T extends BaseSchema> {
+export abstract class BaseModel<T extends BaseSchema, E extends EntityType> {
   protected context: Context;
   public constructor(context: Context) {
     this.context = context;
@@ -70,8 +72,8 @@ export abstract class BaseModel<T extends BaseSchema> {
   /***************
    * Required methods that MUST be overridden by subclasses
    ***************/
-  protected config: ModelConfig<T>;
-  protected abstract getConfig(): ModelConfig<T>;
+  protected config: ModelConfig<T, E>;
+  protected abstract getConfig(): ModelConfig<T, E>;
   protected abstract canRead(doc: z.infer<T>): boolean;
   protected abstract canCreate(doc: z.infer<T>): boolean;
   protected abstract canUpdate(
@@ -312,7 +314,7 @@ export abstract class BaseModel<T extends BaseSchema> {
         },
         event: this.config.auditLog.createEvent,
         details: auditDetailsCreate(doc),
-      });
+      } as AuditInterfaceTemplate<E>);
     } catch (e) {
       this.context.logger.error(
         e,
@@ -424,7 +426,7 @@ export abstract class BaseModel<T extends BaseSchema> {
         },
         event: auditEvent,
         details: auditDetailsUpdate(doc, newDoc),
-      });
+      } as AuditInterfaceTemplate<E>);
     } catch (e) {
       this.context.logger.error(
         e,
@@ -462,7 +464,7 @@ export abstract class BaseModel<T extends BaseSchema> {
         },
         event: this.config.auditLog.deleteEvent,
         details: auditDetailsDelete(doc),
-      });
+      } as AuditInterfaceTemplate<E>);
     } catch (e) {
       this.context.logger.error(
         e,
@@ -559,10 +561,10 @@ export abstract class BaseModel<T extends BaseSchema> {
   }
 }
 
-export const MakeModelClass = <T extends BaseSchema>(
-  config: ModelConfig<T>
+export const MakeModelClass = <T extends BaseSchema, E extends EntityType>(
+  config: ModelConfig<T, E>
 ) => {
-  abstract class Model extends BaseModel<T> {
+  abstract class Model extends BaseModel<T, E> {
     getConfig() {
       return config;
     }
