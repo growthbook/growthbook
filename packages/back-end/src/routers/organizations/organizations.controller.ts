@@ -93,6 +93,7 @@ import {
   addCustomRole,
   editCustomRole,
   removeCustomRole,
+  addGetStartedChecklistItem,
 } from "../../models/OrganizationModel";
 import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { ConfigFile } from "../../init/config";
@@ -743,6 +744,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       members: org.members,
       messages: messages || [],
       pendingMembers: org.pendingMembers,
+      getStartedChecklistItems: org.getStartedChecklistItems,
     },
     seatsInUse,
   });
@@ -1713,7 +1715,6 @@ export async function putSDKWebhook(
   fireSdkWebhook(context, updatedWebhook).catch(() => {
     // Do nothing, already being logged in Mongo
   });
-
   res.status(200).json({
     status: 200,
     webhook: updatedWebhook,
@@ -2088,6 +2089,47 @@ export async function putDefaultRole(
       },
     },
   });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function putGetStartedChecklistItem(
+  req: AuthRequest<{
+    checklistItem: string;
+    project: string;
+  }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { checklistItem, project } = req.body;
+
+  if (checklistItem !== "environments" && checklistItem !== "attributes") {
+    throw new Error("Unexpected Get Started checklist item.");
+  }
+
+  if (
+    checklistItem === "environments" &&
+    !context.permissions.canCreateOrUpdateEnvironment({
+      id: "",
+      projects: [project],
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (
+    checklistItem === "attributes" &&
+    !context.permissions.canCreateAttribute({
+      projects: [project],
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  addGetStartedChecklistItem(org.id, checklistItem);
 
   res.status(200).json({
     status: 200,

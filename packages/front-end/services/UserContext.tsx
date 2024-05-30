@@ -92,7 +92,7 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   manageIntegrations: false,
   organizationSettings: false,
   superDeleteReport: false,
-  viewEvents: false,
+  viewAuditLog: false,
   readData: false,
   manageCustomRoles: false,
 };
@@ -192,7 +192,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     data: currentOrg,
     mutate: refreshOrganization,
     error: orgLoadingError,
-  } = useApi<OrgSettingsResponse>(isAuthenticated ? `/organization` : null);
+  } = useApi<OrgSettingsResponse>(
+    isAuthenticated && data?.userId ? `/organization` : null
+  );
 
   const [hashedOrganizationId, setHashedOrganizationId] = useState<string>("");
   useEffect(() => {
@@ -269,13 +271,13 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     };
   }, [orgId, data?.userId, role]);
 
-  // Refresh organization data when switching orgs or license key changes
+  // Refresh organization data when switching orgs or a new user gets an id.
   useEffect(() => {
-    if (orgId) {
+    if (orgId && data?.userId) {
       void refreshOrganization();
       track("Organization Loaded");
     }
-  }, [orgId, refreshOrganization]);
+  }, [orgId, data?.userId, refreshOrganization]);
 
   // Once authenticated, get userId, orgId from API
   useEffect(() => {

@@ -1,170 +1,180 @@
 import {
   RELEVANT_KEYS_FOR_ALL_ENVS,
-  filterFeatureUpdatedNotificationEventForEnvironments,
-} from "@back-end/src/events/handlers/utils";
+  getChangedApiFeatureEnvironments,
+} from "../../../src/events/handlers/utils";
+import { ApiFeature, ApiFeatureForceRule } from "../../../types/openapi";
 
-describe("filterFeatureUpdatedNotificationEventForEnvironments", () => {
-  it("returns false when feature is archived", () => {
-    expect(
-      filterFeatureUpdatedNotificationEventForEnvironments({
-        featureEvent: {
-          data: {
-            previous: { archived: true },
-            current: { archived: true },
-          },
-        },
-        environments: [],
-      })
-    ).toBe(false);
-  });
+describe("getChangedApiFeatureEnvironments", () => {
+  const rule: ApiFeatureForceRule = {
+    description: "",
+    enabled: true,
+    condition: "",
+    id: "",
+    type: "force",
+    value: "true",
+  };
+  const feature: ApiFeature = {
+    archived: false,
+    defaultValue: "default",
+    environments: {
+      dev: { enabled: true, defaultValue: "false", rules: [{ ...rule }] },
+      prod: { enabled: true, defaultValue: "false", rules: [{ ...rule }] },
+    },
+    prerequisites: [],
+    project: "project",
+    valueType: "string",
+    dateCreated: new Date().toISOString(),
+    dateUpdated: new Date().toISOString(),
+    description: "",
+    id: "id",
+    owner: "",
+    revision: {
+      comment: "",
+      date: new Date().toISOString(),
+      publishedBy: "",
+      version: 1,
+    },
+    tags: [],
+  };
 
-  it("returns true for keys relevant for all enviroments", () => {
+  it("returns all envs when a global field changes", () => {
     const values = RELEVANT_KEYS_FOR_ALL_ENVS.map((key) =>
-      filterFeatureUpdatedNotificationEventForEnvironments({
-        featureEvent: {
-          data: {
-            previous: { [key]: key === "achived" ? true : "old-value" },
-            current: { [key]: key === "archived" ? false : "new-value" },
-          },
-        },
-        environments: ["foo"],
+      getChangedApiFeatureEnvironments(feature, {
+        ...feature,
+        [key]: key === "archived" ? !feature.archived : "new-value",
       })
     );
 
-    values.forEach((v) => expect(v).toBe(true));
+    values.forEach((v) => expect(v).toEqual(["dev", "prod"]));
   });
 
-  it("returns true when a filtered environment has changed", () => {
+  it("returns the specific env that changed", () => {
     expect(
-      filterFeatureUpdatedNotificationEventForEnvironments({
-        featureEvent: {
-          data: {
-            previous: {
-              environments: {
-                foo: { enabled: true, some_setting: "old-value" },
-              },
-            },
-            current: {
-              environments: {
-                foo: { enabled: true, some_setting: "new-value" },
-              },
-            },
-          },
+      getChangedApiFeatureEnvironments(feature, {
+        ...feature,
+        environments: {
+          ...feature.environments,
+          prod: {
+            ...feature.environments["prod"],
+            enabled: !feature.environments["prod"]?.enabled,
+          } as ApiFeature["environments"][string],
         },
-        environments: ["foo"],
       })
-    ).toBe(true);
-
-    expect(
-      filterFeatureUpdatedNotificationEventForEnvironments({
-        featureEvent: {
-          data: {
-            previous: {
-              environments: {
-                foo: { enabled: true },
-              },
-            },
-            current: {
-              environments: {
-                foo: { enabled: false },
-              },
-            },
-          },
-        },
-        environments: ["foo"],
-      })
-    ).toBe(true);
+    ).toEqual(["prod"]);
   });
 
-  it("returns false when a filtered environment has not changed", () => {
-    expect(
-      filterFeatureUpdatedNotificationEventForEnvironments({
-        featureEvent: {
-          data: {
-            previous: {
-              environments: {
-                foo: { enabled: true, some_setting: "old-value" },
-              },
-            },
-            current: {
-              environments: {
-                foo: { enabled: true, some_setting: "old-value" },
-              },
-            },
-          },
-        },
-        environments: ["foo"],
-      })
-    ).toBe(false);
-  });
-
-  it("returns true when an environment has changed and no filter is set", () => {
-    expect(
-      filterFeatureUpdatedNotificationEventForEnvironments({
-        featureEvent: {
-          data: {
-            previous: {
-              environments: {
-                foo: { enabled: true, some_setting: "old-value" },
-                bla: { enabled: true, some_setting: "old-value" },
-              },
-            },
-            current: {
-              environments: {
-                foo: { enabled: true, some_setting: "old-value" },
-                bla: { enabled: true, some_setting: "new-value" },
-              },
-            },
-          },
-        },
-        environments: [],
-      })
-    ).toBe(true);
-  });
-
-  it("returns false when no environment has changed and no filter is set", () => {
-    expect(
-      filterFeatureUpdatedNotificationEventForEnvironments({
-        featureEvent: {
-          data: {
-            previous: {
-              environments: {
-                foo: { enabled: true, some_setting: "old-value" },
-                bla: { enabled: true, some_setting: "old-value" },
-              },
-            },
-            current: {
-              environments: {
-                foo: { enabled: true, some_setting: "old-value" },
-                bla: { enabled: true, some_setting: "new-value" },
-              },
-            },
-          },
-        },
-        environments: ["foo"],
-      })
-    ).toBe(false);
+  it("returns no envs when nothing has changed", () => {
+    expect(getChangedApiFeatureEnvironments(feature, feature)).toEqual([]);
   });
 
   it("returns false when a filtered environment is disabled before and after the event", () => {
-    expect(
-      filterFeatureUpdatedNotificationEventForEnvironments({
-        featureEvent: {
-          data: {
-            previous: {
-              environments: {
-                foo: { enabled: false, some_setting: "old-value" },
-              },
-            },
-            current: {
-              environments: {
-                foo: { enabled: false, some_setting: "new-value" },
-              },
-            },
-          },
+    function getFeatureToTest(enabled: 0 | 1, defaultValue: 0 | 1): ApiFeature {
+      return {
+        ...feature,
+        environments: {
+          dev: {
+            ...feature.environments.dev,
+            enabled: enabled === 1,
+            defaultValue: defaultValue === 1 ? "true" : "false",
+          } as ApiFeature["environments"][string],
+          prod: {
+            ...feature.environments.prod,
+            enabled: enabled === 1,
+            defaultValue: defaultValue === 1 ? "true" : "false",
+          } as ApiFeature["environments"][string],
         },
-        environments: ["foo"],
-      })
-    ).toBe(false);
+      };
+    }
+
+    expect(
+      getChangedApiFeatureEnvironments(
+        getFeatureToTest(0, 0),
+        getFeatureToTest(0, 0)
+      )
+    ).toEqual([]);
+    expect(
+      getChangedApiFeatureEnvironments(
+        getFeatureToTest(0, 0),
+        getFeatureToTest(0, 1)
+      )
+    ).toEqual([]);
+    expect(
+      getChangedApiFeatureEnvironments(
+        getFeatureToTest(0, 0),
+        getFeatureToTest(1, 0)
+      )
+    ).toEqual(["dev", "prod"]);
+    expect(
+      getChangedApiFeatureEnvironments(
+        getFeatureToTest(0, 0),
+        getFeatureToTest(1, 1)
+      )
+    ).toEqual(["dev", "prod"]);
+    expect(
+      getChangedApiFeatureEnvironments(
+        getFeatureToTest(0, 1),
+        getFeatureToTest(0, 0)
+      )
+    ).toEqual([]);
+    expect(
+      getChangedApiFeatureEnvironments(
+        getFeatureToTest(0, 1),
+        getFeatureToTest(0, 1)
+      )
+    ).toEqual([]);
+    expect(
+      getChangedApiFeatureEnvironments(
+        getFeatureToTest(0, 1),
+        getFeatureToTest(1, 1)
+      )
+    ).toEqual(["dev", "prod"]);
+    expect(
+      getChangedApiFeatureEnvironments(
+        getFeatureToTest(1, 0),
+        getFeatureToTest(0, 0)
+      )
+    ).toEqual(["dev", "prod"]);
+    expect(
+      getChangedApiFeatureEnvironments(
+        getFeatureToTest(1, 0),
+        getFeatureToTest(0, 1)
+      )
+    ).toEqual(["dev", "prod"]);
+    expect(
+      getChangedApiFeatureEnvironments(
+        getFeatureToTest(1, 0),
+        getFeatureToTest(1, 0)
+      )
+    ).toEqual([]);
+    expect(
+      getChangedApiFeatureEnvironments(
+        getFeatureToTest(1, 0),
+        getFeatureToTest(1, 1)
+      )
+    ).toEqual(["dev", "prod"]);
+    expect(
+      getChangedApiFeatureEnvironments(
+        getFeatureToTest(1, 1),
+        getFeatureToTest(0, 0)
+      )
+    ).toEqual(["dev", "prod"]);
+    expect(
+      getChangedApiFeatureEnvironments(
+        getFeatureToTest(1, 1),
+        getFeatureToTest(0, 1)
+      )
+    ).toEqual(["dev", "prod"]);
+    expect(
+      getChangedApiFeatureEnvironments(
+        getFeatureToTest(1, 1),
+        getFeatureToTest(1, 0)
+      )
+    ).toEqual(["dev", "prod"]);
+    expect(
+      getChangedApiFeatureEnvironments(
+        getFeatureToTest(1, 1),
+        getFeatureToTest(1, 1)
+      )
+    ).toEqual([]);
   });
 });

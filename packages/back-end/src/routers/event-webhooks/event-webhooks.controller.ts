@@ -302,6 +302,10 @@ export const createTestEventWebHook = async (
           name: req.name || "",
         }
       : null,
+    projects: [],
+    tags: [],
+    environments: [],
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(organizationId, payload);

@@ -9,6 +9,8 @@ import {
   FeatureRule,
   ForceRule,
   RolloutRule,
+  SchemaField,
+  SimpleSchema,
 } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
@@ -19,23 +21,45 @@ import {
   Environment,
 } from "back-end/types/organization";
 import { ProjectInterface } from "back-end/types/project";
+import { ApiFeature } from "back-end/types/openapi";
 import { getValidDate } from "../dates";
 import { getMatchingRules, includeExperimentInPayload, isDefined } from ".";
 
 export function getValidation(feature: FeatureInterface) {
   try {
-    const jsonSchema = feature?.jsonSchema?.schema
-      ? JSON.parse(feature?.jsonSchema?.schema)
-      : null;
-    const validationEnabled = jsonSchema ? feature?.jsonSchema?.enabled : false;
-    const schemaDateUpdated = feature?.jsonSchema?.date;
-    return { jsonSchema, validationEnabled, schemaDateUpdated };
+    if (!feature?.jsonSchema) {
+      return {
+        jsonSchema: null,
+        validationEnabled: false,
+        schemaDateUpdated: null,
+        simpleSchema: null,
+      };
+    }
+
+    const schemaString =
+      feature.jsonSchema.schemaType === "schema"
+        ? feature.jsonSchema.schema
+        : simpleToJSONSchema(feature.jsonSchema.simple);
+
+    const jsonSchema = JSON.parse(schemaString);
+    const validationEnabled = feature.jsonSchema.enabled;
+    const schemaDateUpdated = feature?.jsonSchema.date;
+    return {
+      jsonSchema,
+      validationEnabled,
+      schemaDateUpdated,
+      simpleSchema:
+        feature.jsonSchema.schemaType === "simple"
+          ? feature.jsonSchema.simple
+          : null,
+    };
   } catch (e) {
     // log an error?
     return {
       jsonSchema: null,
       validationEnabled: false,
       schemaDateUpdated: null,
+      simpleSchema: null,
     };
   }
 }
@@ -60,6 +84,12 @@ export function mergeRevision(
   return newFeature;
 }
 
+export function getJSONValidator() {
+  return new Ajv({
+    strictSchema: false,
+  });
+}
+
 export function validateJSONFeatureValue(
   // eslint-disable-next-line
   value: any,
@@ -70,7 +100,7 @@ export function validateJSONFeatureValue(
     return { valid: true, enabled: validationEnabled, errors: [] };
   }
   try {
-    const ajv = new Ajv();
+    const ajv = getJSONValidator();
     const validate = ajv.compile(jsonSchema);
     let parsedValue;
     if (typeof value === "string") {
@@ -133,10 +163,12 @@ export function validateFeatureValue(
     }
   } else if (type === "json") {
     let parsedValue;
+    let validJSON = true;
     try {
       parsedValue = JSON.parse(value);
     } catch (e) {
       // If the JSON is invalid, try to parse it with 'dirty-json' instead
+      validJSON = false;
       try {
         parsedValue = dJSON.parse(value);
       } catch (e) {
@@ -148,7 +180,10 @@ export function validateFeatureValue(
     if (!valid) {
       throw new Error(prefix + errors.join(", "));
     }
-    return stringify(parsedValue);
+    // If the JSON was invalid but could be parsed by 'dirty-json', return the fixed JSON
+    if (!validJSON) {
+      return stringify(parsedValue);
+    }
   }
 
   return value;
@@ -975,4 +1010,302 @@ export function getDisallowedProjects(
   return allProjects.filter((p) =>
     getDisallowedProjectIds(projects, environment).includes(p.id)
   );
+}
+
+export function simpleToJSONSchema(simple: SimpleSchema): string {
+  const getValue = (
+    value: string,
+    field: SchemaField
+  ): string | number | boolean => {
+    const type = field.type;
+    // Validation
+    if (field.type !== "boolean") {
+      if (field.enum.length > 0 && !field.enum.includes(value)) {
+        throw new Error(`Value '${value}' not in enum for field ${field.key}`);
+      }
+      if (field.type === "string" && !field.enum.length) {
+        if (value.length < field.min) {
+          throw new Error(
+            `Value '${value}' is shorter than min length for field ${field.key}`
+          );
+        }
+        if (value.length > field.max) {
+          throw new Error(
+            `Value '${value}' is longer than max length for field ${field.key}`
+          );
+        }
+      } else if (!field.enum.length) {
+        if (parseFloat(value) < field.min) {
+          throw new Error(
+            `Value '${value}' is less than min value for field ${field.key}`
+          );
+        }
+        if (parseFloat(value) > field.max) {
+          throw new Error(
+            `Value '${value}' is greater than max value for field ${field.key}`
+          );
+        }
+      }
+
+      if (field.type === "integer" && !Number.isInteger(parseFloat(value))) {
+        throw new Error(
+          `Value '${value}' is not an integer for field ${field.key}`
+        );
+      }
+    }
+
+    if (type === "string") return value;
+    if (type === "float") return parseFloat(value);
+    if (type === "integer") return parseInt(value);
+    else return value !== "false";
+  };
+
+  const fields = simple.fields.map((f) => {
+    const schema: Record<string, unknown> = {
+      type: ["float", "integer"].includes(f.type) ? "number" : f.type,
+    };
+
+    if (f.description) schema.description = f.description;
+
+    if (f.default) schema.default = getValue(f.default, f);
+
+    if (f.type !== "boolean" && f.enum.length) {
+      schema.enum = f.enum.map((v) => getValue(v, f));
+    }
+    if (!schema.enum) {
+      if (f.type === "string") {
+        schema.minLength = f.min;
+        schema.maxLength = f.max;
+        if (f.max < f.min || f.min < 0) {
+          throw new Error(`Invalid min or max for field ${f.key}`);
+        }
+      } else if (f.type === "float" || f.type === "integer") {
+        schema.minimum = f.min;
+        schema.maximum = f.max;
+
+        if (f.type === "integer") {
+          schema.multipleOf = 1;
+          schema.format = "number";
+        }
+
+        if (f.max < f.min) {
+          throw new Error(`Invalid min or max for field ${f.key}`);
+        }
+      }
+    }
+    return { key: f.key, required: f.required, schema };
+  });
+  if (fields.length === 0) {
+    throw new Error("Schema must have at least 1 field");
+  }
+
+  switch (simple.type) {
+    case "object":
+      if (fields.some((f) => !f.key)) {
+        throw new Error("Property keys cannot be left blank");
+      }
+      return JSON.stringify({
+        type: "object",
+        required: fields.filter((f) => f.required).map((f) => f.key),
+        properties: fields.reduce((acc, f) => {
+          acc[f.key] = f.schema;
+          return acc;
+        }, {} as Record<string, unknown>),
+        additionalProperties: false,
+      });
+    case "object[]":
+      if (fields.some((f) => !f.key)) {
+        throw new Error("Property keys cannot be left blank");
+      }
+      return JSON.stringify({
+        type: "array",
+        items: {
+          type: "object",
+          required: fields.filter((f) => f.required).map((f) => f.key),
+          properties: fields.reduce((acc, f) => {
+            acc[f.key] = f.schema;
+            return acc;
+          }, {} as Record<string, unknown>),
+          additionalProperties: false,
+        },
+      });
+    case "primitive[]":
+      return JSON.stringify({
+        type: "array",
+        items: fields[0].schema,
+      });
+    case "primitive":
+      return JSON.stringify({
+        ...fields[0].schema,
+      });
+    default:
+      throw new Error("Invalid simple schema type");
+  }
+}
+
+export function inferSchemaField(
+  value: unknown,
+  key: string,
+  existing?: SchemaField
+): undefined | SchemaField {
+  if (value == null) {
+    return existing;
+  }
+
+  let type: SchemaField["type"];
+  let min = existing?.min || 0;
+  let max = existing?.max || 0;
+  switch (typeof value) {
+    case "string":
+      type = "string";
+      max = Math.max(max || 64, value.length);
+      break;
+    case "boolean":
+      type = "boolean";
+      break;
+    case "number":
+      type = Number.isInteger(value) ? "integer" : "float";
+      if (value < 0) {
+        min = Math.min(min || -999, value);
+      }
+      max = Math.max(max || 999, value);
+      break;
+    default:
+      throw new Error(`Invalid value type: ${typeof value}`);
+  }
+
+  if (existing?.type && type !== existing?.type) {
+    // Where there's a mix of integers and floats, use float
+    if (type === "float" && existing.type === "integer") {
+      type = "float";
+    } else if (type === "integer" && existing.type === "float") {
+      type = "float";
+    }
+    // Any other mixing of types is an error
+    else {
+      throw new Error("Conflicting types");
+    }
+  }
+
+  return {
+    key,
+    type,
+    required: true,
+    enum: [],
+    min,
+    max,
+    default: "",
+    description: "",
+  };
+}
+
+export function inferSchemaFields(
+  obj: Record<string, unknown>,
+  existing?: Map<string, SchemaField>
+): Map<string, SchemaField> {
+  const fields = existing || new Map<string, SchemaField>();
+  for (const key in obj) {
+    const value = obj[key];
+    const existingField = fields.get(key);
+
+    // If there are existing fields, but this field is new, mark it as not required
+    const newField = !!(existing && !existingField);
+
+    const field = inferSchemaField(value, key, existingField);
+    if (field) {
+      if (newField) field.required = false;
+      fields.set(key, field);
+    }
+  }
+
+  // If there are fields that are no longer present, mark them as not required
+  const currentKeys = Object.keys(obj);
+  for (const key of fields.keys()) {
+    if (!currentKeys.includes(key)) {
+      const field = fields.get(key);
+      if (field) {
+        field.required = false;
+      }
+    }
+  }
+
+  return fields;
+}
+
+export function inferSimpleSchemaFromValue(rawValue: string): SimpleSchema {
+  try {
+    const value = JSON.parse(rawValue);
+
+    if (value == null) {
+      throw new Error("Unable to convert null or undefined value to schema");
+    }
+    if (typeof value === "object") {
+      // Array of primitives or objects
+      if (Array.isArray(value)) {
+        // Skip all null elements
+        const nonNullValues = value.filter((v) => v != null);
+
+        // Don't have much to go on here, but assume it's an array of objects
+        if (nonNullValues.length === 0) {
+          return { type: "object[]", fields: [] };
+        }
+
+        // Array of primitives
+        if (typeof nonNullValues[0] !== "object") {
+          let fields: undefined | Map<string, SchemaField> = undefined;
+          for (const v of nonNullValues) {
+            fields = inferSchemaFields({ "": v }, fields);
+          }
+
+          const field = fields?.get("");
+          return {
+            type: "primitive[]",
+            fields: field ? [field] : [],
+          };
+        }
+
+        // Loop through all values and infer the schema
+        let fields: undefined | Map<string, SchemaField> = undefined;
+        for (const obj of nonNullValues) {
+          if (!obj || typeof obj !== "object" || Array.isArray(obj)) {
+            throw new Error("Array must contain objects");
+          }
+          fields = inferSchemaFields(obj as Record<string, unknown>, fields);
+        }
+
+        return {
+          type: "object[]",
+          fields: fields ? Array.from(fields.values()) : [],
+        };
+      }
+
+      // Non-array object
+      const fields = inferSchemaFields(value as Record<string, unknown>);
+      return {
+        type: "object",
+        fields: Array.from(fields.values()),
+      };
+    }
+
+    // Primitive
+    const field = inferSchemaField(value, "");
+    if (!field) {
+      throw new Error("Unable to infer schema from value");
+    }
+    return { type: "primitive", fields: [field] };
+  } catch (e) {
+    // Fall back to a generic schema
+    return { type: "object", fields: [] };
+  }
+}
+
+export function getApiFeatureEnabledEnvs(feature: ApiFeature) {
+  if (feature.archived) return [];
+  const envs = new Set<string>();
+  Object.entries(feature.environments).forEach(([env, settings]) => {
+    if (settings?.enabled) {
+      envs.add(env);
+    }
+  });
+  return Array.from(envs);
 }

@@ -94,6 +94,7 @@ const MultiSelectField: FC<
       meta: FormatOptionLabelMeta<SingleValue>
     ) => ReactNode;
     onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
+    noMenu?: boolean;
   }
 > = ({
   value,
@@ -110,6 +111,7 @@ const MultiSelectField: FC<
   closeMenuOnSelect = false,
   formatOptionLabel,
   onPaste,
+  noMenu,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -161,7 +163,25 @@ const MultiSelectField: FC<
               MultiValueLabel: SortableMultiValueLabel,
               Option: OptionWithTitle,
               Input,
+              ...(creatable && noMenu
+                ? {
+                    Menu: () => null,
+                    DropdownIndicator: () => null,
+                    IndicatorSeparator: () => null,
+                  }
+                : {}),
             }}
+            {...(creatable && noMenu
+              ? {
+                  // Prevent multi-select from submitting if you type the same value twice
+                  onKeyDown: (e) => {
+                    const v = (e.target as HTMLInputElement).value;
+                    if (e.code === "Enter" && (!v || value.includes(v))) {
+                      e.preventDefault();
+                    }
+                  },
+                }
+              : {})}
             closeMenuOnSelect={closeMenuOnSelect}
             autoFocus={autoFocus}
             value={selected}

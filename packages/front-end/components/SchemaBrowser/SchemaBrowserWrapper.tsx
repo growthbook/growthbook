@@ -9,6 +9,7 @@ export default function SchemaBrowserWrapper({
   datasourceName,
   datasourceId,
   informationSchema,
+  canRunQueries,
   setFetching,
   setError,
   fetching,
@@ -19,6 +20,7 @@ export default function SchemaBrowserWrapper({
   informationSchema: InformationSchemaInterface;
   setError: (error: string) => void;
   setFetching: (fetching: boolean) => void;
+  canRunQueries: boolean;
   fetching: boolean;
 }) {
   const { apiCall } = useAuth();
@@ -33,14 +35,28 @@ export default function SchemaBrowserWrapper({
         {informationSchema && !informationSchema.error && (
           <label>
             <Tooltip
-              body={`Last Updated: ${new Date(
-                informationSchema.dateUpdated
-              ).toLocaleString()}`}
+              body={
+                <div>
+                  <div>
+                    {`Last Updated: ${new Date(
+                      informationSchema.dateUpdated
+                    ).toLocaleString()}`}
+                  </div>
+                  {!canRunQueries ? (
+                    <div className="alert alert-warning mt-2">
+                      You do not have permission to refresh this information
+                      schema.
+                    </div>
+                  ) : null}
+                </div>
+              }
               tipPosition="top"
             >
               <button
                 className="btn btn-link p-0 text-secondary"
-                disabled={informationSchema.status === "PENDING"}
+                disabled={
+                  informationSchema.status === "PENDING" || !canRunQueries
+                }
                 onClick={async (e) => {
                   e.preventDefault();
                   // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
