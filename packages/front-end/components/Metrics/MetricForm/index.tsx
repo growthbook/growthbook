@@ -46,6 +46,7 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
+import ProjectsMultiSelect from "@/components/Layout/ProjectsMultiSelect";
 import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
 import { MetricDelayHours } from "./MetricDelayHours";
@@ -713,7 +714,7 @@ const MetricForm: FC<MetricFormProps> = ({
           </div>
           {projects?.length > 0 && (
             <div className="form-group">
-              <MultiSelectField
+              {/* <MultiSelectField
                 label="Projects"
                 placeholder="All projects"
                 value={value.projects || []}
@@ -726,6 +727,13 @@ const MetricForm: FC<MetricFormProps> = ({
                 customClassName="label-overflow-ellipsis"
                 helpText="Assign this metric to specific projects"
                 disabled={isExclusivelyForDemoDatasourceProject}
+              /> */}
+              <ProjectsMultiSelect
+                value={value.projects || []}
+                onChange={(v) => form.setValue("projects", v)}
+                permissionFilter={(project) =>
+                  permissionsUtil.canUpdateMetric({ projects: [project] }, {})
+                }
               />
             </div>
           )}
