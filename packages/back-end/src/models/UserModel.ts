@@ -14,6 +14,7 @@ const userSchema = new mongoose.Schema({
   passwordHash: String,
   superAdmin: Boolean,
   verified: Boolean,
+  agreedToTerms: Boolean,
   minTokenDate: Date,
 });
 
