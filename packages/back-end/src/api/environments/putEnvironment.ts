@@ -30,9 +30,8 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
     const updates: Partial<OrganizationInterface> = {
       settings: {
         ...org.settings,
-        environments: environments.reduce(
-          (ret, env) => [...ret, env.id === id ? updatedEnvironment : env],
-          []
+        environments: environments.map((env) =>
+          env.id === id ? updatedEnvironment : env
         ),
       },
     };
