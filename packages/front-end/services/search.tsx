@@ -273,12 +273,12 @@ export function filterSearchTerm(
       return strVal.startsWith(searchValue);
     // The default comparison depends on the type
     case "":
-      if (typeof itemValue === "number") {
-        return strVal === searchValue;
-      } else if (itemValue instanceof Date) {
-        return strVal.includes(searchValue);
-      } else {
+      if (itemValue instanceof Date) {
+        // This is the full datetime object,
+        // but most people will just type "2024" or "2024-01-01"
         return strVal.startsWith(searchValue);
+      } else {
+        return strVal === searchValue;
       }
   }
 }
@@ -287,66 +287,45 @@ export function transformQuery(
   searchTerm: string,
   searchTermFilterKeys: string[]
 ) {
+  // TODO: Support comma-separated quoted values (e.g. `foo:"bar","baz"`)
   const regex = new RegExp(
-    `(^|\\s)(${searchTermFilterKeys.join("|")}):([^\\s].*)`,
+    `(^|\\s)(${searchTermFilterKeys.join(
+      "|"
+    )}):(\\!?)([${searchTermOperators.join("")}]?)([^\\s"]+|"[^"]*"?)`,
     "gi"
   );
   return parseQuery(searchTerm, regex);
 }
 
 export function parseQuery(query: string, regex: RegExp) {
-  const parts = query.split(" ");
-  const searchTerms: string[] = [];
   const syntaxFilters: {
     field: string;
     values: string[];
     operator: SearchTermFilterOperator;
     negated: boolean;
   }[] = [];
-  parts.forEach((p) => {
-    if (p.includes(":")) {
-      // this could be a syntax filter
-      const matches = p.matchAll(regex);
-      let hasMatches = false;
-      for (const match of matches) {
-        hasMatches = true;
-        if (match && match.length >= 3) {
-          const field = match[2];
-          let rawValue = match[3];
 
-          let negated = false;
-          if (rawValue.startsWith("!")) {
-            negated = true;
-            rawValue = rawValue.substring(1);
-          }
+  const matches = query.matchAll(regex);
+  for (const match of matches) {
+    if (match && match.length >= 3) {
+      const field = match[2];
+      const negated = !!match[3];
+      const operator = match[4] as SearchTermFilterOperator;
+      const rawValue = match[5].replace(/"/g, "");
 
-          let operator: SearchTermFilterOperator = "";
-          const firstChar = rawValue.substring(0, 1);
-          for (const op of searchTermOperators) {
-            if (op && firstChar === op) {
-              operator = firstChar;
-              rawValue = rawValue.substring(op.length);
-              break;
-            }
-          }
-
-          syntaxFilters.push({
-            field,
-            operator,
-            negated,
-            values: rawValue.split(",").map((s) => s.trim()),
-          });
-        } else {
-          searchTerms.push(p);
-        }
-      }
-
-      if (!hasMatches) {
-        searchTerms.push(p);
-      }
-    } else {
-      searchTerms.push(p);
+      syntaxFilters.push({
+        field,
+        operator,
+        negated,
+        values: rawValue.split(",").map((s) => s.trim()),
+      });
     }
-  });
-  return { searchTerm: searchTerms.join(" "), syntaxFilters };
+  }
+
+  const searchTerm = query.replace(regex, "$1").trim().replace(/\s+/g, " ");
+
+  return {
+    searchTerm,
+    syntaxFilters,
+  };
 }

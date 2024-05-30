@@ -163,8 +163,10 @@ const ExperimentsPage = (): React.ReactElement => {
       variation: (item) => item.variations.map((v) => v.name),
       created: (item) => item.dateCreated,
       updated: (item) => item.dateUpdated,
+      name: (item) => item.name,
       key: (item) => item.trackingKey,
       trackingKey: (item) => item.trackingKey,
+      id: (item) => [item.id, item.trackingKey],
       status: (item) => item.status,
       result: (item) =>
         item.status === "stopped" ? item.results || "unfinished" : "unfinished",
