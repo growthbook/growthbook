@@ -73,12 +73,6 @@ class BaseABTest(ABC):
                 self.stat_a.theta = theta
                 self.stat_b.theta = theta
                 pooled_pre_mean = (self.stat_a.pre_statistic.sum + self.stat_b.pre_statistic.sum) / (self.stat_a.pre_statistic.n + self.stat_b.pre_statistic.n)
-                self.stat_a.pooled_pre_statistic_mean = pooled_pre_mean
-                self.stat_b.pooled_pre_statistic_mean = pooled_pre_mean
-            elif self.cuped_type == "anova20":
-                theta = (self.stat_a.covariance + self.stat_b.covariance) / (self.stat_a.pre_statistic.variance + self.stat_b.pre_statistic.variance)
-                self.stat_a.theta = theta
-                self.stat_b.theta = theta
                 self.stat_a.pooled_pre_statistic_mean = 0
                 self.stat_b.pooled_pre_statistic_mean = 0
             else:

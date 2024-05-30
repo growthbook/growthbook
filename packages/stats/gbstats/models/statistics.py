@@ -145,7 +145,7 @@ class RegressionAdjustedStatistic(Statistic):
     def variance(self):
         if self.n <= 1:
             return 0
-        print (
+        return (
             self.post_statistic.variance
             + pow(self.theta, 2) * self.pre_statistic.variance
             - 2 * self.theta * self.covariance
