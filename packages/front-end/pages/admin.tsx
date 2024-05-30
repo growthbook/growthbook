@@ -49,7 +49,7 @@ function OrganizationRow({
   const { apiCall } = useAuth();
 
   useEffect(() => {
-    if (expanded && !license) {
+    if (isCloud() && expanded && !license) {
       const fetchLicense = async () => {
         setLicenseLoading(true);
         const res = await apiCall<{
@@ -140,7 +140,7 @@ function OrganizationRow({
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={6} className="bg-light">
+          <td colSpan={isCloud() ? 6 : 7} className="bg-light">
             <div className="mb-3">
               <h3>Info</h3>
               <Code language="json" code={stringify(otherAttributes)} />
@@ -167,23 +167,24 @@ function OrganizationRow({
             >
               <Code language="json" code={stringify(members)} />
             </Collapsible>
-
-            <div className="mt-3">
-              <Collapsible
-                trigger={
-                  <h3>
-                    License <FaAngleRight className="chevron" />
-                  </h3>
-                }
-                transitionTime={150}
-              >
-                {licenseLoading && <FaSpinner />}
-                {(license && (
-                  <Code language="json" code={stringify(license)} />
-                )) ||
-                  "No license found for this organization."}
-              </Collapsible>
-            </div>
+            {isCloud() && (
+              <div className="mt-3">
+                <Collapsible
+                  trigger={
+                    <h3>
+                      License <FaAngleRight className="chevron" />
+                    </h3>
+                  }
+                  transitionTime={150}
+                >
+                  {licenseLoading && <FaSpinner />}
+                  {(license && (
+                    <Code language="json" code={stringify(license)} />
+                  )) ||
+                    "No license found for this organization."}
+                </Collapsible>
+              </div>
+            )}
           </td>
         </tr>
       )}
