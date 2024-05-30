@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { IS_CLOUD } from "@back-end/src/util/secrets";
+import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
 import { usingOpenId } from "../../services/auth";
 import { createUser, getUserByEmail } from "../../services/users";
