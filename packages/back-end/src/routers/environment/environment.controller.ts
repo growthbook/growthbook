@@ -108,7 +108,7 @@ export const putEnvironments = async (
   const environments = req.body.environments;
   const existingEnvs = org.settings?.environments || [];
 
-  //MKTODO: When I break this out, I need to check if it exists, if so, check update, otherwise check canCreate logic
+  //TODO: When I break this out, I need to check if it exists, if so, check update, otherwise check canCreate logic
   environments.forEach((environment) => {
     if (!context.permissions.canCreateOrUpdateEnvironment(environment)) {
       context.permissions.throwPermissionError();
@@ -172,7 +172,7 @@ export const putEnvironment = async (
     });
   }
 
-  //MKTODO: Update this to canUpdate when I break canCreateOrUpdateEnvironment out into two methods
+  //TODO: Update this to canUpdate when I break canCreateOrUpdateEnvironment out into two methods
   if (!context.permissions.canCreateOrUpdateEnvironment(environment)) {
     context.permissions.throwPermissionError();
   }
@@ -254,7 +254,7 @@ export const postEnvironment = async (
   const context = getContextFromReq(req);
   const { org, environments } = context;
 
-  //MKTODO: Update this to canCreateEnvironment
+  //TODO: Update this to canCreateEnvironment
   if (!context.permissions.canCreateOrUpdateEnvironment(environment)) {
     context.permissions.throwPermissionError();
   }
