@@ -240,6 +240,30 @@ export const putOrganizationValidator = {
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
+export const listEnvironmentsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
+export const postEnvironmentValidator = {
+  bodySchema: z.object({ "id": z.string().describe("The ID of the new environment"), "description": z.string().describe("The description of the new environment").optional(), "toggleOnList": z.any().describe("Show toggle on feature list").optional(), "defaultState": z.any().describe("Default state for new features").optional(), "projects": z.array(z.string()).optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
+export const putEnvironmentValidator = {
+  bodySchema: z.object({ "description": z.string().describe("The description of the new environment").optional(), "toggleOnList": z.boolean().describe("Show toggle on feature list").optional(), "defaultState": z.boolean().describe("Default state for new features").optional(), "projects": z.array(z.string()).optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const deleteEnvironmentValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
 export const listFactTablesValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ "limit": z.coerce.number().int().default(10), "offset": z.coerce.number().int().default(0), "datasourceId": z.string().optional(), "projectId": z.string().optional() }).strict(),
