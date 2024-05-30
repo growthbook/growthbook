@@ -85,7 +85,8 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canReadMultiProjectResource: (projects) => projects.includes("bla"),
+        canReadMultiProjectResource: (projects) =>
+          (projects || []).includes("bla"),
       },
     });
 
@@ -169,6 +170,9 @@ describe("environements API", () => {
       },
       permissions: {
         canDeleteEnvironment: () => false,
+        throwPermissionError: () => {
+          throw new Error("permission error");
+        },
       },
     });
 
@@ -177,9 +181,7 @@ describe("environements API", () => {
       .set("Authorization", "Bearer foo");
 
     expect(response.status).toBe(400);
-    expect(response.body).toEqual({
-      message: "You do not have permission to delete this environment!",
-    });
+    expect(response.body).toEqual({ message: "permission error" });
     expect(updateOrganization).not.toHaveBeenCalledWith();
   });
 
@@ -368,6 +370,9 @@ describe("environements API", () => {
       },
       permissions: {
         canCreateOrUpdateEnvironment: () => false,
+        throwPermissionError: () => {
+          throw new Error("permission error");
+        },
       },
     });
 
@@ -381,7 +386,7 @@ describe("environements API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      message: "You don't have permission to update this environment!",
+      message: "permission error",
     });
     expect(updateOrganization).not.toHaveBeenCalledWith();
     expect(auditMock).not.toHaveBeenCalledWith();
@@ -583,6 +588,9 @@ describe("environements API", () => {
       },
       permissions: {
         canCreateOrUpdateEnvironment: () => false,
+        throwPermissionError: () => {
+          throw new Error("permission error");
+        },
       },
     });
 
@@ -598,7 +606,7 @@ describe("environements API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      message: "You don't have permission to create this environment!",
+      message: "permission error",
     });
     expect(updateOrganization).not.toHaveBeenCalledWith();
     expect(auditMock).not.toHaveBeenCalledWith();

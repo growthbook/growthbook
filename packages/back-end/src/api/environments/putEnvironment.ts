@@ -25,7 +25,7 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
     if (
       !req.context.permissions.canCreateOrUpdateEnvironment(updatedEnvironment)
     )
-      throw new Error("You don't have permission to update this environment!");
+      req.context.permissions.throwPermissionError();
 
     const updates: Partial<OrganizationInterface> = {
       settings: {

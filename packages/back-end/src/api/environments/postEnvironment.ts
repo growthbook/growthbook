@@ -19,7 +19,7 @@ export const postEnvironment = createApiRequestHandler(
     }
 
     if (!req.context.permissions.canCreateOrUpdateEnvironment(environment))
-      throw new Error("You don't have permission to create this environment!");
+      req.context.permissions.throwPermissionError();
 
     const updates: Partial<OrganizationInterface> = {
       settings: {

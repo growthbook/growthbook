@@ -19,7 +19,7 @@ export const deleteEnvironment = createApiRequestHandler(
     }
 
     if (!req.context.permissions.canDeleteEnvironment(environment))
-      throw Error("You do not have permission to delete this environment!");
+      req.context.permissions.throwPermissionError();
 
     const updates: Partial<OrganizationInterface> = {
       settings: {

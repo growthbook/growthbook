@@ -62,7 +62,7 @@ tags:
     description: Projects are used to organize your feature flags and experiments
   - name: environments
     x-displayName: Environments
-    description: Environments are used to enable and disable feature flags
+    description: 'GrowthBook comes with one environment by default (production), but you can add as many as you need. When used with feature flags, you can enable/disable feature flags on a per-environment basis.'
   - name: features
     x-displayName: Feature Flags
     description: Control your feature flags programatically
@@ -2527,7 +2527,7 @@ paths:
         - lang: cURL
           source: |
             curl -X PUT https://api.growthbook.io/api/v1/environments/env-id \
-               -d '{ "description": "My new environment" }' \
+               -d '{ "description": "My updated environment" }' \
               -u secret_abc123DEF456:
       requestBody:
         required: true

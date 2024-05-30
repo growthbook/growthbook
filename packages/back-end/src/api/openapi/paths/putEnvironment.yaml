@@ -8,7 +8,7 @@ x-codeSamples:
   - lang: "cURL"
     source: |
       curl -X PUT https://api.growthbook.io/api/v1/environments/env-id \
-         -d '{ "description": "My new environment" }' \
+         -d '{ "description": "My updated environment" }' \
         -u secret_abc123DEF456:
 requestBody:
   required: true
