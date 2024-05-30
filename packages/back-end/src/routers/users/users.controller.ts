@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { IS_CLOUD } from "@back-end/src/util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
 import { usingOpenId } from "../../services/auth";
 import { createUser, getUserByEmail } from "../../services/users";
@@ -29,7 +30,19 @@ function isValidWatchEntityType(type: string): boolean {
 export async function getUser(req: AuthRequest, res: Response) {
   // If using SSO, auto-create users in Mongo who we don't recognize yet
   if (!req.userId && usingOpenId()) {
-    const user = await createUser(req.name || "", req.email, "", req.verified);
+    // we don't currently have away to verify users have agreed to terms of service when self hosted
+    let agreedToTerms = false;
+    if (IS_CLOUD) {
+      // we know if they agreed to terms if they are using Cloud SSO
+      agreedToTerms = true;
+    }
+    const user = await createUser(
+      req.name || "",
+      req.email,
+      "",
+      req.verified,
+      agreedToTerms
+    );
     req.userId = user.id;
   }
 

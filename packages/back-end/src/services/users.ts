@@ -113,7 +113,8 @@ export async function createUser(
   name: string,
   email: string,
   password?: string,
-  verified: boolean = false
+  verified: boolean = false,
+  agreedToTerms: boolean = false
 ) {
   let passwordHash = "";
 
@@ -128,6 +129,7 @@ export async function createUser(
     passwordHash,
     id: uniqid("u_"),
     verified,
+    agreedToTerms,
   });
 }
 
