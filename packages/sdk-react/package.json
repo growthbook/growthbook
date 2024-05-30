@@ -1,5 +1,6 @@
 {
   "name": "@growthbook/growthbook-react",
+  "type": "commonjs",
   "version": "1.0.0",
   "license": "MIT",
   "main": "dist/cjs/index.js",
@@ -7,9 +8,9 @@
   "types": "dist/index.d.ts",
   "typings": "dist/index.d.ts",
   "exports": {
+    "types": "./dist/index.d.ts",
     "require": "./dist/cjs/index.js",
-    "import": "./dist/esm/index.js",
-    "types": "./dist/index.d.ts"
+    "import": "./dist/esm/index.js"
   },
   "files": [
     "dist",
