@@ -136,7 +136,7 @@ export default function FeaturesDraftTable({ features }: Props) {
   const loading = !data;
 
   const renderFeaturesTableDrafts = () => {
-    return items.length > 0 ? (
+    return revisions.length > 0 ? (
       <div>
         <div className="row mb-2 align-items-center">
           <div className="col-auto">
@@ -148,7 +148,11 @@ export default function FeaturesDraftTable({ features }: Props) {
           </div>
         </div>
 
-        <table className="table gbtable table-hover appbox">
+        <table
+          className={`table gbtable ${
+            items.length > 0 ? "table-hover" : ""
+          } appbox`}
+        >
           <thead
             className="sticky-top bg-white shadow-sm"
             style={{ top: "56px", zIndex: 900 }}
@@ -214,6 +218,13 @@ export default function FeaturesDraftTable({ features }: Props) {
                 </tr>
               );
             })}
+            {!items.length ? (
+              <tr>
+                <td colSpan={6} className="text-center">
+                  No matching drafts
+                </td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
         {Math.ceil(revisions.length / NUM_PER_PAGE) > 1 && (

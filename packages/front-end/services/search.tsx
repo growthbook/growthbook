@@ -249,8 +249,12 @@ export function filterSearchTerm(
     return itemValue.some((v) => filterSearchTerm(v, op, searchValue));
   }
 
+  searchValue = searchValue.toLowerCase();
+
   const strVal =
-    itemValue instanceof Date ? itemValue.toISOString() : itemValue + "";
+    itemValue instanceof Date
+      ? itemValue.toISOString()
+      : (itemValue + "").toLowerCase();
   const [comp1, comp2]: [number, number] | [string, string] =
     typeof itemValue === "number"
       ? [itemValue, parseFloat(searchValue)]
