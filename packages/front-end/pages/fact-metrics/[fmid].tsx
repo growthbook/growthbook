@@ -246,6 +246,9 @@ export default function FactMetricPage() {
       {editProjectsOpen && (
         <EditProjectsForm
           projects={factMetric.projects}
+          projectOptions={projects.filter((project) =>
+            permissionsUtil.canCreateFactMetric({ projects: [project.id] })
+          )}
           cancel={() => setEditProjectsOpen(false)}
           save={async (projects) => {
             await apiCall(`/fact-metrics/${factMetric.id}`, {

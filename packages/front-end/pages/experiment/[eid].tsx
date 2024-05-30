@@ -29,8 +29,10 @@ import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const ExperimentPage = (): ReactElement => {
+  const { projects } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
   const { eid } = router.query;
@@ -165,6 +167,9 @@ const ExperimentPage = (): ReactElement => {
       {projectModalOpen && (
         <EditProjectForm
           cancel={() => setProjectModalOpen(false)}
+          projectOptions={projects.filter((project) =>
+            permissionsUtil.canUpdateExperiment({ project: project.id }, {})
+          )}
           mutate={mutate}
           current={experiment.project}
           apiEndpoint={`/experiment/${experiment.id}`}

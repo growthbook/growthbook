@@ -71,6 +71,9 @@ export default function FactTablePage() {
       {editProjectsOpen && (
         <EditProjectsForm
           projects={factTable.projects}
+          projectOptions={projects.filter((project) =>
+            permissionsUtil.canCreateFactTable({ projects: [project.id] })
+          )}
           cancel={() => setEditProjectsOpen(false)}
           save={async (projects) => {
             await apiCall(`/fact-tables/${factTable.id}`, {

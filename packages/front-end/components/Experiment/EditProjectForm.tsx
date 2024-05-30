@@ -1,12 +1,13 @@
 import { FC, ReactElement } from "react";
 import { useForm } from "react-hook-form";
+import { ProjectInterface } from "@back-end/types/project";
 import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
 
 const EditProjectForm: FC<{
   apiEndpoint: string;
+  projectOptions: ProjectInterface[];
   current?: string;
   additionalMessage?: string | ReactElement | null;
   ctaEnabled?: boolean;
@@ -15,6 +16,7 @@ const EditProjectForm: FC<{
   method?: string;
 }> = ({
   current,
+  projectOptions,
   apiEndpoint,
   cancel,
   mutate,
@@ -23,7 +25,6 @@ const EditProjectForm: FC<{
   ctaEnabled = true,
 }) => {
   const { apiCall } = useAuth();
-  const { projects } = useDefinitions();
 
   const form = useForm({
     defaultValues: {
@@ -51,7 +52,7 @@ const EditProjectForm: FC<{
         label="Project"
         value={form.watch("project")}
         onChange={(v) => form.setValue("project", v)}
-        options={projects.map((p) => ({ label: p.name, value: p.id }))}
+        options={projectOptions.map((p) => ({ label: p.name, value: p.id }))}
         initialOption="None"
         autoFocus={true}
       />

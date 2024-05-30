@@ -1,17 +1,17 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { ProjectInterface } from "@back-end/types/project";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 
 const EditProjectsForm: FC<{
   projects: string[];
+  projectOptions: ProjectInterface[];
   save: (projects: string[]) => Promise<void>;
   cancel: () => void;
   mutate: () => void;
   entityName?: string;
-}> = ({ projects = [], save, cancel, mutate, entityName }) => {
-  const { projects: projectDefinitions } = useDefinitions();
+}> = ({ projects = [], projectOptions, save, cancel, mutate, entityName }) => {
   const form = useForm({
     defaultValues: {
       projects,
@@ -33,7 +33,7 @@ const EditProjectsForm: FC<{
         label="Projects"
         placeholder="All projects"
         value={form.watch("projects")}
-        options={projectDefinitions.map((p) => ({
+        options={projectOptions.map((p) => ({
           value: p.id,
           label: p.name,
         }))}

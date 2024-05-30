@@ -83,6 +83,7 @@ const MetricPage: FC = () => {
     getMetricById,
     metrics,
     segments,
+    projects,
   } = useDefinitions();
   const settings = useOrgSettings();
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
@@ -323,6 +324,9 @@ const MetricPage: FC = () => {
           cancel={() => setEditProjects(false)}
           mutate={mutate}
           projects={metric.projects || []}
+          projectOptions={projects.filter((project) =>
+            permissionsUtil.canCreateMetric({ projects: [project.id] })
+          )}
           save={async (projects) => {
             await apiCall(`/metric/${metric.id}`, {
               method: "PUT",

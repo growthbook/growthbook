@@ -40,6 +40,7 @@ import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { DocLink } from "@/components/DocLink";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import {
   LanguageType,
@@ -84,6 +85,7 @@ export default function SDKConnectionForm({
   const router = useRouter();
 
   const { hasCommercialFeature } = useUser();
+  const permissionsUtil = usePermissionsUtil();
   const hasEncryptionFeature = hasCommercialFeature(
     "encrypt-features-endpoint"
   );
@@ -206,12 +208,17 @@ export default function SDKConnectionForm({
     selectedEnvironment
   );
 
-  const projectsOptions = [...filteredProjects, ...disallowedProjects].map(
-    (p) => ({
+  const projectsOptions = [...filteredProjects, ...disallowedProjects]
+    .filter((project) =>
+      permissionsUtil.canCreateSDKConnection({
+        projects: [project.id],
+        environment: form.watch("environment"),
+      })
+    )
+    .map((p) => ({
       label: p.name,
       value: p.id,
-    })
-  );
+    }));
   const selectedValidProjects = selectedProjects?.filter((p) => {
     return disallowedProjects?.find((dp) => dp.id === p) === undefined;
   });

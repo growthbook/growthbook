@@ -717,7 +717,11 @@ const MetricForm: FC<MetricFormProps> = ({
                 label="Projects"
                 placeholder="All projects"
                 value={value.projects || []}
-                options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                options={projects
+                  .filter((project) =>
+                    permissionsUtil.canCreateMetric({ projects: [project.id] })
+                  )
+                  .map((p) => ({ value: p.id, label: p.name }))}
                 onChange={(v) => form.setValue("projects", v)}
                 customClassName="label-overflow-ellipsis"
                 helpText="Assign this metric to specific projects"

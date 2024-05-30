@@ -18,6 +18,7 @@ import Modal from "@/components/Modal";
 import ConnectionSettings from "@/components/Settings/ConnectionSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ensureAndReturn } from "@/types/utils";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import EditSchemaOptions from "./EditSchemaOptions";
 
 const typeOptions = dataSourceConnections;
@@ -49,6 +50,7 @@ const DataSourceForm: FC<{
     Partial<DataSourceInterfaceWithParams> | undefined
   >();
   const [hasError, setHasError] = useState(false);
+  const permissionsUtil = usePermissionsUtil();
 
   useEffect(() => {
     track("View Datasource Form", {
@@ -243,7 +245,13 @@ const DataSourceForm: FC<{
             label="Projects"
             placeholder="All projects"
             value={datasource.projects || []}
-            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            options={projects
+              .filter((project) =>
+                permissionsUtil.canUpdateDataSourceParams({
+                  projects: [project.id],
+                })
+              )
+              .map((p) => ({ value: p.id, label: p.name }))}
             onChange={(v) => onManualChange("projects", v)}
             customClassName="label-overflow-ellipsis"
             helpText="Assign this data source to specific projects"
