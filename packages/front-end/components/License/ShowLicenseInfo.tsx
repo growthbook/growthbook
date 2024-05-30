@@ -1,13 +1,13 @@
 import { FC, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import { date } from "shared/dates";
-import usePermissions from "@/hooks/usePermissions";
 import { useUser } from "@/services/UserContext";
 import EditLicenseModal from "@/components/Settings/EditLicenseModal";
 import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import { isCloud } from "@/services/env";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import RefreshLicenseButton from "./RefreshLicenseButton";
 import DownloadLicenseUsageButton from "./DownloadLicenseUsageButton";
 
@@ -15,7 +15,7 @@ const ShowLicenseInfo: FC<{
   showInput?: boolean;
 }> = ({ showInput = true }) => {
   const { accountPlan, license, refreshOrganization, organization } = useUser();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const [editLicenseOpen, setEditLicenseOpen] = useState(false);
 
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -80,7 +80,7 @@ const ShowLicenseInfo: FC<{
                 </div>
               </div>
             )}
-            {permissions.manageBilling && !usesLicenseInfoOnModel && (
+            {permissionsUtil.canManageBilling() && !usesLicenseInfoOnModel && (
               <div className="form-group row mt-3 mb-0">
                 {showInput && (
                   <div className="col-sm-2">

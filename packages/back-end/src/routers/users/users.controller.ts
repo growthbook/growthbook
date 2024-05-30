@@ -36,13 +36,13 @@ export async function getUser(req: AuthRequest, res: Response) {
       // we know if they agreed to terms if they are using Cloud SSO
       agreedToTerms = true;
     }
-    const user = await createUser(
-      req.name || "",
-      req.email,
-      "",
-      req.verified,
-      agreedToTerms
-    );
+    const user = await createUser({
+      name: req.name || "",
+      email: req.email,
+      password: "",
+      verified: req.verified,
+      agreedToTerms,
+    });
     req.userId = user.id;
   }
 

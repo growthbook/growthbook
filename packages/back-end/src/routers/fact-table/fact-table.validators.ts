@@ -97,6 +97,13 @@ export const quantileSettingsValidator = z.object({
   ignoreZeros: z.boolean(),
 });
 
+export const priorSettingsValidator = z.object({
+  override: z.boolean(),
+  proper: z.boolean(),
+  mean: z.number(),
+  stddev: z.number(),
+});
+
 export const metricTypeValidator = z.enum([
   "ratio",
   "mean",
@@ -125,6 +132,7 @@ export const factMetricValidator = z
 
     cappingSettings: cappingSettingsValidator,
     windowSettings: windowSettingsValidator,
+    priorSettings: priorSettingsValidator,
 
     maxPercentChange: z.number(),
     minPercentChange: z.number(),

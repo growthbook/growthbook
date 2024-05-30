@@ -27,6 +27,12 @@ export class PastExperimentsQueryRunner extends QueryRunner<
   }
 
   async startQueries(params: PastExperimentParams): Promise<Queries> {
+    let merge = false;
+    if (!params.forceRefresh && this.model.latestData) {
+      params.from = this.model.latestData;
+      merge = true;
+    }
+
     return [
       await this.startQuery({
         name: "experiments",
@@ -34,21 +40,34 @@ export class PastExperimentsQueryRunner extends QueryRunner<
         dependencies: [],
         run: (query, setExternalId) =>
           this.integration.runPastExperimentQuery(query, setExternalId),
-        process: (rows) => this.processPastExperimentQueryResponse(rows),
+        process: (rows) =>
+          this.processPastExperimentQueryResponse(rows, merge, params.from),
         queryType: "pastExperiment",
       }),
     ];
   }
   async runAnalysis(queryMap: QueryMap): Promise<PastExperiment[]> {
-    const experiments =
-      (queryMap.get("experiments")?.result as PastExperimentResult)
-        ?.experiments || [];
+    const queryResults = queryMap.get("experiments")?.result as
+      | PastExperimentResult
+      | undefined;
+
+    const shouldMerge = queryResults?.mergeResults || false;
 
     // Group by experiment and exposureQuery
-    const experimentExposureMap = new Map<string, PastExperiment>();
+    const experimentMap = new Map<string, PastExperiment>();
+
+    if (shouldMerge) {
+      this.model.experiments?.forEach((e) => {
+        const key = e.trackingKey + "::" + e.exposureQueryId;
+        experimentMap.set(key, e);
+      });
+    }
+
+    const experiments = queryResults?.experiments || [];
+
     experiments.forEach((e) => {
       const key = e.experiment_id + "::" + e.exposureQueryId;
-      let el = experimentExposureMap.get(key);
+      let el = experimentMap.get(key);
       if (!el) {
         el = {
           endDate: e.end_date,
@@ -61,8 +80,10 @@ export class PastExperimentsQueryRunner extends QueryRunner<
           experimentName: e.experiment_name,
           users: e.users,
           weights: [e.users],
+          latestData: e.latest_data,
+          startOfRange: e.start_of_range,
         };
-        experimentExposureMap.set(key, el);
+        experimentMap.set(key, el);
       } else {
         if (e.start_date < el.startDate) {
           el.startDate = e.start_date;
@@ -70,44 +91,63 @@ export class PastExperimentsQueryRunner extends QueryRunner<
         if (e.end_date > el.endDate) {
           el.endDate = e.end_date;
         }
+        if (
+          !el.latestData ||
+          (e.latest_data && e.latest_data > el.latestData)
+        ) {
+          el.latestData = e.latest_data;
+        }
         if (!el.variationKeys.includes(e.variation_id)) {
           el.variationKeys.push(e.variation_id);
-          el.weights.push(e.users);
-          el.users += e.users;
-          el.numVariations++;
           el.variationNames?.push(e.variation_name || "");
+          el.weights.push(0);
+          el.numVariations++;
         }
-      }
-    });
 
-    // Group by experiment, choosing the exposure query with the most users
-    const experimentMap = new Map<string, PastExperiment>();
-    experimentExposureMap.forEach((exp) => {
-      const key = exp.trackingKey;
-      const el = experimentMap.get(key);
-      if (!el || el.users < exp.users) {
-        experimentMap.set(key, exp);
+        el.users += e.users;
+
+        const idx = el.variationKeys.indexOf(e.variation_id);
+        if (idx >= 0) {
+          el.weights[idx] += e.users;
+        }
       }
     });
 
     // Round the weights
     const possibleWeights = [
+      1,
+      2,
+      3,
+      4,
       5,
+      6,
+      7,
+      8,
+      9,
       10,
+      12,
+      15,
       16,
       20,
       25,
       30,
       33,
       40,
+      45,
       50,
+      55,
       60,
       67,
       70,
       75,
       80,
+      85,
       90,
       95,
+      96,
+      97,
+      98,
+      99,
     ];
     experimentMap.forEach((exp) => {
       const totalWeight = exp.weights.reduce((sum, weight) => sum + weight, 0);
@@ -130,10 +170,7 @@ export class PastExperimentsQueryRunner extends QueryRunner<
       exp.weights = exp.weights.map((w) => w / 100);
     });
 
-    // Filter out experiments with too few or too many variations
-    return Array.from(experimentMap.values()).filter(
-      (e) => e.numVariations > 1 && e.numVariations < 10
-    );
+    return Array.from(experimentMap.values());
   }
   async getLatestModel(): Promise<PastExperimentsInterface> {
     const model = await getPastExperimentsById(
@@ -155,18 +192,41 @@ export class PastExperimentsQueryRunner extends QueryRunner<
     result?: PastExperiment[] | undefined;
     error?: string | undefined;
   }): Promise<PastExperimentsInterface> {
+    let latestData: Date | undefined = undefined;
+    experiments?.forEach((row) => {
+      const d = row.latestData || row.endDate;
+      if (!latestData || d > latestData) {
+        latestData = d;
+      }
+    });
+
     return updatePastExperiments(this.model, {
       queries,
       runStarted,
       experiments,
+      latestData,
       error,
     });
   }
   private processPastExperimentQueryResponse(
-    rows: PastExperimentResponseRows
+    rows: PastExperimentResponseRows,
+    merge: boolean,
+    from: Date
   ): PastExperimentResult {
+    const fromBuffer = new Date(from);
+    fromBuffer.setDate(fromBuffer.getDate() + 2);
+
     return {
+      mergeResults: merge,
       experiments: rows.map((row) => {
+        const startDate = getValidDate(row.start_date);
+
+        let startOfRange = false;
+        if (!merge) {
+          if (startDate < fromBuffer) {
+            startOfRange = true;
+          }
+        }
         return {
           exposureQueryId: row.exposure_query,
           users: row.users,
@@ -175,7 +235,9 @@ export class PastExperimentsQueryRunner extends QueryRunner<
           variation_id: row.variation_id,
           variation_name: row.variation_name,
           end_date: getValidDate(row.end_date),
-          start_date: getValidDate(row.start_date),
+          start_date: startDate,
+          latest_data: getValidDate(row.latest_data),
+          start_of_range: startOfRange,
         };
       }),
     };

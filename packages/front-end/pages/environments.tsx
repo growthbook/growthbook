@@ -12,11 +12,11 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import usePermissions from "@/hooks/usePermissions";
 import Button from "@/components/Button";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import EnvironmentModal from "@/components/Settings/EnvironmentModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const EnvironmentsPage: FC = () => {
   const { project } = useDefinitions();
@@ -41,12 +41,14 @@ const EnvironmentsPage: FC = () => {
   const [showConnections, setShowConnections] = useState<number | null>(null);
 
   const { refreshOrganization } = useUser();
-  const permissions = usePermissions();
+  // const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   // See if the user has access to a random environment name that doesn't exist yet
   // If yes, then they can create new environments
-  const canCreate = permissions.check("manageEnvironments", "", ["$$$NEW$$$"]);
-
-  const canManageEnvironments = permissions.check("manageEnvironments", "", []);
+  const canCreate = permissionsUtil.canCreateOrUpdateEnvironment({
+    id: "",
+    projects: [project],
+  });
 
   const { apiCall } = useAuth();
   const [modalOpen, setModalOpen] = useState<Partial<Environment> | null>(null);
@@ -95,14 +97,13 @@ const EnvironmentsPage: FC = () => {
               <th>SDK Connections</th>
               <th>Default state</th>
               <th>Show toggle on feature list</th>
-              {canManageEnvironments && <th style={{ width: 30 }}></th>}
+              <th style={{ width: 30 }}></th>
             </tr>
           </thead>
           <tbody>
             {filteredEnvironments.map((e, i) => {
-              const canEdit = permissions.check("manageEnvironments", "", [
-                e.id,
-              ]);
+              const canEdit = permissionsUtil.canCreateOrUpdateEnvironment(e);
+              const canDelete = permissionsUtil.canDeleteEnvironment(e);
               const sdkConnectionIds = sdkConnectionsMap?.[e.id] || [];
               const sdkConnections = (
                 sdkConnectionData?.connections ?? []
@@ -198,109 +199,107 @@ const EnvironmentsPage: FC = () => {
                   </td>
                   <td>{e.defaultState === false ? "off" : "on"}</td>
                   <td>{e.toggleOnList ? "yes" : "no"}</td>
-                  {canManageEnvironments && (
-                    <td style={{ width: 30 }}>
-                      <MoreMenu>
-                        {canEdit && (
-                          <button
-                            className="dropdown-item"
-                            onClick={(ev) => {
-                              ev.preventDefault();
-                              setModalOpen(e);
-                            }}
-                          >
-                            Edit
-                          </button>
-                        )}
-                        {i > 0 && (
-                          <Button
-                            color=""
-                            className="dropdown-item"
-                            onClick={async () => {
-                              const newEnvs = [...environments];
-                              newEnvs.splice(i, 1);
-                              newEnvs.splice(i - 1, 0, e);
-                              await apiCall(`/organization`, {
-                                method: "PUT",
-                                body: JSON.stringify({
-                                  settings: {
-                                    environments: newEnvs,
-                                  },
-                                }),
-                              });
-                              refreshOrganization();
-                            }}
-                          >
-                            Move up
-                          </Button>
-                        )}
-                        {i < environments.length - 1 && (
-                          <Button
-                            color=""
-                            className="dropdown-item"
-                            onClick={async () => {
-                              const newEnvs = [...environments];
-                              newEnvs.splice(i, 1);
-                              newEnvs.splice(i + 1, 0, e);
-                              await apiCall(`/organization`, {
-                                method: "PUT",
-                                body: JSON.stringify({
-                                  settings: {
-                                    environments: newEnvs,
-                                  },
-                                }),
-                              });
-                              refreshOrganization();
-                            }}
-                          >
-                            Move down
-                          </Button>
-                        )}
-                        {environments.length > 1 && canEdit && (
-                          <Tooltip
-                            shouldDisplay={numConnections > 0}
-                            usePortal={true}
-                            body={
-                              <>
-                                <ImBlocked className="text-danger" /> This
-                                environment has{" "}
-                                <strong>
-                                  {numConnections} SDK Connection
-                                  {numConnections !== 1 && "s"}
-                                </strong>{" "}
-                                associated. This environment cannot be deleted
-                                until{" "}
-                                {numConnections === 1 ? "it has" : "they have"}{" "}
-                                been removed.
-                              </>
-                            }
-                          >
-                            <DeleteButton
-                              deleteMessage="Are you you want to delete this environment?"
-                              displayName={e.id}
-                              className="dropdown-item text-danger"
-                              text="Delete"
-                              useIcon={false}
+                  <td style={{ width: 30 }}>
+                    <MoreMenu>
+                      {canEdit && (
+                        <button
+                          className="dropdown-item"
+                          onClick={(ev) => {
+                            ev.preventDefault();
+                            setModalOpen(e);
+                          }}
+                        >
+                          Edit
+                        </button>
+                      )}
+                      {canEdit ? (
+                        <>
+                          {i > 0 && (
+                            <Button
+                              color=""
+                              className="dropdown-item"
                               onClick={async () => {
-                                await apiCall(`/organization`, {
+                                const newEnvs = [...environments];
+                                newEnvs.splice(i, 1);
+                                newEnvs.splice(i - 1, 0, e);
+                                await apiCall(`/environment/order`, {
                                   method: "PUT",
                                   body: JSON.stringify({
-                                    settings: {
-                                      environments: environments.filter(
-                                        (env) => env.id !== e.id
-                                      ),
-                                    },
+                                    environments: newEnvs.map((env) => env.id),
                                   }),
                                 });
                                 refreshOrganization();
                               }}
-                              disabled={numConnections > 0}
-                            />
-                          </Tooltip>
-                        )}
-                      </MoreMenu>
-                    </td>
-                  )}
+                            >
+                              Move up
+                            </Button>
+                          )}
+                          {i < environments.length - 1 && (
+                            <Button
+                              color=""
+                              className="dropdown-item"
+                              onClick={async () => {
+                                const newEnvs = [...environments];
+                                newEnvs.splice(i, 1);
+                                newEnvs.splice(i + 1, 0, e);
+                                await apiCall(`/environment/order`, {
+                                  method: "PUT",
+                                  body: JSON.stringify({
+                                    environments: newEnvs.map((env) => env.id),
+                                  }),
+                                });
+                                refreshOrganization();
+                              }}
+                            >
+                              Move down
+                            </Button>
+                          )}
+                        </>
+                      ) : null}
+                      {environments.length > 1 && canDelete && (
+                        <Tooltip
+                          shouldDisplay={numConnections > 0}
+                          usePortal={true}
+                          body={
+                            <>
+                              <ImBlocked className="text-danger" /> This
+                              environment has{" "}
+                              <strong>
+                                {numConnections} SDK Connection
+                                {numConnections !== 1 && "s"}
+                              </strong>{" "}
+                              associated. This environment cannot be deleted
+                              until{" "}
+                              {numConnections === 1 ? "it has" : "they have"}{" "}
+                              been removed.
+                            </>
+                          }
+                        >
+                          <DeleteButton
+                            deleteMessage="Are you you want to delete this environment?"
+                            displayName={e.id}
+                            className="dropdown-item text-danger"
+                            text="Delete"
+                            useIcon={false}
+                            onClick={async () => {
+                              await apiCall(`/environment/${e.id}`, {
+                                method: "DELETE",
+                                body: JSON.stringify({
+                                  settings: {
+                                    environments: environments.filter(
+                                      (env) => env.id !== e.id
+                                    ),
+                                  },
+                                }),
+                              });
+                              refreshOrganization();
+                            }}
+                            disabled={numConnections > 0}
+                          />
+                        </Tooltip>
+                      )}
+                    </MoreMenu>
+                  </td>
                 </tr>
               );
             })}

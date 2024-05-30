@@ -4,11 +4,11 @@ import {
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { URLRedirectInterface } from "@back-end/types/url-redirect";
-import usePermissions from "@/hooks/usePermissions";
 import AddLinkedChanges from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
 import RedirectLinkedChanges from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
 import FeatureLinkedChanges from "@/components/Experiment/LinkedChanges/FeatureLinkedChanges";
 import VisualLinkedChanges from "@/components/Experiment/LinkedChanges/VisualLinkedChanges";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import TargetingInfo from "./TargetingInfo";
 
 export interface Props {
@@ -36,17 +36,14 @@ export default function Implementation({
 }: Props) {
   const phases = experiment.phases || [];
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
-  const canCreateAnalyses = permissions.check(
-    "createAnalyses",
-    experiment.project
-  );
-  const canEditExperiment = !experiment.archived && canCreateAnalyses;
+  const canEditExperiment =
+    !experiment.archived &&
+    permissionsUtil.canViewExperimentModal(experiment.project);
 
   const hasVisualEditorPermission =
-    canEditExperiment &&
-    permissions.check("runExperiments", experiment.project, []);
+    canEditExperiment && permissionsUtil.canRunExperiment(experiment, []);
 
   const canAddLinkedChanges =
     hasVisualEditorPermission && experiment.status === "draft";

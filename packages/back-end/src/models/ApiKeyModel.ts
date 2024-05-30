@@ -3,12 +3,7 @@ import { webcrypto } from "node:crypto";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
-import { hasReadAccess } from "shared/permissions";
-import {
-  ApiKeyInterface,
-  PublishableApiKey,
-  SecretApiKey,
-} from "../../types/apikey";
+import { ApiKeyInterface, SecretApiKey } from "../../types/apikey";
 import {
   IS_MULTI_ORG,
   SECRET_API_KEY,
@@ -284,7 +279,7 @@ export async function getApiKeyByIdOrKey(
 ): Promise<ApiKeyInterface | null> {
   if (!id && !key) return null;
 
-  const { org, readAccessFilter } = context;
+  const { org } = context;
 
   const doc = await ApiKeyModel.findOne(
     id ? { organization: org.id, id } : { organization: org.id, key }
@@ -294,7 +289,9 @@ export async function getApiKeyByIdOrKey(
 
   const apiKey = toInterface(doc);
 
-  return hasReadAccess(readAccessFilter, apiKey.project) ? apiKey : null;
+  return context.permissions.canReadSingleProjectResource(apiKey.project)
+    ? apiKey
+    : null;
 }
 
 export async function getVisualEditorApiKey(
@@ -337,7 +334,7 @@ export async function lookupOrganizationByApiKey(
 export async function getAllApiKeysByOrganization(
   context: ReqContext
 ): Promise<ApiKeyInterface[]> {
-  const { org, readAccessFilter } = context;
+  const { org } = context;
 
   const docs: ApiKeyDocument[] = await ApiKeyModel.find(
     {
@@ -353,27 +350,9 @@ export async function getAllApiKeysByOrganization(
     return json;
   });
 
-  return keys.filter((k) => hasReadAccess(readAccessFilter, k.project));
-}
-
-export async function getFirstPublishableApiKey(
-  organization: string,
-  environment: string
-): Promise<null | PublishableApiKey> {
-  const doc = await ApiKeyModel.findOne(
-    {
-      organization,
-      environment,
-      secret: {
-        $ne: true,
-      },
-    },
-    { encryptionKey: 0 }
-  );
-
-  if (!doc) return null;
-
-  return toInterface(doc) as PublishableApiKey;
+  return keys.filter((k) => {
+    return context.permissions.canReadSingleProjectResource(k.project);
+  });
 }
 
 export async function getUnredactedSecretKey(

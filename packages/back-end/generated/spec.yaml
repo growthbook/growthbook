@@ -60,6 +60,9 @@ tags:
   - name: projects
     x-displayName: Projects
     description: Projects are used to organize your feature flags and experiments
+  - name: environments
+    x-displayName: Environments
+    description: 'GrowthBook comes with one environment by default (production), but you can add as many as you need. When used with feature flags, you can enable/disable feature flags on a per-environment basis.'
   - name: features
     x-displayName: Feature Flags
     description: Control your feature flags programatically
@@ -105,6 +108,9 @@ tags:
   - name: Dimension_model
     x-displayName: Dimension
     description: <SchemaDefinition schemaRef="#/components/schemas/Dimension" />
+  - name: Environment_model
+    x-displayName: Environment
+    description: <SchemaDefinition schemaRef="#/components/schemas/Environment" />
   - name: Experiment_model
     x-displayName: Experiment
     description: <SchemaDefinition schemaRef="#/components/schemas/Experiment" />
@@ -1038,10 +1044,10 @@ paths:
                         type: string
                       dateStarted:
                         type: string
-                        format: date
+                        format: date-time
                       dateEnded:
                         type: string
-                        format: date
+                        format: date-time
                       reasonForStopping:
                         type: string
                       seed:
@@ -1278,10 +1284,10 @@ paths:
                         type: string
                       dateStarted:
                         type: string
-                        format: date
+                        format: date-time
                       dateEnded:
                         type: string
-                        format: date
+                        format: date-time
                       reasonForStopping:
                         type: string
                       seed:
@@ -1557,6 +1563,29 @@ paths:
                       type: number
                       deprecated: true
                       description: 'The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                    priorSettings:
+                      type: object
+                      description: 'Controls the bayesian prior for the metric. If omitted, organization defaults will be used.'
+                      required:
+                        - override
+                        - proper
+                        - mean
+                        - stddev
+                      properties:
+                        override:
+                          type: boolean
+                          description: 'If false, the organization default settings will be used instead of the other settings in this object'
+                        proper:
+                          type: boolean
+                          description: 'If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.'
+                        mean:
+                          type: number
+                          description: The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)
+                        stddev:
+                          type: number
+                          description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
+                          minimum: 0
+                          exclusiveMinimum: true
                     riskThresholdSuccess:
                       type: number
                       description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
@@ -1831,6 +1860,29 @@ paths:
                       type: number
                       deprecated: true
                       description: 'The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                    priorSettings:
+                      type: object
+                      description: 'Controls the bayesian prior for the metric. If omitted, organization defaults will be used.'
+                      required:
+                        - override
+                        - proper
+                        - mean
+                        - stddev
+                      properties:
+                        override:
+                          type: boolean
+                          description: 'If false, the organization default settings will be used instead of the other settings in this object'
+                        proper:
+                          type: boolean
+                          description: 'If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.'
+                        mean:
+                          type: number
+                          description: The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)
+                        stddev:
+                          type: number
+                          description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
+                          minimum: 0
+                          exclusiveMinimum: true
                     riskThresholdSuccess:
                       type: number
                       description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
@@ -2391,6 +2443,146 @@ paths:
                 properties:
                   organization:
                     $ref: '#/components/schemas/Organization'
+  /environments:
+    get:
+      summary: Get the organization's environments
+      tags:
+        - environments
+      operationId: listEnvironments
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/environments \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - environments
+                    properties:
+                      environments:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Environment'
+    post:
+      tags:
+        - environments
+      summary: Create a new environment
+      operationId: postEnvironment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/environments \
+               -d '{"id": "new-env", "description": "My new environment" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: string
+                  description: The ID of the new environment
+                description:
+                  type: string
+                  description: The description of the new environment
+                toggleOnList:
+                  type: bool
+                  description: Show toggle on feature list
+                defaultState:
+                  type: bool
+                  description: Default state for new features
+                projects:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - environment
+                properties:
+                  environment:
+                    $ref: '#/components/schemas/Environment'
+  '/environments/${id}':
+    put:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - environments
+      summary: Update an environment
+      operationId: putEnvironment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X PUT https://api.growthbook.io/api/v1/environments/env-id \
+               -d '{ "description": "My updated environment" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description:
+                  type: string
+                  description: The description of the new environment
+                toggleOnList:
+                  type: boolean
+                  description: Show toggle on feature list
+                defaultState:
+                  type: boolean
+                  description: Default state for new features
+                projects:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - environment
+                properties:
+                  environment:
+                    $ref: '#/components/schemas/Environment'
+    delete:
+      summary: Deletes a single environment
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - environments
+      operationId: deleteEnvironment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/enviromnents/env-id \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
   /fact-tables:
     get:
       summary: Get all fact tables
@@ -2960,6 +3152,29 @@ paths:
                         - hours
                         - days
                         - weeks
+                priorSettings:
+                  type: object
+                  description: 'Controls the bayesian prior for the metric. If omitted, organization defaults will be used.'
+                  required:
+                    - override
+                    - proper
+                    - mean
+                    - stddev
+                  properties:
+                    override:
+                      type: boolean
+                      description: 'If false, the organization default settings will be used instead of the other settings in this object'
+                    proper:
+                      type: boolean
+                      description: 'If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.'
+                    mean:
+                      type: number
+                      description: The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)
+                    stddev:
+                      type: number
+                      description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
+                      minimum: 0
+                      exclusiveMinimum: true
                 regressionAdjustmentSettings:
                   type: object
                   description: Controls the regression adjustment (CUPED) settings for the metric
@@ -3175,6 +3390,29 @@ paths:
                         - hours
                         - days
                         - weeks
+                  priorSettings:
+                    type: object
+                    description: 'Controls the bayesian prior for the metric. If omitted, organization defaults will be used.'
+                    required:
+                      - override
+                      - proper
+                      - mean
+                      - stddev
+                    properties:
+                      override:
+                        type: boolean
+                        description: 'If false, the organization default settings will be used instead of the other settings in this object'
+                      proper:
+                        type: boolean
+                        description: 'If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.'
+                      mean:
+                        type: number
+                        description: The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)
+                      stddev:
+                        type: number
+                        description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
+                        minimum: 0
+                        exclusiveMinimum: true
                 regressionAdjustmentSettings:
                   type: object
                   description: Controls the regression adjustment (CUPED) settings for the metric
@@ -3652,6 +3890,27 @@ components:
                     - hours
                     - days
                     - weeks
+            priorSettings:
+              type: object
+              description: Controls the bayesian prior for the metric.
+              required:
+                - override
+                - proper
+                - mean
+                - stddev
+              properties:
+                override:
+                  type: boolean
+                  description: 'If false, the organization default settings will be used instead of the other settings in this object'
+                proper:
+                  type: boolean
+                  description: 'If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.'
+                mean:
+                  type: number
+                  description: The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)
+                stddev:
+                  type: number
+                  description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
             conversionWindowStart:
               type: number
               deprecated: true
@@ -3782,6 +4041,27 @@ components:
           properties:
             statsEngine:
               type: string
+    Environment:
+      type: object
+      required:
+        - id
+        - description
+        - toggleOnList
+        - defaultState
+        - projects
+      properties:
+        id:
+          type: string
+        description:
+          type: string
+        toggleOnList:
+          type: boolean
+        defaultState:
+          type: boolean
+        projects:
+          type: array
+          items:
+            type: string
     Segment:
       type: object
       required:
@@ -4994,6 +5274,7 @@ components:
         - inverse
         - cappingSettings
         - windowSettings
+        - priorSettings
         - regressionAdjustmentSettings
         - riskThresholdSuccess
         - riskThresholdDanger
@@ -5128,6 +5409,27 @@ components:
                 - hours
                 - days
                 - weeks
+          priorSettings:
+            type: object
+            description: Controls the bayesian prior for the metric
+            required:
+              - override
+              - proper
+              - mean
+              - stddev
+            properties:
+              override:
+                type: boolean
+                description: 'If false, the organization default settings will be used instead of the other settings in this object'
+              proper:
+                type: boolean
+                description: 'If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.'
+              mean:
+                type: number
+                description: The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)
+              stddev:
+                type: number
+                description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
         regressionAdjustmentSettings:
           type: object
           description: Controls the regression adjustment (CUPED) settings for the metric
@@ -5202,6 +5504,7 @@ x-tagGroups:
   - name: Endpoints
     tags:
       - projects
+      - environments
       - features
       - data-sources
       - metrics
@@ -5219,6 +5522,7 @@ x-tagGroups:
     tags:
       - DataSource_model
       - Dimension_model
+      - Environment_model
       - Experiment_model
       - ExperimentAnalysisSettings_model
       - ExperimentMetric_model

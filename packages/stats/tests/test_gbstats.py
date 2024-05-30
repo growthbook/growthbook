@@ -16,7 +16,6 @@ from gbstats.gbstats import (
     format_results,
     variation_statistic_from_metric_row,
 )
-from gbstats.messages import RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR
 from gbstats.models.statistics import RegressionAdjustedStatistic, SampleMeanStatistic
 
 DECIMALS = 9
@@ -455,9 +454,9 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(result.at[0, "dimension"], "one")
         self.assertEqual(round_(result.at[0, "baseline_cr"]), 2.7)
         self.assertEqual(round_(result.at[0, "v1_cr"]), 2.5)
-        self.assertEqual(round_(result.at[0, "v1_rawrisk"][1]), 0.2052515)
+        self.assertEqual(round_(result.at[0, "v1_risk"][1]), 0.075691131)
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.074074074)
-        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.079755378)
+        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.071834168)
         self.assertEqual(result.at[0, "v1_p_value"], None)
 
     def test_get_metric_df_bayesian_ratio(self):
@@ -471,9 +470,9 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(result.at[0, "dimension"], "one")
         self.assertEqual(round_(result.at[0, "baseline_cr"]), 0.529411765)
         self.assertEqual(round_(result.at[0, "v1_cr"]), 0.6)
-        self.assertEqual(round_(result.at[0, "v1_rawrisk"][1]), 0.024065883)
+        self.assertEqual(round_(result.at[0, "v1_risk"][1]), 0.050934045)
         self.assertEqual(round_(result.at[0, "v1_expected"]), 0.133333333)
-        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.706241155)
+        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.694926359)
         self.assertEqual(result.at[0, "v1_p_value"], None)
 
     def test_get_metric_df_inverse(self):
@@ -489,9 +488,9 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(result.at[0, "dimension"], "one")
         self.assertEqual(round_(result.at[0, "baseline_cr"]), 2.7)
         self.assertEqual(round_(result.at[0, "v1_cr"]), 2.5)
-        self.assertEqual(round_(result.at[0, "v1_rawrisk"][1]), 0.2052515)
+        self.assertEqual(round_(result.at[0, "v1_risk"][1]), 0.001617057)
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.074074074)
-        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 1 - 0.079755378)
+        self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 1 - 0.071834168)
         self.assertEqual(result.at[0, "v1_p_value"], None)
 
     def test_get_metric_df_zero_val(self):
@@ -507,7 +506,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(result.at[0, "dimension"], "one")
         self.assertEqual(round_(result.at[0, "baseline_cr"]), 6.666666667)
         self.assertEqual(round_(result.at[0, "v1_cr"]), 1)
-        self.assertEqual(round_(result.at[0, "v1_rawrisk"][1]), 0)
+        self.assertEqual(round_(result.at[0, "v1_risk"][1]), 0)
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.85)
         self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.5)
         self.assertEqual(result.at[0, "v1_p_value"], None)
@@ -521,7 +520,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(result.at[0, "dimension"], "one")
         self.assertEqual(round_(result.at[0, "baseline_cr"]), 0)
         self.assertEqual(round_(result.at[0, "v1_cr"]), 0.6)
-        self.assertEqual(round_(result.at[0, "v1_rawrisk"][1]), 0)
+        self.assertEqual(round_(result.at[0, "v1_risk"][1]), 0)
         self.assertEqual(round_(result.at[0, "v1_expected"]), 0)
         self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.5)
         self.assertEqual(result.at[0, "v1_p_value"], None)
@@ -545,7 +544,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         self.assertEqual(result.at[0, "dimension"], "one")
         self.assertEqual(round_(result.at[0, "baseline_cr"]), 2.7)
         self.assertEqual(round_(result.at[0, "v1_cr"]), 2.5)
-        self.assertEqual(result.at[0, "v1_rawrisk"], None)
+        self.assertEqual(result.at[0, "v1_risk"], None)
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.074074074)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
         self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.145219005)
@@ -563,7 +562,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         self.assertEqual(result.at[0, "dimension"], "one")
         self.assertEqual(round_(result.at[0, "baseline_cr"]), 0.529411765)
         self.assertEqual(round_(result.at[0, "v1_cr"]), 0.6)
-        self.assertEqual(result.at[0, "v1_rawrisk"], None)
+        self.assertEqual(result.at[0, "v1_risk"], None)
         self.assertEqual(round_(result.at[0, "v1_expected"]), 0.133333333)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
         self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.610663339)
@@ -581,7 +580,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         self.assertEqual(result.at[0, "dimension"], "one")
         self.assertEqual(round_(result.at[0, "baseline_cr"]), 6.666666667)
         self.assertEqual(round_(result.at[0, "v1_cr"]), 1)
-        self.assertEqual(result.at[0, "v1_rawrisk"], None)
+        self.assertEqual(result.at[0, "v1_risk"], None)
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.85)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
         self.assertEqual(round_(result.at[0, "v1_p_value"]), 1)
@@ -599,7 +598,7 @@ class TestAnalyzeMetricDfFrequentist(TestCase):
         self.assertEqual(result.at[0, "dimension"], "one")
         self.assertEqual(round_(result.at[0, "baseline_cr"]), 0)
         self.assertEqual(round_(result.at[0, "v1_cr"]), 0.6)
-        self.assertEqual(result.at[0, "v1_rawrisk"], None)
+        self.assertEqual(result.at[0, "v1_risk"], None)
         self.assertEqual(round_(result.at[0, "v1_expected"]), 0)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
         self.assertEqual(round_(result.at[0, "v1_p_value"]), 1)
@@ -622,7 +621,7 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         self.assertEqual(round_(result.at[0, "baseline_mean"]), 0.099966678)
         self.assertEqual(round_(result.at[0, "v1_cr"]), 0.074)
         self.assertEqual(round_(result.at[0, "v1_mean"]), 0.074)
-        self.assertEqual(result.at[0, "v1_rawrisk"], None)
+        self.assertEqual(result.at[0, "v1_risk"], None)
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.281707154)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
         self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.003736297)
@@ -655,18 +654,10 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         self.assertEqual(round_(result.at[0, "baseline_mean"]), 0.099966678)
         self.assertEqual(round_(result.at[0, "v1_cr"]), 0.074)
         self.assertEqual(round_(result.at[0, "v1_mean"]), 0.074)
-        self.assertEqual(result.at[0, "v1_rawrisk"], None)
+        self.assertEqual(result.at[0, "v1_risk"], None)
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.316211568)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
         self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.00000035)
-
-    def test_analyze_metric_df_ra_errors_bayesian(self):
-        rows = RA_STATISTICS_DF
-        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
-        with self.assertRaisesRegex(
-            ValueError, expected_regex=RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR
-        ):
-            analyze_metric_df(df, metric=RA_METRIC, analysis=DEFAULT_ANALYSIS)
 
 
 class TestAnalyzeMetricDfSequential(TestCase):
@@ -692,7 +683,7 @@ class TestAnalyzeMetricDfSequential(TestCase):
         self.assertEqual(result.at[0, "dimension"], "one")
         self.assertEqual(round_(result.at[0, "baseline_cr"]), 2.7)
         self.assertEqual(round_(result.at[0, "v1_cr"]), 2.5)
-        self.assertEqual(result.at[0, "v1_rawrisk"], None)
+        self.assertEqual(result.at[0, "v1_risk"], None)
         self.assertEqual(round_(result.at[0, "v1_expected"]), -0.074074074)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
         self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.892332229)

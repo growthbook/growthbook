@@ -11,6 +11,8 @@ export interface PastExperiment {
   users: number;
   startDate: Date;
   endDate: Date;
+  latestData?: Date;
+  startOfRange?: boolean;
 }
 
 export interface PastExperimentsInterface {
@@ -27,4 +29,5 @@ export interface PastExperimentsInterface {
   error?: string;
   dateCreated: Date;
   dateUpdated: Date;
+  latestData?: Date;
 }

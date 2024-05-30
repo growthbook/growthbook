@@ -5,7 +5,6 @@ import { ProjectInterface } from "back-end/types/project";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { envAllowsCreatingMetrics, hasFileConfig } from "@/services/env";
-import usePermissions from "@/hooks/usePermissions";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import MetricForm from "@/components/Metrics/MetricForm";
 import { DocLink } from "@/components/DocLink";
@@ -23,7 +22,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 const ExperimentsGetStarted = (): React.ReactElement => {
   const { metrics, datasources, mutateDefinitions, project } = useDefinitions();
 
-  const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
 
   const [dataSourceOpen, setDataSourceOpen] = useState(false);
@@ -259,7 +257,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta={"Import Experiment"}
                     finishedCTA="Import Experiment"
                     permissionsError={
-                      !permissions.check("createAnalyses", project)
+                      !permissionsUtil.canViewExperimentModal(project)
                     }
                     imageLeft={true}
                     onClick={() => {
@@ -314,7 +312,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta="View Sample Experiment"
                     finishedCTA="View Sample Experiment"
                     permissionsError={
-                      !permissions.check("createAnalyses", project)
+                      !permissionsUtil.canViewExperimentModal(project)
                     }
                     imageLeft={false}
                     onClick={openSampleExperiment}
@@ -344,7 +342,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta="Design New Experiment"
                     finishedCTA="Design New Experiment"
                     permissionsError={
-                      !permissions.check("createAnalyses", project)
+                      !permissionsUtil.canViewExperimentModal(project)
                     }
                     imageLeft={false}
                     onClick={() => {
@@ -370,7 +368,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta="Analyze Existing Experiment"
                     finishedCTA="Analyze Existing Experiment"
                     permissionsError={
-                      !permissions.check("createAnalyses", project)
+                      !permissionsUtil.canViewExperimentModal(project)
                     }
                     imageLeft={false}
                     onClick={() => {
