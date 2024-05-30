@@ -16,5 +16,9 @@ export const sdkLanguages = [
   "ios",
   "flutter",
   "elixir",
+  "edge-cloudflare",
+  "edge-fastly",
+  "edge-lambda",
+  "edge-other",
   "other",
 ] as const;
