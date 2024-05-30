@@ -26,7 +26,7 @@ export const putSdkConnection = createApiRequestHandler(
     });
 
     if (!req.context.permissions.canUpdateSDKConnection(sdkConnection, params))
-      throw new Error("You don't have permission to edit this SDK connection!");
+      req.context.permissions.throwPermissionError();
 
     const updatedSdkConnection = await editSDKConnection(
       req.context,

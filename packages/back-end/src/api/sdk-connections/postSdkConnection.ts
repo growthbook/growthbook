@@ -17,9 +17,7 @@ export const postSdkConnection = createApiRequestHandler(
     };
 
     if (!req.context.permissions.canCreateSDKConnection(params))
-      throw new Error(
-        "You con't have permission to create new SDK connections!"
-      );
+      req.context.permissions.throwPermissionError();
 
     return {
       sdkConnection: toApiSDKConnectionInterface(
