@@ -80,7 +80,7 @@ export const putEnvironmentOrder = async (
     });
 
     await req.audit({
-      event: "environments.update",
+      event: "environment.update",
       entity: {
         object: "organization",
         id: org.id,
@@ -129,7 +129,7 @@ export const putEnvironments = async (
     });
 
     await req.audit({
-      event: "environments.update",
+      event: "environment.update",
       entity: {
         object: "organization",
         id: org.id,
