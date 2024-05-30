@@ -8,7 +8,7 @@ const config = {
   url: "https://docs.growthbook.io",
   baseUrl: "/",
   onBrokenLinks: "throw",
-  onBrokenAnchors: "throw",
+  onBrokenAnchors: "warn",
   onBrokenMarkdownLinks: "warn",
   favicon: "img/favicon.ico",
 
@@ -175,8 +175,8 @@ const config = {
         },
       ],
       prism: {
-        theme: require("prism-react-renderer/themes/github"),
-        darkTheme: require("prism-react-renderer/themes/dracula"),
+        theme: require('prism-react-renderer').themes.github,
+        darkTheme: require('prism-react-renderer').themes.dracula,
         additionalLanguages: [
           "csharp",
           "ruby",

@@ -68,9 +68,9 @@ If for some reason the Identifier in your data warehouse is different from your 
 
 There are times where it might be beneficial to have the Hash Attribute differ from the Identifier Type. The consequence is that there may be minor traffic imbalance or Multiple Exposures, but you may be willing to accept some slippage in the 1:1 mapping between Identifier Type and Hash Attribute in order to more easily join experiment exposure data with metric data.
 
-For example, on client-side experiments with Google Analytics (GA4), you may wish to avoid flickering by hashing on some custom ID, like `gbuuid` as we suggest in our [docs](/guide/GA4-google-analytics#generating-your-own-id), and not wait for the IDs provided by GA4.
+For example, on client-side experiments with Google Analytics (GA4), you may wish to avoid flickering by hashing on some custom ID as we do in our [Script Tag SDK](https://docs.growthbook.io/lib/script-tag) and not wait for the IDs provided by GA4.
 
-While you could send this custom ID in your trackingCallback as we suggest in our [docs](/guide/GA4-google-analytics#generating-your-own-id), you may prefer to use GA4 identifiers as the Identifier Type instead, because they are already tracked with many of the other GA4 events that you are using as Metrics*.*
+While you could send this custom ID in your trackingCallback you may prefer to use GA4 identifiers as the Identifier Type instead, because they are already tracked with many of the other GA4 events that you are using as Metrics.
 
 ### Solution 4: Minimize Experiment targeting changes while running
 

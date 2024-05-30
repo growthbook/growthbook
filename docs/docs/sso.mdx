@@ -202,6 +202,38 @@ In Azure, register an Application, instead of Enterprise, as we use OpenID Conne
 
 :::
 
+<details>
+  <summary>See complete Azure instructions</summary>
+  <div>
+    <ol>
+      <li>
+        Register an Application (we use OpenID Connect, so choose regular app, not Enterprise)
+        <img src="/images/guides/SSO-Azure-1.png" alt="" />
+      </li>
+      <li>
+        Enter the redirect URL as APP_HOST/oauth/callback
+        <img src="/images/guides/SSO-Azure-2.png" alt="" />
+      </li>
+      <li>
+        Take note of your Application Id (CLIENT_ID) and Directory Id (TENANT_ID). You will need it later
+        <img src="/images/guides/SSO-Azure-3.png" alt="" />
+      </li>
+      <li>
+        Generate a new Client Secret<br />
+        <img src="/images/guides/SSO-Azure-4.png" alt="" />
+      </li>
+      <li>
+        Take note of the Secret Value (CLIENT_SECRET). You will need it in the next step
+      </li>
+      <li>
+        Construct the JSON configuration for GrowthBook. Replace <pre>CLIENT_ID</pre>, CLIENT_SECRET, EMAIL_DOMAIN, and TENANT_ID, as into the JSON object above.
+      </li>
+      <li>
+        Pass the JSON string into the environment variable SSO_CONFIG of your GrowthBook container
+      </li>
+    </ol>
+  </div>
+</details>
 
 ### OneLogin
 
@@ -231,6 +263,45 @@ In Azure, register an Application, instead of Enterprise, as we use OpenID Conne
 }
 ```
 
+<details>
+  <summary>See complete OneLogin instructions</summary>
+  <div>
+    <ol>
+      <li>
+        Create a new OIDC Web application. Browse to the Applications section of OneLogin from the top nav, then choose "Add App" from the top right.
+        <img src="/images/guides/SSO-Onelogin-1.png" alt="" />
+      </li>
+      <li>
+        When the list of applications opens, search for <strong>"openid connect"</strong>. Select the option named <strong>"OpenID Connect (OIDC)"</strong>.
+        <img src="/images/guides/SSO-Onelogin-2.png" alt="" />
+      </li>
+      <li>
+        Add the name "GrowthBook" (or whatever you would like to name it), an optional description and click save. The first save may not look like anything has happened, but you should see more options on the left menu when successful.
+      </li>
+      <li>
+        Click on the "Configuration" item in the left nav menu, and enter the following values for the three input fields (note: for self-hosting, replace <pre>app.growthbook.io</pre> with your own domain)
+        <ul>
+          <li><strong>Login URL</strong>: <pre>https://app.growthbook.io</pre></li>
+          <li><strong>Redirect URIs</strong>: <pre>https://app.growthbook.io/oauth/callback</pre></li>
+          <li><strong>Post Logout Redirect URIs</strong>: <pre>https://app.growthbook.io</pre></li>
+        </ul>
+        <img src="/images/guides/SSO-Onelogin-3.png" alt="" />
+        You can optionally add images for the application from the info if you like. <strong>Click Save</strong>.
+      </li>
+      <li>
+        Click on the "SSO" item from the left nav menu. Here you need to record the <strong>Client ID</strong> and <strong>Client Secret</strong> and <strong>Issuer URL</strong>
+        <img src="/images/guides/SSO-Onelogin-4.png" alt="" />
+        You can leave the other settings as default (Application Type: Web, and Authentication Method: Basic). Click save if you haven't already.
+      </li>
+      <li>
+        For self-hosted instances: construct the JSON configuration for GrowthBook. Replace CLIENT_ID, CLIENT_SECRET, EMAIL_DOMAIN, and TENANT_ID, as into the JSON object above. The ONELOGIN_DOMAIN will be the same domain from your Issuer URL you recorded earlier.
+      </li>
+      <li>
+        Pass the JSON string into the environment variable SSO_CONFIG of your GrowthBook container
+      </li>
+    </ol>
+  </div>
+</details>
 
 ### JumpCloud
 
@@ -258,3 +329,50 @@ In Azure, register an Application, instead of Enterprise, as we use OpenID Conne
   }
 }
 ```
+
+<details>
+  <summary>See complete JumpCloud instructions</summary>
+  <div>
+    <ol>
+      <li>
+        Create a new SSO Application. Browse to the User Authentication → SSO Applications from the left nav. Choose "Add new Application" from the top left.
+      </li>
+      <li>
+        Choose a custom application by clicking 'select' under `custom application`, then click next then next again to confirm.
+        <img src="/images/guides/SSO-jumpcloud-1.png" alt="" />
+        <img src="/images/guides/SSO-jumpcloud-2.png" alt="" />
+      </li>
+      <li>
+        You will then be asked what features you want to enable. Select `Manage Single Sign-On (SSO)`. Then, in the radio buttons, select <strong>"Configure SSO with OIDC"</strong>.
+        <img src="/images/guides/SSO-jumpcloud-3.png" alt="" />
+      </li>
+      <li>
+        Add the name "GrowthBook" (or whatever you would like to name it), an optional description and click `next`. When you've confirmed the details, click `Configure Application`.
+        <img src="/images/guides/SSO-jumpcloud-4.png" alt="" />
+        <img src="/images/guides/SSO-jumpcloud-5.png" alt="" />
+      </li>
+      <li>
+        This will open a window letting you add additional configuration options for the GrowthBook application. Here are the settings you should set:
+        <ul>
+          <li><strong>Grant types</strong>: Select "Refresh Token" and Authentication Code</li>
+          <li><strong>Redirect URIs</strong>: <pre>https://app.growthbook.io/oauth/callback</pre></li>
+          <li><strong>Client Authentication Type</strong>: Client Secret Basic</li>
+          <li><strong>Login URL</strong>: <pre>https://app.growthbook.io</pre></li>
+          <li><strong>Attribute Mapping</strong>: Select both email and profile. The defaults for the fields that appear are all that is required.</li>
+        </ul>
+        <img src="/images/guides/SSO-jumpcloud-6.png" alt="" />
+        Once you have made the above settings, click 'Activate' from the bottom bar.
+      </li>
+      <li>
+        You'll then be presented with a modal giving you the client id and client secret. Here you need to record the <strong>Client ID</strong> and <strong>Client Secret</strong>
+        <img src="/images/guides/SSO-jumpcloud-7.png" alt="" />
+      </li>
+      <li>
+        For self-hosted instances, construct the JSON configuration for GrowthBook. Replace CLIENT_ID, CLIENT_SECRET, and EMAIL_DOMAIN, as into the JSON object above.
+      </li>
+      <li>
+        Pass the JSON string into the environment variable SSO_CONFIG of your GrowthBook container
+      </li>
+    </ol>
+  </div>
+</details>
