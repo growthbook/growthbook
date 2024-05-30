@@ -19,7 +19,7 @@ import { FactMetricModel } from "../models/FactMetricModel";
 import { ProjectInterface } from "../../types/project";
 import { findAllProjectsByOrganization } from "../models/ProjectModel";
 import { addTags, getAllTags } from "../models/TagModel";
-import { AuditInterface } from "../../types/audit";
+import { AuditInterfaceInput } from "../../types/audit";
 import { insertAudit } from "../models/AuditModel";
 import { logger } from "../util/logger";
 
@@ -150,9 +150,7 @@ export class ReqContextClass {
   }
 
   // Record an audit log entry
-  public async auditLog(
-    data: Omit<AuditInterface, "user" | "id" | "organization" | "dateCreated">
-  ) {
+  public async auditLog(data: AuditInterfaceInput) {
     const auditUser = this.userId
       ? {
           id: this.userId,
