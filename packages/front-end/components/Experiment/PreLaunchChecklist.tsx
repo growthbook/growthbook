@@ -60,8 +60,7 @@ export function PreLaunchChecklist({
     hasCommercialFeature("custom-launch-checklist") &&
     permissionsUtil.canManageOrgSettings();
   const canEditExperiment =
-    !experiment.archived &&
-    permissionsUtil.canViewExperimentModal(experiment.project);
+    !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const { data } = useApi<{ checklist: ExperimentLaunchChecklistInterface }>(
     "/experiments/launch-checklist"

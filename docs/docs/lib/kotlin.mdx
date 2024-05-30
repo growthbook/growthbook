@@ -17,7 +17,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'io.growthbook.sdk:GrowthBook:1.0.3'
+    implementation 'io.growthbook.sdk:GrowthBook:1.1.58'
 }
 ```
 
@@ -37,20 +37,39 @@ val gb = GBSDKBuilder(
   // If self-hosting, we recommend using a CDN in production
   apiKey = "key_123abc",
   hostURL = "https://cdn.growthbook.io/",
-  // Provide the encryption key of type <String?> if you intend to use data encryption
-  encryptionKey = "key_123adbc",
   attributes = attrs,
   trackingCallback = { gbExperiment, gbExperimentResult ->
     // TODO: track in your analytics system
-  }
+    print("Viewed Experiment")
+    print("Experiment Id: " + gbExperiment.key)
+    print("Variation Id: " + gbExperimentResult.variationId)
+  },
+  networkDispatcher = DefaultGBNetworkClient(),
+  encryptionKey = "insert_your_encription_key_if_you_are_using_encryption",
 ).initialize()
-
-if (gb.feature("my-feature").on) {
-  // Feature is enabled!
-}
 ```
 
 If you need to set or update attributes asynchronously, you can do so with `setAttributes()`. This will completely overwrite the attributes object with whatever you pass in. Also, be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully.
+
+If you are accessing features the first time there will be no features right after `initialize()` method call because features are not got from Backend yet. If you need to access features as soon as possible, you need to use `GBCacheRefreshHandler`. You can pass your implementation of `GBCacheRefreshHandler` through `setRefreshHandler()` method. Code snippet:
+```kotlin
+class ForExampleMainActivity {
+    var growthBookSDK: GrowthBookSDK? = null
+
+    fun someInitMethodForExampleOnStart() {
+        val gbSdkBuilder = GBSDKBuilder(
+            ....
+        )
+
+        gbSdkBuilder.setRefreshHandler { isRefreshed, gbError ->
+            // access your features
+            growthBookSDK?.feature("your_feature_key").on
+        }
+
+        growthBookSDK = gbSdkBuilder.initialize()
+    }
+}
+```
 
 ## Using Features
 

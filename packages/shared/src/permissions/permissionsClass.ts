@@ -19,7 +19,8 @@ import { ExperimentInterface } from "back-end/types/experiment";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { UpdateProps } from "back-end/types/models";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import { READ_ONLY_PERMISSIONS } from "./permissions.utils";
+import { NotificationEvent } from "back-end/src/events/notification-events";
+import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 class PermissionError extends Error {
   constructor(message: string) {
     super(message);
@@ -61,31 +62,19 @@ export class Permissions {
   };
 
   public canViewEventWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageWebhooks");
+    return this.checkGlobalPermission("manageEventWebhooks");
   };
 
   public canCreateEventWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageWebhooks");
+    return this.checkGlobalPermission("manageEventWebhooks");
   };
 
   public canUpdateEventWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageWebhooks");
+    return this.checkGlobalPermission("manageEventWebhooks");
   };
 
   public canDeleteEventWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageWebhooks");
-  };
-
-  public canCreateSDKWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageWebhooks");
-  };
-
-  public canUpdateSDKWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageWebhooks");
-  };
-
-  public canDeleteSDKWebhook = (): boolean => {
-    return this.checkGlobalPermission("manageWebhooks");
+    return this.checkGlobalPermission("manageEventWebhooks");
   };
 
   public canCreateAndUpdateTag = (): boolean => {
@@ -140,8 +129,19 @@ export class Permissions {
     return this.checkGlobalPermission("manageNorthStarMetric");
   };
 
-  public canViewEvents = (): boolean => {
-    return this.checkGlobalPermission("viewEvents");
+  public canViewEvent = (
+    event: Pick<NotificationEvent, "containsSecrets" | "projects">
+  ): boolean => {
+    // Contains secrets (or is an old event where we weren't tracking this field yet)
+    if (event.containsSecrets !== false) {
+      return this.canViewAuditLogs();
+    }
+
+    return this.canReadMultiProjectResource(event.projects || []);
+  };
+
+  public canViewAuditLogs = (): boolean => {
+    return this.checkGlobalPermission("viewAuditLog");
   };
 
   public canCreateArchetype = (): boolean => {
@@ -436,19 +436,19 @@ export class Permissions {
   public canCreateAndUpdateFactFilter = (
     factTable: Pick<FactTableInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(factTable, "manageFactTables");
+    return this.checkProjectFilterPermission(factTable, "manageFactFilters");
   };
 
   public canDeleteFactFilter = (
     factTable: Pick<FactTableInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(factTable, "manageFactTables");
+    return this.checkProjectFilterPermission(factTable, "manageFactFilters");
   };
 
   public canCreateFactMetric = (
     metric: Pick<FactMetricInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(metric, "createMetrics");
+    return this.checkProjectFilterPermission(metric, "manageFactMetrics");
   };
 
   public canUpdateFactMetric = (
@@ -458,14 +458,14 @@ export class Permissions {
     return this.checkProjectFilterUpdatePermission(
       existing,
       updates,
-      "createMetrics"
+      "manageFactMetrics"
     );
   };
 
   public canDeleteFactMetric = (
     metric: Pick<FactMetricInterface, "projects">
   ): boolean => {
-    return this.checkProjectFilterPermission(metric, "createMetrics");
+    return this.checkProjectFilterPermission(metric, "manageFactMetrics");
   };
 
   public canCreateMetric = (
@@ -688,7 +688,7 @@ export class Permissions {
     return this.checkEnvFilterPermission(
       sdkConnection,
       [sdkConnection.environment],
-      "manageEnvironments"
+      "manageSDKConnections"
     );
   };
 
@@ -699,7 +699,7 @@ export class Permissions {
     return this.checkEnvFilterUpdatePermission(
       existing,
       updates,
-      "manageEnvironments"
+      "manageSDKConnections"
     );
   };
 
@@ -709,7 +709,43 @@ export class Permissions {
     return this.checkEnvFilterPermission(
       sdkConnection,
       [sdkConnection.environment],
-      "manageEnvironments"
+      "manageSDKConnections"
+    );
+  };
+
+  public canManageLegacySDKWebhooks = (): boolean => {
+    // These webhooks are deprecated
+    // Restrict access to admins by using the event webhooks permission
+    return this.checkGlobalPermission("manageEventWebhooks");
+  };
+
+  public canCreateSDKWebhook = (
+    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      sdkConnection,
+      [sdkConnection.environment],
+      "manageSDKWebhooks"
+    );
+  };
+
+  public canUpdateSDKWebhook = (
+    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      sdkConnection,
+      [sdkConnection.environment],
+      "manageSDKWebhooks"
+    );
+  };
+
+  public canDeleteSDKWebhook = (
+    sdkConnection: Pick<SDKConnectionInterface, "projects" | "environment">
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      sdkConnection,
+      [sdkConnection.environment],
+      "manageSDKWebhooks"
     );
   };
 
@@ -745,6 +781,10 @@ export class Permissions {
 
     // Otherwise, check if they have read access for atleast 1 of the resource's projects
     return projects.some((p) => this.hasPermission("readData", p));
+  };
+
+  public canManageCustomRoles = (): boolean => {
+    return this.checkGlobalPermission("manageCustomRoles");
   };
 
   private checkGlobalPermission(permissionToCheck: GlobalPermission): boolean {

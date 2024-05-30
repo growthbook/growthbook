@@ -1,6 +1,6 @@
-import React, { FC, Fragment, useState } from "react";
+import React, { FC, Fragment } from "react";
 import { WebhookInterface } from "back-end/types/webhook";
-import { FaCheck, FaBolt, FaPencilAlt } from "react-icons/fa";
+import { FaCheck } from "react-icons/fa";
 import { ago } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
@@ -8,16 +8,15 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import WebhooksModal from "./WebhooksModal";
 
 const Webhooks: FC = () => {
   const { data, error, mutate } = useApi<{ webhooks: WebhookInterface[] }>(
-    "/webhooks"
+    "/legacy-sdk-webhooks"
   );
   const { getProjectById, projects } = useDefinitions();
   const { apiCall } = useAuth();
-  const [open, setOpen] = useState<null | Partial<WebhookInterface>>(null);
   const permissionsUtil = usePermissionsUtil();
 
   if (error) {
@@ -29,14 +28,6 @@ const Webhooks: FC = () => {
 
   return (
     <div>
-      {open && (
-        <WebhooksModal
-          close={() => setOpen(null)}
-          onSave={mutate}
-          current={open}
-        />
-      )}
-
       <p>
         SDK Endpoint Webhooks push the latest feature definitions to your server
         whenever they are modified within the GrowthBook app.
@@ -107,27 +98,14 @@ const Webhooks: FC = () => {
                     )}
                   </td>
                   <td>
-                    {permissionsUtil.canUpdateSDKWebhook() ? (
-                      <a
-                        href="#"
-                        className="tr-hover text-primary mr-3"
-                        title="Edit this webhook"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setOpen(webhook);
-                        }}
-                      >
-                        <FaPencilAlt />
-                      </a>
-                    ) : null}
-                    {permissionsUtil.canDeleteSDKWebhook() ? (
+                    {permissionsUtil.canManageLegacySDKWebhooks() ? (
                       <DeleteButton
                         link={true}
-                        className={"tr-hover text-primary"}
+                        className={"text-primary"}
                         displayName="Webhook"
                         title="Delete this webhook"
                         onClick={async () => {
-                          await apiCall(`/webhook/${webhook.id}`, {
+                          await apiCall(`/legacy-sdk-webhooks/${webhook.id}`, {
                             method: "DELETE",
                           });
                           mutate();
@@ -139,9 +117,13 @@ const Webhooks: FC = () => {
                 {webhook.error && (
                   <tr>
                     <td colSpan={6} className="border-0">
-                      <pre className="text-danger mb-0 pb-0">
+                      <OverflowText
+                        className="text-danger mb-0 pb-0"
+                        maxWidth={400}
+                        title={webhook.error}
+                      >
                         {webhook.error}
-                      </pre>
+                      </OverflowText>
                     </td>
                   </tr>
                 )}
@@ -150,17 +132,6 @@ const Webhooks: FC = () => {
           </tbody>
         </table>
       )}
-      {permissionsUtil.canCreateSDKWebhook() ? (
-        <button
-          className="btn btn-primary"
-          onClick={(e) => {
-            e.preventDefault();
-            setOpen({});
-          }}
-        >
-          <FaBolt /> Create New SDK Webhook
-        </button>
-      ) : null}
     </div>
   );
 };

@@ -299,7 +299,11 @@ export default function ConditionInput(props: Props) {
                       options={attributeSchema.map((s) => ({
                         label: s.property,
                         value: s.property,
+                        tooltip: s.description || "",
                       }))}
+                      formatOptionLabel={(o) => (
+                        <span title={o.tooltip}>{o.label}</span>
+                      )}
                       name="field"
                       className={styles.firstselect}
                       onChange={(value) => {

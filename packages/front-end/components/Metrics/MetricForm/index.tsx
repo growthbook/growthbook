@@ -9,6 +9,7 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { FaArrowRight, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
+  DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_WIN_RISK_THRESHOLD,
@@ -44,6 +45,7 @@ import ConfirmModal from "@/components/ConfirmModal";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
 import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
 import { MetricDelayHours } from "./MetricDelayHours";
@@ -346,6 +348,14 @@ const MetricForm: FC<MetricFormProps> = ({
         current.regressionAdjustmentDays ??
         settings.regressionAdjustmentDays ??
         DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+      priorSettings:
+        current.priorSettings ||
+        (metricDefaults.priorSettings ?? {
+          override: false,
+          proper: false,
+          mean: 0,
+          stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+        }),
     },
   });
 
@@ -378,6 +388,7 @@ const MetricForm: FC<MetricFormProps> = ({
     regressionAdjustmentOverride: form.watch("regressionAdjustmentOverride"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
+    priorSettings: form.watch("priorSettings"),
   };
 
   // We want to show a warning when someone tries to create a metric for just the demo project
@@ -1209,6 +1220,15 @@ const MetricForm: FC<MetricFormProps> = ({
           ) : (
             <>
               <MetricDelayHours form={form} />
+
+              <MetricPriorSettingsForm
+                priorSettings={form.watch("priorSettings")}
+                setPriorSettings={(priorSettings) =>
+                  form.setValue("priorSettings", priorSettings)
+                }
+                metricDefaults={metricDefaults}
+              />
+
               {ignoreNullsSupported && value.type !== "binomial" && (
                 <div className="form-group">
                   <SelectField
@@ -1295,9 +1315,6 @@ const MetricForm: FC<MetricFormProps> = ({
                   <GBCuped /> Regression Adjustment (CUPED)
                 </label>
               </PremiumTooltip>
-              <small className="d-block mb-1 text-muted">
-                Only applicable to frequentist analyses
-              </small>
               <div className="px-3 py-2 pb-0 mb-2 border rounded">
                 {regressionAdjustmentAvailableForMetric ? (
                   <>

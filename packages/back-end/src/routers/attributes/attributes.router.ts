@@ -14,6 +14,7 @@ router.post(
   validateRequestMiddleware({
     body: z.object({
       property: z.string(),
+      description: z.string().optional(),
       datatype: z.enum(attributeDataTypes),
       projects: z.array(z.string()),
       format: z.string(),
@@ -29,6 +30,7 @@ router.put(
   validateRequestMiddleware({
     body: z.object({
       property: z.string(),
+      description: z.string().optional(),
       datatype: z.enum(attributeDataTypes),
       projects: z.array(z.string()),
       format: z.string(),

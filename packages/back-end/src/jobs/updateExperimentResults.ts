@@ -14,7 +14,7 @@ import {
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
   getExperimentMetricById,
-  getRegressionAdjustmentInfo,
+  getSettingsForSnapshotMetrics,
 } from "../services/experiments";
 import {
   getConfidenceLevelsForOrg,
@@ -150,8 +150,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
     const {
       regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatuses,
-    } = await getRegressionAdjustmentInfo(context, experiment);
+      settingsForSnapshotMetrics,
+    } = await getSettingsForSnapshotMetrics(context, experiment);
 
     const analysisSettings = getDefaultExperimentAnalysisSettings(
       experiment.statsEngine || scopedSettings.statsEngine.value,
@@ -172,8 +172,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
         analysisSettings,
         experiment
       ),
-      metricRegressionAdjustmentStatuses:
-        metricRegressionAdjustmentStatuses || [],
+      settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
       metricMap,
       factTableMap,
       useCache: true,

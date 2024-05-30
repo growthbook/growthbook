@@ -16,12 +16,7 @@ export default function ClickToReveal({ getValue, valueWhenHidden }: Props) {
   const [value, setValue] = useState<string | null>();
   const [loading, setLoading] = useState(false);
   return (
-    <div
-      className={clsx(
-        styles.wrapper,
-        value && "d-flex flex-column align-items-baseline"
-      )}
-    >
+    <div className={clsx(styles.wrapper, value && "d-flex align-items-center")}>
       {value ? (
         <ClickToCopy>{value}</ClickToCopy>
       ) : (
@@ -31,7 +26,7 @@ export default function ClickToReveal({ getValue, valueWhenHidden }: Props) {
         className={clsx(
           "btn btn-sm btn-outline-secondary",
           styles.button,
-          value && "mt-2",
+          value && "ml-2",
           !value && styles.buttonLeft
         )}
         onClick={async () => {
@@ -48,7 +43,7 @@ export default function ClickToReveal({ getValue, valueWhenHidden }: Props) {
           }
         }}
       >
-        {loading ? <LoadingSpinner /> : !value ? "Reveal key" : "Hide key"}
+        {loading ? <LoadingSpinner /> : !value ? "Reveal" : "Hide"}
       </button>
       {error && (
         <Tooltip body={error}>

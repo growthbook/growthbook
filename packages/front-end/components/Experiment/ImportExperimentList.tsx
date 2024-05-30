@@ -492,8 +492,12 @@ const ImportExperimentList: FC<{
 
                 return (
                   <tr key={key}>
-                    <td>{e.exposureQueryName}</td>
-                    <td>{e.experimentName || e.trackingKey}</td>
+                    <td style={{ wordBreak: "break-word" }}>
+                      {e.exposureQueryName}
+                    </td>
+                    <td style={{ wordBreak: "break-word" }}>
+                      {e.experimentName || e.trackingKey}
+                    </td>
                     <td>
                       <Tooltip
                         body={
@@ -509,8 +513,8 @@ const ImportExperimentList: FC<{
                     <td>{date(e.endDate)}</td>
                     <td>{e.numVariations}</td>
                     <td>{numberFormatter.format(e.users)}</td>
-                    <td>
-                      {e.weights.map((w) => Math.round(w * 100)).join("/")}
+                    <td style={{ maxWidth: 180 }}>
+                      {e.weights.map((w) => Math.round(w * 100)).join(" / ")}
                     </td>
                     <td>
                       {existingId ? (
