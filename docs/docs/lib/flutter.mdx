@@ -19,7 +19,7 @@ This SDK supports the following versions:
 Add this to your `pubspec.yaml` file
 
 ```
-growthbook_sdk_flutter: ^1.0.0
+growthbook_sdk_flutter: ^3.9.1
 ```
 
 ## Quick Usage
@@ -28,18 +28,28 @@ To create a GrowthBook SDK instance, use `GBSDKBuilderApp`. Then, you can evalua
 
 ```dart
 // User attributes for targeting and assigning users to experiment variations
-val attrs = HashMap<String, Any>()
-attrs.put("id", "123")
-attrs.put("env", "dev")
-attrs.put("betaUser", true)
+Map<String, dynamic> attrs = {};
+attrs.addAll({
+  'id': '123',
+  'env': 'dev',
+  'betaUser': true,
+});
 
-final GrowthBookSDK sdkInstance = GBSDKBuilderApp(
+final GrowthBookSDK sdkInstance = await GBSDKBuilderApp(
   apiKey: "<API_KEY>",
+  hostURL: '<GrowthBook_URL>',
   attributes: {
     attrs
   },
-  growthBookTrackingCallBack: (gbExperiment, gbExperimentResult) {},
-  hostURL: '<GrowthBook_URL>',
+  // Called whenever someone is put into an experiment
+  growthBookTrackingCallBack: (gbExperiment, gbExperimentResult) {
+    // TODO: track in your analytics system
+    print("Viewed Experiment");
+    print("Experiment Id: ${gbExperiment.key}");
+    print("Variation Id: ${gbExperimentResult.variationID}");
+  },
+  // View your encryption key on the Features → SDKs page
+  encryptionKey = "insert_your_encription_key_if_you_are_using_encryption",
 ).initialize();
 
 if (gb.feature("my-feature").on) {
@@ -74,11 +84,11 @@ if (feature.off) { }
 
 // Print the actual value of the feature
 // (depending on the feature, might be a string, number, boolean, etc.)
-Println(feature.value)
+print(feature.value)
 
 // Print the experiment id used to assign the feature value
 if (feature.source == "experiment") {
-  Println(feature.experiment.key)
+  print(feature.experiment.key)
 }
 ```
 
@@ -94,7 +104,7 @@ exp.variations = List.of("control", "variation")
 var result = gb.run(exp)
 
 // Either "control" or "variation"
-Println(result.value)
+print(result.value)
 ```
 
 The `GBExperiment` class has two required properties - `key` and `variations`. There are also a number of optional properties:
