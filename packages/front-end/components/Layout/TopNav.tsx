@@ -1,19 +1,27 @@
 import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import {
-  FaAngleRight,
-  FaBars,
-  FaBell,
-  FaBuilding,
-  FaMoon,
-} from "react-icons/fa";
+import { FaAngleRight, FaBars, FaBuilding } from "react-icons/fa";
 import Link from "next/link";
 import clsx from "clsx";
 import Head from "next/head";
-import { DropdownMenu } from "@radix-ui/themes";
+import { DropdownMenu, Text } from "@radix-ui/themes";
 import { BsCircleHalf } from "react-icons/bs";
 import { ImSun } from "react-icons/im";
 import { render } from "react-dom";
+import {
+  PiArrowDownFill,
+  PiBell,
+  PiCaretDownFill,
+  PiCircleHalf,
+  PiFiles,
+  PiKey,
+  PiList,
+  PiListChecks,
+  PiMoon,
+  PiSunDim,
+} from "react-icons/pi";
+import { ro } from "date-fns/locale";
+import router from "next/router";
 import { useWatching } from "@/services/WatchProvider";
 import useGlobalMenu from "@/services/useGlobalMenu";
 import { useUser } from "@/services/UserContext";
@@ -29,6 +37,7 @@ import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import Dropdown from "@/components/Dropdown/Dropdown";
 import styles from "./TopNav.module.scss";
 import { ThemeToggler } from "./ThemeToggler/ThemeToggler";
 import AccountPlanBadge from "./AccountPlanBadge";
@@ -80,37 +89,30 @@ const TopNav: FC<{
     }
   });
 
-  const planCopy =
-    effectiveAccountPlan === "enterprise"
-      ? "ENTERPRISE"
-      : effectiveAccountPlan === "pro"
-      ? "PRO"
-      : effectiveAccountPlan === "pro_sso"
-      ? "PRO + SSO"
-      : "";
-
   const activeIcon = useMemo(() => {
     switch (preferredTheme) {
       case "dark":
         return (
-          <>
-            <FaMoon className="text-secondary mr-2" /> Dark
-          </>
+          <div className="align-middle">
+            <PiMoon size="16" className="mr-1 text-secondary" />
+            Theme
+          </div>
         );
 
       case "light":
         return (
-          <>
-            <ImSun className="text-secondary mr-2" />
-            Light
-          </>
+          <div className="align-middle">
+            <PiSunDim size="16" className="mr-1 text-secondary" />
+            Theme
+          </div>
         );
 
       case "system":
         return (
-          <>
-            <BsCircleHalf className="text-secondary mr-2" /> System Default
-          </>
+          <div className="align-middle">
+            <PiCircleHalf size="16" className="mr-1 text-secondary" />
+            Theme
+          </div>
         );
     }
   }, [preferredTheme]);
@@ -151,39 +153,60 @@ const TopNav: FC<{
   const renderNameAndEmailDropdownLabel = () => {
     return (
       <>
-        <DropdownMenu.Label>
-          {name && <div style={{ fontSize: "1.3em" }}>{name}</div>}
-        </DropdownMenu.Label>
-        <DropdownMenu.Label>
-          <div>{email}</div>
-        </DropdownMenu.Label>
+        <DropdownMenu.Group style={{ marginBottom: 4 }}>
+          <DropdownMenu.Label style={{ height: "inherit" }}>
+            {name && (
+              <Text weight="bold" className="text-main">
+                {name}
+              </Text>
+            )}
+          </DropdownMenu.Label>
+          <DropdownMenu.Label style={{ height: "inherit" }}>
+            <Text className="text-secondary">{email}</Text>
+          </DropdownMenu.Label>
+        </DropdownMenu.Group>
       </>
     );
   };
   const renderPersonalAccessTokensDropDown = () => {
     return (
-      <DropdownMenu.Item>
-        <Link href="/account/personal-access-tokens">
-          My Personal Access Tokens
-        </Link>
+      <DropdownMenu.Item
+        onClick={() => {
+          router.push("/account/personal-access-tokens");
+        }}
+      >
+        <div className="align-middle">
+          <PiKey size="16" className="mr-1 text-secondary" />
+          Personal Access Tokens
+        </div>
       </DropdownMenu.Item>
     );
   };
   const renderMyReportsDropDown = () => {
     return (
-      <DropdownMenu.Item>
-        <Link href="/reports" className="nav-link mr-1 text-secondary">
+      <DropdownMenu.Item
+        onClick={() => {
+          router.push("/reports");
+        }}
+      >
+        <div className="align-middle">
+          <PiFiles size="16" className="mr-1 text-secondary" />
           My Reports
-        </Link>
+        </div>
       </DropdownMenu.Item>
     );
   };
   const renderMyActivityFeedsDropDown = () => {
     return (
-      <DropdownMenu.Item>
-        <Link href="/activity" className="nav-link mr-1 text-secondary">
-          <FaBell />
-        </Link>
+      <DropdownMenu.Item
+        onClick={() => {
+          router.push("/activity");
+        }}
+      >
+        <div className="align-middle">
+          <PiListChecks size="16" className="mr-1 text-secondary" />
+          Activity Feed
+        </div>
       </DropdownMenu.Item>
     );
   };
@@ -199,7 +222,10 @@ const TopNav: FC<{
               setTheme("system");
             }}
           >
-            <BsCircleHalf className="mr-3" /> System Default
+            <span>
+              <PiCircleHalf size="16" className="mr-1 text-secondary" />
+              System Default
+            </span>
           </DropdownMenu.Item>
           <DropdownMenu.Item
             key="light"
@@ -207,7 +233,10 @@ const TopNav: FC<{
               setTheme("light");
             }}
           >
-            <ImSun className="mr-3" /> Light
+            <span>
+              <PiSunDim size="16" className="mr-1 text-secondary" />
+              Light
+            </span>
           </DropdownMenu.Item>
           <DropdownMenu.Item
             key="dark"
@@ -215,7 +244,10 @@ const TopNav: FC<{
               setTheme("dark");
             }}
           >
-            <FaMoon className="mr-3" /> Dark
+            <span>
+              <PiMoon size="16" className="mr-1 text-secondary" />
+              Dark
+            </span>
           </DropdownMenu.Item>
         </DropdownMenu.SubContent>
       </DropdownMenu.Sub>
@@ -223,12 +255,18 @@ const TopNav: FC<{
   };
   const renderOrganizationSubDropDown = () => {
     if (organizations && organizations.length === 1) {
-      return <DropdownMenu.Label>{orgName}</DropdownMenu.Label>;
+      return (
+        <DropdownMenu.Label>
+          <Text weight={"bold"} className="text-main">
+            {orgName}
+          </Text>
+        </DropdownMenu.Label>
+      );
     }
     return (
       <DropdownMenu.Sub>
         <DropdownMenu.SubTrigger>{orgName}</DropdownMenu.SubTrigger>
-        <DropdownMenu.SubContent ali>
+        <DropdownMenu.SubContent>
           {organizations?.map((o) => (
             <DropdownMenu.Item
               key={o.id}
@@ -254,6 +292,17 @@ const TopNav: FC<{
       </DropdownMenu.Sub>
     );
   };
+  const planCopy = useMemo(() => {
+    switch (effectiveAccountPlan) {
+      case "enterprise":
+        return <Text className="enterprise-text-color">ENTERPRISE</Text>;
+      case "pro":
+      case "pro_sso":
+        return <Text color="amber">PRO</Text>;
+      default:
+        return <Text color="green">FREE</Text>;
+    }
+  }, [effectiveAccountPlan]);
 
   return (
     <>
@@ -343,22 +392,6 @@ const TopNav: FC<{
               <>{pageTitle}</>
             )}
           </div>
-          {/* <AccountPlanBadge /> */}
-
-          {/* {showNotices && (
-            <>
-              <AccountPlanNotices />
-
-              {(watchedExperiments.length > 0 ||
-                watchedFeatures.length > 0) && (
-                <Link href="/activity" className="nav-link mr-1 text-secondary">
-                  <FaBell />
-                </Link>
-              )}
-            </>
-          )} */}
-
-          {/*  */}
           {organizations && organizations.length > 1 && (
             <div className="dropdown top-nav-org-menu">
               <div
@@ -412,16 +445,29 @@ const TopNav: FC<{
 
           <DropdownMenu.Root>
             <DropdownMenu.Trigger>
-              <div className="nav-link">
-                <Avatar email={email || ""} size={26} />{" "}
+              <div className="nav-link d-flex">
+                <Avatar
+                  email={email || ""}
+                  size={26}
+                  name={name}
+                  className="mr-2"
+                />{" "}
                 <span className="d-none d-lg-inline">
-                  <OverflowText maxWidth={200}>{email}</OverflowText>
+                  <OverflowText maxWidth={200}>
+                    <Text weight={"bold"} style={{ fontSize: 14 }}>
+                      {email}
+                    </Text>{" "}
+                    <PiCaretDownFill />
+                  </OverflowText>
                 </span>
               </div>
             </DropdownMenu.Trigger>
             <DropdownMenu.Content align="start">
-              <DropdownMenu.Label>{planCopy}</DropdownMenu.Label>
+              <DropdownMenu.Label>
+                <Text weight={"bold"}> {planCopy}</Text>
+              </DropdownMenu.Label>
               {renderOrganizationSubDropDown()}
+              <DropdownMenu.Separator />
               {renderThemeSubDropDown()}
               {renderMyActivityFeedsDropDown()}
               {renderMyReportsDropDown()}

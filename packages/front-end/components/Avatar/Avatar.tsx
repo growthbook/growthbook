@@ -1,6 +1,7 @@
 import { FC } from "react";
 import md5 from "md5";
 import clsx from "clsx";
+import { violet } from "@radix-ui/colors";
 
 const Avatar: FC<{
   email: string;
@@ -8,21 +9,38 @@ const Avatar: FC<{
   className?: string;
   name?: string;
 }> = ({ email, size = 40, className, name }) => {
-  const hash = md5(email?.trim()?.toLowerCase() || "");
-  const url = `https://www.gravatar.com/avatar/${hash}?d=identicon&s=${size}`;
-
-  const title = name ? `${name} <${email}>` : email;
-
+  const firstNameLetter = name?.charAt(0) || email.charAt(0);
+  const lastNameLetter = name?.split(" ")[1]?.charAt(0);
   return (
-    <img
-      className={clsx("border rounded-circle", className)}
-      src={url}
-      title={title}
+    //round avatar with initals in the middle
+    <div
+      className={clsx(
+        "align-items-center justify-content-center border rounded-circle d-flex",
+        className
+      )}
       style={{
-        width: size + 2,
-        height: size + 2,
+        height: size,
+        width: size,
+        backgroundColor: violet?.violet3,
+        color: violet?.violet11,
+        fontSize: size / 2,
+        fontWeight: 600,
       }}
-    />
+    >
+      {firstNameLetter.toUpperCase()}
+      {lastNameLetter?.toLocaleUpperCase()}
+    </div>
   );
 };
+{
+  /* <img
+  className={clsx("border rounded-circle", className)}
+  src={url}
+  title={title}
+  style={{
+    width: size + 2,
+    height: size + 2,
+  }}
+/> */
+}
 export default Avatar;

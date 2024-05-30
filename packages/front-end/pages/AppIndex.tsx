@@ -2,12 +2,12 @@ import { AppProps } from "next/app";
 import "@radix-ui/themes/styles.css";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
-import ProtectedPage from "../components/ProtectedPage";
-import { DefinitionsProvider } from "../services/DefinitionsContext";
+import ProtectedPage from "@/components/ProtectedPage";
+import { DefinitionsProvider } from "@/services/DefinitionsContext";
 import "diff2html/bundles/css/diff2html.min.css";
-import Layout from "../components/Layout/Layout";
-import { useAppearanceUITheme } from "../services/AppearanceUIThemeProvider";
-import TopNavLite from "../components/Layout/TopNavLite";
+import Layout from "@/components/Layout/Layout";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import TopNavLite from "@/components/Layout/TopNavLite";
 
 type ModAppProps = AppProps & {
   Component: {
@@ -28,12 +28,6 @@ function AppIndex({
   const parts = router.route.substr(1).split("/");
   console.log(theme);
   return (
-    // <Theme
-    //   accentColor="violet"
-    //   scaling="90%"
-    //   panelBackground="solid"
-    //   appearance={theme}
-    // >
     <ProtectedPage organizationRequired={organizationRequired}>
       {organizationRequired ? (
         <DefinitionsProvider>
@@ -53,7 +47,6 @@ function AppIndex({
         </div>
       )}
     </ProtectedPage>
-    // </Theme>
   );
 }
 

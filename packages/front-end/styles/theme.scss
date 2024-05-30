@@ -2,7 +2,7 @@
 
 @mixin light-theme {
   color-scheme: light;
-
+  --text-color-enterprise: #{colors.$dark-blue};
   --background-color: #{colors.$main-background};
   --surface-background-color: #{colors.$white};
   --surface-background-color-alt: #{darken(colors.$white, 3%)};
@@ -103,7 +103,7 @@
 
 @mixin dark-theme {
   color-scheme: dark;
-
+  --text-color-enterprise: #{colors.$white};
   --background-color: #{colors.$main-background-dark};
   --surface-background-color: #{colors.$surface-background-dark};
   --surface-background-color-alt: #{lighten(colors.$surface-background-dark, 4%)};
