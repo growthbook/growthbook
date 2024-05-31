@@ -1,13 +1,13 @@
 import { FC, ReactElement } from "react";
 import { useForm } from "react-hook-form";
-import { ProjectInterface } from "@back-end/types/project";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const EditProjectForm: FC<{
   apiEndpoint: string;
-  projectOptions: ProjectInterface[];
+  permissionRequired: (projectId: string) => boolean;
   current?: string;
   additionalMessage?: string | ReactElement | null;
   ctaEnabled?: boolean;
@@ -16,14 +16,15 @@ const EditProjectForm: FC<{
   method?: string;
 }> = ({
   current,
-  projectOptions,
   apiEndpoint,
+  permissionRequired,
   cancel,
   mutate,
   method = "POST",
   additionalMessage,
   ctaEnabled = true,
 }) => {
+  const { projects } = useDefinitions();
   const { apiCall } = useAuth();
 
   const form = useForm({
@@ -31,6 +32,10 @@ const EditProjectForm: FC<{
       project: current || "",
     },
   });
+
+  const projectOptions = projects.filter((project) =>
+    permissionRequired(project.id)
+  );
 
   return (
     <Modal

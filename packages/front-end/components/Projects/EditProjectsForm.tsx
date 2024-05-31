@@ -1,22 +1,27 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import { ProjectInterface } from "@back-end/types/project";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const EditProjectsForm: FC<{
-  projects: string[];
-  projectOptions: ProjectInterface[];
+  value: string[];
+  permissionRequired: (projectId: string) => boolean;
   save: (projects: string[]) => Promise<void>;
   cancel: () => void;
   mutate: () => void;
   entityName?: string;
-}> = ({ projects = [], projectOptions, save, cancel, mutate, entityName }) => {
+}> = ({ value = [], permissionRequired, save, cancel, mutate, entityName }) => {
+  const { projects: orgProjects } = useDefinitions();
   const form = useForm({
     defaultValues: {
-      projects,
+      projects: value,
     },
   });
+
+  const projectOptions = orgProjects.filter((project) =>
+    permissionRequired(project.id)
+  );
 
   return (
     <Modal

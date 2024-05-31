@@ -323,10 +323,10 @@ const MetricPage: FC = () => {
         <EditProjectsForm
           cancel={() => setEditProjects(false)}
           mutate={mutate}
-          projects={metric.projects || []}
-          projectOptions={projects.filter((project) =>
-            permissionsUtil.canCreateMetric({ projects: [project.id] })
-          )}
+          value={metric.projects || []}
+          permissionRequired={(project) =>
+            permissionsUtil.canUpdateMetric({ projects: [project] }, {})
+          }
           save={async (projects) => {
             await apiCall(`/metric/${metric.id}`, {
               method: "PUT",

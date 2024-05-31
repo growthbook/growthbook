@@ -1240,9 +1240,9 @@ export default function FeaturesOverview({
         )}
         {editProjectModal && (
           <EditProjectForm
-            projectOptions={projects.filter((project) =>
-              permissionsUtil.canUpdateFeature({ project: project.id }, {})
-            )}
+            permissionRequired={(project) =>
+              permissionsUtil.canUpdateFeature({ project }, {})
+            }
             apiEndpoint={`/feature/${feature.id}`}
             cancel={() => setEditProjectModal(false)}
             mutate={mutate}
