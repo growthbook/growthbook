@@ -27,8 +27,8 @@
     "generate-api-types": "yarn generate-api-models && swagger-cli bundle -t yaml src/api/openapi/openapi.tmp.yaml -o generated/spec.yaml && node src/scripts/generate-openapi.mjs"
   },
   "dependencies": {
-    "@aws-sdk/client-sts": "^3.567.0",
     "@aws-sdk/client-athena": "^3.564.0",
+    "@aws-sdk/client-sts": "^3.567.0",
     "@clickhouse/client": "^1.0.1",
     "@databricks/sql": "^1.8.1",
     "@dqbd/tiktoken": "^1.0.7",
@@ -141,7 +141,9 @@
     "delay-cli": "^2.0.0",
     "jest": "^27.1.1",
     "minimist": "^1.2.8",
+    "mongodb-memory-server": "^9.2.0",
     "rimraf": "^3.0.2",
+    "supertest": "^7.0.0",
     "typescript": "5.3.3"
   },
   "optionalDependencies": {

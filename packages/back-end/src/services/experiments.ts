@@ -106,6 +106,7 @@ import { getFeaturesByIds } from "../models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel";
 import { ExperimentRefRule, FeatureRule } from "../../types/feature";
 import { ApiReqContext } from "../../types/api";
+import { ProjectInterface } from "../../types/project";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import {
@@ -766,7 +767,7 @@ export async function toExperimentApiInterface(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
 ): Promise<ApiExperiment> {
-  let project = null;
+  let project: ProjectInterface | null = null;
   const organization = context.org;
   if (experiment.project) {
     project = await findProjectById(context, experiment.project);
