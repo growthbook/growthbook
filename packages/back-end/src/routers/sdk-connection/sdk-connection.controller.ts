@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
-import { triggerSingleSDKWebhookJobs } from "@back-end/src/jobs/updateAllJobs";
+import { triggerSingleSDKWebhookJobs } from "../../jobs/updateAllJobs";
 import {
   CreateSdkWebhookProps,
   WebhookInterface,
