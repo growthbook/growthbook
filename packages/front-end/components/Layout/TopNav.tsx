@@ -8,7 +8,13 @@ import { useWatching } from "@/services/WatchProvider";
 import useGlobalMenu from "@/services/useGlobalMenu";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
-import { usingSSO } from "@/services/env";
+import {
+  allowSelfOrgCreation,
+  isCloud,
+  isMultiOrg,
+  showMultiOrgSelfSelector,
+  usingSSO,
+} from "@/services/env";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCelebrationLocalStorage } from "@/hooks/useCelebration";
 import Modal from "@/components/Modal";
@@ -230,6 +236,20 @@ const TopNav: FC<{
                     {o.name}
                   </a>
                 ))}
+                {!isCloud() &&
+                  isMultiOrg() &&
+                  (showMultiOrgSelfSelector() || allowSelfOrgCreation()) && (
+                    <Link
+                      href="/settings/organizations"
+                      className="dropdown-item text-primary"
+                    >
+                      {showMultiOrgSelfSelector() && allowSelfOrgCreation()
+                        ? "Create or join a different organization"
+                        : showMultiOrgSelfSelector()
+                        ? "Join a different organization"
+                        : "Create a new organization"}
+                    </Link>
+                  )}
               </div>
             </div>
           )}

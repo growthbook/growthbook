@@ -1,7 +1,8 @@
-import { ReactElement, useEffect, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import { FiLogOut } from "react-icons/fi";
 import { useForm } from "react-hook-form";
 import { FaCheck, FaPlus } from "react-icons/fa";
+import { useRouter } from "next/router";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
@@ -17,7 +18,11 @@ import WelcomeFrame from "./WelcomeFrame";
 
 import style from "./CreateOrganization.module.scss";
 
-export default function CreateOrganization(): ReactElement {
+const CreateOrganization: FC<{
+  showFrame?: boolean;
+  title?: string;
+  subtitle?: string;
+}> = ({ showFrame = true, title = "", subtitle = "" }) => {
   const { data } = useApi<{
     hasOrganizations: boolean;
   }>("/auth/hasorgs");
@@ -35,7 +40,7 @@ export default function CreateOrganization(): ReactElement {
     setMode(mode === "create" ? "join" : "create");
   }
 
-  const { apiCall, logout } = useAuth();
+  const { apiCall, logout, setOrgId } = useAuth();
   const { updateUser } = useUser();
 
   const { data: recommendedOrgsData } = useApi<{
@@ -45,10 +50,13 @@ export default function CreateOrganization(): ReactElement {
         name: string;
         members: number;
         currentUserIsPending: boolean;
+        currentUserIsMember: boolean;
       }
     ];
   }>(showMultiOrgSelfSelector() ? `/user/getRecommendedOrgs` : null);
   const orgs = recommendedOrgsData?.organizations;
+  const joinableOrgs = orgs?.filter((org) => !org.currentUserIsMember);
+  const router = useRouter();
 
   useEffect(() => {
     if (orgs) {
@@ -72,8 +80,18 @@ export default function CreateOrganization(): ReactElement {
       track("Join Organization");
       updateUser();
       setLoading(false);
-      if (resp?.isPending && orgs) {
+      if (resp?.isPending) {
         org.currentUserIsPending = true;
+      } else {
+        if (setOrgId) {
+          setOrgId(org.id);
+        }
+        try {
+          localStorage.setItem("gb-last-picked-org", `"${org.id}"`);
+        } catch (e) {
+          console.warn("Cannot set gb-last-picked-org");
+        }
+        router.push("/");
       }
     } catch (e) {
       setError(e.message);
@@ -88,7 +106,7 @@ export default function CreateOrganization(): ReactElement {
   const showCreate =
     (isMultiOrg() && allowSelfOrgCreation()) || !data.hasOrganizations;
 
-  const showJoin = isMultiOrg() && showMultiOrgSelfSelector() && orgs;
+  const showJoin = isMultiOrg() && showMultiOrgSelfSelector() && joinableOrgs;
 
   const leftside = (
     <>
@@ -108,37 +126,37 @@ export default function CreateOrganization(): ReactElement {
     </>
   );
 
-  return (
-    <>
-      <WelcomeFrame leftside={leftside} loading={loading}>
-        <a
-          className="logout-link"
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            setLoading(true);
-            logout();
-          }}
-        >
-          <FiLogOut /> log out
-        </a>
+  const rightSide = (
+    <div
+      className="d-flex justify-content-center align-items-center"
+      style={{ height: "100%" }}
+    >
+      <div style={{ maxWidth: "800px" }}>
         {showCreate || showJoin ? (
           <>
             {mode === "join" && showJoin ? (
               <>
                 <div>
                   <h3>
-                    We found{" "}
-                    {orgs.length === 1
-                      ? "your organization"
-                      : "possible organizations for you"}{" "}
-                    on GrowthBook!
+                    {title
+                      ? title
+                      : `We found 
+                    ${
+                      orgs.length === 1
+                        ? "your organization"
+                        : "possible organizations for you"
+                    } 
+                    on GrowthBook!`}
                   </h3>
                   <p className="text-muted">
-                    Join your organization to get started.
+                    {joinableOrgs.length === 0
+                      ? "There are no other organizations that you are not already a member of."
+                      : subtitle
+                      ? subtitle
+                      : "Join your organization to get started."}
                   </p>
                 </div>
-                {orgs.map((org) => (
+                {joinableOrgs?.map((org) => (
                   <div key={org.id} className={`${style.recommendedOrgBox}`}>
                     <div className={`${style.recommendedOrgRow}`}>
                       <div className={style.recommendedOrgLogo}>
@@ -162,7 +180,11 @@ export default function CreateOrganization(): ReactElement {
                         onClick={() => {
                           joinOrgFormSubmit(org);
                         }}
-                        disabled={org.currentUserIsPending || false}
+                        disabled={
+                          org.currentUserIsPending ||
+                          org.currentUserIsMember ||
+                          false
+                        }
                       >
                         {org.currentUserIsPending ? "Pending" : "Join"}
                       </button>
@@ -211,8 +233,12 @@ export default function CreateOrganization(): ReactElement {
                   })}
                 >
                   <div>
-                    <h3 className="h2">Create organization</h3>
-                    <p className="text-muted">You can edit this at any time.</p>
+                    <h3 className="h2">
+                      Create {orgs ? "a new" : ""} organization
+                    </h3>
+                    <p className="text-muted">
+                      You can edit the name at any time.
+                    </p>
                   </div>
                   <Field
                     label="Company name"
@@ -250,8 +276,33 @@ export default function CreateOrganization(): ReactElement {
               GrowthBook.
             </div>
           </div>
-        )}
-      </WelcomeFrame>
-    </>
+        )}{" "}
+      </div>
+    </div>
   );
-}
+
+  if (showFrame) {
+    return (
+      <>
+        <WelcomeFrame leftside={leftside} loading={loading}>
+          <a
+            className="logout-link"
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setLoading(true);
+              logout();
+            }}
+          >
+            <FiLogOut /> log out
+          </a>
+          {rightSide}
+        </WelcomeFrame>
+      </>
+    );
+  } else {
+    return rightSide;
+  }
+};
+
+export default CreateOrganization;

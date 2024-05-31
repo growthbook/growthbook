@@ -229,11 +229,15 @@ export async function getRecommendedOrgs(req: AuthRequest, res: Response) {
         const currentUserIsPending = !!org?.pendingMembers?.find(
           (m) => m.id === user.id
         );
+        const currentUserIsMember = !!org?.members?.find(
+          (m) => m.id === user.id
+        );
         return {
           id: org.id,
           name: org.name,
           members: org?.members?.length || 0,
           currentUserIsPending,
+          currentUserIsMember,
         };
       }),
     });
