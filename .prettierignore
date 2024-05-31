@@ -4,3 +4,5 @@ public
 coverage
 *.py
 packages/shared/src/sdk-versioning/CAPABILITIES.md
+packages/back-end/src/validators/openapi.ts
+packages/back-end/types/openapi.d.ts

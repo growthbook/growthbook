@@ -94,6 +94,205 @@ export const postSavedGroup = async (
 
 // endregion POST /saved-groups
 
+// region GET /saved-groups/:id
+
+type GetSavedGroupRequest = AuthRequest<Record<string, never>, { id: string }>;
+
+type GetSavedGroupResponse = {
+  status: 200;
+  savedGroup: SavedGroupInterface;
+};
+
+/**
+ * GET /saved-groups/:id
+ * Fetch a saved-group resource
+ * @param req
+ * @param res
+ */
+export const getSavedGroup = async (
+  req: GetSavedGroupRequest,
+  res: Response<GetSavedGroupResponse>
+) => {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id } = req.params;
+
+  // TODO: do we need a permissions check
+  // if (false) {
+  //   context.permissions.throwPermissionError();
+  // }
+
+  if (!id) {
+    throw new Error("Must specify saved group id");
+  }
+
+  const savedGroup = await getSavedGroupById(id, org.id);
+
+  if (!savedGroup) {
+    throw new Error("Could not find saved group");
+  }
+
+  return res.status(200).json({
+    status: 200,
+    savedGroup,
+  });
+};
+
+// endregion GET /saved-groups/:id
+
+// region POST /saved-groups/:id/add-member/:mid
+
+type PostSavedGroupAddMemberRequest = AuthRequest<
+  Record<string, never>,
+  { id: string; mid: string }
+>;
+
+type PostSavedGroupAddMemberResponse = {
+  status: 200;
+};
+
+/**
+ * POST /saved-groups/:id/add-member/:mid
+ * Update one saved-group resource by adding the specified member
+ * @param req
+ * @param res
+ */
+export const postSavedGroupAddMember = async (
+  req: PostSavedGroupAddMemberRequest,
+  res: Response<PostSavedGroupAddMemberResponse | ApiErrorResponse>
+) => {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id, mid } = req.params;
+
+  if (!id) {
+    throw new Error("Must specify saved group id");
+  }
+
+  if (!context.permissions.canUpdateSavedGroup()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const savedGroup = await getSavedGroupById(id, org.id);
+
+  if (!savedGroup) {
+    throw new Error("Could not find saved group");
+  }
+
+  if (!mid) {
+    throw new Error("Must specify member id to add to group");
+  }
+
+  if (savedGroup.type !== "list") {
+    throw new Error("Can only add members to ID list saved groups");
+  }
+
+  let newValues = savedGroup.values || [];
+  if (!newValues.includes(mid)) {
+    newValues = newValues.concat([mid]);
+    const changes = await updateSavedGroupById(id, org.id, {
+      values: newValues,
+    });
+
+    const updatedSavedGroup = { ...savedGroup, ...changes };
+
+    await req.audit({
+      event: "savedGroup.updated",
+      entity: {
+        object: "savedGroup",
+        id: updatedSavedGroup.id,
+        name: savedGroup.groupName,
+      },
+      details: auditDetailsUpdate(savedGroup, updatedSavedGroup),
+    });
+
+    savedGroupUpdated(context, savedGroup.id);
+  }
+
+  return res.status(200).json({
+    status: 200,
+  });
+};
+
+// endregion POST /saved-groups/:id/add-member/:mid
+
+// region POST /saved-groups/:id/remove-member/:mid
+
+type PostSavedGroupRemoveMemberRequest = AuthRequest<
+  Record<string, never>,
+  { id: string; mid: string }
+>;
+
+type PostSavedGroupRemoveMemberResponse = {
+  status: 200;
+};
+
+/**
+ * POST /saved-groups/:id/remove-member/:mid
+ * Update one saved-group resource by removing the specified member
+ * @param req
+ * @param res
+ */
+export const postSavedGroupRemoveMember = async (
+  req: PostSavedGroupRemoveMemberRequest,
+  res: Response<PostSavedGroupRemoveMemberResponse | ApiErrorResponse>
+) => {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id, mid } = req.params;
+
+  if (!id) {
+    throw new Error("Must specify saved group id");
+  }
+
+  if (!context.permissions.canUpdateSavedGroup()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const savedGroup = await getSavedGroupById(id, org.id);
+
+  if (!savedGroup) {
+    throw new Error("Could not find saved group");
+  }
+
+  if (!mid) {
+    throw new Error("Must specify member id to remove from group");
+  }
+
+  if (savedGroup.type !== "list") {
+    throw new Error("Can only remove members from ID list saved groups");
+  }
+
+  const newValues = savedGroup.values || [];
+  const index = newValues.indexOf(mid);
+  if (index !== -1) {
+    newValues.splice(index, 1);
+    const changes = await updateSavedGroupById(id, org.id, {
+      values: newValues,
+    });
+
+    const updatedSavedGroup = { ...savedGroup, ...changes };
+
+    await req.audit({
+      event: "savedGroup.updated",
+      entity: {
+        object: "savedGroup",
+        id: updatedSavedGroup.id,
+        name: savedGroup.groupName,
+      },
+      details: auditDetailsUpdate(savedGroup, updatedSavedGroup),
+    });
+
+    savedGroupUpdated(context, savedGroup.id);
+  }
+
+  return res.status(200).json({
+    status: 200,
+  });
+};
+
+// endregion POST /saved-groups/:id/remove-member/:mid
+
 // region PUT /saved-groups/:id
 
 type PutSavedGroupRequest = AuthRequest<UpdateSavedGroupProps, { id: string }>;

@@ -5048,6 +5048,42 @@ export interface operations {
       };
     };
   };
+  postSavedGroupAddMember: {
+    /** Add a single member to a specified saved group */
+    parameters: {
+      path: {
+        /** @description The id of the requested resource */
+        id: string;
+        /** @description The id of the member to add to the saved group */
+        mid: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {};
+        };
+      };
+    };
+  };
+  postSavedGroupRemoveMember: {
+    /** Removes a single member from a specified saved group */
+    parameters: {
+      path: {
+        /** @description The id of the requested resource */
+        id: string;
+        /** @description The id of the member to remove from the saved group */
+        mid: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {};
+        };
+      };
+    };
+  };
   getSavedGroup: {
     /** Get a single saved group */
     parameters: {
@@ -6663,6 +6699,8 @@ export type PostVisualChangeResponse = operations["postVisualChange"]["responses
 export type PutVisualChangeResponse = operations["putVisualChange"]["responses"]["200"]["content"]["application/json"];
 export type ListSavedGroupsResponse = operations["listSavedGroups"]["responses"]["200"]["content"]["application/json"];
 export type PostSavedGroupResponse = operations["postSavedGroup"]["responses"]["200"]["content"]["application/json"];
+export type PostSavedGroupAddMemberResponse = operations["postSavedGroupAddMember"]["responses"]["200"]["content"]["application/json"];
+export type PostSavedGroupRemoveMemberResponse = operations["postSavedGroupRemoveMember"]["responses"]["200"]["content"]["application/json"];
 export type GetSavedGroupResponse = operations["getSavedGroup"]["responses"]["200"]["content"]["application/json"];
 export type UpdateSavedGroupResponse = operations["updateSavedGroup"]["responses"]["200"]["content"]["application/json"];
 export type DeleteSavedGroupResponse = operations["deleteSavedGroup"]["responses"]["200"]["content"]["application/json"];

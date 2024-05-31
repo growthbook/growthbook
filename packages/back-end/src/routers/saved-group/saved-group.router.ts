@@ -12,12 +12,50 @@ const router = express.Router();
 
 const savedGroupController = wrapController(rawSavedGroupController);
 
+router.get(
+  "/:id",
+  validateRequestMiddleware({
+    params: z
+      .object({
+        id: z.string(),
+      })
+      .strict(),
+  }),
+  savedGroupController.getSavedGroup
+);
+
 router.post(
   "/",
   validateRequestMiddleware({
     body: postSavedGroupBodyValidator,
   }),
   savedGroupController.postSavedGroup
+);
+
+router.post(
+  "/:id/add-member/:mid",
+  validateRequestMiddleware({
+    params: z
+      .object({
+        id: z.string(),
+        mid: z.string(),
+      })
+      .strict(),
+  }),
+  savedGroupController.postSavedGroupAddMember
+);
+
+router.post(
+  "/:id/remove-member/:mid",
+  validateRequestMiddleware({
+    params: z
+      .object({
+        id: z.string(),
+        mid: z.string(),
+      })
+      .strict(),
+  }),
+  savedGroupController.postSavedGroupRemoveMember
 );
 
 router.put(
