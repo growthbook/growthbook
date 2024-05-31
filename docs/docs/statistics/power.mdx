@@ -69,7 +69,7 @@ We provide guidance for effect size selection [here](#how-should-i-pick-my-effec
 Now we can see the results!
 ![metric and users input](/images/statistics/power_3.png)
 
-At the top of the page is a box called Analysis Settings. The summary here says, "Run experiment for 4 weeks to achieve 80% power for all metrics." This is the most important piece of information from power analysis. If running your experiment for 4 weeks is compatible with your business constraints, costs, and rollout timeframe, then you do not need to dive into the numbers below this statement. If you want to rerun power results with number of variations greater than 2, then click "# of Variations" and then click "Update". If you want to toggle on or off "Sequential Testing", then press the "Edit" button and select the appropriate option. Enabling sequential testing reduces power.
+At the top of the page is a box called Analysis Settings. The summary here says, "Run experiment for 4 weeks to achieve 80% power for all metrics." This is the most important piece of information from power analysis. If running your experiment for 4 weeks is compatible with your business constraints, costs, and rollout timeframe, then you do not need to dive into the numbers below this statement. If you want to rerun power results with number of variations greater than 2, then click "# of Variations" and then click "Update". The total traffic divided by number of variations should equal the smallest sample size in the experiment you plan to run. If you want to toggle on or off "Sequential Testing", then press the "Edit" button and select the appropriate option. Enabling sequential testing reduces power.
 
 Below "Analysis Settings" is "Calculated Sample Size and Runtime", which contains the number of weeks (or equivalently the number of users) needed to run your experiment to achieve 80% power by metric. Clicking on a row in the table causes the information in the box to the right to change. We expect 80% power for retention if we run the experiment for 2 weeks. For revenue, we need to run the experiment for 4 weeks to achieve at least 80% power.
 
@@ -126,7 +126,7 @@ Frequently asked questions:
 
 ## GrowthBook implementation (frequentist)
 
-Below we describe high-level technical details of our implementation. All technical details can be found [here](/Power.pdf).
+Below we describe high-level technical details of our implementation. All technical details can be found [here](/statistics/powerTechnical).
 
 Define:
 
@@ -135,7 +135,7 @@ Define:
 
 We make the following assumptions:
 
-1. equal sample sizes across control and treatment variations;
+1. equal sample sizes across control and treatment variations. If unequal sample sizes are used in the experiment, use the smaller of the two sample sizes. This will produce conservative power estimates.
 2. equal variance across control and treatment variations;
 3. observations across users are independent and identically distributed; and
 4. all metrics have finite variance.
@@ -151,7 +151,7 @@ In the 2-sided case there is no closed form solution, so we instead invert the e
 
 $$\pi = 1 - \Phi\left(Z_{1-\alpha/2}-\frac{\Delta}{\hat{\sigma}_{\Delta}}\right).$$
 
-Inverting this equation requires some care, as the uncertainty estimate $\hat{\sigma}_{\Delta}$ depends upon $\Delta$. Details can be found [here](/Power.pdf).
+Inverting this equation requires some care, as the uncertainty estimate $\hat{\sigma}_{\Delta}$ depends upon $\Delta$. Details can be found [here](/statistics/powerTechnical).
 
 To estimate power under [sequential testing](/statistics/sequential), we adjust the variance term $\hat{\sigma}_{\Delta}^{2}$ to account for sequential testing, and then input this adjusted variance into our power formula. We assume that you look at the data only once, so our power estimate below is a lower bound for the actual power under sequential testing.
 Otherwise we would have to make assumptions about the temporal correlation of the data generating process.
