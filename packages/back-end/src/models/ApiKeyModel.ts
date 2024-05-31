@@ -3,11 +3,7 @@ import { webcrypto } from "node:crypto";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
-import {
-  ApiKeyInterface,
-  PublishableApiKey,
-  SecretApiKey,
-} from "../../types/apikey";
+import { ApiKeyInterface, SecretApiKey } from "../../types/apikey";
 import {
   IS_MULTI_ORG,
   SECRET_API_KEY,
@@ -357,26 +353,6 @@ export async function getAllApiKeysByOrganization(
   return keys.filter((k) => {
     return context.permissions.canReadSingleProjectResource(k.project);
   });
-}
-
-export async function getFirstPublishableApiKey(
-  organization: string,
-  environment: string
-): Promise<null | PublishableApiKey> {
-  const doc = await ApiKeyModel.findOne(
-    {
-      organization,
-      environment,
-      secret: {
-        $ne: true,
-      },
-    },
-    { encryptionKey: 0 }
-  );
-
-  if (!doc) return null;
-
-  return toInterface(doc) as PublishableApiKey;
 }
 
 export async function getUnredactedSecretKey(

@@ -4,16 +4,16 @@ import {
 } from "../src/services/stats";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
-import { DifferenceType, StatsEngine } from "./stats";
+import { DifferenceType, RiskType, StatsEngine } from "./stats";
 import { Queries } from "./query";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-  MetricRegressionAdjustmentStatus,
+  LegacyMetricRegressionAdjustmentStatus,
 } from "./report";
 import { DimensionInterface } from "./dimension";
 import { AttributionModel } from "./experiment";
-import { MetricWindowSettings } from "./fact-table";
+import { MetricPriorSettings, MetricWindowSettings } from "./fact-table";
 
 export interface SnapshotMetric {
   value: number;
@@ -24,6 +24,7 @@ export interface SnapshotMetric {
   ciAdjusted?: [number, number];
   expected?: number;
   risk?: [number, number];
+  riskType?: RiskType;
   stats?: MetricStats;
   pValue?: number;
   pValueAdjusted?: number;
@@ -54,7 +55,7 @@ export type LegacyExperimentSnapshotInterface = ExperimentSnapshotInterface & {
   hasCorrectedStats?: boolean;
   results?: ExperimentReportResultDimension[];
   regressionAdjustmentEnabled?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  metricRegressionAdjustmentStatuses?: LegacyMetricRegressionAdjustmentStatus[];
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
   queryFilter?: string;
@@ -84,6 +85,9 @@ export interface MetricForSnapshot {
     regressionAdjustmentAvailable: boolean;
     regressionAdjustmentDays: number;
     regressionAdjustmentReason: string;
+    properPrior: boolean;
+    properPriorMean: number;
+    properPriorStdDev: number;
     windowSettings: MetricWindowSettings;
   };
 }
@@ -133,6 +137,7 @@ export interface ExperimentSnapshotSettings {
   goalMetrics: string[];
   guardrailMetrics: string[];
   activationMetric: string | null;
+  defaultMetricPriorSettings: MetricPriorSettings;
   regressionAdjustmentEnabled: boolean;
   attributionModel: AttributionModel;
   experimentId: string;

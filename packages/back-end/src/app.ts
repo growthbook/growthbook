@@ -120,7 +120,7 @@ if (SENTRY_DSN) {
   );
 }
 
-if (!process.env.NO_INIT) {
+if (!process.env.NO_INIT && process.env.NODE_ENV !== "test") {
   init();
 }
 
@@ -683,6 +683,7 @@ app.use("/teams", teamRouter);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
+app.put("/admin/organization", adminController.putOrganization);
 
 // License
 app.get("/license", licenseController.getLicenseData);

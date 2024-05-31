@@ -87,6 +87,7 @@ export const resolvers: Record<
   requireReviews: genDefaultResolver("requireReviews"),
   featureKeyExample: genDefaultResolver("featureKeyExample"),
   featureRegexValidator: genDefaultResolver("featureRegexValidator"),
+  // TODO prior resolvers
 };
 
 const scopeSettings = (

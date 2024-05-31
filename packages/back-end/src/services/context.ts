@@ -4,7 +4,6 @@ import type pino from "pino";
 import type { Request } from "express";
 import { CommercialFeature, orgHasPremiumFeature } from "enterprise";
 import {
-  MemberRole,
   OrganizationInterface,
   Permission,
   UserPermissions,
@@ -20,7 +19,7 @@ import { FactMetricModel } from "../models/FactMetricModel";
 import { ProjectModel } from "../models/ProjectModel";
 import { ProjectInterface } from "../../types/project";
 import { addTags, getAllTags } from "../models/TagModel";
-import { AuditInterface } from "../../types/audit";
+import { AuditInterfaceInput } from "../../types/audit";
 import { insertAudit } from "../models/AuditModel";
 import { logger } from "../util/logger";
 
@@ -43,7 +42,7 @@ export class ReqContextClass {
   public userName = "";
   public superAdmin = false;
   public teams: TeamInterface[] = [];
-  public role?: MemberRole;
+  public role?: string;
   public isApiRequest = false;
   public environments: string[];
   public auditUser: EventAuditUser;
@@ -71,7 +70,7 @@ export class ReqContextClass {
       superAdmin?: boolean;
     };
     apiKey?: string;
-    role?: MemberRole;
+    role?: string;
     teams?: TeamInterface[];
     auditUser: EventAuditUser;
     req?: Request;
@@ -153,9 +152,7 @@ export class ReqContextClass {
   }
 
   // Record an audit log entry
-  public async auditLog(
-    data: Omit<AuditInterface, "user" | "id" | "organization" | "dateCreated">
-  ) {
+  public async auditLog(data: AuditInterfaceInput) {
     const auditUser = this.userId
       ? {
           id: this.userId,

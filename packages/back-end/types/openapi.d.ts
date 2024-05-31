@@ -199,6 +199,18 @@ export interface paths {
     /** Edit a single organization (only for super admins on multi-org Enterprise Plan only) */
     put: operations["putOrganization"];
   };
+  "/environments": {
+    /** Get the organization's environments */
+    get: operations["listEnvironments"];
+    /** Create a new environment */
+    post: operations["postEnvironment"];
+  };
+  "/environments/${id}": {
+    /** Update an environment */
+    put: operations["putEnvironment"];
+    /** Deletes a single environment */
+    delete: operations["deleteEnvironment"];
+  };
   "/fact-tables": {
     /** Get all fact tables */
     get: operations["listFactTables"];
@@ -322,6 +334,17 @@ export interface components {
           /** @enum {string} */
           windowUnit?: "hours" | "days" | "weeks";
         };
+        /** @description Controls the bayesian prior for the metric. */
+        priorSettings?: {
+          /** @description If false, the organization default settings will be used instead of the other settings in this object */
+          override: boolean;
+          /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+          proper: boolean;
+          /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+          mean: number;
+          /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+          stddev: number;
+        };
         /** @deprecated */
         conversionWindowStart?: number;
         /** @deprecated */
@@ -374,6 +397,13 @@ export interface components {
       settings?: {
         statsEngine?: string;
       };
+    };
+    Environment: {
+      id: string;
+      description: string;
+      toggleOnList: boolean;
+      defaultState: boolean;
+      projects: (string)[];
     };
     Segment: {
       id: string;
@@ -3916,6 +3946,17 @@ export interface operations {
                     /** @enum {string} */
                     windowUnit?: "hours" | "days" | "weeks";
                   };
+                  /** @description Controls the bayesian prior for the metric. */
+                  priorSettings?: {
+                    /** @description If false, the organization default settings will be used instead of the other settings in this object */
+                    override: boolean;
+                    /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+                    proper: boolean;
+                    /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+                    mean: number;
+                    /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+                    stddev: number;
+                  };
                   /** @deprecated */
                   conversionWindowStart?: number;
                   /** @deprecated */
@@ -4045,6 +4086,17 @@ export interface operations {
              * @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
              */
             conversionWindowEnd?: number;
+            /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
+            priorSettings?: {
+              /** @description If false, the organization default settings will be used instead of the other settings in this object */
+              override: boolean;
+              /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+              proper: boolean;
+              /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+              mean: number;
+              /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+              stddev: number;
+            };
             /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
             riskThresholdSuccess?: number;
             /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
@@ -4145,6 +4197,17 @@ export interface operations {
                   windowValue?: number;
                   /** @enum {string} */
                   windowUnit?: "hours" | "days" | "weeks";
+                };
+                /** @description Controls the bayesian prior for the metric. */
+                priorSettings?: {
+                  /** @description If false, the organization default settings will be used instead of the other settings in this object */
+                  override: boolean;
+                  /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+                  proper: boolean;
+                  /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+                  mean: number;
+                  /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+                  stddev: number;
                 };
                 /** @deprecated */
                 conversionWindowStart?: number;
@@ -4252,6 +4315,17 @@ export interface operations {
                   windowValue?: number;
                   /** @enum {string} */
                   windowUnit?: "hours" | "days" | "weeks";
+                };
+                /** @description Controls the bayesian prior for the metric. */
+                priorSettings?: {
+                  /** @description If false, the organization default settings will be used instead of the other settings in this object */
+                  override: boolean;
+                  /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+                  proper: boolean;
+                  /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+                  mean: number;
+                  /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+                  stddev: number;
                 };
                 /** @deprecated */
                 conversionWindowStart?: number;
@@ -4379,6 +4453,17 @@ export interface operations {
              * @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
              */
             conversionWindowEnd?: number;
+            /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
+            priorSettings?: {
+              /** @description If false, the organization default settings will be used instead of the other settings in this object */
+              override: boolean;
+              /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+              proper: boolean;
+              /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+              mean: number;
+              /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+              stddev: number;
+            };
             /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
             riskThresholdSuccess?: number;
             /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
@@ -5031,6 +5116,112 @@ export interface operations {
       };
     };
   };
+  listEnvironments: {
+    /** Get the organization's environments */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            environments: ({
+                id: string;
+                description: string;
+                toggleOnList: boolean;
+                defaultState: boolean;
+                projects: (string)[];
+              })[];
+          };
+        };
+      };
+    };
+  };
+  postEnvironment: {
+    /** Create a new environment */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The ID of the new environment */
+          id: string;
+          /** @description The description of the new environment */
+          description?: string;
+          /** @description Show toggle on feature list */
+          toggleOnList?: any;
+          /** @description Default state for new features */
+          defaultState?: any;
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            environment: {
+              id: string;
+              description: string;
+              toggleOnList: boolean;
+              defaultState: boolean;
+              projects: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  putEnvironment: {
+    /** Update an environment */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The description of the new environment */
+          description?: string;
+          /** @description Show toggle on feature list */
+          toggleOnList?: boolean;
+          /** @description Default state for new features */
+          defaultState?: boolean;
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            environment: {
+              id: string;
+              description: string;
+              toggleOnList: boolean;
+              defaultState: boolean;
+              projects: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteEnvironment: {
+    /** Deletes a single environment */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
   listFactTables: {
     /** Get all fact tables */
     parameters: {
@@ -5636,6 +5827,17 @@ export interface operations {
             /** @enum {string} */
             windowUnit?: "hours" | "days" | "weeks";
           };
+          /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
+          priorSettings?: {
+            /** @description If false, the organization default settings will be used instead of the other settings in this object */
+            override: boolean;
+            /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+            proper: boolean;
+            /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+            mean: number;
+            /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+            stddev: number;
+          };
           /** @description Controls the regression adjustment (CUPED) settings for the metric */
           regressionAdjustmentSettings?: {
             /** @description If false, the organization default settings will be used */
@@ -6155,6 +6357,17 @@ export interface operations {
                   /** @enum {string} */
                   windowUnit?: "hours" | "days" | "weeks";
                 };
+                /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
+                priorSettings?: {
+                  /** @description If false, the organization default settings will be used instead of the other settings in this object */
+                  override: boolean;
+                  /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+                  proper: boolean;
+                  /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+                  mean: number;
+                  /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+                  stddev: number;
+                };
                 /** @description Controls the regression adjustment (CUPED) settings for the metric */
                 regressionAdjustmentSettings?: {
                   /** @description If false, the organization default settings will be used */
@@ -6233,6 +6446,7 @@ export type ApiPaginationFields = components["schemas"]["PaginationFields"];
 export type ApiDimension = components["schemas"]["Dimension"];
 export type ApiMetric = components["schemas"]["Metric"];
 export type ApiProject = components["schemas"]["Project"];
+export type ApiEnvironment = components["schemas"]["Environment"];
 export type ApiSegment = components["schemas"]["Segment"];
 export type ApiFeature = components["schemas"]["Feature"];
 export type ApiFeatureEnvironment = components["schemas"]["FeatureEnvironment"];
@@ -6299,6 +6513,10 @@ export type DeleteSavedGroupResponse = operations["deleteSavedGroup"]["responses
 export type ListOrganizationsResponse = operations["listOrganizations"]["responses"]["200"]["content"]["application/json"];
 export type PostOrganizationResponse = operations["postOrganization"]["responses"]["200"]["content"]["application/json"];
 export type PutOrganizationResponse = operations["putOrganization"]["responses"]["200"]["content"]["application/json"];
+export type ListEnvironmentsResponse = operations["listEnvironments"]["responses"]["200"]["content"]["application/json"];
+export type PostEnvironmentResponse = operations["postEnvironment"]["responses"]["200"]["content"]["application/json"];
+export type PutEnvironmentResponse = operations["putEnvironment"]["responses"]["200"]["content"]["application/json"];
+export type DeleteEnvironmentResponse = operations["deleteEnvironment"]["responses"]["200"]["content"]["application/json"];
 export type ListFactTablesResponse = operations["listFactTables"]["responses"]["200"]["content"]["application/json"];
 export type PostFactTableResponse = operations["postFactTable"]["responses"]["200"]["content"]["application/json"];
 export type GetFactTableResponse = operations["getFactTable"]["responses"]["200"]["content"]["application/json"];

@@ -1,16 +1,14 @@
 ---
 title: Visual Editor
-description: Learn about our visual editor currently in beta
+description: Learn about our visual editor
 sidebar_label: Visual Editor
 id: visual-editor
 slug: /app/visual
 ---
 
-import Pill from '@site/src/components/Pill';
-
 # Visual Editor 2.0
 
-With the Visual Editor, users can design A/B tests on their site directly in their browser, run them in production, and analyze results, all without writing a single line of code. To use the Visual Editor, a software developer will need to integrate either our [JavaScript](/lib/js) or [ReactJS](/lib/react) SDK with your application.
+With the Visual Editor, users can design A/B tests on their site directly in their browser, run them in production, and analyze results, all without writing a single line of code. To use the Visual Editor, a software developer will need to integrate GrowthBook's [JavaScript](/lib/js) SDK, [ReactJS](/lib/react) SDK, or [HTML](/lib/script-tag) SDK with your application.
 
 In March 2023, we released version 2.0 of our Visual Editor, which had many improvements.
 
@@ -202,7 +200,7 @@ Content-Security-Policy: script-src 'self' 'unsafe-inline' 'unsafe-eval';
 
 As an alternative to allowing `unsafe-inline`, we support "nonces", although this requires some very technical and custom configuration to hook up.
 
-First, you will need to generate a unique nonce value for every request and add it to your CSP header. This can be done on the edge such as with a CloudFlare Worker.
+First, you will need to generate a unique nonce value for every request and add it to your CSP header. This can be done on the edge such as with a Cloudflare Worker.
 
 Then, you will need to pass this nonce into your GrowthBook SDK as `jsInjectionNonce`.
 

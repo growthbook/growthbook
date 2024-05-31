@@ -65,7 +65,6 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
           close={() => setOpen(false)}
           onCreate={mutate}
           type={modalApiKeyType}
-          secret={true}
         />
       )}
 

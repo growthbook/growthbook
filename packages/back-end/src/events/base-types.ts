@@ -47,4 +47,8 @@ export type NotificationEventPayload<
   object: ResourceType;
   data: DataType;
   user: EventAuditUser;
+  projects: string[];
+  tags: string[];
+  environments: string[];
+  containsSecrets: boolean;
 };

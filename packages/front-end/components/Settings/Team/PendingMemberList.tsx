@@ -9,6 +9,7 @@ import { useEnvironments } from "@/services/features";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
+import { useUser } from "@/services/UserContext";
 
 const PendingMemberList: FC<{
   pendingMembers: PendingMember[];
@@ -21,6 +22,7 @@ const PendingMemberList: FC<{
   );
   const { projects } = useDefinitions();
   const environments = useEnvironments();
+  const { organization } = useUser();
 
   return (
     <div className="my-4">
@@ -97,7 +99,11 @@ const PendingMemberList: FC<{
                   </td>
                 )}
                 {environments.map((env) => {
-                  const access = roleHasAccessToEnv(roleInfo, env.id);
+                  const access = roleHasAccessToEnv(
+                    roleInfo,
+                    env.id,
+                    organization
+                  );
                   return (
                     <td key={env.id}>
                       {access === "N/A" ? (

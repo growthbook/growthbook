@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import trimEnd from "lodash/trimEnd";
 import { stringToBoolean } from "shared/util";
 import { DEFAULT_METRIC_WINDOW_HOURS } from "shared/constants";
+import { z } from "zod";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";
@@ -191,11 +192,24 @@ export const PROXY_HOST_PUBLIC = process.env.PROXY_HOST_PUBLIC || "";
 
 // global webhooks
 const webhooksString = process.env.WEBHOOKS;
-let webhooks = [];
+const webhooksValidator = z.array(
+  z
+    .object({
+      url: z.string(),
+      headers: z.unknown().optional(),
+      signingKey: z.string().optional(),
+      method: z.enum(["GET", "POST", "PUT", "DELETE", "PURGE"]).optional(),
+      sendPayload: z.boolean().optional(),
+    })
+    .strict()
+);
+let webhooks: z.infer<typeof webhooksValidator> = [];
 try {
-  webhooks = webhooksString ? JSON.parse(webhooksString) : [];
+  webhooks = webhooksString
+    ? webhooksValidator.parse(JSON.parse(webhooksString))
+    : [];
 } catch (error) {
-  throw Error(`webhooks in env file is malformed: ${webhooksString}`);
+  throw Error(`webhooks in env file is malformed: ${error.message}`);
 }
 export const WEBHOOKS = webhooks;
 

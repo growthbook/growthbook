@@ -7,9 +7,22 @@ import {
   getEffectiveAccountPlan,
   getLicense,
   getLicenseError,
-  orgHasPremiumFeature,
 } from "enterprise";
 import { experimentHasLinkedChanges } from "shared/util";
+import {
+  getRoles,
+  areProjectRolesValid,
+  isRoleValid,
+  getDefaultRole,
+} from "shared/permissions";
+import {
+  UpdateSdkWebhookProps,
+  deleteLegacySdkWebhookById,
+  deleteSdkWebhookById,
+  findAllLegacySdkWebhooks,
+  findSdkWebhookById,
+  updateSdkWebhook,
+} from "../../models/WebhookModel";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -39,11 +52,11 @@ import { getAllTags } from "../../models/TagModel";
 import {
   Environment,
   Invite,
-  MemberRole,
   MemberRoleWithProjects,
   NamespaceUsage,
   OrganizationInterface,
   OrganizationSettings,
+  Role,
   SDKAttribute,
 } from "../../../types/organization";
 import {
@@ -70,8 +83,6 @@ import {
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import { getAllSavedGroups } from "../../models/SavedGroupModel";
 import { getMetricsByOrganization } from "../../models/MetricModel";
-import { WebhookModel, countWebhooksByOrg } from "../../models/WebhookModel";
-import { createWebhook, createSdkWebhook } from "../../services/webhooks";
 import {
   createOrganization,
   findOrganizationByInviteKey,
@@ -79,28 +90,25 @@ import {
   findOrganizationsByMemberId,
   hasOrganization,
   updateOrganization,
+  addCustomRole,
+  editCustomRole,
+  removeCustomRole,
+  addGetStartedChecklistItem,
 } from "../../models/OrganizationModel";
 import { ConfigFile } from "../../init/config";
-import { WebhookInterface, WebhookMethod } from "../../../types/webhook";
 import { ExperimentRule, NamespaceValue } from "../../../types/feature";
 import { usingOpenId } from "../../services/auth";
 import { getSSOConnectionSummary } from "../../models/SSOConnectionModel";
 import {
-  createLegacySdkKey,
   createOrganizationApiKey,
   createUserPersonalAccessApiKey,
   deleteApiKeyById,
   deleteApiKeyByKey,
   getAllApiKeysByOrganization,
   getApiKeyByIdOrKey,
-  getFirstPublishableApiKey,
   getUnredactedSecretKey,
 } from "../../models/ApiKeyModel";
-import {
-  getDefaultRole,
-  getRoles,
-  getUserPermissions,
-} from "../../util/organization.util";
+import { getUserPermissions } from "../../util/organization.util";
 import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
 import {
   getAllExperiments,
@@ -117,9 +125,12 @@ import { EntityType } from "../../types/Audit";
 import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { TeamInterface } from "../../../types/team";
-import { queueSingleWebhookById } from "../../jobs/sdkWebhooks";
+import { fireSdkWebhook } from "../../jobs/sdkWebhooks";
 import { initializeLicenseForOrg } from "../../services/licenseData";
-import { findSDKConnectionsByOrganization } from "../../models/SdkConnectionModel";
+import {
+  findSDKConnectionsByIds,
+  findSDKConnectionsByOrganization,
+} from "../../models/SdkConnectionModel";
 import { triggerSingleSDKWebhookJobs } from "../../jobs/updateAllJobs";
 import { SDKConnectionInterface } from "../../../types/sdk-connection";
 
@@ -317,6 +328,13 @@ export async function putMemberRole(
     return res.status(400).json({
       status: 400,
       message: "Cannot change your own role",
+    });
+  }
+
+  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid role",
     });
   }
 
@@ -565,6 +583,13 @@ export async function putInviteRole(
   const { key } = req.params;
   const originalInvites: Invite[] = cloneDeep(org.invites);
 
+  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid role",
+    });
+  }
+
   let found = false;
 
   org.invites.forEach((m) => {
@@ -708,6 +733,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       freeTrialDate: org.freeTrialDate,
       discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
+      customRoles: org.customRoles,
       settings: {
         ...settings,
         attributeSchema: filteredAttributes,
@@ -717,6 +743,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       members: org.members,
       messages: messages || [],
       pendingMembers: org.pendingMembers,
+      getStartedChecklistItems: org.getStartedChecklistItems,
     },
     seatsInUse,
   });
@@ -964,7 +991,7 @@ export async function deleteNamespace(
 
 export async function getInviteInfo(
   req: AuthRequest<unknown, { key: string }>,
-  res: ResponseWithStatusAndError<{ organization: string; role: MemberRole }>
+  res: ResponseWithStatusAndError<{ organization: string; role: string }>
 ) {
   const { key } = req.params;
 
@@ -1042,6 +1069,14 @@ export async function postInvite(
     environments,
     projectRoles,
   } = req.body;
+
+  // Make sure role is valid
+  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid role",
+    });
+  }
 
   const license = getLicense();
   if (
@@ -1378,7 +1413,7 @@ export async function putOrganization(
         connection.proxy.enabled && connection.proxy.host
       );
       await triggerSingleSDKWebhookJobs(
-        org.id,
+        context,
         connection,
         {},
         connection.proxy,
@@ -1472,57 +1507,13 @@ export async function getApiKeys(req: AuthRequest, res: Response) {
 export async function postApiKey(
   req: AuthRequest<{
     description?: string;
-    environment: string;
-    project: string;
     type: string;
-    secret: boolean;
-    encryptSDK: boolean;
   }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
-  const {
-    description = "",
-    environment = "",
-    project = "",
-    secret = false,
-    encryptSDK,
-    type,
-  } = req.body;
-
-  const { preferExisting } = req.query as { preferExisting?: string };
-  if (preferExisting) {
-    if (secret) {
-      throw new Error("Cannot use 'preferExisting' for secret API keys");
-    }
-    const existing = await getFirstPublishableApiKey(org.id, environment);
-    if (existing) {
-      return res.status(200).json({
-        status: 200,
-        key: existing,
-      });
-    }
-  }
-
-  // Only require permissions if we are creating a new API key
-  if (secret) {
-    if (type !== "user") {
-      // All access token types except `user` require the permission
-      if (!context.permissions.canCreateApiKey()) {
-        context.permissions.throwPermissionError();
-      }
-    }
-  } else {
-    if (
-      !context.permissions.canCreateSDKConnection({
-        projects: [project],
-        environment,
-      })
-    ) {
-      context.permissions.throwPermissionError();
-    }
-  }
+  const { description = "", type } = req.body;
 
   // Handle user personal access tokens
   if (type === "user") {
@@ -1542,9 +1533,12 @@ export async function postApiKey(
       key,
     });
   }
-
   // Handle organization secret tokens
-  if (secret) {
+  else {
+    if (!context.permissions.canCreateApiKey()) {
+      context.permissions.throwPermissionError();
+    }
+
     if (type && !["readonly", "admin"].includes(type)) {
       throw new Error("can only assign readonly or admin roles");
     }
@@ -1560,20 +1554,6 @@ export async function postApiKey(
       key,
     });
   }
-
-  // Handle legacy SDK connection
-  const key = await createLegacySdkKey({
-    description,
-    environment,
-    project,
-    organizationId: org.id,
-    encryptSDK,
-  });
-
-  res.status(200).json({
-    status: 200,
-    key,
-  });
 }
 
 export async function deleteApiKey(
@@ -1666,12 +1646,9 @@ export async function postApiKeyReveal(
   });
 }
 
-export async function getWebhooks(req: AuthRequest, res: Response) {
+export async function getLegacyWebhooks(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
-  const webhooks = await WebhookModel.find({
-    organization: context.org.id,
-    useSdkMode: { $ne: true },
-  });
+  const webhooks = await findAllLegacySdkWebhooks(context);
 
   res.status(200).json({
     status: 200,
@@ -1681,180 +1658,103 @@ export async function getWebhooks(req: AuthRequest, res: Response) {
   });
 }
 
-export async function getWebhooksSDK(
-  req: AuthRequest<Record<string, unknown>, { sdkid: string }>,
-  res: Response
-) {
-  const { org } = getContextFromReq(req);
-  const { sdkid } = req.params;
-  const webhooks = await WebhookModel.find({
-    organization: org.id,
-    useSdkMode: true,
-    sdks: { $in: sdkid },
-  });
-  res.status(200).json({
-    status: 200,
-    webhooks,
-  });
-}
-
-export async function postWebhook(
-  req: AuthRequest<{
-    name: string;
-    endpoint: string;
-    project?: string;
-    environment: string;
-  }>,
-  res: Response
-) {
-  const context = getContextFromReq(req);
-
-  if (!context.permissions.canCreateSDKWebhook()) {
-    context.permissions.throwPermissionError();
-  }
-  const { name, endpoint, project, environment } = req.body;
-
-  const webhook = await createWebhook({
-    organization: context.org.id,
-    name,
-    endpoint,
-    project,
-    environment,
-  });
-
-  res.status(200).json({
-    status: 200,
-    webhook,
-  });
-}
-export async function getTestWebhook(
+export async function testSDKWebhook(
   req: AuthRequest<Record<string, unknown>, { id: string }>,
   res: Response
 ) {
   const webhookId = req.params.id;
-  await queueSingleWebhookById(webhookId);
-  res.status(200).json({
-    status: 200,
-  });
-}
-export async function postWebhookSDK(
-  req: AuthRequest<{
-    name: string;
-    endpoint: string;
-    sdkid: string;
-    sendPayload: boolean;
-    headers?: string;
-    httpMethod: WebhookMethod;
-  }>,
-  res: Response
-) {
+
   const context = getContextFromReq(req);
-  const { org } = context;
-
-  if (!context.permissions.canCreateSDKWebhook()) {
-    context.permissions.throwPermissionError();
-  }
-  const { name, endpoint, sdkid, sendPayload, headers, httpMethod } = req.body;
-  const webhookcount = await countWebhooksByOrg(org.id);
-  const canAddMultipleSdkWebhooks = orgHasPremiumFeature(
-    org,
-    "multiple-sdk-webhooks"
-  );
-  if (!canAddMultipleSdkWebhooks && webhookcount > 0) {
-    throw new Error("your webhook limit has been reached");
-  }
-
-  const webhook = await createSdkWebhook({
-    organization: org.id,
-    name,
-    endpoint,
-    sdkid,
-    sendPayload,
-    headers: headers || "",
-    httpMethod,
-  });
-  return res.status(200).json({
-    status: 200,
-    webhook,
-  });
-}
-
-export async function putWebhook(
-  req: AuthRequest<WebhookInterface, { id: string }>,
-  res: Response
-) {
-  const context = getContextFromReq(req);
-
-  if (!context.permissions.canUpdateSDKWebhook()) {
-    context.permissions.throwPermissionError();
-  }
-
-  const { id } = req.params;
-  const { name, endpoint, project, environment } = req.body;
-  const webhook = await WebhookModel.findOne({
-    id,
-  });
-
+  const webhook = await findSdkWebhookById(context, webhookId);
   if (!webhook) {
     throw new Error("Could not find webhook");
   }
-  if (webhook.organization !== context.org.id) {
-    throw new Error("You don't have access to that webhook");
+
+  const conns = await findSDKConnectionsByIds(context, webhook.sdks);
+  if (!conns.length) {
+    throw new Error("Could not find any SDK connection tied to this webhook");
   }
 
-  if (!name || !endpoint) {
-    throw new Error("Missing required properties");
-  }
-
-  webhook.set("name", name);
-  webhook.set("endpoint", endpoint);
-  webhook.set("project", project || "");
-  webhook.set("environment", environment || "");
-  if (webhook.useSdkMode) queueSingleWebhookById(webhook.id);
-  await webhook.save();
-
-  res.status(200).json({
-    status: 200,
-    webhook,
-  });
-}
-
-export async function deleteWebhook(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
-  const context = getContextFromReq(req);
-
-  if (!context.permissions.canDeleteSDKWebhook()) {
+  if (!conns.every((c) => context.permissions.canUpdateSDKWebhook(c))) {
     context.permissions.throwPermissionError();
   }
-  const { id } = req.params;
 
-  await WebhookModel.deleteOne({
-    organization: context.org.id,
-    id,
+  await fireSdkWebhook(context, webhook).catch(() => {
+    // Do nothing, already being logged in Mongo
   });
-
   res.status(200).json({
     status: 200,
   });
 }
 
-export async function deleteWebhookSDK(
+export async function putSDKWebhook(
+  req: AuthRequest<UpdateSdkWebhookProps, { id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+
+  const { id } = req.params;
+  const webhook = await findSdkWebhookById(context, id);
+  if (!webhook) {
+    throw new Error("Could not find webhook");
+  }
+
+  const conns = await findSDKConnectionsByIds(context, webhook.sdks);
+  if (!conns.length) {
+    throw new Error("Could not find any SDK connection tied to this webhook");
+  }
+
+  if (!conns.every((c) => context.permissions.canUpdateSDKWebhook(c))) {
+    context.permissions.throwPermissionError();
+  }
+
+  const updatedWebhook = await updateSdkWebhook(context, webhook, req.body);
+
+  // Fire the webhook now that it has changed
+  fireSdkWebhook(context, updatedWebhook).catch(() => {
+    // Do nothing, already being logged in Mongo
+  });
+  res.status(200).json({
+    status: 200,
+    webhook: updatedWebhook,
+  });
+}
+
+export async function deleteLegacyWebhook(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canDeleteSDKWebhook()) {
+  if (!context.permissions.canManageLegacySDKWebhooks()) {
     context.permissions.throwPermissionError();
   }
   const { id } = req.params;
+  await deleteLegacySdkWebhookById(context, id);
 
-  await WebhookModel.deleteOne({
-    organization: context.org.id,
-    id,
+  res.status(200).json({
+    status: 200,
   });
+}
+
+export async function deleteSDKWebhook(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  const webhook = await findSdkWebhookById(context, id);
+  if (webhook) {
+    // It's ok if conns is empty here
+    // We still want to allow deleting orphaned webhooks
+    const conns = await findSDKConnectionsByIds(context, webhook.sdks);
+    if (!conns.every((c) => context.permissions.canDeleteSDKWebhook(c))) {
+      context.permissions.throwPermissionError();
+    }
+  }
+
+  await deleteSdkWebhookById(context, id);
 
   res.status(200).json({
     status: 200,
@@ -1973,6 +1873,14 @@ export async function addOrphanedUser(
     return res.status(400).json({
       status: 400,
       message: "Cannot add users who are already part of an organization",
+    });
+  }
+
+  // Make sure role is valid
+  if (!isRoleValid(role, org) || !areProjectRolesValid(projectRoles, org)) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid role",
     });
   }
 
@@ -2096,25 +2004,18 @@ export async function putAdminResetUserPassword(
   });
 }
 
-async function setLicenseKey(org: OrganizationInterface, licenseKey: string) {
+export async function setLicenseKey(
+  org: OrganizationInterface,
+  licenseKey: string
+) {
   if (!IS_CLOUD && IS_MULTI_ORG) {
     throw new Error(
       "You must use the LICENSE_KEY environmental variable on multi org sites."
     );
   }
 
-  try {
-    org.licenseKey = licenseKey;
-    await initializeLicenseForOrg(org, true);
-  } catch (error) {
-    // As we show this error on the front-end, show a more generic invalid license key error
-    // if the error is not related to being able to connect to the license server
-    if (error.message.includes("Could not connect")) {
-      throw new Error(error?.message);
-    } else {
-      throw new Error("Invalid license key");
-    }
-  }
+  org.licenseKey = licenseKey;
+  await initializeLicenseForOrg(org, true);
 }
 
 export async function putLicenseKey(
@@ -2154,7 +2055,7 @@ export async function putLicenseKey(
 }
 
 export async function putDefaultRole(
-  req: AuthRequest<{ defaultRole: MemberRole }>,
+  req: AuthRequest<{ defaultRole: string }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
@@ -2167,6 +2068,10 @@ export async function putDefaultRole(
     throw new Error(
       "Must have a commercial License Key to update the organization's default role."
     );
+  }
+
+  if (!isRoleValid(defaultRole, org)) {
+    throw new Error("Invalid role");
   }
 
   if (!context.permissions.canManageTeam()) {
@@ -2183,6 +2088,111 @@ export async function putDefaultRole(
       },
     },
   });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function putGetStartedChecklistItem(
+  req: AuthRequest<{
+    checklistItem: string;
+    project: string;
+  }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { checklistItem, project } = req.body;
+
+  if (checklistItem !== "environments" && checklistItem !== "attributes") {
+    throw new Error("Unexpected Get Started checklist item.");
+  }
+
+  if (
+    checklistItem === "environments" &&
+    !context.permissions.canCreateOrUpdateEnvironment({
+      id: "",
+      projects: [project],
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (
+    checklistItem === "attributes" &&
+    !context.permissions.canCreateAttribute({
+      projects: [project],
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  addGetStartedChecklistItem(org.id, checklistItem);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postCustomRole(req: AuthRequest<Role>, res: Response) {
+  const context = getContextFromReq(req);
+  const roleToAdd = req.body;
+
+  if (!context.hasPremiumFeature("custom-roles")) {
+    throw new Error("Must have an Enterprise License Key to use custom roles.");
+  }
+
+  if (!context.permissions.canManageCustomRoles()) {
+    context.permissions.throwPermissionError();
+  }
+
+  await addCustomRole(context.org, roleToAdd);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function putCustomRole(
+  req: AuthRequest<Omit<Role, "id">, { id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const roleToUpdate = req.body;
+  const { id } = req.params;
+
+  if (!context.hasPremiumFeature("custom-roles")) {
+    throw new Error("Must have an Enterprise License Key to use custom roles.");
+  }
+
+  if (!context.permissions.canManageCustomRoles()) {
+    context.permissions.throwPermissionError();
+  }
+
+  await editCustomRole(context.org, id, roleToUpdate);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function deleteCustomRole(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  if (!context.hasPremiumFeature("custom-roles")) {
+    throw new Error("Must have an Enterprise License Key to use custom roles.");
+  }
+
+  if (!context.permissions.canManageCustomRoles()) {
+    context.permissions.throwPermissionError();
+  }
+
+  await removeCustomRole(context.org, context.teams, id);
 
   res.status(200).json({
     status: 200,

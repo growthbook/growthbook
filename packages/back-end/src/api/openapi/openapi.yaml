@@ -60,6 +60,12 @@ tags:
   - name: projects
     x-displayName: Projects
     description: Projects are used to organize your feature flags and experiments
+  - name: environments
+    x-displayName: Environments
+    description: GrowthBook comes with one environment by default (production),
+                 but you can add as many as you need. When used with feature
+                 flags, you can enable/disable feature flags on a per-environment
+                 basis.
   - name: features
     x-displayName: Feature Flags
     description: Control your feature flags programatically
@@ -198,6 +204,16 @@ paths:
   /organizations/{id}:
     put:
       $ref: "./paths/putOrganization.yaml"
+  /environments:
+    get:
+      $ref: "./paths/listEnvironments.yaml"
+    post:
+      $ref: "./paths/postEnvironment.yaml"
+  /environments/${id}:
+    put:
+      $ref: "./paths/putEnvironment.yaml"
+    delete:
+      $ref: "./paths/deleteEnvironment.yaml"
   /fact-tables:
     get:
       $ref: "./paths/listFactTables.yaml"

@@ -12,6 +12,7 @@ import ClickToCopy from "@/components/Settings/ClickToCopy";
 type MetricOption = {
   id: string;
   name: string;
+  description: string;
   datasource: string;
   tags: string[];
   projects: string[];
@@ -105,6 +106,7 @@ const MetricsSelector: FC<{
     ...metrics.map((m) => ({
       id: m.id,
       name: m.name,
+      description: m.description || "",
       datasource: m.datasource || "",
       tags: m.tags || [],
       projects: m.projects || [],
@@ -115,6 +117,7 @@ const MetricsSelector: FC<{
       ? factMetrics.map((m) => ({
           id: m.id,
           name: m.name,
+          description: m.description || "",
           datasource: m.datasource,
           tags: m.tags || [],
           projects: m.projects || [],
@@ -169,12 +172,17 @@ const MetricsSelector: FC<{
           return {
             value: m.id,
             label: m.name,
+            tooltip: m.description,
           };
         })}
         placeholder="Select metrics..."
         autoFocus={autoFocus}
-        formatOptionLabel={({ value, label }) => {
-          return value ? <MetricName id={value} /> : label;
+        formatOptionLabel={({ value, label }, { context }) => {
+          return value ? (
+            <MetricName id={value} showDescription={context !== "value"} />
+          ) : (
+            label
+          );
         }}
         onPaste={(e) => {
           try {

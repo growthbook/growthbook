@@ -1,0 +1,46 @@
+tags:
+  - environments
+summary: Create a new environment
+operationId: postEnvironment
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X POST https://api.growthbook.io/api/v1/environments \
+         -d '{"id": "new-env", "description": "My new environment" }' \
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        required:
+          - id
+        properties:
+          id:
+            type: string
+            description: The ID of the new environment
+          description:
+            type: string
+            description: The description of the new environment
+          toggleOnList:
+            type: bool
+            description: Show toggle on feature list
+          defaultState:
+            type: bool
+            description: Default state for new features
+          projects:
+            type: array
+            items:
+              type: string
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - environment
+          properties:
+            environment:
+              $ref: "../schemas/Environment.yaml"

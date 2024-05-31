@@ -135,7 +135,6 @@
         "./packages/front-end/components/Queries/RunQueriesButton.tsx",
         "./packages/front-end/components/Segments/PickSegmentModal.tsx",
         "./packages/front-end/components/Settings/UpgradeModal.tsx",
-        "./packages/front-end/components/Settings/VisualEditorInstructions.tsx",
         "./packages/front-end/components/Share/ShareModal.tsx",
         "./packages/front-end/components/Tabs/ControlledTabs.tsx",
         "./packages/front-end/components/TempMessage.tsx",

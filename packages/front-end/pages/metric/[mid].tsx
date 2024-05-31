@@ -68,6 +68,7 @@ import PageHead from "@/components/Layout/PageHead";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -114,6 +115,7 @@ const MetricPage: FC = () => {
   }>(`/metric/${mid}`);
 
   const {
+    metricDefaults,
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
@@ -340,8 +342,8 @@ const MetricPage: FC = () => {
               method: "PUT",
               body: JSON.stringify({ owner }),
             });
-            mutate();
           }}
+          mutate={mutate}
         />
       )}
       {segmentOpen && (
@@ -1293,15 +1295,17 @@ const MetricPage: FC = () => {
                 </ul>
               </RightRailSectionGroup>
 
+              <MetricPriorRightRailSectionGroup
+                metric={metric}
+                metricDefaults={metricDefaults}
+              />
+
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-2">
                   <li className="mt-3 mb-2">
                     <span className="uppercase-title lg">
                       <GBCuped size={14} /> Regression Adjustment (CUPED)
                     </span>
-                    <small className="d-block mb-1 text-muted">
-                      Only applicable to frequentist analyses
-                    </small>
                   </li>
                   {!regressionAdjustmentAvailableForMetric ? (
                     <li className="mb-2">
