@@ -142,6 +142,8 @@ const ExperimentsPage = (): React.ReactElement => {
         if (item.results === "won") is.push("winner");
         if (item.results === "lost") is.push("loser");
         if (item.results === "inconclusive") is.push("inconclusive");
+        if (item.hasVisualChangesets) is.push("visual");
+        if (item.hasURLRedirects) is.push("redirect");
         return is;
       },
       has: (item) => {
