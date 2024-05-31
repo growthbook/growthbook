@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import { isEqual } from "lodash";
 import { validateCondition } from "shared/util";
-import { logger } from "@back-end/src/util/logger";
+import { logger } from "../../util/logger";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getContextFromReq } from "../../services/organizations";

@@ -1,6 +1,6 @@
 import { isEqual } from "lodash";
 import { validateCondition } from "shared/util";
-import { logger } from "@back-end/src/util/logger";
+import { logger } from "../../util/logger";
 import { UpdateSavedGroupResponse } from "../../../types/openapi";
 import {
   getSavedGroupById,
