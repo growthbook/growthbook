@@ -29,10 +29,8 @@ import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useDefinitions } from "@/services/DefinitionsContext";
 
 const ExperimentPage = (): ReactElement => {
-  const { projects } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
   const { eid } = router.query;

@@ -83,7 +83,6 @@ const MetricPage: FC = () => {
     getMetricById,
     metrics,
     segments,
-    projects,
   } = useDefinitions();
   const settings = useOrgSettings();
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);

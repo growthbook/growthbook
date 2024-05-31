@@ -71,7 +71,6 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -117,7 +116,6 @@ export default function FeaturesOverview({
   dependentFeatures: string[];
   dependentExperiments: ExperimentInterfaceStringDates[];
 }) {
-  const { projects } = useDefinitions();
   const router = useRouter();
   const { fid } = router.query;
 
