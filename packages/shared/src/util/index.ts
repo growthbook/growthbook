@@ -16,6 +16,7 @@ import { VisualChange } from "back-end/types/visual-changeset";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 
 export * from "./features";
+export * from "./saved-groups";
 
 export function getAffectedEnvsForExperiment({
   experiment,
@@ -224,4 +225,11 @@ export function stringToBoolean(
 // Typeguard to help with type narrowing for built-ins such as Array.prototype.filter
 export function isDefined<T>(x: T | undefined | null): x is T {
   return x !== undefined && x !== null;
+}
+
+export function truncateString(s: string, numChars: number) {
+  if (s.length > numChars) {
+    return s.slice(0, numChars) + "...";
+  }
+  return s;
 }

@@ -1,4 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
+import { GroupMap } from "shared/src/types";
 import {
   getAffectedSDKPayloadKeys,
   getEnabledEnvironments,
@@ -14,7 +15,6 @@ import { FeatureInterface, ScheduleRule } from "../types/feature";
 import { hashStrings } from "../src/services/features";
 import { SDKAttributeSchema } from "../types/organization";
 import { ExperimentInterface } from "../types/experiment";
-import { GroupMap } from "../types/saved-group";
 
 const groupMap: GroupMap = new Map();
 const experimentMap = new Map();
@@ -78,7 +78,7 @@ describe("getParsedCondition", () => {
         []
       )
     ).toEqual({
-      id: { $in: ["0", "1"] },
+      id: { $inGroup: "a" },
     });
 
     // Single saved group
@@ -86,7 +86,7 @@ describe("getParsedCondition", () => {
       getParsedCondition(groupMap, "", [{ match: "any", ids: ["a"] }])
     ).toEqual({
       id_a: {
-        $in: ["0", "1"],
+        $inGroup: "a",
       },
     });
 
@@ -97,7 +97,7 @@ describe("getParsedCondition", () => {
         { match: "all", ids: ["g", "empty"] },
       ])
     ).toEqual({
-      id_b: { $in: ["2"] },
+      id_b: { $inGroup: "b" },
     });
 
     // Condition + a bunch of saved groups
@@ -123,12 +123,12 @@ describe("getParsedCondition", () => {
         // ALL
         {
           id_a: {
-            $in: ["0", "1"],
+            $inGroup: "a",
           },
         },
         {
           id_b: {
-            $in: ["2"],
+            $inGroup: "b",
           },
         },
         // ANY
@@ -136,12 +136,12 @@ describe("getParsedCondition", () => {
           $or: [
             {
               id_c: {
-                $in: ["3"],
+                $inGroup: "c",
               },
             },
             {
               id_d: {
-                $in: ["4"],
+                $inGroup: "d",
               },
             },
           ],
@@ -149,12 +149,12 @@ describe("getParsedCondition", () => {
         // NONE
         {
           id_e: {
-            $nin: ["5"],
+            $notInGroup: "e",
           },
         },
         {
           id_f: {
-            $nin: ["6"],
+            $notInGroup: "f",
           },
         },
       ],
