@@ -14,5 +14,6 @@ router.post("/", postSavedGroup);
 router.get("/:id", getSavedGroup);
 router.post("/:id", updateSavedGroup);
 router.delete("/:id", deleteSavedGroup);
+// router.patch("/:id", patchSavedGroup);
 
 export default router;

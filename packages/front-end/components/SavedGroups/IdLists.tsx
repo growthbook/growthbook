@@ -2,6 +2,7 @@ import { SavedGroupInterface } from "back-end/types/saved-group";
 import { useMemo, useState } from "react";
 import { ago } from "shared/dates";
 import { getMatchingRules } from "shared/util";
+import { Link } from "spectacle";
 import { useAuth } from "@/services/auth";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
@@ -138,7 +139,11 @@ export default function IdLists({ groups, mutate }: Props) {
                   {items.map((s) => {
                     return (
                       <tr key={s.id}>
-                        <td>{s.groupName}</td>
+                        <td>
+                          <Link key={s.id} href={`/saved-groups/${s.id}`}>
+                            {s.groupName}
+                          </Link>
+                        </td>
                         <td>{s.attributeKey}</td>
                         <td>
                           <div className="d-flex flex-wrap">

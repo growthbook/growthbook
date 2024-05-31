@@ -7,6 +7,7 @@ import {
 } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
+import { FaCheck } from "react-icons/fa";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import useMembers from "@/hooks/useMembers";
@@ -34,6 +35,10 @@ const SavedGroupForm: FC<{
 
   const [rawTextMode, setRawTextMode] = useState(false);
   const [rawText, setRawText] = useState(current.values?.join(", ") || "");
+  const [importMethod, setImportMethod] = useState<null | "file" | "values">(
+    null
+  );
+  const [successText, setSuccessText] = useState("");
 
   const form = useForm<CreateSavedGroupProps>({
     defaultValues: {
@@ -134,45 +139,104 @@ const SavedGroupForm: FC<{
             }))}
             helpText={current.attributeKey && "This field can not be edited."}
           />
-          {rawTextMode ? (
-            <Field
-              containerClassName="mb-0"
-              label="Create list of comma separated values"
-              required
-              textarea
-              value={rawText}
-              onChange={(e) => {
-                setRawText(e.target.value);
-                form.setValue(
-                  "values",
-                  e.target.value.split(",").map((val) => val.trim())
-                );
-              }}
-            />
-          ) : (
-            <StringArrayField
-              containerClassName="mb-0"
-              label="Create list of values"
-              value={form.watch("values") || []}
-              onChange={(values) => {
-                form.setValue("values", values);
-                setRawText(values.join(","));
-              }}
-              placeholder="Enter some values..."
-              delimiters={["Enter", "Tab"]}
-            />
+          <div>How would you like to enter the IDs in this group?</div>
+          <button onClick={() => setImportMethod("file")}>Import CSV</button>
+          <button onClick={() => setImportMethod("values")}>
+            Enter values manually
+          </button>
+          {importMethod === "file" && (
+            <>
+              <div className="custom-file">
+                <input
+                  type="file"
+                  required={false}
+                  className="custom-file-input"
+                  id="savedGroupFileInput"
+                  accept=".csv"
+                  onChange={(e) => {
+                    setSuccessText("");
+                    const file: File | undefined = e.target?.files?.[0];
+                    if (!file) {
+                      return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                      try {
+                        const str = e.target?.result;
+                        if (typeof str !== "string") {
+                          return;
+                        }
+                        const values = str.split(/\s*,\s*/);
+                        form.setValue("values", values);
+                        setSuccessText(`${values.length} IDs ready to import`);
+                      } catch (e) {
+                        console.error(e);
+                        return;
+                      }
+                    };
+                    reader.readAsText(file);
+                  }}
+                />
+                <label
+                  className="custom-file-label"
+                  htmlFor="savedGroupFileInput"
+                >
+                  Upload CSV with ids to include...
+                </label>
+                {successText ? (
+                  <>
+                    <FaCheck /> {successText}
+                  </>
+                ) : (
+                  <></>
+                )}
+              </div>
+            </>
           )}
-          <a
-            className="d-flex flex-column align-items-end"
-            href="#"
-            style={{ fontSize: "0.8em" }}
-            onClick={(e) => {
-              e.preventDefault();
-              setRawTextMode((prev) => !prev);
-            }}
-          >
-            Switch to {rawTextMode ? "token" : "raw text"} mode
-          </a>
+          {importMethod === "values" && (
+            <>
+              {rawTextMode ? (
+                <Field
+                  containerClassName="mb-0"
+                  label="Create list of comma separated values"
+                  required
+                  textarea
+                  value={rawText}
+                  onChange={(e) => {
+                    setRawText(e.target.value);
+                    form.setValue(
+                      "values",
+                      e.target.value.split(",").map((val) => val.trim())
+                    );
+                  }}
+                />
+              ) : (
+                <StringArrayField
+                  containerClassName="mb-0"
+                  label="Create list of values"
+                  value={form.watch("values") || []}
+                  onChange={(values) => {
+                    form.setValue("values", values);
+                    setRawText(values.join(","));
+                  }}
+                  placeholder="Enter some values..."
+                  delimiters={["Enter", "Tab"]}
+                />
+              )}
+              <a
+                className="d-flex flex-column align-items-end"
+                href="#"
+                style={{ fontSize: "0.8em" }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setRawTextMode((prev) => !prev);
+                }}
+              >
+                Switch to {rawTextMode ? "token" : "raw text"} mode
+              </a>
+            </>
+          )}
         </>
       )}
       {current.id && (
