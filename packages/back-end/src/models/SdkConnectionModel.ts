@@ -243,7 +243,7 @@ export async function editSDKConnection(
   context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
   updates: EditSDKConnectionParams
-): Promise<SDKConnectionInterface> {
+) {
   const {
     proxyEnabled,
     proxyHost,
