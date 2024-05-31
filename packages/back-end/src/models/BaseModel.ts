@@ -103,8 +103,12 @@ export abstract class BaseModel<
 
     const filtered: z.infer<T>[] = [];
     for (const doc of docs) {
-      if (this.canRead(doc)) {
-        filtered.push(doc);
+      try {
+        if (this.canRead(doc)) {
+          filtered.push(doc);
+        }
+      } catch (e) {
+        // Ignore errors when trying to read, just remove it from the list
       }
     }
     return filtered;
