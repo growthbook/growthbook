@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import { isEqual } from "lodash";
 import { validateCondition } from "shared/util";
+import { logger } from "@back-end/src/util/logger";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getContextFromReq } from "../../services/organizations";
@@ -185,7 +186,9 @@ export const putSavedGroup = async (
 
   // If the values or condition change, we need to invalidate cached feature rules
   if (fieldsToUpdate.condition || fieldsToUpdate.values) {
-    savedGroupUpdated(context, savedGroup.id);
+    savedGroupUpdated(context, savedGroup.id).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on saved group update");
+    });
   }
 
   return res.status(200).json({
