@@ -140,8 +140,20 @@ const SavedGroupForm: FC<{
             helpText={current.attributeKey && "This field can not be edited."}
           />
           <div>How would you like to enter the IDs in this group?</div>
-          <button onClick={() => setImportMethod("file")}>Import CSV</button>
-          <button onClick={() => setImportMethod("values")}>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              setImportMethod("file");
+            }}
+          >
+            Import CSV
+          </button>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              setImportMethod("values");
+            }}
+          >
             Enter values manually
           </button>
           {importMethod === "file" && (

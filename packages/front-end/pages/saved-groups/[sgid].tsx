@@ -4,18 +4,16 @@ import {
   SavedGroupInterface,
   UpdateSavedGroupProps,
 } from "back-end/types/saved-group";
-import { useForm } from "react-hook-form";
-import { FaCheck } from "react-icons/fa";
-import ConditionInput from "@/components/Features/ConditionInput";
+import { FaCheck, FaMinusCircle } from "react-icons/fa";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import useMembers from "@/hooks/useMembers";
-import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAttributeSchema } from "@/services/features";
 import PageHead from "@/components/Layout/PageHead";
 import Pagination from "@/components/Pagination";
 import useApi from "@/hooks/useApi";
+import { useAuth } from "@/services/auth";
 
 const NUM_PER_PAGE = 20;
 
@@ -133,36 +131,29 @@ function EmptyState({ values, setValues }: EmptyStateProps) {
 export default function EditSavedGroupPage() {
   const router = useRouter();
   const { sgid } = router.query;
-  const { data, error } = useApi<{ savedGroup: SavedGroupInterface }>(
+  const { data, error, mutate } = useApi<{ savedGroup: SavedGroupInterface }>(
     `/saved-groups/${sgid}`
   );
   const savedGroup = data?.savedGroup;
-  console.log("Data is", savedGroup);
 
   const values = savedGroup?.values || [];
   const [currentPage, setCurrentPage] = useState(1);
   const [filter, setFilter] = useState("");
   const filteredValues = values.filter((v) => v.match(filter));
 
+  const { apiCall } = useAuth();
   const { memberUsernameOptions } = useMembers();
-  const [conditionKey] = useIncrementer();
 
   const attributeSchema = useAttributeSchema();
-
-  const form = useForm<UpdateSavedGroupProps>({
-    defaultValues: {
-      groupName: "",
-      owner: "",
-      condition: "",
-      values: values,
-    },
-  });
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
   const valuesPage = filteredValues.slice(start, end);
 
-  if (!savedGroup || error) {
+  const [groupName, setGroupName] = useState(savedGroup?.groupName || "");
+  const [owner, setOwner] = useState(savedGroup?.owner || "");
+
+  if (!savedGroup || savedGroup.type !== "list" || error) {
     return (
       <div className="alert alert-danger">
         There was an error loading the saved group.
@@ -185,15 +176,15 @@ export default function EditSavedGroupPage() {
         <Field
           label="Group Name"
           required
-          {...form.register("groupName")}
-          value={savedGroup.groupName}
+          value={groupName}
+          onChange={(e) => setGroupName(e.target.value)}
           placeholder="e.g. beta-users or internal-team-members"
         />
         {savedGroup.id && (
           <SelectField
             label="Owner"
-            value={form.watch("owner") || ""}
-            onChange={(v) => form.setValue("owner", v)}
+            value={owner}
+            onChange={(v) => setOwner(v)}
             placeholder="Optional"
             options={memberUsernameOptions.map((m) => ({
               value: m.display,
@@ -201,93 +192,138 @@ export default function EditSavedGroupPage() {
             }))}
           />
         )}
-        {savedGroup.type === "condition" ? (
-          <ConditionInput
-            defaultValue={form.watch("condition") || ""}
-            onChange={(v) => form.setValue("condition", v)}
-            key={conditionKey}
-            project={""}
-            emptyText="No conditions specified."
-            title="Include all users who match the following"
-            require
-          />
-        ) : (
+        <SelectField
+          label="Attribute Key"
+          required={false}
+          value={savedGroup.attributeKey || ""}
+          disabled={true}
+          onChange={() => {}}
+          options={attributeSchema.map((a) => ({
+            value: a.property,
+            label: a.property,
+          }))}
+          helpText="This field can not be edited."
+        />
+        <button
+          onClick={async () => {
+            const payload: UpdateSavedGroupProps = {
+              groupName: savedGroup.groupName,
+              owner: savedGroup.owner,
+            };
+            mutate({
+              savedGroup: {
+                ...savedGroup,
+                ...{ groupName, owner },
+              },
+            });
+            await apiCall(`/saved-groups/${savedGroup.id}`, {
+              method: "PUT",
+              body: JSON.stringify(payload),
+            });
+          }}
+        >
+          Save changes
+        </button>
+        {values.length > 0 ? (
           <>
-            <SelectField
-              label="Attribute Key"
-              required={false}
-              value={savedGroup.attributeKey || ""}
-              disabled={true}
-              onChange={() => {}}
-              options={attributeSchema.map((a) => ({
-                value: a.property,
-                label: a.property,
-              }))}
-              helpText="This field can not be edited."
-            />
-            {values.length > 0 ? (
-              <>
-                <div>Group Members</div>
-                <div className="row mb-2 align-items-center">
-                  <div className="col-auto">
-                    <Field
-                      placeholder="Search..."
-                      type="search"
-                      value={filter}
-                      onChange={(e) => {
-                        setFilter(e.target.value);
-                      }}
-                    />
-                  </div>
-                  <div className="col-auto">
-                    <button>Add member</button>
-                  </div>
-                </div>
+            <div>Group Members</div>
+            <div className="row mb-2 align-items-center">
+              <div className="col-auto">
+                <Field
+                  placeholder="Search..."
+                  type="search"
+                  value={filter}
+                  onChange={(e) => {
+                    setFilter(e.target.value);
+                  }}
+                />
+              </div>
+              <div className="col-auto">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    apiCall(`/saved-groups/${sgid}/add-member/5`, {
+                      method: "POST",
+                    });
+                    mutate({
+                      savedGroup: {
+                        ...savedGroup,
+                        values: (savedGroup.values || []).concat(["5"]),
+                      },
+                    });
+                  }}
+                >
+                  Add member
+                </button>
+              </div>
+            </div>
 
-                <table className="table gbtable table-hover appbox">
-                  <thead
-                    className="sticky-top bg-white shadow-sm"
-                    style={{ top: "56px", zIndex: 900 }}
-                  >
-                    <tr>
-                      <th>{savedGroup.attributeKey}</th>
-                      <th>Actions</th>
+            <table className="table gbtable table-hover appbox">
+              <thead
+                className="sticky-top bg-white shadow-sm"
+                style={{ top: "56px", zIndex: 900 }}
+              >
+                <tr>
+                  <th>{savedGroup.attributeKey}</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {valuesPage.map((value) => {
+                  return (
+                    <tr key={value}>
+                      <td>{value}</td>
+                      <td>
+                        <FaMinusCircle
+                          onClick={(e) => {
+                            e.preventDefault();
+                            apiCall(
+                              `/saved-groups/${sgid}/remove-member/${value}`,
+                              { method: "POST" }
+                            );
+                            const newValues = (savedGroup.values || []).slice();
+                            const index = newValues.indexOf(value);
+                            if (index !== -1) {
+                              newValues.splice(index, 1);
+                            }
+                            mutate({
+                              savedGroup: {
+                                ...savedGroup,
+                                values: newValues,
+                              },
+                            });
+                          }}
+                        />
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {valuesPage.map((value) => {
-                      return (
-                        <tr key={value}>
-                          <td>{value}</td>
-                          <td>TODO actions</td>
-                        </tr>
-                      );
-                    })}
-                    {!filteredValues.length && (
-                      <tr>
-                        <td colSpan={2}>No matching members</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-                {Math.ceil(filteredValues.length / NUM_PER_PAGE) > 1 && (
-                  <Pagination
-                    numItemsTotal={values.length}
-                    currentPage={currentPage}
-                    perPage={NUM_PER_PAGE}
-                    onPageChange={(d) => {
-                      setCurrentPage(d);
-                    }}
-                  />
+                  );
+                })}
+                {!filteredValues.length && (
+                  <tr>
+                    <td colSpan={2}>No matching members</td>
+                  </tr>
                 )}
-              </>
-            ) : (
-              <EmptyState
-                values={form.watch("values") || []}
-                setValues={(values) => form.setValue("values", values)}
+              </tbody>
+            </table>
+            {Math.ceil(filteredValues.length / NUM_PER_PAGE) > 1 && (
+              <Pagination
+                numItemsTotal={values.length}
+                currentPage={currentPage}
+                perPage={NUM_PER_PAGE}
+                onPageChange={(d) => {
+                  setCurrentPage(d);
+                }}
               />
             )}
           </>
+        ) : (
+          <EmptyState
+            values={values}
+            setValues={(values) => {
+              // TODO: import values
+              console.log(values);
+            }}
+          />
         )}
       </div>
     </>
