@@ -37,8 +37,8 @@ const EditProjectForm: FC<{
     permissionRequired(project.id)
   );
 
-  // If the user has the permission required globally, show the "None" option. E.G. If user can create a feature without a project, show "None"
-  const userHasPermissionRequiredGlobally = permissionRequired("");
+  // If user has the permission required globally (E.G. canCreateFeature), show the "None" option, otherwise, don't show initial option
+  const initialOption = permissionRequired("") ? "None" : "";
 
   return (
     <Modal
@@ -61,7 +61,7 @@ const EditProjectForm: FC<{
         value={form.watch("project")}
         onChange={(v) => form.setValue("project", v)}
         options={projectOptions.map((p) => ({ label: p.name, value: p.id }))}
-        initialOption={userHasPermissionRequiredGlobally ? "None" : ""}
+        initialOption={initialOption}
         autoFocus={true}
       />
     </Modal>
