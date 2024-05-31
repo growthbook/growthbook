@@ -197,8 +197,25 @@ app.post(
   slackController.postIdeas
 );
 
-// increase max payload json size to 1mb
-app.use(bodyParser.json({ limit: "1mb" }));
+// Accept cross-origin requests from the frontend app
+const origins: (string | RegExp)[] = [APP_ORIGIN];
+if (CORS_ORIGIN_REGEX) {
+  origins.push(CORS_ORIGIN_REGEX);
+}
+
+// For non-api routes, set the global cors
+app.use(
+  cors({
+    credentials: true,
+    origin: origins,
+  })
+);
+
+// increase default max payload json size to 1mb and allow for per-route specific payload sizes
+app.use((req, res, next) => {
+  // Can add conditional logic on req.path and req.method to set the body limit here if needed
+  return bodyParser.json({ limit: "1mb" })(req, res, next);
+});
 
 // Public API routes (does not require JWT, does require cors with origin = *)
 app.get(
@@ -271,18 +288,6 @@ app.use(
     origin: "*",
   }),
   scimRouter
-);
-
-// Accept cross-origin requests from the frontend app
-const origins: (string | RegExp)[] = [APP_ORIGIN];
-if (CORS_ORIGIN_REGEX) {
-  origins.push(CORS_ORIGIN_REGEX);
-}
-app.use(
-  cors({
-    credentials: true,
-    origin: origins,
-  })
 );
 
 const useSSO = usingOpenId();

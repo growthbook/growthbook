@@ -24,14 +24,23 @@ import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 import { LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
 
 export type UserOrganizations = { id: string; name: string }[];
-
-export type ApiCallType<T> = (url: string, options?: RequestInit) => Promise<T>;
+// eslint-disable-next-line
+type ErrorHandler = (responseData: any) => void;
+export type ApiCallType<T> = (
+  url: string,
+  options?: RequestInit,
+  errorHandler?: ErrorHandler
+) => Promise<T>;
 
 export interface AuthContextValue {
   isAuthenticated: boolean;
   loading: boolean;
   logout: () => Promise<void>;
-  apiCall: <T>(url: string | null, options?: RequestInit) => Promise<T>;
+  apiCall: <T>(
+    url: string | null,
+    options?: RequestInit,
+    errorHandler?: ErrorHandler
+  ) => Promise<T>;
   orgId: string | null;
   setOrgId?: (orgId: string) => void;
   organizations?: UserOrganizations;
@@ -311,7 +320,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   const apiCall = useCallback(
-    async (url: string | null, options: RequestInit = {}) => {
+    async (
+      url: string | null,
+      options: RequestInit = {},
+      errorHandler: ErrorHandler | null = null
+    ) => {
       if (typeof url !== "string") return;
 
       let responseData = await _makeApiCall(url, token, options);
@@ -348,6 +361,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           );
         }
 
+        if (errorHandler) {
+          errorHandler(responseData);
+        }
         throw new Error(responseData.message || "There was an error");
       }
 

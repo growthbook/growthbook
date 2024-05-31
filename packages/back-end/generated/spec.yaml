@@ -5416,6 +5416,8 @@ components:
           type: array
           items:
             type: string
+        description:
+          type: string
     Organization:
       type: object
       properties:

@@ -1244,6 +1244,7 @@ export interface components {
       attributeKey?: string;
       /** @description When type = 'list', this is the list of values for the attribute key */
       values?: (string)[];
+      description?: string;
     };
     Organization: {
       /** @description The Growthbook unique identifier for the organization */
@@ -4986,6 +4987,7 @@ export interface operations {
                 attributeKey?: string;
                 /** @description When type = 'list', this is the list of values for the attribute key */
                 values?: (string)[];
+                description?: string;
               })[];
           }) & {
             limit: number;
@@ -5042,6 +5044,7 @@ export interface operations {
               attributeKey?: string;
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
+              description?: string;
             };
           };
         };
@@ -5076,6 +5079,7 @@ export interface operations {
               attributeKey?: string;
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
+              description?: string;
             };
           };
         };
@@ -5124,6 +5128,7 @@ export interface operations {
               attributeKey?: string;
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
+              description?: string;
             };
           };
         };

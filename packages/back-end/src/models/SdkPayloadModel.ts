@@ -69,15 +69,18 @@ export async function updateSDKPayload({
   environment,
   featureDefinitions,
   experimentsDefinitions,
+  savedGroupsInUse,
 }: {
   organization: string;
   environment: string;
   featureDefinitions: Record<string, FeatureDefinitionWithProject>;
   experimentsDefinitions: AutoExperimentWithProject[];
+  savedGroupsInUse: string[];
 }) {
   const contents: SDKPayloadContents = {
     features: featureDefinitions,
     experiments: experimentsDefinitions,
+    savedGroupsInUse: savedGroupsInUse,
   };
 
   await SDKPayloadModel.updateOne(
