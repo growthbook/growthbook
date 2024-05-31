@@ -142,7 +142,7 @@ const CreateOrganization: FC<{
                       ? title
                       : `We found 
                     ${
-                      orgs.length === 1
+                      orgs?.length === 1
                         ? "your organization"
                         : "possible organizations for you"
                     } 
