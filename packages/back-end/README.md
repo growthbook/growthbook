@@ -126,7 +126,7 @@ const BaseClass = MakeModelClass({
   schema: fooValidator,
   collectionName: "foos",
   idPrefix: "foo_",
-  // You may need to add these strings to `audit.d.ts` too
+  // You may need to add these to `back-end/src/types/Audit.ts` too
   auditLog: {
     entity: "foo",
     createEvent: "foo.create",

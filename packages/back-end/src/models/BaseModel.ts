@@ -10,8 +10,8 @@ import { ApiReqContext } from "../../types/api";
 import { ReqContext } from "../../types/organization";
 import { CreateProps, UpdateProps } from "../../types/models";
 import { logger } from "../util/logger";
-import { EventType } from "../../types/audit";
-import { EntityType } from "../types/Audit";
+import { EntityType, EventTypes, EventType } from "../types/Audit";
+import { AuditInterfaceTemplate } from "../../types/audit";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
@@ -36,16 +36,18 @@ export const baseSchema = z
 
 export type BaseSchema = typeof baseSchema;
 
-export interface ModelConfig<T extends BaseSchema> {
+type AuditLogConfig<Entity extends EntityType> = {
+  entity: Entity;
+  createEvent: EventTypes<Entity>;
+  updateEvent: EventTypes<Entity>;
+  deleteEvent: EventTypes<Entity>;
+};
+
+export interface ModelConfig<T extends BaseSchema, Entity extends EntityType> {
   schema: T;
   collectionName: string;
   idPrefix?: string;
-  auditLog: {
-    entity: EntityType;
-    createEvent: EventType;
-    updateEvent: EventType;
-    deleteEvent: EventType;
-  };
+  auditLog: AuditLogConfig<Entity>;
   globallyUniqueIds?: boolean;
   skipDateUpdatedFields?: (keyof z.infer<T>)[];
   readonlyFields?: (keyof z.infer<T>)[];
@@ -65,7 +67,11 @@ const indexesAdded: Set<string> = new Set();
 
 // Generic model class has everything but the actual data fetch implementation.
 // See BaseModel below for the class with explicit mongodb implementation.
-export abstract class GenericModel<T extends BaseSchema, WriteOptions = never> {
+export abstract class GenericModel<
+  T extends BaseSchema,
+  E extends EntityType,
+  WriteOptions = never
+> {
   protected context: Context;
   public constructor(context: Context) {
     this.context = context;
@@ -76,8 +82,8 @@ export abstract class GenericModel<T extends BaseSchema, WriteOptions = never> {
   /***************
    * Required methods that MUST be overridden by subclasses
    ***************/
-  protected config: ModelConfig<T>;
-  protected abstract getConfig(): ModelConfig<T>;
+  protected config: ModelConfig<T, E>;
+  protected abstract getConfig(): ModelConfig<T, E>;
   protected abstract canRead(doc: z.infer<T>): boolean;
   protected abstract canCreate(doc: z.infer<T>): boolean;
   protected abstract canUpdate(
@@ -367,7 +373,7 @@ export abstract class GenericModel<T extends BaseSchema, WriteOptions = never> {
         },
         event: this.config.auditLog.createEvent,
         details: auditDetailsCreate(doc),
-      });
+      } as AuditInterfaceTemplate<E>);
     } catch (e) {
       this.context.logger.error(
         e,
@@ -483,7 +489,7 @@ export abstract class GenericModel<T extends BaseSchema, WriteOptions = never> {
         },
         event: auditEvent,
         details: auditDetailsUpdate(doc, newDoc),
-      });
+      } as AuditInterfaceTemplate<E>);
     } catch (e) {
       this.context.logger.error(
         e,
@@ -522,7 +528,7 @@ export abstract class GenericModel<T extends BaseSchema, WriteOptions = never> {
         },
         event: this.config.auditLog.deleteEvent,
         details: auditDetailsDelete(doc),
-      });
+      } as AuditInterfaceTemplate<E>);
     } catch (e) {
       this.context.logger.error(
         e,
@@ -672,8 +678,9 @@ export abstract class GenericModel<T extends BaseSchema, WriteOptions = never> {
 
 export abstract class BaseModel<
   T extends BaseSchema,
+  E extends EntityType,
   WriteOptions = never
-> extends GenericModel<T, WriteOptions> {
+> extends GenericModel<T, E, WriteOptions> {
   private _collection: Collection | null = null;
   protected _dangerousGetCollection() {
     if (!this._collection) {
@@ -686,11 +693,12 @@ export abstract class BaseModel<
   }
 }
 
-export const MakeGenericClass = <T extends BaseSchema>(
-  config: ModelConfig<T>
+export const MakeGenericClass = <T extends BaseSchema, E extends EntityType>(
+  config: ModelConfig<T, E>
 ) => {
   abstract class Model<WriteOptions = never> extends GenericModel<
     T,
+    E,
     WriteOptions
   > {
     getConfig() {
@@ -701,11 +709,12 @@ export const MakeGenericClass = <T extends BaseSchema>(
   return Model;
 };
 
-export const MakeModelClass = <T extends BaseSchema>(
-  config: ModelConfig<T>
+export const MakeModelClass = <T extends BaseSchema, E extends EntityType>(
+  config: ModelConfig<T, E>
 ) => {
   abstract class Model<WriteOptions = never> extends BaseModel<
     T,
+    E,
     WriteOptions
   > {
     getConfig() {
