@@ -218,7 +218,7 @@ const navlinks: SidebarLinkProps[] = [
         path: /^importing/,
         filter: ({ permissionsUtils, gb }) =>
           permissionsUtils.canViewFeatureModal() &&
-          permissionsUtils.canCreateOrUpdateEnvironment({
+          permissionsUtils.canCreateEnvironment({
             projects: [],
             id: "",
           }) &&

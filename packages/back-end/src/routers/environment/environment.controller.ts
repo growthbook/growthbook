@@ -49,7 +49,7 @@ export const putEnvironmentOrder = async (
   // If the user doesn't have permission to update any envs, don't allow this action
   if (
     existingEnvs.every(
-      (env) => !context.permissions.canCreateOrUpdateEnvironment(env)
+      (env) => !context.permissions.canUpdateEnvironment(env, {})
     )
   ) {
     context.permissions.throwPermissionError();
@@ -108,16 +108,14 @@ export const putEnvironments = async (
   const environments = req.body.environments;
   const existingEnvs = org.settings?.environments || [];
 
-  //TODO: When I break this out, I need to check if it exists, if so, check update, otherwise check canCreate logic
-  environments.forEach((environment) => {
-    if (!context.permissions.canCreateOrUpdateEnvironment(environment)) {
-      context.permissions.throwPermissionError();
-    }
-  });
-
   // Add each environment to the list if it doesn't exist yet
   const updatedEnvironments = environments.reduce((acc, environment) => {
-    return addEnvironmentToOrganizationEnvironments(environment, acc, false);
+    return addEnvironmentToOrganizationEnvironments(
+      context,
+      environment,
+      acc,
+      false
+    );
   }, getEnvironments(org));
 
   try {
@@ -172,8 +170,12 @@ export const putEnvironment = async (
     });
   }
 
-  //TODO: Update this to canUpdate when I break canCreateOrUpdateEnvironment out into two methods
-  if (!context.permissions.canCreateOrUpdateEnvironment(environment)) {
+  if (
+    !context.permissions.canUpdateEnvironment(
+      envsArr[existingEnvIndex],
+      environment
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -254,11 +256,6 @@ export const postEnvironment = async (
   const context = getContextFromReq(req);
   const { org, environments } = context;
 
-  //TODO: Update this to canCreateEnvironment
-  if (!context.permissions.canCreateOrUpdateEnvironment(environment)) {
-    context.permissions.throwPermissionError();
-  }
-
   if (environments.includes(environment.id)) {
     return res.status(400).json({
       status: 400,
@@ -267,6 +264,7 @@ export const postEnvironment = async (
   }
 
   const updatedEnvironments = addEnvironmentToOrganizationEnvironments(
+    context,
     environment,
     getEnvironments(org),
     false
