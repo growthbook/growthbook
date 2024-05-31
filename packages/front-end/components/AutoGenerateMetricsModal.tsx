@@ -2,14 +2,14 @@ import { useState, useEffect, useCallback } from "react";
 import {
   InformationSchemaInterface,
   TrackedEventData,
-} from "@/../back-end/src/types/Integration";
+} from "@back-end/src/types/Integration";
 import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
-} from "@/../back-end/types/datasource";
+} from "@back-end/types/datasource";
 import { cloneDeep } from "lodash";
 import { useForm } from "react-hook-form";
-import { MetricType } from "@/../back-end/types/metric";
+import { MetricType } from "@back-end/types/metric";
 import { FaRedo } from "react-icons/fa";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";

@@ -33,14 +33,15 @@ const ControlledTabs: FC<{
   orientation?: "vertical" | "horizontal";
   className?: string;
   navClassName?: string;
-  tabContentsClassName?: string;
+  buttonsWrapperClassName?: string;
+  tabContentsClassName?: string | ((tab: string | null) => string);
   defaultTab?: string;
   newStyle?: boolean;
   navExtra?: ReactElement;
   active?: string | null;
   setActive: (tab: string | null) => void;
   showActiveCount?: boolean;
-  buttonsClassName?: string;
+  buttonsClassName?: string | ((tab: string | null) => string);
   children: ReactNode;
 }> = ({
   active,
@@ -50,6 +51,7 @@ const ControlledTabs: FC<{
   className,
   tabContentsClassName,
   navClassName,
+  buttonsWrapperClassName,
   defaultTab,
   newStyle = false,
   navExtra,
@@ -130,7 +132,11 @@ const ControlledTabs: FC<{
         count={count}
         action={action}
         showActiveCount={showActiveCount}
-        className={buttonsClassName}
+        className={
+          typeof buttonsClassName === "function"
+            ? buttonsClassName(id)
+            : buttonsClassName
+        }
       />
     );
 
@@ -187,18 +193,28 @@ const ControlledTabs: FC<{
           "col-md-3": orientation === "vertical",
         })}
       >
-        <TabButtons newStyle={newStyle} vertical={orientation === "vertical"}>
+        <TabButtons
+          newStyle={newStyle}
+          vertical={orientation === "vertical"}
+          className={buttonsWrapperClassName}
+        >
           {tabs}
           {navExtra && navExtra}
         </TabButtons>
       </nav>
       <div
-        className={clsx("tab-content", tabContentsClassName, {
-          "col-md-9": orientation === "vertical",
-          "p-3": contentsPadding,
-          "p-0": !contentsPadding,
-          "border-top-0": !newStyle,
-        })}
+        className={clsx(
+          "tab-content",
+          typeof tabContentsClassName === "function"
+            ? tabContentsClassName(activeChosen)
+            : tabContentsClassName,
+          {
+            "col-md-9": orientation === "vertical",
+            "p-3": contentsPadding,
+            "p-0": !contentsPadding,
+            "border-top-0": !newStyle,
+          }
+        )}
       >
         {contents}
       </div>

@@ -3,13 +3,15 @@ import { webcrypto } from "node:crypto";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
+import { ApiKeyInterface, SecretApiKey } from "../../types/apikey";
 import {
-  ApiKeyInterface,
-  PublishableApiKey,
-  SecretApiKey,
-} from "../../types/apikey";
-import { IS_CLOUD, SECRET_API_KEY, SECRET_API_KEY_ROLE } from "../util/secrets";
+  IS_MULTI_ORG,
+  SECRET_API_KEY,
+  SECRET_API_KEY_ROLE,
+} from "../util/secrets";
 import { roleForApiKey } from "../util/api-key.util";
+import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 import { findAllOrganizations } from "./OrganizationModel";
 
 const apiKeySchema = new mongoose.Schema({
@@ -271,16 +273,25 @@ export async function deleteApiKeyByKey(organization: string, key: string) {
 }
 
 export async function getApiKeyByIdOrKey(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   id: string | undefined,
   key: string | undefined
 ): Promise<ApiKeyInterface | null> {
   if (!id && !key) return null;
 
+  const { org } = context;
+
   const doc = await ApiKeyModel.findOne(
-    id ? { organization, id } : { organization, key }
+    id ? { organization: org.id, id } : { organization: org.id, key }
   );
-  return doc ? toInterface(doc) : null;
+
+  if (!doc) return null;
+
+  const apiKey = toInterface(doc);
+
+  return context.permissions.canReadSingleProjectResource(apiKey.project)
+    ? apiKey
+    : null;
 }
 
 export async function getVisualEditorApiKey(
@@ -298,8 +309,8 @@ export async function getVisualEditorApiKey(
 export async function lookupOrganizationByApiKey(
   key: string
 ): Promise<Partial<ApiKeyInterface>> {
-  // If self-hosting and using a hardcoded secret key
-  if (!IS_CLOUD && SECRET_API_KEY && key === SECRET_API_KEY) {
+  // If self-hosting on a single org and using a hardcoded secret key
+  if (!IS_MULTI_ORG && SECRET_API_KEY && key === SECRET_API_KEY) {
     const { organizations: orgs } = await findAllOrganizations(1, "");
     if (orgs.length === 1) {
       return {
@@ -321,41 +332,27 @@ export async function lookupOrganizationByApiKey(
 }
 
 export async function getAllApiKeysByOrganization(
-  organization: string
+  context: ReqContext
 ): Promise<ApiKeyInterface[]> {
+  const { org } = context;
+
   const docs: ApiKeyDocument[] = await ApiKeyModel.find(
     {
-      organization,
+      organization: org.id,
     },
     { encryptionKey: 0 }
   );
-  return docs.map((k) => {
+  const keys = docs.map((k) => {
     const json = toInterface(k);
     if (json.secret) {
       json.key = "";
     }
     return json;
   });
-}
 
-export async function getFirstPublishableApiKey(
-  organization: string,
-  environment: string
-): Promise<null | PublishableApiKey> {
-  const doc = await ApiKeyModel.findOne(
-    {
-      organization,
-      environment,
-      secret: {
-        $ne: true,
-      },
-    },
-    { encryptionKey: 0 }
-  );
-
-  if (!doc) return null;
-
-  return toInterface(doc) as PublishableApiKey;
+  return keys.filter((k) => {
+    return context.permissions.canReadSingleProjectResource(k.project);
+  });
 }
 
 export async function getUnredactedSecretKey(

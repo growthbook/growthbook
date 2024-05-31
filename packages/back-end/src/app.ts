@@ -23,6 +23,7 @@ import { verifySlackRequestSignature } from "./services/slack";
 import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
+import scimRouter from "./scim/scim.router";
 
 if (SENTRY_DSN) {
   Sentry.init({ dsn: SENTRY_DSN });
@@ -37,6 +38,11 @@ const datasourcesController = wrapController(datasourcesControllerRaw);
 
 import * as experimentsControllerRaw from "./controllers/experiments";
 const experimentsController = wrapController(experimentsControllerRaw);
+
+import * as experimentLaunchChecklistControllerRaw from "./controllers/experimentLaunchChecklist";
+const experimentLaunchChecklistController = wrapController(
+  experimentLaunchChecklistControllerRaw
+);
 
 import * as metricsControllerRaw from "./controllers/metrics";
 const metricsController = wrapController(metricsControllerRaw);
@@ -55,6 +61,9 @@ const discussionsController = wrapController(discussionsControllerRaw);
 
 import * as adminControllerRaw from "./controllers/admin";
 const adminController = wrapController(adminControllerRaw);
+
+import * as licenseControllerRaw from "./controllers/license";
+const licenseController = wrapController(licenseControllerRaw);
 
 import * as stripeControllerRaw from "./controllers/stripe";
 const stripeController = wrapController(stripeControllerRaw);
@@ -81,23 +90,25 @@ import { getBuild } from "./util/handler";
 import { getCustomLogProps, httpLogger } from "./util/logger";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
-import { putUploadRouter } from "./routers/upload/put-upload.router";
+import { uploadRouter } from "./routers/upload/upload.router";
 import { eventsRouter } from "./routers/events/events.router";
 import { eventWebHooksRouter } from "./routers/event-webhooks/event-webhooks.router";
 import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { ArchetypeRouter } from "./routers/archetype/archetype.router";
+import { AttributeRouter } from "./routers/attributes/attributes.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
 import { projectRouter } from "./routers/project/project.router";
-import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
+import { factTableRouter } from "./routers/fact-table/fact-table.router";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
-import { staticFilesRouter } from "./routers/upload/static-files.router";
+import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
+import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
 
 const app = express();
 
@@ -109,7 +120,7 @@ if (SENTRY_DSN) {
   );
 }
 
-if (!process.env.NO_INIT) {
+if (!process.env.NO_INIT && process.env.NODE_ENV !== "test") {
   init();
 }
 
@@ -198,6 +209,8 @@ app.get(
   }),
   getExperimentConfig
 );
+
+// Public features for SDKs
 app.get(
   "/api/features/:key?",
   cors({
@@ -213,10 +226,30 @@ app.options(
     credentials: false,
     origin: "*",
   }),
-  function (req, res) {
-    res.send(200);
-  }
+  (req, res) => res.send(200)
 );
+
+if (!IS_CLOUD) {
+  // Public remoteEval for SDKs:
+  // note: Self-hosted only, recommended for debugging. Cloud orgs must use separate infrastructure.
+  app.post(
+    "/api/eval/:key?",
+    cors({
+      credentials: false,
+      origin: "*",
+    }),
+    featuresController.getEvaluatedFeaturesPublic
+  );
+  // For preflight requests
+  app.options(
+    "/api/eval/:key?",
+    cors({
+      credentials: false,
+      origin: "*",
+    }),
+    (req, res) => res.send(200)
+  );
+}
 
 // Secret API routes (no JWT or CORS)
 app.use(
@@ -226,6 +259,18 @@ app.use(
     origin: "*",
   }),
   apiRouter
+);
+
+// SCIM API routes (no JWT or CORS)
+app.use(
+  "/scim/v2",
+  bodyParser.json({
+    type: "application/scim+json",
+  }),
+  cors({
+    origin: "*",
+  }),
+  scimRouter
 );
 
 // Accept cross-origin requests from the frontend app
@@ -262,8 +307,6 @@ app.post("/auth/refresh", authController.postRefresh);
 app.post("/auth/logout", authController.postLogout);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
 
-app.use("/upload", staticFilesRouter);
-
 // All other routes require a valid JWT
 const auth = getAuthConnection();
 app.use(auth.middleware);
@@ -278,9 +321,6 @@ app.use(
     next();
   }
 );
-
-// Validate self hosted license key if present
-app.use(verifyLicenseMiddleware);
 
 // Logged-in auth requests
 if (!useSSO) {
@@ -305,13 +345,27 @@ app.use(organizationsRouter);
 app.use("/environment", environmentRouter);
 
 app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
-app.post("/subscription/checkout", stripeController.postNewSubscription);
+app.post(
+  "/subscription/new-pro-trial",
+  stripeController.postNewProTrialSubscription
+);
+app.post("/subscription/new", stripeController.postNewProSubscription);
 app.get("/subscription/quote", stripeController.getSubscriptionQuote);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.post("/subscription/success", stripeController.postSubscriptionSuccess);
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);
-app.post("/organization/sample-data", datasourcesController.postSampleData);
+app.post("/dimension-slices", datasourcesController.postDimensionSlices);
+app.get("/dimension-slices/:id", datasourcesController.getDimensionSlices);
+app.post(
+  "/dimension-slices/:id/cancel",
+  datasourcesController.cancelDimensionSlices
+);
+
+app.get(
+  "/dimension-slices/datasource/:datasourceId/:exposureQueryId",
+  datasourcesController.getLatestDimensionSlicesForDatasource
+);
 
 if (IS_CLOUD) {
   app.get("/vercel/has-token", vercelController.getHasToken);
@@ -325,6 +379,8 @@ app.use("/tag", tagRouter);
 app.use("/saved-groups", savedGroupRouter);
 
 app.use("/archetype", ArchetypeRouter);
+
+app.use("/attribute", AttributeRouter);
 
 // Ideas
 app.get("/ideas", ideasController.getIdeas);
@@ -358,7 +414,6 @@ app.get(
   "/experiments/frequency/month/:num",
   experimentsController.getExperimentsFrequencyMonth
 );
-app.get("/experiments/newfeatures/", experimentsController.getNewFeatures);
 app.get("/experiments/snapshots/", experimentsController.getSnapshots);
 app.get(
   "/experiments/tracking-key",
@@ -374,10 +429,6 @@ app.get(
   experimentsController.getSnapshotWithDimension
 );
 app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
-app.post(
-  "/experiment/:id/snapshot/:phase/preview",
-  experimentsController.previewManualSnapshot
-);
 app.post("/experiment/:id", experimentsController.postExperiment);
 app.delete("/experiment/:id", experimentsController.deleteExperiment);
 app.get("/experiment/:id/watchers", experimentsController.getWatchingUsers);
@@ -430,11 +481,27 @@ app.post(
   reportsController.postReportFromSnapshot
 );
 app.post(
-  "/experiments/:id/visual-changeset",
-  experimentsController.postVisualChangeset
+  "/experiments/launch-checklist",
+  experimentLaunchChecklistController.postExperimentLaunchChecklist
+);
+app.put(
+  "/experiments/launch-checklist/:id",
+  experimentLaunchChecklistController.putExperimentLaunchChecklist
+);
+app.get(
+  "/experiments/launch-checklist",
+  experimentLaunchChecklistController.getExperimentCheckListByOrg
+);
+app.put(
+  "/experiment/:id/launch-checklist",
+  experimentLaunchChecklistController.putManualLaunchChecklist
 );
 
 // Visual Changesets
+app.post(
+  "/experiments/:id/visual-changeset",
+  experimentsController.postVisualChangeset
+);
 app.put("/visual-changesets/:id", experimentsController.putVisualChangeset);
 app.delete(
   "/visual-changesets/:id",
@@ -446,6 +513,9 @@ app.get(
   "/visual-editor/key",
   experimentsController.findOrCreateVisualEditorToken
 );
+
+// URL Redirects
+app.use("/url-redirects", urlRedirectRouter);
 
 // Reports
 app.get("/report/:id", reportsController.getReport);
@@ -464,6 +534,8 @@ app.use("/sdk-connections", sdkConnectionRouter);
 
 app.use("/projects", projectRouter);
 
+app.use(factTableRouter);
+
 app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 
 // Features
@@ -473,29 +545,60 @@ app.post("/feature", featuresController.postFeatures);
 app.put("/feature/:id", featuresController.putFeature);
 app.delete("/feature/:id", featuresController.deleteFeatureById);
 app.post(
-  "/feature/:id/defaultvalue",
+  "/feature/:id/:version/defaultvalue",
   featuresController.postFeatureDefaultValue
 );
+app.post("/feature/:id/sync", featuresController.postFeatureSync);
 app.post("/feature/:id/schema", featuresController.postFeatureSchema);
-app.post("/feature/:id/discard", featuresController.postFeatureDiscard);
-app.post("/feature/:id/publish", featuresController.postFeaturePublish);
+app.post(
+  "/feature/:id/:version/discard",
+  featuresController.postFeatureDiscard
+);
+app.post(
+  "/feature/:id/:version/publish",
+  featuresController.postFeaturePublish
+);
+app.post(
+  "/feature/:id/:version/request",
+  featuresController.postFeatureRequestReview
+);
+app.post(
+  "/feature/:id/:version/submit-review",
+  featuresController.postFeatureReviewOrComment
+);
+app.get("/feature/:id/:version/log", featuresController.getRevisionLog);
 app.post("/feature/:id/archive", featuresController.postFeatureArchive);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
-app.post("/feature/:id/draft", featuresController.postFeatureDraft);
-app.post("/feature/:id/rule", featuresController.postFeatureRule);
+app.post("/feature/:id/:version/fork", featuresController.postFeatureFork);
+app.post("/feature/:id/:version/rebase", featuresController.postFeatureRebase);
+app.post("/feature/:id/:version/revert", featuresController.postFeatureRevert);
+app.post("/feature/:id/:version/rule", featuresController.postFeatureRule);
 app.post(
-  "/feature/:id/experiment",
+  "/feature/:id/:version/experiment",
   featuresController.postFeatureExperimentRefRule
 );
-app.delete(
-  "/feature/:id/experiment",
-  featuresController.deleteFeatureExperimentRefRule
+app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
+app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);
+app.delete("/feature/:id/:version/rule", featuresController.deleteFeatureRule);
+app.post("/feature/:id/prerequisite", featuresController.postPrerequisite);
+app.put("/feature/:id/prerequisite", featuresController.putPrerequisite);
+app.delete("/feature/:id/prerequisite", featuresController.deletePrerequisite);
+app.post(
+  "/feature/:id/:version/reorder",
+  featuresController.postFeatureMoveRule
 );
-app.put("/feature/:id/rule", featuresController.putFeatureRule);
-app.delete("/feature/:id/rule", featuresController.deleteFeatureRule);
-app.post("/feature/:id/reorder", featuresController.postFeatureMoveRule);
-app.post("/feature/:id/eval", featuresController.postFeatureEvaluate);
+app.post("/feature/:id/:version/eval", featuresController.postFeatureEvaluate);
 app.get("/usage/features", featuresController.getRealtimeUsage);
+app.post(
+  "/feature/:id/toggleStaleDetection",
+  featuresController.toggleStaleFFDetectionForFeature
+);
+app.post(
+  "/feature/:id/:version/comment",
+  featuresController.postFeatureReviewOrComment
+);
+
+app.get("/revision/feature", featuresController.getDraftandReviewRevisions);
 
 // Data Sources
 app.get("/datasources", datasourcesController.getDataSources);
@@ -504,6 +607,15 @@ app.post("/datasources", datasourcesController.postDataSources);
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
+app.get("/datasource/:id/queries", datasourcesController.getDataSourceQueries);
+app.put(
+  "/datasource/:datasourceId/exposureQuery/:exposureQueryId",
+  datasourcesController.updateExposureQuery
+);
+app.post(
+  "/datasources/fetch-bigquery-datasets",
+  datasourcesController.fetchBigQueryDatasets
+);
 
 // Information Schemas
 app.get(
@@ -533,6 +645,7 @@ app.use(eventWebHooksRouter);
 
 // Slack integration
 app.use("/integrations/slack", slackIntegrationRouter);
+app.use("/integrations/github", githubIntegrationRouter);
 
 // Data Export
 app.use("/data-export", dataExportRouter);
@@ -563,13 +676,27 @@ app.delete(
   discussionsController.deleteComment
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
-app.use("/putupload", putUploadRouter);
+app.use("/upload", uploadRouter);
 
 // Teams
 app.use("/teams", teamRouter);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
+app.put("/admin/organization", adminController.putOrganization);
+
+// License
+app.get("/license", licenseController.getLicenseData);
+app.get("/license/report", licenseController.getLicenseReport);
+app.post(
+  "/license/enterprise-trial",
+  licenseController.postCreateTrialEnterpriseLicense
+);
+app.post(
+  "/license/resend-verification-email",
+  licenseController.postResendEmailVerificationEmail
+);
+app.post("/license/verify-email", licenseController.postVerifyEmail);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {

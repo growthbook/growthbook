@@ -1,5 +1,4 @@
 import { Response } from "express";
-import { getLicense } from "enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
 import { usingOpenId } from "../../services/auth";
 import { createUser, getUserByEmail } from "../../services/users";
@@ -7,10 +6,9 @@ import { findOrganizationsByMemberId } from "../../models/OrganizationModel";
 import {
   addMemberFromSSOConnection,
   findVerifiedOrgForNewUser,
-  getOrgFromReq,
+  getContextFromReq,
   validateLoginMethod,
 } from "../../services/organizations";
-import { IS_CLOUD } from "../../util/secrets";
 import { UserModel } from "../../models/UserModel";
 import {
   deleteWatchedByEntity,
@@ -31,7 +29,12 @@ function isValidWatchEntityType(type: string): boolean {
 export async function getUser(req: AuthRequest, res: Response) {
   // If using SSO, auto-create users in Mongo who we don't recognize yet
   if (!req.userId && usingOpenId()) {
-    const user = await createUser(req.name || "", req.email, "", req.verified);
+    const user = await createUser({
+      name: req.name || "",
+      email: req.email,
+      password: "",
+      verified: req.verified,
+    });
     req.userId = user.id;
   }
 
@@ -76,7 +79,6 @@ export async function getUser(req: AuthRequest, res: Response) {
     userName: req.name,
     email: req.email,
     superAdmin: !!req.superAdmin,
-    license: !IS_CLOUD && getLicense(),
     organizations: validOrgs.map((org) => {
       return {
         id: org.id,
@@ -91,7 +93,7 @@ export async function putUserName(
   res: Response
 ) {
   const { name } = req.body;
-  const { userId } = getOrgFromReq(req);
+  const { userId } = getContextFromReq(req);
 
   try {
     await UserModel.updateOne(
@@ -116,7 +118,7 @@ export async function putUserName(
 }
 
 export async function getWatchedItems(req: AuthRequest, res: Response) {
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId } = getContextFromReq(req);
   try {
     const watch = await getWatchedByUser(org.id, userId);
     res.status(200).json({
@@ -136,7 +138,8 @@ export async function postWatchItem(
   req: AuthRequest<null, { type: string; id: string }>,
   res: Response
 ) {
-  const { org, userId } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   const { type, id } = req.params;
   let item;
 
@@ -149,9 +152,9 @@ export async function postWatchItem(
   }
 
   if (type === "feature") {
-    item = await getFeature(org.id, id);
+    item = await getFeature(context, id);
   } else if (type === "experiment") {
-    item = await getExperimentById(org.id, id);
+    item = await getExperimentById(context, id);
     if (item && item.organization !== org.id) {
       res.status(403).json({
         status: 403,
@@ -180,7 +183,7 @@ export async function postUnwatchItem(
   req: AuthRequest<null, { type: string; id: string }>,
   res: Response
 ) {
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId } = getContextFromReq(req);
   const { type, id } = req.params;
 
   if (!isValidWatchEntityType(type)) {

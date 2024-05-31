@@ -1,13 +1,20 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep } from "lodash";
+import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
+import { z } from "zod";
+import { TeamInterface } from "@back-end/types/team";
 import {
   Invite,
   Member,
+  MemberRoleWithProjects,
   OrganizationInterface,
   OrganizationMessage,
+  Role,
 } from "../../types/organization";
 import { upgradeOrganizationDoc } from "../util/migrations";
+import { ApiOrganization } from "../../types/openapi";
+import { IS_CLOUD } from "../util/secrets";
 
 const baseMemberFields = {
   _id: false,
@@ -25,6 +32,8 @@ const baseMemberFields = {
     },
   ],
   teams: [String],
+  externalId: String,
+  managedByIdp: Boolean,
 };
 
 const organizationSchema = new mongoose.Schema({
@@ -34,6 +43,7 @@ const organizationSchema = new mongoose.Schema({
   },
   dateCreated: Date,
   verifiedDomain: String,
+  externalId: String,
   url: String,
   name: String,
   ownerEmail: String,
@@ -44,6 +54,7 @@ const organizationSchema = new mongoose.Schema({
     {
       ...baseMemberFields,
       id: String,
+      lastLoginDate: Date,
     },
   ],
   invites: [
@@ -111,6 +122,8 @@ const organizationSchema = new mongoose.Schema({
     },
   },
   settings: {},
+  getStartedChecklistItems: [String],
+  customRoles: {},
 });
 
 organizationSchema.index({ "members.id": 1 });
@@ -132,12 +145,14 @@ export async function createOrganization({
   name,
   url = "",
   verifiedDomain = "",
+  externalId = "",
 }: {
   email: string;
   userId: string;
   name: string;
   url?: string;
   verifiedDomain?: string;
+  externalId?: string;
 }) {
   // TODO: sanitize fields
   const doc = await OrganizationModel.create({
@@ -145,6 +160,7 @@ export async function createOrganization({
     name,
     url,
     verifiedDomain,
+    externalId,
     invites: [],
     members: [
       {
@@ -166,19 +182,53 @@ export async function createOrganization({
           defaultState: true,
         },
       ],
+      // Default to the same attributes as the auto-wrapper for the Javascript SDK
+      attributeSchema: [
+        { property: "id", datatype: "string", hashAttribute: true },
+        { property: "url", datatype: "string" },
+        { property: "path", datatype: "string" },
+        { property: "host", datatype: "string" },
+        { property: "query", datatype: "string" },
+        { property: "deviceType", datatype: "enum", enum: "desktop,mobile" },
+        {
+          property: "browser",
+          datatype: "enum",
+          enum: "chrome,edge,firefox,safari,unknown",
+        },
+        { property: "utmSource", datatype: "string" },
+        { property: "utmMedium", datatype: "string" },
+        { property: "utmCampaign", datatype: "string" },
+        { property: "utmTerm", datatype: "string" },
+        { property: "utmContent", datatype: "string" },
+      ],
     },
+    getStartedChecklistItems: [],
   });
   return toInterface(doc);
 }
-export async function findAllOrganizations(page: number, search: string) {
+
+export async function findAllOrganizations(
+  page: number,
+  search: string,
+  limit: number = 50
+) {
   const regex = new RegExp(search, "i");
 
-  const query = search ? { $or: [{ name: regex }, { ownerEmail: regex }] } : {};
+  const query = search
+    ? {
+        $or: [
+          { name: regex },
+          { ownerEmail: regex },
+          { id: regex },
+          { externalId: regex },
+        ],
+      }
+    : {};
 
   const docs = await OrganizationModel.find(query)
     .sort({ _id: -1 })
-    .skip((page - 1) * 50)
-    .limit(50);
+    .skip((page - 1) * limit)
+    .limit(limit);
 
   const total = await (search
     ? OrganizationModel.find(query).countDocuments()
@@ -186,10 +236,12 @@ export async function findAllOrganizations(page: number, search: string) {
 
   return { organizations: docs.map(toInterface), total };
 }
+
 export async function findOrganizationById(id: string) {
   const doc = await OrganizationModel.findOne({ id });
   return doc ? toInterface(doc) : null;
 }
+
 export async function updateOrganization(
   id: string,
   update: Partial<OrganizationInterface>
@@ -223,6 +275,36 @@ export async function findOrganizationByStripeCustomerId(id: string) {
     stripeCustomerId: id,
   });
 
+  return doc ? toInterface(doc) : null;
+}
+
+export async function getAllInviteEmailsInDb() {
+  if (IS_CLOUD) {
+    throw new Error("getAllInviteEmailsInDb() is not supported on cloud");
+  }
+
+  const organizations = await OrganizationModel.find(
+    {},
+    { "invites.email": 1 }
+  );
+
+  const inviteEmails: string[] = organizations.reduce(
+    (emails: string[], organization) => {
+      const orgEmails = organization.invites.map((invite) => invite.email);
+      return emails.concat(orgEmails);
+    },
+    []
+  );
+
+  return inviteEmails;
+}
+
+export async function getSelfHostedOrganization() {
+  if (IS_CLOUD) {
+    throw new Error("getSelfHostedOrganization() is not supported on cloud");
+  }
+
+  const doc = await OrganizationModel.findOne();
   return doc ? toInterface(doc) : null;
 }
 
@@ -320,6 +402,163 @@ export async function setOrganizationMessages(
     { messages },
     {
       runValidators: true,
+    }
+  );
+}
+
+export function toOrganizationApiInterface(
+  org: OrganizationInterface
+): ApiOrganization {
+  const { id, externalId, name, ownerEmail, dateCreated } = org;
+  return {
+    id,
+    externalId,
+    name,
+    ownerEmail,
+    dateCreated: dateCreated?.toISOString() || "",
+  };
+}
+
+export async function updateMember(
+  org: OrganizationInterface,
+  userId: string,
+  updates: Partial<Member>
+) {
+  if (updates.id) throw new Error("Cannot update member id");
+
+  const member = org.members.find((m) => m.id === userId);
+
+  if (!member) throw new Error("Member not found");
+
+  await updateOrganization(org.id, {
+    members: org.members.map((m) => {
+      if (m.id === userId) {
+        return {
+          ...m,
+          ...updates,
+        };
+      }
+      return m;
+    }),
+  });
+}
+
+export const customRoleValidator = z
+  .object({
+    id: z.string().min(2).max(64),
+    description: z.string().max(100),
+    policies: z.array(z.enum(POLICIES)),
+  })
+  .strict();
+
+export async function addCustomRole(org: OrganizationInterface, role: Role) {
+  // Basic Validation
+  role = customRoleValidator.parse(role);
+
+  // Make sure role id is not reserved
+  if (RESERVED_ROLE_IDS.includes(role.id)) {
+    throw new Error("That role id is reserved and cannot be used");
+  }
+
+  // Make sure role id is not already in use
+  if (org.customRoles?.find((r) => r.id === role.id)) {
+    throw new Error("That role id already exists");
+  }
+
+  // Validate custom role id format
+  if (!/^[a-zA-Z0-9_]+$/.test(role.id)) {
+    throw new Error(
+      "Role id must only include letters, numbers, and underscores."
+    );
+  }
+
+  const customRoles = [...(org.customRoles || [])];
+  customRoles.push(role);
+
+  await updateOrganization(org.id, { customRoles });
+}
+
+export async function editCustomRole(
+  org: OrganizationInterface,
+  id: string,
+  updates: Omit<Role, "id">
+) {
+  // Validation
+  updates = customRoleValidator.omit({ id: true }).parse(updates);
+
+  let found = false;
+  const newCustomRoles = (org.customRoles || []).map((role) => {
+    if (role.id === id) {
+      found = true;
+      return {
+        ...role,
+        ...updates,
+      };
+    }
+    return role;
+  });
+
+  if (!found) {
+    throw new Error("Role not found");
+  }
+
+  await updateOrganization(org.id, { customRoles: newCustomRoles });
+}
+
+function usingRole(member: MemberRoleWithProjects, role: string): boolean {
+  return (
+    member.role === role ||
+    (member.projectRoles || []).some((pr) => pr.role === role)
+  );
+}
+
+export async function removeCustomRole(
+  org: OrganizationInterface,
+  teams: TeamInterface[],
+  id: string
+) {
+  // Make sure the id isn't the org's default
+  if (org.settings?.defaultRole?.role === id) {
+    throw new Error(
+      "Cannot delete role. This role is set as the organization's default role."
+    );
+  }
+  // Make sure no members, invites, pending members, or teams are using the role
+  if (org.members.some((m) => usingRole(m, id))) {
+    throw new Error("Role is currently being used by at least one member");
+  }
+  if (org.pendingMembers?.some((m) => usingRole(m, id))) {
+    throw new Error(
+      "Role is currently being used by at least one pending member"
+    );
+  }
+  if (org.invites?.some((m) => usingRole(m, id))) {
+    throw new Error(
+      "Role is currently being used by at least one invited member"
+    );
+  }
+  if (teams.some((team) => usingRole(team, id))) {
+    throw new Error("Role is currently being used by at least one team");
+  }
+
+  const newCustomRoles = (org.customRoles || []).filter(
+    (role) => role.id !== id
+  );
+
+  if (newCustomRoles.length === (org.customRoles || []).length) {
+    throw new Error("Role not found");
+  }
+
+  await updateOrganization(org.id, { customRoles: newCustomRoles });
+}
+
+export async function addGetStartedChecklistItem(id: string, item: string) {
+  await OrganizationModel.updateOne(
+    {
+      id,
+    },
+    {
+      $addToSet: { getStartedChecklistItems: item },
     }
   );
 }

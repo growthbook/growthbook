@@ -10,8 +10,8 @@ import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import useMembers from "@/hooks/useMembers";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import EditSqlModal from "../SchemaBrowser/EditSqlModal";
-import Code from "../SyntaxHighlighting/Code";
+import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
+import Code from "@/components/SyntaxHighlighting/Code";
 
 export type CursorData = {
   row: number;
@@ -113,8 +113,7 @@ const SegmentForm: FC<{
           }))}
           className="portal-overflow-ellipsis"
         />
-        {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-        {datasource?.properties.userIds && (
+        {datasource?.properties?.userIds && (
           <SelectField
             label="Identifier Type"
             required

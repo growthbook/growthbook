@@ -60,6 +60,12 @@ tags:
   - name: projects
     x-displayName: Projects
     description: Projects are used to organize your feature flags and experiments
+  - name: environments
+    x-displayName: Environments
+    description: GrowthBook comes with one environment by default (production),
+                 but you can add as many as you need. When used with feature
+                 flags, you can enable/disable feature flags on a per-environment
+                 basis.
   - name: features
     x-displayName: Feature Flags
     description: Control your feature flags programatically
@@ -87,13 +93,34 @@ tags:
   - name: saved-groups
     x-displayName: Saved Groups
     description: Defined sets of attribute values which can be used with feature rules for targeting features at particular users.
+  - name: organizations
+    x-displayName: Organizations
+    description: Organizations are used for multi-org deployments where different teams can run their own isolated feature flags and experiments. These endpoints are only via a super-admin's Personal Access Token.
+  - name: fact-tables
+    x-displayName: Fact Tables
+    description: Fact Tables describe the shape of your data warehouse tables
+  - name: fact-metrics
+    x-displayName: Fact Metrics
+    description: Fact Metrics are metrics built on top of Fact Table definitions
+  - name: code-references
+    x-displayName: Code References
+    description: Intended for use with our code reference CI utility, [`gb-find-code-refs`](https://github.com/growthbook/gb-find-code-refs).
 paths:
   /features:
-    $ref: "./paths/listFeatures.yaml"
+    get:
+      $ref: "./paths/listFeatures.yaml"
+    post:
+      $ref: "./paths/postFeature.yaml"
   /features/{id}:
-    $ref: "./paths/getFeature.yaml"
+    get:
+      $ref: "./paths/getFeature.yaml"
+    post:
+      $ref: "./paths/updateFeature.yaml"
   /features/{id}/toggle:
     $ref: "./paths/toggleFeature.yaml"
+  /feature-keys:
+    get:
+      $ref: "./paths/getFeatureKeys.yaml"
   /projects:
     $ref: "./paths/listProjects.yaml"
   /projects/{id}:
@@ -161,6 +188,66 @@ paths:
       $ref: "./paths/updateSavedGroup.yaml"
     delete:
       $ref: "./paths/deleteSavedGroup.yaml"
+  /organizations:
+    get:
+      $ref: "./paths/listOrganizations.yaml"
+    post:
+      $ref: "./paths/postOrganization.yaml"
+  /organizations/{id}:
+    put:
+      $ref: "./paths/putOrganization.yaml"
+  /environments:
+    get:
+      $ref: "./paths/listEnvironments.yaml"
+    post:
+      $ref: "./paths/postEnvironment.yaml"
+  /environments/${id}:
+    put:
+      $ref: "./paths/putEnvironment.yaml"
+    delete:
+      $ref: "./paths/deleteEnvironment.yaml"
+  /fact-tables:
+    get:
+      $ref: "./paths/listFactTables.yaml"
+    post:
+      $ref: "./paths/postFactTable.yaml"
+  /fact-tables/{id}:
+    get:
+      $ref: "./paths/getFactTable.yaml"
+    post:
+      $ref: "./paths/updateFactTable.yaml"
+    delete:
+      $ref: "./paths/deleteFactTable.yaml"
+  /fact-tables/{factTableId}/filters:
+    get:
+      $ref: "./paths/listFactTableFilters.yaml"
+    post:
+      $ref: "./paths/postFactTableFilter.yaml"
+  /fact-tables/{factTableId}/filters/{id}:
+    get:
+      $ref: "./paths/getFactTableFilter.yaml"
+    post:
+      $ref: "./paths/updateFactTableFilter.yaml"
+    delete:
+      $ref: "./paths/deleteFactTableFilter.yaml"
+  /fact-metrics:
+    get:
+      $ref: "./paths/listFactMetrics.yaml"
+    post:
+      $ref: "./paths/postFactMetric.yaml"
+  /fact-metrics/{id}:
+    get:
+      $ref: "./paths/getFactMetric.yaml"
+    post:
+      $ref: "./paths/updateFactMetric.yaml"
+    delete:
+      $ref: "./paths/deleteFactMetric.yaml"
+  /bulk-import/facts:
+    post:
+      $ref: "./paths/postBulkImportFacts.yaml"
+  /code-refs:
+    post:
+      $ref: "./paths/postCodeRefs.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:

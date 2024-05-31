@@ -1,35 +1,36 @@
 import { FC, useMemo, useState } from "react";
-import { MetricInterface } from "back-end/types/metric";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import { getValidDate } from "shared/dates";
-import { StatsEngine } from "back-end/types/stats";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { formatConversionRate } from "@/services/metrics";
+import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import {
+  ExperimentMetricInterface,
   isExpectedDirection,
   isStatSig,
   shouldHighlight,
-} from "@/services/experiments";
+} from "shared/experiments";
+import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import {
+  formatNumber,
+  formatPercent,
+  getExperimentMetricFormatter,
+} from "@/services/metrics";
+import { getEffectLabel } from "@/services/experiments";
 import { useCurrency } from "@/hooks/useCurrency";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import Toggle from "../Forms/Toggle";
+import Toggle from "@/components/Forms/Toggle";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "./ExperimentDateGraph";
 
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
 const numberFormatter = new Intl.NumberFormat();
 
 // Represents data for one metric graph
 type Metric = {
-  metric: MetricInterface;
+  metric: ExperimentMetricInterface;
   isGuardrail: boolean;
   datapoints: ExperimentDateGraphDataPoint[];
 };
@@ -41,6 +42,7 @@ const DateResults: FC<{
   metrics: string[];
   guardrails?: string[];
   statsEngine?: StatsEngine;
+  differenceType?: DifferenceType;
 }> = ({
   results,
   variations,
@@ -48,8 +50,9 @@ const DateResults: FC<{
   metrics,
   guardrails,
   statsEngine,
+  differenceType,
 }) => {
-  const { getMetricById, ready } = useDefinitions();
+  const { getExperimentMetricById, getFactTableById, ready } = useDefinitions();
 
   const pValueThreshold = usePValueThreshold();
   const { ciUpper, ciLower } = useConfidenceLevels();
@@ -72,7 +75,7 @@ const DateResults: FC<{
 
     return sortedResults.map((d) => {
       return {
-        d: getValidDate(d.name),
+        d: getValidDateOffsetByUTC(d.name),
         variations: variations.map((variation, i) => {
           const users = d.variations[i]?.users || 0;
           total[i] = total[i] || 0;
@@ -102,7 +105,7 @@ const DateResults: FC<{
     return (
       Array.from(new Set(metrics.concat(guardrails || [])))
         .map((metricId) => {
-          const metric = getMetricById(metricId);
+          const metric = getExperimentMetricById(metricId);
           if (!metric) return;
           // Keep track of cumulative users and value for each variation
           const totalUsers: number[] = [];
@@ -112,7 +115,7 @@ const DateResults: FC<{
             (d) => {
               const baseline = d.variations[0]?.metrics?.[metricId];
               return {
-                d: getValidDate(d.name),
+                d: getValidDateOffsetByUTC(d.name),
                 variations: variations.map((variation, i) => {
                   const stats = d.variations[i]?.metrics?.[metricId];
                   const value = stats?.value;
@@ -151,14 +154,16 @@ const DateResults: FC<{
                     up = crA ? (crB - crA) / crA : 0;
                   }
 
-                  const v_formatted = formatConversionRate(
-                    metric?.type,
+                  const v_formatted = getExperimentMetricFormatter(
+                    metric,
+                    getFactTableById
+                  )(
                     cumulative
                       ? totalUsers[i]
                         ? totalValue[i] / totalUsers[i]
                         : 0
                       : stats?.cr || 0,
-                    displayCurrency
+                    { currency: displayCurrency }
                   );
 
                   const p = stats?.pValueAdjusted ?? stats?.pValue ?? 1;
@@ -230,13 +235,20 @@ const DateResults: FC<{
     ciLower,
     ciUpper,
     displayCurrency,
-    getMetricById,
+    getExperimentMetricById,
+    getFactTableById,
     guardrails,
     metrics,
     pValueThreshold,
     statsEngine,
     variations,
   ]);
+
+  const metricFormatterOptions: Intl.NumberFormatOptions = {
+    currency: displayCurrency,
+    ...(differenceType === "relative" ? { maximumFractionDigits: 1 } : {}),
+    ...(differenceType === "scaled" ? { notation: "compact" } : {}),
+  };
 
   return (
     <div className="mb-4 mx-3 pb-4">
@@ -263,7 +275,7 @@ const DateResults: FC<{
           variationNames={variations.map((v) => v.name)}
           label="Users"
           datapoints={users}
-          tickFormat={(v) => numberFormatter.format(v)}
+          formatter={formatNumber}
         />
       </div>
       {metricSections && (
@@ -293,10 +305,15 @@ const DateResults: FC<{
             )}
           </h3>
           <ExperimentDateGraph
-            yaxis="uplift"
+            yaxis="effect"
             datapoints={datapoints}
-            label="Relative Uplift"
-            tickFormat={(v) => percentFormatter.format(v)}
+            label={getEffectLabel(differenceType ?? "relative")}
+            formatter={
+              differenceType === "relative"
+                ? formatPercent
+                : getExperimentMetricFormatter(metric, getFactTableById, true)
+            }
+            formatterOptions={metricFormatterOptions}
             variationNames={variations.map((v) => v.name)}
             statsEngine={statsEngine}
             hasStats={!cumulative}

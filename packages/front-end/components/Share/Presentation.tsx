@@ -1,4 +1,4 @@
-import React, { Fragment, ReactElement } from "react";
+import React, { Fragment, ReactElement, useEffect } from "react";
 import {
   Deck,
   Slide,
@@ -17,9 +17,11 @@ import {
 } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import CompactResults_old from "../Experiment/CompactResults_old";
-import Markdown from "../Markdown/Markdown";
+import Markdown from "@/components/Markdown/Markdown";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import CompactResults from "@/components/Experiment/CompactResults";
 import { presentationThemes, defaultTheme } from "./ShareModal";
 
 export interface Props {
@@ -49,7 +51,22 @@ const Presentation = ({
   customTheme,
   preview = false,
 }: Props): ReactElement => {
-  const { getMetricById } = useDefinitions();
+  const { getExperimentMetricById } = useDefinitions();
+  const orgSettings = useOrgSettings();
+
+  // Interval to force the results table to redraw (currently needed for window-size-based rendering)
+  // - ideally would have rerendered on slide number, but spectacle doesn't seem to expose this
+  const [redraw, setRedraw] = React.useState(false);
+  useEffect(() => {
+    setRedraw(true);
+    const interval = window.setInterval(() => {
+      setRedraw((r) => !r);
+    }, 1000);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, []);
+
   const em = new Map<
     string,
     {
@@ -163,7 +180,7 @@ const Presentation = ({
                 <span style={{ fontSize: "1rem" }}>
                   Primary metrics:{" "}
                   {e?.experiment?.metrics
-                    .map((m) => getMetricById(m)?.name ?? m)
+                    .map((m) => getExperimentMetricById(m)?.name ?? m)
                     .join(", ")}
                 </span>
               </>
@@ -211,6 +228,24 @@ const Presentation = ({
       const experiment = e.experiment;
       const snapshot = e.snapshot;
       const phase = experiment.phases[snapshot.phase];
+      const settingsForSnapshotMetrics =
+        snapshot?.settings?.metricSettings?.map((m) => ({
+          metric: m.id,
+          properPrior: m.computedSettings?.properPrior ?? false,
+          properPriorMean: m.computedSettings?.properPriorMean ?? 0,
+          properPriorStdDev:
+            m.computedSettings?.properPriorStdDev ??
+            DEFAULT_PROPER_PRIOR_STDDEV,
+          regressionAdjustmentReason:
+            m.computedSettings?.regressionAdjustmentReason || "",
+          regressionAdjustmentDays:
+            m.computedSettings?.regressionAdjustmentDays || 0,
+          regressionAdjustmentEnabled: !!m.computedSettings
+            ?.regressionAdjustmentEnabled,
+          regressionAdjustmentAvailable: !!m.computedSettings
+            ?.regressionAdjustmentAvailable,
+        })) || [];
+
       expSlides.push(
         <Slide key={`s-${expSlides.length}`}>
           <Heading className="m-0 p-0">Results</Heading>
@@ -241,21 +276,11 @@ const Presentation = ({
               overflowY: "auto",
               background: "#fff",
               maxHeight: "100%",
-              padding: "10px 0 0",
               color: "#444",
               fontSize: "95%",
             }}
           >
-            <CompactResults_old
-              id={experiment.id}
-              isLatestPhase={snapshot.phase === experiment.phases.length - 1}
-              metrics={experiment.metrics}
-              metricOverrides={experiment?.metricOverrides ?? []}
-              reportDate={snapshot.dateCreated}
-              results={snapshot?.analyses[0]?.results?.[0]}
-              status={experiment.status}
-              startDate={phase?.dateStarted ?? ""}
-              multipleExposures={snapshot.multipleExposures || 0}
+            <CompactResults
               variations={experiment.variations.map((v, i) => {
                 return {
                   id: v.key || i + "",
@@ -263,6 +288,30 @@ const Presentation = ({
                   weight: phase?.variationWeights?.[i] || 0,
                 };
               })}
+              multipleExposures={snapshot.multipleExposures || 0}
+              results={snapshot?.analyses[0]?.results?.[0]}
+              reportDate={snapshot.dateCreated}
+              startDate={phase?.dateStarted ?? ""}
+              isLatestPhase={snapshot.phase === experiment.phases.length - 1}
+              status={experiment.status}
+              metrics={experiment.metrics}
+              metricOverrides={experiment.metricOverrides ?? []}
+              guardrails={experiment.guardrails}
+              id={experiment.id}
+              statsEngine={snapshot?.analyses[0]?.settings.statsEngine}
+              pValueCorrection={orgSettings?.pValueCorrection}
+              regressionAdjustmentEnabled={
+                snapshot?.analyses[0]?.settings?.regressionAdjusted
+              }
+              settingsForSnapshotMetrics={settingsForSnapshotMetrics}
+              sequentialTestingEnabled={
+                snapshot?.analyses[0]?.settings?.sequentialTesting
+              }
+              differenceType={snapshot?.analyses[0]?.settings?.differenceType}
+              isTabActive={redraw}
+              mainTableOnly={true}
+              noStickyHeader={true}
+              noTooltip={true}
             />
           </div>
         </Slide>

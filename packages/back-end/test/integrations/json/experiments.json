@@ -1,0 +1,187 @@
+[
+  {
+    "id": "base",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "skipPartialData",
+    "attributionModel": "firstExposure",
+    "skipPartialData": true
+  },
+  {
+    "id": "base_allExposures",
+    "attributionModel": "experimentDuration"
+  },
+  {
+    "id": "activation",
+    "activationMetric": "cart_loaded",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "activation_anonymous",
+    "activationMetric": "cart_loaded_anonymous",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "activation_allExposures",
+    "activationMetric": "cart_loaded",
+    "attributionModel": "experimentDuration"
+  },
+  {
+    "id": "negativeconversion",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "windowHours": 48,
+        "delayHours": -24
+      }
+    ],
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "base_allExposures_negativeconversion",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "windowHours": 48,
+        "delayHours": -24
+      }
+    ],
+    "attributionModel": "experimentDuration"
+  },
+  {
+    "id": "activation_negativeconversion",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "windowHours": 48,
+        "delayHours": -24
+      }
+    ],
+    "activationMetric": "cart_loaded",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "activation_allExposures_negativeconversion",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "windowHours": 48,
+        "delayHours": -24
+      }
+    ],
+    "activationMetric": "cart_loaded",
+    "attributionModel": "experimentDuration"
+  },
+  {
+    "id": "positiveconversion",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "windowHours": 48,
+        "delayHours": 24
+      }
+    ],
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "lookback",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "windowType": "lookback",
+        "windowHours": 48,
+        "delayHours": 24
+      }
+    ],
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "lookback_allExposures",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "windowType": "lookback",
+        "windowHours": 48,
+        "delayHours": 24
+      }
+    ],
+    "attributionModel": "experimentDuration"
+  },
+  {
+    "id": "lookback_skipPartial",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "windowType": "lookback",
+        "windowHours": 48,
+        "delayHours": 24
+      }
+    ],
+    "attributionModel": "experimentDuration",
+    "skipPartialData": true
+  },
+  {
+    "id": "base_allExposures_positiveconversion",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "windowHours": 48,
+        "delayHours": 24
+      }
+    ],
+    "attributionModel": "experimentDuration"
+  },
+  {
+    "id": "activation_positiveconversion",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "windowHours": 48,
+        "delayHours": 24
+      }
+    ],
+    "activationMetric": "cart_loaded",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "activation_allExposures_positiveconversion",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "windowHours": 48,
+        "delayHours": 24
+      }
+    ],
+    "activationMetric": "cart_loaded",
+    "attributionModel": "experimentDuration"
+  },
+  {
+    "id": "dimension_date",
+    "dimensionType": "date",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "dimension_experiment",
+    "dimensionType": "experiment",
+    "dimensionMetric": "browser",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "dimension_user",
+    "dimensionType": "user",
+    "dimensionMetric": "country",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "dimension_activation",
+    "activationMetric": "cart_loaded",
+    "attributionModel": "firstExposure",
+    "dimensionType": "activation"
+  },
+  {
+    "id": "filter_segment",
+    "attributionModel": "firstExposure",
+    "segment": "chrome_only"
+  }
+]

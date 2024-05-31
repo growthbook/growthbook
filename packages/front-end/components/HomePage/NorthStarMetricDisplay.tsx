@@ -1,15 +1,14 @@
 import React from "react";
 import { MetricInterface } from "back-end/types/metric";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
-import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
-import DateGraph from "../Metrics/DateGraph";
+import DateGraph, { DraftExperiment } from "@/components/Metrics/DateGraph";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const NorthStarMetricDisplay = ({
   metricId,
@@ -25,13 +24,13 @@ const NorthStarMetricDisplay = ({
   hoverDate?: number | null;
   onHoverCallback?: (ret: { d: number | null }) => void;
 }): React.ReactElement => {
-  const { project } = useDefinitions();
-  const permissions = usePermissions();
+  const { project, getDatasourceById } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
 
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
-    experiments: Partial<ExperimentInterfaceStringDates>[];
+    experiments: DraftExperiment[];
   }>(`/metric/${metricId}`);
 
   // @todo: get the metric period in days from the 'window'.
@@ -51,11 +50,12 @@ const NorthStarMetricDisplay = ({
     : data.experiments;
   let analysis = data.metric.analysis;
   if (!analysis || !("average" in analysis)) {
-    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'MetricAnaly... Remove this comment to see the full error message
-    analysis = null;
+    analysis = undefined;
   }
   const { status } = getQueryStatus(metric.queries || [], metric.analysisError);
   const hasQueries = metric.queries?.length > 0;
+
+  const datasource = getDatasourceById(metric.datasource);
 
   return (
     <>
@@ -81,7 +81,7 @@ const NorthStarMetricDisplay = ({
         ) : (
           <div className="mb-4">
             <h4 className="my-3">{metric.name}</h4>
-            {permissions.check("runQueries", metric.projects || "") && (
+            {datasource && permissionsUtil.canRunMetricQueries(datasource) && (
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();

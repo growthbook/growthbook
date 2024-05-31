@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { omit } from "lodash";
 import uniqid from "uniqid";
-import { QueryInterface } from "../../types/query";
+import { QueryInterface, QueryType } from "../../types/query";
 import { QUERY_CACHE_TTL_MINS } from "../util/secrets";
 import { QueryLanguage } from "../../types/datasource";
 
@@ -30,10 +30,12 @@ const querySchema = new mongoose.Schema({
     type: String,
     index: true,
   },
+  queryType: String,
   createdAt: Date,
   startedAt: Date,
   finishedAt: Date,
   heartbeat: Date,
+  externalId: String,
   result: {},
   rawResult: [],
   error: String,
@@ -41,6 +43,8 @@ const querySchema = new mongoose.Schema({
   dependencies: [String],
   cachedQueryUsed: String,
 });
+
+querySchema.index({ organization: 1, datasource: 1, status: 1, createdAt: -1 });
 
 type QueryDocument = mongoose.Document & QueryInterface;
 
@@ -54,6 +58,19 @@ function toInterface(doc: QueryDocument): QueryInterface {
 export async function getQueriesByIds(organization: string, ids: string[]) {
   if (!ids.length) return [];
   const docs = await QueryModel.find({ organization, id: { $in: ids } });
+  return docs.map((doc) => toInterface(doc));
+}
+
+export async function getQueriesByDatasource(
+  organization: string,
+  datasource: string,
+  limit: number = 50
+) {
+  const docs = await QueryModel.find({ organization, datasource })
+    .limit(limit)
+    .sort({
+      createdAt: -1,
+    });
   return docs.map((doc) => toInterface(doc));
 }
 
@@ -141,6 +158,7 @@ export async function createNewQuery({
   query,
   dependencies = [],
   running = false,
+  queryType = "",
 }: {
   organization: string;
   datasource: string;
@@ -148,6 +166,7 @@ export async function createNewQuery({
   query: string;
   dependencies: string[];
   running: boolean;
+  queryType: QueryType;
 }): Promise<QueryInterface> {
   const data: QueryInterface = {
     createdAt: new Date(),
@@ -160,6 +179,7 @@ export async function createNewQuery({
     startedAt: running ? new Date() : undefined,
     status: running ? "running" : "queued",
     dependencies: dependencies,
+    queryType,
   };
   const doc = await QueryModel.create(data);
   return toInterface(doc);

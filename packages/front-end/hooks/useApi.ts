@@ -1,8 +1,7 @@
 import useSWR from "swr";
-import { useAuth } from "../services/auth";
+import { useAuth } from "@/services/auth";
 
-// eslint-disable-next-line
-export default function useApi<Response = any>(path: string | null) {
+export default function useApi<Response = unknown>(path: string | null) {
   const { apiCall } = useAuth();
   const { orgId } = useAuth();
 

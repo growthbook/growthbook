@@ -121,9 +121,16 @@ And then your BigQuery link will show up on the listing page:
   style={{ width: 900, margin: "0 auto 10px auto" }}
 />
 
+:::note
+
+If you are loading Google Analytics via Google Tag Manager (GTM), you may need to add the custom event to GTM to ensure
+the data is passed to GA4 from the datalayer. You can add the custom event by following this [section from the GTM guide](/guide/google-tag-manager-and-growthbook#tracking-via-datalayer-and-gtm).
+
+:::
+
 ### 3. Configure BigQuery for GrowthBook
 
-You'll need to give GrowthBook some permissions to your BigQuery project so that we can access the data. We have created a guide just for this, which you can find [here](https://docs.growthbook.io/guide/bigquery)
+You'll need to give GrowthBook permissions to your BigQuery project so that we can access the data. We have created a guide just for this, which you can find [here](https://docs.growthbook.io/guide/bigquery)
 
 ### 4. Connect GrowthBook to BigQuery
 
@@ -151,207 +158,24 @@ data depending on the way you are tracking your experiments (see the **_tracking
 
 :::
 
-Once connected, you'll be able to add any additional metrics or dimensions, and then you can use your GA4 data for your
+Once connected, you can add any additional metrics or dimensions, and then you can use your GA4 data for your
 experiments. You can use all your existing events and tracking- GrowthBook only requires one additional tracking call
 when a user is exposed to an experiment.
 
 ## Running experiments with GrowthBook and GA4
 
-With the data source connected, you can use the GrowthBook SDK run A/B tests. The SDK lets you run experiments where the
-variations are defined in code, and controlled from UI. Once implemented, the SDK will do the random assignments and send
-the experiment exposure event to GA4 based on the settings in the GrowthBook UI.
+With the data source connected, you can integrate the GrowthBook SDK into your application to run A/B tests. Once implemented, the SDK will do the random assignments and send the experiment exposure event to GA4 based on the settings in the GrowthBook UI.
 
 :::info
 
 We do have a visual editor for creating experiments as part of our Pro plan. Our visual editor is meant for simple
-experiments. Experiments that are more complex are best created with a change in the code.
+experiments. Experiments that are more complex are best created by writing code with feature flags.
 
 :::
 
 ### SDK integration for GA4
 
-You can follow the guides on SDK integration for any of our supported languages [here](/lib/). The
-only special case for GA4 is getting the **user Id** and/or **Client ID** attribute, and adjusting the `trackingCallback` to
-send the experiment exposure event to GA4.
-
-#### Using GA's Client ID
-
-GA generates a **Client ID** (sometimes called a **Device Id**) for each visitor, and then stores this unique ID in a cookie
-(\_ga). There are a few ways to grab this Id from your code. Here are a few ways with Javascript:
-
-```js
-gtag('get', 'G-[your google property id]', 'client_id', (clientId) => {
-  console.log(clientId)
-});
-```
-
-or
-
-```js
-const clientId = document.cookie.match(/_ga=(.+?);/)[1].split('.').slice(-2).join(".")
-```
-
-You can read more about getting this ID [here](https://stackoverflow.com/questions/20053949/how-to-get-the-google-analytics-client-id)
-
-#### Using a User ID
-
-If you have a custom **User Id** already, you can use this with GA4 instead (or as well) as the **Client Id**.
-You can read Google's official instructions on how to pass a custom **User Id** [here](https://developers.google.com/analytics/devguides/collection/ga4/user-id?client_type=gtag).
-
-:::info
-
-A **User Id** in this case would be something you pass to GA4, not something GA4 generates for you. You can use this ID throughout your GA4 reports.
-
-:::
-
-#### Generating your own ID
-
-In certain situations Google Analytics might not load before GrowthBook, not have the **DeviceId** immediately available,
-or just be slow to load. In these circumstances there may be a noticeable flickering while everything loads. To work
-around this, you can generate your own ID which can be available immediately. You don't necessarily need to pass this
-as a custom UserID either, you can just persist it yourself and use it for GrowthBook assignment. Here is some example
-code that generates a unique ID and stores it in a cookie.
-
-```js
-
-const getUUID = () => {
-  const COOKIE_NAME = "gbuuid";
-  const COOKIE_DAYS = 400; // 400 days is the max cookie duration for chrome
-
-  // use the browsers crypto.randomUUID if set
-  const genUUID = () => {
-    if(window?.crypto?.randomUUID) return window.crypto.randomUUID();
-    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
-      (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-    );
-  }
-  const getCookie = (name) => {
-    let value = `; ${document.cookie}`;
-    let parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(';').shift();
-  }
-  const setCookie = (name, value) => {
-    var d = new Date();
-    d.setTime(d.getTime() + 24*60*60*1000*COOKIE_DAYS);
-    document.cookie = name + "=" + value + ";path=/;expires=" + d.toGMTString();
-  }
-
-  // get the existing UUID from cookie if set, otherwise create one and store it in the cookie
-  if(getCookie(COOKIE_NAME)) return getCookie(COOKIE_NAME);
-
-  const uuid = genUUID();
-  setCookie(COOKIE_NAME, uuid);
-  return uuid;
-}
-```
-
-Compressed version of the above
-
-```js
-const getUUID=()=>{let $="gbuuid",e=()=>window.crypto.randomUUID?window.crypto.randomUUID():"10000000-1000-4000-8000-100000000000".replace(/[018]/g,$=>($^crypto.getRandomValues(new Uint8Array(1))[0]&15>>$/4).toString(16)),t=$=>{let e=`; ${document.cookie}`.split(`; ${$}=`);if(2===e.length)return e.pop().split(";").shift()},r=($,e)=>{var t=new Date;t.setTime(t.getTime()+3456e7),document.cookie=$+"="+e+";path=/;expires="+t.toGMTString()};if(t($))return t($);let i=e();return r($,i),i};
-```
-
-Here is the same code, compressed, and used with GA4 and GrowthBook, assuming you're loading GrowthBook with a script tag with the id `growthbook-sdk`
-
-```html
-<script id="growthbook-sdk" src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/index.min.js" defer></script>
-```
-
-```js
-<script>
-  (function() {
-    // Wait for the SDK to load before starting GrowthBook
-    if (window.growthbook) {
-      startGrowthbook();
-    } else {
-      document.querySelector("#growthbook-sdk").addEventListener("load", startGrowthbook);
-    }
-
-    function startGrowthbook() {
-      if (!window.growthbook) return;
-      const getUUID=()=>{let $="gbuuid",e=()=>window.crypto.randomUUID?window.crypto.randomUUID():"10000000-1000-4000-8000-100000000000".replace(/[018]/g,$=>($^crypto.getRandomValues(new Uint8Array(1))[0]&15>>$/4).toString(16)),t=$=>{let e=`; ${document.cookie}`.split(`; ${$}=`);if(2===e.length)return e.pop().split(";").shift()},r=($,e)=>{var t=new Date;t.setTime(t.getTime()+3456e7),document.cookie=$+"="+e+";path=/;expires="+t.toGMTString()};if(t($))return t($);let i=e();return r($,i),i};
-
-      let gbuuid = getUUID();
-      let gb = new growthbook.GrowthBook({
-        apiHost: "https://cdn.growthbook.io",
-        clientKey: "sdk-abcd1234",
-        // TODO: Add decryptionKey if using encryption
-        attributes: {
-          id: gbuuid
-          //add any other attributes here
-        },
-        trackingCallback: function(experiment, result) {
-          // track with GA4, for example:
-          gtag("event", "experiment_viewed", {
-            event_category: "experiment",
-            experiment_id: experiment.key,
-            variation_id: result.variationId,
-            gb_user_id: gbuuid,
-          });
-        }
-      });
-
-      // TODO: Instrument DOM with AB test logic
-      gb.loadFeatures().then(function() {
-        // if you want to do anything after GB loads
-      });
-    }
-  })();
-</script>
-```
-
-#### Passing Attributes to the SDK
-
-Once you have your **Client ID** and/or **User Id**, you can pass it to the GrowthBook SDK when you initialize it. For example:
-
-```js
-const gb = new GrowthBook({
-  apiHost: "https://cdn.growthbook.io",
-  clientKey: "sdk-abc123",
-  // Enable easier debugging during development
-  enableDevMode: true,
-  // Targeting attributes
-  attributes: {
-    clientId: clientId,
-    userId: userId,
-    country: "US",
-    ...
-  }
-});
-```
-
-And then these id's can be used from the GrowthBook UI to target your experiments. You can add the attributes to the UI from the **_Features -> Attributes_** page.
-
-#### Tracking experiment exposure
-
-The only additional event required is when a user is exposed to an experiment. This is done by adding a GA4 custom event from inside the `trackingCallback` method. For example:
-
-```js
-const gb = new GrowthBook({
-  apiHost: "https://cdn.growthbook.io",
-  clientKey: "sdk-abc123",
-  // Targeting attributes
-  attributes: {
-    clientId: gaUserId,
-    userId: userId,
-    country: country,
-    ...
-  },
-  trackingCallback: (experiment, result) => {
-    // track using GA4
-    if ("gtag" in window) {
-      window.gtag("event", "experiment_viewed", {
-        event_category: "experiment",
-        experiment_id: experiment.key,
-        variation_id: result.variationId,
-        ...
-      });
-    } else {
-      console.log("no gtag");
-    }
-  },
-});
-```
+The easiest and recommended way to integrate GrowthBook is by using our [Script Tag SDK](/lib/script-tag). This SDK will work out-of-the-box with GA4 without any configuration required.
 
 :::note
 

@@ -19,22 +19,23 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { GBSequential } from "@/components/Icons";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import UpgradeMessage from "../Marketing/UpgradeMessage";
-import UpgradeModal from "../Settings/UpgradeModal";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
-import MetricsSelector from "./MetricsSelector";
+import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
 import {
   EditMetricsFormInterface,
   fixMetricOverridesBeforeSaving,
   getDefaultMetricOverridesFormValue,
 } from "./EditMetricsForm";
+import MetricSelector from "./MetricSelector";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -54,18 +55,17 @@ const AnalysisForm: FC<{
   editMetrics = false,
 }) => {
   const {
-    metrics,
     segments,
     getProjectById,
     getDatasourceById,
-    getMetricById,
+    getExperimentMetricById,
     getSegmentById,
     datasources,
   } = useDefinitions();
 
   const { organization, hasCommercialFeature } = useUser();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const orgSettings = useOrgSettings();
 
@@ -90,7 +90,7 @@ const AnalysisForm: FC<{
   let canRunExperiment = !experiment.archived;
   const envs = getAffectedEnvsForExperiment({ experiment });
   if (envs.length > 0) {
-    if (!permissions.check("runExperiments", experiment.project, envs)) {
+    if (!permissionsUtil.canRunExperiment(experiment, envs)) {
       canRunExperiment = false;
     }
   }
@@ -136,7 +136,7 @@ const AnalysisForm: FC<{
       guardrails: experiment.guardrails || [],
       metricOverrides: getDefaultMetricOverridesFormValue(
         experiment.metricOverrides || [],
-        getMetricById,
+        getExperimentMetricById,
         orgSettings
       ),
       statsEngine: experiment.statsEngine,
@@ -175,16 +175,11 @@ const AnalysisForm: FC<{
   const datasource = getDatasourceById(form.watch("datasource"));
   const datasourceProperties = datasource?.properties;
 
-  const filteredMetrics = metrics.filter(
-    (m) => m.datasource === datasource?.id
-  );
   const filteredSegments = segments.filter(
     (s) => s.datasource === datasource?.id
   );
 
   // Error: Type instantiation is excessively deep and possibly infinite.
-  // eslint-disable-next-line
-  // @ts-ignore
   const variations = useFieldArray({
     control: form.control,
     name: "variations",
@@ -274,32 +269,22 @@ const AnalysisForm: FC<{
             form.setValue("segment", "");
           }
 
+          const isValidMetric = (id: string) =>
+            getExperimentMetricById(id)?.datasource === newDatasource;
+
           // If the activationMetric is now invalid
           const activationMetric = form.watch("activationMetric");
-          if (
-            activationMetric &&
-            getMetricById(activationMetric)?.datasource !== newDatasource
-          ) {
+          if (activationMetric && !isValidMetric(activationMetric)) {
             form.setValue("activationMetric", "");
           }
 
           // Filter the selected metrics to only valid ones
           const metrics = form.watch("metrics");
-          form.setValue(
-            "metrics",
-            metrics.filter(
-              (m) => getMetricById(m)?.datasource === newDatasource
-            )
-          );
+          form.setValue("metrics", metrics.filter(isValidMetric));
 
           // Filter the selected guardrails to only valid ones
           const guardrails = form.watch("guardrails");
-          form.setValue(
-            "guardrails",
-            guardrails.filter(
-              (m) => getMetricById(m)?.datasource === newDatasource
-            )
-          );
+          form.setValue("guardrails", guardrails.filter(isValidMetric));
         }}
         options={datasources
           .filter(
@@ -334,6 +319,19 @@ const AnalysisForm: FC<{
               value: q.id,
             };
           })}
+          helpText={
+            <>
+              <div>
+                Should correspond to the Identifier Type used to randomize units
+                for this experiment
+              </div>
+              {exposureQuery?.userIdType ? (
+                <>
+                  Identifier Type: <code>{exposureQuery?.userIdType}</code>
+                </>
+              ) : null}
+            </>
+          }
         />
       )}
       {datasource && (
@@ -343,8 +341,9 @@ const AnalysisForm: FC<{
           {...form.register("trackingKey")}
           helpText={
             <>
-              Will match against the <code>experiment_id</code> column in your
-              data source
+              Unique identifier for this experiment, used to track impressions
+              and analyze results. Will match against the{" "}
+              <code>experiment_id</code> column in your data source.
             </>
           }
           disabled={!canRunExperiment}
@@ -402,16 +401,19 @@ const AnalysisForm: FC<{
         </div>
       )}
       {datasource && (
-        <SelectField
-          label="Activation Metric"
+        <MetricSelector
+          datasource={form.watch("datasource")}
+          exposureQueryId={exposureQueryId}
+          project={experiment.project}
+          includeFacts={true}
           labelClassName="font-weight-bold"
-          options={filteredMetrics.map((m) => {
-            return {
-              label: m.name,
-              value: m.id,
-            };
-          })}
+          label={
+            <>
+              Activation Metric <MetricsSelectorTooltip onlyBinomial={true} />
+            </>
+          }
           initialOption="None"
+          onlyBinomial
           value={form.watch("activationMetric")}
           onChange={(value) => form.setValue("activationMetric", value || "")}
           helpText="Users must convert on this metric before being included"
@@ -449,14 +451,14 @@ const AnalysisForm: FC<{
               value: "strict",
             },
           ]}
-          helpText="How to treat users who have not had the full time to convert yet"
+          helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
         />
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
         <SelectField
           label={
             <AttributionModelTooltip>
-              <strong>Attribution Model</strong> <FaQuestionCircle />
+              <strong>Conversion Window Override</strong> <FaQuestionCircle />
             </AttributionModelTooltip>
           }
           value={form.watch("attributionModel")}
@@ -466,11 +468,11 @@ const AnalysisForm: FC<{
           }}
           options={[
             {
-              label: "First Exposure",
+              label: "Respect Conversion Windows",
               value: "firstExposure",
             },
             {
-              label: "Experiment Duration",
+              label: "Ignore Conversion Windows",
               value: "experimentDuration",
             },
           ]}
@@ -602,29 +604,39 @@ const AnalysisForm: FC<{
         <>
           <div className="form-group mt-3">
             <label className="font-weight-bold mb-1">Goal Metrics</label>
-            <div className="mb-1 font-italic">
-              Metrics you are trying to improve with this experiment.
+            <div className="mb-1">
+              <span className="font-italic">
+                Metrics you are trying to improve with this experiment.{" "}
+              </span>
+              <MetricsSelectorTooltip />
             </div>
             <MetricsSelector
               selected={form.watch("metrics")}
               onChange={(metrics) => form.setValue("metrics", metrics)}
               datasource={form.watch("datasource")}
+              exposureQueryId={exposureQueryId}
               project={experiment.project}
               autoFocus={true}
+              includeFacts={true}
             />
           </div>
 
           <div className="form-group">
             <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-            <div className="mb-1 font-italic">
-              Metrics you want to monitor, but are NOT specifically trying to
-              improve.
+            <div className="mb-1">
+              <span className="font-italic">
+                Metrics you want to monitor, but are NOT specifically trying to
+                improve.{" "}
+              </span>
+              <MetricsSelectorTooltip />
             </div>
             <MetricsSelector
               selected={form.watch("guardrails")}
               onChange={(metrics) => form.setValue("guardrails", metrics)}
               datasource={form.watch("datasource")}
+              exposureQueryId={exposureQueryId}
               project={experiment.project}
+              includeFacts={true}
             />
           </div>
 

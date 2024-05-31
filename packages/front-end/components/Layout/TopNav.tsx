@@ -1,4 +1,4 @@
-import { FC, Fragment, useState } from "react";
+import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaAngleRight, FaBars, FaBell, FaBuilding } from "react-icons/fa";
 import Link from "next/link";
@@ -10,11 +10,14 @@ import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import { usingSSO } from "@/services/env";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "../Modal";
-import Avatar from "../Avatar/Avatar";
-import ChangePasswordModal from "../Auth/ChangePasswordModal";
-import Field from "../Forms/Field";
-import OverflowText from "../Experiment/TabbedPage/OverflowText";
+import { useCelebrationLocalStorage } from "@/hooks/useCelebration";
+import Modal from "@/components/Modal";
+import Avatar from "@/components/Avatar/Avatar";
+import ChangePasswordModal from "@/components/Auth/ChangePasswordModal";
+import Field from "@/components/Forms/Field";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import Toggle from "@/components/Forms/Toggle";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "./TopNav.module.scss";
 import { ThemeToggler } from "./ThemeToggler/ThemeToggler";
 import AccountPlanBadge from "./AccountPlanBadge";
@@ -33,6 +36,10 @@ const TopNav: FC<{
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   useGlobalMenu(".top-nav-user-menu", () => setUserDropdownOpen(false));
   useGlobalMenu(".top-nav-org-menu", () => setOrgDropdownOpen(false));
+  const [
+    enableCelebrations,
+    setEnableCelebrations,
+  ] = useCelebrationLocalStorage();
 
   const { breadcrumb } = usePageHead();
 
@@ -43,16 +50,22 @@ const TopNav: FC<{
   const { apiCall, logout, organizations, orgId, setOrgId } = useAuth();
 
   const form = useForm({
-    defaultValues: { name: name || "" },
+    defaultValues: { name: name || "", enableCelebrations },
   });
 
-  const onSubmitEditName = form.handleSubmit(async (value) => {
-    await apiCall(`/user/name`, {
-      method: "PUT",
-      body: JSON.stringify(value),
-    });
-    updateUser();
-    setUserDropdownOpen(false);
+  const onSubmitEditProfile = form.handleSubmit(async (value) => {
+    if (value.name !== name) {
+      await apiCall(`/user/name`, {
+        method: "PUT",
+        body: JSON.stringify({ name: value.name }),
+      });
+      updateUser();
+      setUserDropdownOpen(false);
+    }
+
+    if (value.enableCelebrations !== enableCelebrations) {
+      setEnableCelebrations(value.enableCelebrations);
+    }
   });
 
   let orgName = orgId || "";
@@ -73,11 +86,25 @@ const TopNav: FC<{
       {editUserOpen && (
         <Modal
           close={() => setEditUserOpen(false)}
-          submit={onSubmitEditName}
+          submit={onSubmitEditProfile}
           header="Edit Profile"
           open={true}
         >
           <Field label="Name" {...form.register("name")} />
+          <label className="mr-3">
+            Allow Celebrations{" "}
+            <Tooltip
+              body={
+                "GrowthBook adds on-screen confetti celebrations randomly when you complete certain actions like launching an experiment. You can disable this if you find it distracting."
+              }
+            />
+          </label>
+          <Toggle
+            id="allowCelebration"
+            label="Allow celebration"
+            value={form.watch("enableCelebrations")}
+            setValue={(v) => form.setValue("enableCelebrations", v)}
+          />
         </Modal>
       )}
       {changePasswordOpen && (
@@ -143,10 +170,8 @@ const TopNav: FC<{
 
               {(watchedExperiments.length > 0 ||
                 watchedFeatures.length > 0) && (
-                <Link href="/activity">
-                  <a className="nav-link mr-1 text-secondary">
-                    <FaBell />
-                  </a>
+                <Link href="/activity" className="nav-link mr-1 text-secondary">
+                  <FaBell />
                 </Link>
               )}
             </>
@@ -235,28 +260,26 @@ const TopNav: FC<{
               {datasources?.length > 0 && (
                 <>
                   <div className="dropdown-divider"></div>
-                  <Link href={"/reports"}>
-                    <a
-                      className="dropdown-item"
-                      onClick={() => {
-                        setUserDropdownOpen(false);
-                      }}
-                    >
-                      My Reports
-                    </a>
+                  <Link
+                    href={"/reports"}
+                    className="dropdown-item"
+                    onClick={() => {
+                      setUserDropdownOpen(false);
+                    }}
+                  >
+                    My Reports
                   </Link>
                 </>
               )}
               <div className="dropdown-divider"></div>
-              <Link href={"/account/personal-access-tokens"}>
-                <a
-                  className="dropdown-item"
-                  onClick={() => {
-                    setUserDropdownOpen(false);
-                  }}
-                >
-                  My Personal Access Tokens
-                </a>
+              <Link
+                href={"/account/personal-access-tokens"}
+                className="dropdown-item"
+                onClick={() => {
+                  setUserDropdownOpen(false);
+                }}
+              >
+                My Personal Access Tokens
               </Link>
               <div className="dropdown-divider"></div>
               <button

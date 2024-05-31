@@ -1,16 +1,14 @@
 ---
 title: Visual Editor
-description: Learn about our visual editor currently in beta
+description: Learn about our visual editor
 sidebar_label: Visual Editor
 id: visual-editor
 slug: /app/visual
 ---
 
-import Pill from '@site/src/components/Pill';
-
 # Visual Editor 2.0
 
-The Visual Editor enables non-technical users to design A/B tests on their site directly in their browser, run them in production, and analyze results, all without writing a single line of code. To use the Visual Editor, you will need to integrate either our [JavaScript](/lib/js) or [ReactJS](/lib/react) SDK to your application (requires a developer).
+With the Visual Editor, users can design A/B tests on their site directly in their browser, run them in production, and analyze results, all without writing a single line of code. To use the Visual Editor, a software developer will need to integrate GrowthBook's [JavaScript](/lib/js) SDK, [ReactJS](/lib/react) SDK, or [HTML](/lib/script-tag) SDK with your application.
 
 In March 2023, we released version 2.0 of our Visual Editor, which had many improvements.
 
@@ -18,25 +16,19 @@ In March 2023, we released version 2.0 of our Visual Editor, which had many impr
 
 The Visual Editor may not work optimally on client-side rendered apps (e.g. React.js, Vue.js). Consider using [Feature Flags](/app/features) instead for smoother integration. Contact support@growthbook.io if you have any questions.
 
-If you do decide to use a framework like React or Vue, be sure to see our [section on SPA support below](#spa-support).
-
 :::
 
 ## Requirements
 
-To **create visual experiments**, all you need is the following:
-
-- The [GrowthBook Chrome Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) installed on your Chrome Browser.
-
-To **run your visual experiments** against users in your web app, you additionally need:
-
-- The [JavaScript](/lib/js) or [ReactJS](/lib/react) SDK loaded in your web application.
+All you need to get started is the [GrowthBook Chrome Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) installed on your Chrome Browser.
 
 The application you want to experiment on **must be a front-end web application viewed in a browser**. Our Visual Editor does not work for mobile apps (Native or ReactNative) or desktop apps (e.g. Electron). For unsupported platforms, we recommend using [Feature Flags](/app/features) instead to implement your changes in code.
 
+Once you've create your first experiment and are ready to deploy to production, there are some additional steps required (see **Deploying to Production** below).
+
 ## Creating a Visual Experiment
 
-To use the visual editor, first add a new Experiment. This can be done under **Analysis -> Experiments**
+To use the visual editor, first add a new Experiment. This can be done under **Experiments** in the left nav.
 
 ![Design a new experiment](/images/add-experiment-modal.png)
 
@@ -110,57 +102,118 @@ At the top is a dropdown where you can select which variation you are currently 
 Below that is your toolbar. It has the following tools in order from left to right:
 
 1. **Interactive Mode** - Click around your site normally
-2. **Element Selector** - Point and click to select an element on your site to edit. This is the most common way to make changes.
+2. **Selection Mode** - Point and click to select an element on your site to edit. This is the most common way to make changes.
 3. **Global CSS** - Inject global CSS styles into the page. Use this to control things like page background color or font size.
-4. **Custom DOM Changes** - A low level way to specify changes to elements
+4. **Custom JavaScript** - Inject Javascript into the page. Use this to create complex variations.
 5. **Change List** - See a summary of all of the changes you've made to the page so far
 
 When you're using the Element Selector, after you pick an element to edit, you'll be able to modify the Inner HTML (i.e. the copy), any attributes (e.g. a link HREF), and the list of CSS classes.
 
 When you're finished making changes, click the **Done Editing** button to be taken back to GrowthBook.
 
-## Production
+### Custom JavaScript
 
-Before publishing an A/B test to production you will need to integrate either our [JavaScript](/lib/js) or [ReactJS](/lib/js) SDK to your application (requires a developer).
+Custom JavaScript is executed as quickly as possible, often times before the page has fully loaded. This gives you the most flexibility in how to implement your experiment.
 
-:::note
+If you are making changes to elements on the page, make sure you wait until they exist. Below is a small helper function you can add to the top of your Custom JavaScript to help with this:
 
-The Visual Editor requires the latest versions of our SDKs. If you've already been using GrowthBook for feature flags, you may need to update your installed version.
+```js
+function waitFor(selector) {
+  return new Promise(resolve => {
+    const el = document.querySelector(selector);
+    if (el) return resolve(el);
+    const observer = new MutationObserver(() => {
+        const el = document.querySelector(selector);
+        if (el) { observer.disconnect(); resolve(el)}
+    });
+    observer.observe(document, {childList: true, subtree: true});
+  });
+}
+```
 
-:::
+Then, you can use it like so:
 
-### SDK Connection
+```js
+waitFor(".my-element").then((el) => {
+  el.innerHTML = "Hello World!";
+});
+```
 
-You will need a **client key** to pass into the SDK. You can get this by creating a new SDK Connection (under **Features** in the left navigation).
+### Drag and Drop
+
+When in Selection Mode, you can select an element and click to **drag and drop** it positionally on the page.
+
+#### Drag and Drop Handle
+
+When an element is selected, you will see a floating handle to move it positionally. Alternatively, you can click anywhere on the selected element to move it as well.
+
+![Visual Editor Drag and Drop Handle](/images/visual-editor-move-handle.png)
+
+Once dragging, the cursor will highlight an edge where the dragged element will land. When you release the cursor the element will move to the indicated spot. If you want to undo the move, click the 'Undo' button that is available for elements that have been dragged.
+
+![Visual Editor Drag and Drop Example](/images/visual-editor-drag-and-drop.gif)
+
+### Debug Panel
+
+The Visual Editor now comes with a Debug Panel to help diagnose any issues with your SDK configuration and URL Targeting rules. Use this to help diagnose your own errors, or provide a screenshot to our Support team when reaching out to help provide context.
+
+<img style={{ width: '400px'}} src="/images/visual-editor-debug-panel.png" alt="Debug Panel"/>
+
+## Deploying to Production
+
+Before you start your first experiment, you will first need to generate a **Client Key** in GrowthBook. You can get this by creating a new SDK Connection (under **SDK Configuration** in the left navigation).
 
 **Important**: Make sure to enable the "Include Visual Experiments" toggle. If you forget this step, Visual Editor experiments will not be sent to your application.
 
 ![Enable the Visual Editor in your SDK Connection](/images/sdk-connection-visual-editor.png)
 
-You can also optionally include Draft Experiments. These are not run automatically like Production experiments. Instead, they can be triggered via special URLs (see below for more info). Drafts are useful for QA testing before releasing to your actual users.
+You can also optionally include Draft Experiments (see below).
 
-### SPA Support
+Once you create an SDK Connection, you need to follow the steps to integrate GrowthBook into your website.
 
-If you have a Single Page Application (SPA) that does client-side routing, you'll need to update the URL within the GrowthBook SDK every time it changes.
+The easiest and recommended way to do this is with our [Script Tag SDK](/lib/script-tag), which works out-of-the-box and doesn't require any configuration for most websites. It's also possible to use either our [JavaScript](/lib/js) or [ReactJS](/lib/react) SDKs, although these do require more up-front work to integrate into your application.
 
-For example, with Next.js you can do the following:
+:::note
 
-```js
-function updateGrowthBookURL() {
-  gb.setURL(window.location.href);
-}
+If you've already been using our front-end SDKs for feature flagging, make sure you:
 
-export default function MyApp() {
-  // Subscribe to route change events and update GrowthBook
-  const router = useRouter();
-  useEffect(() => {
-    router.events.on("routeChangeComplete", updateGrowthBookURL);
-    return () => router.events.off("routeChangeComplete", updateGrowthBookURL);
-  }, []);
+1. Update to the latest SDK version
+2. Follow the "Visual Editor" instructions in the SDK docs
 
-  // ...
-}
+:::
+
+### Content Security Policy (CSP) Changes
+
+If your website uses a Content Security Policy (CSP), there are some additional changes you'll need to make. This applies to both SDK and pre-build script tag integration.
+
+#### script-src
+
+Changing the `script-src` directive in your CSP is only required if you are writing custom JavaScript in the Visual Editor. If you are only changing styles or copy using the point-and-click editor, this is not required and you can skip this section.
+
+If you have the `script-src` directive defined in your website's CSP, you'll need to enable `'unsafe-inline'` and `'unsafe-eval'` in order to leverage the Global JavaScript injection feature of the Visual Editor:
+
 ```
+Content-Security-Policy: script-src 'self' 'unsafe-inline' 'unsafe-eval';
+```
+
+##### Using Script Nonces
+
+As an alternative to allowing `unsafe-inline`, we support "nonces", although this requires some very technical and custom configuration to hook up.
+
+First, you will need to generate a unique nonce value for every request and add it to your CSP header. This can be done on the edge such as with a Cloudflare Worker.
+
+Then, you will need to pass this nonce into your GrowthBook SDK as `jsInjectionNonce`.
+
+For example, if you are using our [Script Tag SDK](/lib/script-tag), you can add the following into your page's `<head>` BEFORE you load the GrowthBook snippet. Replace all instances of `$NONCE` with the unique nonce value you generated.
+
+```html
+<script nonce="$NONCE">
+window.growthbook_config = window.growthbook_config || {};
+window.growthbook_config.jsInjectionNonce = "$NONCE";
+</script>
+```
+
+You will still need to allow `unsafe-eval`.
 
 ## Drafts and QA
 
@@ -192,31 +245,3 @@ The reason it's called a "Temporary" Rollout is because you don't want to rely o
 2. Changes in code will be picked up for SEO
 3. Changes applied through the visual editor require the SDK to download data from GrowthBook. Although lightweight, these stopped experiments can add up over time and further slow down your site.
 4. Reduce the chance of conflicts. If two visual editor experiments try to change the same element at the same time, it will not always work as expected. Moving the winning variation to code will avoid this issue.
-
-## Security Requirements
-
-If your website uses a Content Security Policy (CSP) in its HTTP headers or in a `<meta>` tag you must include your GrowthBook API Host domain in order to use the Visual Editor.
-
-### CSP Requirements for Visual Editor
-
-If you have the `connect-src` directive defined in your website's CSP, you'll need to include the URL of your GrowthBook API Host in order to allow the Visual Editor to work correctly:
-
-```
-Content-Security-Policy: connect-src <GROWTHBOOK_API_HOST>;
-```
-
-Here is an example of a CSP definition that includes the GrowthBook Cloud API host:
-
-```
-Content-Security-Policy: connect-src https://api.growthbook.io;
-```
-
-### CSP Requirements for Global JavaScript
-
-If you have the `script-src` directive defined in your website's CSP, you'll need to enable `'unsafe-inline'` and `'unsafe-eval'` in order to leverage the Global JavaScript injection feature of the Visual Editor:
-
-```
-Content-Security-Policy: script-src 'self' 'unsafe-inline' 'unsafe-eval';
-```
-
-Read more about Content Security Policy [here](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP).

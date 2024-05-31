@@ -1,8 +1,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { Context, Experiment, FeatureResult, GrowthBook } from "../src";
+import {
+  clearCache,
+  Context,
+  Experiment,
+  FeatureResult,
+  GrowthBook,
+  LocalStorageStickyBucketService,
+  Result,
+} from "../src";
 import { evalCondition } from "../src/mongrule";
-import { VariationRange } from "../src/types/growthbook";
+import {
+  StickyAssignmentsDocument,
+  StickyAttributeKey,
+  VariationRange,
+} from "../src/types/growthbook";
 import {
   chooseVariation,
   decrypt,
@@ -11,7 +23,6 @@ import {
   getQueryStringOverride,
   hash,
   inNamespace,
-  paddedVersionString,
 } from "../src/util";
 import cases from "./cases.json";
 
@@ -41,17 +52,30 @@ type Cases = {
   getEqualWeights: [number, number[]][];
   // name, encryptedString, key, result
   decrypt: [string, string, string, string | null][];
-  versionCompare: {
-    // version, version, meets condition
-    lt: [string, string, boolean][];
-    gt: [string, string, boolean][];
-    eq: [string, string, boolean][];
-  };
+  // name, context, feature key, result
+  stickyBucket: [
+    string,
+    Context,
+    StickyAssignmentsDocument[],
+    string,
+    Result<any>,
+    Record<StickyAttributeKey, StickyAssignmentsDocument>
+  ][];
+  // name, context, result
+  urlRedirect: [
+    string,
+    Context,
+    { inExperiment: boolean; urlRedirect: any; urlWithParams: string }[]
+  ][];
 };
 
 const round = (n: number) => Math.floor(n * 1e8) / 1e8;
 const roundArray = (arr: number[]) => arr.map((n) => round(n));
 const roundArrayArray = (arr: number[][]) => arr.map((a) => roundArray(a));
+
+function sleep(ms = 20) {
+  return new Promise((res) => setTimeout(res, ms));
+}
 
 /* eslint-disable */
 const { webcrypto } = require("node:crypto");
@@ -165,51 +189,60 @@ describe("json test suite", () => {
     }
   );
 
-  describe("version strings", () => {
-    describe("equality", () => {
-      it.each((cases as Cases).versionCompare.eq)(
-        "versionCompare.eq[%#] %s === %s",
-        (version, otherVersion, expected) => {
-          expect(
-            paddedVersionString(version) === paddedVersionString(otherVersion)
-          ).toBe(expected);
-          expect(
-            paddedVersionString(version) !== paddedVersionString(otherVersion)
-          ).toBe(!expected);
-          expect(
-            paddedVersionString(version) >= paddedVersionString(otherVersion)
-          ).toBe(expected);
-          expect(
-            paddedVersionString(version) <= paddedVersionString(otherVersion)
-          ).toBe(expected);
-        }
-      );
-    });
+  it.each((cases as Cases).stickyBucket)(
+    "stickyBucket[%#] %s",
+    async (
+      name,
+      ctx,
+      stickyBucketAssignmentDocs,
+      key,
+      expectedExperimentResult,
+      expectedStickyBucketAssignmentDocs
+    ) => {
+      localStorage.clear();
+      await clearCache();
 
-    describe("comparisons", () => {
-      it.each((cases as Cases).versionCompare.gt)(
-        "versionCompare.gt[%#] %s > %s",
-        (version, otherVersion, expected) => {
-          expect(
-            paddedVersionString(version) >= paddedVersionString(otherVersion)
-          ).toBe(expected);
-          expect(
-            paddedVersionString(version) > paddedVersionString(otherVersion)
-          ).toBe(expected);
-        }
-      );
+      const sbs = new LocalStorageStickyBucketService();
+      // seed the sticky bucket repo
+      for (const doc of stickyBucketAssignmentDocs) {
+        await sbs.saveAssignments(doc);
+      }
 
-      it.each((cases as Cases).versionCompare.lt)(
-        "versionCompare.lt[%#] %s < %s",
-        (version, otherVersion, expected) => {
-          expect(
-            paddedVersionString(version) < paddedVersionString(otherVersion)
-          ).toBe(expected);
-          expect(
-            paddedVersionString(version) <= paddedVersionString(otherVersion)
-          ).toBe(expected);
-        }
+      ctx = {
+        ...ctx,
+        stickyBucketService: sbs,
+      };
+      const growthbook = new GrowthBook(ctx);
+      // arbitrary sleep to let SB docs hydrate
+      await sleep(10);
+      expect(growthbook.evalFeature(key).experimentResult ?? null).toEqual(
+        expectedExperimentResult
       );
-    });
-  });
+      expect(growthbook.getStickyBucketAssignmentDocs()).toEqual(
+        expectedStickyBucketAssignmentDocs
+      );
+      growthbook.destroy();
+    }
+  );
+
+  it.each((cases as Cases).urlRedirect)(
+    "urlRedirect[%#] %s",
+    async (name, ctx, result) => {
+      const growthbook = new GrowthBook(ctx);
+      await sleep();
+      const trackingCalls = growthbook.getDeferredTrackingCalls();
+      const actualResult: {
+        inExperiment: boolean;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        urlRedirect: any;
+        urlWithParams: string;
+      }[] = trackingCalls.map((c) => ({
+        inExperiment: c.result.inExperiment,
+        urlRedirect: c.result.value.urlRedirect,
+        urlWithParams: growthbook.getRedirectUrl(),
+      }));
+      expect(actualResult).toEqual(result);
+      growthbook.destroy();
+    }
+  );
 });

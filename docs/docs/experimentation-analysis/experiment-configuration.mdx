@@ -1,0 +1,95 @@
+---
+title: Experiments (Setup)
+description: Add and configure your experiments.
+slug: /app/experiment-configuration
+---
+
+# Experiments (Setup)
+
+The Experiments section in GrowthBook is all about analyzing raw experiment results in a data source.
+
+Before [analyzing results](/app/experiment-results), you need to actually run the experiment. This can be done in several ways:
+
+- [Feature Flags](/feature-flag-experiments) (most common)
+- Running an inline experiment directly with our [SDKs](/lib)
+- [URL Redirects](/app/url-redirects)
+- Our [Visual Editor](/app/visual)
+- Your own custom variation assignment / bucketing system
+
+When you go to add an experiment in GrowthBook, it will first look in your [data source](/warehouses) for any new experiment ids and prompt you to import them. If none are found, you can enter the experiment settings yourself.
+
+## Adding an Experiment
+
+You can add an experiment analysis to GrowthBook in a few ways.
+
+**Starting an Experiment Analysis from a Feature**
+
+This is the easiest way to start a new analysis if you have a Feature set up.
+Navigate to the Feature of interest and click "View results" in the Experiment Rule of the Feature. Read more about running feature experiments [here](/feature-flag-experiments).
+
+**Importing an Experiment Analysis from your Data Source**
+
+You can also import an analysis directly from your Data Source using your configured Experiment Assignment Source.
+If you navigate to the Experiment page in the left toolbar and click Add Experiment, you'll see the following panel.
+
+<img
+  src="/images/import-experiment-modal.png"
+  alt="Experiment Import Modal"
+  style={{ width: 600, margin: "0 auto" }}
+/>
+
+On this modal you can either create an experiment using some metadata that we infer from your metric source using the Import buttons on the right hand side.
+You can also manually create an experiment from scratch.
+
+## Experiment Configuration
+
+There are several different ways to configure your experiment analysis.
+
+### Experiment Metadata
+
+On the experiment page in the "Overview" tab near the top of the page, you can see the experiment name, tags description, hypothesis, and variation metadata. You can edit these fields as you see fit to help describe and categorize your experiment.
+
+### Experiment Targeting and Traffic
+
+You can also configure targeting and traffic to your experiment's linked feature flags or visual editor changes. These settings do not have any effect on an experiment that is performing analysis only (with the exception of "experiment key"). On the "Overview" tab, you will see a section called "Targeting and Traffic" which allows you to modify these settings, such as:
+
+**Experiment Key** (tracking key) - This is the key that will be used when filtering your experiment assignment source to query experiment exposure data.
+
+**Hashing attribute** - This is the attribute that will be used to hash the user id to determine which variation they will be bucketed into.
+
+**Fallback attribute** (Sticky Bucketing enabled only) - The Fallback attribute be used when the hash attribute is missing or empty. For example falling back to an anonymous cookie identifier instead of a logged-in user id. Which ever attribute is first used to bucket the user into a variation will "stick". For example, if the user is logged out when they first view an experiment, it would use the fallback device id. If the user later logs in, it will continue using the bucket from their device id, even though they now have a logged-in id as well.
+
+**Targeting** - Create matching conditions using attributes and saved groups or target by namespaces.
+
+**Traffic** - Choose the percentage of traffic (coverage) and set the relative weights of each variation.
+
+### Analysis Settings
+
+Here is where much of your experiment analysis is configured. Many of the fields here have some text explaining how they affect your analysis. Here are a few of them in more detail:
+
+**Experiment Key**
+
+**Activation Metric** - A binomial metric that will filter the users in your analysis to only those who have converted on this binomial metric. This should only be used if activation is expected to be independent of experiment assignment. If an experiment affects the activation metric directly, then there is the potential for bias in your analysis.
+
+**Metric Conversion Windows** - Some of your metrics may have "conversion windows" defined for them. For those metrics, we build a window for each user based on when they were first exposed to the experiment. If a user's first exposure to an experiment was recent (for a running experiment) or or near the end of a stopped experiment, they may not have had the full window to convert before the analysis window closes. You may exclude these users with "In-Progress Conversions" if you want your experiment averages to only include those who have had the full window to convert.
+
+**Conversion Override**
+
+Previously called "Attribution Model" in the UI, this setting lets you use an experiment level override to disable all conversion windows and instead use the exposure period for a user (from their first exposure until the end of the experiment) as the metric window. You can read more about Metric Windows on the [Metric documentation page](metrics).
+
+- **Respect Conversion Windows** - This setting ensures that all conversion windows on your metrics are respected.
+- **Ignore Conversion Windows** - This setting overrides all metrics to be as if they had no conversion windows. Lookback windows will not be overriden by this setting.
+
+For those familiar with he "Experiment Duration" attribution model, choosing "Ignore Conversion Windows" will work the same way, and you should know that you can now specify the metric window behavior on a metric-by-metric basis (see the [Metric documentation page](metrics)).
+
+### Experiment Metrics
+
+You can add metrics as goal metrics, guardrail metrics, or both. You also can add "Metric Overrides" which provide experiment-specific controls for metrics, allowing you to override the metric's defaults for, for example, metric windows and risk thresholds.
+
+### Experiment Phases
+
+Experiment Phases can help you filter the dates used in the experiment analysis. Be very careful using phases. If you move the start date of the phase to past the start date of the experiment (and users were not re-randomized across phases), then your analysis could suffer from [carryover bias](/kb/experiments/carryover-bias). It is best to always look at the full history of an experiment if possible.
+
+### Making Changes While Running
+
+Read our dedicated guide on [making changes to running experiments](/app/making-experiment-changes).

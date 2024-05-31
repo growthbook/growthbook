@@ -1,29 +1,28 @@
-get:
-  summary: Get all features
-  tags:
-    - features
-  parameters:
+summary: Get all features
+tags:
+  - features
+parameters:
   - $ref: "../parameters.yaml#/limit"
   - $ref: "../parameters.yaml#/offset"
   - $ref: "../parameters.yaml#/projectId"
-  operationId: listFeatures
-  x-codeSamples:
-    - lang: 'cURL'
-      source: |
-        curl https://api.growthbook.io/api/v1/features \
-          -u secret_abc123DEF456:
-  responses:
-    "200":
-      content:
-        application/json:
-          schema:
-            allOf:
-              - type: object
-                required:
-                  - features
-                properties:
-                  features:
-                    type: array
-                    items:
-                      $ref: "../schemas/Feature.yaml"
-              - $ref: "../schemas/PaginationFields.yaml"
+operationId: listFeatures
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl https://api.growthbook.io/api/v1/features \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          allOf:
+            - type: object
+              required:
+                - features
+              properties:
+                features:
+                  type: array
+                  items:
+                    $ref: "../schemas/Feature.yaml"
+            - $ref: "../schemas/PaginationFields.yaml"

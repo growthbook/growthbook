@@ -11,8 +11,7 @@ import React, { ReactElement, useState } from "react";
 import { GiPieChart } from "react-icons/gi";
 import { HiCursorClick } from "react-icons/hi";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import { StatsEngine } from "back-end/types/stats";
-import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
+import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { ago, datetime } from "shared/dates";
 import clsx from "clsx";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -29,37 +28,40 @@ import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
 import RefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
-import usePermissions from "@/hooks/usePermissions";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
-import AnalysisForm from "../AnalysisForm";
+import MetricName from "@/components/Metrics/MetricName";
+import AnalysisForm from "@/components/Experiment/AnalysisForm";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import OverflowText from "./OverflowText";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   statsEngine: StatsEngine;
-  regressionAdjustmentEnabled?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   editMetrics?: () => void;
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
+  setDifferenceType: (differenceType: DifferenceType) => void;
 }
 
 export default function AnalysisSettingsSummary({
   experiment,
   mutate,
   statsEngine,
-  regressionAdjustmentEnabled,
-  metricRegressionAdjustmentStatuses,
   editMetrics,
   setVariationFilter,
   baselineRow,
   setBaselineRow,
+  setDifferenceType,
 }: Props) {
-  const { getDatasourceById, getSegmentById, getMetricById } = useDefinitions();
+  const {
+    getDatasourceById,
+    getSegmentById,
+    getExperimentMetricById,
+  } = useDefinitions();
   const orgSettings = useOrgSettings();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const { hasCommercialFeature } = useUser();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
@@ -76,6 +78,11 @@ export default function AnalysisSettingsSummary({
     setAnalysisSettings,
     phase,
   } = useSnapshot();
+
+  const canEditAnalysisSettings = permissionsUtil.canUpdateExperiment(
+    experiment,
+    {}
+  );
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const [refreshError, setRefreshError] = useState("");
@@ -113,16 +120,18 @@ export default function AnalysisSettingsSummary({
   );
   const segment = getSegmentById(experiment.segment || "");
 
-  const activationMetric = getMetricById(experiment.activationMetric || "");
+  const activationMetric = getExperimentMetricById(
+    experiment.activationMetric || ""
+  );
 
   const goals: string[] = [];
   experiment.metrics?.forEach((m) => {
-    const name = getMetricById(m)?.name;
+    const name = getExperimentMetricById(m)?.name;
     if (name) goals.push(name);
   });
   const guardrails: string[] = [];
   experiment.guardrails?.forEach((m) => {
-    const name = getMetricById(m)?.name;
+    const name = getExperimentMetricById(m)?.name;
     if (name) guardrails.push(name);
   });
 
@@ -164,7 +173,7 @@ export default function AnalysisSettingsSummary({
   }
   if (activationMetric) {
     items.push({
-      value: activationMetric.name,
+      value: <MetricName id={activationMetric.id} />,
       icon: <HiCursorClick className="mr-1" />,
       tooltip: "Activation Metric",
     });
@@ -220,15 +229,19 @@ export default function AnalysisSettingsSummary({
       )}
       <div className="row align-items-center text-muted">
         <div className="col-auto">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setAnalysisModal(true);
-            }}
-          >
-            <span className="text-dark">Analysis Settings</span> <GBEdit />
-          </a>
+          {canEditAnalysisSettings ? (
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setAnalysisModal(true);
+              }}
+            >
+              <span className="text-dark">Analysis Settings</span> <GBEdit />
+            </a>
+          ) : (
+            <span>Analysis Settings</span>
+          )}
         </div>
         {items.map((item, i) => (
           <Tooltip
@@ -324,7 +337,7 @@ export default function AnalysisSettingsSummary({
             ))}
         </div>
 
-        {permissions.check("runQueries", experiment.project || "") &&
+        {(!ds || permissionsUtil.canRunExperimentQueries(ds)) &&
           experiment.metrics.length > 0 && (
             <div className="col-auto">
               {experiment.datasource && latest && latest.queries?.length > 0 ? (
@@ -338,9 +351,6 @@ export default function AnalysisSettingsSummary({
                         body: JSON.stringify({
                           phase,
                           dimension,
-                          statsEngine,
-                          regressionAdjustmentEnabled,
-                          metricRegressionAdjustmentStatuses,
                         }),
                       }
                     )
@@ -374,8 +384,8 @@ export default function AnalysisSettingsSummary({
                         setBaselineRow?.(0);
                         setVariationFilter?.([]);
                       }
+                      setDifferenceType("relative");
                     }}
-                    newUi={true}
                   />
                 </form>
               ) : (
@@ -385,25 +395,21 @@ export default function AnalysisSettingsSummary({
                   experiment={experiment}
                   lastAnalysis={analysis}
                   dimension={dimension}
-                  statsEngine={statsEngine}
-                  regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-                  metricRegressionAdjustmentStatuses={
-                    metricRegressionAdjustmentStatuses
-                  }
+                  setAnalysisSettings={setAnalysisSettings}
                   onSubmit={() => {
                     if (baselineRow !== 0) {
                       setBaselineRow?.(0);
                       setVariationFilter?.([]);
                     }
+                    setDifferenceType("relative");
                   }}
-                  newUi={true}
                 />
               )}
             </div>
           )}
 
-        {permissions.check("runQueries", experiment?.project || "") &&
-          datasource &&
+        {ds &&
+          permissionsUtil.canRunExperimentQueries(ds) &&
           latest &&
           (status === "failed" || status === "partially-succeeded") && (
             <div className="col-auto pl-1">
@@ -418,7 +424,6 @@ export default function AnalysisSettingsSummary({
                   " "
                 )}
                 display={null}
-                newUi={true}
                 status={status}
                 icon={
                   <span className="position-relative pr-2">
@@ -434,6 +439,7 @@ export default function AnalysisSettingsSummary({
                     />
                   </span>
                 }
+                condensed={true}
               />
             </div>
           )}
@@ -441,9 +447,10 @@ export default function AnalysisSettingsSummary({
         <div className="col-auto px-0">
           <ResultMoreMenu
             id={snapshot?.id || ""}
+            datasource={datasource}
             forceRefresh={
-              (experiment.metrics.length > 0 ||
-                (experiment.guardrails?.length ?? 0)) > 0
+              experiment.metrics.length > 0 ||
+              (experiment.guardrails?.length ?? 0) > 0
                 ? async () => {
                     await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
                       `/experiment/${experiment.id}/snapshot?force=true`,
@@ -452,13 +459,16 @@ export default function AnalysisSettingsSummary({
                         body: JSON.stringify({
                           phase,
                           dimension,
-                          statsEngine,
-                          regressionAdjustmentEnabled,
-                          metricRegressionAdjustmentStatuses,
                         }),
                       }
                     )
                       .then((res) => {
+                        setAnalysisSettings(null);
+                        if (baselineRow !== 0) {
+                          setBaselineRow?.(0);
+                          setVariationFilter?.([]);
+                        }
+                        setDifferenceType("relative");
                         trackSnapshot(
                           "create",
                           "ForceRerunQueriesButton",
@@ -473,7 +483,6 @@ export default function AnalysisSettingsSummary({
                   }
                 : undefined
             }
-            configure={() => setAnalysisModal(true)}
             editMetrics={editMetrics}
             notebookUrl={`/experiments/notebook/${snapshot?.id}`}
             notebookFilename={experiment.trackingKey}
@@ -486,13 +495,12 @@ export default function AnalysisSettingsSummary({
             queryError={snapshot?.error}
             supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
             hasData={hasData}
-            metrics={experiment.metrics}
+            metrics={[...experiment.metrics, ...(experiment.guardrails || [])]}
             results={analysis?.results}
             variations={variations}
             trackingKey={experiment.trackingKey}
             dimension={dimension}
             project={experiment.project}
-            newUi={true}
           />
         </div>
       </div>

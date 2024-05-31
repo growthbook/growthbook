@@ -1,16 +1,20 @@
 import { FeatureValueType } from "back-end/types/feature";
-import { useMemo } from "react";
+import { CSSProperties, useMemo } from "react";
 import stringify from "json-stringify-pretty-compact";
-import InlineCode from "../SyntaxHighlighting/InlineCode";
+import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 
 export default function ValueDisplay({
   value,
   type,
   full = true,
+  additionalStyle = {},
+  fullStyle = { maxHeight: 150, overflowY: "auto", maxWidth: "100%" },
 }: {
   value: string;
   type: FeatureValueType;
   full?: boolean;
+  additionalStyle?: CSSProperties;
+  fullStyle?: CSSProperties;
 }) {
   const formatted = useMemo(() => {
     if (type === "boolean") return value;
@@ -26,7 +30,7 @@ export default function ValueDisplay({
   if (type === "boolean") {
     const on = !(value === "false" || !value);
     return (
-      <span>
+      <span className="text-gray font-weight-bold">
         <div
           style={{
             display: "inline-block",
@@ -37,7 +41,7 @@ export default function ValueDisplay({
             backgroundColor: on ? "#3aa8e8" : "#cccccc",
           }}
         ></div>
-        {on ? "ON" : "OFF"}
+        {on ? "TRUE" : "FALSE"}
       </span>
     );
   }
@@ -50,6 +54,7 @@ export default function ValueDisplay({
           overflow: "hidden",
           maxWidth: "180px",
           whiteSpace: "nowrap",
+          ...additionalStyle,
         }}
         className="text-muted"
       >
@@ -59,7 +64,7 @@ export default function ValueDisplay({
   }
 
   return (
-    <div style={{ maxHeight: 150, overflowY: "auto", maxWidth: "100%" }}>
+    <div style={fullStyle}>
       <InlineCode language="json" code={formatted} />
     </div>
   );

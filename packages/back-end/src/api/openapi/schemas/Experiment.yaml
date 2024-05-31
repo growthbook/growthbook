@@ -48,9 +48,17 @@ properties:
     type: boolean
   hashAttribute:
     type: string
+  fallbackAttribute:
+    type: string
   hashVersion:
     type: number
     enum: [1, 2]
+  disableStickyBucketing:
+    type: boolean;
+  bucketVersion:
+    type: number
+  minBucketVersion:
+    type: number
   variations:
     type: array
     items:
@@ -87,6 +95,7 @@ properties:
         - coverage
         - trafficSplit
         - targetingCondition
+        - savedGroups
       properties:
         name:
           type: string
@@ -126,10 +135,27 @@ properties:
               rangeEnd: number
         targetingCondition:
           type: string
-
+        savedGroupTargeting:
+          type: array
+          items:
+            type: object
+            required:
+              - matchType
+              - savedGroups
+            properties:
+              matchType:
+                type: string
+                enum:
+                  - "all"
+                  - "any"
+                  - "none"
+              savedGroups:
+                type: array
+                items:
+                  type: string
   settings:
     $ref: "./ExperimentAnalysisSettings.yaml"
-  
+
   resultSummary:
     type: object
     required:

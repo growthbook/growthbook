@@ -46,126 +46,134 @@ export default function ConnectionSettings({
     setParams({ [name]: value });
   };
 
-  if (datasource.type === "athena") {
-    return (
-      <AthenaForm
-        existing={existing}
-        onParamChange={onParamChange}
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'AthenaConnectionParams | undefined' is not a... Remove this comment to see the full error message
-        params={datasource.params}
-        setParams={setParams}
-      />
-    );
-  } else if (datasource.type === "presto") {
-    return (
-      <PrestoForm
-        existing={existing}
-        onParamChange={onParamChange}
-        onManualParamChange={onManualParamChange}
-        setParams={setParams}
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'PrestoConnectionParams | undefined' is not a... Remove this comment to see the full error message
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "databricks") {
-    return (
-      <DatabricksForm
-        existing={existing}
-        onParamChange={onParamChange}
-        setParams={setParams}
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'DatabricksConnectionParams | undefined' is n... Remove this comment to see the full error message
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "redshift") {
-    return (
-      <PostgresForm
-        existing={existing}
-        onParamChange={onParamChange}
-        setParams={setParams}
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'PostgresConnectionParams | undefined' is not... Remove this comment to see the full error message
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "postgres") {
-    return (
-      <PostgresForm
-        existing={existing}
-        onParamChange={onParamChange}
-        setParams={setParams}
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'PostgresConnectionParams | undefined' is not... Remove this comment to see the full error message
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "mysql") {
-    return (
-      <MysqlForm
-        existing={existing}
-        onParamChange={onParamChange}
-        setParams={setParams}
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MysqlConnectionParams | undefined' is not as... Remove this comment to see the full error message
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "mssql") {
-    return (
-      <MssqlForm
-        existing={existing}
-        onParamChange={onParamChange}
-        setParams={setParams}
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MssqlConnectionParams | undefined' is not as... Remove this comment to see the full error message
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "google_analytics") {
-    return (
-      <GoogleAnalyticsForm
-        existing={existing}
-        onParamChange={onParamChange}
-        setParams={setParams}
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'GoogleAnalyticsParams | undefined' is not as... Remove this comment to see the full error message
-        params={datasource.params}
-        error={hasError}
-      />
-    );
-  } else if (datasource.type === "snowflake") {
-    return (
-      <SnowflakeForm
-        existing={existing}
-        onParamChange={onParamChange}
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'SnowflakeConnectionParams | undefined' is no... Remove this comment to see the full error message
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "clickhouse") {
-    return (
-      <ClickHouseForm
-        existing={existing}
-        onParamChange={onParamChange}
-        setParams={setParams}
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ClickHouseConnectionParams | undefined' is n... Remove this comment to see the full error message
-        params={datasource.params}
-      />
-    );
-  } else if (datasource.type === "bigquery") {
-    return (
-      <BigQueryForm
-        existing={existing}
-        setParams={setParams}
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'BigQueryConnectionParams | undefined' is not... Remove this comment to see the full error message
-        params={datasource.params}
-        onParamChange={onParamChange}
-      />
-    );
-  } else if (datasource.type === "mixpanel") {
-    return (
-      <MixpanelForm
-        existing={existing}
-        onParamChange={onParamChange}
-        onManualParamChange={onManualParamChange}
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MixpanelConnectionParams | undefined' is not... Remove this comment to see the full error message
-        params={datasource.params}
-      />
-    );
+  if (!datasource.type) return null;
+
+  let invalidType: never;
+  switch (datasource.type) {
+    case "athena":
+      return (
+        <AthenaForm
+          existing={existing}
+          onParamChange={onParamChange}
+          params={datasource?.params || {}}
+          setParams={setParams}
+        />
+      );
+
+    case "presto":
+      return (
+        <PrestoForm
+          existing={existing}
+          onParamChange={onParamChange}
+          onManualParamChange={onManualParamChange}
+          setParams={setParams}
+          params={datasource?.params || {}}
+        />
+      );
+
+    case "databricks":
+      return (
+        <DatabricksForm
+          existing={existing}
+          onParamChange={onParamChange}
+          setParams={setParams}
+          params={datasource?.params || {}}
+        />
+      );
+
+    case "redshift":
+      return (
+        <PostgresForm
+          existing={existing}
+          onParamChange={onParamChange}
+          setParams={setParams}
+          params={datasource?.params || {}}
+        />
+      );
+
+    case "postgres":
+      return (
+        <PostgresForm
+          existing={existing}
+          onParamChange={onParamChange}
+          setParams={setParams}
+          params={datasource?.params || {}}
+        />
+      );
+
+    case "mysql":
+      return (
+        <MysqlForm
+          existing={existing}
+          onParamChange={onParamChange}
+          setParams={setParams}
+          params={datasource?.params || {}}
+        />
+      );
+
+    case "mssql":
+      return (
+        <MssqlForm
+          existing={existing}
+          onParamChange={onParamChange}
+          setParams={setParams}
+          params={datasource?.params || {}}
+        />
+      );
+
+    case "google_analytics":
+      return (
+        <GoogleAnalyticsForm
+          existing={existing}
+          onParamChange={onParamChange}
+          setParams={setParams}
+          params={datasource?.params || {}}
+          error={hasError}
+          projects={datasource?.projects || []}
+        />
+      );
+
+    case "snowflake":
+      return (
+        <SnowflakeForm
+          existing={existing}
+          onParamChange={onParamChange}
+          params={datasource?.params || {}}
+        />
+      );
+
+    case "clickhouse":
+      return (
+        <ClickHouseForm
+          existing={existing}
+          onParamChange={onParamChange}
+          setParams={setParams}
+          params={datasource?.params || {}}
+        />
+      );
+
+    case "bigquery":
+      return (
+        <BigQueryForm
+          existing={existing}
+          setParams={setParams}
+          params={datasource?.params || {}}
+          onParamChange={onParamChange}
+        />
+      );
+
+    case "mixpanel":
+      return (
+        <MixpanelForm
+          existing={existing}
+          onParamChange={onParamChange}
+          onManualParamChange={onManualParamChange}
+          params={datasource?.params || {}}
+        />
+      );
+
+    default:
+      invalidType = datasource.type;
+      throw `Invalid type: ${invalidType}`;
   }
 }

@@ -5,131 +5,322 @@ import {
 import { useForm } from "react-hook-form";
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
+  FaCheck,
   FaExclamationCircle,
   FaExclamationTriangle,
   FaInfoCircle,
 } from "react-icons/fa";
+import clsx from "clsx";
+import {
+  getConnectionSDKCapabilities,
+  getDefaultSDKVersion,
+  getLatestSDKVersion,
+  getSDKCapabilityVersion,
+  getSDKVersions,
+  isSDKOutdated,
+} from "shared/sdk-versioning";
+import {
+  filterProjectsByEnvironment,
+  getDisallowedProjects,
+} from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import EncryptionToggle from "@/components/Settings/EncryptionToggle";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Toggle from "@/components/Forms/Toggle";
 import { isCloud } from "@/services/env";
 import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import ControlledTabs from "@/components/Tabs/ControlledTabs";
+import Tab from "@/components/Tabs/Tab";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { DocLink } from "@/components/DocLink";
 import SDKLanguageSelector from "./SDKLanguageSelector";
-import SDKLanguageLogo, { languageMapping } from "./SDKLanguageLogo";
+import {
+  LanguageType,
+  languageMapping,
+  LanguageFilter,
+  getConnectionLanguageFilter,
+} from "./SDKLanguageLogo";
+
+function getSecurityTabState(
+  value: Partial<SDKConnectionInterface>
+): "none" | "ciphered" | "remote" {
+  if (value.remoteEvalEnabled) return "remote";
+  if (
+    value.encryptPayload ||
+    value.hashSecureAttributes ||
+    !value.includeExperimentNames
+  )
+    return "ciphered";
+  return "none";
+}
 
 export default function SDKConnectionForm({
   initialValue = {},
   edit,
   close,
   mutate,
+  autoCloseOnSubmit = true,
+  cta = "Save",
 }: {
   initialValue?: Partial<SDKConnectionInterface>;
   edit: boolean;
-  close: () => void;
+  close?: () => void;
   mutate: () => void;
+  autoCloseOnSubmit?: boolean;
+  cta?: string;
 }) {
   const environments = useEnvironments();
   const { project, projects, getProjectById } = useDefinitions();
+  const projectIds = projects.map((p) => p.id);
+
   const { apiCall } = useAuth();
   const router = useRouter();
 
   const { hasCommercialFeature } = useUser();
-
+  const hasEncryptionFeature = hasCommercialFeature(
+    "encrypt-features-endpoint"
+  );
   const hasSecureAttributesFeature = hasCommercialFeature(
     "hash-secure-attributes"
   );
+  const hasRemoteEvaluationFeature = hasCommercialFeature("remote-evaluation");
 
   useEffect(() => {
     if (edit) return;
     track("View SDK Connection Form");
   }, [edit]);
 
-  const gb = useGrowthBook();
+  const [selectedSecurityTab, setSelectedSecurityTab] = useState<string | null>(
+    getSecurityTabState(initialValue)
+  );
 
-  const [upgradeModal, setUpgradeModal] = useState(false);
+  const [languageError, setLanguageError] = useState<string | null>(null);
 
   const form = useForm({
     defaultValues: {
       name: initialValue.name ?? "",
       languages: initialValue.languages ?? [],
+      sdkVersion:
+        initialValue.sdkVersion ??
+        getDefaultSDKVersion(
+          initialValue?.languages?.length === 1
+            ? initialValue.languages[0]
+            : "other"
+        ),
       environment: initialValue.environment ?? environments[0]?.id ?? "",
-      project: "project" in initialValue ? initialValue.project : project ?? "",
+      projects:
+        "projects" in initialValue
+          ? initialValue.projects
+          : project
+          ? [project]
+          : [],
       encryptPayload: initialValue.encryptPayload ?? false,
       hashSecureAttributes:
         initialValue.hashSecureAttributes ?? hasSecureAttributesFeature,
       includeVisualExperiments: initialValue.includeVisualExperiments ?? false,
       includeDraftExperiments: initialValue.includeDraftExperiments ?? false,
-      includeExperimentNames: initialValue.includeExperimentNames ?? false,
+      includeExperimentNames: initialValue.includeExperimentNames ?? true,
+      includeRedirectExperiments:
+        initialValue.includeRedirectExperiments ?? false,
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
+      remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
     },
   });
 
-  if (upgradeModal) {
-    return (
-      <UpgradeModal
-        close={() => setUpgradeModal(false)}
-        reason="To enable SDK encryption,"
-        source="encrypt-features-endpoint"
-      />
-    );
-  }
-
-  const languages = form.watch("languages");
-
-  const selectedLanguagesWithoutEncryptionSupport = languages.filter(
-    (l) => !languageMapping[l].supportsEncryption
+  const usingLatestVersion = !isSDKOutdated(
+    form.watch("languages")?.[0] || "other",
+    form.watch("sdkVersion")
   );
 
-  const showVisualEditorSettings =
-    !languages.length ||
-    languages.some((l) => languageMapping[l].supportsVisualExperiments);
+  const [languageFilter, setLanguageFilter] = useState<LanguageFilter>(
+    getConnectionLanguageFilter(initialValue.languages ?? [])
+  );
 
-  const projectsOptions = projects.map((p) => ({
-    label: p.name,
-    value: p.id,
-  }));
-  const projectId = initialValue.project;
-  const projectName = projectId
-    ? getProjectById(projectId)?.name || null
-    : null;
-  const projectIsDeReferenced = projectId && !projectName;
-  if (projectIsDeReferenced) {
-    projectsOptions.push({
-      label: "Invalid project",
-      value: projectId,
+  const useLatestSdkVersion = () => {
+    const language = form.watch("languages")?.[0] || "other";
+    const latest = getLatestSDKVersion(language);
+    form.setValue("sdkVersion", latest);
+  };
+
+  const languages = form.watch("languages");
+  const languageTypes: Set<LanguageType> = new Set(
+    languages.map((l) => languageMapping[l].type)
+  );
+  const languageType =
+    languageTypes.size === 0
+      ? "backend" // show the least amount of configuration options if nothing is set
+      : languageTypes.size === 1
+      ? [...languageTypes][0]
+      : languageTypes.has("frontend")
+      ? "frontend"
+      : languageTypes.has("backend")
+      ? "backend"
+      : languageTypes.has("mobile")
+      ? "mobile"
+      : languageTypes.has("nocode")
+      ? "mobile"
+      : languageTypes.has("edge")
+      ? "edge"
+      : "other";
+
+  const latestSdkCapabilities = getConnectionSDKCapabilities(
+    form.getValues(),
+    "max-ver-intersection"
+  );
+  const currentSdkCapabilities = getConnectionSDKCapabilities(
+    form.getValues(),
+    "min-ver-intersection"
+  );
+
+  const showVisualEditorSettings = latestSdkCapabilities.includes(
+    "visualEditor"
+  );
+
+  const showRedirectSettings = latestSdkCapabilities.includes("redirects");
+
+  const selectedProjects = form.watch("projects");
+  const selectedEnvironment = environments.find(
+    (e) => e.id === form.watch("environment")
+  );
+  const environmentHasProjects =
+    (selectedEnvironment?.projects?.length ?? 0) > 0;
+  const filteredProjectIds = filterProjectsByEnvironment(
+    projectIds,
+    selectedEnvironment
+  );
+  const filteredProjects = projects.filter((p) =>
+    filteredProjectIds.includes(p.id)
+  );
+
+  const disallowedProjects = getDisallowedProjects(
+    projects,
+    selectedProjects ?? [],
+    selectedEnvironment
+  );
+
+  const projectsOptions = [...filteredProjects, ...disallowedProjects].map(
+    (p) => ({
+      label: p.name,
+      value: p.id,
+    })
+  );
+  const selectedValidProjects = selectedProjects?.filter((p) => {
+    return disallowedProjects?.find((dp) => dp.id === p) === undefined;
+  });
+
+  if (initialValue.projects) {
+    initialValue.projects.forEach((p) => {
+      const name = getProjectById(p);
+      if (!name) {
+        projectsOptions.push({
+          label: "Invalid project",
+          value: p,
+        });
+      }
     });
   }
+
+  useEffect(() => {
+    if (languageType === "backend") {
+      setSelectedSecurityTab("none");
+    }
+  }, [languageType, setSelectedSecurityTab]);
+
+  useEffect(() => {
+    if (!edit) {
+      form.setValue("includeVisualExperiments", showVisualEditorSettings);
+      form.setValue("includeDraftExperiments", showVisualEditorSettings);
+      form.setValue("includeRedirectExperiments", showRedirectSettings);
+    } else if (!showVisualEditorSettings) {
+      form.setValue("includeVisualExperiments", false);
+      form.setValue("includeDraftExperiments", false);
+      form.setValue("includeRedirectExperiments", false);
+    }
+  }, [showVisualEditorSettings, form, edit, showRedirectSettings]);
+
+  // complex setter for clicking a "SDK Payload Security" button
+  useEffect(() => {
+    if (selectedSecurityTab === "none") {
+      form.setValue("remoteEvalEnabled", false);
+      form.setValue("encryptPayload", false);
+      form.setValue("hashSecureAttributes", false);
+      form.setValue("includeExperimentNames", true);
+    } else if (selectedSecurityTab === "ciphered") {
+      const enableEncryption = hasEncryptionFeature;
+      const enableSecureAttributes = hasSecureAttributesFeature;
+      form.setValue("remoteEvalEnabled", false);
+      if (
+        !(
+          form.watch("encryptPayload") ||
+          form.watch("hashSecureAttributes") ||
+          !form.watch("includeExperimentNames")
+        )
+      ) {
+        form.setValue("encryptPayload", enableEncryption);
+        form.setValue("hashSecureAttributes", enableSecureAttributes);
+        form.setValue("includeExperimentNames", false);
+      }
+    } else if (selectedSecurityTab === "remote") {
+      if (!hasRemoteEvaluationFeature) {
+        form.setValue("remoteEvalEnabled", false);
+        return;
+      }
+      form.setValue("remoteEvalEnabled", true);
+      form.setValue("encryptPayload", false);
+      form.setValue("hashSecureAttributes", false);
+      form.setValue("includeExperimentNames", true);
+    }
+  }, [
+    selectedSecurityTab,
+    form,
+    hasEncryptionFeature,
+    hasSecureAttributesFeature,
+    hasRemoteEvaluationFeature,
+  ]);
+
+  useEffect(() => {
+    if (languages.length > 0 && languageError) {
+      setLanguageError(null);
+    }
+  }, [languages, languageError, setLanguageError]);
 
   return (
     <Modal
       header={edit ? "Edit SDK Connection" : "New SDK Connection"}
       size={"lg"}
+      autoCloseOnSubmit={autoCloseOnSubmit}
+      error={form.formState.errors.languages?.message}
       submit={form.handleSubmit(async (value) => {
-        if (
-          languages.every((l) => !languageMapping[l].supportsVisualExperiments)
-        ) {
+        // filter for visual experiments
+        if (!latestSdkCapabilities.includes("visualEditor")) {
           value.includeVisualExperiments = false;
         }
-        if (!value.includeVisualExperiments) {
+        if (!latestSdkCapabilities.includes("redirects")) {
+          value.includeRedirectExperiments = false;
+        }
+        if (
+          !value.includeVisualExperiments &&
+          !value.includeRedirectExperiments
+        ) {
           value.includeDraftExperiments = false;
+        }
+
+        // filter for remote eval
+        if (!latestSdkCapabilities.includes("remoteEval")) {
+          value.remoteEvalEnabled = false;
         }
 
         const body: Omit<CreateSDKConnectionParams, "organization"> = {
           ...value,
-          project: value.project || "",
+          projects: value.projects || [],
         };
 
         if (edit) {
@@ -151,115 +342,651 @@ export default function SDKConnectionForm({
             languages: value.languages,
             encryptPayload: value.encryptPayload,
             hashSecureAttributes: value.hashSecureAttributes,
+            remoteEvalEnabled: value.remoteEvalEnabled,
             proxyEnabled: value.proxyEnabled,
           });
           mutate();
-          await router.push(`/sdks/${res.connection.id}`);
+          if (autoCloseOnSubmit) {
+            await router.push(`/sdks/${res.connection.id}`);
+          }
         }
       })}
+      customValidation={() => {
+        // manual validation for languages
+        if (languages.length === 0) {
+          setLanguageError("Please select an SDK language");
+          return false;
+        } else {
+          setLanguageError(null);
+          return true;
+        }
+      }}
       close={close}
       open={true}
-      cta="Save"
+      cta={cta}
     >
-      <Field label="Name" {...form.register("name")} required />
+      <div className="px-2 pb-2">
+        <Field label="Name" {...form.register("name")} required />
 
-      <div className="form-group">
-        <label>Tech Stack</label>
-        <small className="text-muted ml-3">(Select all that apply)</small>
-        <SDKLanguageSelector
-          value={form.watch("languages")}
-          setValue={(languages) => form.setValue("languages", languages)}
-          multiple={true}
-          includeOther={true}
-        />
-        <small className="form-text text-muted">
-          This helps us give you personalized setup instructions
-        </small>
-      </div>
+        <div className="mb-4">
+          <div className="form-group">
+            <label>SDK Language</label>
+            {languageError ? (
+              <span className="ml-3 alert px-1 py-0 mb-0 alert-danger">
+                {languageError}
+              </span>
+            ) : null}
+            <SDKLanguageSelector
+              value={form.watch("languages")}
+              setValue={(languages) => {
+                form.setValue("languages", languages);
+                if (languages?.length === 1) {
+                  form.setValue(
+                    "sdkVersion",
+                    getLatestSDKVersion(languages[0])
+                  );
+                }
+              }}
+              languageFilter={languageFilter}
+              setLanguageFilter={setLanguageFilter}
+              multiple={form.watch("languages").length > 1}
+              includeOther={true}
+              skipLabel={form.watch("languages").length <= 1}
+              hideShowAllLanguages={true}
+            />
+          </div>
 
-      {(projects.length > 0 || projectIsDeReferenced) && (
-        <SelectField
-          label="Project"
-          initialOption="All Projects"
-          value={form.watch("project") || ""}
-          onChange={(project) => form.setValue("project", project)}
-          options={projectsOptions}
-          sort={false}
-          formatOptionLabel={({ value, label }) => {
-            if (value === "") {
-              return <em>{label}</em>;
-            }
-            if (value === projectId && projectIsDeReferenced) {
+          {form.watch("languages")?.length === 1 &&
+            !form.watch("languages")[0].match(/^(other|nocode-.*)$/) && (
+              <div className="form-group" style={{ marginTop: -10 }}>
+                <label>SDK version</label>
+                <div className="d-flex align-items-center">
+                  <SelectField
+                    style={{ width: 180 }}
+                    className="mr-4"
+                    placeholder="0.0.0"
+                    autoComplete="off"
+                    sort={false}
+                    options={getSDKVersions(
+                      form.watch("languages")[0]
+                    ).map((ver) => ({ label: ver, value: ver }))}
+                    createable={true}
+                    isClearable={false}
+                    value={
+                      form.watch("sdkVersion") ||
+                      getDefaultSDKVersion(languages[0])
+                    }
+                    onChange={(v) => form.setValue("sdkVersion", v)}
+                    formatOptionLabel={({ value, label }) => {
+                      const latest = getLatestSDKVersion(
+                        form.watch("languages")[0]
+                      );
+                      return (
+                        <span>
+                          {label}
+                          {value === latest && (
+                            <span
+                              className="text-muted uppercase-title float-right position-relative"
+                              style={{ top: 3 }}
+                            >
+                              latest
+                            </span>
+                          )}
+                        </span>
+                      );
+                    }}
+                  />
+                  {!usingLatestVersion && (
+                    <a
+                      role="button"
+                      className="small"
+                      onClick={useLatestSdkVersion}
+                    >
+                      Use latest
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+        </div>
+
+        <div className="mb-4">
+          <SelectField
+            label="Environment"
+            required
+            placeholder="Choose one..."
+            value={form.watch("environment")}
+            onChange={(env) => {
+              form.setValue("environment", env);
+              form.setValue("projects", []); // Reset projects when environment changes
+            }}
+            options={environments.map((e) => ({ label: e.id, value: e.id }))}
+            sort={false}
+            formatOptionLabel={({ value, label }) => {
+              const selectedEnvironment = environments.find(
+                (e) => e.id === value
+              );
+              const numProjects = selectedEnvironment?.projects?.length ?? 0;
               return (
-                <Tooltip
-                  body={
+                <div className="d-flex align-items-center">
+                  <div>{label}</div>
+                  <div className="flex-1" />
+                  {numProjects > 0 ? (
+                    <div className="text-muted small">
+                      Includes {numProjects} project
+                      {numProjects === 1 ? "" : "s"}
+                    </div>
+                  ) : (
+                    <div className="text-muted small font-italic">
+                      Includes all projects
+                    </div>
+                  )}
+                </div>
+              );
+            }}
+          />
+        </div>
+
+        <div className="mb-4">
+          <label>
+            Filter by Projects
+            {!!selectedProjects?.length && (
+              <> ({selectedValidProjects?.length ?? 0})</>
+            )}
+          </label>
+          <MultiSelectField
+            placeholder={
+              environmentHasProjects
+                ? "All Environment Projects"
+                : "All Projects"
+            }
+            containerClassName="w-100"
+            value={form.watch("projects") || []}
+            onChange={(projects) => form.setValue("projects", projects)}
+            options={projectsOptions}
+            sort={false}
+            closeMenuOnSelect={true}
+            formatOptionLabel={({ value, label }) => {
+              const disallowed = disallowedProjects?.find(
+                (p) => p.id === value
+              );
+              return disallowed ? (
+                <Tooltip body="This project is not allowed in the selected environment and will not be included in the SDK payload.">
+                  <del className="text-danger">
+                    <FaExclamationTriangle className="mr-1" />
+                    {label}
+                  </del>
+                </Tooltip>
+              ) : (
+                label
+              );
+            }}
+          />
+          {disallowedProjects.length > 0 && (
+            <div className="text-danger mt-2 small px-1">
+              <FaExclamationTriangle className="mr-1" />
+              This SDK Connection references {disallowedProjects.length} project
+              {disallowedProjects.length !== 1 && "s"} that{" "}
+              {disallowedProjects.length === 1 ? "is" : "are"} not allowed in
+              the selected environment. This may have occurred as a result of a
+              project being removed from the selected environment.
+            </div>
+          )}
+        </div>
+
+        {languageType !== "backend" && (
+          <>
+            <label>SDK Payload Security</label>
+            <div className="bg-highlight rounded pt-4 pb-2 px-4 mb-4">
+              <ControlledTabs
+                newStyle={true}
+                className="mb-3"
+                buttonsWrapperClassName="sdk-security-button-wrapper mb-3"
+                buttonsClassName={(tab) =>
+                  clsx("sdk-security-button text-center border rounded", {
+                    selected: tab === getSecurityTabState(form.getValues()),
+                  })
+                }
+                tabContentsClassName={(tab) =>
+                  tab === "none" ? "d-none" : "noborder"
+                }
+                setActive={setSelectedSecurityTab}
+                active={selectedSecurityTab}
+              >
+                <Tab
+                  id="none"
+                  padding={false}
+                  className="pt-1 pb-2"
+                  display={
                     <>
-                      Project <code>{value}</code> not found
+                      {getSecurityTabState(form.getValues()) === "none" && (
+                        <>
+                          <FaCheck className="check text-success" />{" "}
+                        </>
+                      )}
+                      Plain Text
+                      <Tooltip
+                        popperClassName="text-left"
+                        body={
+                          <p className="mb-0">
+                            Full feature definitions, including targeting
+                            conditions and experiment variations, are viewable
+                            by anyone with the Client Key.
+                          </p>
+                        }
+                      >
+                        <div className="subtitle">
+                          Highly cacheable, but may leak sensitive info to users
+                          <FaInfoCircle className="ml-1" />
+                        </div>
+                      </Tooltip>
                     </>
                   }
                 >
-                  <span className="text-danger">
-                    <FaExclamationTriangle /> <code>{value}</code>
-                  </span>
-                </Tooltip>
-              );
-            }
-            return label;
-          }}
-        />
-      )}
+                  <></>
+                </Tab>
 
-      <SelectField
-        label="Environment"
-        required
-        placeholder="Choose one..."
-        value={form.watch("environment")}
-        onChange={(env) => form.setValue("environment", env)}
-        options={environments.map((e) => ({ label: e.id, value: e.id }))}
-      />
-
-      {showVisualEditorSettings && (
-        <>
-          <label>Visual experiments</label>
-          <div className="border rounded pt-2 pb-3 px-3">
-            <div>
-              <label htmlFor="sdk-connection-visual-experiments-toggle">
-                Include visual experiments in endpoint&apos;s response?
-              </label>
-              <div className="form-inline">
-                <Toggle
-                  id="sdk-connection-visual-experiments-toggle"
-                  value={form.watch("includeVisualExperiments")}
-                  setValue={(val) =>
-                    form.setValue("includeVisualExperiments", val)
-                  }
-                />
-              </div>
-            </div>
-            {form.watch("includeVisualExperiments") && (
-              <>
-                <div className="mt-3">
-                  <Tooltip
-                    body={
+                {["frontend", "mobile", "nocode", "edge", "other"].includes(
+                  languageType
+                ) && (
+                  <Tab
+                    id="ciphered"
+                    padding={false}
+                    className="pt-1 pb-2"
+                    display={
                       <>
-                        <p>
-                          In-development visual experiments will be sent to the
-                          SDK. We recommend only enabling this for
-                          non-production environments.
-                        </p>
-                        <p className="mb-0">
-                          To force into a variation, use a URL query string such
-                          as{" "}
-                          <code className="d-block">?my-experiment-id=2</code>
-                        </p>
+                        {getSecurityTabState(form.getValues()) ===
+                          "ciphered" && (
+                          <>
+                            <FaCheck className="check text-success" />{" "}
+                          </>
+                        )}
+                        Ciphered
+                        <Tooltip
+                          popperClassName="text-left"
+                          body={
+                            <p className="mb-0">
+                              Full feature definitions are encrypted and
+                              sensitive targeting conditions are hashed to help
+                              avoid leaking business logic to client-side apps.
+                              Not 100% secure, but will stop most prying eyes.
+                            </p>
+                          }
+                        >
+                          <div className="subtitle">
+                            Adds obfuscation while remaining cacheable
+                            <FaInfoCircle className="ml-1" />
+                          </div>
+                        </Tooltip>
                       </>
                     }
                   >
-                    <label htmlFor="sdk-connection-include-draft-experiments-toggle">
-                      Include draft experiments <FaInfoCircle />
-                    </label>
-                  </Tooltip>
-                  <div>
+                    <div>
+                      <label className="mb-3">Cipher Options</label>
+                      <div className="mb-4 d-flex align-items-center">
+                        <Toggle
+                          id="encryptSDK"
+                          value={form.watch("encryptPayload")}
+                          setValue={(val) =>
+                            form.setValue("encryptPayload", val)
+                          }
+                          disabled={!hasEncryptionFeature}
+                        />
+                        <label className="ml-2 mb-0" htmlFor="encryptSDK">
+                          <PremiumTooltip
+                            commercialFeature="encrypt-features-endpoint"
+                            body={
+                              <>
+                                <p>
+                                  SDK payloads will be encrypted via the AES
+                                  encryption algorithm. When evaluating feature
+                                  flags in a public or insecure environment
+                                  (such as a browser), encryption provides an
+                                  additional layer of security through
+                                  obfuscation. This allows you to target users
+                                  based on sensitive attributes.
+                                </p>
+                                <p className="mb-0 text-warning-orange small">
+                                  <FaExclamationCircle /> When using an insecure
+                                  environment, do not rely exclusively on
+                                  payload encryption as a means of securing
+                                  highly sensitive data. Because the client
+                                  performs the decryption, the unencrypted
+                                  payload may be extracted with sufficient
+                                  effort.
+                                </p>
+                              </>
+                            }
+                          >
+                            Encrypt SDK payload <FaInfoCircle />
+                          </PremiumTooltip>
+                        </label>
+                      </div>
+
+                      <div className="mb-4 d-flex align-items-center">
+                        <Toggle
+                          id="hash-secure-attributes"
+                          value={form.watch("hashSecureAttributes")}
+                          setValue={(val) =>
+                            form.setValue("hashSecureAttributes", val)
+                          }
+                          disabled={!hasSecureAttributesFeature}
+                        />
+                        <label
+                          className="ml-2 mb-0"
+                          htmlFor="hash-secure-attributes"
+                        >
+                          <PremiumTooltip
+                            commercialFeature="hash-secure-attributes"
+                            body={
+                              <>
+                                <p>
+                                  Feature targeting conditions referencing{" "}
+                                  <code>secureString</code> attributes will be
+                                  anonymized via SHA-256 hashing. When
+                                  evaluating feature flags in a public or
+                                  insecure environment (such as a browser),
+                                  hashing provides an additional layer of
+                                  security through obfuscation. This allows you
+                                  to target users based on sensitive attributes.
+                                </p>
+                                <p className="mb-0 text-warning-orange small">
+                                  <FaExclamationCircle /> When using an insecure
+                                  environment, do not rely exclusively on
+                                  hashing as a means of securing highly
+                                  sensitive data. Hashing is an obfuscation
+                                  technique that makes it very difficult, but
+                                  not impossible, to extract sensitive data.
+                                </p>
+                              </>
+                            }
+                          >
+                            Hash secure attributes <FaInfoCircle />
+                          </PremiumTooltip>
+                        </label>
+                      </div>
+
+                      <div className="d-flex align-items-center">
+                        <Toggle
+                          id="sdk-connection-include-experiment-meta"
+                          value={!form.watch("includeExperimentNames")}
+                          setValue={(val) =>
+                            form.setValue("includeExperimentNames", !val)
+                          }
+                        />
+                        <label
+                          className="ml-2 mb-0"
+                          htmlFor="sdk-connection-include-experiment-meta"
+                        >
+                          <Tooltip
+                            body={
+                              <>
+                                <p>
+                                  Experiment and variation names can help add
+                                  context when debugging or tracking events.
+                                </p>
+                                <p>
+                                  However, this could expose potentially
+                                  sensitive information to your users if enabled
+                                  for a client-side or mobile application.
+                                </p>
+                                <p className="mb-0">
+                                  For maximum privacy and security, we recommend
+                                  hiding these fields.
+                                </p>
+                              </>
+                            }
+                          >
+                            Hide experiment and variation names <FaInfoCircle />
+                          </Tooltip>
+                        </label>
+                      </div>
+                    </div>
+
+                    {form.watch("encryptPayload") &&
+                      !currentSdkCapabilities.includes("encryption") && (
+                        <div
+                          className="ml-2 mt-3 text-warning-orange"
+                          style={{ marginBottom: -5 }}
+                        >
+                          <FaExclamationCircle /> Payload decryption may not be
+                          available in your current SDK.
+                          {languages.length === 1 && (
+                            <div className="mt-1 text-gray">
+                              {getSDKCapabilityVersion(
+                                languages[0],
+                                "encryption"
+                              ) ? (
+                                <>
+                                  It was introduced in SDK version{" "}
+                                  <code>
+                                    {getSDKCapabilityVersion(
+                                      languages[0],
+                                      "encryption"
+                                    )}
+                                  </code>
+                                  . The SDK version specified in this connection
+                                  is{" "}
+                                  <code>
+                                    {form.watch("sdkVersion") ||
+                                      getDefaultSDKVersion(languages[0])}
+                                  </code>
+                                  .
+                                </>
+                              ) : null}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                  </Tab>
+                )}
+
+                {["frontend", "nocode", "other"].includes(languageType) && (
+                  <Tab
+                    id="remote"
+                    padding={false}
+                    className="pt-1 pb-2"
+                    display={
+                      <>
+                        {getSecurityTabState(form.getValues()) === "remote" && (
+                          <>
+                            <FaCheck className="check text-success" />{" "}
+                          </>
+                        )}
+                        Remote Evaluated
+                        <Tooltip
+                          popperClassName="text-left"
+                          body={
+                            <>
+                              <p className="mb-0">
+                                Features and experiments are evaluated on a
+                                private server and only the final assigned
+                                values are exposed to users.
+                              </p>
+                              {isCloud() && (
+                                <div className="mt-2 text-warning-orange">
+                                  <FaExclamationCircle /> Requires a remote
+                                  evaluation service such as GrowthBook Proxy or
+                                  a CDN edge worker.
+                                </div>
+                              )}
+                            </>
+                          }
+                        >
+                          <div className="subtitle">
+                            Completely hides business logic from users
+                            <FaInfoCircle className="ml-1" />
+                          </div>
+                        </Tooltip>
+                      </>
+                    }
+                  >
+                    <div>
+                      <label className="mb-3">Remote Evaluation Options</label>
+                      <div className="d-flex align-items-center">
+                        <Toggle
+                          id="remote-evaluation"
+                          value={form.watch("remoteEvalEnabled")}
+                          setValue={(val) =>
+                            form.setValue("remoteEvalEnabled", val)
+                          }
+                          disabled={
+                            !hasRemoteEvaluationFeature ||
+                            !latestSdkCapabilities.includes("remoteEval")
+                          }
+                        />
+                        <label
+                          className="ml-2 mb-0"
+                          htmlFor="remote-evaluation"
+                        >
+                          <PremiumTooltip
+                            commercialFeature="remote-evaluation"
+                            tipMinWidth="600px"
+                            body={
+                              <>
+                                <div className="mb-2">
+                                  <strong>Remote Evaluation</strong> fully
+                                  secures your SDK by evaluating feature flags
+                                  exclusively on a private server instead of
+                                  within a front-end environment. This ensures
+                                  that any sensitive information within
+                                  targeting rules or unused feature variations
+                                  are never seen by the client.
+                                </div>
+                                <div className="mb-2">
+                                  Remote evaluation provides the same security
+                                  benefits as a includeExperimentNames SDK.
+                                  However, remote evaluation is neither needed
+                                  nor supported for backend SDKs.
+                                </div>
+                                <div className="mb-2">
+                                  Remote evaluation does come with a few cost
+                                  considerations:
+                                  <ol className="pl-3 mt-2">
+                                    <li className="mb-2">
+                                      It will increase network traffic.
+                                      Evaluated payloads cannot be shared across
+                                      different users; therefore CDN cache
+                                      misses will increase.
+                                    </li>
+                                    <li>
+                                      Any connections using Streaming Updates
+                                      will incur a slight delay. An additional
+                                      network hop is required to retrieve the
+                                      evaluated payload from the server.
+                                    </li>
+                                  </ol>
+                                </div>
+                              </>
+                            }
+                          >
+                            Use remote evaluation <FaInfoCircle />
+                          </PremiumTooltip>
+                        </label>
+                        {isCloud() ? (
+                          <div className="alert alert-info mb-0 ml-3 py-1 px-2">
+                            <FaExclamationCircle className="mr-1" />
+                            Cloud customers must self-host a remote evaluation
+                            service such as{" "}
+                            <a
+                              target="_blank"
+                              href="https://github.com/growthbook/growthbook-proxy"
+                              rel="noreferrer"
+                            >
+                              GrowthBook Proxy
+                            </a>{" "}
+                            or a CDN edge worker.
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                    {!currentSdkCapabilities.includes("remoteEval") ? (
+                      <div
+                        className="ml-2 mt-3 text-warning-orange"
+                        style={{ marginBottom: -5 }}
+                      >
+                        <FaExclamationCircle /> Remote evaluation may not be
+                        available in your current SDK.
+                        {languages.length === 1 && (
+                          <div className="mt-1 text-gray">
+                            {getSDKCapabilityVersion(
+                              languages[0],
+                              "remoteEval"
+                            ) ? (
+                              <>
+                                It was introduced in SDK version{" "}
+                                <code>
+                                  {getSDKCapabilityVersion(
+                                    languages[0],
+                                    "remoteEval"
+                                  )}
+                                </code>
+                                . The SDK version specified in this connection
+                                is{" "}
+                                <code>
+                                  {form.watch("sdkVersion") ||
+                                    getDefaultSDKVersion(languages[0])}
+                                </code>
+                                .
+                              </>
+                            ) : null}
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                  </Tab>
+                )}
+              </ControlledTabs>
+            </div>
+          </>
+        )}
+
+        {(showVisualEditorSettings || showRedirectSettings) && (
+          <div className="mt-5">
+            <label>Auto Experiments</label>
+            <div className="mt-2">
+              {showVisualEditorSettings && (
+                <div className="mb-4 d-flex align-items-center">
+                  <Toggle
+                    id="sdk-connection-visual-experiments-toggle"
+                    value={form.watch("includeVisualExperiments")}
+                    setValue={(val) =>
+                      form.setValue("includeVisualExperiments", val)
+                    }
+                  />
+                  <label
+                    className="ml-2 mb-0 cursor-pointer"
+                    htmlFor="sdk-connection-visual-experiments-toggle"
+                  >
+                    Enable <strong>Visual Editor experiments</strong> (
+                    <DocLink docSection="visual_editor">docs</DocLink>)
+                  </label>
+                </div>
+              )}
+
+              {showRedirectSettings && (
+                <div className="mb-4 d-flex align-items-center">
+                  <Toggle
+                    id="sdk-connection-redirects-toggle"
+                    value={form.watch("includeRedirectExperiments")}
+                    setValue={(val) =>
+                      form.setValue("includeRedirectExperiments", val)
+                    }
+                  />
+                  <label
+                    className="ml-2 mb-0 cursor-pointer"
+                    htmlFor="sdk-connection-redirects-toggle"
+                  >
+                    Enable <strong>URL Redirect experiments</strong> (
+                    <DocLink docSection="url_redirects">docs</DocLink>)
+                  </label>
+                </div>
+              )}
+
+              {(form.watch("includeVisualExperiments") ||
+                form.watch("includeRedirectExperiments")) && (
+                <>
+                  <div className="mb-4 d-flex align-items-center">
                     <Toggle
                       id="sdk-connection-include-draft-experiments-toggle"
                       value={form.watch("includeDraftExperiments")}
@@ -267,160 +994,79 @@ export default function SDKConnectionForm({
                         form.setValue("includeDraftExperiments", val)
                       }
                     />
+                    <Tooltip
+                      body={
+                        <>
+                          <p>
+                            In-development auto experiments will be sent to the
+                            SDK. We recommend only enabling this for
+                            non-production environments.
+                          </p>
+                          <p className="mb-0">
+                            To force into a variation, use a URL query string
+                            such as{" "}
+                            <code className="d-block">?my-experiment-id=2</code>
+                          </p>
+                        </>
+                      }
+                    >
+                      <label
+                        className="ml-2 mb-0 cursor-pointer"
+                        htmlFor="sdk-connection-include-draft-experiments-toggle"
+                      >
+                        Include draft experiments <FaInfoCircle />
+                      </label>
+                    </Tooltip>
                   </div>
-                </div>
-              </>
-            )}
-          </div>
-        </>
-      )}
-
-      <div className="mt-3 mb-3">
-        <Tooltip
-          body={
-            <>
-              <p>
-                This can help add context when debugging or tracking events.
-              </p>
-              <div>
-                However, this could expose potentially sensitive information to
-                your users if enabled for a client-side or mobile application.
-              </div>
-            </>
-          }
-        >
-          <label htmlFor="sdk-connection-include-experiment-meta">
-            Include experiment/variation names? <FaInfoCircle />
-          </label>
-        </Tooltip>
-        <div>
-          <Toggle
-            id="sdk-connection-include-experiment-meta"
-            value={form.watch("includeExperimentNames")}
-            setValue={(val) => form.setValue("includeExperimentNames", val)}
-          />
-        </div>
-      </div>
-
-      {isCloud() && gb?.isOn("proxy-cloud") && (
-        <div
-          className="d-flex mt-3 mb-3 align-top"
-          style={{ justifyContent: "space-between" }}
-        >
-          <div className="">
-            <label htmlFor="sdk-connection-proxy-toggle">
-              Use GrowthBook Proxy
-            </label>
-            <div>
-              <Toggle
-                id="sdk-connection-proxy-toggle"
-                value={form.watch("proxyEnabled")}
-                setValue={(val) => form.setValue("proxyEnabled", val)}
-              />
+                </>
+              )}
             </div>
           </div>
-
-          {form.watch("proxyEnabled") && (
-            <div className="ml-3 d-flex align-items-center">
-              <label
-                className="mr-2 mt-3 pt-2"
-                htmlFor="sdk-connection-proxyHost"
-              >
-                Proxy Host URL
-              </label>
-              <Field
-                id="sdk-connection-proxyHost"
-                required
-                placeholder="https://"
-                type="url"
-                containerClassName="mt-3"
-                style={{ width: 400 }}
-                {...form.register("proxyHost")}
-              />
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="form-group mt-4">
-        <label htmlFor="hash-secure-attributes">
-          <PremiumTooltip
-            commercialFeature="encrypt-features-endpoint"
-            body={
-              <>
-                <p>
-                  Feature targeting conditions referencing{" "}
-                  <code>secureString</code> attributes will be anonymized via
-                  SHA-256 hashing. When evaluating feature flags in a public or
-                  insecure environment (such as a browser), hashing provides an
-                  additional layer of security through obfuscation. This allows
-                  you to target users based on sensitive attributes.
-                </p>
-                <p className="mb-0 text-warning-orange small">
-                  <FaExclamationCircle /> When using an insecure environment, do
-                  not rely exclusively on hashing as a means of securing highly
-                  sensitive data. Hashing is an obfuscation technique that makes
-                  it very difficult, but not impossible, to extract sensitive
-                  data.
-                </p>
-              </>
-            }
-          >
-            Hash secure attributes? <FaInfoCircle />
-          </PremiumTooltip>
-        </label>
-        <div className="row mb-4">
-          <div className="col-md-3">
-            <Toggle
-              id="hash-secure-attributes"
-              value={form.watch("hashSecureAttributes")}
-              setValue={(val) => form.setValue("hashSecureAttributes", val)}
-              disabled={!hasSecureAttributesFeature}
-            />
-          </div>
-          <div
-            className="col-md-9 text-gray text-right pt-2"
-            style={{ fontSize: 11 }}
-          >
-            Requires changes to your implementation.{" "}
-            <DocLink docSection="hashSecureAttributes">View docs</DocLink>
-          </div>
-        </div>
-      </div>
-
-      <EncryptionToggle
-        showUpgradeModal={() => setUpgradeModal(true)}
-        value={form.watch("encryptPayload")}
-        setValue={(value) => form.setValue("encryptPayload", value)}
-        showRequiresChangesWarning={true}
-        showUpgradeMessage={false}
-      />
-      {form.watch("encryptPayload") &&
-        selectedLanguagesWithoutEncryptionSupport.length > 0 && (
-          <p
-            className="mb-0 text-warning-orange small"
-            style={{ marginTop: -15 }}
-          >
-            <FaExclamationCircle /> Payload decryption is not natively supported
-            in the selected SDK
-            {selectedLanguagesWithoutEncryptionSupport.length === 1 ? "" : "s"}:
-            <div className="ml-2 mt-1">
-              {selectedLanguagesWithoutEncryptionSupport.map((id, i) => (
-                <span className="nowrap" key={id}>
-                  <SDKLanguageLogo language={id} size={14} />
-                  <span
-                    className="text-muted font-weight-bold"
-                    style={{ marginLeft: 2, verticalAlign: 3 }}
-                  >
-                    {languageMapping[id].label}
-                  </span>
-                  {i < selectedLanguagesWithoutEncryptionSupport.length - 1 &&
-                    ", "}
-                </span>
-              ))}
-            </div>
-          </p>
         )}
+
+        {isCloud() && (
+          <div className="mt-5">
+            <label className="mb-1">GrowthBook Proxy</label>
+            <div
+              className="d-flex align-items-top mt-2"
+              style={{ justifyContent: "space-between" }}
+            >
+              <div className="d-flex align-items-center">
+                <Toggle
+                  id="sdk-connection-proxy-toggle"
+                  value={form.watch("proxyEnabled")}
+                  setValue={(val) => form.setValue("proxyEnabled", val)}
+                />
+                <label
+                  className="ml-2 mb-0"
+                  htmlFor="sdk-connection-proxy-toggle"
+                >
+                  Use GrowthBook Proxy
+                </label>
+              </div>
+
+              {form.watch("proxyEnabled") && (
+                <div className="d-flex align-items-center">
+                  <label
+                    className="mr-2 mb-0"
+                    htmlFor="sdk-connection-proxyHost"
+                  >
+                    Proxy Host URL
+                  </label>
+                  <Field
+                    id="sdk-connection-proxyHost"
+                    required
+                    placeholder="https://"
+                    type="url"
+                    style={{ width: 350 }}
+                    {...form.register("proxyHost")}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </Modal>
   );
 }

@@ -4,6 +4,8 @@ import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { omit } from "lodash";
 import { ApiProject } from "../../types/openapi";
 import { ProjectInterface, ProjectSettings } from "../../types/project";
+import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 
 const projectSchema = new mongoose.Schema({
   id: {
@@ -51,15 +53,35 @@ export async function createProject(
   });
   return toInterface(doc);
 }
-export async function findAllProjectsByOrganization(organization: string) {
+export async function findAllProjectsByOrganization(
+  context: ReqContext | ApiReqContext
+) {
+  const { org } = context;
   const docs = await ProjectModel.find({
-    organization,
+    organization: org.id,
   });
-  return docs.map(toInterface);
+
+  const projects = docs.map(toInterface);
+  return projects.filter((p) =>
+    context.permissions.canReadSingleProjectResource(p.id)
+  );
 }
-export async function findProjectById(id: string, organization: string) {
-  const doc = await ProjectModel.findOne({ id, organization });
-  return doc ? toInterface(doc) : null;
+export async function findProjectById(
+  context: ReqContext | ApiReqContext,
+  projectId: string
+) {
+  const { org } = context;
+  const doc = await ProjectModel.findOne({
+    id: projectId,
+    organization: org.id,
+  });
+  if (!doc) return null;
+
+  const project = toInterface(doc);
+
+  return context.permissions.canReadSingleProjectResource(project.id)
+    ? project
+    : null;
 }
 export async function deleteProjectById(id: string, organization: string) {
   await ProjectModel.deleteOne({

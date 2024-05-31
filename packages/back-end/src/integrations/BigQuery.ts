@@ -6,6 +6,7 @@ import { decryptDataSourceParams } from "../services/datasource";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { IS_CLOUD } from "../util/secrets";
 import {
+  ExternalIdCallback,
   InformationSchema,
   QueryResponse,
   RawInformationSchema,
@@ -15,9 +16,7 @@ import { logger } from "../util/logger";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  params: BigQueryConnectionParams;
+  params!: BigQueryConnectionParams;
   requiresEscapingPath = true;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<BigQueryConnectionParams>(
@@ -49,7 +48,23 @@ export default class BigQuery extends SqlIntegration {
     });
   }
 
-  async runQuery(sql: string): Promise<QueryResponse> {
+  async cancelQuery(externalId: string): Promise<void> {
+    const client = this.getClient();
+    const job = client.job(externalId);
+
+    // Attempt to cancel job
+    const [apiResult] = await job.cancel();
+    logger.debug(
+      `Cancelled BigQuery job ${externalId} - ${JSON.stringify(
+        apiResult.job?.status
+      )}`
+    );
+  }
+
+  async runQuery(
+    sql: string,
+    setExternalId?: ExternalIdCallback
+  ): Promise<QueryResponse> {
     const client = this.getClient();
 
     const [job] = await client.createQueryJob({
@@ -57,6 +72,11 @@ export default class BigQuery extends SqlIntegration {
       query: sql,
       useLegacySql: false,
     });
+
+    if (setExternalId && job.id) {
+      await setExternalId(job.id);
+    }
+
     const [rows] = await job.getQueryResults();
     const [metadata] = await job.getMetadata();
     const statistics = {
@@ -76,7 +96,9 @@ export default class BigQuery extends SqlIntegration {
   }
 
   createUnitsTableOptions() {
-    return bigQueryCreateTableOptions(this.settings.pipelineSettings ?? {});
+    return bigQueryCreateTableOptions(
+      this.datasource.settings.pipelineSettings ?? {}
+    );
   }
 
   addTime(
@@ -89,8 +111,26 @@ export default class BigQuery extends SqlIntegration {
       sign === "+" ? "ADD" : "SUB"
     }(${col}, INTERVAL ${amount} ${unit.toUpperCase()})`;
   }
-  convertDate(fromDB: bq.BigQueryDatetime) {
-    return getValidDate(fromDB.value + "Z");
+
+  // BigQueryDateTime: ISO Date string in UTC (Z at end)
+  // BigQueryDatetime: ISO Date string with no timezone
+  // BigQueryDate: YYYY-MM-DD
+  convertDate(
+    fromDB:
+      | bq.BigQueryDatetime
+      | bq.BigQueryTimestamp
+      | bq.BigQueryDate
+      | undefined
+  ) {
+    if (!fromDB?.value) return getValidDate(null);
+
+    // BigQueryTimestamp already has `Z` at the end, but the others don't
+    let value = fromDB.value;
+    if (!value.endsWith("Z")) {
+      value += "Z";
+    }
+
+    return getValidDate(value);
   }
   dateTrunc(col: string) {
     return `date_trunc(${col}, DAY)`;
@@ -107,21 +147,18 @@ export default class BigQuery extends SqlIntegration {
   castToString(col: string): string {
     return `cast(${col} as string)`;
   }
+  escapeStringLiteral(value: string): string {
+    return value.replace(/(['\\])/g, "\\$1");
+  }
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;
   }
-  percentileCapSelectClause(
-    capPercentile: number,
-    metricTable: string
-  ): string {
-    return `
-    SELECT 
-      APPROX_QUANTILES(value, 100000)[OFFSET(${Math.trunc(
-        100000 * capPercentile
-      )})] AS cap_value
-    FROM ${metricTable}
-    WHERE value IS NOT NULL
-  `;
+  approxQuantile(value: string, quantile: string | number): string {
+    const multiplier = 10000;
+    const quantileVal = Number(quantile)
+      ? Math.trunc(multiplier * Number(quantile))
+      : `${multiplier} * ${quantile}`;
+    return `APPROX_QUANTILES(${value}, ${multiplier} IGNORE NULLS)[OFFSET(CAST(${quantileVal} AS INT64))]`;
   }
   getDefaultDatabase() {
     return this.params.projectId || "";
@@ -133,21 +170,39 @@ export default class BigQuery extends SqlIntegration {
       database
     );
   }
+
+  async listDatasets(): Promise<string[]> {
+    const [datasets] = await this.getClient().getDatasets();
+
+    const datasetNames: string[] = [];
+    for (let i = 0; i < datasets.length; i++) {
+      const dataset = datasets[i];
+      if (dataset.id) {
+        datasetNames.push(dataset.id);
+      }
+    }
+
+    return datasetNames;
+  }
+
   async getInformationSchema(): Promise<InformationSchema[]> {
-    const { rows: datasets } = await this.runQuery(
-      `SELECT * FROM ${`\`${this.params.projectId}.INFORMATION_SCHEMA.SCHEMATA\``}`
-    );
+    const datasetNames = await this.listDatasets();
 
-    const results = [];
+    if (!datasetNames.length) {
+      throw new Error(`No datasets found.`);
+    }
 
-    for (const dataset of datasets) {
+    // eslint-disable-next-line
+    const results: Record<string, any>[] = [];
+
+    for (const datasetName of datasetNames) {
       const query = `SELECT
         table_name as table_name,
         table_catalog as table_catalog,
         table_schema as table_schema,
         count(column_name) as column_count
       FROM
-        ${this.getInformationSchemaTable(`${dataset.schema_name}`)}
+        ${this.getInformationSchemaTable(`${datasetName}`)}
         WHERE ${this.getInformationSchemaWhereClause()}
       GROUP BY table_name, table_schema, table_catalog
       ORDER BY table_name;`;
@@ -162,7 +217,7 @@ export default class BigQuery extends SqlIntegration {
         }
       } catch (e) {
         logger.error(
-          `Error fetching information schema data for dataset: ${dataset.schema_name}`,
+          `Error fetching information schema data for dataset: ${datasetName}`,
           e
         );
       }
@@ -174,7 +229,7 @@ export default class BigQuery extends SqlIntegration {
 
     return formatInformationSchema(
       results as RawInformationSchema[],
-      this.type
+      this.datasource.type
     );
   }
 }

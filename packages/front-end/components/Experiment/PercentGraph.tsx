@@ -1,15 +1,18 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { MetricInterface } from "back-end/types/metric";
 import React, { DetailedHTMLProps, HTMLAttributes } from "react";
+import {
+  ExperimentMetricInterface,
+  hasEnoughData,
+  isStatSig,
+} from "shared/experiments";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
-import { hasEnoughData, isStatSig } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import AlignedGraph from "./AlignedGraph";
 
 interface Props
   extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
-  metric: MetricInterface;
+  metric: ExperimentMetricInterface;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
   domain: [number, number];
@@ -19,9 +22,9 @@ interface Props
   significant?: boolean;
   graphWidth?: number;
   height?: number;
-  newUi?: boolean;
   className?: string;
   isHovered?: boolean;
+  percent?: boolean;
   onMouseMove?: (e: React.MouseEvent<SVGPathElement>) => void;
   onMouseLeave?: (e: React.MouseEvent<SVGPathElement>) => void;
   onClick?: (e: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
@@ -39,9 +42,9 @@ export default function PercentGraph({
   significant,
   graphWidth,
   height,
-  newUi = false,
   className,
   isHovered = false,
+  percent = true,
   onMouseMove,
   onMouseLeave,
   onClick,
@@ -57,21 +60,22 @@ export default function PercentGraph({
   const showGraph = metric && enoughData;
 
   if (significant === undefined) {
-    significant = showGraph
-      ? (stats.chanceToWin ?? 0) > ciUpper || (stats.chanceToWin ?? 0) < ciLower
-      : false;
-
-    if (newUi && barType === "pill") {
+    if (barType === "pill") {
       // frequentist
       significant = showGraph
         ? isStatSig(stats.pValueAdjusted ?? stats.pValue ?? 1, pValueThreshold)
+        : false;
+    } else {
+      significant = showGraph
+        ? (stats.chanceToWin ?? 0) > ciUpper ||
+          (stats.chanceToWin ?? 0) < ciLower
         : false;
     }
   }
 
   return (
     <AlignedGraph
-      ci={showGraph ? stats.ci || [] : [0, 0]}
+      ci={showGraph ? stats?.ciAdjusted ?? stats.ci ?? [] : [0, 0]}
       id={id}
       domain={domain}
       uplift={showGraph ? stats.uplift : undefined}
@@ -84,9 +88,9 @@ export default function PercentGraph({
       graphWidth={graphWidth}
       height={height}
       inverse={!!metric?.inverse}
-      newUi={newUi}
       className={className}
       isHovered={isHovered}
+      percent={percent}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
       onClick={onClick}

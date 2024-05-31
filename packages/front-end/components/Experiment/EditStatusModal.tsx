@@ -5,8 +5,8 @@ import {
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import SelectField from "@/components/Forms/SelectField";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

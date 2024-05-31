@@ -25,13 +25,56 @@ export type {
   UrlTarget,
   AutoExperiment,
   AutoExperimentVariation,
+  AutoExperimentChangeType,
+  DOMMutation,
   UrlTargetType,
+  RenderFunction,
+  StickyAttributeKey,
+  StickyExperimentKey,
+  StickyAssignments,
+  StickyAssignmentsDocument,
+  TrackingData,
+  TrackingCallback,
+  NavigateCallback,
+  ApplyDomChangesCallback,
+  InitOptions,
+  PrefetchOptions,
+  InitResponse,
+  InitSyncOptions,
+  Helpers,
+  GrowthBookPayload,
 } from "./types/growthbook";
 
-export type { ConditionInterface } from "./types/mongrule";
+export type {
+  ConditionInterface,
+  ParentConditionInterface,
+} from "./types/mongrule";
 
-export { setPolyfills, clearCache, configureCache } from "./feature-repository";
+export {
+  setPolyfills,
+  clearCache,
+  configureCache,
+  helpers,
+  onVisible,
+  onHidden,
+  prefetchPayload,
+} from "./feature-repository";
 
 export { GrowthBook } from "./GrowthBook";
 
-export { isURLTargeted } from "./util";
+export {
+  StickyBucketService,
+  LocalStorageStickyBucketService,
+  ExpressCookieStickyBucketService,
+  BrowserCookieStickyBucketService,
+  RedisStickyBucketService,
+} from "./sticky-bucket-service";
+
+export { evalCondition } from "./mongrule";
+
+export {
+  isURLTargeted,
+  getPolyfills,
+  getAutoExperimentChangeType,
+  paddedVersionString,
+} from "./util";

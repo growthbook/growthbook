@@ -1,8 +1,6 @@
 import Agenda, { Job } from "agenda";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getSnapshotAnalysis } from "shared/util";
-import { orgHasPremiumFeature } from "enterprise";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -13,21 +11,26 @@ import { getDataSourceById } from "../models/DataSourceModel";
 import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
 import {
   createSnapshot,
-  getRegressionAdjustmentInfo,
+  getAdditionalExperimentAnalysisSettings,
+  getDefaultExperimentAnalysisSettings,
+  getExperimentMetricById,
+  getSettingsForSnapshotMetrics,
 } from "../services/experiments";
-import { getConfidenceLevelsForOrg } from "../services/organizations";
+import {
+  getConfidenceLevelsForOrg,
+  getContextForAgendaJobByOrgId,
+} from "../services/organizations";
 import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
-import { getMetricById, getMetricMap } from "../models/MetricModel";
+import { getMetricMap } from "../models/MetricModel";
+import { notifyAutoUpdate } from "../services/experimentNotifications";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
-import { findOrganizationById } from "../models/OrganizationModel";
 import { logger } from "../util/logger";
-import {
-  ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotInterface,
-} from "../../types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { findProjectById } from "../models/ProjectModel";
 import { getExperimentWatchers } from "../models/WatchModel";
+import { getFactTableMap } from "../models/FactTableModel";
+import { ApiReqContext } from "../../types/api";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -111,37 +114,32 @@ export default async function (agenda: Agenda) {
 async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const experimentId = job.attrs.data?.experimentId;
   const orgId = job.attrs.data?.organization;
+
   if (!experimentId || !orgId) return;
 
-  const experiment = await getExperimentById(orgId, experimentId);
-  if (!experiment) return;
+  const context = await getContextForAgendaJobByOrgId(orgId);
 
-  const organization = await findOrganizationById(experiment.organization);
-  if (!organization) return;
+  const { org: organization } = context;
+
+  const experiment = await getExperimentById(context, experimentId);
+  if (!experiment) return;
 
   let project = null;
   if (experiment.project) {
-    project = await findProjectById(experiment.project, organization.id);
+    project = await findProjectById(context, experiment.project);
   }
   const { settings: scopedSettings } = getScopedSettings({
-    organization,
+    organization: context.org,
     project: project ?? undefined,
   });
 
   if (organization?.settings?.updateSchedule?.type === "never") return;
 
-  const hasRegressionAdjustmentFeature = organization
-    ? orgHasPremiumFeature(organization, "regression-adjustment")
-    : false;
-  const hasSequentialTestingFeature = organization
-    ? orgHasPremiumFeature(organization, "sequential-testing")
-    : false;
-
   try {
     logger.info("Start Refreshing Results for experiment " + experimentId);
     const datasource = await getDataSourceById(
-      experiment.datasource || "",
-      experiment.organization
+      context,
+      experiment.datasource || ""
     );
     if (!datasource) {
       throw new Error("Error refreshing experiment, could not find datasource");
@@ -153,40 +151,31 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
     const {
       regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatuses,
-    } = await getRegressionAdjustmentInfo(experiment, organization);
+      settingsForSnapshotMetrics,
+    } = await getSettingsForSnapshotMetrics(context, experiment);
 
-    const statsEngine = scopedSettings.statsEngine.value;
+    const analysisSettings = getDefaultExperimentAnalysisSettings(
+      experiment.statsEngine || scopedSettings.statsEngine.value,
+      experiment,
+      organization,
+      regressionAdjustmentEnabled
+    );
 
-    const analysisSettings: ExperimentSnapshotAnalysisSettings = {
-      statsEngine,
-      dimensions: [],
-      regressionAdjusted:
-        hasRegressionAdjustmentFeature &&
-        statsEngine === "frequentist" &&
-        regressionAdjustmentEnabled,
-      sequentialTesting:
-        hasSequentialTestingFeature &&
-        statsEngine === "frequentist" &&
-        (experiment?.sequentialTestingEnabled ??
-          !!organization.settings?.sequentialTestingEnabled),
-      sequentialTestingTuningParameter:
-        experiment?.sequentialTestingTuningParameter ??
-        organization.settings?.sequentialTestingTuningParameter ??
-        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-      baselineVariationIndex: 0,
-    };
-
-    const metricMap = await getMetricMap(organization.id);
+    const metricMap = await getMetricMap(context);
+    const factTableMap = await getFactTableMap(context);
 
     const queryRunner = await createSnapshot({
       experiment,
-      organization,
+      context,
       phaseIndex: experiment.phases.length - 1,
-      analysisSettings,
-      metricRegressionAdjustmentStatuses:
-        metricRegressionAdjustmentStatuses || [],
+      defaultAnalysisSettings: analysisSettings,
+      additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
+        analysisSettings,
+        experiment
+      ),
+      settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
       metricMap,
+      factTableMap,
       useCache: true,
     });
     await queryRunner.waitForResults();
@@ -197,28 +186,35 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     );
 
     if (lastSnapshot) {
-      await sendSignificanceEmail(experiment, lastSnapshot, currentSnapshot);
+      await sendSignificanceEmail(
+        context,
+        experiment,
+        lastSnapshot,
+        currentSnapshot
+      );
     }
   } catch (e) {
     logger.error(e, "Failed to update experiment: " + experimentId);
     // If we failed to update the experiment, turn off auto-updating for the future
     try {
       await updateExperiment({
-        organization,
+        context,
         experiment,
-        user: null,
         changes: {
           autoSnapshots: false,
         },
       });
-      // TODO: email user and let them know it failed
+
+      await notifyAutoUpdate({ context, experiment, success: true });
     } catch (e) {
       logger.error(e, "Failed to turn off autoSnapshots: " + experimentId);
+      await notifyAutoUpdate({ context, experiment, success: false });
     }
   }
 }
 
 async function sendSignificanceEmail(
+  context: ApiReqContext,
   experiment: ExperimentInterface,
   lastSnapshot: ExperimentSnapshotInterface,
   currentSnapshot: ExperimentSnapshotInterface
@@ -267,7 +263,7 @@ async function sendSignificanceEmail(
             // this test variation has gone significant, and won
             experimentChanges.push(
               "The metric " +
-                (await getMetricById(m, experiment.organization))?.name +
+                (await getExperimentMetricById(context, m))?.name +
                 " for variation " +
                 experiment.variations[i].name +
                 " has reached a " +
@@ -281,7 +277,7 @@ async function sendSignificanceEmail(
             // this test variation has gone significant, and lost
             experimentChanges.push(
               "The metric " +
-                (await getMetricById(m, experiment.organization))?.name +
+                (await getExperimentMetricById(context, m))?.name +
                 " for variation " +
                 experiment.variations[i].name +
                 " has dropped to a " +

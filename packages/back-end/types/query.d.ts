@@ -10,6 +10,7 @@ export type QueryStatus =
 export type QueryStatistics = {
   executionDurationMs?: number;
   totalSlotMs?: number;
+  rowsProcessed?: number;
   bytesProcessed?: number;
   bytesBilled?: number;
   warehouseCachedResult?: boolean;
@@ -22,6 +23,17 @@ export type QueryPointer = {
   name: string;
 };
 export type Queries = QueryPointer[];
+
+export type QueryType =
+  | ""
+  | "pastExperiment"
+  | "metricAnalysis"
+  | "experimentMetric"
+  | "dimensionSlices"
+  | "experimentUnits"
+  | "experimentResults"
+  | "experimentTraffic"
+  | "experimentMultiMetric";
 
 export interface QueryInterface {
   id: string;
@@ -36,9 +48,11 @@ export interface QueryInterface {
   heartbeat: Date;
   // eslint-disable-next-line
   result?: Record<string, any>;
-  rawResult?: Record<string, number | string | boolean>[];
+  queryType?: QueryType;
+  rawResult?: Record<string, number | string | boolean | object>[];
   error?: string;
   dependencies?: string[];
   cachedQueryUsed?: string;
   statistics?: QueryStatistics;
+  externalId?: string;
 }

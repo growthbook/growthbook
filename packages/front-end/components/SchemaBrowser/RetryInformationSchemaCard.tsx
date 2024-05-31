@@ -1,11 +1,14 @@
-import { InformationSchemaInterface } from "@/../back-end/src/types/Integration";
+import { InformationSchemaInterface } from "@back-end/src/types/Integration";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function RetryInformationSchemaCard({
   informationSchema,
   refreshOrCreateInfoSchema,
+  canRunQueries,
   error,
 }: {
   informationSchema: InformationSchemaInterface;
+  canRunQueries: boolean;
   refreshOrCreateInfoSchema: (type: "PUT" | "POST") => void;
   error: string | null;
 }) {
@@ -15,15 +18,21 @@ export default function RetryInformationSchemaCard({
         {error || informationSchema?.error?.message ? (
           <span>{error || informationSchema?.error?.message}</span>
         ) : null}
-        <button
-          className="btn btn-link"
-          onClick={async (e) => {
-            e.preventDefault();
-            refreshOrCreateInfoSchema("PUT");
-          }}
+        <Tooltip
+          body="You do not have permission to retry generating an information schema for this datasource."
+          shouldDisplay={!canRunQueries}
         >
-          Retry
-        </button>
+          <button
+            disabled={!canRunQueries}
+            className="btn btn-link"
+            onClick={async (e) => {
+              e.preventDefault();
+              refreshOrCreateInfoSchema("PUT");
+            }}
+          >
+            Retry
+          </button>
+        </Tooltip>
       </div>
     </div>
   );

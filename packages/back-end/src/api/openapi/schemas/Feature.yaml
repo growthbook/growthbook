@@ -21,22 +21,22 @@ properties:
   dateUpdated:
     type: string
     format: date-time
-  archived: 
+  archived:
     type: boolean
-  description: 
+  description:
     type: string
-  owner: 
+  owner:
     type: string
-  project: 
+  project:
     type: string
-  valueType: 
+  valueType:
     type: string
     enum:
       - boolean
       - string
       - number
       - json
-  defaultValue: 
+  defaultValue:
     type: string
   tags:
     type: array
@@ -46,6 +46,18 @@ properties:
     type: object
     additionalProperties:
       $ref: "./FeatureEnvironment.yaml"
+  prerequisites:
+    type: array
+    items:
+      type: object
+      required:
+        - parentId
+        - parentCondition
+      properties:
+        parentId:
+          type: string
+        parentCondition:
+          type: string
   revision:
     type: object
     required:

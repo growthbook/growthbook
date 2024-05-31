@@ -10,7 +10,8 @@ import useApi from "@/hooks/useApi";
 import { useDownloadDataExport } from "@/hooks/useDownloadDataExport";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import LoadingSpinner from "../../LoadingSpinner";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { EventsTableRow } from "./EventsTableRow";
 
 type EventsPageProps = {
@@ -38,6 +39,18 @@ export const EventsPage: FC<EventsPageProps> = ({
   performDownload,
   isDownloading,
 }) => {
+  const permissionsUtil = usePermissionsUtil();
+
+  if (!permissionsUtil.canViewAuditLogs()) {
+    return (
+      <div className="container pagecontents">
+        <div className="alert alert-danger">
+          You do not have access to view this page.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container py-4">
       <div className="row">

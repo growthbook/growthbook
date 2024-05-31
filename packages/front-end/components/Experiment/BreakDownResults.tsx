@@ -1,26 +1,38 @@
-import { FC, useMemo } from "react";
-import { MetricInterface } from "back-end/types/metric";
+import { FC, useMemo, useState } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-  MetricRegressionAdjustmentStatus,
+  MetricSnapshotSettings,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
-import { PValueCorrection, StatsEngine } from "back-end/types/stats";
+import {
+  DifferenceType,
+  PValueCorrection,
+  StatsEngine,
+} from "back-end/types/stats";
+import { ExperimentMetricInterface } from "shared/experiments";
+import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
-  useRiskVariation,
+  setAdjustedCIs,
+  hasRisk,
 } from "@/services/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
+import {
+  ResultsMetricFilters,
+  sortAndFilterMetricsByTags,
+} from "@/components/Experiment/Results";
+import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import UsersTable from "./UsersTable";
 
 type TableDef = {
-  metric: MetricInterface;
+  metric: ExperimentMetricInterface;
   isGuardrail: boolean;
   rows: ExperimentTableRow[];
 };
@@ -43,8 +55,11 @@ const BreakDownResults: FC<{
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   regressionAdjustmentEnabled?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   sequentialTestingEnabled?: boolean;
+  differenceType: DifferenceType;
+  metricFilter?: ResultsMetricFilters;
+  setMetricFilter?: (filter: ResultsMetricFilters) => void;
 }> = ({
   dimensionId,
   results,
@@ -63,30 +78,58 @@ const BreakDownResults: FC<{
   statsEngine,
   pValueCorrection,
   regressionAdjustmentEnabled,
-  metricRegressionAdjustmentStatuses,
+  settingsForSnapshotMetrics,
   sequentialTestingEnabled,
+  differenceType,
+  metricFilter,
+  setMetricFilter,
 }) => {
-  const { getDimensionById, getMetricById, ready } = useDefinitions();
+  const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
+
+  const { getDimensionById, getExperimentMetricById, ready } = useDefinitions();
+  const pValueThreshold = usePValueThreshold();
 
   const dimension = useMemo(() => {
     return getDimensionById(dimensionId)?.name || "Dimension";
   }, [getDimensionById, dimensionId]);
 
+  const allMetricTags = useMemo(() => {
+    const allMetricTagsSet: Set<string> = new Set();
+    [...metrics, ...(guardrails || [])].forEach((metricId) => {
+      const metric = getExperimentMetricById(metricId);
+      metric?.tags?.forEach((tag) => {
+        allMetricTagsSet.add(tag);
+      });
+    });
+    return [...allMetricTagsSet];
+  }, [metrics, guardrails, getExperimentMetricById]);
+
   const tables = useMemo<TableDef[]>(() => {
     if (!ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       setAdjustedPValuesOnResults(results, metrics, pValueCorrection);
+      setAdjustedCIs(results, pValueThreshold);
     }
-    return Array.from(new Set(metrics.concat(guardrails || [])))
+
+    const metricDefs = [...metrics, ...(guardrails || [])]
+      .map((metricId) => getExperimentMetricById(metricId))
+      .filter(isDefined);
+    const sortedFilteredMetrics = sortAndFilterMetricsByTags(
+      metricDefs,
+      metricFilter
+    );
+
+    return Array.from(new Set(sortedFilteredMetrics))
       .map((metricId) => {
-        const metric = getMetricById(metricId);
+        const metric = getExperimentMetricById(metricId);
         if (!metric) return;
+        const ret = sortAndFilterMetricsByTags([metric], metricFilter);
+        if (ret.length === 0) return;
+
         const { newMetric } = applyMetricOverrides(metric, metricOverrides);
-        let regressionAdjustmentStatus:
-          | MetricRegressionAdjustmentStatus
-          | undefined;
-        if (regressionAdjustmentEnabled && metricRegressionAdjustmentStatuses) {
-          regressionAdjustmentStatus = metricRegressionAdjustmentStatuses.find(
+        let metricSnapshotSettings: MetricSnapshotSettings | undefined;
+        if (settingsForSnapshotMetrics) {
+          metricSnapshotSettings = settingsForSnapshotMetrics.find(
             (s) => s.metric === metricId
           );
         }
@@ -100,7 +143,7 @@ const BreakDownResults: FC<{
             variations: d.variations.map((variation) => {
               return variation.metrics[metricId];
             }),
-            regressionAdjustmentStatus,
+            metricSnapshotSettings,
           })) as ExperimentTableRow[],
         };
       })
@@ -108,18 +151,18 @@ const BreakDownResults: FC<{
   }, [
     results,
     metrics,
+    guardrails,
     metricOverrides,
-    regressionAdjustmentEnabled,
-    metricRegressionAdjustmentStatuses,
+    settingsForSnapshotMetrics,
     pValueCorrection,
     statsEngine,
-    guardrails,
+    pValueThreshold,
     ready,
-    getMetricById,
+    getExperimentMetricById,
+    metricFilter,
   ]);
 
-  const risk = useRiskVariation(
-    variations.length,
+  const _hasRisk = hasRisk(
     ([] as ExperimentTableRow[]).concat(...tables.map((t) => t.rows))
   );
 
@@ -129,7 +172,7 @@ const BreakDownResults: FC<{
         {dimensionId === "pre:activation" && activationMetric && (
           <div className="alert alert-info mt-1">
             Your experiment has an Activation Metric (
-            <strong>{getMetricById(activationMetric)?.name}</strong>
+            <strong>{getExperimentMetricById(activationMetric)?.name}</strong>
             ). This report lets you compare activated users with those who
             entered into the experiment, but were not activated.
           </div>
@@ -141,7 +184,18 @@ const BreakDownResults: FC<{
         />
       </div>
 
-      <h3 className="mx-2 mb-0">Goal Metrics</h3>
+      <div className="d-flex mx-2">
+        {setMetricFilter ? (
+          <ResultsMetricFilter
+            metricTags={allMetricTags}
+            metricFilter={metricFilter}
+            setMetricFilter={setMetricFilter}
+            showMetricFilter={showMetricFilter}
+            setShowMetricFilter={setShowMetricFilter}
+          />
+        ) : null}
+        <span className="h3 mb-0">Goal Metrics</span>
+      </div>
       {tables.map((table, i) => {
         return (
           <>
@@ -158,21 +212,21 @@ const BreakDownResults: FC<{
               rows={table.rows}
               dimension={dimension}
               id={table.metric.id}
-              hasRisk={risk.hasRisk}
+              hasRisk={_hasRisk}
               tableRowAxis="dimension" // todo: dynamic grouping?
               labelHeader={
                 <div style={{ marginBottom: 2 }}>
-                  {getRenderLabelColumn(regressionAdjustmentEnabled)(
-                    table.metric.name,
-                    table.metric,
-                    table.rows[0]
-                  )}
+                  {getRenderLabelColumn(
+                    regressionAdjustmentEnabled,
+                    statsEngine
+                  )(table.metric.name, table.metric, table.rows[0])}
                 </div>
               }
               editMetrics={undefined}
               statsEngine={statsEngine}
               sequentialTestingEnabled={sequentialTestingEnabled}
               pValueCorrection={pValueCorrection}
+              differenceType={differenceType}
               renderLabelColumn={(label) => (
                 <>
                   {/*<div className="uppercase-title">{dimension}:</div>*/}
@@ -195,6 +249,7 @@ const BreakDownResults: FC<{
                   )}
                 </>
               )}
+              metricFilter={metricFilter}
               isTabActive={true}
             />
             <div className="mb-5" />

@@ -5,8 +5,11 @@ import {
 import { FC } from "react";
 import { useAuth } from "@/services/auth";
 import { trafficSplitPercentages } from "@/services/utils";
-import Carousel from "../Carousel";
-import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
+import Carousel from "@/components/Carousel";
+import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
+import AuthorizedImage from "@/components/AuthorizedImage";
+
+const imageCache = {};
 
 const ScreenshotCarousel: FC<{
   index: number;
@@ -53,10 +56,11 @@ const ScreenshotCarousel: FC<{
       maxChildHeight={maxChildHeight}
     >
       {variation.screenshots.map((s) => (
-        <img
+        <AuthorizedImage
+          imageCache={imageCache}
           className="experiment-image"
-          key={s.path}
           src={s.path}
+          key={s.path}
           style={{
             width: "100%",
             height: "100%",
@@ -151,7 +155,7 @@ const VariationsTable: FC<Props> = ({
                     borderBottom: canEditExperiment ? 0 : undefined,
                   }}
                 >
-                  <div className="d-flex flex-column h-100">
+                  <div className="d-flex justify-content-center align-items-center flex-column h-100">
                     {v.screenshots.length > 0 ? (
                       <ScreenshotCarousel
                         key={i}

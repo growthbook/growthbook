@@ -1,9 +1,8 @@
 import { useCallback, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import { DataSourceType } from "back-end/types/datasource";
-import usePermissions from "@/hooks/usePermissions";
-import { checkDatasourceProjectPermissions } from "@/services/datasources";
-import { DataSourceQueryEditingModalBaseProps } from "../types";
+import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { EditDataSourcePipeline } from "./EditDataSourcePipeline";
 
 type DataSourcePipelineProps = DataSourceQueryEditingModalBaseProps;
@@ -32,15 +31,8 @@ export default function DataSourcePipeline({
   const handleCancel = useCallback(() => {
     setUiMode("view");
   }, []);
-  const permissions = usePermissions();
-  canEdit =
-    canEdit &&
-    checkDatasourceProjectPermissions(
-      dataSource,
-      permissions,
-      "editDatasourceSettings"
-    );
-  const pathNames = dataSourcePathNames(dataSource.type);
+  const permissionsUtil = usePermissionsUtil();
+  canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
   return (
     <div>
@@ -75,7 +67,9 @@ export default function DataSourcePipeline({
         {pipelineSettings?.allowWriting && (
           <>
             <div className={`mb-2 ma-5`}>
-              {`Destination ${pathNames.schemaName}: `}
+              {`Destination ${
+                dataSourcePathNames(dataSource.type).schemaName
+              }: `}
               {pipelineSettings?.writeDataset ? (
                 <code>{`${
                   pipelineSettings?.writeDatabase

@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
-import Code from "../SyntaxHighlighting/Code";
-import ControlledTabs from "../Tabs/ControlledTabs";
-import Tab from "../Tabs/Tab";
+import Code from "@/components/SyntaxHighlighting/Code";
+import ControlledTabs from "@/components/Tabs/ControlledTabs";
+import Tab from "@/components/Tabs/Tab";
 
 export type Props = {
   results: Record<string, unknown>[];
@@ -11,6 +11,7 @@ export type Props = {
   sql: string;
   error: string;
   close: () => void;
+  expandable?: boolean;
 };
 
 export default function DisplayTestQueryResults({
@@ -19,6 +20,7 @@ export default function DisplayTestQueryResults({
   sql,
   error,
   close,
+  expandable,
 }: Props) {
   const cols = Object.keys(results?.[0] || {});
 
@@ -114,7 +116,12 @@ export default function DisplayTestQueryResults({
                 </div>
               )
             )}
-            <Code code={sql} language="sql" errorLine={errorLine} />
+            <Code
+              code={sql}
+              language="sql"
+              errorLine={errorLine}
+              expandable={expandable}
+            />
           </div>
         </Tab>
       </ControlledTabs>

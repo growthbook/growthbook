@@ -1,30 +1,36 @@
 ---
 title: Feature Flag Targeting
 description: Learn about how to target with GrowthBook
-sidebar_label: Targeting Attributes
+sidebar_label: Targeting
 slug: /features/targeting
 ---
 
-## Targeting Attributes
+# Targeting
 
-Feature values can be targeted to specific users or groups of users. In order for this to work, you must pass targeting
+GrowthBook lets you target a specific feature value or experiment to a subset of your users. This is accomplished with **Attributes**, **Conditions**, **Saved Groups**, and **Prerequisites**.
+
+## Attributes
+
+In order for targeting to work, you must pass
 attributes into the GrowthBook SDK and also list them in the GrowthBook App.
 
-This is an example of specifying the targeting attributes in the SDK:
+Attributes are passed into your SDKs as key-value pairs. The keys you use are completely custom and there are no requirements or restrictions. Use whatever makes sense for your application.
+
+Here's an example from our JavaScript SDK:
 
 ```ts
 growthbook.setAttributes({
-  id: user.id,
-  email: user.email,
-  country: user.country,
+  id: "123",
+  email: "hello@growthbook.io",
+  country: "US",
   url: window.location.href,
   userAgent: navigator.userAgent,
-  admin: user.isAdmin,
-  age: user.age,
+  admin: true,
+  age: 50,
 });
 ```
 
-You can update the attributes in the GrowthBook App under **Settings** > **Attributes**:
+In addition to passing attributes into the SDK, you also must update the GrowthBook App with these same attribute keys. You can do this under **SDK Connections** → **Attributes**:
 
 ![List of targeting attributes](/images/edit-targeting-attributes.png)
 
@@ -35,11 +41,12 @@ eliminates huge potential security holes and keeps your user's PII safe and secu
 
 :::
 
-Each attribute has 3 parts:
+Each attribute has 4 parts:
 
 - The **attribute name** itself. This is how the attribute will be referenced in the SDK.
 - The **data type** of the attribute
 - Whether it's an **identifier**. Identifiers are attributes which uniquely identify something - typically either a person, account, company, or device- and are used for experiment assignments.
+- The **projects** that the attribute is associated with. This is useful if some attributes are only relevant to certain projects. If no projects are selected, the attribute will be available for all projects.
 
 ### Attribute Data Types
 
@@ -54,17 +61,179 @@ GrowthBook supports the following attribute data types:
 - Array of Numbers - useful anytime you have multiple numeric values
 - Array of Secure Strings - an array of secure strings useful for passing multiple values that you want to keep secure
 
+#### Semantic Version Targeting
+
+In version 2.2, we introduced support for semantic version string comparisons. Without this, the string `1.0.9` will be seen as "greater" than `1.0.10`.
+
+To leverage this feature, you first need to create a version string attribute. Navigate to **SDK Configurations → Attributes** and create or edit a String attribute. In the format dropdown, select: **Version string.**
+
+![Version string attribute](/images/targeting-semantic-versions.png)
+
+After saving, the targeting operators (e.g. `is greater than`) will automatically start using a version-safe comparison function.
+
+:::note
+
+This is only supported in some of our SDKs. Check the release notes for the specific SDK you are using to make sure you have a compatible version installed.
+
+:::
+
+## Targeting Conditions
+
+GrowthBook provides a nice UI for defining simple targeting conditions using your attributes.
+
+![Simple targeting conditions](/images/targeting-simple.png)
+
+### Advanced Mode
+
+If you need support for something more advanced you can enter targeting conditions with JSON instead by clicking the "Advanced Mode" link.
+
+The JSON structure is inspired by the MongoDB Query syntax. Multiple conditions are always joined with `AND` (except when explicitly using `$or`/`$nor`). Below are all of the supported operators with examples.
+
+- Key/value pairs for simple equality
+  ```json
+  {
+    "attribute1": "value1",
+    "attribute2": 123,
+    "attribute3": false
+  }
+  ```
+- Basic comparison operators for string/number attributes
+  - `$eq` (equals)
+  - `$ne` (not equals)
+  - `$lt` (less than)
+  - `$lte` (less than or equal to)
+  - `$gt` (greater than)
+  - `$gte` (greater than or equal to)
+  - `$regex` (regular expression match, string attributes only)
+  - `$in` (in array)
+  - `$nin` (not in array)
+  ```json
+  {
+    "foo": {
+      "$gt": 10,
+      "$lte": 99
+    },
+    "bar": {
+      "$in": ["a","b","c"]
+    },
+    "baz": {
+      "$regex": "^test-([0-9]+)$"
+    }
+  }
+  ```
+- Comparison operators for semantic version strings (semver):
+  - `$veq` (equals)
+  - `$vne` (not equals)
+  - `$vlt` (less than)
+  - `$vlte` (less than or equal to)
+  - `$vgt` (greater than)
+  - `$vgte` (greater than or equal to)
+  ```json
+  {
+    "appVersion": {
+      "$vgt": "1.5.6",
+      "$vlte": "5.4.0"
+    }
+  }
+  ```
+- Operators for array attributes
+  - `$elemMatch` (at least one element must match the specified condition)
+  - `$all` (all of the specified values must exist in the array)
+  - `$size` (array length must match the specified condition)
+  ```json
+  {
+    "emails": {
+      "$elemMatch": {
+        "$regex": "@gmail.com$"
+      }
+    },
+    "hobies": {
+      "$all": ["hiking","tennis","chess"]
+    },
+    "tags": {
+      "$size": {
+        "$gt": 5
+      }
+    }
+  }
+  ```
+- Misc operators
+  - `$exists` (tests if the attribute value is null or not)
+  - `$type` (tests if the attribute's type matches the type specified)
+  - `$not` (inverts a nested condition)
+  ```json
+  {
+    "alternateEmail": {
+      "$exists": true
+    },
+    "foo": {
+      "$type": "string"
+    },
+    "name": {
+      "$not": {
+        "$regex": "^J"
+      }
+    }
+  }
+  ```
+- Logical operators with arbitrary nesting levels
+  - `$or`
+  - `$nor`
+  - `$and`
+  - `$not`
+  ```json
+  {
+    "$or": [
+      {
+        "$not": {
+          "foo": "abc"
+        }
+      },
+      {
+        "$and": [
+          {"bar": true},
+          {"baz": 123}
+        ]
+      }
+    ]
+  }
+  ```
+
+:::note
+
+We use the MongoDB query syntax because it is easy to read and write and is well documented. The conditions are never actually executed against a database. Instead, our SDKs include a light-weight interpreter for this syntax that runs entirely locally.
+
+:::
+
 ## Saved Groups
 
-Available via API or under _SDK Configuration -> Saved Groups_, **Saved Groups** allows you to define a list of attribute
-values that can be referenced from feature targeting rules. Saved Group values are passed by reference, so updates will
-affect all references of this group used in your feature flag targeting rules. Each saved group specifies an attribute for
-which these are possible values. When targeting to attributes that have a Saved Group defined, you will have options
-_'Is in the Saved Group'_ and _'Is not in the Saved Group'_, and then you can select the Saved Group name. Saved groups
-are useful to avoid having to copy and paste lists of user attribute values between feature targeting conditions.
+In addition to targeting by attributes, GrowthBook has also the concept of **Saved Groups**, which makes it easy to target the same group of users across multiple features/experiments.
 
-![Saved Groups](/images/features/feature-saved-groups.png)
+Once you define your Saved Groups, you can easily reference them from any Feature rule or Experiment. Updates to saved groups apply immediately and will be instantly propagated to all matching Features and Experiments.
 
-For example, you could make a Saved Group called _“Enterprise Customer Ids”_ that is an array of secure strings, and use
-it to release all of your new enterprise features. If you later add or remove a customer from the group, it will
-automatically update all the features.
+![Saved Group Targeting](/images/saved-groups-targeting.png)
+
+There are two types of Saved Groups:
+
+- **ID Lists** - Pick an attribute and define a list of values directly within the GrowthBook UI. For example, you can make an `Admin` group and add the `userId` of all of your admins.
+- **Condition Groups** - Configure advanced targeting rules based on a user's attributes. For example, "all users located in the US on a mobile device".
+
+:::note
+
+ID Lists are currently limited to a maximum of **100 values**. These values are included directly in the payload sent to your SDKs and large payloads can slow down your application. Support for largers lists is coming soon!
+
+:::
+
+![Saved Groups UI](/images/saved-groups.png)
+
+:::note
+
+GrowthBook 2.7 introduced a naming change. "Inline Groups" were renamed to "ID Lists". "Runtime Groups" were renamed to "Condition Groups" and now support arbitrary targeting conditions.
+
+Only ID Lists can be referenced in the **Target by Attribute** field. Both types of Saved Groups can be referenced with the newer **Saved Group Targeting** field.
+
+:::
+
+## Prerequisite Targeting
+
+You can add prerequisite targeting to any feature or experiment. For more information, see the [Prerequisite Features](/features/prerequisites#inline-prerequisite-targeting) page.

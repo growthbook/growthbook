@@ -13,32 +13,42 @@ export interface ProxyConnection {
 export type EditSDKConnectionParams = {
   name?: string;
   languages?: SDKLanguage[];
+  sdkVersion?: string;
   proxyEnabled?: boolean;
   proxyHost?: string;
   environment?: string;
-  project?: string;
+  projects?: string[];
   encryptPayload?: boolean;
   hashSecureAttributes?: boolean;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  includeRedirectExperiments?: boolean;
+  remoteEvalEnabled?: boolean;
 };
 export type CreateSDKConnectionParams = {
   organization: string;
   name?: string;
   languages?: SDKLanguage[];
+  sdkVersion?: string;
   proxyEnabled?: boolean;
   proxyHost?: string;
   environment: string;
-  project: string;
+  projects: string[];
   encryptPayload: boolean;
   hashSecureAttributes: boolean;
   includeVisualExperiments: boolean;
   includeDraftExperiments: boolean;
   includeExperimentNames: boolean;
+  includeRedirectExperiments: boolean;
+  remoteEvalEnabled?: boolean;
 };
 
 export type SDKLanguage =
+  | "nocode-webflow"
+  | "nocode-wordpress"
+  | "nocode-shopify"
+  | "nocode-other"
   | "javascript"
   | "nodejs"
   | "react"
@@ -51,6 +61,11 @@ export type SDKLanguage =
   | "android"
   | "ios"
   | "flutter"
+  | "elixir"
+  | "edge-cloudflare"
+  | "edge-fastly"
+  | "edge-lambda"
+  | "edge-other"
   | "other";
 
 export interface SDKConnectionInterface {
@@ -60,18 +75,21 @@ export interface SDKConnectionInterface {
   dateCreated: Date;
   dateUpdated: Date;
 
-  // The SDK languages being used (e.g. `javascript`)
+  // The SDK languages being used (e.g. `javascript`). Ideally it should only have 1 language (previously we encouraged multiple)
   languages: SDKLanguage[];
+  // The SDK version being used (e.g. `1.0.0`). Assumes a single language, otherwise should default to "0".
+  sdkVersion?: string;
 
   // SDK payload settings
   environment: string;
-  project: string;
+  projects: string[];
   encryptPayload: boolean;
   encryptionKey: string;
   hashSecureAttributes?: boolean;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  includeRedirectExperiments?: boolean;
 
   // URL slug for fetching features from the API
   key: string;
@@ -79,6 +97,8 @@ export interface SDKConnectionInterface {
   // Set to true when it's used for the first time
   connected: boolean;
   proxy: ProxyConnection;
+
+  remoteEvalEnabled?: boolean;
 }
 
 export interface ProxyTestResult {

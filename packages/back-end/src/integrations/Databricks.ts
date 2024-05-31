@@ -19,7 +19,9 @@ export default class Databricks extends SqlIntegration {
     return true;
   }
   createUnitsTableOptions() {
-    return databricksCreateTableOptions(this.settings.pipelineSettings ?? {});
+    return databricksCreateTableOptions(
+      this.datasource.settings.pipelineSettings ?? {}
+    );
   }
   getFormatDialect(): FormatDialect {
     // sql-formatter doesn't support databricks explicitly yet, so using their generic formatter instead
@@ -54,6 +56,9 @@ export default class Databricks extends SqlIntegration {
   }
   ensureFloat(col: string): string {
     return `cast(${col} as double)`;
+  }
+  escapeStringLiteral(value: string): string {
+    return value.replace(/(['\\])/g, "\\$1");
   }
 
   getDefaultDatabase(): string {

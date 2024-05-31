@@ -72,6 +72,10 @@ pre {
   background-color: var(--table-row-hover-background-color);
 }
 
+.table tbody + tbody {
+  border-top: 2px solid var(--border-color-100);
+}
+
 // endregion Tables
 
 // region Surfaces
@@ -90,23 +94,23 @@ pre {
 }
 
 .border {
-  border-color: var(--border-color-200) !important;
+  border-color: var(--border-color-200);
 }
 
 .border-bottom {
-  border-bottom-color: var(--border-color-200) !important;
+  border-bottom-color: var(--border-color-200);
 }
 
 .border-top {
-  border-top-color: var(--border-color-200) !important;
+  border-top-color: var(--border-color-200);
 }
 
 .border-left {
-  border-left-color: var(--border-color-200) !important;
+  border-left-color: var(--border-color-200);
 }
 
 .border-right {
-  border-right-color: var(--border-color-200) !important;
+  border-right-color: var(--border-color-200);
 }
 
 // region Alerts

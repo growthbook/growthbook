@@ -1,0 +1,60 @@
+{
+  "versions": [
+    {
+      "version": "1.0.0"
+    },
+    {
+      "version": "0.36.0",
+      "capabilities": ["redirects"]
+    },
+    {
+      "version": "0.35.0"
+    },
+    {
+      "version": "0.34.0",
+      "capabilities": ["prerequisites"]
+    },
+    {
+      "version": "0.33.0"
+    },
+    {
+      "version": "0.32.0",
+      "capabilities": ["stickyBucketing"]
+    },
+    {
+      "version": "0.31.0"
+    },
+    {
+      "version": "0.30.0",
+      "capabilities": ["visualEditorDragDrop"]
+    },
+    {
+      "version": "0.29.0",
+      "capabilities": ["remoteEval"]
+    },
+    {
+      "version": "0.27.0",
+      "capabilities": ["semverTargeting", "visualEditorJS"]
+    },
+    {
+      "version": "0.24.0",
+      "capabilities": ["visualEditor"]
+    },
+    {
+      "version": "0.23.0",
+      "capabilities": ["bucketingV2"]
+    },
+    {
+      "version": "0.21.0",
+      "capabilities": ["streaming"]
+    },
+    {
+      "version": "0.20.0",
+      "capabilities": ["encryption"]
+    },
+    {
+      "version": "0.0.0",
+      "capabilities": ["looseUnmarshalling"]
+    }
+  ]
+}

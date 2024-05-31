@@ -43,7 +43,7 @@ Growthbook allows you to choose no multiple testing correction, a correction tha
 
 Which you choose depends on your tolerance for false positives, the number of tests you are running, and your comfort with each procedure. General guidance would be that if your analysis is more exploratory, controlling the FDR and having a slightly higher false positive rate may be better, while controlling the FWER will give you more guarantees that your results are reliable. However, with enough tests, controlling the FWER may completely undermine your test power.
 
-You can set this for your organization in the Organization -> Settings page, as seen below:
+You can set this for your organization in the Organization → Settings page, as seen below:
 
 <img
   src="/images/statistics/pvals-adjustment-org.png"
@@ -51,11 +51,15 @@ You can set this for your organization in the Organization -> Settings page, as 
   style={{ width: 500, margin: "0 auto" }}
 />
 
-Once you make a selection, adjustments will happen on-the-fly in experiment results and reports. For now, these adjusted p-values are only available in the UI and not exportable via the API or CSV.
+Once you make a selection, adjustments will happen on-the-fly in experiment results and reports. For now, these adjusted p-values are only available in the UI or in downloadable CSVs and not exportable via the API.
 
 :::tip
 
-The corrections do not apply to the confidence intervals. GrowthBook's methods improve the power of your tests relative to approaches that also have corresponding CIs, but GrowthBook's methods do not have direct translations to confidence interval widths.
+The corrections we implement do not have directly analogous confidence intervals. Nonetheless, we do construct confidence intervals in an ad-hoc manner after adjusting p-values. We take the adjusted p-values and we back out what the experiment effect standard deviation would need to be to produce that adjusted p-value. We then construct CIs using this adjusted standard deviation. In this way, adjusted p-values below your p-value threshold should always coincide with confidence intervals that do not cross zero.
+
+Some adjusted p-values are 1, in which case the ad-hoc confidence interval constructed in this way is undefined.
+
+Unadjusted confidence intervals are available in the metric tooltip.
 
 :::
 
@@ -96,11 +100,11 @@ On the _experiment results overall page_, we collect all tests across non-guardr
 If you look within dimensional slices, to account for the additional increase in tests from dimensional splits, we collect correct within the family of tests across all dimension groups, non-guardrail metrics, and variations. The following video scrolls through a corrected set of dimension results; the ones that are adjusted are the non-guardrail metrics, and we include all adjusted p-values in this video (across dimensions and metrics) in one family for correction.
 
 <div>
-<iframe 
-    src="https://www.loom.com/embed/5b2c9583c60b449b8fa6e000e2b21c68?hide_owner=true&hide_share=true&hide_share=true&hideEmbedTopBar=true" 
-    frameborder="0" 
+<iframe
+    src="https://www.loom.com/embed/5b2c9583c60b449b8fa6e000e2b21c68?hide_owner=true&hide_share=true&hide_share=true&hideEmbedTopBar=true"
+    frameborder="0"
     webkitallowfullscreen mozallowfullscreen allowfullscreen
-    style={{ width: 400, height: 597 }} 
+    style={{ width: 400, height: 597 }}
 />
 </div>
 

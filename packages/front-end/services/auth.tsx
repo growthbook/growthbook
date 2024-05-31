@@ -8,7 +8,6 @@ import React, {
 } from "react";
 import { useRouter } from "next/router";
 import {
-  MemberRole,
   MemberRoleInfo,
   OrganizationInterface,
 } from "back-end/types/organization";
@@ -17,10 +16,12 @@ import {
   UnauthenticatedResponse,
 } from "back-end/types/sso-connection";
 import * as Sentry from "@sentry/react";
-import Modal from "../components/Modal";
-import { DocLink } from "../components/DocLink";
-import Welcome from "../components/Auth/Welcome";
+import { roleSupportsEnvLimit } from "shared/permissions";
+import Modal from "@/components/Modal";
+import { DocLink } from "@/components/DocLink";
+import Welcome from "@/components/Auth/Welcome";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
+import { LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
 
 export type UserOrganizations = { id: string; name: string }[];
 
@@ -31,7 +32,7 @@ export interface AuthContextValue {
   loading: boolean;
   logout: () => Promise<void>;
   apiCall: <T>(url: string | null, options?: RequestInit) => Promise<T>;
-  orgId?: string;
+  orgId: string | null;
   setOrgId?: (orgId: string) => void;
   organizations?: UserOrganizations;
   setOrganizations?: (orgs: UserOrganizations) => void;
@@ -51,7 +52,9 @@ export const AuthContext = React.createContext<AuthContextValue>({
     let x: any;
     return x;
   },
+  orgId: null,
 });
+
 export const useAuth = (): AuthContextValue => useContext(AuthContext);
 
 // Only run one refresh operation at a time
@@ -60,7 +63,20 @@ let _currentRefreshOperation: null | Promise<
 > = null;
 async function refreshToken() {
   if (!_currentRefreshOperation) {
-    _currentRefreshOperation = fetch(getApiHost() + "/auth/refresh", {
+    let url = getApiHost() + "/auth/refresh";
+
+    // If this is an IdP-initiated Enterprise SSO login on Cloud
+    // Send a hint to the back-end with the SSO Connection ID
+    // This way, we can bypass several steps - "Login with Enterprise SSO", enter email, etc.
+    if (isCloud()) {
+      const params = new URL(window.location.href).searchParams;
+      const ssoId = params.get("ssoId");
+      if (ssoId) {
+        url += "?ssoId=" + ssoId;
+      }
+    }
+
+    _currentRefreshOperation = fetch(url, {
       method: "POST",
       credentials: "include",
     })
@@ -96,6 +112,25 @@ async function refreshToken() {
 }
 
 const isLocal = (url: string) => url.includes("localhost");
+
+const isUnregisteredCloudUser = () => {
+  if (!isCloud()) return false;
+
+  try {
+    const currentProject = window.localStorage.getItem(
+      LOCALSTORAGE_PROJECT_KEY
+    );
+    return currentProject === null;
+  } catch (_) {
+    return true;
+  }
+};
+
+const addCloudRegisterParam = (uri: string) => {
+  const url = new URL(uri);
+  url.searchParams.append("screen_hint", "signup");
+  return url.toString();
+};
 
 function getDetailedError(error: string): string | ReactElement {
   const curUrl = window.location.origin;
@@ -150,8 +185,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
-  const [orgId, setOrgId] = useState<string>(null);
+  const [orgId, setOrgId] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<UserOrganizations>([]);
   const [
     specialOrg,
@@ -174,7 +208,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         setAuthComponent(
           <Modal
             open={true}
-            header="Sign In Required"
             submit={async () => {
               await redirectWithTimeout(resp.redirectURI);
             }}
@@ -184,7 +217,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             closeCta="Cancel"
             cta="Sign In"
           >
-            <p>You must sign in with your SSO provider to continue.</p>
+            <h3>Sign In Required</h3>
+            <p>
+              You must sign in with your Enterprise SSO provider to continue.
+            </p>
           </Modal>
         );
       } else {
@@ -198,8 +234,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         } catch (e) {
           // ignore
         }
+
         // Don't need to confirm, just redirect immediately
-        window.location.href = resp.redirectURI;
+        if (isUnregisteredCloudUser()) {
+          window.location.href = addCloudRegisterParam(resp.redirectURI);
+        } else {
+          window.location.href = resp.redirectURI;
+        }
       }
     } else if ("showLogin" in resp) {
       setLoading(false);
@@ -248,13 +289,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         init.headers["Content-Type"] = "application/json";
       }
 
-      if (orgId) {
+      if (orgId && !init.headers["X-Organization"]) {
         init.headers["X-Organization"] = orgId;
       }
 
       const response = await fetch(getApiHost() + url, init);
 
-      const responseData = await response.json();
+      const contentType = response.headers.get("Content-Type");
+
+      let responseData;
+
+      if (contentType && contentType.startsWith("image/")) {
+        responseData = await response.blob();
+      } else {
+        responseData = await response.json();
+      }
+
       return responseData;
     },
     [orgId]
@@ -393,7 +443,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             method: "POST",
             credentials: "include",
           });
-          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
           setOrgId(null);
           setOrganizations([]);
           setSpecialOrg(null);
@@ -432,15 +481,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   );
 };
 
-export function roleSupportsEnvLimit(role: MemberRole): boolean {
-  return ["engineer", "experimenter"].includes(role);
-}
-
 export function roleHasAccessToEnv(
   role: MemberRoleInfo,
-  env: string
+  env: string,
+  org: Partial<OrganizationInterface>
 ): "yes" | "no" | "N/A" {
-  if (!roleSupportsEnvLimit(role.role)) return "N/A";
+  if (!roleSupportsEnvLimit(role.role, org)) return "N/A";
 
   if (!role.limitAccessByEnvironment) return "yes";
 

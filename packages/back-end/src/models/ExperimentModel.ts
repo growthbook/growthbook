@@ -9,7 +9,7 @@ import {
   LegacyExperimentInterface,
   Variation,
 } from "../../types/experiment";
-import { OrganizationInterface } from "../../types/organization";
+import { ReqContext } from "../../types/organization";
 import { VisualChange } from "../../types/visual-changeset";
 import {
   determineNextDate,
@@ -24,11 +24,16 @@ import {
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { logger } from "../util/logger";
 import { upgradeExperimentDoc } from "../util/migrations";
-import { refreshSDKPayloadCache, VisualExperiment } from "../services/features";
+import {
+  refreshSDKPayloadCache,
+  URLRedirectExperiment,
+  VisualExperiment,
+} from "../services/features";
 import { SDKPayloadKey } from "../../types/sdk-payload";
-import { EventAuditUser } from "../events/event-types";
 import { FeatureInterface } from "../../types/feature";
 import { getAffectedSDKPayloadKeys } from "../util/features";
+import { getEnvironmentIdsFromOrg } from "../services/organizations";
+import { ApiReqContext } from "../../types/api";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -40,7 +45,7 @@ import { getFeaturesByIds } from "./FeatureModel";
 
 type FindOrganizationOptions = {
   experimentId: string;
-  organizationId: string;
+  context: ReqContext | ApiReqContext;
 };
 
 type FilterKeys = ExperimentInterface & { _id: string };
@@ -62,7 +67,11 @@ const experimentSchema = new mongoose.Schema({
   userIdType: String,
   exposureQueryId: String,
   hashAttribute: String,
+  fallbackAttribute: String,
   hashVersion: Number,
+  disableStickyBucketing: Boolean,
+  bucketVersion: Number,
+  minBucketVersion: Number,
   name: String,
   dateCreated: Date,
   dateUpdated: Date,
@@ -72,17 +81,26 @@ const experimentSchema = new mongoose.Schema({
   observations: String,
   hypothesis: String,
   metrics: [String],
+  pastNotifications: [String],
   metricOverrides: [
     {
       _id: false,
       id: String,
-      conversionWindowHours: Number,
-      conversionDelayHours: Number,
+      windowType: String,
+      windowHours: Number,
+      delayHours: Number,
       winRisk: Number,
       loseRisk: Number,
+      properPriorOverride: Boolean,
+      properPriorEnabled: Boolean,
+      properPriorMean: Number,
+      properPriorStdDev: Number,
       regressionAdjustmentOverride: Boolean,
       regressionAdjustmentEnabled: Boolean,
       regressionAdjustmentDays: Number,
+      // deprecated fields
+      conversionWindowHours: Number,
+      conversionDelayHours: Number,
     },
   ],
   guardrails: [String],
@@ -143,6 +161,20 @@ const experimentSchema = new mongoose.Schema({
       reason: String,
       coverage: Number,
       condition: String,
+      savedGroups: [
+        {
+          _id: false,
+          ids: [String],
+          match: String,
+        },
+      ],
+      prerequisites: [
+        {
+          _id: false,
+          id: String,
+          condition: String,
+        },
+      ],
       namespace: {},
       seed: String,
       variationWeights: [Number],
@@ -156,15 +188,25 @@ const experimentSchema = new mongoose.Schema({
   ideaSource: String,
   regressionAdjustmentEnabled: Boolean,
   hasVisualChangesets: Boolean,
+  hasURLRedirects: Boolean,
   linkedFeatures: [String],
   sequentialTestingEnabled: Boolean,
   sequentialTestingTuningParameter: Number,
   statsEngine: String,
+  manualLaunchChecklist: [
+    {
+      key: String,
+      status: {
+        type: String,
+        enum: ["complete", "incomplete"],
+      },
+    },
+  ],
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
 
-const ExperimentModel = mongoose.model<ExperimentInterface>(
+export const ExperimentModel = mongoose.model<ExperimentInterface>(
   "Experiment",
   experimentSchema
 );
@@ -181,6 +223,7 @@ const toInterface = (doc: ExperimentDocument): ExperimentInterface => {
 };
 
 async function findExperiments(
+  context: ReqContext | ApiReqContext,
   query: FilterQuery<ExperimentDocument>,
   limit?: number,
   sortBy?: SortFilter
@@ -192,53 +235,82 @@ async function findExperiments(
   if (sortBy) {
     cursor = cursor.sort(sortBy);
   }
-  const experiments = await cursor;
+  const experiments = (await cursor).map(toInterface);
 
-  return experiments.map(toInterface);
+  return experiments.filter((exp) =>
+    context.permissions.canReadSingleProjectResource(exp.project)
+  );
 }
 
 export async function getExperimentById(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   id: string
 ): Promise<ExperimentInterface | null> {
-  const experiment = await ExperimentModel.findOne({ organization, id });
-  return experiment ? toInterface(experiment) : null;
+  const doc = await ExperimentModel.findOne({
+    organization: context.org.id,
+    id,
+  });
+
+  if (!doc) return null;
+
+  const experiment = toInterface(doc);
+
+  return context.permissions.canReadSingleProjectResource(experiment.project)
+    ? experiment
+    : null;
 }
 
 export async function getAllExperiments(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   project?: string
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
-    organization,
+    organization: context.org.id,
   };
 
   if (project) {
     query.project = project;
   }
 
-  return await findExperiments(query);
+  return await findExperiments(context, query);
 }
 
 export async function getExperimentByTrackingKey(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   trackingKey: string
 ): Promise<ExperimentInterface | null> {
-  const experiment = await ExperimentModel.findOne({
-    organization,
+  const doc = await ExperimentModel.findOne({
+    organization: context.org.id,
     trackingKey,
   });
 
-  return experiment ? toInterface(experiment) : null;
+  if (!doc) return null;
+
+  const experiment = toInterface(doc);
+
+  return context.permissions.canReadSingleProjectResource(experiment.project)
+    ? experiment
+    : null;
 }
 
 export async function getExperimentsByIds(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   ids: string[]
 ): Promise<ExperimentInterface[]> {
-  return await findExperiments({
+  if (!ids.length) return [];
+  return await findExperiments(context, {
     id: { $in: ids },
-    organization,
+    organization: context.org.id,
+  });
+}
+
+export async function getExperimentsByTrackingKeys(
+  context: ReqContext | ApiReqContext,
+  trackingKeys: string[]
+): Promise<ExperimentInterface[]> {
+  return await findExperiments(context, {
+    trackingKey: { $in: trackingKeys },
+    organization: context.org.id,
   });
 }
 
@@ -255,22 +327,20 @@ export async function getSampleExperiment(
 
 export async function createExperiment({
   data,
-  organization,
-  user,
+  context,
 }: {
   data: Partial<ExperimentInterface>;
-  organization: OrganizationInterface;
-  user: EventAuditUser;
+  context: ReqContext | ApiReqContext;
 }): Promise<ExperimentInterface> {
-  data.organization = organization.id;
+  data.organization = context.org.id;
 
   if (!data.trackingKey) {
     // Try to generate a unique tracking key based on the experiment name
     let n = 1;
-    let found = null;
+    let found: null | string = null;
     while (n < 10 && !found) {
       const key = generateTrackingKey(data.name || data.id || "", n);
-      if (!(await getExperimentByTrackingKey(data.organization, key))) {
+      if (!(await getExperimentByTrackingKey(context, key))) {
         found = key;
       }
       n++;
@@ -281,7 +351,7 @@ export async function createExperiment({
   }
 
   const nextUpdate = determineNextDate(
-    organization.settings?.updateSchedule || null
+    context.org.settings?.updateSchedule || null
   );
 
   const exp = await ExperimentModel.create({
@@ -296,9 +366,8 @@ export async function createExperiment({
   });
 
   await onExperimentCreate({
-    organization,
+    context,
     experiment: exp,
-    user,
   });
 
   if (data.tags) {
@@ -309,22 +378,20 @@ export async function createExperiment({
 }
 
 export async function updateExperiment({
-  organization,
+  context,
   experiment,
-  user,
   changes,
   bypassWebhooks = false,
 }: {
-  organization: OrganizationInterface;
+  context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
-  user: EventAuditUser;
   changes: Changeset;
   bypassWebhooks?: boolean;
-}): Promise<ExperimentInterface | null> {
+}): Promise<ExperimentInterface> {
   await ExperimentModel.updateOne(
     {
       id: experiment.id,
-      organization: organization.id,
+      organization: context.org.id,
     },
     {
       $set: changes,
@@ -334,10 +401,9 @@ export async function updateExperiment({
   const updated = { ...experiment, ...changes };
 
   await onExperimentUpdate({
-    organization,
+    context,
     oldExperiment: experiment,
     newExperiment: updated,
-    user,
     bypassWebhooks,
   });
 
@@ -345,25 +411,19 @@ export async function updateExperiment({
 }
 
 export async function getExperimentsByMetric(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   metricId: string
 ): Promise<{ id: string; name: string }[]> {
-  const experiments: { id: string; name: string }[] = [];
-
-  const cols = {
-    _id: false,
-    id: true,
-    name: true,
-  };
+  const experiments: {
+    id: string;
+    name: string;
+  }[] = [];
 
   // Using as a goal metric
-  const goals = await ExperimentModel.find(
-    {
-      organization,
-      metrics: metricId,
-    },
-    cols
-  );
+  const goals = await findExperiments(context, {
+    organization: context.org.id,
+    metrics: metricId,
+  });
   goals.forEach((exp) => {
     experiments.push({
       id: exp.id,
@@ -372,13 +432,10 @@ export async function getExperimentsByMetric(
   });
 
   // Using as a guardrail metric
-  const guardrails = await ExperimentModel.find(
-    {
-      organization,
-      guardrails: metricId,
-    },
-    cols
-  );
+  const guardrails = await findExperiments(context, {
+    organization: context.org.id,
+    guardrails: metricId,
+  });
   guardrails.forEach((exp) => {
     experiments.push({
       id: exp.id,
@@ -387,13 +444,10 @@ export async function getExperimentsByMetric(
   });
 
   // Using as an activation metric
-  const activations = await ExperimentModel.find(
-    {
-      organization,
-      activationMetric: metricId,
-    },
-    cols
-  );
+  const activations = await findExperiments(context, {
+    organization: context.org.id,
+    activationMetric: metricId,
+  });
   activations.forEach((exp) => {
     experiments.push({
       id: exp.id,
@@ -405,15 +459,21 @@ export async function getExperimentsByMetric(
 }
 
 export async function getExperimentByIdea(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   idea: IdeaDocument
 ): Promise<ExperimentInterface | null> {
-  const experiment = await ExperimentModel.findOne({
-    organization,
+  const doc = await ExperimentModel.findOne({
+    organization: context.org.id,
     ideaSource: idea.id,
   });
 
-  return experiment ? toInterface(experiment) : null;
+  if (!doc) return null;
+
+  const experiment = toInterface(doc);
+
+  return context.permissions.canReadSingleProjectResource(experiment.project)
+    ? experiment
+    : null;
 }
 
 export async function getExperimentsToUpdate(
@@ -486,29 +546,38 @@ export async function getExperimentsToUpdateLegacy(
 }
 
 export async function getPastExperimentsByDatasource(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   datasource: string
-): Promise<Pick<ExperimentInterface, "id" | "trackingKey">[]> {
+): Promise<
+  Pick<ExperimentInterface, "id" | "trackingKey" | "exposureQueryId">[]
+> {
   const experiments = await ExperimentModel.find(
     {
-      organization,
+      organization: context.org.id,
       datasource,
     },
     {
       _id: false,
       id: true,
       trackingKey: true,
+      exposureQueryId: true,
+      project: true,
     }
   );
 
-  return experiments.map((exp) => ({
+  const experimentsUserCanAccess = experiments.filter((exp) =>
+    context.permissions.canReadSingleProjectResource(exp.project)
+  );
+
+  return experimentsUserCanAccess.map((exp) => ({
     id: exp.id,
     trackingKey: exp.trackingKey,
+    exposureQueryId: exp.exposureQueryId,
   }));
 }
 
 export async function getRecentExperimentsUsingMetric(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   metricId: string
 ): Promise<
   Pick<
@@ -517,8 +586,9 @@ export async function getRecentExperimentsUsingMetric(
   >[]
 > {
   const experiments = await findExperiments(
+    context,
     {
-      organization: organization,
+      organization: context.org.id,
       $or: [
         {
           metrics: metricId,
@@ -546,16 +616,15 @@ export async function getRecentExperimentsUsingMetric(
 }
 
 export async function deleteExperimentSegment(
-  organization: OrganizationInterface,
-  user: EventAuditUser,
+  context: ReqContext | ApiReqContext,
   segment: string
 ): Promise<void> {
-  const exps = await getExperimentsUsingSegment(segment, organization.id);
+  const exps = await getExperimentsUsingSegment(context, segment);
 
   if (!exps.length) return;
 
   await ExperimentModel.updateMany(
-    { organization: organization.id, segment },
+    { organization: context.org.id, segment },
     {
       $set: { segment: "" },
     }
@@ -566,22 +635,23 @@ export async function deleteExperimentSegment(
     current.segment = "";
 
     onExperimentUpdate({
-      organization,
+      context,
       oldExperiment: previous,
       newExperiment: current,
       bypassWebhooks: true,
-      user,
+    }).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on experiment update");
     });
   });
 }
 
 export async function getExperimentsForActivityFeed(
-  org: string,
+  context: ReqContext | ApiReqContext,
   ids: string[]
 ): Promise<Pick<ExperimentInterface, "id" | "name">[]> {
   const experiments = await ExperimentModel.find(
     {
-      organization: org,
+      organization: context.org.id,
       id: {
         $in: ids,
       },
@@ -590,10 +660,15 @@ export async function getExperimentsForActivityFeed(
       _id: false,
       id: true,
       name: true,
+      project: true,
     }
   );
 
-  return experiments.map((exp) => ({
+  const filteredExperiments = experiments.filter((exp) =>
+    context.permissions.canReadSingleProjectResource(exp.project)
+  );
+
+  return filteredExperiments.map((exp) => ({
     id: exp.id,
     name: exp.name,
   }));
@@ -602,43 +677,57 @@ export async function getExperimentsForActivityFeed(
 /**
  * Finds an experiment for an organization
  * @param experimentId
- * @param organizationId
+ * @param context
  */
-export const findExperiment = async ({
+const findExperiment = async ({
   experimentId,
-  organizationId,
+  context,
 }: FindOrganizationOptions): Promise<ExperimentInterface | null> => {
   const doc = await ExperimentModel.findOne({
     id: experimentId,
-    organization: organizationId,
+    organization: context.org.id,
   });
-  return doc ? toInterface(doc) : null;
+
+  if (!doc) return null;
+
+  const experiment = toInterface(doc);
+
+  return context.permissions.canReadSingleProjectResource(experiment.project)
+    ? experiment
+    : null;
 };
 
 // region Events
 
 /**
- * @param organization
- * @param user
+ * @param context
  * @param experiment
  * @return event.id
  */
 const logExperimentCreated = async (
-  organization: OrganizationInterface,
-  user: EventAuditUser,
+  context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
 ): Promise<string | undefined> => {
-  const apiExperiment = await toExperimentApiInterface(
-    organization,
-    experiment
-  );
+  const { org: organization } = context;
+  const apiExperiment = await toExperimentApiInterface(context, experiment);
+
+  // If experiment is part of the SDK payload, it affects all environments
+  // Otherwise, it doesn't affect any
+  const changedEnvs = includeExperimentInPayload(experiment)
+    ? getEnvironmentIdsFromOrg(context.org)
+    : [];
+
   const payload: ExperimentCreatedNotificationEvent = {
     object: "experiment",
     event: "experiment.created",
-    user,
+    user: context.auditUser,
     data: {
       current: apiExperiment,
     },
+    projects: [apiExperiment.project],
+    tags: apiExperiment.tags,
+    environments: changedEnvs,
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(organization.id, payload);
@@ -649,27 +738,25 @@ const logExperimentCreated = async (
 };
 
 /**
- * @param organization
- * @param experiment
- * @return event.id
+ * @param context
+ * @param current
+ * @return previous
  */
 const logExperimentUpdated = async ({
-  organization,
-  user,
+  context,
   current,
   previous,
 }: {
-  organization: OrganizationInterface;
-  user: EventAuditUser;
+  context: ReqContext | ApiReqContext;
   current: ExperimentInterface;
   previous: ExperimentInterface;
 }): Promise<string | undefined> => {
   const previousApiExperimentPromise = toExperimentApiInterface(
-    organization,
+    context,
     previous
   );
   const currentApiExperimentPromise = toExperimentApiInterface(
-    organization,
+    context,
     current
   );
   const [previousApiExperiment, currentApiExperiment] = await Promise.all([
@@ -677,17 +764,32 @@ const logExperimentUpdated = async ({
     currentApiExperimentPromise,
   ]);
 
+  // If experiment is part of the SDK payload, it affects all environments
+  // Otherwise, it doesn't affect any
+  const hasPayloadChanges = hasChangesForSDKPayloadRefresh(previous, current);
+  const changedEnvs = hasPayloadChanges
+    ? getEnvironmentIdsFromOrg(context.org)
+    : [];
+
   const payload: ExperimentUpdatedNotificationEvent = {
     object: "experiment",
     event: "experiment.updated",
-    user,
+    user: context.auditUser,
     data: {
       previous: previousApiExperiment,
       current: currentApiExperiment,
     },
+    projects: Array.from(
+      new Set([previousApiExperiment.project, currentApiExperiment.project])
+    ),
+    tags: Array.from(
+      new Set([...previousApiExperiment.tags, ...currentApiExperiment.tags])
+    ),
+    environments: changedEnvs,
+    containsSecrets: false,
   };
 
-  const emittedEvent = await createEvent(organization.id, payload);
+  const emittedEvent = await createEvent(context.org.id, payload);
   if (emittedEvent) {
     new EventNotifier(emittedEvent.id).perform();
     return emittedEvent.id;
@@ -698,22 +800,20 @@ const logExperimentUpdated = async ({
  * Deletes an experiment by ID and logs the event for the organization
  * @param experiment
  * @param organization
- * @param user
  */
 export async function deleteExperimentByIdForOrganization(
-  experiment: ExperimentInterface,
-  organization: OrganizationInterface,
-  user: EventAuditUser
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface
 ) {
   try {
     await ExperimentModel.deleteOne({
       id: experiment.id,
-      organization: organization.id,
+      organization: context.org.id,
     });
 
     await VisualChangesetModel.deleteMany({ experiment: experiment.id });
 
-    await onExperimentDelete(organization, user, experiment);
+    await onExperimentDelete(context, experiment);
   } catch (e) {
     logger.error(e);
   }
@@ -723,62 +823,55 @@ export async function deleteExperimentByIdForOrganization(
  * Delete experiments belonging to a project
  * @param projectId
  * @param organization
- * @param user
  */
 export async function deleteAllExperimentsForAProject({
   projectId,
-  organization,
-  user,
+  context,
 }: {
   projectId: string;
-  organization: OrganizationInterface;
-  user: EventAuditUser;
+  context: ReqContext | ApiReqContext;
 }) {
   const experimentsToDelete = await ExperimentModel.find({
-    organization: organization.id,
+    organization: context.org.id,
     project: projectId,
   });
 
   for (const experiment of experimentsToDelete) {
     await experiment.delete();
     VisualChangesetModel.deleteMany({ experiment: experiment.id });
-    await onExperimentDelete(organization, user, experiment);
+    await onExperimentDelete(context, experiment);
   }
 }
 
 /**
  * Removes the tag from any experiments that have it
  * and logs the experiment.updated event
- * @param organization
- * @param user
+ * @param context
  * @param tag
  */
 export const removeTagFromExperiments = async ({
-  organization,
-  user,
+  context,
   tag,
 }: {
-  organization: OrganizationInterface;
-  user: EventAuditUser;
+  context: ReqContext | ApiReqContext;
   tag: string;
 }): Promise<void> => {
-  const query = { organization: organization.id, tags: tag };
-  const previousExperiments = await findExperiments(query);
+  const query = { organization: context.org.id, tags: tag };
+  const previousExperiments = await findExperiments(context, query);
 
   await ExperimentModel.updateMany(query, {
     $pull: { tags: tag },
   });
 
-  logAllChanges(organization, user, previousExperiments, (exp) => ({
+  logAllChanges(context, previousExperiments, (exp) => ({
     ...exp,
     tags: exp.tags.filter((t) => t !== tag),
   }));
 };
 
 export async function removeMetricFromExperiments(
-  metricId: string,
-  organization: OrganizationInterface,
-  user: EventAuditUser
+  context: ReqContext | ApiReqContext,
+  metricId: string
 ) {
   const oldExperiments: Record<
     string,
@@ -788,7 +881,7 @@ export async function removeMetricFromExperiments(
     }
   > = {};
 
-  const orgId = organization.id;
+  const orgId = context.org.id;
 
   const metricQuery = { organization: orgId, metrics: metricId };
   const guardRailsQuery = { organization: orgId, guardrails: metricId };
@@ -796,7 +889,7 @@ export async function removeMetricFromExperiments(
     organization: orgId,
     activationMetric: metricId,
   };
-  const docsToTrackChanges = await findExperiments({
+  const docsToTrackChanges = await findExperiments(context, {
     $or: [metricQuery, guardRailsQuery, activationMetricQuery],
   });
 
@@ -826,8 +919,8 @@ export async function removeMetricFromExperiments(
 
   const ids = Object.keys(oldExperiments);
 
-  const updatedExperiments = await findExperiments({
-    organization: organization.id,
+  const updatedExperiments = await findExperiments(context, {
+    organization: context.org.id,
     id: {
       $in: ids,
     },
@@ -842,46 +935,48 @@ export async function removeMetricFromExperiments(
   });
 
   // Log all the changes
-  each(oldExperiments, async (changeSet) => {
+  each(oldExperiments, (changeSet) => {
     const { previous, current } = changeSet;
     if (current && previous) {
-      await onExperimentUpdate({
-        organization,
+      onExperimentUpdate({
+        context,
         oldExperiment: previous,
         newExperiment: current,
         bypassWebhooks: true,
-        user,
+      }).catch((e) => {
+        logger.error(e, "Error refreshing SDK Payload on experiment update");
       });
     }
   });
 }
 
 export async function removeProjectFromExperiments(
-  project: string,
-  organization: OrganizationInterface,
-  user: EventAuditUser
+  context: ReqContext | ApiReqContext,
+  project: string
 ) {
-  const query = { organization: organization.id, project };
-  const previousExperiments = await findExperiments(query);
+  const query = { organization: context.org.id, project };
+  const previousExperiments = await findExperiments(context, query);
 
   await ExperimentModel.updateMany(query, { $set: { project: "" } });
 
-  logAllChanges(organization, user, previousExperiments, (exp) => ({
+  logAllChanges(context, previousExperiments, (exp) => ({
     ...exp,
     project: "",
   }));
 }
 
 export async function addLinkedFeatureToExperiment(
-  organization: OrganizationInterface,
-  user: EventAuditUser,
+  context: ReqContext | ApiReqContext,
   experimentId: string,
-  featureId: string
+  featureId: string,
+  experiment?: ExperimentInterface | null
 ) {
-  const experiment = await findExperiment({
-    experimentId,
-    organizationId: organization.id,
-  });
+  if (!experiment) {
+    experiment = await findExperiment({
+      experimentId,
+      context,
+    });
+  }
 
   if (!experiment) return;
 
@@ -890,7 +985,7 @@ export async function addLinkedFeatureToExperiment(
   await ExperimentModel.updateOne(
     {
       id: experimentId,
-      organization: organization.id,
+      organization: context.org.id,
     },
     {
       $addToSet: {
@@ -900,25 +995,25 @@ export async function addLinkedFeatureToExperiment(
   );
 
   onExperimentUpdate({
-    organization,
+    context,
     oldExperiment: experiment,
     newExperiment: {
       ...experiment,
       linkedFeatures: [...(experiment.linkedFeatures || []), featureId],
     },
-    user,
+  }).catch((e) => {
+    logger.error(e, "Error refreshing SDK Payload on experiment update");
   });
 }
 
 export async function removeLinkedFeatureFromExperiment(
-  organization: OrganizationInterface,
-  user: EventAuditUser,
+  context: ReqContext | ApiReqContext,
   experimentId: string,
   featureId: string
 ) {
   const experiment = await findExperiment({
     experimentId,
-    organizationId: organization.id,
+    context,
   });
 
   if (!experiment) return;
@@ -928,7 +1023,7 @@ export async function removeLinkedFeatureFromExperiment(
   await ExperimentModel.updateOne(
     {
       id: experimentId,
-      organization: organization.id,
+      organization: context.org.id,
     },
     {
       $pull: {
@@ -938,7 +1033,7 @@ export async function removeLinkedFeatureFromExperiment(
   );
 
   onExperimentUpdate({
-    organization,
+    context,
     oldExperiment: experiment,
     newExperiment: {
       ...experiment,
@@ -946,13 +1041,13 @@ export async function removeLinkedFeatureFromExperiment(
         (f) => f !== featureId
       ),
     },
-    user,
+  }).catch((e) => {
+    logger.error(e, "Error refreshing SDK Payload on experiment update");
   });
 }
 
 function logAllChanges(
-  organization: OrganizationInterface,
-  user: EventAuditUser,
+  context: ReqContext | ApiReqContext,
   previousExperiments: ExperimentInterface[],
   applyChanges: (exp: ExperimentInterface) => ExperimentInterface | null
 ) {
@@ -960,46 +1055,56 @@ function logAllChanges(
     const current = applyChanges(cloneDeep(previous));
     if (!current) return;
     onExperimentUpdate({
-      organization,
+      context,
       oldExperiment: previous,
       newExperiment: current,
-      user,
+    }).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on experiment update");
     });
   });
 }
 
-export async function getExperimentsUsingSegment(id: string, orgId: string) {
-  return await findExperiments({
-    organization: orgId,
+export async function getExperimentsUsingSegment(
+  context: ReqContext | ApiReqContext,
+  id: string
+) {
+  return await findExperiments(context, {
+    organization: context.org.id,
     segment: id,
   });
 }
 
 /**
- * @param organization
- * @param user
+ * @param context
  * @param experiment
  * @return experiment
  */
 export const logExperimentDeleted = async (
-  organization: OrganizationInterface,
-  user: EventAuditUser,
+  context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
 ): Promise<string | undefined> => {
-  const apiExperiment = await toExperimentApiInterface(
-    organization,
-    experiment
-  );
+  const apiExperiment = await toExperimentApiInterface(context, experiment);
+
+  // If experiment is part of the SDK payload, it affects all environments
+  // Otherwise, it doesn't affect any
+  const changedEnvs = includeExperimentInPayload(experiment)
+    ? getEnvironmentIdsFromOrg(context.org)
+    : [];
+
   const payload: ExperimentDeletedNotificationEvent = {
     object: "experiment",
     event: "experiment.deleted",
-    user,
+    user: context.auditUser,
     data: {
       previous: apiExperiment,
     },
+    projects: [apiExperiment.project],
+    environments: changedEnvs,
+    tags: apiExperiment.tags,
+    containsSecrets: false,
   };
 
-  const emittedEvent = await createEvent(organization.id, payload);
+  const emittedEvent = await createEvent(context.org.id, payload);
   if (emittedEvent) {
     new EventNotifier(emittedEvent.id).perform();
     return emittedEvent.id;
@@ -1012,11 +1117,11 @@ const _isValidVisualExperiment = (
 ): e is VisualExperiment => !!e.experiment && !!e.visualChangeset;
 
 export async function getExperimentMapForFeature(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   featureId: string
 ): Promise<Map<string, ExperimentInterface>> {
-  const experiments = await findExperiments({
-    organization,
+  const experiments = await findExperiments(context, {
+    organization: context.org.id,
     archived: { $ne: true },
     linkedFeatures: featureId,
   });
@@ -1029,11 +1134,11 @@ export async function getExperimentMapForFeature(
 }
 
 export async function getAllPayloadExperiments(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   project?: string
 ): Promise<Map<string, ExperimentInterface>> {
-  const experiments = await findExperiments({
-    organization,
+  const experiments = await findExperiments(context, {
+    organization: context.org.id,
     ...(project ? { project } : {}),
     archived: { $ne: true },
     $or: [
@@ -1042,6 +1147,9 @@ export async function getAllPayloadExperiments(
       },
       {
         hasVisualChangesets: true,
+      },
+      {
+        hasURLRedirects: true,
       },
     ],
   });
@@ -1054,10 +1162,10 @@ export async function getAllPayloadExperiments(
 }
 
 export const getAllVisualExperiments = async (
-  organization: string,
+  context: ReqContext | ApiReqContext,
   experimentMap: Map<string, ExperimentInterface>
 ): Promise<Array<VisualExperiment>> => {
-  const visualChangesets = await findVisualChangesets(organization);
+  const visualChangesets = await findVisualChangesets(context.org.id);
 
   if (!visualChangesets.length) return [];
 
@@ -1081,9 +1189,10 @@ export const getAllVisualExperiments = async (
   };
 
   return visualChangesets
-    .map((c) => ({
-      experiment: experimentMap.get(c.experiment),
+    .map<VisualExperiment>((c) => ({
+      experiment: experimentMap.get(c.experiment) as ExperimentInterface,
       visualChangeset: c,
+      type: "visual",
     }))
     .filter(_isValidVisualExperiment)
     .filter((e) => {
@@ -1104,32 +1213,93 @@ export const getAllVisualExperiments = async (
     });
 };
 
-export const getPayloadKeys = (
-  organization: OrganizationInterface,
+export const getAllURLRedirectExperiments = async (
+  context: ReqContext | ApiReqContext,
+  experimentMap: Map<string, ExperimentInterface>
+): Promise<Array<URLRedirectExperiment>> => {
+  const redirects = await context.models.urlRedirects.getAll();
+
+  if (!redirects.length) return [];
+
+  const exps: URLRedirectExperiment[] = [];
+
+  redirects.forEach((r) => {
+    const experiment = experimentMap.get(r.experiment);
+    if (!experiment) return;
+
+    // Exclude experiments from SDK payload
+    if (!includeExperimentInPayload(experiment)) return;
+
+    // Exclude experiments that are stopped and the released variation doesn’t have a destination URL
+    if (experiment.status === "stopped") {
+      const destination = r.destinationURLs.find(
+        (d) => d.variation === experiment.releasedVariationId
+      );
+      if (!destination || !destination.url) return;
+    }
+
+    exps.push({
+      type: "redirect",
+      experiment,
+      urlRedirect: r,
+    });
+  });
+
+  return exps;
+};
+
+export function getPayloadKeysForAllEnvs(
+  context: ReqContext | ApiReqContext,
+  projects: string[]
+) {
+  const uniqueProjects = new Set(projects);
+
+  const environments = getEnvironmentIdsFromOrg(context.org);
+
+  const keys: SDKPayloadKey[] = [];
+  uniqueProjects.forEach((p) => {
+    environments.forEach((e) => {
+      keys.push({
+        environment: e,
+        project: p,
+      });
+    });
+  });
+  return keys;
+}
+
+export function getPayloadKeys(
+  context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   linkedFeatures?: FeatureInterface[]
-): SDKPayloadKey[] => {
+): SDKPayloadKey[] {
   // If experiment is not included in the SDK payload
   if (!includeExperimentInPayload(experiment, linkedFeatures)) {
     return [];
   }
 
-  const environments: string[] =
-    organization.settings?.environments?.map((e) => e.id) ?? [];
+  const environments: string[] = getEnvironmentIdsFromOrg(context.org);
   const project = experiment.project ?? "";
 
-  // Visual editor experiments always affect all environments
-  if (experiment.hasVisualChangesets) {
-    return environments.map((e) => ({
-      environment: e,
-      project,
-    }));
+  // Visual editor and URL redirect experiments always affect all environments
+  if (experiment.hasVisualChangesets || experiment.hasURLRedirects) {
+    const keys: SDKPayloadKey[] = [];
+
+    environments.forEach((e) => {
+      // Always update the "no-project" payload
+      keys.push({ environment: e, project: "" });
+      // If the experiment is in a project, update that payload as well
+      if (project) keys.push({ environment: e, project });
+    });
+
+    return keys;
   }
 
   // Feature flag experiments only affect the environments where the experiment rule is active
   if (linkedFeatures && linkedFeatures.length > 0) {
     return getAffectedSDKPayloadKeys(
       linkedFeatures,
+      environments,
       (rule) =>
         rule.type === "experiment-ref" &&
         rule.experimentId === experiment.id &&
@@ -1137,9 +1307,9 @@ export const getPayloadKeys = (
     );
   }
 
-  // Otherwise, if no linked visual editor or feature flag changes, there are no affected payload keys
+  // Otherwise, if no linked changes, there are no affected payload keys
   return [];
-};
+}
 
 const getExperimentChanges = (
   experiment: ExperimentInterface
@@ -1173,7 +1343,7 @@ const hasChangesForSDKPayloadRefresh = (
   oldExperiment: ExperimentInterface,
   newExperiment: ExperimentInterface
 ): boolean => {
-  // Skip experiments that don't have linked features or visual changesets
+  // Skip experiments that don't have linked changes
   if (
     !includeExperimentInPayload(oldExperiment) &&
     !includeExperimentInPayload(newExperiment)
@@ -1188,35 +1358,30 @@ const hasChangesForSDKPayloadRefresh = (
 };
 
 const onExperimentCreate = async ({
-  organization,
+  context,
   experiment,
-  user,
 }: {
-  organization: OrganizationInterface;
+  context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
-  user: EventAuditUser;
 }) => {
-  await logExperimentCreated(organization, user, experiment);
+  await logExperimentCreated(context, experiment);
 };
 
 const onExperimentUpdate = async ({
-  organization,
+  context,
   oldExperiment,
   newExperiment,
   bypassWebhooks = false,
-  user,
 }: {
-  organization: OrganizationInterface;
+  context: ReqContext | ApiReqContext;
   oldExperiment: ExperimentInterface;
   newExperiment: ExperimentInterface;
   bypassWebhooks?: boolean;
-  user: EventAuditUser;
 }) => {
   await logExperimentUpdated({
-    organization,
+    context,
     current: newExperiment,
     previous: oldExperiment,
-    user,
   });
 
   if (
@@ -1224,20 +1389,20 @@ const onExperimentUpdate = async ({
     hasChangesForSDKPayloadRefresh(oldExperiment, newExperiment)
   ) {
     // Get linked features
-    const featureIds = [
+    const featureIds = new Set([
       ...(oldExperiment.linkedFeatures || []),
       ...(newExperiment.linkedFeatures || []),
-    ];
+    ]);
     let linkedFeatures: FeatureInterface[] = [];
-    if (featureIds.length > 0) {
-      linkedFeatures = await getFeaturesByIds(organization.id, featureIds);
+    if (featureIds.size > 0) {
+      linkedFeatures = await getFeaturesByIds(context, [...featureIds]);
     }
 
     const oldPayloadKeys = oldExperiment
-      ? getPayloadKeys(organization, oldExperiment, linkedFeatures)
+      ? getPayloadKeys(context, oldExperiment, linkedFeatures)
       : [];
     const newPayloadKeys = getPayloadKeys(
-      organization,
+      context,
       newExperiment,
       linkedFeatures
     );
@@ -1246,23 +1411,26 @@ const onExperimentUpdate = async ({
       isEqual
     );
 
-    refreshSDKPayloadCache(organization, payloadKeys);
+    refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
+      logger.error(e, "Error refreshing SDK payload cache");
+    });
   }
 };
 
 const onExperimentDelete = async (
-  organization: OrganizationInterface,
-  user: EventAuditUser,
+  context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
 ) => {
-  await logExperimentDeleted(organization, user, experiment);
+  await logExperimentDeleted(context, experiment);
 
   const featureIds = [...(experiment.linkedFeatures || [])];
   let linkedFeatures: FeatureInterface[] = [];
   if (featureIds.length > 0) {
-    linkedFeatures = await getFeaturesByIds(organization.id, featureIds);
+    linkedFeatures = await getFeaturesByIds(context, featureIds);
   }
 
-  const payloadKeys = getPayloadKeys(organization, experiment, linkedFeatures);
-  refreshSDKPayloadCache(organization, payloadKeys);
+  const payloadKeys = getPayloadKeys(context, experiment, linkedFeatures);
+  refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
+    logger.error(e, "Error refreshing SDK payload cache");
+  });
 };

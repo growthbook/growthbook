@@ -4,11 +4,15 @@ required:
   - dateCreated
   - dateUpdated
   - name
-  - attributeKey
-  - values
+  - type
 properties:
   id:
     type: string
+  type:
+    type: string
+    enum:
+      - condition
+      - list
   dateCreated:
     type: string
     format: date-time
@@ -19,9 +23,14 @@ properties:
     type: string
   owner:
     type: string
+  condition:
+    description: When type = 'condition', this is the JSON-encoded condition for the group
+    type: string
   attributeKey:
+    description: When type = 'list', this is the attribute key the group is based on
     type: string
   values:
+    description: When type = 'list', this is the list of values for the attribute key
     type: array
     items:
       type: string

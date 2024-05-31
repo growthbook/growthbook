@@ -4,14 +4,15 @@ import {
 } from "back-end/types/experiment";
 import { FaHome } from "react-icons/fa";
 import { PiChartBarHorizontalFill } from "react-icons/pi";
+import { FaHeartPulse } from "react-icons/fa6";
 import { useRouter } from "next/router";
 import { getAffectedEnvsForExperiment } from "shared/util";
-import React, { useState } from "react";
+import React, { ReactNode, useState } from "react";
 import { date, daysBetween } from "shared/dates";
 import { MdRocketLaunch } from "react-icons/md";
-import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import clsx from "clsx";
+import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import Link from "next/link";
 import { useAuth } from "@/services/auth";
 import WatchButton from "@/components/WatchButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -19,15 +20,21 @@ import ConfirmButton from "@/components/Modal/ConfirmButton";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import TabButtons from "@/components/Tabs/TabButtons";
 import TabButton from "@/components/Tabs/TabButton";
-import usePermissions from "@/hooks/usePermissions";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Modal from "@/components/Modal";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
-import ResultsIndicator from "../ResultsIndicator";
-import { StartExperimentBanner } from "../StartExperimentBanner";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import track from "@/services/track";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useCelebration } from "@/hooks/useCelebration";
+import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
-import StopExperimentButton from "./StopExperimentButton";
-import { ExperimentTab, LinkedFeature } from ".";
+import ExperimentActionButtons from "./ExperimentActionButtons";
+import { ExperimentTab } from ".";
 
 export interface Props {
   tab: ExperimentTab;
@@ -42,13 +49,35 @@ export interface Props {
   editResult?: () => void;
   safeToEdit: boolean;
   usersWatching: (string | undefined)[];
-  linkedFeatures: LinkedFeature[];
-  visualChangesets: VisualChangesetInterface[];
-  connections: SDKConnectionInterface[];
+  checklistItemsRemaining: number | null;
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
+  healthNotificationCount: number;
+  verifiedConnections: SDKConnectionInterface[];
 }
+
+const datasourcesWithoutHealthData = new Set(["mixpanel", "google_analytics"]);
+
+const DisabledHealthTabTooltip = ({
+  reason,
+  children,
+}: {
+  reason: "UNSUPPORTED_DATASOURCE" | "DIMENSION_SELECTED";
+  children: ReactNode;
+}) => {
+  return (
+    <Tooltip
+      body={
+        reason === "UNSUPPORTED_DATASOURCE"
+          ? "Experiment Health is not available for Mixpanel or (legacy) Google Analytics data sources"
+          : "Set the Dimension to None to see Experiment Health"
+      }
+    >
+      {children}
+    </Tooltip>
+  );
+};
 
 export default function ExperimentHeader({
   tab,
@@ -63,18 +92,25 @@ export default function ExperimentHeader({
   safeToEdit,
   usersWatching,
   editResult,
-  connections,
-  linkedFeatures,
-  visualChangesets,
+  checklistItemsRemaining,
   editTargeting,
   newPhase,
   editPhases,
+  healthNotificationCount,
+  verifiedConnections,
 }: Props) {
   const { apiCall } = useAuth();
   const router = useRouter();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
+  const { getDatasourceById } = useDefinitions();
+  const dataSource = getDatasourceById(experiment.datasource);
   const { scrollY } = useScrollPosition();
+  const { dimension } = useSnapshot();
   const headerPinned = scrollY > 45;
+  const startCelebration = useCelebration();
+  const { data: sdkConnections } = useSDKConnections();
+  const connections = sdkConnections?.connections || [];
+  const [showSdkForm, setShowSdkForm] = useState(false);
 
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
@@ -91,60 +127,159 @@ export default function ExperimentHeader({
         : "now"
       : new Date();
 
-  const [startExperiment, setStartExperiment] = useState(false);
+  const [showStartExperiment, setShowStartExperiment] = useState(false);
 
-  const canCreateAnalyses = permissions.check(
-    "createAnalyses",
+  const hasUpdatePermissions = permissionsUtil.canViewExperimentModal(
     experiment.project
   );
-  const canEditExperiment = !experiment.archived && canCreateAnalyses;
+  const canDeleteExperiment = permissionsUtil.canDeleteExperiment(experiment);
+  const canEditExperiment = !experiment.archived && hasUpdatePermissions;
 
   let hasRunExperimentsPermission = true;
   const envs = getAffectedEnvsForExperiment({ experiment });
   if (envs.length > 0) {
-    if (!permissions.check("runExperiments", experiment.project, envs)) {
+    if (!permissionsUtil.canRunExperiment(experiment, envs)) {
       hasRunExperimentsPermission = false;
     }
   }
   const canRunExperiment = canEditExperiment && hasRunExperimentsPermission;
+  const checklistIncomplete =
+    checklistItemsRemaining !== null && checklistItemsRemaining > 0;
 
-  const hasLinkedChanges =
-    linkedFeatures.length > 0 || visualChangesets.length > 0;
+  const isUsingHealthUnsupportDatasource =
+    !dataSource || datasourcesWithoutHealthData.has(dataSource.type);
+  const disableHealthTab = isUsingHealthUnsupportDatasource || !!dimension;
+
+  async function startExperiment() {
+    startCelebration();
+    if (!experiment.phases?.length) {
+      if (newPhase) {
+        newPhase();
+        return;
+      } else {
+        throw new Error("You do not have permission to start this experiment");
+      }
+    }
+
+    await apiCall(`/experiment/${experiment.id}/status`, {
+      method: "POST",
+      body: JSON.stringify({
+        status: "running",
+      }),
+    });
+    await mutate();
+    track("Start experiment", {
+      source: "experiment-start-banner",
+      action: "main CTA",
+    });
+    setTab("results");
+    setShowStartExperiment(false);
+  }
 
   return (
     <>
       <div className="experiment-header bg-white px-3 pt-3">
-        {startExperiment && experiment.status === "draft" && (
+        {showSdkForm && (
+          <InitialSDKConnectionForm
+            close={() => setShowSdkForm(false)}
+            includeCheck={true}
+            cta="Continue"
+            goToNextStep={() => {
+              setShowSdkForm(false);
+            }}
+          />
+        )}
+        {showStartExperiment && experiment.status === "draft" && (
           <Modal
             open={true}
-            size="lg"
-            close={() => setStartExperiment(false)}
+            size="md"
+            closeCta={
+              checklistIncomplete || !verifiedConnections.length ? (
+                <button
+                  className="btn btn-primary"
+                  onClick={() => setShowStartExperiment(false)}
+                >
+                  Close
+                </button>
+              ) : (
+                // This is a bit odd, but design requested we use the closeCTA as an override in this case
+                <button
+                  className="btn btn-primary"
+                  onClick={async () => startExperiment()}
+                >
+                  Start Immediately
+                </button>
+              )
+            }
+            secondaryCTA={
+              checklistIncomplete || !verifiedConnections.length ? (
+                <button
+                  className="btn btn-link text-decoration-none"
+                  onClick={async () => startExperiment()}
+                >
+                  <span
+                    style={{
+                      color: "var(--text-color-primary)",
+                    }}
+                  >
+                    Start Anyway
+                  </span>
+                </button>
+              ) : (
+                <button
+                  className="btn btn-link text-decoration-none"
+                  onClick={() => setShowStartExperiment(false)}
+                >
+                  <span
+                    style={{
+                      color: "var(--text-color-primary)",
+                    }}
+                  >
+                    Cancel
+                  </span>
+                </button>
+              )
+            }
+            close={() => setShowStartExperiment(false)}
             header="Start Experiment"
           >
-            <div className="alert alert-info">
-              When you start this experiment, all linked Feature Flags rules and
-              Visual Editor changes will be activated and users will begin to
-              see your variations. Double check the list below to make sure
-              you&apos;re ready.
+            <div className="p-2">
+              {checklistIncomplete ? (
+                <div className="alert alert-warning">
+                  You have{" "}
+                  <strong>
+                    {checklistItemsRemaining} task
+                    {checklistItemsRemaining > 1 ? "s " : " "}
+                  </strong>
+                  left to complete. Review the Pre-Launch Checklist before
+                  starting this experiment.
+                </div>
+              ) : null}
+              {!verifiedConnections.length ? (
+                <div className="alert alert-warning">
+                  You haven&apos;t integrated GrowthBook into your app.{" "}
+                  {connections.length > 0 ? (
+                    <Link href="/sdks">Manage SDK Connections</Link>
+                  ) : (
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setShowStartExperiment(false);
+                        setShowSdkForm(true);
+                      }}
+                    >
+                      Add SDK Connection
+                    </a>
+                  )}
+                </div>
+              ) : null}
+              <div>
+                Once started, linked changes will be activated and users will
+                begin to see your experiment variations{" "}
+                <strong>immediately</strong>.
+              </div>
             </div>
-            <StartExperimentBanner
-              connections={connections}
-              experiment={experiment}
-              linkedFeatures={linkedFeatures}
-              mutateExperiment={mutate}
-              visualChangesets={visualChangesets}
-              editTargeting={editTargeting}
-              newPhase={newPhase}
-              openSetupTab={
-                tab !== "overview" ? () => setTab("overview") : undefined
-              }
-              onStart={() => {
-                setTab("results");
-                setStartExperiment(false);
-              }}
-              className=""
-              noConfirm={true}
-            />
           </Modal>
         )}
         <div className="container-fluid pagecontents position-relative">
@@ -172,46 +307,46 @@ export default function ExperimentHeader({
               )}
             </div>
 
-            <div className="ml-2">
-              {experiment.status === "running" ? (
-                <StopExperimentButton
-                  editResult={editResult}
-                  editTargeting={editTargeting}
-                  coverage={lastPhase?.coverage}
-                  hasLinkedChanges={hasLinkedChanges}
-                />
-              ) : experiment.status === "stopped" && experiment.results ? (
-                <div className="experiment-status-widget border d-flex">
-                  <div
-                    className="d-flex"
-                    style={{ height: 30, lineHeight: "30px" }}
-                  >
-                    <ResultsIndicator results={experiment.results} />
+            {canRunExperiment ? (
+              <div className="ml-2">
+                {experiment.status === "running" ? (
+                  <ExperimentActionButtons
+                    editResult={editResult}
+                    editTargeting={editTargeting}
+                  />
+                ) : experiment.status === "stopped" && experiment.results ? (
+                  <div className="experiment-status-widget border d-flex">
+                    <div
+                      className="d-flex"
+                      style={{ height: 30, lineHeight: "30px" }}
+                    >
+                      <ResultsIndicator results={experiment.results} />
+                    </div>
                   </div>
-                </div>
-              ) : experiment.status === "draft" ? (
-                <button
-                  className="btn btn-teal"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setStartExperiment(true);
-                  }}
-                >
-                  Start Experiment <MdRocketLaunch />
-                </button>
-              ) : null}
-            </div>
+                ) : experiment.status === "draft" ? (
+                  <button
+                    className="btn btn-teal"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setShowStartExperiment(true);
+                    }}
+                  >
+                    Start Experiment <MdRocketLaunch />
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="ml-2">
               <MoreMenu>
-                {editTargeting && (
+                {experiment.status !== "running" && editTargeting && (
                   <button
                     className="dropdown-item"
                     onClick={() => {
                       editTargeting();
                     }}
                   >
-                    Edit targeting / rollout
+                    Edit targeting & traffic
                   </button>
                 )}
                 {canRunExperiment && (
@@ -222,12 +357,6 @@ export default function ExperimentHeader({
                     Edit status
                   </button>
                 )}
-                <button
-                  className="dropdown-item"
-                  onClick={() => setAuditModal(true)}
-                >
-                  Audit log
-                </button>
                 {editPhases && (
                   <button
                     className="dropdown-item"
@@ -249,6 +378,12 @@ export default function ExperimentHeader({
                   <span className="badge badge-pill badge-info">
                     {usersWatching.length}
                   </span>
+                </button>
+                <button
+                  className="dropdown-item"
+                  onClick={() => setAuditModal(true)}
+                >
+                  Audit log
                 </button>
                 {duplicate && (
                   <button className="dropdown-item" onClick={duplicate}>
@@ -286,7 +421,7 @@ export default function ExperimentHeader({
                     </button>
                   </ConfirmButton>
                 )}
-                {canCreateAnalyses && experiment.archived && (
+                {hasUpdatePermissions && experiment.archived && (
                   <button
                     className="dropdown-item"
                     onClick={async (e) => {
@@ -307,7 +442,7 @@ export default function ExperimentHeader({
                     Unarchive
                   </button>
                 )}
-                {canCreateAnalyses && (
+                {canDeleteExperiment && (
                   <DeleteButton
                     className="dropdown-item text-danger"
                     useIcon={false}
@@ -379,6 +514,37 @@ export default function ExperimentHeader({
                   activeClassName="active-tab"
                   last={false}
                 />
+                {disableHealthTab ? (
+                  <DisabledHealthTabTooltip
+                    reason={
+                      isUsingHealthUnsupportDatasource
+                        ? "UNSUPPORTED_DATASOURCE"
+                        : "DIMENSION_SELECTED"
+                    }
+                  >
+                    <span className="nav-item nav-link text-muted">
+                      <FaHeartPulse /> Health
+                    </span>
+                  </DisabledHealthTabTooltip>
+                ) : (
+                  <TabButton
+                    active={tab === "health"}
+                    display={
+                      <>
+                        <FaHeartPulse /> Health
+                      </>
+                    }
+                    anchor="health"
+                    onClick={() => {
+                      track("Open health tab", { source: "tab-click" });
+                      setTab("health");
+                    }}
+                    newStyle={false}
+                    activeClassName="active-tab"
+                    last={true}
+                    notificationCount={healthNotificationCount}
+                  />
+                )}
               </TabButtons>
             </div>
 

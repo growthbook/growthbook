@@ -5,8 +5,8 @@ import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import Modal from "@/components/Modal";
 import Toggle from "@/components/Forms/Toggle";
 import Field from "@/components/Forms/Field";
+import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { DataSourceQueryEditingModalBaseProps } from "../types";
 import { dataSourcePathNames } from "./DataSourcePipeline";
 
 type EditDataSourcePipelineProps = DataSourceQueryEditingModalBaseProps;
@@ -66,6 +66,7 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
             />
           </label>
           <Field
+            label={`Destination ${pathNames.schemaName} with write permissions`}
             className="ml-2"
             containerClassName="mb-2"
             type="text"

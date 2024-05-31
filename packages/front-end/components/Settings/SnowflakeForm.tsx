@@ -1,5 +1,6 @@
 import { FC, ChangeEventHandler } from "react";
 import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const SnowflakeForm: FC<{
   params: Partial<SnowflakeConnectionParams>;
@@ -67,17 +68,6 @@ const SnowflakeForm: FC<{
         />
       </div>
       <div className="form-group col-md-12">
-        <label>Warehouse</label>
-        <input
-          type="text"
-          className="form-control"
-          name="warehouse"
-          required
-          value={params.warehouse || ""}
-          onChange={onParamChange}
-        />
-      </div>
-      <div className="form-group col-md-12">
         <label>Role</label>
         <input
           type="text"
@@ -85,6 +75,20 @@ const SnowflakeForm: FC<{
           name="role"
           value={params.role || ""}
           onChange={onParamChange}
+        />
+      </div>
+      <div className="form-group col-md-12">
+        <label>
+          Warehouse (Optional){" "}
+          <Tooltip body="If no Warehouse is specified, queries will be executed in the default Warehouse for your User, set in Snowflake." />
+        </label>
+        <input
+          type="text"
+          className="form-control"
+          name="warehouse"
+          value={params.warehouse || ""}
+          onChange={onParamChange}
+          placeholder=""
         />
       </div>
     </div>

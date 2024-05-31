@@ -35,7 +35,7 @@ If you do not use any of those you choose [Custom Data Source](/event-trackers/c
 
 ## Configuration Settings
 
-Once you have chosen your event tracker and data source type and successfully connected, you will be given an opportunity to modify your configuration settings. For many applications Growthbook will have choosen the correct configuration settings straight out of the box based upon which event tracker you choose. In some instances you may need to tweak them slightly, or in the case of using a custom datasource, define them more explicitly.
+Once you have chosen your event tracker and data source type and successfully connected, you will be given an opportunity to modify your configuration settings. For many applications Growthbook will have choosen the correct configuration settings straight out of the box based upon which event tracker you choose. In some instances, you may need to tweak them slightly, or in the case of using a custom datasource, define them more explicitly.
 
 ### Identifier Types
 
@@ -45,7 +45,13 @@ There are some cases where a single database column isn't enough to uniquely ide
 
 ### Experiment Assignment Queries
 
-An experiment assignment query returns which users were part of which experiment, what variation they saw, and when they saw it. Each assignment query is tied to a single identifier type (defined above). You can also have multiple assignment queries if you store that data in different tables, for example one from your email system and one from your back-end.
+An experiment assignment query returns which users were part of which experiment, what variation they saw, and when they saw it. Each assignment query is tied to a single identifier type (defined above). You can also have multiple assignment queries if you store that data in different tables, for example, one from your email system and one from your back-end.
+
+:::tip
+
+Assignment queries are one-half of the queries that are used to generate experiment results, the other being metric queries. Assignment queries can be edited from the `Metrics and Data` → `Data Sources` page.
+
+:::
 
 The end result of the query should return data like this:
 
@@ -180,25 +186,6 @@ def runQuery(sql):
 ```
 
 **Note:** This python source is stored as plain text in the database. Do not hard-code passwords or sensitive info. Use environment variables (shown above) or another credential store instead.
-
-### Data Pipeline Settings (beta)
-
-:::note
-
-Pipeline mode is only available for Enterprise customers, only works with for BigQuery and Snowflake datasources, and is currently in limited release while in (beta). Please contact us to join the beta.
-
-:::
-
-For experimenters who have multiple metrics per experiment and have large experiment assignment sources, GrowthBook can greatly improve the performance of your queries if you enable **Pipeline Mode**.
-
-With **Pipeline Mode** enabled, whenever an experiment analysis is run, GrowthBook dedupes your experiment assignment source, joins any relevant activation or dimension data, and then stores that deduped experiment assignment table for a default 24 hours to be re-used by the individual metric analyses.
-
-To enable Pipeline Mode, follow these steps:
-
-1. (strongly recommended, but optional) Create a dedicated dataset (BigQuery) or schema (Snowflake) to which GrowthBook will write temporary tables. This will keep your data warehouse clean and ensure that we are only writing to a dedicated space.
-2. Grant permissions to create tables to the role connecting GrowthBook to your warehouse. Feel free to limit that role to have create tables permission only in the dataset/schema that you created in step 1, but the role will also need to select data from that dataset/schema as well.
-3. Navigate to your Data Source in GrowthBook and scroll down to "Data Pipeline Settings"
-4. Click "Edit" and enable pipeline mode, set the destination dataset/schema to your new dedicated GrowthBook dataset/schema from step 1, and set the number of hours you will retain our temporary tables. We recommend at least 6 hours and the default is 24. For Snowflake we recommend leaving the value at 24.
 
 ## Schema Browser
 

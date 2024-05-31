@@ -7,9 +7,7 @@ import { QueryResponse } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Mysql extends SqlIntegration {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  params: MysqlConnectionParams;
+  params!: MysqlConnectionParams;
   requiresDatabase = false;
   requiresSchema = false;
   setParams(encryptedParams: string) {
@@ -71,24 +69,46 @@ export default class Mysql extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }
-  // From https://rpbouman.blogspot.com/2008/07/calculating-nth-percentile-in-mysql.html
-  // One pass, but builds a long string of all values and then cuts it at the right
-  // percentile
   percentileCapSelectClause(
-    capPercentile: number,
-    metricTable: string
+    values: {
+      valueCol: string;
+      outputCol: string;
+      percentile: number;
+      ignoreZeros: boolean;
+    }[],
+    metricTable: string,
+    where: string = ""
   ): string {
+    if (values.length > 1) {
+      throw new Error(
+        "MySQL only supports one percentile capped metric at a time"
+      );
+    }
+
+    let whereClause = where;
+    if (values[0].ignoreZeros) {
+      whereClause = whereClause
+        ? `${whereClause} AND ${values[0].valueCol} != 0`
+        : `WHERE ${values[0].valueCol} != 0`;
+    }
+
     return `
-    SELECT DISTINCT FIRST_VALUE(value) OVER (
-      ORDER BY CASE WHEN p <= ${capPercentile} THEN p END DESC
-    ) AS cap_value
+    SELECT DISTINCT FIRST_VALUE(${values[0].valueCol}) OVER (
+      ORDER BY CASE WHEN p <= ${values[0].percentile} THEN p END DESC
+    ) AS ${values[0].outputCol}
     FROM (
       SELECT
-        value,
-        PERCENT_RANK() OVER (ORDER BY value) p
+        ${values[0].valueCol},
+        PERCENT_RANK() OVER (ORDER BY ${values[0].valueCol}) p
       FROM ${metricTable}
-      WHERE value IS NOT NULL
+      ${whereClause}
     ) t`;
+  }
+  hasQuantileTesting(): boolean {
+    return false;
+  }
+  hasEfficientPercentile(): boolean {
+    return false;
   }
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)

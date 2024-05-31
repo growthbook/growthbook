@@ -1,10 +1,11 @@
-import React, { useCallback, useState } from "react";
+import React, { ReactElement, useCallback, useState } from "react";
 import { FaArchive, FaPlus, FaRegCopy } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { ago, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
+import { getMetricLink } from "shared/experiments";
 import SortedTags from "@/components/Tags/SortedTags";
 import { GBAddCircle } from "@/components/Icons";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -17,18 +18,31 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import MetricForm from "@/components/Metrics/MetricForm";
-import usePermissions from "@/hooks/usePermissions";
 import Toggle from "@/components/Forms/Toggle";
-import useApi from "@/hooks/useApi";
 import { DocLink } from "@/components/DocLink";
 import { useUser } from "@/services/UserContext";
-import { hasFileConfig } from "@/services/env";
+import { envAllowsCreatingMetrics } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { checkMetricProjectPermissions } from "@/services/metrics";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
+import MetricName from "@/components/Metrics/MetricName";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+interface MetricTableItem {
+  id: string;
+  managedBy: "" | "api" | "config";
+  name: string;
+  type: string;
+  tags: string[];
+  projects: string[];
+  owner: string;
+  datasource: string;
+  dateUpdated: Date | null;
+  archived: boolean;
+  onDuplicate?: () => void;
+  onArchive?: (desiredState: boolean) => Promise<void>;
+}
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -41,16 +55,19 @@ const MetricsPage = (): React.ReactElement => {
     setShowAutoGenerateMetricsModal,
   ] = useState(false);
 
-  const { getDatasourceById, mutateDefinitions, project } = useDefinitions();
+  const {
+    getDatasourceById,
+    mutateDefinitions,
+    _metricsIncludingArchived: inlineMetrics,
+    factMetrics,
+    project,
+    ready,
+  } = useDefinitions();
   const router = useRouter();
-
-  const { data, error, mutate } = useApi<{ metrics: MetricInterface[] }>(
-    `/metrics`
-  );
 
   const { getUserDisplay } = useUser();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
 
   const tagsFilter = useTagsFilter("metrics");
@@ -60,8 +77,67 @@ const MetricsPage = (): React.ReactElement => {
     new Set()
   );
 
+  const combinedMetrics = [
+    ...inlineMetrics.map((m) => {
+      const item: MetricTableItem = {
+        id: m.id,
+        managedBy: m.managedBy || "",
+        archived: m.status === "archived",
+        datasource: m.datasource || "",
+        dateUpdated: m.dateUpdated,
+        name: m.name,
+        owner: m.owner || "",
+        projects: m.projects || [],
+        tags: m.tags || [],
+        type: m.type,
+        onArchive: async (desiredState) => {
+          const newStatus = desiredState ? "archived" : "active";
+          await apiCall(`/metric/${m.id}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              status: newStatus,
+            }),
+          });
+          if (newStatus === "archived") {
+            setRecentlyArchived((set) => new Set([...set, m.id]));
+          } else {
+            setRecentlyArchived(
+              (set) => new Set([...set].filter((id) => id !== m.id))
+            );
+          }
+        },
+        onDuplicate: () => {
+          setModalData({
+            current: {
+              ...m,
+              name: m.name + " (copy)",
+            },
+            edit: false,
+            duplicate: true,
+          });
+        },
+      };
+      return item;
+    }),
+    ...factMetrics.map((m) => {
+      const item: MetricTableItem = {
+        id: m.id,
+        managedBy: m.managedBy || "",
+        archived: false,
+        datasource: m.datasource,
+        dateUpdated: m.dateUpdated,
+        name: m.name,
+        owner: m.owner,
+        projects: m.projects || [],
+        tags: m.tags || [],
+        type: m.metricType,
+      };
+      return item;
+    }),
+  ];
+
   const metrics = useAddComputedFields(
-    data?.metrics,
+    combinedMetrics,
     (m) => ({
       datasourceName: m.datasource
         ? getDatasourceById(m.datasource)?.name || "Unknown"
@@ -82,7 +158,7 @@ const MetricsPage = (): React.ReactElement => {
     (items: typeof filteredMetrics) => {
       if (!showArchived) {
         items = items.filter((m) => {
-          return m.status !== "archived" || recentlyArchived.has(m.id);
+          return !m.archived || recentlyArchived.has(m.id);
         });
       }
       items = filterByTags(items, tagsFilter.tags);
@@ -90,12 +166,15 @@ const MetricsPage = (): React.ReactElement => {
     },
     [showArchived, recentlyArchived, tagsFilter.tags]
   );
-  const editMetricsPermissions: { [id: string]: boolean } = {};
+
+  const editMetricsPermissions: {
+    [id: string]: { canDuplicate: boolean; canUpdate: boolean };
+  } = {};
   filteredMetrics.forEach((m) => {
-    editMetricsPermissions[m.id] = checkMetricProjectPermissions(
-      m,
-      permissions
-    );
+    editMetricsPermissions[m.id] = {
+      canDuplicate: permissionsUtil.canCreateMetric(m),
+      canUpdate: permissionsUtil.canUpdateMetric(m, {}),
+    };
   });
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: filteredMetrics,
@@ -105,14 +184,7 @@ const MetricsPage = (): React.ReactElement => {
     filterResults,
   });
 
-  if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
-  }
-  if (!data) {
+  if (!ready) {
     return <LoadingOverlay />;
   }
 
@@ -121,7 +193,6 @@ const MetricsPage = (): React.ReactElement => {
   };
   const onSuccess = () => {
     mutateDefinitions();
-    mutate();
   };
 
   if (!filteredMetrics.length) {
@@ -133,13 +204,14 @@ const MetricsPage = (): React.ReactElement => {
             onClose={closeModal}
             onSuccess={onSuccess}
             source="blank-state"
+            allowFactMetrics={!modalData.duplicate && !modalData.edit}
           />
         )}
         {showAutoGenerateMetricsModal && (
           <AutoGenerateMetricsModal
             source="metrics-index-page"
             setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
-            mutate={mutate}
+            mutate={mutateDefinitions}
           />
         )}
         <div className="d-flex">
@@ -170,41 +242,35 @@ const MetricsPage = (): React.ReactElement => {
             transactions, revenue, engagement
           </li>
         </ul>
-        {hasFileConfig() && (
-          <div className="alert alert-info">
-            It looks like you have a <code>config.yml</code> file. Metrics
-            defined there will show up on this page.{" "}
-            <DocLink docSection="config_yml">View Documentation</DocLink>
-          </div>
-        )}
-        {permissions.check("createMetrics", project) && !hasFileConfig() && (
-          <>
-            <AutoGenerateMetricsButton
-              setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
-              size="lg"
-            />
-            <button
-              className="btn btn-lg btn-success"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalData({
-                  current: {},
-                  edit: false,
-                  duplicate: false,
-                });
-              }}
-            >
-              <FaPlus /> Add your first Metric
-            </button>
-          </>
-        )}
+        {permissionsUtil.canCreateMetric({ projects: [project] }) &&
+          envAllowsCreatingMetrics() && (
+            <>
+              <AutoGenerateMetricsButton
+                setShowAutoGenerateMetricsModal={
+                  setShowAutoGenerateMetricsModal
+                }
+                size="lg"
+              />
+              <button
+                className="btn btn-lg btn-success"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setModalData({
+                    current: {},
+                    edit: false,
+                    duplicate: false,
+                  });
+                }}
+              >
+                <FaPlus /> Add your first Metric
+              </button>
+            </>
+          )}
       </div>
     );
   }
 
-  const hasArchivedMetrics = filteredMetrics.find(
-    (m) => m.status === "archived"
-  );
+  const hasArchivedMetrics = filteredMetrics.some((m) => m.archived);
 
   return (
     <div className="container-fluid py-3 p-3 pagecontents">
@@ -214,13 +280,14 @@ const MetricsPage = (): React.ReactElement => {
           onClose={closeModal}
           onSuccess={onSuccess}
           source="metrics-list"
+          allowFactMetrics={!modalData.duplicate && !modalData.edit}
         />
       )}
       {showAutoGenerateMetricsModal && (
         <AutoGenerateMetricsModal
           source="metric-index-page"
           setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
-          mutate={mutate}
+          mutate={mutateDefinitions}
         />
       )}
       <div className="filters md-form row mb-3 align-items-center">
@@ -238,28 +305,31 @@ const MetricsPage = (): React.ReactElement => {
           </DocLink>
         </div>
         <div style={{ flex: 1 }} />
-        {permissions.check("createMetrics", project) && !hasFileConfig() && (
-          <div className="col-auto">
-            <AutoGenerateMetricsButton
-              setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
-            />
-            <button
-              className="btn btn-primary float-right"
-              onClick={() =>
-                setModalData({
-                  current: {},
-                  edit: false,
-                  duplicate: false,
-                })
-              }
-            >
-              <span className="h4 pr-2 m-0 d-inline-block align-top">
-                <GBAddCircle />
-              </span>
-              Add Metric
-            </button>
-          </div>
-        )}
+        {permissionsUtil.canCreateMetric({ projects: [project] }) &&
+          envAllowsCreatingMetrics() && (
+            <div className="col-auto">
+              <AutoGenerateMetricsButton
+                setShowAutoGenerateMetricsModal={
+                  setShowAutoGenerateMetricsModal
+                }
+              />
+              <button
+                className="btn btn-primary float-right"
+                onClick={() =>
+                  setModalData({
+                    current: {},
+                    edit: false,
+                    duplicate: false,
+                  })
+                }
+              >
+                <span className="h4 pr-2 m-0 d-inline-block align-top">
+                  <GBAddCircle />
+                </span>
+                Add Metric
+              </button>
+            </div>
+          )}
       </div>
       <div className="row mb-2 align-items-center">
         <div className="col-lg-3 col-md-4 col-6">
@@ -298,154 +368,154 @@ const MetricsPage = (): React.ReactElement => {
             >
               Data Source
             </SortableTH>
-            {!hasFileConfig() && (
-              <SortableTH
-                field="dateUpdated"
-                className="d-none d-md-table-cell col-1"
-              >
-                Last Updated
-              </SortableTH>
-            )}
+            <SortableTH
+              field="dateUpdated"
+              className="d-none d-md-table-cell col-1"
+            >
+              Last Updated
+            </SortableTH>
             <th></th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {items.map((metric) => (
-            <tr
-              key={metric.id}
-              onClick={(e) => {
-                e.preventDefault();
-                router.push(`/metric/${metric.id}`);
-              }}
-              style={{ cursor: "pointer" }}
-              className={metric.status === "archived" ? "text-muted" : ""}
-            >
-              <td>
-                <Link href={`/metric/${metric.id}`}>
-                  <a
+          {items.map((metric) => {
+            const moreMenuLinks: ReactElement[] = [];
+
+            if (
+              metric.onDuplicate &&
+              editMetricsPermissions[metric.id].canDuplicate &&
+              envAllowsCreatingMetrics()
+            ) {
+              moreMenuLinks.push(
+                <button
+                  className="btn dropdown-item py-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    metric.onDuplicate && metric.onDuplicate();
+                  }}
+                >
+                  <FaRegCopy /> Duplicate
+                </button>
+              );
+            }
+
+            if (
+              !metric.managedBy &&
+              metric.onArchive &&
+              editMetricsPermissions[metric.id].canUpdate
+            ) {
+              moreMenuLinks.push(
+                <button
+                  className="btn dropdown-item py-2"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    metric.onArchive &&
+                      (await metric.onArchive(!metric.archived));
+                    mutateDefinitions({});
+                  }}
+                >
+                  <FaArchive /> {metric.archived ? "Unarchive" : "Archive"}
+                </button>
+              );
+            }
+
+            return (
+              <tr
+                key={metric.id}
+                onClick={(e) => {
+                  e.preventDefault();
+                  router.push(getMetricLink(metric.id));
+                }}
+                style={{ cursor: "pointer" }}
+                className={metric.archived ? "text-muted" : ""}
+              >
+                <td>
+                  <Link
+                    href={getMetricLink(metric.id)}
                     className={`${
-                      metric.status === "archived" ? "text-muted" : "text-dark"
+                      metric.archived ? "text-muted" : "text-dark"
                     } font-weight-bold`}
                   >
-                    {metric.name}
-                  </a>
-                </Link>
-              </td>
-              <td>{metric.type}</td>
+                    <MetricName id={metric.id} />
+                  </Link>
+                </td>
+                <td>{metric.type}</td>
 
-              <td className="nowrap">
-                <SortedTags
-                  tags={metric.tags ? Object.values(metric.tags) : []}
-                />
-              </td>
-              <td className="col-2">
-                {metric && (metric.projects || []).length > 0 ? (
-                  <ProjectBadges
-                    projectIds={metric.projects}
-                    className="badge-ellipsis short align-middle"
+                <td className="col-4">
+                  <SortedTags
+                    tags={metric.tags ? Object.values(metric.tags) : []}
+                    shouldShowEllipsis={true}
                   />
-                ) : (
-                  <ProjectBadges className="badge-ellipsis short align-middle" />
-                )}
-              </td>
-              <td>{metric.owner}</td>
-              <td className="d-none d-lg-table-cell">
-                {metric.datasourceName}
-                {metric.datasourceDescription && (
-                  <div
-                    className="text-gray font-weight-normal small text-ellipsis"
-                    style={{ maxWidth: 350 }}
-                  >
-                    {metric.datasourceDescription}
-                  </div>
-                )}
-              </td>
-              {!hasFileConfig() && (
+                </td>
+                <td className="col-2">
+                  {metric && (metric.projects || []).length > 0 ? (
+                    <ProjectBadges
+                      resourceType="metric"
+                      projectIds={metric.projects}
+                      className="badge-ellipsis short align-middle"
+                    />
+                  ) : (
+                    <ProjectBadges
+                      resourceType="metric"
+                      className="badge-ellipsis short align-middle"
+                    />
+                  )}
+                </td>
+                <td>{metric.owner}</td>
+                <td className="d-none d-lg-table-cell">
+                  {metric.datasourceName}
+                  {metric.datasourceDescription && (
+                    <div
+                      className="text-gray font-weight-normal small text-ellipsis"
+                      style={{ maxWidth: 350 }}
+                    >
+                      {metric.datasourceDescription}
+                    </div>
+                  )}
+                </td>
                 <td
                   title={datetime(metric.dateUpdated || "")}
                   className="d-none d-md-table-cell"
                 >
-                  {ago(metric.dateUpdated || "")}
+                  {metric.managedBy === "config"
+                    ? ""
+                    : ago(metric.dateUpdated || "")}
                 </td>
-              )}
-              <td className="text-muted">
-                {metric.status === "archived" && (
-                  <Tooltip
-                    body={"Archived"}
-                    innerClassName="p-2"
-                    tipMinWidth="auto"
-                  >
-                    <FaArchive />
-                  </Tooltip>
-                )}
-              </td>
-              <td
-                style={{ cursor: "initial" }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                }}
-              >
-                <MoreMenu>
-                  {!hasFileConfig() && editMetricsPermissions[metric.id] && (
-                    <button
-                      className="btn dropdown-item py-2"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        setModalData({
-                          current: {
-                            ...metric,
-                            name: metric.name + " (copy)",
-                          },
-                          edit: false,
-                          duplicate: true,
-                        });
-                      }}
+                <td className="text-muted">
+                  {metric.archived && (
+                    <Tooltip
+                      body={"Archived"}
+                      innerClassName="p-2"
+                      tipMinWidth="auto"
                     >
-                      <FaRegCopy /> Duplicate
-                    </button>
+                      <FaArchive />
+                    </Tooltip>
                   )}
-                  {!hasFileConfig() && editMetricsPermissions[metric.id] && (
-                    <button
-                      className="btn dropdown-item py-2"
-                      color=""
-                      onClick={async () => {
-                        const newStatus =
-                          metric.status === "archived" ? "active" : "archived";
-                        await apiCall(`/metric/${metric.id}`, {
-                          method: "PUT",
-                          body: JSON.stringify({
-                            status: newStatus,
-                          }),
-                        });
-                        if (newStatus === "archived") {
-                          setRecentlyArchived(
-                            (set) => new Set([...set, metric.id])
-                          );
-                        } else {
-                          setRecentlyArchived(
-                            (set) =>
-                              new Set([...set].filter((id) => id !== metric.id))
-                          );
-                        }
-                        mutateDefinitions({});
-                        mutate();
-                      }}
-                    >
-                      <FaArchive />{" "}
-                      {metric.status === "archived" ? "Unarchive" : "Archive"}
-                    </button>
-                  )}
-                </MoreMenu>
-              </td>
-            </tr>
-          ))}
+                </td>
+                <td
+                  style={{ cursor: "initial" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
+                >
+                  <MoreMenu>
+                    {moreMenuLinks.map((menuItem, i) => (
+                      <div key={`${menuItem}-${i}`} className="d-inline">
+                        {menuItem}
+                      </div>
+                    ))}
+                  </MoreMenu>
+                </td>
+              </tr>
+            );
+          })}
 
           {!items.length && (isFiltered || tagsFilter.tags.length > 0) && (
             <tr>
-              <td colSpan={!hasFileConfig() ? 5 : 4} align={"center"}>
+              <td colSpan={9} align={"center"}>
                 No matching metrics
               </td>
             </tr>

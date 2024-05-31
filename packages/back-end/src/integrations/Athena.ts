@@ -1,14 +1,12 @@
 import { decryptDataSourceParams } from "../services/datasource";
-import { runAthenaQuery } from "../services/athena";
-import { QueryResponse } from "../types/Integration";
+import { cancelAthenaQuery, runAthenaQuery } from "../services/athena";
+import { ExternalIdCallback, QueryResponse } from "../types/Integration";
 import { AthenaConnectionParams } from "../../types/integrations/athena";
 import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Athena extends SqlIntegration {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  params: AthenaConnectionParams;
+  params!: AthenaConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<AthenaConnectionParams>(
@@ -24,8 +22,14 @@ export default class Athena extends SqlIntegration {
   toTimestamp(date: Date) {
     return `from_iso8601_timestamp('${date.toISOString()}')`;
   }
-  runQuery(sql: string): Promise<QueryResponse> {
-    return runAthenaQuery(this.params, sql);
+  runQuery(
+    sql: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<QueryResponse> {
+    return runAthenaQuery(this.params, sql, setExternalId);
+  }
+  async cancelQuery(externalId: string): Promise<void> {
+    await cancelAthenaQuery(this.params, externalId);
   }
   addTime(
     col: string,
@@ -46,16 +50,6 @@ export default class Athena extends SqlIntegration {
   }
   ensureFloat(col: string): string {
     return `CAST(${col} as double)`;
-  }
-  percentileCapSelectClause(
-    capPercentile: number,
-    metricTable: string
-  ): string {
-    return `
-      SELECT APPROX_PERCENTILE(value, ${capPercentile}) AS cap_value
-      FROM ${metricTable}
-      WHERE value IS NOT NULL
-    `;
   }
   getDefaultDatabase() {
     return this.params.catalog || "";

@@ -1,0 +1,10 @@
+[
+  {
+    "id": "orders",
+    "sql": "SELECT\nuserId as user_id,\nanonymousId as anonymous_id,\ntimestamp as timestamp,\nqty,\namount,\nCAST(timestamp AS DATE) AS date\nFROM orders"
+  },
+  {
+    "id": "events",
+    "sql": "SELECT\nuserId as user_id,\nanonymousId as anonymous_id,\ntimestamp as timestamp,\nevent\nFROM events"
+  }
+]

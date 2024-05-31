@@ -3,9 +3,12 @@ import {
   getDemoDataSourceFeatureId,
   getDemoDatasourceProjectIdForOrganization,
 } from "shared/demo-datasource";
-import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import {
+  DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import { AuthRequest } from "../../types/AuthRequest";
-import { getOrgFromReq } from "../../services/organizations";
+import { getContextFromReq } from "../../services/organizations";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
 import { PostgresConnectionParams } from "../../../types/integrations/postgres";
 import { createDataSource } from "../../models/DataSourceModel";
@@ -24,6 +27,8 @@ import { ProjectInterface } from "../../../types/project";
 import { ExperimentSnapshotAnalysisSettings } from "../../../types/experiment-snapshot";
 import { getMetricMap } from "../../models/MetricModel";
 import { createFeature } from "../../models/FeatureModel";
+import { getFactTableMap } from "../../models/FactTableModel";
+import { MetricWindowSettings } from "../../../types/fact-table";
 
 // region Constants for Demo Datasource
 
@@ -59,16 +64,16 @@ const ASSET_OWNER = "";
 const DEMO_TAGS = ["growthbook-demo"];
 
 // Metric constants
+const CONVERSION_WINDOW_SETTINGS: MetricWindowSettings = {
+  type: "conversion",
+  windowUnit: "hours",
+  windowValue: 72,
+  delayHours: 0,
+};
 const DENOMINATOR_METRIC_NAME = "Purchases - Number of Orders (72 hour window)";
 const DEMO_METRICS: Pick<
   MetricInterface,
-  | "name"
-  | "description"
-  | "type"
-  | "sql"
-  | "conversionWindowHours"
-  | "conversionDelayHours"
-  | "aggregation"
+  "name" | "description" | "type" | "sql" | "windowSettings" | "aggregation"
 >[] = [
   {
     name: "Purchases - Total Revenue (72 hour window)",
@@ -76,12 +81,14 @@ const DEMO_METRICS: Pick<
     type: "revenue",
     sql:
       "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM orders",
+    windowSettings: CONVERSION_WINDOW_SETTINGS,
   },
   {
     name: "Purchases - Any Order (72 hour window)",
     description: "Whether the user places any order or not (0/1)",
     type: "binomial",
     sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM orders",
+    windowSettings: CONVERSION_WINDOW_SETTINGS,
   },
   {
     name: DENOMINATOR_METRIC_NAME,
@@ -89,14 +96,19 @@ const DEMO_METRICS: Pick<
     type: "count",
     sql:
       "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\n1 AS value\nFROM orders",
+    windowSettings: CONVERSION_WINDOW_SETTINGS,
   },
   {
     name: "Retention - [1, 14) Days",
     description:
       "Whether the user logged in 1-14 days after experiment exposure",
     type: "binomial",
-    conversionDelayHours: 24,
-    conversionWindowHours: 144 + 168,
+    windowSettings: {
+      type: "conversion",
+      delayHours: 24,
+      windowUnit: "days",
+      windowValue: 13,
+    },
     sql:
       "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM pages WHERE path = '/'",
   },
@@ -105,7 +117,12 @@ const DEMO_METRICS: Pick<
     description:
       "Count of times the user was active in the next 7 days after exposure",
     type: "count",
-    conversionWindowHours: 168,
+    windowSettings: {
+      type: "conversion",
+      delayHours: 0,
+      windowUnit: "days",
+      windowValue: 7,
+    },
     aggregation: "COUNT(DISTINCT value)",
     sql:
       "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\nDATE_TRUNC('day', timestamp) AS value\nFROM pages WHERE path = '/'",
@@ -149,22 +166,32 @@ export const postDemoDatasourceProject = async (
     EventAuditUserForResponseLocals
   >
 ) => {
-  req.checkPermissions("manageProjects", "");
-  req.checkPermissions("createDatasources", "");
-  req.checkPermissions("createMetrics", "");
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canCreateProjects()) {
+    context.permissions.throwPermissionError();
+  }
   req.checkPermissions("createAnalyses", "");
 
-  const { org } = getOrgFromReq(req);
+  const { org, environments } = context;
 
   const demoProjId = getDemoDatasourceProjectIdForOrganization(org.id);
+
+  if (
+    !context.permissions.canCreateMetric({ projects: [demoProjId] }) ||
+    !context.permissions.canCreateDataSource({ projects: [demoProjId] })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
   const existingDemoProject: ProjectInterface | null = await findProjectById(
-    demoProjId,
-    org.id
+    context,
+    demoProjId
   );
 
   if (existingDemoProject) {
     const existingExperiments = await getAllExperiments(
-      org.id,
+      context,
       existingDemoProject.id
     );
 
@@ -182,7 +209,7 @@ export const postDemoDatasourceProject = async (
       name: "Sample Data",
     });
     const datasource = await createDataSource(
-      org.id,
+      context,
       "Sample Data Source",
       DATASOURCE_TYPE,
       DEMO_DATASOURCE_PARAMS,
@@ -308,13 +335,13 @@ spacing and headings.`,
 
     const createdExperiment = await createExperiment({
       data: experimentToCreate,
-      organization: org,
-      user: res.locals.eventAudit,
+      context,
     });
 
     // Create feature
     const featureToCreate: FeatureInterface = {
       id: getDemoDataSourceFeatureId(),
+      version: 1,
       project: project.id,
       organization: org.id,
       dateCreated: new Date(),
@@ -328,7 +355,6 @@ spacing and headings.`,
       environmentSettings: {},
     };
 
-    const environments = (org.settings?.environments || []).map((e) => e.id);
     environments.forEach((env) => {
       featureToCreate.environmentSettings[env] = {
         enabled: true,
@@ -372,22 +398,28 @@ spacing and headings.`,
       });
     });
 
-    await createFeature(org, res.locals.eventAudit, featureToCreate);
+    await createFeature(context, featureToCreate);
 
     const analysisSettings: ExperimentSnapshotAnalysisSettings = {
       statsEngine: org.settings?.statsEngine || DEFAULT_STATS_ENGINE,
+      differenceType: "relative",
       dimensions: [],
+      pValueThreshold:
+        org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
     };
 
-    const metricMap = await getMetricMap(org.id);
+    const metricMap = await getMetricMap(context);
+    const factTableMap = await getFactTableMap(context);
 
     await createSnapshot({
       experiment: createdExperiment,
-      organization: org,
+      context,
       phaseIndex: 0,
-      analysisSettings: analysisSettings,
-      metricRegressionAdjustmentStatuses: [],
+      defaultAnalysisSettings: analysisSettings,
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
       metricMap: metricMap,
+      factTableMap,
       useCache: true,
     });
 

@@ -1,10 +1,12 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import { QueryInterface } from "back-end/types/query";
+import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
-import Modal from "../Modal";
-import LoadingOverlay from "../LoadingOverlay";
-import LoadingSpinner from "../LoadingSpinner";
+import Modal from "@/components/Modal";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import ExpandableQuery from "./ExpandableQuery";
+import QueryStatsRow from "./QueryStatsRow";
 
 const AsyncQueriesModal: FC<{
   queries: string[];
@@ -15,6 +17,9 @@ const AsyncQueriesModal: FC<{
   const { data, error: apiError } = useApi<{ queries: QueryInterface[] }>(
     `/queries/${queries.join(",")}`
   );
+
+  const [showStats, setShowStats] = useState(false);
+  const hasStats = data?.queries?.some((q) => q.statistics !== undefined);
 
   const contents = (
     <>
@@ -32,6 +37,28 @@ const AsyncQueriesModal: FC<{
           running them again.
         </div>
       )}
+      {hasStats ? (
+        <div className="mb-4">
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setShowStats(!showStats);
+            }}
+          >
+            {showStats ? "Hide" : "Show"} overall query stats{" "}
+            {showStats ? <FaAngleDown /> : <FaAngleRight />}
+          </a>
+          {showStats && data && data.queries && (
+            <div className="bg-light appbox px-3 pt-2">
+              <QueryStatsRow
+                queries={data.queries.filter((q) => q !== null)}
+                showPipelineMode={true}
+              />
+            </div>
+          )}
+        </div>
+      ) : null}
       {data &&
         data.queries
           .filter((q) => q !== null)
@@ -62,7 +89,7 @@ const AsyncQueriesModal: FC<{
       close={close}
       header="Queries"
       open={true}
-      size="lg"
+      size="max"
       closeCta="Close"
     >
       {!data && !apiError && <LoadingOverlay />}

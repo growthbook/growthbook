@@ -1,6 +1,8 @@
 import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
+import { Ace } from "ace-builds";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import { CursorData } from "../Segments/SegmentForm";
+import { CursorData } from "@/components/Segments/SegmentForm";
 import Field, { FieldProps } from "./Field";
 
 const AceEditor = dynamic(
@@ -60,6 +62,8 @@ export default function CodeTextArea({
 
   const { theme } = useAppearanceUITheme();
 
+  const [editor, setEditor] = useState<null | Ace.Editor>(null);
+
   // HACK: AceEditor doesn't automatically resize when the parent div resizes
   // Also because we dynamically load the AceEditor component, we can't use
   // useRef to get a reference to the editor object, which would allow us to
@@ -71,6 +75,22 @@ export default function CodeTextArea({
       : { height: "100%" }
     : { minLines, maxLines };
 
+  useEffect(() => {
+    if (!editor) return;
+    if (!onCtrlEnter) return;
+
+    editor.commands.bindKey(
+      {
+        win: "Ctrl-enter",
+        mac: "Command-enter",
+      },
+      {
+        exec: onCtrlEnter,
+        name: "ctrl-enter",
+      }
+    );
+  }, [editor, onCtrlEnter]);
+
   return (
     <Field
       {...fieldProps}
@@ -81,6 +101,7 @@ export default function CodeTextArea({
             <div className={`border rounded ${fullHeight ? "h-100" : ""}`}>
               <AceEditor
                 name={id}
+                onLoad={(e) => setEditor(e)}
                 mode={language}
                 theme={theme === "light" ? LIGHT_THEME : DARK_THEME}
                 width="inherit"
@@ -88,21 +109,8 @@ export default function CodeTextArea({
                 onChange={(newValue) => setValue(newValue)}
                 placeholder={placeholder}
                 fontSize="1em"
-                commands={
-                  onCtrlEnter
-                    ? [
-                        {
-                          bindKey: {
-                            win: "Ctrl-enter",
-                            mac: "Command-enter",
-                          },
-                          exec: onCtrlEnter,
-                          name: "Run Test Query",
-                        },
-                      ]
-                    : []
-                }
                 {...heightProps}
+                readOnly={fieldProps.disabled}
                 onCursorChange={(e) =>
                   setCursorData &&
                   setCursorData({

@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-snapshot";
+import { DifferenceType } from "back-end/types/stats";
 import { getExposureQuery } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import SelectField from "../Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 
 export interface Props {
   value: string;
@@ -16,6 +17,7 @@ export interface Props {
   newUi?: boolean;
   setVariationFilter?: (variationFilter: number[]) => void;
   setBaselineRow?: (baselineRow: number) => void;
+  setDifferenceType?: (differenceType: DifferenceType) => void;
   setAnalysisSettings?: (
     settings: ExperimentSnapshotAnalysisSettings | null
   ) => void;
@@ -31,9 +33,10 @@ export default function DimensionChooser({
   userIdType,
   labelClassName,
   showHelp,
-  newUi = false,
+  newUi = true,
   setVariationFilter,
   setBaselineRow,
+  setDifferenceType,
   setAnalysisSettings,
   disabled,
 }: Props) {
@@ -120,12 +123,16 @@ export default function DimensionChooser({
             options: filteredDimensions,
           },
         ]}
+        formatGroupLabel={({ label }) => (
+          <div className="pt-2 pb-1 border-bottom">{label}</div>
+        )}
         initialOption="None"
         value={value}
         onChange={(v) => {
           if (v === value) return;
           setAnalysisSettings?.(null);
           setBaselineRow?.(0);
+          setDifferenceType?.("relative");
           setVariationFilter?.([]);
           setValue?.(v);
         }}

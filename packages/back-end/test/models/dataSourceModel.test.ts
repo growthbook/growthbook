@@ -1,3 +1,4 @@
+import { Permissions } from "shared/permissions";
 import {
   updateDataSource,
   validateExposureQueriesAndAddMissingIds,
@@ -9,6 +10,8 @@ import {
 } from "../../types/datasource";
 import { testQueryValidity } from "../../src/services/datasource";
 import { usingFileConfig } from "../../src/init/config";
+import { OrganizationInterface, ReqContext } from "../../types/organization";
+import { roleToPermissionMap } from "../../src/util/organization.util";
 
 jest.mock("../../src/services/datasource");
 jest.mock("../../src/init/config");
@@ -54,6 +57,33 @@ describe("dataSourceModel", () => {
     dateCreated: new Date(),
     dateUpdated: new Date(),
   };
+  const org: OrganizationInterface = {
+    id: "test",
+    name: "Test",
+    url: "",
+    ownerEmail: "",
+    dateCreated: new Date(),
+    members: [],
+    invites: [],
+    settings: {},
+  };
+
+  // We just need a few properties of the context for these tests
+  const partialContext: Pick<ReqContext, "permissions" | "org"> = {
+    org,
+    permissions: new Permissions(
+      {
+        global: {
+          permissions: roleToPermissionMap("admin", org),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      false
+    ),
+  };
+  const context = (partialContext as unknown) as ReqContext;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -96,6 +126,7 @@ describe("dataSourceModel", () => {
         },
       };
       const new_updates = await validateExposureQueriesAndAddMissingIds(
+        context,
         datasource,
         updates
       );
@@ -132,6 +163,7 @@ describe("dataSourceModel", () => {
         },
       };
       const new_updates = await validateExposureQueriesAndAddMissingIds(
+        context,
         datasource,
         updates
       );
@@ -160,6 +192,7 @@ describe("dataSourceModel", () => {
         },
       };
       const new_updates = await validateExposureQueriesAndAddMissingIds(
+        context,
         datasource,
         updates
       );
@@ -188,6 +221,7 @@ describe("dataSourceModel", () => {
         },
       };
       const new_updates = await validateExposureQueriesAndAddMissingIds(
+        context,
         datasource,
         updates
       );
@@ -217,6 +251,7 @@ describe("dataSourceModel", () => {
         },
       };
       const new_updates = await validateExposureQueriesAndAddMissingIds(
+        context,
         datasource,
         updates
       );
@@ -245,6 +280,7 @@ describe("dataSourceModel", () => {
         },
       };
       const new_updates = await validateExposureQueriesAndAddMissingIds(
+        context,
         datasource,
         updates
       );
@@ -273,6 +309,7 @@ describe("dataSourceModel", () => {
         },
       };
       const new_updates = await validateExposureQueriesAndAddMissingIds(
+        context,
         datasource,
         updates,
         true
@@ -293,7 +330,8 @@ describe("dataSourceModel", () => {
         name: "Updated Data Source",
       };
       await expect(
-        updateDataSource(datasource, "test", updates)
+        //TODO: Create a helper function to create a mock datasource if we need to do this again
+        updateDataSource(context, datasource, updates)
       ).rejects.toThrow("Cannot update. Data sources managed by config.yml");
     });
   });

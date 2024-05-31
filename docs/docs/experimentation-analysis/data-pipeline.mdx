@@ -1,0 +1,43 @@
+---
+title: Data Pipeline
+description: Learn about enabling Pipeline Mode and improving query efficiency
+sidebar_label: Data Pipeline
+slug: /app/data-pipeline
+---
+
+# Data Pipeline Mode
+
+:::note
+
+Pipeline mode is only available for Enterprise customers and is currently only available for BigQuery and Snowflake Data Sources.
+
+:::
+
+For experimenters who have multiple metrics per experiment and have large experiment assignment sources, GrowthBook can greatly improve the performance of your queries if you enable **Pipeline Mode**, writing some intermediate tables back to your warehouse with short retention and re-using those across metric analyses in an experiment. This depends a bit on your datasource cost structure, but if you are billed by rows scanned, pipeline mode will almost certainly provide substantial savings.
+
+With **Pipeline Mode** enabled, whenever an experiment analysis is run, GrowthBook dedupes your experiment assignment source, joins any relevant activation or dimension data, and then stores that deduped experiment assignment table for a default 24 hours to be re-used by the individual metric analyses.
+
+The only change from enabling pipeline mode is that we materialize one intermediate table per experiment analysis that will have the number of rows equal to the number of experiment units in that experiment. Enabling pipeline mode has no impact on any of your analysis settings or experiment results and we do not access any more data than if pipeline mode is disabled.
+
+To enable Pipeline Mode, follow the steps for your data warehouse:
+
+### BigQuery
+
+1. (strongly recommended, but optional) Create a dedicated dataset to which GrowthBook will write temporary tables. This will keep your data warehouse clean and ensure that we are only writing to a dedicated space.
+2. Grant permissions to create tables to the role connecting GrowthBook to your warehouse. You can do this by granting your GrowthBook Service Account the `BigQuery Data Editor` role on the new datahouse. You can also give only BigQuery table reading and writing permissions on that dataset if you want to be more restrictive.
+3. Navigate to your BigQuery Data Source in GrowthBook and scroll down to "Data Pipeline Settings"
+4. Click "Edit" and enable pipeline mode, set the destination dataset to your new dedicated GrowthBook dataset from step 1, and set the number of hours you will retain our temporary tables. We recommend at least 6 hours and the default is 24.
+
+### Snowflake
+
+1. (strongly recommended, but optional) Create a dedicated schema to which GrowthBook will write temporary tables. This will keep your data warehouse clean and ensure that we are only writing to a dedicated space.
+2. Grant permissions to create tables to the role connecting GrowthBook to your warehouse. The Snowflake role attached to GrowthBook will need `CREATE TABLE`, `SELECT - FUTURE TABLE`, and `USAGE` on the schema created in step 1.
+3. Navigate to your Snowflake Data Source in GrowthBook and scroll down to "Data Pipeline Settings"
+4. Click "Edit" and enable pipeline mode, set the destination schema to your new dedicated GrowthBook schema from step 1, and set the number of hours you will retain our temporary tables. For Snowflake, we recommend leaving the value at 24 as Snowflake's retention is set in days and we will round up to the nearest day.
+
+### Databricks
+
+1. (strongly recommended, but optional) Create a dedicated schema to which GrowthBook will write temporary tables. This will keep your data warehouse clean and ensure that we are only writing to a dedicated space.
+2. Grant permissions to your user account or service principal that already has read permission in your warehouse. That user/service principle will need to be able to `USE SCHEMA`, `CREATE TABLE`, and to `SELECT` and `EXECUTE` in the schema.
+3. Navigate to your Databricks Data Source in GrowthBook and scroll down to "Data Pipeline Settings"
+4. Click "Edit" and enable pipeline mode, set the destination schema to your new dedicated GrowthBook schema from step 1, and set the number of hours you will retain our temporary tables.

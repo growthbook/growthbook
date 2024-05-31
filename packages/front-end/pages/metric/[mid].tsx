@@ -1,5 +1,12 @@
 import { useRouter } from "next/router";
-import React, { FC, useState, useEffect, Fragment } from "react";
+import React, {
+  FC,
+  useState,
+  useEffect,
+  Fragment,
+  ReactNode,
+  ReactElement,
+} from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
 import {
@@ -14,21 +21,19 @@ import { BsGear } from "react-icons/bs";
 import { IdeaInterface } from "back-end/types/idea";
 import { date } from "shared/dates";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import {
+  DEFAULT_LOSE_RISK_THRESHOLD,
+  DEFAULT_WIN_RISK_THRESHOLD,
+} from "shared/constants";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
-import useSwitchOrg from "@/services/useSwitchOrg";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
-import {
-  formatConversionRate,
-  defaultWinRiskThreshold,
-  defaultLoseRiskThreshold,
-  checkMetricProjectPermissions,
-} from "@/services/metrics";
-import MetricForm from "@/components/Metrics/MetricForm";
+import { getMetricFormatter } from "@/services/metrics";
+import MetricForm, { usesValueColumn } from "@/components/Metrics/MetricForm";
 import Tabs from "@/components/Tabs/Tabs";
 import Tab from "@/components/Tabs/Tab";
 import StatusIndicator from "@/components/Experiment/StatusIndicator";
@@ -44,11 +49,9 @@ import InlineForm from "@/components/Forms/InlineForm";
 import EditableH1 from "@/components/Forms/EditableH1";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Code from "@/components/SyntaxHighlighting/Code";
-import { getDefaultConversionWindowHours, hasFileConfig } from "@/services/env";
 import PickSegmentModal from "@/components/Segments/PickSegmentModal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/components/Button";
-import usePermissions from "@/hooks/usePermissions";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
@@ -62,11 +65,15 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
+import { capitalizeFirstLetter } from "@/services/utils";
+import MetricName from "@/components/Metrics/MetricName";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
 
 const MetricPage: FC = () => {
   const router = useRouter();
   const { mid } = router.query;
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const displayCurrency = useCurrency();
   const { apiCall } = useAuth();
   const {
@@ -107,10 +114,8 @@ const MetricPage: FC = () => {
     experiments: Partial<ExperimentInterfaceStringDates>[];
   }>(`/metric/${mid}`);
 
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  useSwitchOrg(data?.metric?.organization);
-
   const {
+    metricDefaults,
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
@@ -134,22 +139,22 @@ const MetricPage: FC = () => {
 
   const metric = data.metric;
   const canEditMetric =
-    checkMetricProjectPermissions(metric, permissions) && !hasFileConfig();
-  const canEditProjects =
-    permissions.check("createMetrics", "") && !hasFileConfig();
+    permissionsUtil.canUpdateMetric(metric, {}) && !metric.managedBy;
+  const canDeleteMetric =
+    permissionsUtil.canDeleteMetric(metric) && !metric.managedBy;
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
+  const canRunMetricQuery =
+    datasource && permissionsUtil.canRunMetricQueries(datasource);
   const experiments = data.experiments;
 
-  let analysis = data.metric.analysis;
+  let analysis = data.metric.analysis || null;
   if (!analysis || !("average" in analysis)) {
-    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'MetricAnaly... Remove this comment to see the full error message
     analysis = null;
   }
 
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  const segment = getSegmentById(metric.segment);
+  const segment = getSegmentById(metric.segment || "");
 
   const supportsSQL = datasource?.properties?.queryLanguage === "sql";
   const customzeTimestamp = supportsSQL;
@@ -179,7 +184,7 @@ const MetricPage: FC = () => {
   }
 
   const getMetricUsage = (metric: MetricInterface) => {
-    return async () => {
+    return async (): Promise<ReactElement | null> => {
       try {
         const res = await apiCall<{
           status: number;
@@ -189,46 +194,30 @@ const MetricPage: FC = () => {
           method: "GET",
         });
 
-        const experimentLinks = [];
-        const ideaLinks = [];
+        const experimentLinks: (string | ReactNode)[] = [];
+        const ideaLinks: (string | ReactNode)[] = [];
         let subtitleText = "This metric is not referenced anywhere else.";
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-        if (res.ideas?.length > 0 || res.experiments?.length > 0) {
+        if (res.ideas?.length || res.experiments?.length) {
           subtitleText = "This metric is referenced in ";
-          const refs = [];
-          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          if (res.experiments.length) {
+          const refs: (string | ReactNode)[] = [];
+          if (res.experiments && res.experiments.length) {
             refs.push(
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               res.experiments.length === 1
                 ? "1 experiment"
-                : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                  res.experiments.length + " experiments"
+                : res.experiments.length + " experiments"
             );
-            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             res.experiments.forEach((e) => {
               experimentLinks.push(
-                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
-                <Link href={`/experiment/${e.id}`}>
-                  <a>{e.name}</a>
-                </Link>
+                <Link href={`/experiment/${e.id}`}>{e.name}</Link>
               );
             });
           }
-          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          if (res.ideas.length) {
+          if (res.ideas && res.ideas.length) {
             refs.push(
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas"
             );
-            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             res.ideas.forEach((i) => {
-              ideaLinks.push(
-                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
-                <Link href={`/idea/${i.id}`}>
-                  <a>{i.text}</a>
-                </Link>
-              );
+              ideaLinks.push(<Link href={`/idea/${i.id}`}>{i.text}</Link>);
             });
           }
           subtitleText += refs.join(" and ");
@@ -293,6 +282,7 @@ const MetricPage: FC = () => {
           </div>
         );
       }
+      return null;
     };
   };
 
@@ -317,8 +307,7 @@ const MetricPage: FC = () => {
         <EditTagsForm
           cancel={() => setEditTags(false)}
           mutate={mutate}
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string[] | undefined' is not assignable to t... Remove this comment to see the full error message
-          tags={metric.tags}
+          tags={metric.tags || []}
           save={async (tags) => {
             await apiCall(`/metric/${metric.id}`, {
               method: "PUT",
@@ -333,8 +322,7 @@ const MetricPage: FC = () => {
         <EditProjectsForm
           cancel={() => setEditProjects(false)}
           mutate={mutate}
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string[] | undefined' is not assignable to t... Remove this comment to see the full error message
-          projects={metric.projects}
+          projects={metric.projects || []}
           save={async (projects) => {
             await apiCall(`/metric/${metric.id}`, {
               method: "PUT",
@@ -354,8 +342,8 @@ const MetricPage: FC = () => {
               method: "PUT",
               body: JSON.stringify({ owner }),
             });
-            mutate();
           }}
+          mutate={mutate}
         />
       )}
       {segmentOpen && (
@@ -414,16 +402,17 @@ const MetricPage: FC = () => {
       )}
 
       <div className="row align-items-center mb-2">
-        <h1 className="col-auto">{metric.name}</h1>
+        <h1 className="col-auto">
+          <MetricName id={metric.id} />
+        </h1>
         <div style={{ flex: 1 }} />
-        {canEditMetric && (
-          <div className="col-auto">
-            <MoreMenu>
+        <div className="col-auto">
+          <MoreMenu>
+            {canDeleteMetric ? (
               <DeleteButton
                 className="btn dropdown-item py-2"
                 text="Delete"
                 title="Delete this metric"
-                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '() => Promise<JSX.Element | undefined>' is n... Remove this comment to see the full error message
                 getConfirmationContent={getMetricUsage(metric)}
                 onClick={async () => {
                   await apiCall(`/metric/${metric.id}`, {
@@ -435,6 +424,8 @@ const MetricPage: FC = () => {
                 useIcon={true}
                 displayName={"Metric '" + metric.name + "'"}
               />
+            ) : null}
+            {canEditMetric ? (
               <Button
                 className="btn dropdown-item py-2"
                 color=""
@@ -454,23 +445,26 @@ const MetricPage: FC = () => {
                 <FaArchive />{" "}
                 {metric.status === "archived" ? "Unarchive" : "Archive"}
               </Button>
-            </MoreMenu>
-          </div>
-        )}
+            ) : null}
+          </MoreMenu>
+        </div>
       </div>
       <div className="row mb-3 align-items-center">
         <div className="col">
           Projects:{" "}
-          {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-          {metric?.projects?.length > 0 ? (
+          {metric?.projects?.length ? (
             <ProjectBadges
+              resourceType="metric"
               projectIds={metric.projects}
               className="badge-ellipsis align-middle"
             />
           ) : (
-            <ProjectBadges className="badge-ellipsis align-middle" />
+            <ProjectBadges
+              resourceType="metric"
+              className="badge-ellipsis align-middle"
+            />
           )}
-          {canEditProjects && (
+          {canEditMetric && (
             <a
               href="#"
               className="ml-2"
@@ -576,30 +570,23 @@ const MetricPage: FC = () => {
                               ) : (
                                 <span className="mr-1">Apply a segment</span>
                               )}
-                              {canEditMetric &&
-                                permissions.check(
-                                  "runQueries",
-                                  metric.projects || ""
-                                ) && (
-                                  <a
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      setSegmentOpen(true);
-                                    }}
-                                    href="#"
-                                  >
-                                    <BsGear />
-                                  </a>
-                                )}
+                              {canEditMetric && canRunMetricQuery && (
+                                <a
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setSegmentOpen(true);
+                                  }}
+                                  href="#"
+                                >
+                                  <BsGear />
+                                </a>
+                              )}
                             </>
                           )}
                         </div>
                         <div style={{ flex: 1 }} />
                         <div className="col-auto">
-                          {permissions.check(
-                            "runQueries",
-                            metric.projects || ""
-                          ) && (
+                          {canRunMetricQuery && (
                             <form
                               onSubmit={async (e) => {
                                 e.preventDefault();
@@ -684,10 +671,11 @@ const MetricPage: FC = () => {
                           {metric.type !== "binomial" && (
                             <div className="d-flex flex-row align-items-end">
                               <div style={{ fontSize: "2.5em" }}>
-                                {formatConversionRate(
-                                  metric.type,
+                                {getMetricFormatter(metric.type)(
                                   analysis.average,
-                                  displayCurrency
+                                  {
+                                    currency: displayCurrency,
+                                  }
                                 )}
                               </div>
                               <div className="pb-2 ml-1">average</div>
@@ -855,8 +843,10 @@ const MetricPage: FC = () => {
                       {!analysis && (
                         <div>
                           <em>
-                            No data for this metric yet. Click the Run Analysis
-                            button above.
+                            No data for this metric yet.{" "}
+                            {canRunMetricQuery
+                              ? "Click the Run Analysis button above."
+                              : null}
                           </em>
                         </div>
                       )}
@@ -882,26 +872,34 @@ const MetricPage: FC = () => {
               <p>The most recent 10 experiments using this metric.</p>
               <div className="list-group">
                 {experiments.map((e) => (
-                  <Link href={`/experiment/${e.id}`} key={e.id}>
-                    <a className="list-group-item list-group-item-action">
-                      <div className="d-flex">
-                        <strong className="mr-3">{e.name}</strong>
-                        <div style={{ flex: 1 }} />
-                        {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentStatus | undefined' is not assigna... Remove this comment to see the full error message */}
-                        <StatusIndicator archived={false} status={e.status} />
-                        <FaChevronRight
-                          className="ml-3"
-                          style={{ fontSize: "1.5em" }}
-                        />
-                      </div>
-                    </a>
+                  <Link
+                    href={`/experiment/${e.id}`}
+                    key={e.id}
+                    className="list-group-item list-group-item-action"
+                  >
+                    <div className="d-flex">
+                      <strong className="mr-3">{e.name}</strong>
+                      <div style={{ flex: 1 }} />
+                      <StatusIndicator
+                        archived={false}
+                        status={e.status || "stopped"}
+                      />
+                      <FaChevronRight
+                        className="ml-3"
+                        style={{ fontSize: "1.5em" }}
+                      />
+                    </div>
                   </Link>
                 ))}
               </div>
             </Tab>
             <Tab display="Discussion" anchor="discussion" lazy={true}>
               <h3>Comments</h3>
-              <DiscussionThread type="metric" id={data.metric.id} />
+              <DiscussionThread
+                type="metric"
+                id={data.metric.id}
+                projects={metric.projects || []}
+              />
             </Tab>
             <Tab display="History" anchor="history" lazy={true}>
               <HistoryTable type="metric" id={metric.id} />
@@ -969,17 +967,20 @@ const MetricPage: FC = () => {
             <RightRailSection
               title="Projects"
               open={() => setEditProjects(true)}
-              canOpen={canEditProjects}
+              canOpen={canEditMetric}
             >
               <RightRailSectionGroup>
-                {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                {metric?.projects?.length > 0 ? (
+                {metric?.projects?.length ? (
                   <ProjectBadges
+                    resourceType="metric"
                     projectIds={metric.projects}
                     className="badge-ellipsis align-middle"
                   />
                 ) : (
-                  <ProjectBadges className="badge-ellipsis align-middle" />
+                  <ProjectBadges
+                    resourceType="metric"
+                    className="badge-ellipsis align-middle"
+                  />
                 )}
               </RightRailSectionGroup>
             </RightRailSection>
@@ -1012,7 +1013,8 @@ const MetricPage: FC = () => {
                         </RightRailSectionGroup>
                       )}
                       {metric.type != "binomial" &&
-                        metric.templateVariables?.valueColumn && (
+                        metric.templateVariables?.valueColumn &&
+                        usesValueColumn(metric.sql) && (
                           <RightRailSectionGroup
                             title="Value Column"
                             type="custom"
@@ -1054,10 +1056,8 @@ const MetricPage: FC = () => {
                       >
                         {metric.table}
                       </RightRailSectionGroup>
-                      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                      {metric.conditions?.length > 0 && (
+                      {metric.conditions && metric.conditions.length > 0 && (
                         <RightRailSectionGroup title="Conditions" type="list">
-                          {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                           {metric.conditions.map(
                             (c) => `${c.column} ${c.operator} "${c.value}"`
                           )}
@@ -1136,18 +1136,31 @@ const MetricPage: FC = () => {
                       <span className="font-weight-bold">Inverse</span>
                     </li>
                   )}
-                  {metric.capping && metric.capValue && (
-                    <li className="mb-2">
-                      <span className="text-gray">
-                        Cap value ({metric.capping}):{" "}
-                      </span>
-                      <span className="font-weight-bold">
-                        {metric.capValue}{" "}
-                        {metric.capping === "percentile"
-                          ? `(${100 * metric.capValue} pctile)`
-                          : ""}{" "}
-                      </span>
-                    </li>
+                  {metric.cappingSettings.type && metric.cappingSettings.value && (
+                    <>
+                      <li className="mb-2">
+                        <span className="uppercase-title lg">
+                          {capitalizeFirstLetter(metric.cappingSettings.type)}
+                          {" capping"}
+                        </span>
+                      </li>
+                      <li>
+                        <span className="font-weight-bold">
+                          {metric.cappingSettings.value}
+                        </span>{" "}
+                        {metric.cappingSettings.type === "percentile" ? (
+                          <span className="text-gray">{`(${
+                            100 * metric.cappingSettings.value
+                          } pctile${
+                            metric.cappingSettings.ignoreZeros
+                              ? ", ignoring zeros"
+                              : ""
+                          })`}</span>
+                        ) : (
+                          ""
+                        )}{" "}
+                      </li>
+                    </>
                   )}
                   {metric.ignoreNulls && (
                     <li className="mb-2">
@@ -1158,28 +1171,80 @@ const MetricPage: FC = () => {
                 </ul>
               </RightRailSectionGroup>
 
-              {datasource?.properties?.metricCaps && (
-                <RightRailSectionGroup type="custom" empty="">
-                  <ul className="right-rail-subsection list-unstyled mb-4">
-                    <li className="mt-3 mb-1">
-                      <span className="uppercase-title lg">
-                        Conversion Window
-                      </span>
-                    </li>
-                    <li>
-                      <span className="font-weight-bold">
-                        {metric.conversionDelayHours
-                          ? metric.conversionDelayHours + " to "
-                          : ""}
-                        {(metric.conversionDelayHours || 0) +
-                          (metric.conversionWindowHours ||
-                            getDefaultConversionWindowHours())}{" "}
-                        hours
-                      </span>
-                    </li>
-                  </ul>
-                </RightRailSectionGroup>
-              )}
+              <RightRailSectionGroup type="custom" empty="">
+                <ul className="right-rail-subsection list-unstyled mb-4">
+                  <li className="mt-3 mb-1">
+                    <span className="uppercase-title lg">Metric Window</span>
+                  </li>
+                  {metric.windowSettings.type === "conversion" ? (
+                    <>
+                      <li>
+                        <span className="font-weight-bold">
+                          Conversion Window
+                        </span>
+                      </li>
+                      <li>
+                        <span className="text-gray">
+                          {`Require conversions to happen within `}
+                        </span>
+                        <strong>
+                          {metric.windowSettings.windowValue}{" "}
+                          {metric.windowSettings.windowUnit}
+                        </strong>
+                        <span className="text-gray">{` 
+                        of first experiment exposure
+                        ${
+                          metric.windowSettings.delayHours
+                            ? " plus the conversion delay"
+                            : ""
+                        }`}</span>
+                      </li>
+                    </>
+                  ) : metric.windowSettings.type === "lookback" ? (
+                    <>
+                      <li>
+                        <span className="font-weight-bold">
+                          Lookback Window
+                        </span>
+                      </li>
+                      <li>
+                        <span className="text-gray">{`Require metric data to be in latest `}</span>
+                        <strong>
+                          {metric.windowSettings.windowValue}{" "}
+                          {metric.windowSettings.windowUnit}
+                        </strong>
+                        <span className="text-gray"> of the experiment</span>
+                      </li>
+                    </>
+                  ) : (
+                    <>
+                      <li>
+                        <span className="font-weight-bold">Disabled</span>
+                      </li>
+                      <li>
+                        <span className="text-gray">{`Include all metric data after first experiment exposure
+                      ${
+                        metric.windowSettings.delayHours
+                          ? " plus the conversion delay"
+                          : ""
+                      }`}</span>
+                      </li>
+                    </>
+                  )}
+                  {metric.windowSettings.delayHours ? (
+                    <>
+                      <li className="mt-3 mb-1">
+                        <span className="uppercase-title lg">Metric Delay</span>
+                      </li>
+                      <li className="mt-1">
+                        <span className="font-weight-bold">
+                          {metric.windowSettings.delayHours} hours
+                        </span>
+                      </li>
+                    </>
+                  ) : null}
+                </ul>
+              </RightRailSectionGroup>
 
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-4">
@@ -1218,20 +1283,22 @@ const MetricPage: FC = () => {
                   <li className="mb-2">
                     <span className="text-gray">Acceptable risk &lt;</span>{" "}
                     <span className="font-weight-bold">
-                      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                      {metric?.winRisk * 100 || defaultWinRiskThreshold * 100}%
+                      {(metric.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100}%
                     </span>
                   </li>
                   <li className="mb-2">
                     <span className="text-gray">Unacceptable risk &gt;</span>{" "}
                     <span className="font-weight-bold">
-                      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                      {metric?.loseRisk * 100 || defaultLoseRiskThreshold * 100}
-                      %
+                      {(metric.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100}%
                     </span>
                   </li>
                 </ul>
               </RightRailSectionGroup>
+
+              <MetricPriorRightRailSectionGroup
+                metric={metric}
+                metricDefaults={metricDefaults}
+              />
 
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-2">
@@ -1239,9 +1306,6 @@ const MetricPage: FC = () => {
                     <span className="uppercase-title lg">
                       <GBCuped size={14} /> Regression Adjustment (CUPED)
                     </span>
-                    <small className="d-block mb-1 text-muted">
-                      Only applicable to frequentist analyses
-                    </small>
                   </li>
                   {!regressionAdjustmentAvailableForMetric ? (
                     <li className="mb-2">

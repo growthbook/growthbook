@@ -86,9 +86,7 @@ export default function ProjectTagBar({
       <div className="col-auto">
         Tags:{" "}
         {experiment.tags?.length > 0 ? (
-          <span className="d-inline-block" style={{ maxWidth: 250 }}>
-            <SortedTags tags={experiment.tags} skipFirstMargin={true} />
-          </span>
+          <SortedTags tags={experiment.tags} skipFirstMargin={true} />
         ) : (
           <em className="text-muted">None</em>
         )}{" "}
@@ -117,20 +115,19 @@ export default function ProjectTagBar({
       {idea && (
         <div className="col-auto">
           Idea:{" "}
-          <Link href={`/idea/${idea.id}`}>
-            <a
-              style={{
-                maxWidth: 160,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                display: "inline-block",
-                whiteSpace: "nowrap",
-                verticalAlign: "middle",
-              }}
-              title={idea.text}
-            >
-              <FaExternalLinkAlt /> {idea.text}
-            </a>
+          <Link
+            href={`/idea/${idea.id}`}
+            style={{
+              maxWidth: 160,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              display: "inline-block",
+              whiteSpace: "nowrap",
+              verticalAlign: "middle",
+            }}
+            title={idea.text}
+          >
+            <FaExternalLinkAlt /> {idea.text}
           </Link>
         </div>
       )}

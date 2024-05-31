@@ -1,44 +1,54 @@
 PaginationFields:
-  $ref: './PaginationFields.yaml'
+  $ref: "./PaginationFields.yaml"
 Dimension:
-  $ref: './Dimension.yaml'
+  $ref: "./Dimension.yaml"
 Metric:
-  $ref: './Metric.yaml'
+  $ref: "./Metric.yaml"
 Project:
-  $ref: './Project.yaml'
+  $ref: "./Project.yaml"
+Environment:
+  $ref: "./Environment.yaml"
 Segment:
-  $ref: './Segment.yaml'
+  $ref: "./Segment.yaml"
 Feature:
-  $ref: './Feature.yaml'
+  $ref: "./Feature.yaml"
 FeatureEnvironment:
-  $ref: './FeatureEnvironment.yaml'
+  $ref: "./FeatureEnvironment.yaml"
 FeatureRule:
-  $ref: './FeatureRule.yaml'
+  $ref: "./FeatureRule.yaml"
 FeatureDefinition:
-  $ref: './FeatureDefinition.yaml'
+  $ref: "./FeatureDefinition.yaml"
 FeatureForceRule:
-  $ref: './FeatureForceRule.yaml'
+  $ref: "./FeatureForceRule.yaml"
 FeatureRolloutRule:
-  $ref: './FeatureRolloutRule.yaml'
+  $ref: "./FeatureRolloutRule.yaml"
 FeatureExperimentRule:
-  $ref: './FeatureExperimentRule.yaml'
+  $ref: "./FeatureExperimentRule.yaml"
 FeatureExperimentRefRule:
-  $ref: './FeatureExperimentRefRule.yaml'
+  $ref: "./FeatureExperimentRefRule.yaml"
 SdkConnection:
-  $ref: './SdkConnection.yaml'
+  $ref: "./SdkConnection.yaml"
 Experiment:
-  $ref: './Experiment.yaml'
+  $ref: "./Experiment.yaml"
 ExperimentMetric:
-  $ref: './ExperimentMetric.yaml'
+  $ref: "./ExperimentMetric.yaml"
 ExperimentAnalysisSettings:
-  $ref: './ExperimentAnalysisSettings.yaml'
+  $ref: "./ExperimentAnalysisSettings.yaml"
 ExperimentResults:
-  $ref: './ExperimentResults.yaml'
+  $ref: "./ExperimentResults.yaml"
 DataSource:
-  $ref: './DataSource.yaml'
+  $ref: "./DataSource.yaml"
 VisualChangeset:
-  $ref: './VisualChangeset.yaml'
+  $ref: "./VisualChangeset.yaml"
 VisualChange:
-  $ref: './VisualChange.yaml'
+  $ref: "./VisualChange.yaml"
 SavedGroup:
-  $ref: './SavedGroup.yaml'
+  $ref: "./SavedGroup.yaml"
+Organization:
+  $ref: "./Organization.yaml"
+FactTable:
+  $ref: "./FactTable.yaml"
+FactTableFilter:
+  $ref: "./FactTableFilter.yaml"
+FactMetric:
+  $ref: "./FactMetric.yaml"

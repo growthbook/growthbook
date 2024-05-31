@@ -1,5 +1,96 @@
 # Changelog
 
+## **1.0.0** - May 1, 2024
+
+- New `init` and `initSync` functions as a replacement for `loadFeatures`.
+- Support payload import/export via `init({ payload })`, `setPayload`, `getPayload`, and `getDecryptedPayload`. Makes it easier to share data between front-end, back-end, and other services.
+- Ability to block or control experiments by various context properties
+  - `blockedChangeIds` targets individual experiments
+  - `disableVisualExperiments` prevents visual experiments from running
+  - `disableJsInjection` blocks any visual experiments which write <script\> code
+  - `disableUrlRedirectExperiments` prevents redirect experiments from running
+  - `disableCrossOriginUrlRedirectExperiments` blocks redirects if the origin changes
+  - `disableExperimentsOnLoad` prevents AutoExperiments from running automatically; `triggerAutoExperiments` manually triggers them.
+- Provide a custom DOM mutation method by setting context `applyDomChangesCallback`. Useful for server-side rendering visual experiments.
+- Fix bug when passing in `stickyBucketAssignmentDocs` to the GrowthBook constructor
+- New `jsInjectionNonce` setting to add a nonce onto any injected <script\> tags. This provides a safer alternative to allowing `unsafe-inline` in your Content Security Policy.
+- Get a list of triggered experiments by their `changeId` (a new, more-specific AutoExperiment identifier) via `getCompletedChangeIds`.
+- Disable in-memory cache via `configureCache({ disableCache: true })` or the new GrowthBook constructor option `disableCache`.
+- Easier streaming customization via `init({ streaming: true })`.
+- Prefetch payloads (and optionally begin streaming) before you create a GrowthBook instance with `prefetchPayload()`.
+- New `debug` setting to turn on debug logging
+- Changed the behavior of the `enableDevMode` option. Previously, setting this to true also disabled the SDK cache by default. Now, it does not and you must specify the additional setting `disableCache: true` to keep the same behavior as before.
+- Network requests are no longer started when creating a GrowthBook instance. It now waits until `loadFeatures` (or the new `init`) is called.
+- Many improvements to `auto.min.js` script
+  - Payload hydration via `payload` context property
+  - Support sticky bucketing via `useStickyBucketService` context property (accepts "cookie" and "localStorage"); override cookie or localStorage key via `stickyBucketPrefix` context property.
+  - Hydrate sticky bucket docs by setting context `stickyBucketAssignmentDocs` (useful for SSR hydration without reliance on cookies)
+  - Customize attributes/cookies via `uuidCookieName` (default "gbuuid") and `uuidKey` (default "id").
+  - Force a uuid cookie write on load via `persistUuidOnLoad` (useful for SSR hydration)
+
+## **0.36.0** - Mar 21, 2024
+
+- Support for URL Redirect tests. New context options `navigate` (default `(url) => window.location.replace(url)`) and `navigateDelay` (default 100ms) for browsers. Plus, new method `getRedirectUrl()` for back-end/edge implementations.
+- Built-in anti-flicker snippet. Set context option `antiFlicker` to true to enable (defualt false). Control timeout with option `antiFlickerTimeout` (default 3500ms)
+- New methods to deal with deferred tracking calls and server/client hydration
+  - `setTrackingCallback` - Set or update the trackingCallback after initialization. Until a trackingCallback is set, all calls will be queued up.
+  - `getDeferredTrackingCalls` - Get all queued tracking calls (in JSON format)
+  - `setDeferredTrackingCalls` - Hydrate the GrowthBook instance with queued tracking calls (in JSON format). Does not fire these calls immediately.
+  - `fireDeferredTrackingCalls` - Manually fire all queued tracking calls.
+- Various improvements to `auto.min.js` script
+  - New `uuid` context property to use your own user id instead of the auto-generated one.
+  - New `data-no-auto-cookies` script attribute and `growthbookpersist` event listener to more easily work with cookie consent banners
+  - New `growthbookdata` DOM event to attach multiple renderers to a single GrowthBook instance
+- Fix bug with prerequisite feature checks failing on initial page load when used with visual editor experiments
+
+## **0.35.0** - Mar 8, 2024
+
+- New `updateAttributes` method to make partial updates
+- Fix missing `await` in RedisStickyBucketService
+- New `context.renderer` option
+- Various improvements to `auto.min.js` script
+  - New `window.growthbook_queue` to make it easier to work with an async script tag
+  - New `pageTitle` auto attribute
+  - Fixed bugs with built-in GA4 and GTM tracking calls
+  - New `growthbookrefresh` DOM event you can trigger to for re-evaluation of auto attributes
+
+## **0.34.0** - Feb 20, 2024
+
+- Prerequisite feature support for feature rules and experiments
+- Fix bug feature repository would cache non-2xx responses when fetching features
+
+## **0.33.0** - Jan 31, 2024
+
+- Add new `maxAge` cache setting that limits how old cached features can be before we force a re-fetch from the server. Defaults to 24 hours.
+- Fix broken visual editor preview links for multi-page experiments
+
+## **0.32.0** - Jan 11, 2024
+
+- Fix bug when visual editor loaded before `document.body` was available
+- Sticky Bucketing support with built-in implementations for persisting in localStorage, cookies (both browser and Node.js), and Redis. Off by default, an implementation must be passed into the GrowthBook constructor to enable.
+- The following methods are now async and return a Promise: `setAttributes`, `setAttributeOverrides`, `setForcedVariations`, `setURL`. No code changes are required since these all returned `void` prior to this.
+
+## **0.31.0** - Nov 14, 2023
+
+- Fix bug with multi-page visual editor experiments
+- Add additional unit tests for comparison operators
+- Fix auto-generated types when using JSON feature flags
+
+## **0.30.0** - Oct 18, 2023
+
+- Pause and resume streaming connections when the browser tab is hidden or visible. Can be disabled by setting `disableIdleStreams: false` via `configureCache()`. A 20sec idle timeout is used by default before pausing the connection; this can be configured by setting `idleStreamInterval` via `configureCache()`.
+- Fix bug with `$exists` operator and undefined values
+- Improvements and bug fixes when moving elements via the visual editor
+- New `auto.js` pre-bundled script for simpler SDK integration on no/low code platforms
+
+## **0.29.0** - Oct 4, 2023
+
+- Add optional `remoteEval` mode for client-side applications (plus `cacheKeyAttributes` option to control when to re-fetch from the server)
+- New options to better control network requests (useful for corporate proxies): `apiHostRequestHeaders`, `streamingHost`, and `streamingHostRequestHeaders`
+- New public methods `getForcedVariations` and `getForcedFeatures` to see what's currently being overridden by DevTools, etc.
+- Fix bug when using the GrowthBook DevTools Extension with Visual Editor experiments
+- New `maxEntries` cache setting to enable garbage collection on the localStorage cache
+
 ## **0.28.0** - Aug 29, 2023
 
 - Fix bug with streaming SSE connections only working on initial page load

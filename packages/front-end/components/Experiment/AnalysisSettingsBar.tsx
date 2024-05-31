@@ -3,45 +3,35 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
-import clsx from "clsx";
 import React, { useState } from "react";
-import {
-  ExperimentReportVariation,
-  MetricRegressionAdjustmentStatus,
-} from "back-end/types/report";
-import { StatsEngine } from "back-end/types/stats";
-import {
-  FaExclamationCircle,
-  FaExclamationTriangle,
-  FaInfoCircle,
-} from "react-icons/fa";
+import { ExperimentReportVariation } from "back-end/types/report";
+import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import { FaExclamationCircle } from "react-icons/fa";
 import { OrganizationSettings } from "back-end/types/organization";
-import { ago, datetime, getValidDate } from "shared/dates";
+import { getValidDate } from "shared/dates";
 import {
+  DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getSnapshotAnalysis } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import usePermissions from "@/hooks/usePermissions";
 import Toggle from "@/components/Forms/Toggle";
 import { GBCuped } from "@/components/Icons";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { trackSnapshot } from "@/services/track";
 import VariationChooser from "@/components/Experiment/VariationChooser";
 import BaselineChooser from "@/components/Experiment/BaselineChooser";
-import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
-import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
-import DimensionChooser from "../Dimensions/DimensionChooser";
+import DimensionChooser from "@/components/Dimensions/DimensionChooser";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import AnalysisForm from "./AnalysisForm";
-import RefreshSnapshotButton from "./RefreshSnapshotButton";
 import ResultMoreMenu from "./ResultMoreMenu";
 import PhaseSelector from "./PhaseSelector";
 import { useSnapshot } from "./SnapshotProvider";
+import DifferenceTypeChooser from "./DifferenceTypeChooser";
 
 export default function AnalysisSettingsBar({
   mutateExperiment,
@@ -50,18 +40,17 @@ export default function AnalysisSettingsBar({
   editPhases,
   variations,
   alwaysShowPhaseSelector = false,
-  statsEngine,
   regressionAdjustmentAvailable,
   regressionAdjustmentEnabled,
   regressionAdjustmentHasValidMetrics,
-  metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
-  newUi = false,
   showMoreMenu = true,
   variationFilter,
   setVariationFilter,
   baselineRow,
   setBaselineRow,
+  differenceType,
+  setDifferenceType,
 }: {
   mutateExperiment: () => void;
   setAnalysisSettings: (
@@ -71,23 +60,21 @@ export default function AnalysisSettingsBar({
   editPhases?: () => void;
   variations: ExperimentReportVariation[];
   alwaysShowPhaseSelector?: boolean;
-  statsEngine: StatsEngine;
   regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
   regressionAdjustmentHasValidMetrics?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
-  onRegressionAdjustmentChange?: (enabled: boolean) => void;
-  newUi?: boolean;
+  onRegressionAdjustmentChange?: (enabled: boolean) => Promise<void>;
   showMoreMenu?: boolean;
   variationFilter?: number[];
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
+  differenceType?: DifferenceType;
+  setDifferenceType?: (differenceType: DifferenceType) => void;
 }) {
   const {
     experiment,
     snapshot,
-    latest,
     analysis,
     dimension,
     mutateSnapshot: mutate,
@@ -96,7 +83,6 @@ export default function AnalysisSettingsBar({
     loading,
   } = useSnapshot();
   const { getDatasourceById } = useDefinitions();
-  const orgSettings = useOrgSettings();
   const datasource = experiment
     ? getDatasourceById(experiment.datasource)
     : null;
@@ -105,28 +91,18 @@ export default function AnalysisSettingsBar({
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
   );
-  const hasSequentialFeature = hasCommercialFeature("sequential-testing");
 
-  const { outdated, reasons } = isOutdated(
-    experiment,
-    snapshot,
-    orgSettings,
-    statsEngine,
-    hasRegressionAdjustmentFeature,
-    hasSequentialFeature,
-    phase
-  );
+  const permissionsUtil = usePermissionsUtil();
+  const canEditAnalysisSettings =
+    experiment && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const [modalOpen, setModalOpen] = useState(false);
 
-  const permissions = usePermissions();
-
   const { apiCall } = useAuth();
 
-  const { status } = getQueryStatus(latest?.queries || [], latest?.error);
-
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
-  const [refreshError, setRefreshError] = useState("");
+
+  const manualSnapshot = !datasource;
 
   return (
     <div>
@@ -141,30 +117,9 @@ export default function AnalysisSettingsBar({
 
       {experiment && (
         <div className="row align-items-center p-3 analysis-settings-bar">
-          {!newUi &&
-            experiment.phases &&
-            (alwaysShowPhaseSelector || experiment.phases.length > 1) && (
-              <div className="col-auto form-inline">
-                <PhaseSelector
-                  mutateExperiment={mutateExperiment}
-                  editPhases={editPhases}
-                  newUi={newUi}
-                />
-              </div>
-            )}
-          {newUi && setVariationFilter && setBaselineRow ? (
+          {setVariationFilter && setBaselineRow ? (
             <>
               <div className="col-auto form-inline pr-5">
-                <VariationChooser
-                  variations={experiment.variations}
-                  variationFilter={variationFilter ?? []}
-                  setVariationFilter={setVariationFilter}
-                  baselineRow={baselineRow ?? 0}
-                  dropdownEnabled={snapshot?.dimension !== "pre:date"}
-                />
-                <em className="text-muted mx-3" style={{ marginTop: 15 }}>
-                  vs
-                </em>
                 <BaselineChooser
                   variations={experiment.variations}
                   setVariationFilter={setVariationFilter}
@@ -175,8 +130,20 @@ export default function AnalysisSettingsBar({
                   setAnalysisSettings={setAnalysisSettings}
                   loading={!!loading}
                   mutate={mutate}
-                  dropdownEnabled={snapshot?.dimension !== "pre:date"}
+                  dropdownEnabled={
+                    !manualSnapshot && snapshot?.dimension !== "pre:date"
+                  }
                   dimension={dimension}
+                />
+                <em className="text-muted mx-3" style={{ marginTop: 15 }}>
+                  vs
+                </em>
+                <VariationChooser
+                  variations={experiment.variations}
+                  variationFilter={variationFilter ?? []}
+                  setVariationFilter={setVariationFilter}
+                  baselineRow={baselineRow ?? 0}
+                  dropdownEnabled={snapshot?.dimension !== "pre:date"}
                 />
               </div>
             </>
@@ -192,18 +159,30 @@ export default function AnalysisSettingsBar({
               labelClassName="mr-2"
               setVariationFilter={setVariationFilter}
               setBaselineRow={setBaselineRow}
-              newUi={newUi}
+              setDifferenceType={setDifferenceType}
               setAnalysisSettings={setAnalysisSettings}
             />
           </div>
-          {newUi &&
-            experiment.phases &&
+          {!manualSnapshot && setDifferenceType ? (
+            <div className="col-auto form-inline pr-5">
+              <DifferenceTypeChooser
+                differenceType={differenceType ?? "relative"}
+                setDifferenceType={setDifferenceType}
+                snapshot={snapshot}
+                analysis={analysis}
+                setAnalysisSettings={setAnalysisSettings}
+                loading={!!loading}
+                mutate={mutate}
+                phase={phase}
+              />
+            </div>
+          ) : null}
+          {experiment.phases &&
             (alwaysShowPhaseSelector || experiment.phases.length > 1) && (
               <div className="col-auto form-inline">
                 <PhaseSelector
                   mutateExperiment={mutateExperiment}
                   editPhases={editPhases}
-                  newUi={newUi}
                 />
               </div>
             )}
@@ -234,12 +213,17 @@ export default function AnalysisSettingsBar({
                         onRegressionAdjustmentChange &&
                         hasRegressionAdjustmentFeature
                       ) {
-                        onRegressionAdjustmentChange(value);
+                        onRegressionAdjustmentChange(value).catch((e) => {
+                          console.error(e);
+                        });
                       }
                     }}
                     className={`teal m-0`}
                     style={{ transform: "scale(0.8)" }}
-                    disabled={!hasRegressionAdjustmentFeature}
+                    disabled={
+                      !hasRegressionAdjustmentFeature ||
+                      !canEditAnalysisSettings
+                    }
                   />
                   {!regressionAdjustmentHasValidMetrics && (
                     <Tooltip
@@ -269,153 +253,11 @@ export default function AnalysisSettingsBar({
               </PremiumTooltip>
             )}
           </div>
-          {!newUi && (
-            <div className="col-auto">
-              {hasData &&
-                (outdated && status !== "running" ? (
-                  <Tooltip
-                    body={
-                      reasons.length === 1 ? (
-                        reasons[0]
-                      ) : reasons.length > 0 ? (
-                        <ul className="ml-0 pl-3 mb-0">
-                          {reasons.map((reason, i) => (
-                            <li key={i}>{reason}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        ""
-                      )
-                    }
-                  >
-                    <div
-                      className="badge badge-warning d-block py-1"
-                      style={{ width: 100, marginBottom: 3 }}
-                    >
-                      Out of Date <FaInfoCircle />
-                    </div>
-                  </Tooltip>
-                ) : (
-                  <div
-                    className="text-muted"
-                    style={{ maxWidth: 130, fontSize: "0.8em" }}
-                  >
-                    <div
-                      className="font-weight-bold"
-                      style={{ lineHeight: 1.2 }}
-                    >
-                      last updated
-                      {status === "partially-succeeded" && (
-                        <Tooltip
-                          body={
-                            <span style={{ lineHeight: 1.5 }}>
-                              Some of the queries had an error. The partial
-                              results are displayed below.
-                            </span>
-                          }
-                        >
-                          <FaExclamationTriangle
-                            size={14}
-                            className="text-danger ml-1"
-                            style={{ marginTop: -4 }}
-                          />
-                        </Tooltip>
-                      )}
-                    </div>
-                    <div className="d-flex align-items-center">
-                      <div
-                        style={{ lineHeight: 1 }}
-                        title={datetime(snapshot?.dateCreated ?? "")}
-                      >
-                        {ago(snapshot?.dateCreated ?? "")}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          )}
-          {!newUi &&
-            permissions.check("runQueries", experiment.project || "") &&
-            experiment.metrics.length > 0 && (
-              <div className="col-auto">
-                {experiment.datasource &&
-                latest &&
-                latest.queries?.length > 0 ? (
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      apiCall<{ snapshot: ExperimentSnapshotInterface }>(
-                        `/experiment/${experiment.id}/snapshot`,
-                        {
-                          method: "POST",
-                          body: JSON.stringify({
-                            phase,
-                            dimension,
-                            statsEngine,
-                            regressionAdjustmentEnabled,
-                            metricRegressionAdjustmentStatuses,
-                          }),
-                        }
-                      )
-                        .then((res) => {
-                          trackSnapshot(
-                            "create",
-                            "RunQueriesButton",
-                            datasource?.type || null,
-                            res.snapshot
-                          );
-
-                          setAnalysisSettings(null);
-                          mutate();
-                          setRefreshError("");
-                        })
-                        .catch((e) => {
-                          setRefreshError(e.message);
-                        });
-                    }}
-                  >
-                    <RunQueriesButton
-                      cta="Update Data"
-                      cancelEndpoint={`/snapshot/${latest.id}/cancel`}
-                      mutate={mutate}
-                      model={latest}
-                      icon="refresh"
-                      color="outline-primary"
-                      onSubmit={() => {
-                        // todo: remove baseline resetter (here and below) once refactored.
-                        if (baselineRow !== 0) {
-                          setBaselineRow?.(0);
-                          setVariationFilter?.([]);
-                        }
-                      }}
-                    />
-                  </form>
-                ) : (
-                  <RefreshSnapshotButton
-                    mutate={mutate}
-                    phase={phase}
-                    experiment={experiment}
-                    lastAnalysis={analysis}
-                    dimension={dimension}
-                    statsEngine={statsEngine}
-                    regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-                    metricRegressionAdjustmentStatuses={
-                      metricRegressionAdjustmentStatuses
-                    }
-                    onSubmit={() => {
-                      if (baselineRow !== 0) {
-                        setBaselineRow?.(0);
-                        setVariationFilter?.([]);
-                      }
-                    }}
-                  />
-                )}
-              </div>
-            )}
           {showMoreMenu && (
             <div className="col-auto">
               <ResultMoreMenu
                 id={snapshot?.id || ""}
+                datasource={datasource}
                 forceRefresh={async () => {
                   await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
                     `/experiment/${experiment.id}/snapshot?force=true`,
@@ -424,9 +266,6 @@ export default function AnalysisSettingsBar({
                       body: JSON.stringify({
                         phase,
                         dimension,
-                        statsEngine,
-                        regressionAdjustmentEnabled,
-                        metricRegressionAdjustmentStatuses,
                       }),
                     }
                   )
@@ -443,7 +282,6 @@ export default function AnalysisSettingsBar({
                       console.error(e);
                     });
                 }}
-                configure={() => setModalOpen(true)}
                 editMetrics={editMetrics}
                 notebookUrl={`/experiments/notebook/${snapshot?.id}`}
                 notebookFilename={experiment.trackingKey}
@@ -452,7 +290,10 @@ export default function AnalysisSettingsBar({
                 queryError={snapshot?.error}
                 supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
                 hasData={hasData}
-                metrics={experiment.metrics}
+                metrics={[
+                  ...experiment.metrics,
+                  ...(experiment.guardrails || []),
+                ]}
                 results={analysis?.results}
                 variations={variations}
                 trackingKey={experiment.trackingKey}
@@ -463,52 +304,13 @@ export default function AnalysisSettingsBar({
           )}
         </div>
       )}
-      {!newUi &&
-        permissions.check("runQueries", experiment?.project || "") &&
-        datasource && (
-          <div className="px-3">
-            {refreshError && (
-              <div className="alert alert-danger">
-                <strong>Error updating data: </strong> {refreshError}
-              </div>
-            )}
-            {latest &&
-              (status === "running" ||
-                status === "failed" ||
-                status === "partially-succeeded") && (
-                <div className="row">
-                  <div className="flex-1" />
-                  <div className="col-auto pb-1">
-                    <ViewAsyncQueriesButton
-                      queries={latest.queries.map((q) => q.query)}
-                      error={latest.error}
-                      color={clsx(
-                        {
-                          danger:
-                            status === "failed" ||
-                            status === "partially-succeeded",
-                          info: status === "running",
-                        },
-                        " "
-                      )}
-                      display={
-                        status === "failed" || status === "partially-succeeded"
-                          ? "View Update Errors"
-                          : "View Running Queries"
-                      }
-                    />
-                  </div>
-                </div>
-              )}
-          </div>
-        )}
     </div>
   );
 }
 
 function isDifferent(
-  val1?: string | boolean | null,
-  val2?: string | boolean | null
+  val1?: string | boolean | number | null,
+  val2?: string | boolean | number | null
 ) {
   if (!val1 && !val2) return false;
   return val1 !== val2;
@@ -521,6 +323,14 @@ function isDifferentStringArray(
   if (!val1 || !val2) return true;
   if (val1.length !== val2.length) return true;
   return val1.some((v) => !val2.includes(v));
+}
+function isStringArrayMissingElements(
+  strings: string[] = [],
+  elements: string[] = []
+) {
+  if (!elements.length) return false;
+  if (elements.length > strings.length) return true;
+  return elements.some((v) => !strings.includes(v));
 }
 function isDifferentDate(val1: Date, val2: Date, threshold: number = 86400000) {
   // 86400000 = 1 day
@@ -584,9 +394,9 @@ export function isOutdated(
     reasons.push("Attribution model changed");
   }
   if (
-    isDifferentStringArray(
-      [...experiment.metrics, ...(experiment?.guardrails || [])],
-      [...snapshotSettings.goalMetrics, ...snapshotSettings.guardrailMetrics]
+    isStringArrayMissingElements(
+      [...snapshotSettings.goalMetrics, ...snapshotSettings.guardrailMetrics],
+      [...experiment.metrics, ...(experiment?.guardrails || [])]
     )
   ) {
     reasons.push("Metrics changed");
@@ -611,17 +421,23 @@ export function isOutdated(
   ) {
     reasons.push("Analysis dates changed");
   }
+  if (
+    isDifferent(
+      analysisSettings.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD,
+      orgSettings.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD
+    )
+  ) {
+    reasons.push("P-value threshold changed");
+  }
 
-  const experimentRegressionAdjustmentEnabled =
-    statsEngine !== "frequentist" || !hasRegressionAdjustmentFeature
-      ? false
-      : !!experiment.regressionAdjustmentEnabled;
+  const experimentRegressionAdjustmentEnabled = !hasRegressionAdjustmentFeature
+    ? false
+    : !!experiment.regressionAdjustmentEnabled;
   if (
     isDifferent(
       experimentRegressionAdjustmentEnabled,
       !!analysisSettings?.regressionAdjusted
-    ) &&
-    statsEngine === "frequentist"
+    )
   ) {
     reasons.push("CUPED settings changed");
   }

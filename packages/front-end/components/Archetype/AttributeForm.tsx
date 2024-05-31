@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { SDKAttribute } from "back-end/types/organization";
+import { SDKAttribute, SDKAttributeSchema } from "back-end/types/organization";
 import { useForm } from "react-hook-form";
 import { ArchetypeAttributeValues } from "back-end/types/archetype";
 import { useAttributeSchema } from "@/services/features";
@@ -7,7 +7,8 @@ import Field from "@/components/Forms/Field";
 import TabButton from "@/components/Tabs/TabButton";
 import TabButtons from "@/components/Tabs/TabButtons";
 import SelectField from "@/components/Forms/SelectField";
-import Toggle from "../Forms/Toggle";
+import Toggle from "@/components/Forms/Toggle";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import styles from "./AttributeForm.module.scss";
 
 export interface Props {
@@ -32,7 +33,7 @@ export default function AttributeForm({
 
   const attributeSchema = useAttributeSchema(true);
 
-  const orderedAttributes = useMemo(
+  const orderedAttributes = useMemo<SDKAttributeSchema>(
     () => [
       ...attributeSchema.filter((o) => !o.archived),
       ...attributeSchema.filter((o) => o.archived),
@@ -114,6 +115,24 @@ export default function AttributeForm({
                   })) ?? []
                 }
                 className=""
+              />
+            ) : attribute.datatype === "string[]" ? (
+              <MultiSelectField
+                options={
+                  (attribute.enum
+                    ? attribute.enum
+                        .split(",")
+                        .map((v) => ({ value: v.trim(), label: v.trim() }))
+                    : attributeForm
+                        .watch(attribute.property)
+                        ?.map((v: string) => ({ value: v, label: v }))) || []
+                }
+                value={attributeForm.watch(attribute.property) || []}
+                onChange={(value) => {
+                  attributeForm.setValue(attribute.property, value);
+                  updateFormValues();
+                }}
+                creatable={!attribute.enum}
               />
             ) : (
               <Field

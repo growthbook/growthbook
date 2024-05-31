@@ -4,14 +4,19 @@ import {
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
+import { validateAndFixCondition } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
 import { getEqualWeights } from "@/services/utils";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
-import FeatureVariationsInput from "../Features/FeatureVariationsInput";
-import ConditionInput from "../Features/ConditionInput";
-import NamespaceSelector from "../Features/NamespaceSelector";
+import { useIncrementer } from "@/hooks/useIncrementer";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
+import ConditionInput from "@/components/Features/ConditionInput";
+import NamespaceSelector from "@/components/Features/NamespaceSelector";
+import SavedGroupTargetingField, {
+  validateSavedGroupTargeting,
+} from "@/components/Features/SavedGroupTargetingField";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -35,6 +40,7 @@ const NewPhaseForm: FC<{
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
       condition: prevPhase.condition || "",
+      savedGroups: prevPhase.savedGroups || [],
       seed: prevPhase.seed || "",
       namespace: {
         enabled: prevPhase.namespace?.enabled || false,
@@ -55,8 +61,17 @@ const NewPhaseForm: FC<{
   );
   const isValid = totalWeights > 0.99 && totalWeights < 1.01;
 
+  const [conditionKey, forceConditionRender] = useIncrementer();
+
   const submit = form.handleSubmit(async (value) => {
     if (!isValid) throw new Error("Variation weights must sum to 1");
+
+    validateSavedGroupTargeting(value.savedGroups);
+
+    validateAndFixCondition(value.condition, (condition) => {
+      form.setValue("condition", condition);
+      forceConditionRender();
+    });
 
     await apiCall<{ status: number; message?: string }>(
       `/experiment/${experiment.id}/phase`,
@@ -113,9 +128,18 @@ const NewPhaseForm: FC<{
       )}
 
       {hasLinkedChanges && (
+        <SavedGroupTargetingField
+          value={form.watch("savedGroups") || []}
+          setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
+        />
+      )}
+
+      {hasLinkedChanges && (
         <ConditionInput
           defaultValue={form.watch("condition")}
           onChange={(condition) => form.setValue("condition", condition)}
+          key={conditionKey}
+          project={experiment.project || ""}
         />
       )}
 

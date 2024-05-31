@@ -1,13 +1,12 @@
-import { ClickHouse as ClickHouseClient } from "clickhouse";
+import { createClient, ResponseJSON } from "@clickhouse/client";
 import { decryptDataSourceParams } from "../services/datasource";
 import { ClickHouseConnectionParams } from "../../types/integrations/clickhouse";
 import { QueryResponse } from "../types/Integration";
+import { getHost } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class ClickHouse extends SqlIntegration {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  params: ClickHouseConnectionParams;
+  params!: ClickHouseConnectionParams;
   requiresDatabase = false;
   requiresSchema = false;
   setParams(encryptedParams: string) {
@@ -27,35 +26,41 @@ export default class ClickHouse extends SqlIntegration {
   getSensitiveParamKeys(): string[] {
     return ["password"];
   }
+
   async runQuery(sql: string): Promise<QueryResponse> {
-    const client = new ClickHouseClient({
-      url: this.params.url,
-      port: this.params.port,
-      basicAuth: this.params.username
-        ? {
-            username: this.params.username,
-            password: this.params.password,
-          }
-        : null,
-      format: "json",
-      debug: false,
-      raw: false,
-      config: {
-        database: this.params.database,
-      },
-      reqParams: {
-        headers: {
-          "x-clickhouse-format": "JSON",
-        },
+    const client = createClient({
+      host: getHost(this.params.url, this.params.port),
+      username: this.params.username,
+      password: this.params.password,
+      database: this.params.database,
+      application: "GrowthBook",
+      request_timeout: 3620_000,
+      clickhouse_settings: {
+        max_execution_time: Math.min(
+          this.params.maxExecutionTime ?? 1800,
+          3600
+        ),
       },
     });
-    return { rows: Array.from(await client.query(sql).toPromise()) };
+    const results = await client.query({ query: sql, format: "JSON" });
+    // eslint-disable-next-line
+    const data: ResponseJSON<Record<string, any>[]> = await results.json();
+    return {
+      rows: data.data ? data.data : [],
+      statistics: data.statistics
+        ? {
+            executionDurationMs: data.statistics.elapsed,
+            rowsProcessed: data.statistics.rows_read,
+            bytesProcessed: data.statistics.bytes_read,
+          }
+        : undefined,
+    };
   }
   toTimestamp(date: Date) {
     return `toDateTime('${date
       .toISOString()
       .substr(0, 19)
-      .replace("T", " ")}')`;
+      .replace("T", " ")}', 'UTC')`;
   }
   addTime(
     col: string,
@@ -86,16 +91,9 @@ export default class ClickHouse extends SqlIntegration {
   ensureFloat(col: string): string {
     return `toFloat64(${col})`;
   }
-  percentileCapSelectClause(
-    capPercentile: number,
-    metricTable: string
-  ): string {
-    const seed = 1234;
-    return `
-      SELECT quantileDeterministic(${capPercentile})(value, ${seed}) AS cap_value
-      FROM ${metricTable}
-      WHERE value IS NOT NULL
-    `;
+  approxQuantile(value: string, quantile: string | number): string {
+    return `quantile(${quantile})(${value})`;
+    // TODO explore gains to using `quantiles`
   }
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)

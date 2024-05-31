@@ -7,12 +7,12 @@ import {
   deletePresentationById,
   getPresentationSnapshots,
 } from "../services/presentations";
-import { getOrgFromReq, userHasAccess } from "../services/organizations";
+import { getContextFromReq, userHasAccess } from "../services/organizations";
 import { ExperimentInterface } from "../../types/experiment";
 import { PresentationInterface } from "../../types/presentation";
 
 export async function getPresentations(req: AuthRequest, res: Response) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const presentations = await getPresentationsByOrganization(org.id);
 
   res.status(200).json({
@@ -26,7 +26,7 @@ export async function getPresentation(
   res: Response
 ) {
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
 
   const pres = await getPresentationById(id);
 
@@ -54,7 +54,7 @@ export async function getPresentation(
       .map((o) => o.id);
   }
 
-  const withSnapshots = await getPresentationSnapshots(org.id, expIds, req);
+  const withSnapshots = await getPresentationSnapshots(context, expIds, req);
 
   res.status(200).json({
     status: 200,
@@ -65,7 +65,7 @@ export async function getPresentation(
 
 export async function getPresentationPreview(req: AuthRequest, res: Response) {
   const { expIds } = req.query as { expIds: string };
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
 
   if (!expIds) {
     res.status(403).json({
@@ -76,7 +76,7 @@ export async function getPresentationPreview(req: AuthRequest, res: Response) {
   }
   const expIdsArr = expIds.split(",");
 
-  const withSnapshots = await getPresentationSnapshots(org.id, expIdsArr, req);
+  const withSnapshots = await getPresentationSnapshots(context, expIdsArr, req);
 
   res.status(200).json({
     status: 200,
@@ -88,10 +88,13 @@ export async function deletePresentation(
   req: AuthRequest<ExperimentInterface, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createPresentations");
-
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  if (!context.permissions.canDeletePresentation()) {
+    context.permissions.throwPermissionError();
+  }
 
   const p = await getPresentationById(id);
 
@@ -130,10 +133,14 @@ export async function postPresentation(
   req: AuthRequest<Partial<PresentationInterface>>,
   res: Response
 ) {
-  req.checkPermissions("createPresentations");
-
   const data = req.body;
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  if (!context.permissions.canCreatePresentation()) {
+    context.permissions.throwPermissionError();
+  }
+
   data.organization = org.id;
 
   data.userId = req.userId;
@@ -154,11 +161,14 @@ export async function updatePresentation(
   req: AuthRequest<PresentationInterface, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createPresentations");
-
   const { id } = req.params;
   const data = req.body;
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  if (!context.permissions.canUpdatePresentation()) {
+    context.permissions.throwPermissionError();
+  }
 
   const p = await getPresentationById(id);
 
