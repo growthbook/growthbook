@@ -1,8 +1,22 @@
 import { z, ZodError } from "zod";
-import { MakeGenericClass, Context } from "../../src/models/BaseModel";
+import { Collection } from "mongodb";
+import { Context, MakeModelClass } from "../../src/models/BaseModel";
 
-const BaseModel = MakeGenericClass({
-  schema: z.object({ name: z.string(), readonlyField: z.string().optional() }),
+type WriteOptions = {
+  option?: boolean;
+};
+
+const BaseModel = MakeModelClass({
+  schema: z
+    .object({
+      id: z.string(),
+      organization: z.string(),
+      dateCreated: z.date(),
+      dateUpdated: z.date(),
+      name: z.string(),
+      readonlyField: z.string().optional(),
+    })
+    .strict(),
   collectionName: "test_model",
   idPrefix: "test_model__",
   // Don't want to extend the type system here.
@@ -18,7 +32,20 @@ const BaseModel = MakeGenericClass({
 // This one is called in the constructor and therefore needs to be instantiated before that call.
 const addIndexesMock = jest.fn();
 
-class TestModel extends BaseModel {
+class TestModel extends BaseModel<WriteOptions> {
+  public canReadMock: jest.Mock;
+  public canCreateMock: jest.Mock;
+  public canUpdateMock: jest.Mock;
+  public canDeleteMock: jest.Mock;
+  public dangerousGetCollectionMock: jest.Mock;
+  public migrateMock: jest.Mock;
+  public populateForeignRefsMock: jest.Mock;
+  public beforeCreateMock: jest.Mock;
+  public beforeUpdateMock: jest.Mock;
+  public afterCreateMock: jest.Mock;
+  public afterCreateOrUpdateMock: jest.Mock;
+  public afterUpdateMock: jest.Mock;
+
   public constructor(context: Context) {
     super(context);
     this.canReadMock = jest.fn(() => true);
@@ -35,69 +62,69 @@ class TestModel extends BaseModel {
     this.afterUpdateMock = jest.fn();
   }
 
-  protected canRead(doc: z.infer<T>): boolean {
-    return this.canReadMock(doc);
+  public find(...args) {
+    return this._find(...args);
   }
 
-  protected canCreate(doc: z.infer<T>): boolean {
-    return this.canCreateMock(doc);
+  protected canRead(...args): boolean {
+    return this.canReadMock(...args);
   }
 
-  protected canUpdate(
-    existing: z.infer<T>,
-    updates: UpdateProps<z.infer<T>>,
-    newDoc: z.infer<T>
-  ): boolean {
-    return this.canUpdateMock(existing, updates, newDoc);
+  protected canCreate(...args): boolean {
+    return this.canCreateMock(...args);
   }
 
-  protected canDelete(existing: z.infer<T>): boolean {
-    return this.canDeleteMock(existing);
+  protected canUpdate(...args): boolean {
+    return this.canUpdateMock(...args);
   }
 
-  private addIndexes() {
-    return addIndexesMock();
+  protected canDelete(...args): boolean {
+    return this.canDeleteMock(...args);
   }
 
-  private migrate(doc) {
-    return this.migrateMock(doc);
+  protected addIndexes(...args) {
+    return addIndexesMock(...args);
   }
 
-  private populateForeignRefs(models) {
-    return this.populateForeignRefsMock(models);
+  protected migrate(...args) {
+    return this.migrateMock(...args);
   }
 
-  protected _dangerousGetCollection(): Collection {
-    return this.dangerousGetCollectionMock();
+  protected populateForeignRefs(...args) {
+    return this.populateForeignRefsMock(...args);
   }
 
-  protected beforeCreate(doc, options) {
-    return this.beforeCreateMock(doc, options);
+  protected _dangerousGetCollection(...args): Collection {
+    return this.dangerousGetCollectionMock(...args);
   }
 
-  protected beforeUpdate(existing, updates, newDoc, options) {
-    return this.beforeUpdateMock(existing, updates, newDoc, options);
+  protected beforeCreate(...args) {
+    return this.beforeCreateMock(...args);
   }
 
-  protected afterCreate(doc, options) {
-    return this.afterCreateMock(doc, options);
+  protected beforeUpdate(...args) {
+    return this.beforeUpdateMock(...args);
   }
 
-  protected afterCreateOrUpdate(doc, options) {
-    return this.afterCreateOrUpdateMock(doc, options);
+  protected afterCreate(...args) {
+    return this.afterCreateMock(...args);
   }
 
-  protected afterUpdate(existing, updates, newDoc, options) {
-    return this.afterUpdateMock(existing, updates, newDoc, options);
+  protected afterCreateOrUpdate(...args) {
+    return this.afterCreateOrUpdateMock(...args);
+  }
+
+  protected afterUpdate(...args) {
+    return this.afterUpdateMock(...args);
   }
 }
 
 const auditLogMock = jest.fn();
 
-const defaultContext = {
-  org: { id: 1 },
+const defaultContext = ({
+  org: { id: "a" },
   auditLog: auditLogMock,
-};
+} as unknown) as Context;
 
 describe("BaseModel", () => {
   it("adds indexes", () => {
@@ -125,7 +152,7 @@ describe("BaseModel", () => {
     const ret = await model.getById("aabb");
     expect(ret).toEqual({ id: "aabb", name: "foo" });
     expect(model.migrateMock).toHaveBeenCalledWith({ id: "aabb", name: "foo" });
-    expect(mockFind).toHaveBeenCalledWith({ id: "aabb", organization: 1 });
+    expect(mockFind).toHaveBeenCalledWith({ id: "aabb", organization: "a" });
     expect(model.populateForeignRefsMock).toHaveBeenCalledWith([
       { id: "aabb", name: "foo" },
     ]);
@@ -182,7 +209,7 @@ describe("BaseModel", () => {
 
     const ret = await model.getAll();
     expect(model.migrateMock).toHaveBeenCalledWith({ id: "aabb", name: "foo" });
-    expect(mockFind).toHaveBeenCalledWith({ organization: 1 });
+    expect(mockFind).toHaveBeenCalledWith({ organization: "a" });
     expect(model.populateForeignRefsMock).toHaveBeenCalledWith([
       { id: "aabb", name: "foo" },
       { id: "ccdd", name: "bla" },
@@ -271,7 +298,7 @@ describe("BaseModel", () => {
 
     model.canReadMock.mockImplementation(({ id }) => id !== "eeff");
 
-    const ret = await model._find({}, { bypassReadPermissionChecks: true });
+    const ret = await model.find({}, { bypassReadPermissionChecks: true });
     expect(ret).toEqual([
       {
         id: "aabb",
@@ -341,7 +368,7 @@ describe("BaseModel", () => {
 
     model.canReadMock.mockImplementation(({ id }) => id !== "eeff");
 
-    const ret = await model._find({}, { skip: 2, limit: 4 });
+    const ret = await model.find({}, { skip: 2, limit: 4 });
     expect(ret).toEqual([
       {
         id: "gghh",
@@ -389,7 +416,7 @@ describe("BaseModel", () => {
 
     await model.create(
       { name: "foo", id: "aabb", readonlyField: "bla" },
-      "options"
+      { option: true }
     );
 
     const expectedModel = expect.objectContaining({
@@ -397,31 +424,37 @@ describe("BaseModel", () => {
       dateUpdated: expect.any(Date),
       id: expect.any(String),
       name: "foo",
-      organization: 1,
+      organization: "a",
       readonlyField: "bla",
     });
 
     expect(insertOneMock).toHaveBeenCalledWith(expectedModel);
-    expect(model.afterCreateMock).toHaveBeenCalledWith(
-      expectedModel,
-      "options"
-    );
+    expect(model.afterCreateMock).toHaveBeenCalledWith(expectedModel, {
+      option: true,
+    });
     expect(auditLogMock).toHaveBeenCalled();
-    expect(model.afterCreateMock).toHaveBeenCalledWith(
-      expectedModel,
-      "options"
-    );
-    expect(model.afterCreateMock).toHaveBeenCalledWith(
-      expectedModel,
-      "options"
-    );
+    expect(model.afterCreateMock).toHaveBeenCalledWith(expectedModel, {
+      option: true,
+    });
+    expect(model.afterCreateMock).toHaveBeenCalledWith(expectedModel, {
+      option: true,
+    });
   });
 
   it("raises an error when attempting to update a document without update access", () => {
     const model = new TestModel(defaultContext);
     model.canUpdateMock.mockReturnValue(false);
     expect(
-      model.update({ name: "foo", id: "aabb" }, { name: "gni" })
+      model.update(
+        {
+          name: "foo",
+          id: "aabb",
+          organization: "a",
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+        },
+        { name: "gni" }
+      )
     ).rejects.toEqual(
       new Error("You do not have access to update this resource")
     );
@@ -431,13 +464,22 @@ describe("BaseModel", () => {
     const model = new TestModel(defaultContext);
     model.canUpdateMock.mockReturnValue(true);
     expect(
-      model.update({ name: "foo", id: "aabb" }, { readonlyField: "gni" })
+      model.update(
+        {
+          name: "foo",
+          id: "aabb",
+          organization: "a",
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+        },
+        { readonlyField: "gni" }
+      )
     ).rejects.toEqual(
       new Error("Cannot update readonly fields: readonlyField")
     );
   });
 
-  it("allows uppating a document", async () => {
+  it("allows updating a document", async () => {
     const model = new TestModel(defaultContext);
     model.canCreateMock.mockReturnValue(true);
 
@@ -446,11 +488,16 @@ describe("BaseModel", () => {
       updateOne: updateOneMock,
     });
 
-    await model.update(
-      { name: "foo", id: "aabb", readonlyField: "bla" },
-      { name: "gni" },
-      "options"
-    );
+    const existing = {
+      name: "foo",
+      id: "aabb",
+      readonlyField: "bla",
+      organization: "a",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    await model.update(existing, { name: "gni" }, { option: true });
 
     const expectedSet = expect.objectContaining({
       dateUpdated: expect.any(Date),
@@ -458,32 +505,39 @@ describe("BaseModel", () => {
     });
 
     expect(updateOneMock).toHaveBeenCalledWith(
-      { id: "aabb", organization: 1 },
+      { id: "aabb", organization: "a" },
       { $set: expectedSet }
     );
     expect(auditLogMock).toHaveBeenCalled();
     expect(model.beforeUpdateMock).toHaveBeenCalledWith(
-      { id: "aabb", name: "foo", readonlyField: "bla" },
+      existing,
       { name: "gni" },
       expectedSet,
-      "options"
+      { option: true }
     );
     expect(model.afterUpdateMock).toHaveBeenCalledWith(
-      { id: "aabb", name: "foo", readonlyField: "bla" },
+      existing,
       { name: "gni" },
       expectedSet,
-      "options"
+      { option: true }
     );
-    expect(model.afterCreateOrUpdateMock).toHaveBeenCalledWith(
-      expectedSet,
-      "options"
-    );
+    expect(model.afterCreateOrUpdateMock).toHaveBeenCalledWith(expectedSet, {
+      option: true,
+    });
   });
 
   it("raises an error when attempting to delete a document without delete access", () => {
     const model = new TestModel(defaultContext);
     model.canDeleteMock.mockReturnValue(false);
-    expect(model.delete({ name: "foo", id: "aabb" })).rejects.toEqual(
+    expect(
+      model.delete({
+        name: "foo",
+        id: "aabb",
+        organization: "a",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+      })
+    ).rejects.toEqual(
       new Error("You do not have access to delete this resource")
     );
   });

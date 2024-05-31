@@ -67,7 +67,7 @@ const indexesAdded: Set<string> = new Set();
 
 // Generic model class has everything but the actual data fetch implementation.
 // See BaseModel below for the class with explicit mongodb implementation.
-export abstract class GenericModel<
+export abstract class BaseModel<
   T extends BaseSchema,
   E extends EntityType,
   WriteOptions = never
@@ -92,9 +92,6 @@ export abstract class GenericModel<
     newDoc: z.infer<T>
   ): boolean;
   protected abstract canDelete(existing: z.infer<T>): boolean;
-
-  // This is implemented in BaseModel below.
-  protected abstract _dangerousGetCollection(): Collection;
 
   /***************
    * Optional methods that can be overridden by subclasses as needed
@@ -585,10 +582,18 @@ export abstract class GenericModel<
     return result;
   }
 
-  /***************
-   * Private methods
-   ***************/
-  private async populateForeignRefs(docs: z.infer<T>[]) {
+  private _collection: Collection | null = null;
+  protected _dangerousGetCollection() {
+    if (!this._collection) {
+      // TODO: don't use Mongoose, use the native Mongo Driver instead
+      this._collection = mongoose.connection.db.collection(
+        this.config.collectionName
+      );
+    }
+    return this._collection;
+  }
+
+  protected async populateForeignRefs(docs: z.infer<T>[]) {
     // Merge all docs foreign keys into a single object
     const mergedKeys: ForeignRefsCacheKeys = {};
 
@@ -604,7 +609,7 @@ export abstract class GenericModel<
 
     await this.context.populateForeignRefs(mergedKeys);
   }
-  private addIndexes() {
+  protected addIndexes() {
     if (indexesAdded.has(this.config.collectionName)) return;
     indexesAdded.add(this.config.collectionName);
 
@@ -647,6 +652,10 @@ export abstract class GenericModel<
     });
   }
 
+  /***************
+   * Private methods
+   ***************/
+
   // Make sure any project ids in this model point to actual projects
   // This is only called when creating/updating to avoid breaking on read
   private async validateProjectFields(obj: Partial<z.infer<T>>) {
@@ -675,39 +684,6 @@ export abstract class GenericModel<
     return omit(doc, ["__v", "_id"]) as unknown;
   }
 }
-
-export abstract class BaseModel<
-  T extends BaseSchema,
-  E extends EntityType,
-  WriteOptions = never
-> extends GenericModel<T, E, WriteOptions> {
-  private _collection: Collection | null = null;
-  protected _dangerousGetCollection() {
-    if (!this._collection) {
-      // TODO: don't use Mongoose, use the native Mongo Driver instead
-      this._collection = mongoose.connection.db.collection(
-        this.config.collectionName
-      );
-    }
-    return this._collection;
-  }
-}
-
-export const MakeGenericClass = <T extends BaseSchema, E extends EntityType>(
-  config: ModelConfig<T, E>
-) => {
-  abstract class Model<WriteOptions = never> extends GenericModel<
-    T,
-    E,
-    WriteOptions
-  > {
-    getConfig() {
-      return config;
-    }
-  }
-
-  return Model;
-};
 
 export const MakeModelClass = <T extends BaseSchema, E extends EntityType>(
   config: ModelConfig<T, E>
