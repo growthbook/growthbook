@@ -639,6 +639,8 @@ export async function deleteExperimentSegment(
       oldExperiment: previous,
       newExperiment: current,
       bypassWebhooks: true,
+    }).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on experiment update");
     });
   });
 }
@@ -933,14 +935,16 @@ export async function removeMetricFromExperiments(
   });
 
   // Log all the changes
-  each(oldExperiments, async (changeSet) => {
+  each(oldExperiments, (changeSet) => {
     const { previous, current } = changeSet;
     if (current && previous) {
-      await onExperimentUpdate({
+      onExperimentUpdate({
         context,
         oldExperiment: previous,
         newExperiment: current,
         bypassWebhooks: true,
+      }).catch((e) => {
+        logger.error(e, "Error refreshing SDK Payload on experiment update");
       });
     }
   });
@@ -997,6 +1001,8 @@ export async function addLinkedFeatureToExperiment(
       ...experiment,
       linkedFeatures: [...(experiment.linkedFeatures || []), featureId],
     },
+  }).catch((e) => {
+    logger.error(e, "Error refreshing SDK Payload on experiment update");
   });
 }
 
@@ -1035,6 +1041,8 @@ export async function removeLinkedFeatureFromExperiment(
         (f) => f !== featureId
       ),
     },
+  }).catch((e) => {
+    logger.error(e, "Error refreshing SDK Payload on experiment update");
   });
 }
 
@@ -1050,6 +1058,8 @@ function logAllChanges(
       context,
       oldExperiment: previous,
       newExperiment: current,
+    }).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on experiment update");
     });
   });
 }
