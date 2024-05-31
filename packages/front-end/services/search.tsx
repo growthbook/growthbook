@@ -250,14 +250,15 @@ export function filterSearchTerm(
   }
 
   searchValue = searchValue.toLowerCase();
-
   const strVal =
     itemValue instanceof Date
       ? itemValue.toISOString()
       : (itemValue + "").toLowerCase();
-  const [comp1, comp2]: [number, number] | [string, string] =
+  const [comp1, comp2]: [number, number] | [string, string] | [Date, Date] =
     typeof itemValue === "number"
       ? [itemValue, parseFloat(searchValue)]
+      : (op === ">" || op === "<") && itemValue instanceof Date
+      ? [itemValue, new Date(Date.parse(searchValue))]
       : [strVal, searchValue];
 
   switch (op) {
