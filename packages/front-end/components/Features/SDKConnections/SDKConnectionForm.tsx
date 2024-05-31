@@ -210,10 +210,18 @@ export default function SDKConnectionForm({
 
   const projectsOptions = [...filteredProjects, ...disallowedProjects]
     .filter((project) =>
-      permissionsUtil.canCreateSDKConnection({
-        projects: [project.id],
-        environment: form.watch("environment"),
-      })
+      edit
+        ? permissionsUtil.canUpdateSDKConnection(
+            {
+              projects: [project.id],
+              environment: form.watch("environment"),
+            },
+            {}
+          )
+        : permissionsUtil.canCreateSDKConnection({
+            projects: [project.id],
+            environment: form.watch("environment"),
+          })
     )
     .map((p) => ({
       label: p.name,

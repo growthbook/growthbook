@@ -247,9 +247,13 @@ const DataSourceForm: FC<{
             value={datasource.projects || []}
             options={projects
               .filter((project) =>
-                permissionsUtil.canUpdateDataSourceParams({
-                  projects: [project.id],
-                })
+                existing
+                  ? permissionsUtil.canUpdateDataSourceParams({
+                      projects: [project.id],
+                    })
+                  : permissionsUtil.canCreateDataSource({
+                      projects: [project.id],
+                    })
               )
               .map((p) => ({ value: p.id, label: p.name }))}
             onChange={(v) => onManualChange("projects", v)}

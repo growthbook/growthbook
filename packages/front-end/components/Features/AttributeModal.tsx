@@ -145,7 +145,14 @@ export default function AttributeModal({ close, attribute }: Props) {
             value={form.watch("projects") || []}
             options={projects
               .filter((project) =>
-                permissionsUtil.canCreateAttribute({ projects: [project.id] })
+                attribute
+                  ? permissionsUtil.canUpdateAttribute(
+                      { projects: [project.id] },
+                      {}
+                    )
+                  : permissionsUtil.canCreateAttribute({
+                      projects: [project.id],
+                    })
               )
               .map((p) => ({ value: p.id, label: p.name }))}
             onChange={(v) => form.setValue("projects", v)}
