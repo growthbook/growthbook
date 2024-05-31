@@ -6,6 +6,7 @@ import {
 } from "../../models/SdkConnectionModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { putSdkConnectionValidator } from "../../validators/openapi";
+import { auditDetailsUpdate } from "../../services/audit";
 import { validatePayload } from "./validations";
 
 export const putSdkConnection = createApiRequestHandler(
@@ -33,6 +34,15 @@ export const putSdkConnection = createApiRequestHandler(
       sdkConnection,
       params
     );
+
+    await req.audit({
+      event: "sdk-connection.update",
+      entity: {
+        object: "sdk-connection",
+        id: sdkConnection.id,
+      },
+      details: auditDetailsUpdate(sdkConnection, updatedSdkConnection),
+    });
 
     return {
       sdkConnection: toApiSDKConnectionInterface(updatedSdkConnection),

@@ -35,7 +35,7 @@ jest.mock("shared/sdk-versioning", () => ({
 }));
 
 describe("sdk-connections API", () => {
-  const { app, setReqContext } = setupApp();
+  const { app, auditMock, setReqContext } = setupApp();
   const mockApiSDKConnectionInterface = ({ id }) => `mock-${id}`;
 
   beforeEach(() => {
@@ -131,6 +131,15 @@ describe("sdk-connections API", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
       sdkConnection: mockApiSDKConnectionInterface(created),
+    });
+    expect(auditMock).toHaveBeenCalledWith({
+      details: `{"post":{"id":"${
+        created.id
+      }","name":"my-connection","organization":"org","dateCreated":"${created.dateCreated.toISOString()}","dateUpdated":"${created.dateUpdated.toISOString()}","languages":["javascript"],"environment":"production","projects":[],"encryptPayload":false,"encryptionKey":"","key":"${
+        created.key
+      }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"includeVisualExperiments":false,"includeDraftExperiments":false,"includeExperimentNames":false,"includeRedirectExperiments":false,"hashSecureAttributes":false},"context":{}}`,
+      entity: { id: created.id, object: "sdk-connection" },
+      event: "sdk-connection.create",
     });
   });
 
@@ -323,8 +332,8 @@ describe("sdk-connections API", () => {
 
     let updated;
 
-    editSDKConnection.mockImplementation((v) => {
-      updated = sdkConnectionFactory.build(v);
+    editSDKConnection.mockImplementation((_, __, v) => {
+      updated = { ...sdkConnectionFactory.build(v), id: existing.id };
       return updated;
     });
 
@@ -353,6 +362,19 @@ describe("sdk-connections API", () => {
     );
     expect(response.body).toEqual({
       sdkConnection: mockApiSDKConnectionInterface(updated),
+    });
+    expect(auditMock).toHaveBeenCalledWith({
+      details: `{"pre":{"id":"${
+        existing.id
+      }","name":"my-connection","dateCreated":"${existing.dateCreated.toISOString()}","dateUpdated":"${existing.dateCreated.toISOString()}","languages":["javascript"],"environment":"production","projects":[],"encryptPayload":false,"encryptionKey":"","key":"${
+        existing.key
+      }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"language":"javascript"},"post":{"id":"${
+        existing.id
+      }","name":"my-new-connection","dateCreated":"${existing.dateCreated.toISOString()}","dateUpdated":"${existing.dateCreated.toISOString()}","languages":["javascript"],"environment":"production","projects":[],"encryptPayload":false,"encryptionKey":"","key":"${
+        existing.key
+      }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"sdkVersion":"some-version","includeVisualExperiments":false,"includeDraftExperiments":false,"includeExperimentNames":false,"includeRedirectExperiments":false,"hashSecureAttributes":false},"context":{}}`,
+      entity: { id: updated.id, object: "sdk-connection" },
+      event: "sdk-connection.update",
     });
   });
 
@@ -412,6 +434,15 @@ describe("sdk-connections API", () => {
     expect(response.status).toBe(200);
     expect(deleteSDKConnectionById).toHaveBeenCalledWith("org", existing.id);
     expect(response.body).toEqual({ deletedId: existing.id });
+    expect(auditMock).toHaveBeenCalledWith({
+      details: `{"pre":{"id":"${
+        existing.id
+      }","name":"my-connection","dateCreated":"${existing.dateCreated.toISOString()}","dateUpdated":"${existing.dateCreated.toISOString()}","languages":["javascript"],"environment":"production","projects":[],"encryptPayload":false,"encryptionKey":"","key":"${
+        existing.key
+      }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"language":"javascript"},"context":{}}`,
+      entity: { id: existing.id, object: "sdk-connection" },
+      event: "sdk-connection.delete",
+    });
   });
 
   it("checks for permissions when deleting sdk-connections", async () => {

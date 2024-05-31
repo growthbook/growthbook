@@ -5,6 +5,7 @@ import {
 } from "../../models/SdkConnectionModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { deleteSdkConnectionValidator } from "../../validators/openapi";
+import { auditDetailsDelete } from "../../services/audit";
 
 export const deleteSdkConnection = createApiRequestHandler(
   deleteSdkConnectionValidator
@@ -22,6 +23,15 @@ export const deleteSdkConnection = createApiRequestHandler(
       req.context.permissions.throwPermissionError();
 
     await deleteSDKConnectionById(req.context.org.id, sdkConnection.id);
+
+    await req.audit({
+      event: "sdk-connection.delete",
+      entity: {
+        object: "sdk-connection",
+        id: sdkConnection.id,
+      },
+      details: auditDetailsDelete(sdkConnection),
+    });
 
     return {
       deletedId: req.params.id,

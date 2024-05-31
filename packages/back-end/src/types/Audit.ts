@@ -34,6 +34,7 @@ export const entityEvents = {
   metric: ["autocreate", "create", "update", "delete", "analysis"],
   datasource: ["create", "update", "delete", "import"],
   comment: ["create", "update", "delete"],
+  "sdk-connection": ["create", "update", "delete"],
   user: ["create", "update", "delete", "invite"],
   organization: ["create", "update", "delete"],
   savedGroup: ["created", "deleted", "updated"],

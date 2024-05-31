@@ -5,6 +5,7 @@ import {
 } from "../../models/SdkConnectionModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { postSdkConnectionValidator } from "../../validators/openapi";
+import { auditDetailsCreate } from "../../services/audit";
 import { validatePayload } from "./validations";
 
 export const postSdkConnection = createApiRequestHandler(
@@ -19,10 +20,19 @@ export const postSdkConnection = createApiRequestHandler(
     if (!req.context.permissions.canCreateSDKConnection(params))
       req.context.permissions.throwPermissionError();
 
+    const connection = await createSDKConnection(params);
+
+    await req.audit({
+      event: "sdk-connection.create",
+      entity: {
+        object: "sdk-connection",
+        id: connection.id,
+      },
+      details: auditDetailsCreate(connection),
+    });
+
     return {
-      sdkConnection: toApiSDKConnectionInterface(
-        await createSDKConnection(params)
-      ),
+      sdkConnection: toApiSDKConnectionInterface(connection),
     };
   }
 );
