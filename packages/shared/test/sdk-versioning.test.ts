@@ -3,6 +3,7 @@ import cloneDeep from "lodash/cloneDeep";
 import {
   getConnectionSDKCapabilities,
   scrubFeatures,
+  scrubSavedGroups,
 } from "../src/sdk-versioning";
 
 const baseConnection: SDKConnectionInterface = {
@@ -12,7 +13,7 @@ const baseConnection: SDKConnectionInterface = {
   dateCreated: new Date(2020, 1, 5, 10, 0, 0),
   dateUpdated: new Date(2020, 1, 5, 10, 0, 0),
   languages: ["javascript"],
-  sdkVersion: "0.27.0",
+  sdkVersion: "1.0.2",
   environment: "production",
   projects: [],
   encryptPayload: false,
@@ -89,6 +90,19 @@ describe("payload scrubbing", () => {
           },
         ],
       },
+      feat2: {
+        defaultValue: "control",
+        rules: [
+          {
+            condition: {
+              id: {
+                $inGroup: "group_id",
+              },
+            },
+            force: "variant",
+          },
+        ],
+      },
     },
     experiments: [
       {
@@ -127,6 +141,9 @@ describe("payload scrubbing", () => {
         coverage: 1,
       },
     ],
+    savedGroups: {
+      group_id: ["1", "2", "3"],
+    },
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -150,6 +167,19 @@ describe("payload scrubbing", () => {
           },
         ],
       },
+      feat2: {
+        defaultValue: "control",
+        rules: [
+          {
+            condition: {
+              id: {
+                $in: ["1", "2", "3"],
+              },
+            },
+            force: "variant",
+          },
+        ],
+      },
     },
     experiments: [
       {
@@ -188,6 +218,7 @@ describe("payload scrubbing", () => {
         coverage: 1,
       },
     ],
+    savedGroups: undefined,
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -211,6 +242,19 @@ describe("payload scrubbing", () => {
           },
         ],
       },
+      feat2: {
+        defaultValue: "control",
+        rules: [
+          {
+            condition: {
+              id: {
+                $in: ["1", "2", "3"],
+              },
+            },
+            force: "variant",
+          },
+        ],
+      },
     },
     experiments: [
       {
@@ -249,6 +293,7 @@ describe("payload scrubbing", () => {
         coverage: 1,
       },
     ],
+    savedGroups: undefined,
   };
 
   it("does not scrub the payload for a safe language version", () => {
@@ -258,7 +303,11 @@ describe("payload scrubbing", () => {
     const capabilities = getConnectionSDKCapabilities(connection);
 
     const scrubbed = cloneDeep(sdkPayload);
-    const scrubbedFeatures = scrubFeatures(scrubbed.features, capabilities);
+    const scrubbedFeatures = scrubFeatures(
+      scrubbed.features,
+      capabilities,
+      sdkPayload.savedGroups
+    );
     scrubbed.features = scrubbedFeatures;
 
     // no change to payload for default connection (javascript, 0.27.0)
@@ -275,8 +324,13 @@ describe("payload scrubbing", () => {
     expect(capabilities).toStrictEqual([]);
 
     const scrubbed = cloneDeep(sdkPayload);
-    const scrubbedFeatures = scrubFeatures(scrubbed.features, capabilities);
+    const scrubbedFeatures = scrubFeatures(
+      scrubbed.features,
+      capabilities,
+      sdkPayload.savedGroups
+    );
     scrubbed.features = scrubbedFeatures;
+    scrubbed.savedGroups = scrubSavedGroups(scrubbed.savedGroups, capabilities);
 
     // no change to payload for default connection (javascript, 0.27.0)
     expect(scrubbed).toStrictEqual(fullyScrubbedPayload);
@@ -292,7 +346,12 @@ describe("payload scrubbing", () => {
     expect(capabilities).toStrictEqual(["bucketingV2", "encryption"]);
 
     const scrubbed = cloneDeep(sdkPayload);
-    const scrubbedFeatures = scrubFeatures(scrubbed.features, capabilities);
+    const scrubbedFeatures = scrubFeatures(
+      scrubbed.features,
+      capabilities,
+      sdkPayload.savedGroups
+    );
+    scrubbed.savedGroups = scrubSavedGroups(scrubbed.savedGroups, capabilities);
     scrubbed.features = scrubbedFeatures;
 
     // no change to payload for default connection (javascript, 0.27.0)
@@ -310,7 +369,12 @@ describe("payload scrubbing", () => {
     expect(capabilities).toStrictEqual(["bucketingV2"]);
 
     const scrubbed = cloneDeep(sdkPayload);
-    const scrubbedFeatures = scrubFeatures(scrubbed.features, capabilities);
+    const scrubbedFeatures = scrubFeatures(
+      scrubbed.features,
+      capabilities,
+      sdkPayload.savedGroups
+    );
+    scrubbed.savedGroups = scrubSavedGroups(scrubbed.savedGroups, capabilities);
     scrubbed.features = scrubbedFeatures;
 
     expect(scrubbed).toStrictEqual(lightlyScrubbedPayload);

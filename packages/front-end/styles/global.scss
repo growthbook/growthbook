@@ -89,6 +89,12 @@ pre {
 .text-warning-muted {
   color: var(--alert-warn-color);
 }
+.text-error-red {
+  color: colors.$danger;
+}
+.text-success-green {
+  color: colors.$success;
+}
 .text-gray {
   color: var(--text-color-th);
 }
@@ -106,6 +112,9 @@ pre {
   font-weight: 600;
   &.lg {
     font-size: 13px;
+  }
+  &.xl {
+    font-size: 16px;
   }
 }
 
@@ -885,6 +894,9 @@ main.main.report {
     text-decoration: none !important;
   }
 }
+.underline {
+  text-decoration: underline;
+}
 
 .link-purple {
   color: colors.$highlight-purple;
@@ -914,13 +926,16 @@ main.main.report {
 
   thead {
     th {
-      font-size: 11px;
-      text-transform: uppercase;
+      font-size: 14px;
       font-weight: 600;
       color: var(--text-color-th);
       white-space: nowrap;
-      border-bottom-width: 1px;
+      border-bottom-color: var(--border-color-300);
       border-top: 0;
+
+      &:not(.no-uppercase) {
+        text-transform: uppercase;
+      }
 
       .activesort,
       .inactivesort {
@@ -1093,6 +1108,17 @@ main.main.report {
     border-color: var(--border-color-300);
   }
 }
+.nav-tabs .nav-tab-item {
+  border-radius: 0px;
+  border: none;
+  color: var(--text-color-primary);
+  &.active {
+    color: var(--text-color-main);
+    border-bottom: 2px solid colors.$highlight-purple;
+    font-weight: 600;
+  }
+}
+
 .paged-modal-default {
   justify-content: space-between;
   flex-wrap: wrap;
@@ -3286,4 +3312,45 @@ input:disabled {
 .table-column-fit-width {
   width: 1px;
   white-space: nowrap;
+}
+
+.round-text-background {
+  background-color: var(--table-row-highlight-background-color);
+  border-radius: 100%;
+  padding: 2px 4px;
+}
+
+.radio-button-lg {
+  height: 15px;
+  width: 15px;
+  accent-color: var(--radio-button-fill);
+}
+
+.text-color-primary {
+  color: var(--text-color-primary);
+}
+
+.text-color-main {
+  color: var(--text-color-main);
+}
+
+.custom-file-label {
+  background-color: unset;
+
+  &::after {
+    background-color: var(--file-picker-browse);
+    color: var(--text-color-on-bright);
+  }
+}
+
+hr {
+  border-top: 1px solid var(--text-color-main);
+}
+
+.lh-full {
+  line-height: 100%;
+}
+
+.fw-bold {
+  font-weight: 600;
 }

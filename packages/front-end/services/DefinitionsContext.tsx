@@ -12,12 +12,12 @@ import {
   useCallback,
 } from "react";
 import { TagInterface } from "back-end/types/tag";
-import { SavedGroupInterface } from "back-end/types/saved-group";
 import {
   FactMetricInterface,
   FactTableInterface,
 } from "back-end/types/fact-table";
 import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
+import { SavedGroupInterface } from "shared/src/types";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 

@@ -1,4 +1,3 @@
-import { SavedGroupInterface } from "back-end/types/saved-group";
 import stringify from "json-stringify-pretty-compact";
 import { ReactNode, useMemo } from "react";
 import {
@@ -7,6 +6,7 @@ import {
 } from "back-end/types/feature";
 import Link from "next/link";
 import { isDefined } from "shared/util";
+import { SavedGroupInterface } from "shared/src/types";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -91,6 +91,7 @@ function getValue(
 }
 
 const MULTI_VALUE_LIMIT = 3;
+const TOOLTIP_LIMIT = 10;
 
 export function MultiValuesDisplay({ values }: { values: string[] }) {
   return (
@@ -104,11 +105,16 @@ export function MultiValuesDisplay({ values }: { values: string[] }) {
         <Tooltip
           body={
             <div>
-              {values.slice(MULTI_VALUE_LIMIT).map((v, i) => (
-                <span key={i} className="mr-1 border px-2 bg-light rounded">
-                  {v}
-                </span>
-              ))}
+              {values
+                .slice(MULTI_VALUE_LIMIT, MULTI_VALUE_LIMIT + TOOLTIP_LIMIT)
+                .map((v, i) => (
+                  <span key={i} className="mr-1 border px-2 bg-light rounded">
+                    {v}
+                  </span>
+                ))}
+              {values.length > MULTI_VALUE_LIMIT + TOOLTIP_LIMIT && (
+                <span className="mr-1 px-2">...</span>
+              )}
             </div>
           }
         >

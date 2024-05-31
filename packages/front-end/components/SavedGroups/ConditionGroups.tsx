@@ -1,6 +1,8 @@
-import { SavedGroupInterface } from "back-end/types/saved-group";
 import { useMemo, useState } from "react";
 import { ago } from "shared/dates";
+import { SavedGroupInterface } from "shared/src/types";
+import { truncateString } from "shared/util";
+import { FaMagnifyingGlass } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
@@ -37,7 +39,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
     return groups.filter((g) => g.type === "condition");
   }, [groups]);
 
-  const { features } = useFeaturesList();
+  const { features } = useFeaturesList(false);
 
   // Get a list of feature ids for every saved group
   // TODO: also get experiments
@@ -74,7 +76,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
   if (!conditionGroups) return <LoadingOverlay />;
 
   return (
-    <div className="mb-5 appbox p-3 bg-white">
+    <div className="mb-5  p-3 bg-white">
       {savedGroupForm && (
         <SavedGroupForm
           close={() => setSavedGroupForm(null)}
@@ -101,18 +103,19 @@ export default function ConditionGroups({ groups, mutate }: Props) {
         ) : null}
       </div>
       <p className="text-gray mb-1">
-        With <strong>Conditions</strong>, you can set up advanced targeting
-        rules based on a user&apos;s attributes.
+        Set up advanced targeting rules based on a user&apo;s attributes.
       </p>
       <p className="text-gray">
-        For example, include all users who are located in the US and on a mobile
-        device.
+        Example: include all users who are located in the US <b>and</b> on a
+        mobile device
       </p>
       {conditionGroups.length > 0 && (
         <>
-          <div className="row mb-2 align-items-center">
+          <div className="row mb-4 align-items-center">
             <div className="col-auto">
               <Field
+                inputGroupClassName="bg-white"
+                prepend={<FaMagnifyingGlass />}
                 placeholder="Search..."
                 type="search"
                 {...searchInputProps}
@@ -121,15 +124,22 @@ export default function ConditionGroups({ groups, mutate }: Props) {
           </div>
           <div className="row mb-3">
             <div className="col-12">
-              <table className="table appbox gbtable">
+              <table className="table gbtable">
                 <thead>
-                  <tr>
-                    <SortableTH field={"groupName"}>Name</SortableTH>
-                    <SortableTH field="condition">Condition</SortableTH>
-                    <SortableTH field={"owner"}>Owner</SortableTH>
-                    <SortableTH field={"dateUpdated"}>Date Updated</SortableTH>
-                    {(canUpdate || canDelete) && <th></th>}
-                  </tr>
+                  <SortableTH className="no-uppercase" field={"groupName"}>
+                    Name
+                  </SortableTH>
+                  <SortableTH className="no-uppercase" field="condition">
+                    Condition
+                  </SortableTH>
+                  <th className="no-uppercase">Description</th>
+                  <SortableTH className="no-uppercase" field={"owner"}>
+                    Owner
+                  </SortableTH>
+                  <SortableTH className="no-uppercase" field={"dateUpdated"}>
+                    Date Updated
+                  </SortableTH>
+                  {(canUpdate || canDelete) && <th></th>}
                 </thead>
                 <tbody>
                   {items.map((s) => {
@@ -142,6 +152,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                             savedGroups={[]}
                           />
                         </td>
+                        <td>{truncateString(s.description || "", 40)}</td>
                         <td>{s.owner}</td>
                         <td>{ago(s.dateUpdated)}</td>
                         {canUpdate || canDelete ? (

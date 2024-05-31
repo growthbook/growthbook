@@ -86,6 +86,7 @@ export default function SavedGroupTargetingField({ value, setValue }: Props) {
                       closeMenuOnSelect={true}
                       formatOptionLabel={({ value, label }) => {
                         const group = getSavedGroupById(value);
+                        // TODO: potentially add group size to model
                         return (
                           <>
                             {label}
