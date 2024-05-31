@@ -164,16 +164,19 @@ export abstract class BaseModel<T extends BaseSchema, E extends EntityType> {
     }
     return this._updateOne(existing, updates);
   }
-  public delete(existing: z.infer<T>): Promise<void> {
-    return this._deleteOne(existing);
+  public async delete(existing: z.infer<T>): Promise<z.infer<T>> {
+    await this._deleteOne(existing);
+    return existing;
   }
-  public async deleteById(id: string): Promise<void> {
+  public async deleteById(id: string): Promise<z.infer<T> | undefined> {
     const existing = await this.getById(id);
     if (!existing) {
       // If it doesn't exist, maybe it was deleted already. No need to throw an error.
       return;
     }
-    return this._deleteOne(existing);
+
+    await this._deleteOne(existing);
+    return existing;
   }
 
   /***************

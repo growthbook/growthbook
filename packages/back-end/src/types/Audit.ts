@@ -21,6 +21,7 @@ export const entityEvents = {
     "screenshot.delete",
     "screenshot.create",
   ],
+  project: ["create", "update", "delete"],
   environment: ["create", "update", "delete"],
   feature: [
     "create",

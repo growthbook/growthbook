@@ -1,4 +1,3 @@
-import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { ApiReqContext } from "../../../types/api";
 
 export const validatePayload = async (
@@ -20,7 +19,7 @@ export const validatePayload = async (
   if (id === "") throw Error("Environment ID cannot empty!");
 
   if (projects.length) {
-    const allProjects = await findAllProjectsByOrganization(context);
+    const allProjects = await context.models.projects.getAll();
     const nonexistentProjects = projects.filter(
       (p) => !allProjects.some(({ id }) => p === id)
     );
