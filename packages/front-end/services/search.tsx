@@ -7,7 +7,6 @@ import {
   useCallback,
 } from "react";
 import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
-import { FeatureInterface } from "back-end/types/feature";
 import { useRouter } from "next/router";
 import Fuse from "fuse.js";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -30,14 +29,30 @@ export type SearchFields<T> = (
   | `${Exclude<keyof T, symbol>}^${number}`
 )[];
 
+const searchTermOperators = [">", "<", "^", "=", "~", ""] as const;
+
+export type SearchTermFilterOperator = typeof searchTermOperators[number];
+
 export interface SearchProps<T> {
   items: T[];
   searchFields: SearchFields<T>;
   localStorageKey: string;
   defaultSortField: keyof T;
   defaultSortDir?: number;
-  transformQuery?: (q: string) => string;
-  filterResults?: (items: T[], originalQuery: string) => T[];
+  searchTermFilters?: {
+    [key: string]: (
+      item: T
+    ) =>
+      | number
+      | string
+      | null
+      | undefined
+      | Date
+      | (number | null | undefined)[]
+      | (string | null | undefined)[]
+      | (Date | null | undefined)[];
+  };
+  filterResults?: (items: T[]) => T[];
 }
 
 export interface SearchReturn<T> {
@@ -58,11 +73,11 @@ export interface SearchReturn<T> {
 export function useSearch<T>({
   items,
   searchFields,
-  transformQuery,
   filterResults,
   localStorageKey,
   defaultSortField,
   defaultSortDir,
+  searchTermFilters,
 }: SearchProps<T>): SearchReturn<T> {
   const [sort, setSort] = useLocalStorage(`${localStorageKey}:sort-dir`, {
     field: defaultSortField,
@@ -92,14 +107,35 @@ export function useSearch<T>({
   }, [items, JSON.stringify(searchFields)]);
 
   const filtered = useMemo(() => {
-    const searchTerm = transformQuery ? transformQuery(value) : value;
+    // remove any syntax filters from the search term
+    const { searchTerm, syntaxFilters } = searchTermFilters
+      ? transformQuery(value, Object.keys(searchTermFilters))
+      : { searchTerm: value, syntaxFilters: [] };
 
     let filtered = items;
     if (searchTerm.length > 0) {
       filtered = fuse.search(searchTerm).map((item) => item.item);
     }
+
+    // Search term filters
+    if (syntaxFilters.length > 0) {
+      // If multiple filters are present, we want to match all of them
+      filtered = filtered.filter((item) =>
+        syntaxFilters.every((filter) => {
+          // If a filter has multiple values, at least one has to match
+          const res = filter.values.some((searchValue) => {
+            const itemValue = searchTermFilters?.[filter.field]?.(item) ?? null;
+            return filterSearchTerm(itemValue, filter.operator, searchValue);
+          });
+
+          return filter.negated ? !res : res;
+        })
+      );
+    }
+
+    // Custom filtering logic
     if (filterResults) {
-      filtered = filterResults(filtered, value);
+      filtered = filterResults(filtered);
     }
     return filtered;
   }, [value, fuse, filterResults, transformQuery]);
@@ -200,44 +236,97 @@ export function useSearch<T>({
   };
 }
 
-// Helpers for searching features by environment
-const envRegex = /(^|\s)(on|off):([^\s]*)/gi;
-export function removeEnvFromSearchTerm(searchTerm: string) {
-  return searchTerm.replace(envRegex, " ").trim();
-}
-export function filterFeaturesByEnvironment(
-  filtered: FeatureInterface[],
-  searchTerm: string,
-  environments: string[]
-) {
-  // Determine which environments (if any) are being filtered by the search term
-  const environmentFilter: Map<string, boolean> = new Map();
-  const matches = searchTerm.matchAll(envRegex);
-  for (const match of matches) {
-    const enabled = match[2].toLowerCase() === "on";
-    match[3]?.split(",").forEach((env) => {
-      environmentFilter.set(env, enabled);
-    });
-  }
-  if (environmentFilter.has("all")) {
-    environments.forEach((env) => {
-      const value = environmentFilter.get("all");
-      if (value) environmentFilter.set(env, value);
-    });
+export function filterSearchTerm(
+  itemValue: unknown,
+  op: SearchTermFilterOperator,
+  searchValue: string
+): boolean {
+  if (!itemValue || !searchValue) {
+    return false;
   }
 
-  // No filtering required
-  if (!environmentFilter.size) return filtered;
+  if (Array.isArray(itemValue)) {
+    return itemValue.some((v) => filterSearchTerm(v, op, searchValue));
+  }
 
-  return filtered.filter((f) => {
-    for (const env of environments) {
-      if (environmentFilter.has(env)) {
-        const enabled = !!f.environmentSettings?.[env]?.enabled;
-        if (enabled !== environmentFilter.get(env)) {
-          return false;
-        }
+  searchValue = searchValue.toLowerCase();
+  const strVal =
+    itemValue instanceof Date
+      ? itemValue.toISOString()
+      : (itemValue + "").toLowerCase();
+  const [comp1, comp2]: [number, number] | [string, string] | [Date, Date] =
+    typeof itemValue === "number"
+      ? [itemValue, parseFloat(searchValue)]
+      : (op === ">" || op === "<") && itemValue instanceof Date
+      ? [itemValue, new Date(Date.parse(searchValue))]
+      : [strVal, searchValue];
+
+  switch (op) {
+    case ">":
+      return comp1 > comp2;
+    case "<":
+      return comp1 < comp2;
+    case "=":
+      return strVal === searchValue;
+    case "~":
+      return strVal.includes(searchValue);
+    case "^":
+      return strVal.startsWith(searchValue);
+    // The default comparison depends on the type
+    case "":
+      if (itemValue instanceof Date) {
+        // This is the full datetime object,
+        // but most people will just type "2024" or "2024-01-01"
+        return strVal.startsWith(searchValue);
+      } else {
+        return strVal === searchValue;
       }
+  }
+}
+
+export function transformQuery(
+  searchTerm: string,
+  searchTermFilterKeys: string[]
+) {
+  // TODO: Support comma-separated quoted values (e.g. `foo:"bar","baz"`)
+  const regex = new RegExp(
+    `(^|\\s)(${searchTermFilterKeys.join(
+      "|"
+    )}):(\\!?)([${searchTermOperators.join("")}]?)([^\\s"]+|"[^"]*"?)`,
+    "gi"
+  );
+  return parseQuery(searchTerm, regex);
+}
+
+export function parseQuery(query: string, regex: RegExp) {
+  const syntaxFilters: {
+    field: string;
+    values: string[];
+    operator: SearchTermFilterOperator;
+    negated: boolean;
+  }[] = [];
+
+  const matches = query.matchAll(regex);
+  for (const match of matches) {
+    if (match && match.length >= 3) {
+      const field = match[2];
+      const negated = !!match[3];
+      const operator = match[4] as SearchTermFilterOperator;
+      const rawValue = match[5].replace(/"/g, "");
+
+      syntaxFilters.push({
+        field,
+        operator,
+        negated,
+        values: rawValue.split(",").map((s) => s.trim()),
+      });
     }
-    return true;
-  });
+  }
+
+  const searchTerm = query.replace(regex, "$1").trim().replace(/\s+/g, " ");
+
+  return {
+    searchTerm,
+    syntaxFilters,
+  };
 }
