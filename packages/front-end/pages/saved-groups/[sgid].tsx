@@ -1,8 +1,9 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import { FaMinusCircle } from "react-icons/fa";
 import { FaPencil } from "react-icons/fa6";
+import { getMatchingRules } from "shared/util";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
 import Pagination from "@/components/Pagination";
@@ -11,6 +12,8 @@ import { useAuth } from "@/services/auth";
 import SavedGroupForm from "@/components/SavedGroups/SavedGroupForm";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useEnvironments, useFeaturesList } from "@/services/features";
+import { getSavedGroupMessage } from "@/pages/saved-groups";
 
 const NUM_PER_PAGE = 20;
 
@@ -21,6 +24,8 @@ export default function EditSavedGroupPage() {
     `/saved-groups/${sgid}`
   );
   const savedGroup = data?.savedGroup;
+  const { features } = useFeaturesList(false);
+  const environments = useEnvironments();
 
   const values = savedGroup?.values || [];
   const [currentPage, setCurrentPage] = useState(1);
@@ -51,6 +56,30 @@ export default function EditSavedGroupPage() {
     [mutate, savedGroup]
   );
 
+  const savedGroupFeatureIds = useMemo(() => {
+    const featureIds: Set<string> = new Set();
+    if (!savedGroup) return featureIds;
+    features.forEach((feature) => {
+      const matches = getMatchingRules(
+        feature,
+        (rule) =>
+          rule.condition?.includes(savedGroup.id) ||
+          rule.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
+          false,
+        environments.map((e) => e.id)
+      );
+
+      if (matches.length > 0) {
+        featureIds.add(feature.id);
+      }
+    });
+    return featureIds;
+  }, [savedGroup, features, environments]);
+
+  const getConfirmationContent = useMemo(() => {
+    return getSavedGroupMessage(savedGroupFeatureIds);
+  }, [savedGroupFeatureIds]);
+
   if (!savedGroup || savedGroup.type !== "list" || error) {
     return (
       <div className="alert alert-danger">
@@ -58,6 +87,7 @@ export default function EditSavedGroupPage() {
       </div>
     );
   }
+
   return (
     <>
       {savedGroupForm && (
@@ -92,13 +122,11 @@ export default function EditSavedGroupPage() {
                 className="btn dropdown-item py-2"
                 text="Delete"
                 title="Delete this Saved Group"
-                // TODO
-                // getConfirmationContent={getMetricUsage(metric)}
+                getConfirmationContent={getConfirmationContent}
                 onClick={async () => {
                   await apiCall(`/saved-groups/${savedGroup.id}`, {
                     method: "DELETE",
                   });
-                  mutate(undefined);
                   router.push("/saved-groups");
                 }}
                 useIcon={true}

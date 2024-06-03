@@ -37,7 +37,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
     return groups.filter((g) => g.type === "condition");
   }, [groups]);
 
-  const { features } = useFeaturesList();
+  const { features } = useFeaturesList(false);
 
   // Get a list of feature ids for every saved group
   // TODO: also get experiments

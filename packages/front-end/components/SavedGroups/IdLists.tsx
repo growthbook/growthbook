@@ -37,7 +37,7 @@ export default function IdLists({ groups, mutate }: Props) {
     return groups.filter((g) => g.type === "list");
   }, [groups]);
 
-  const { features } = useFeaturesList();
+  const { features } = useFeaturesList(false);
 
   const environments = useEnvironments();
 
