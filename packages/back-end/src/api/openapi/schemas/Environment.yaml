@@ -1,0 +1,20 @@
+type: object
+required:
+  - id
+  - description
+  - toggleOnList
+  - defaultState
+  - projects
+properties:
+  id:
+    type: string
+  description:
+    type: string
+  toggleOnList:
+    type: boolean
+  defaultState:
+    type: boolean
+  projects:
+    type: array
+    items:
+      type: string

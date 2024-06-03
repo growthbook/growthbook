@@ -52,6 +52,7 @@ val gb = GBSDKBuilder(
 If you need to set or update attributes asynchronously, you can do so with `setAttributes()`. This will completely overwrite the attributes object with whatever you pass in. Also, be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully.
 
 If you are accessing features the first time there will be no features right after `initialize()` method call because features are not got from Backend yet. If you need to access features as soon as possible, you need to use `GBCacheRefreshHandler`. You can pass your implementation of `GBCacheRefreshHandler` through `setRefreshHandler()` method. Code snippet:
+
 ```kotlin
 class ForExampleMainActivity {
     var growthBookSDK: GrowthBookSDK? = null
