@@ -375,6 +375,15 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     );
   }, [currentOrg?.currentUserPermissions, data?.superAdmin]);
 
+  const getUserDisplay = useCallback(
+    (id: string, fallback = true) => {
+      const u = users.get(id);
+      if (!u && fallback) return id;
+      return u?.name || u?.email || "";
+    },
+    [users]
+  );
+
   return (
     <UserContext.Provider
       value={{
@@ -385,11 +394,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         updateUser,
         user,
         users,
-        getUserDisplay: (id, fallback = true) => {
-          const u = users.get(id);
-          if (!u && fallback) return id;
-          return u?.name || u?.email || "";
-        },
+        getUserDisplay: getUserDisplay,
         refreshOrganization: refreshOrganization as () => Promise<void>,
         roles: currentOrg?.roles || [],
         permissions,
