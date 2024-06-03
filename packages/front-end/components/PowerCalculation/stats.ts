@@ -371,9 +371,7 @@ export function calculatePriorVariance(
   mean: number,
   relative: boolean
 ): number {
-  return relative
-    ? priorVarianceRel
-    : priorVarianceRel * Math.pow(Math.abs(mean), 2);
+  return relative ? priorVarianceRel : priorVarianceRel * Math.pow(mean, 2);
 }
 
 function calculatePriorMeanSpecified(
@@ -409,6 +407,7 @@ function calculatePriorVarianceDGP(
   relative: boolean
 ): number {
   const metricMean = getMetricMean(metric);
+  /*priorStandardDeviationDGP is 0 because we assume true fixed effect size*/
   const priorStandardDeviationDGP = 0;
   return calculatePriorVariance(
     Math.pow(priorStandardDeviationDGP, 2),
@@ -461,7 +460,6 @@ function getPosteriorPrecision(
   return 1 / tauHatVariance + properInt / priorVarianceSpecified;
 }
 
-// Function to calculate upper cutpoint
 export function getCutpoint(
   metric: MetricParams,
   alpha: number,
@@ -595,9 +593,8 @@ export function findMdeBayesian(
   relative: boolean
 ): MDEResults {
   /*fixed effect size, so prior variance of data generating process is 0*/
-  const dummyMetric = { ...metric };
-  /*first compute lower and upper bounds within stepSize*/
   let effectSize = 0;
+  const dummyMetric = { ...metric, effectSize: effectSize };
   dummyMetric.effectSize = effectSize;
   let currentPower = powerEstBayesian(
     dummyMetric,
@@ -613,12 +610,13 @@ export function findMdeBayesian(
     };
     return mdeResults;
   }
-  /*maximum effect size we check is 500%*/
-  const maxEffectSize = 5;
   const stepSizeCoarse = 1e-3;
   const maxError = normal.pdf(0, 0, 1) * stepSizeCoarse;
-  while (currentPower < power && effectSize <= maxEffectSize) {
-    effectSize += stepSizeCoarse;
+  /*using integer of 5000 for stability in loop;
+  combined with stepsize of 1e-3, max effectSize is 500%*/
+  const numIters = 5000;
+  for (let i = 0; i < numIters; i++) {
+    effectSize = stepSizeCoarse * i;
     dummyMetric.effectSize = effectSize;
     currentPower = powerEstBayesian(
       dummyMetric,
