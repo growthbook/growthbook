@@ -179,7 +179,7 @@ const SavedGroupForm: FC<{
                         if (typeof str !== "string") {
                           return;
                         }
-                        const values = str.split(/\s*,\s*/);
+                        const values = str.replaceAll(/[\n\s]/g, "").split(",");
                         form.setValue("values", values);
                         setSuccessText(`${values.length} IDs ready to import`);
                       } catch (e) {
