@@ -65,16 +65,16 @@ router.post(
 router.put(
   "/:id",
   validateRequestMiddleware({
-    body: z
-      .object({
-        environment: z.object({
-          id: z.string(),
+    body: z.object({
+      environment: z
+        .object({
           description: z.string(),
           toggleOnList: z.boolean().optional(),
           defaultState: z.any().optional(),
-        }),
-      })
-      .strict(),
+          projects: z.array(z.string()).optional(),
+        })
+        .strict(),
+    }),
     params: z
       .object({
         id: z.string(),

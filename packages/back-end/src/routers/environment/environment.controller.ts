@@ -147,26 +147,25 @@ export const putEnvironments = async (
 export const putEnvironment = async (
   req: AuthRequest<
     {
-      environment: Environment;
+      environment: Omit<Environment, "id">;
     },
     { id: string }
   >,
   res: Response
 ) => {
   const { environment } = req.body;
+  const { id } = req.params;
   const context = getContextFromReq(req);
   const { org } = context;
 
   const envsArr = org.settings?.environments || [];
 
-  const existingEnvIndex = envsArr.findIndex(
-    (env) => env.id === environment.id
-  );
+  const existingEnvIndex = envsArr.findIndex((env) => env.id === id);
 
   if (existingEnvIndex < 0) {
     return res.status(400).json({
       status: 400,
-      message: `Could not find environment: ${environment.id}`,
+      message: `Could not find environment: ${id}`,
     });
   }
 
@@ -180,7 +179,7 @@ export const putEnvironment = async (
   }
 
   const updatedEnvs = [...envsArr];
-  updatedEnvs[existingEnvIndex] = environment;
+  updatedEnvs[existingEnvIndex] = { ...environment, id };
 
   try {
     await updateOrganization(org.id, {
@@ -197,7 +196,7 @@ export const putEnvironment = async (
       if (!isEqual(existingProjects, newProjects)) {
         const connections = await findSDKConnectionsByOrganization(context);
         const affectedConnections = connections.filter(
-          (c) => c.environment === environment.id
+          (c) => c.environment === id
         );
 
         for (const connection of affectedConnections) {
@@ -219,7 +218,7 @@ export const putEnvironment = async (
       event: "environment.update",
       entity: {
         object: "environment",
-        id: environment.id,
+        id,
       },
       details: auditDetailsUpdate(envsArr[existingEnvIndex], environment),
     });
