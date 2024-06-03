@@ -93,7 +93,7 @@ const ExperimentsPage = (): React.ReactElement => {
             : exp.dateCreated) ?? "",
       };
     },
-    [getExperimentMetricById, getProjectById]
+    [getExperimentMetricById, getProjectById, getUserDisplay]
   );
 
   const { watchedExperiments } = useWatching();
