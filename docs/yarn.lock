@@ -1720,6 +1720,11 @@
     fs-extra "^11.1.1"
     tslib "^2.6.0"
 
+"@docusaurus/tsconfig@^3.4.0":
+  version "3.4.0"
+  resolved "https://registry.yarnpkg.com/@docusaurus/tsconfig/-/tsconfig-3.4.0.tgz#2b6ea208e580facc6e3330433e9b4321ef0eb3f5"
+  integrity sha512-0qENiJ+TRaeTzcg4olrnh0BQ7eCxTgbYWBnWUeQDc84UYkt/T3pDNnm3SiQkqPb+YQ1qtYFlC0RriAElclo8Dg==
+
 "@docusaurus/types@3.3.2":
   version "3.3.2"
   resolved "https://registry.yarnpkg.com/@docusaurus/types/-/types-3.3.2.tgz#0e17689512b22209a98f22ee80ac56899e94d390"
