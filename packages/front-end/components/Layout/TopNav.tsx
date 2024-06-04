@@ -239,16 +239,15 @@ const TopNav: FC<{
                 {!isCloud() &&
                   isMultiOrg() &&
                   (showMultiOrgSelfSelector() || allowSelfOrgCreation()) && (
-                    <Link
-                      href="/settings/organizations"
-                      className="dropdown-item text-primary"
-                    >
-                      {showMultiOrgSelfSelector() && allowSelfOrgCreation()
-                        ? "Create or join a different organization"
-                        : showMultiOrgSelfSelector()
-                        ? "Join a different organization"
-                        : "Create a new organization"}
-                    </Link>
+                    <div>
+                      <hr />
+                      <Link
+                        href="/settings/organizations"
+                        className="dropdown-item text-primary"
+                      >
+                        Add Organization
+                      </Link>
+                    </div>
                   )}
               </div>
             </div>

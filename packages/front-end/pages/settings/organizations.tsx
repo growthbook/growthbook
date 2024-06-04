@@ -1,5 +1,5 @@
 import { FC } from "react";
-import CreateOrganization from "@/components/Auth/CreateOrganization";
+import CreateOrJoinOrganization from "@/components/Auth/CreateOrJoinOrganization";
 import {
   allowSelfOrgCreation,
   isCloud,
@@ -26,7 +26,7 @@ const CreateOrJoinOrganizationPage: FC = () => {
 
   return (
     <div className="container-fluid pagecontents">
-      <CreateOrganization
+      <CreateOrJoinOrganization
         showFrame={false}
         title="Join another organization"
         subtitle="Select the organization you would like to join."

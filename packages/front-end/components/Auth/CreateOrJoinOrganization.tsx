@@ -16,9 +16,9 @@ import Field from "@/components/Forms/Field";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import WelcomeFrame from "./WelcomeFrame";
 
-import style from "./CreateOrganization.module.scss";
+import style from "./CreateOrJoinOrganization.module.scss";
 
-const CreateOrganization: FC<{
+const CreateOrJoinOrganization: FC<{
   showFrame?: boolean;
   title?: string;
   subtitle?: string;
@@ -44,18 +44,14 @@ const CreateOrganization: FC<{
   const { updateUser } = useUser();
 
   const { data: recommendedOrgsData } = useApi<{
-    organizations: [
-      {
-        id: string;
-        name: string;
-        members: number;
-        currentUserIsPending: boolean;
-        currentUserIsMember: boolean;
-      }
-    ];
+    organizations: {
+      id: string;
+      name: string;
+      members: number;
+      currentUserIsPending: boolean;
+    }[];
   }>(showMultiOrgSelfSelector() ? `/user/getRecommendedOrgs` : null);
   const orgs = recommendedOrgsData?.organizations;
-  const joinableOrgs = orgs?.filter((org) => !org.currentUserIsMember);
   const router = useRouter();
 
   useEffect(() => {
@@ -106,7 +102,7 @@ const CreateOrganization: FC<{
   const showCreate =
     (isMultiOrg() && allowSelfOrgCreation()) || !data.hasOrganizations;
 
-  const showJoin = isMultiOrg() && showMultiOrgSelfSelector() && joinableOrgs;
+  const showJoin = isMultiOrg() && showMultiOrgSelfSelector() && orgs;
 
   const leftside = (
     <>
@@ -142,21 +138,21 @@ const CreateOrganization: FC<{
                       ? title
                       : `We found 
                     ${
-                      orgs?.length === 1
+                      orgs.length === 1
                         ? "your organization"
                         : "possible organizations for you"
                     } 
                     on GrowthBook!`}
                   </h3>
                   <p className="text-muted">
-                    {joinableOrgs.length === 0
+                    {orgs.length === 0
                       ? "There are no other organizations that you are not already a member of."
                       : subtitle
                       ? subtitle
                       : "Join your organization to get started."}
                   </p>
                 </div>
-                {joinableOrgs?.map((org) => (
+                {orgs.map((org) => (
                   <div key={org.id} className={`${style.recommendedOrgBox}`}>
                     <div className={`${style.recommendedOrgRow}`}>
                       <div className={style.recommendedOrgLogo}>
@@ -180,11 +176,7 @@ const CreateOrganization: FC<{
                         onClick={() => {
                           joinOrgFormSubmit(org);
                         }}
-                        disabled={
-                          org.currentUserIsPending ||
-                          org.currentUserIsMember ||
-                          false
-                        }
+                        disabled={org.currentUserIsPending || false}
                       >
                         {org.currentUserIsPending ? "Pending" : "Join"}
                       </button>
@@ -305,4 +297,4 @@ const CreateOrganization: FC<{
   }
 };
 
-export default CreateOrganization;
+export default CreateOrJoinOrganization;
