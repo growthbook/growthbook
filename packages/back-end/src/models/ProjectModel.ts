@@ -1,31 +1,41 @@
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { z } from "zod";
 import { ApiProject } from "../../types/openapi";
-import { ProjectInterface, ProjectSettings } from "../../types/project";
 import { statsEngines } from "../util/constants";
 import { baseSchema, MakeModelClass } from "./BaseModel";
 
-const projectValidator = baseSchema
+export const statsEnginesValidator = z.enum(statsEngines);
+
+export const projectSettingsValidator = z.object({
+  statsEngine: statsEnginesValidator.default(DEFAULT_STATS_ENGINE),
+});
+
+export const projectValidator = baseSchema
   .extend({
     name: z.string(),
     description: z.string(),
-    settings: z.object({
-      statsEngine: z.enum(statsEngines),
-    }),
+    settings: projectSettingsValidator,
   })
   .strict();
+
+export type StatsEngine = z.infer<typeof statsEnginesValidator>;
+export type ProjectSettings = z.infer<typeof projectSettingsValidator>;
+export type ProjectInterface = z.infer<typeof projectValidator>;
+
+type MigratedProject = Omit<ProjectInterface, "settings"> & {
+  settings: Partial<ProjectInterface["settings"]>;
+};
 
 const BaseClass = MakeModelClass({
   schema: projectValidator,
   collectionName: "projects",
-  idPrefix: "prj__",
+  idPrefix: "prj_",
   auditLog: {
     entity: "project",
     createEvent: "project.create",
     updateEvent: "project.update",
     deleteEvent: "project.delete",
   },
-  projectScoping: "none",
   globallyUniqueIds: true,
 });
 
@@ -52,8 +62,13 @@ export class ProjectModel extends BaseClass {
     return this.context.permissions.canDeleteProject(doc.id);
   }
 
-  protected migrate(doc: z.infer<typeof projectValidator>) {
-    return { ...doc, settings: doc.settings || {} };
+  protected migrate(doc: MigratedProject) {
+    const settings = {
+      statsEngine: DEFAULT_STATS_ENGINE,
+      ...(doc.settings || {}),
+    };
+
+    return { ...doc, settings };
   }
 
   public create(project: CreateProjectProps) {

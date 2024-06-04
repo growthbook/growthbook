@@ -231,14 +231,14 @@ export abstract class BaseModel<
   public async delete(
     existing: z.infer<T>,
     writeOptions?: WriteOptions
-  ): Promise<void> {
+  ): Promise<z.infer<T> | undefined> {
     await this._deleteOne(existing, writeOptions);
     return existing;
   }
   public async deleteById(
     id: string,
     writeOptions?: WriteOptions
-  ): Promise<void> {
+  ): Promise<z.infer<T> | undefined> {
     const existing = await this.getById(id);
     if (!existing) {
       // If it doesn't exist, maybe it was deleted already. No need to throw an error.

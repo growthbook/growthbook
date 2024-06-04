@@ -1,7 +1,6 @@
-import { statsEngines } from "../src/util/constants";
-import type { MetricStats } from "./metric";
+export { StatsEngine } from "../src/models/ProjectModel";
 
-export type StatsEngine = typeof statsEngines[number];
+import type { MetricStats } from "./metric";
 
 export type PValueCorrection = null | "benjamini-hochberg" | "holm-bonferroni";
 

@@ -5,13 +5,7 @@ import { auditDetailsDelete } from "../../services/audit";
 
 export const deleteProject = createApiRequestHandler(deleteProjectValidator)(
   async (req): Promise<DeleteProjectResponse> => {
-    let id = req.params.id;
-    // Add `prj__` prefix if it doesn't exist
-    if (!id.startsWith("prj__")) {
-      id = `prj__${id}`;
-    }
-
-    const project = await req.context.models.projects.deleteById(id);
+    const project = await req.context.models.projects.deleteById(req.params.id);
 
     if (!project) throw new Error("Could not find project!");
 
@@ -25,7 +19,7 @@ export const deleteProject = createApiRequestHandler(deleteProjectValidator)(
     });
 
     return {
-      deletedId: id,
+      deletedId: project.id,
     };
   }
 );

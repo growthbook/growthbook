@@ -325,7 +325,7 @@ export const putProjectSettings = async (
 
   const { settings } = req.body;
 
-  await context.models.projects.updateSettingsById(id, settings);
+  await context.models.projects.update(project, { settings });
 
   res.status(200).json({
     status: 200,
