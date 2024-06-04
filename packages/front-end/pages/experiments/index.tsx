@@ -93,7 +93,7 @@ const ExperimentsPage = (): React.ReactElement => {
             : exp.dateCreated) ?? "",
       };
     },
-    [getExperimentMetricById, getProjectById]
+    [getExperimentMetricById, getProjectById, getUserDisplay]
   );
 
   const { watchedExperiments } = useWatching();
@@ -106,6 +106,7 @@ const ExperimentsPage = (): React.ReactElement => {
             item.owner === userId || watchedExperiments.includes(item.id)
         );
       }
+
       items = filterByTags(items, tagsFilter.tags);
 
       return items;
@@ -131,6 +132,57 @@ const ExperimentsPage = (): React.ReactElement => {
       "results",
       "analysis",
     ],
+    searchTermFilters: {
+      is: (item) => {
+        const is: string[] = [];
+        if (item.archived) is.push("archived");
+        if (item.status === "draft") is.push("draft");
+        if (item.status === "running") is.push("running");
+        if (item.status === "stopped") is.push("stopped");
+        if (item.results === "won") is.push("winner");
+        if (item.results === "lost") is.push("loser");
+        if (item.results === "inconclusive") is.push("inconclusive");
+        if (item.hasVisualChangesets) is.push("visual");
+        if (item.hasURLRedirects) is.push("redirect");
+        return is;
+      },
+      has: (item) => {
+        const has: string[] = [];
+        if (item.project) has.push("project");
+        if (item.hasVisualChangesets) {
+          has.push("visualChange", "visualChanges");
+        }
+        if (item.hasURLRedirects) has.push("redirect", "redirects");
+        if (item.linkedFeatures?.length) has.push("features", "feature");
+        if (item.hypothesis?.trim()?.length) has.push("hypothesis");
+        if (item.description?.trim()?.length) has.push("description");
+        if (item.variations.some((v) => !!v.screenshots?.length)) {
+          has.push("screenshots");
+        }
+        return has;
+      },
+      variations: (item) => item.variations.length,
+      variation: (item) => item.variations.map((v) => v.name),
+      created: (item) => new Date(item.dateCreated),
+      updated: (item) => new Date(item.dateUpdated),
+      name: (item) => item.name,
+      key: (item) => item.trackingKey,
+      trackingKey: (item) => item.trackingKey,
+      id: (item) => [item.id, item.trackingKey],
+      status: (item) => item.status,
+      result: (item) =>
+        item.status === "stopped" ? item.results || "unfinished" : "unfinished",
+      owner: (item) => [item.owner, item.ownerName],
+      tag: (item) => item.tags,
+      project: (item) => [item.project, item.projectName],
+      feature: (item) => item.linkedFeatures || [],
+      metric: (item) => [
+        ...item.metricNames,
+        ...item.metrics,
+        ...(item.guardrails || []),
+        item.activationMetric,
+      ],
+    },
     filterResults,
   });
 

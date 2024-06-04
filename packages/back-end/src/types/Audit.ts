@@ -32,6 +32,7 @@ export const entityEvents = {
     "archive",
     "delete",
   ],
+  urlRedirect: ["create", "update", "delete"],
   metric: ["autocreate", "create", "update", "delete", "analysis"],
   datasource: ["create", "update", "delete", "import"],
   comment: ["create", "update", "delete"],

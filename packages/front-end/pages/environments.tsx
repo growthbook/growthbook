@@ -222,12 +222,10 @@ const EnvironmentsPage: FC = () => {
                                 const newEnvs = [...environments];
                                 newEnvs.splice(i, 1);
                                 newEnvs.splice(i - 1, 0, e);
-                                await apiCall(`/organization`, {
+                                await apiCall(`/environment/order`, {
                                   method: "PUT",
                                   body: JSON.stringify({
-                                    settings: {
-                                      environments: newEnvs,
-                                    },
+                                    environments: newEnvs.map((env) => env.id),
                                   }),
                                 });
                                 refreshOrganization();
@@ -244,12 +242,10 @@ const EnvironmentsPage: FC = () => {
                                 const newEnvs = [...environments];
                                 newEnvs.splice(i, 1);
                                 newEnvs.splice(i + 1, 0, e);
-                                await apiCall(`/organization`, {
+                                await apiCall(`/environment/order`, {
                                   method: "PUT",
                                   body: JSON.stringify({
-                                    settings: {
-                                      environments: newEnvs,
-                                    },
+                                    environments: newEnvs.map((env) => env.id),
                                   }),
                                 });
                                 refreshOrganization();
@@ -286,8 +282,8 @@ const EnvironmentsPage: FC = () => {
                             text="Delete"
                             useIcon={false}
                             onClick={async () => {
-                              await apiCall(`/organization`, {
-                                method: "PUT",
+                              await apiCall(`/environment/${e.id}`, {
+                                method: "DELETE",
                                 body: JSON.stringify({
                                   settings: {
                                     environments: environments.filter(

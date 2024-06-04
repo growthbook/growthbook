@@ -287,7 +287,9 @@ export async function createFeature(
     );
   }
 
-  onFeatureCreate(context, feature);
+  onFeatureCreate(context, feature).catch((e) => {
+    logger.error(e, "Error refreshing SDK Payload on feature create");
+  });
 }
 
 export async function deleteFeature(
@@ -308,7 +310,9 @@ export async function deleteFeature(
     );
   }
 
-  onFeatureDelete(context, feature);
+  onFeatureDelete(context, feature).catch((e) => {
+    logger.error(e, "Error refreshing SDK Payload on feature delete");
+  });
 }
 
 /**
@@ -562,7 +566,9 @@ export async function updateFeature(
     );
   }
 
-  onFeatureUpdate(context, feature, updatedFeature);
+  onFeatureUpdate(context, feature, updatedFeature).catch((e) => {
+    logger.error(e, "Error refreshing SDK Payload on feature update");
+  });
   return updatedFeature;
 }
 
@@ -745,7 +751,9 @@ export async function removeTagInFeature(
       tags: (feature.tags || []).filter((t) => t !== tag),
     };
 
-    onFeatureUpdate(context, feature, updatedFeature);
+    onFeatureUpdate(context, feature, updatedFeature).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on feature update");
+    });
   });
 }
 
@@ -766,7 +774,9 @@ export async function removeProjectFromFeatures(
       project: "",
     };
 
-    onFeatureUpdate(context, feature, updatedFeature, project);
+    onFeatureUpdate(context, feature, updatedFeature, project).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on feature update");
+    });
   });
 }
 
