@@ -142,7 +142,11 @@ and other meta information. You can also search using syntax search to search fo
 
 ### Syntax Search
 
-Syntax search allows you to search for specific fields in GrowthBook. The syntax search allows for exact matching, starts with, greater, less, and contains, using the following syntax:
+Syntax search allows you to search for specific fields in GrowthBook. The syntax search allows for exact
+matching, starts with, greater, less, and contains. You can also negate any of the operators using !.
+Syntax searches are constructed in the format of [field]:[operator][value]. You can also combine multiple
+fields using the same syntax. For example, `name:~pricing status:running` will search for all running experiments
+with the name containing the string "pricing".
 
 | Syntax operator | Description               |
 | --------------- | ------------------------- |
@@ -159,7 +163,8 @@ Syntax search allows you to search for specific fields in GrowthBook. The syntax
 | :!>             | not greater than          |
 | :!<             | not less than             |
 
-You can also add quotes to search for fields that contain spaces. For example, `name:"New Feature"` will search for the name field that contains the text “New Feature”.
+You can also add quotes to search for fields that contain spaces. For example, `name:"New Feature"` will search for
+the name field that contains the text “New Feature”.
 
 ### Experiments Syntax Fields
 
@@ -191,7 +196,7 @@ name:~pricing status:running
 Show all running experiments with the name containing the string "pricing"
 
 ```
-tag:checkout result:won updated:>"2024-06-05"
+tag:checkout result:won updated:>2024-06-05
 ```
 
 Show all experiments tagged with "checkout" that have been marked as won and were updated after June 5th, 2024
