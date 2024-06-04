@@ -122,9 +122,17 @@ paths:
     get:
       $ref: "./paths/getFeatureKeys.yaml"
   /projects:
-    $ref: "./paths/listProjects.yaml"
+    get:
+      $ref: "./paths/listProjects.yaml"
+    post:
+      $ref: "./paths/postProject.yaml"
   /projects/{id}:
-    $ref: "./paths/getProject.yaml"
+    get:
+      $ref: "./paths/getProject.yaml"
+    put:
+      $ref: "./paths/putProject.yaml"
+    delete:
+      $ref: "./paths/deleteProject.yaml"
   /dimensions:
     $ref: "./paths/listDimensions.yaml"
   /dimensions/{id}:

@@ -228,22 +228,24 @@ export abstract class BaseModel<
     }
     return this._updateOne(existing, updates, { writeOptions });
   }
-  public delete(
+  public async delete(
     existing: z.infer<T>,
     writeOptions?: WriteOptions
-  ): Promise<void> {
-    return this._deleteOne(existing, writeOptions);
+  ): Promise<z.infer<T> | undefined> {
+    await this._deleteOne(existing, writeOptions);
+    return existing;
   }
   public async deleteById(
     id: string,
     writeOptions?: WriteOptions
-  ): Promise<void> {
+  ): Promise<z.infer<T> | undefined> {
     const existing = await this.getById(id);
     if (!existing) {
       // If it doesn't exist, maybe it was deleted already. No need to throw an error.
       return;
     }
-    return this._deleteOne(existing, writeOptions);
+    await this._deleteOne(existing, writeOptions);
+    return existing;
   }
 
   /***************

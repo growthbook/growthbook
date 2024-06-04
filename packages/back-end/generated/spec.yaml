@@ -612,10 +612,53 @@ paths:
                         items:
                           $ref: '#/components/schemas/Project'
                   - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - projects
+      summary: Create a single project
+      operationId: postProject
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/projects \
+              -d '{"name":"My Project", "description": "Super cool project"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                settings:
+                  description: Project settings.
+                  type: object
+                  properties:
+                    statsEngine:
+                      description: Stats engine.
+                      type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - project
+                properties:
+                  project:
+                    $ref: '#/components/schemas/Project'
   '/projects/{id}':
-    parameters:
-      - $ref: '#/components/parameters/id'
     get:
+      parameters:
+        - $ref: '#/components/parameters/id'
       summary: Get a single project
       tags:
         - projects
@@ -636,6 +679,75 @@ paths:
                 properties:
                   project:
                     $ref: '#/components/schemas/Project'
+    put:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - projects
+      summary: Edit a single project
+      operationId: putProject
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X PUT https://api.growthbook.io/api/v1/projects/proj_abc123 \
+              -d '{ "name": "My Subsidiary" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  description: Project name.
+                  type: string
+                description:
+                  description: Project description.
+                  type: string
+                settings:
+                  description: Project settings.
+                  type: object
+                  properties:
+                    statsEngine:
+                      description: Stats engine.
+                      type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - project
+                properties:
+                  project:
+                    $ref: '#/components/schemas/Project'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - projects
+      summary: Deletes a single project
+      operationId: deleteProject
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/projects/prj__123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - project
+                properties:
+                  deletedId:
+                    type: string
+                    description: The ID of the deleted project
+                    example: prj__123abc
   /dimensions:
     get:
       summary: Get all dimensions

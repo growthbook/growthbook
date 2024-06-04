@@ -1,37 +1,43 @@
-import mongoose from "mongoose";
-import uniqid from "uniqid";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
-import { omit } from "lodash";
+import { z } from "zod";
 import { ApiProject } from "../../types/openapi";
-import { ProjectInterface, ProjectSettings } from "../../types/project";
-import { ReqContext } from "../../types/organization";
-import { ApiReqContext } from "../../types/api";
+import { statsEngines } from "../util/constants";
+import { baseSchema, MakeModelClass } from "./BaseModel";
 
-const projectSchema = new mongoose.Schema({
-  id: {
-    type: String,
-    unique: true,
-  },
-  organization: {
-    type: String,
-    index: true,
-  },
-  name: String,
-  description: String,
-  dateCreated: Date,
-  dateUpdated: Date,
-  settings: {},
+export const statsEnginesValidator = z.enum(statsEngines);
+
+export const projectSettingsValidator = z.object({
+  statsEngine: statsEnginesValidator.default(DEFAULT_STATS_ENGINE).optional(),
 });
 
-type ProjectDocument = mongoose.Document & ProjectInterface;
+export const projectValidator = baseSchema
+  .extend({
+    name: z.string(),
+    description: z.string(),
+    settings: projectSettingsValidator,
+  })
+  .strict();
 
-const ProjectModel = mongoose.model<ProjectInterface>("Project", projectSchema);
+export type StatsEngine = z.infer<typeof statsEnginesValidator>;
+export type ProjectSettings = z.infer<typeof projectSettingsValidator>;
+export type ProjectInterface = z.infer<typeof projectValidator>;
 
-function toInterface(doc: ProjectDocument): ProjectInterface {
-  const ret = doc.toJSON<ProjectDocument>();
-  ret.settings = ret.settings || {};
-  return omit(ret, ["__v", "_id"]);
-}
+type MigratedProject = Omit<ProjectInterface, "settings"> & {
+  settings: Partial<ProjectInterface["settings"]>;
+};
+
+const BaseClass = MakeModelClass({
+  schema: projectValidator,
+  collectionName: "projects",
+  idPrefix: "prj_",
+  auditLog: {
+    entity: "project",
+    createEvent: "project.create",
+    updateEvent: "project.update",
+    deleteEvent: "project.delete",
+  },
+  globallyUniqueIds: true,
+});
 
 interface CreateProjectProps {
   name: string;
@@ -39,101 +45,50 @@ interface CreateProjectProps {
   id?: string;
 }
 
-export async function createProject(
-  organization: string,
-  data: CreateProjectProps
-) {
-  const doc = await ProjectModel.create({
-    organization: organization,
-    id: data.id || uniqid("prj_"),
-    name: data.name || "",
-    description: data.description,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-  });
-  return toInterface(doc);
-}
-export async function findAllProjectsByOrganization(
-  context: ReqContext | ApiReqContext
-) {
-  const { org } = context;
-  const docs = await ProjectModel.find({
-    organization: org.id,
-  });
+export class ProjectModel extends BaseClass {
+  protected canRead(doc: ProjectInterface) {
+    return this.context.permissions.canReadSingleProjectResource(doc.id);
+  }
 
-  const projects = docs.map(toInterface);
-  return projects.filter((p) =>
-    context.permissions.canReadSingleProjectResource(p.id)
-  );
-}
-export async function findProjectById(
-  context: ReqContext | ApiReqContext,
-  projectId: string
-) {
-  const { org } = context;
-  const doc = await ProjectModel.findOne({
-    id: projectId,
-    organization: org.id,
-  });
-  if (!doc) return null;
+  protected canCreate() {
+    return this.context.permissions.canCreateProjects();
+  }
 
-  const project = toInterface(doc);
+  protected canUpdate(doc: ProjectInterface) {
+    return this.context.permissions.canUpdateProject(doc.id);
+  }
 
-  return context.permissions.canReadSingleProjectResource(project.id)
-    ? project
-    : null;
-}
-export async function deleteProjectById(id: string, organization: string) {
-  await ProjectModel.deleteOne({
-    id,
-    organization,
-  });
-}
-export async function updateProject(
-  id: string,
-  organization: string,
-  update: Partial<ProjectInterface>
-) {
-  await ProjectModel.updateOne(
-    {
-      id,
-      organization,
-    },
-    {
-      $set: update,
-    }
-  );
-}
+  protected canDelete(doc: ProjectInterface) {
+    return this.context.permissions.canDeleteProject(doc.id);
+  }
 
-export async function updateProjectSettings(
-  id: string,
-  organization: string,
-  settings: Partial<ProjectSettings>
-) {
-  const update = {
-    $set: {
-      dateUpdated: new Date(),
-      settings,
-    },
-  };
-  await ProjectModel.updateOne(
-    {
-      id,
-      organization,
-    },
-    update
-  );
-}
+  protected migrate(doc: MigratedProject) {
+    const settings = {
+      statsEngine: DEFAULT_STATS_ENGINE,
+      ...(doc.settings || {}),
+    };
 
-export function toProjectApiInterface(project: ProjectInterface): ApiProject {
-  return {
-    id: project.id,
-    name: project.name,
-    description: project.description || "",
-    dateCreated: project.dateCreated.toISOString(),
-    dateUpdated: project.dateUpdated.toISOString(),
-    settings: {
-      statsEngine: project.settings?.statsEngine || DEFAULT_STATS_ENGINE,
-    },
-  };
+    return { ...doc, settings };
+  }
+
+  public create(project: CreateProjectProps) {
+    return super.create({ ...project, settings: {} });
+  }
+
+  public updateSettingsById(id: string, settings: Partial<ProjectSettings>) {
+    return super.updateById(id, { settings });
+  }
+
+  public toApiInterface(project: ProjectInterface): ApiProject {
+    return {
+      id: project.id,
+      name: project.name,
+      description: project.description || "",
+      dateCreated: project.dateCreated.toISOString(),
+      dateUpdated: project.dateUpdated.toISOString(),
+      settings: {
+        statsEngine: project.settings?.statsEngine || DEFAULT_STATS_ENGINE,
+      },
+    };
+  }
 }

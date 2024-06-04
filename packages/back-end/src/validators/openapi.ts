@@ -48,7 +48,25 @@ export const listProjectsValidator = {
   paramsSchema: z.never(),
 };
 
+export const postProjectValidator = {
+  bodySchema: z.object({ "name": z.string(), "description": z.string().optional(), "settings": z.object({ "statsEngine": z.string().describe("Stats engine.").optional() }).describe("Project settings.").optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
 export const getProjectValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const putProjectValidator = {
+  bodySchema: z.object({ "name": z.string().describe("Project name.").optional(), "description": z.string().describe("Project description.").optional(), "settings": z.object({ "statsEngine": z.string().describe("Stats engine.").optional() }).describe("Project settings.").optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const deleteProjectValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
