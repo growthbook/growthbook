@@ -25,6 +25,7 @@ import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 
@@ -94,7 +95,6 @@ const TopNav: FC<{
   }, [preferredTheme]);
 
   let orgName = orgId || "";
-
   if (organizations && organizations.length) {
     organizations.forEach((o) => {
       if (o.id === orgId) {
@@ -374,6 +374,7 @@ const TopNav: FC<{
               <>{pageTitle}</>
             )}
           </div>
+          <AccountPlanNotices />
           <DropdownMenu.Root>
             <DropdownMenu.Trigger>
               <div className="nav-link d-flex">
