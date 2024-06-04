@@ -241,7 +241,7 @@ export function filterSearchTerm(
   op: SearchTermFilterOperator,
   searchValue: string
 ): boolean {
-  if (!itemValue || !searchValue) {
+  if ((!itemValue && itemValue !== 0) || !searchValue) {
     return false;
   }
 
