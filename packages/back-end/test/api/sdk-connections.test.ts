@@ -232,8 +232,8 @@ describe("sdk-connections API", () => {
     });
   });
 
-  it("checks for premium features with extra checks when creating new sdk-connections", async () => {
-    const hasPremiumFeatureMock = jest.fn(() => true);
+  it("checks for premium features overrides when creating new sdk-connections", async () => {
+    const hasPremiumFeatureMock = jest.fn(() => false);
     getLatestSDKVersion.mockReturnValue("latest-version");
     getSDKCapabilities.mockReturnValue(["encryption"]);
 
@@ -257,16 +257,7 @@ describe("sdk-connections API", () => {
       .send(connection)
       .set("Authorization", "Bearer foo");
 
-    expect(response.status).toBe(400);
-    expect(getSDKCapabilities).toHaveBeenCalledWith(
-      "javascript",
-      "latest-version"
-    );
-    expect(hasPremiumFeatureMock).toHaveBeenCalledWith("cloud-proxy");
-    expect(response.body).toEqual({
-      message:
-        "Feature cloud-proxy is not available: only available when deployed in cloud mode.",
-    });
+    expect(response.status).toBe(200);
   });
 
   it("checks for SDK cacapbilities when creating new sdk-connections", async () => {

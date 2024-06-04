@@ -3,6 +3,7 @@ import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { ApiReqContext } from "../../../types/api";
 import { sdkLanguages } from "../../util/constants";
 import { getEnvironments } from "../../services/organizations";
+import { IS_CLOUD } from "../../util/secrets";
 
 const capabilityParams = [
   ["encryption", "encryptPayload"],
@@ -27,13 +28,10 @@ type PremiumFeatureName = typeof premiumFeatures[number][0];
 type PremiumFeatureParam = typeof premiumFeatures[number][1];
 type PremiumFeatures = { [k in PremiumFeatureParam]?: boolean };
 
-const premiumExtraChecks: {
-  [k in PremiumFeatureName]?: { check: boolean; reason: string };
+const premiumOverrides: {
+  [k in PremiumFeatureName]?: boolean;
 } = {
-  "cloud-proxy": {
-    check: !!process.env.IS_CLOUD,
-    reason: "only available when deployed in cloud mode.",
-  },
+  "cloud-proxy": !IS_CLOUD,
 } as const;
 
 export const validatePayload = async (
@@ -133,17 +131,10 @@ export const validatePayload = async (
   premiumFeatures.forEach(([feature, param]) => {
     if (!payload[param]) return;
 
+    if (premiumOverrides[feature]) return;
+
     if (!context.hasPremiumFeature(feature))
       throw new Error(`Feature ${feature} requires premium subscription!`);
-
-    const extraCheck = premiumExtraChecks[feature];
-
-    if (extraCheck === undefined) return;
-
-    if (!extraCheck.check)
-      throw new Error(
-        `Feature ${feature} is not available: ${extraCheck.reason}`
-      );
   });
 
   return payload;
