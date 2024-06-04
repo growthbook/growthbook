@@ -239,14 +239,22 @@ const TopNav: FC<{
                 {!isCloud() &&
                   isMultiOrg() &&
                   (showMultiOrgSelfSelector() || allowSelfOrgCreation()) && (
-                    <div>
+                    <div className={styles["add-organization"]}>
                       <hr />
-                      <Link
-                        href="/settings/organizations"
-                        className="dropdown-item text-primary"
-                      >
-                        Add Organization
-                      </Link>
+                      <div>
+                        <div>
+                          <img src="/images/pi-plus-bold.svg" alt="+" />
+                        </div>
+                        <Link
+                          href="/settings/organizations"
+                          className="dropdown-item"
+                          onClick={() => {
+                            setOrgDropdownOpen(false);
+                          }}
+                        >
+                          Add Organization
+                        </Link>
+                      </div>
                     </div>
                   )}
               </div>
