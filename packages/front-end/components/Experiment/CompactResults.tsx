@@ -3,7 +3,7 @@ import { MdSwapCalls } from "react-icons/md";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-  MetricRegressionAdjustmentStatus,
+  MetricSnapshotSettings,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import {
@@ -15,6 +15,7 @@ import Link from "next/link";
 import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { ExperimentMetricInterface, getMetricLink } from "shared/experiments";
+import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
@@ -60,7 +61,7 @@ const CompactResults: FC<{
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   regressionAdjustmentEnabled?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   sequentialTestingEnabled?: boolean;
   differenceType: DifferenceType;
   metricFilter?: ResultsMetricFilters;
@@ -89,7 +90,7 @@ const CompactResults: FC<{
   statsEngine,
   pValueCorrection,
   regressionAdjustmentEnabled,
-  metricRegressionAdjustmentStatuses,
+  settingsForSnapshotMetrics,
   sequentialTestingEnabled,
   differenceType,
   metricFilter,
@@ -134,11 +135,9 @@ const CompactResults: FC<{
         metric,
         metricOverrides
       );
-      let regressionAdjustmentStatus:
-        | MetricRegressionAdjustmentStatus
-        | undefined;
-      if (regressionAdjustmentEnabled && metricRegressionAdjustmentStatuses) {
-        regressionAdjustmentStatus = metricRegressionAdjustmentStatuses.find(
+      let metricSnapshotSettings: MetricSnapshotSettings | undefined;
+      if (settingsForSnapshotMetrics) {
+        metricSnapshotSettings = settingsForSnapshotMetrics.find(
           (s) => s.metric === metricId
         );
       }
@@ -148,9 +147,16 @@ const CompactResults: FC<{
         metricOverrideFields: overrideFields,
         rowClass: newMetric?.inverse ? "inverse" : "",
         variations: results.variations.map((v) => {
-          return v.metrics[metricId];
+          return (
+            v.metrics?.[metricId] || {
+              users: 0,
+              value: 0,
+              cr: 0,
+              errorMessage: "No data",
+            }
+          );
         }),
-        regressionAdjustmentStatus,
+        metricSnapshotSettings,
         isGuardrail,
       };
     }
@@ -163,7 +169,7 @@ const CompactResults: FC<{
 
     const metricDefs = metrics
       .map((metricId) => getExperimentMetricById(metricId))
-      .filter(Boolean) as ExperimentMetricInterface[];
+      .filter(isDefined);
     const sortedFilteredMetrics = sortAndFilterMetricsByTags(
       metricDefs,
       metricFilter
@@ -171,7 +177,7 @@ const CompactResults: FC<{
 
     const guardrailDefs = guardrails
       .map((metricId) => getExperimentMetricById(metricId))
-      .filter(Boolean) as ExperimentMetricInterface[];
+      .filter(isDefined);
     const sortedFilteredGuardrails = sortAndFilterMetricsByTags(
       guardrailDefs,
       metricFilter
@@ -179,18 +185,17 @@ const CompactResults: FC<{
 
     const retMetrics = sortedFilteredMetrics
       .map((metricId) => getRow(metricId, false))
-      .filter((row) => row?.metric) as ExperimentTableRow[];
+      .filter(isDefined);
     const retGuardrails = sortedFilteredGuardrails
       .map((metricId) => getRow(metricId, true))
-      .filter((row) => row?.metric) as ExperimentTableRow[];
+      .filter(isDefined);
     return [...retMetrics, ...retGuardrails];
   }, [
     results,
     metrics,
     guardrails,
     metricOverrides,
-    regressionAdjustmentEnabled,
-    metricRegressionAdjustmentStatuses,
+    settingsForSnapshotMetrics,
     pValueCorrection,
     pValueThreshold,
     statsEngine,
@@ -265,7 +270,10 @@ const CompactResults: FC<{
         sequentialTestingEnabled={sequentialTestingEnabled}
         pValueCorrection={pValueCorrection}
         differenceType={differenceType}
-        renderLabelColumn={getRenderLabelColumn(regressionAdjustmentEnabled)}
+        renderLabelColumn={getRenderLabelColumn(
+          regressionAdjustmentEnabled,
+          statsEngine
+        )}
         metricFilter={metricFilter}
         setMetricFilter={setMetricFilter}
         metricTags={allMetricTags}
@@ -297,7 +305,8 @@ const CompactResults: FC<{
             pValueCorrection={pValueCorrection}
             differenceType={differenceType}
             renderLabelColumn={getRenderLabelColumn(
-              regressionAdjustmentEnabled
+              regressionAdjustmentEnabled,
+              statsEngine
             )}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
@@ -315,7 +324,7 @@ const CompactResults: FC<{
 };
 export default CompactResults;
 
-export function getRenderLabelColumn(regressionAdjustmentEnabled) {
+export function getRenderLabelColumn(regressionAdjustmentEnabled, statsEngine) {
   return function renderLabelColumn(
     label: string,
     metric: ExperimentMetricInterface,
@@ -328,6 +337,7 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
           <MetricTooltipBody
             metric={metric}
             row={row}
+            statsEngine={statsEngine}
             reportRegressionAdjustmentEnabled={regressionAdjustmentEnabled}
           />
         }
@@ -369,12 +379,12 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
 
     const cupedIconDisplay =
       regressionAdjustmentEnabled &&
-      !row?.regressionAdjustmentStatus?.regressionAdjustmentEnabled ? (
+      !row?.metricSnapshotSettings?.regressionAdjustmentEnabled ? (
         <Tooltip
           className="ml-1"
           body={
-            row?.regressionAdjustmentStatus?.reason
-              ? `CUPED disabled: ${row?.regressionAdjustmentStatus?.reason}`
+            row?.metricSnapshotSettings?.regressionAdjustmentReason
+              ? `CUPED disabled: ${row?.metricSnapshotSettings?.regressionAdjustmentReason}`
               : `CUPED disabled`
           }
         >

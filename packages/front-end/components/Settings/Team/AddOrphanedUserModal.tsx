@@ -1,8 +1,8 @@
 import { FC, useState } from "react";
 import { MemberRoleWithProjects } from "back-end/types/organization";
+import { getDefaultRole } from "shared/permissions";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
 import RoleSelector from "./RoleSelector";
@@ -14,17 +14,13 @@ const AddOrphanedUserModal: FC<{
   email: string;
   id: string;
 }> = ({ mutate, close, name, email, id }) => {
-  const { defaultRole } = useOrgSettings();
-  const { license, seatsInUse } = useUser();
+  const { license, seatsInUse, organization } = useUser();
 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const [value, setValue] = useState<MemberRoleWithProjects>({
-    role: "admin",
-    limitAccessByEnvironment: false,
-    environments: [],
     projectRoles: [],
-    ...defaultRole,
+    ...getDefaultRole(organization),
   });
 
   const { apiCall } = useAuth();

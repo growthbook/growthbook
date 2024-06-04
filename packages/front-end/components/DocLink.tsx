@@ -32,8 +32,13 @@ const docSections = {
   python: "/lib/python",
   java: "/lib/java",
   csharp: "/lib/csharp",
+  elixir: "/lib/elixir",
   flutter: "/lib/flutter",
   nocode: "/lib/script-tag",
+  cloudflare: "/lib/edge/cloudflare",
+  fastly: "/lib/edge/fastly",
+  lambda: "/lib/edge/lambda",
+  edge: "/lib/edge/other",
   //Other
   user_guide: "/app",
   config: "/self-host/config",
@@ -53,6 +58,7 @@ const docSections = {
   webflow: "/integrations/webflow",
   wordpress: "/integrations/wordpress",
   prerequisites: "/features/prerequisites",
+  statisticsSequential: "/statistics/sequential",
 };
 
 export type DocSection = keyof typeof docSections;

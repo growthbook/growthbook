@@ -62,8 +62,7 @@ function getExampleAttributes({
         ? ["foo", "bar"].map((v) => sha256(v, secureAttributeSalt))
         : ["foo", "bar"];
     } else if (datatype === "enum") {
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      value = enumList.split(",").map((v) => v.trim())[0] ?? null;
+      value = enumList?.split(",").map((v) => v.trim())[0] ?? null;
     }
 
     // @ts-expect-error TS(2538) If you come across this, please fix it!: Type 'undefined' cannot be used as an index type.
@@ -336,6 +335,30 @@ ${Object.entries(exampleAttributes)
   .join("\n")}
 gb.SetAttributes(attrs);
     `.trim()}
+        />
+      </>
+    );
+  }
+  if (language === "elixir") {
+    return (
+      <>
+        {introText}
+        <Code
+          language="elixir"
+          code={`
+attrs = %{
+${Object.entries(exampleAttributes)
+  .map(([key, value]) => {
+    return `  ${JSON.stringify(key)} => ${JSON.stringify(value)}`;
+  })
+  .join(",\n")}
+}
+
+context = %GrowthBook.Context{
+  features: features,
+  attributes: attrs
+}
+          `.trim()}
         />
       </>
     );

@@ -14,7 +14,7 @@ import {
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
   getExperimentMetricById,
-  getRegressionAdjustmentInfo,
+  getSettingsForSnapshotMetrics,
 } from "../services/experiments";
 import {
   getConfidenceLevelsForOrg,
@@ -23,10 +23,10 @@ import {
 import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
 import { getMetricMap } from "../models/MetricModel";
+import { notifyAutoUpdate } from "../services/experimentNotifications";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import { logger } from "../util/logger";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
-import { findProjectById } from "../models/ProjectModel";
 import { getExperimentWatchers } from "../models/WatchModel";
 import { getFactTableMap } from "../models/FactTableModel";
 import { ApiReqContext } from "../../types/api";
@@ -125,7 +125,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
   let project = null;
   if (experiment.project) {
-    project = await findProjectById(context, experiment.project);
+    project = await context.models.projects.getById(experiment.project);
   }
   const { settings: scopedSettings } = getScopedSettings({
     organization: context.org,
@@ -150,8 +150,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
     const {
       regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatuses,
-    } = await getRegressionAdjustmentInfo(context, experiment);
+      settingsForSnapshotMetrics,
+    } = await getSettingsForSnapshotMetrics(context, experiment);
 
     const analysisSettings = getDefaultExperimentAnalysisSettings(
       experiment.statsEngine || scopedSettings.statsEngine.value,
@@ -172,8 +172,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
         analysisSettings,
         experiment
       ),
-      metricRegressionAdjustmentStatuses:
-        metricRegressionAdjustmentStatuses || [],
+      settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
       metricMap,
       factTableMap,
       useCache: true,
@@ -204,9 +203,11 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
           autoSnapshots: false,
         },
       });
-      // TODO: email user and let them know it failed
+
+      await notifyAutoUpdate({ context, experiment, success: true });
     } catch (e) {
       logger.error(e, "Failed to turn off autoSnapshots: " + experimentId);
+      await notifyAutoUpdate({ context, experiment, success: false });
     }
   }
 }

@@ -8,7 +8,7 @@ import normal from "@stdlib/stats/base/dists/normal";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariationWithIndex,
-  MetricRegressionAdjustmentStatus,
+  MetricSnapshotSettings,
 } from "back-end/types/report";
 import { MetricDefaults } from "back-end/types/organization";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
@@ -18,15 +18,19 @@ import { isNil } from "lodash";
 import { FactTableInterface } from "back-end/types/fact-table";
 import {
   ExperimentMetricInterface,
+  getMetricResultStatus,
+  getMetricSampleSize,
+  hasEnoughData,
   isBinomialMetric,
+  isSuspiciousUplift,
   quantileMetricType,
 } from "shared/experiments";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import {
-  defaultLoseRiskThreshold,
-  defaultWinRiskThreshold,
-  getExperimentMetricFormatter,
-} from "@/services/metrics";
+  DEFAULT_LOSE_RISK_THRESHOLD,
+  DEFAULT_WIN_RISK_THRESHOLD,
+} from "shared/constants";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import { getExperimentMetricFormatter } from "@/services/metrics";
 
 export type ExperimentTableRow = {
   label: string;
@@ -34,92 +38,9 @@ export type ExperimentTableRow = {
   metricOverrideFields: string[];
   variations: SnapshotMetric[];
   rowClass?: string;
-  regressionAdjustmentStatus?: MetricRegressionAdjustmentStatus;
+  metricSnapshotSettings?: MetricSnapshotSettings;
   isGuardrail?: boolean;
 };
-
-function getMetricSampleSize(
-  baseline: SnapshotMetric,
-  stats: SnapshotMetric,
-  metric: ExperimentMetricInterface
-): { baselineValue?: number; variationValue?: number } {
-  return quantileMetricType(metric)
-    ? {
-        baselineValue: baseline?.stats?.count,
-        variationValue: stats?.stats?.count,
-      }
-    : { baselineValue: baseline.value, variationValue: stats.value };
-}
-
-export function hasEnoughData(
-  baseline: SnapshotMetric,
-  stats: SnapshotMetric,
-  metric: ExperimentMetricInterface,
-  metricDefaults: MetricDefaults
-): boolean {
-  const { baselineValue, variationValue } = getMetricSampleSize(
-    baseline,
-    stats,
-    metric
-  );
-  if (!baselineValue || !variationValue) return false;
-
-  const minSampleSize =
-    metric.minSampleSize || metricDefaults.minimumSampleSize || 0;
-
-  return Math.max(baselineValue, variationValue) >= minSampleSize;
-}
-
-export function isSuspiciousUplift(
-  baseline: SnapshotMetric,
-  stats: SnapshotMetric,
-  metric: { maxPercentChange?: number },
-  metricDefaults: MetricDefaults
-): boolean {
-  if (!baseline?.cr || !stats?.cr) return false;
-
-  const maxPercentChange =
-    metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0;
-
-  return Math.abs(baseline.cr - stats.cr) / baseline.cr >= maxPercentChange;
-}
-
-export function isBelowMinChange(
-  baseline: SnapshotMetric,
-  stats: SnapshotMetric,
-  metric: { minPercentChange?: number },
-  metricDefaults: MetricDefaults
-): boolean {
-  if (!baseline?.cr || !stats?.cr) return false;
-
-  const minPercentChange =
-    metric.minPercentChange || metricDefaults.minPercentageChange;
-
-  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-  return Math.abs(baseline.cr - stats.cr) / baseline.cr < minPercentChange;
-}
-
-export function shouldHighlight({
-  metric,
-  baseline,
-  stats,
-  hasEnoughData,
-  belowMinChange,
-}: {
-  metric: { id: string };
-  baseline: SnapshotMetric;
-  stats: SnapshotMetric;
-  hasEnoughData: boolean;
-  belowMinChange: boolean;
-}): boolean {
-  return !!(
-    metric &&
-    baseline?.value &&
-    stats?.value &&
-    hasEnoughData &&
-    !belowMinChange
-  );
-}
 
 export function getRisk(
   stats: SnapshotMetric,
@@ -129,8 +50,18 @@ export function getRisk(
   // separate CR because sometimes "baseline" above is the variation
   baselineCR: number
 ): { risk: number; relativeRisk: number; showRisk: boolean } {
-  const risk = stats.risk?.[1] ?? 0;
-  const relativeRisk = baselineCR ? risk / baselineCR : 0;
+  const statsRisk = stats.risk?.[1] ?? 0;
+  let risk: number;
+  let relativeRisk: number;
+  if (stats.riskType === "relative") {
+    risk = statsRisk * baselineCR;
+    relativeRisk = statsRisk;
+  } else {
+    // otherwise it is absolute, including legacy snapshots
+    // that were missing `riskType` field
+    risk = statsRisk;
+    relativeRisk = baselineCR ? statsRisk / baselineCR : 0;
+  }
   const showRisk =
     baseline.cr > 0 &&
     hasEnoughData(baseline, stats, metric, metricDefaults) &&
@@ -274,23 +205,19 @@ export function applyMetricOverrides<T extends ExperimentMetricInterface>(
         overrideFields.push("regressionAdjustmentDays");
       }
     }
+
+    if (metricOverride?.properPriorOverride) {
+      newMetric.priorSettings.override = true;
+      newMetric.priorSettings.proper =
+        metricOverride.properPriorEnabled ?? newMetric.priorSettings.proper;
+      newMetric.priorSettings.mean =
+        metricOverride.properPriorMean ?? newMetric.priorSettings.mean;
+      newMetric.priorSettings.stddev =
+        metricOverride.properPriorStdDev ?? newMetric.priorSettings.stddev;
+      overrideFields.push("prior");
+    }
   }
   return { newMetric, overrideFields };
-}
-
-export function isExpectedDirection(
-  stats: SnapshotMetric,
-  metric: { inverse?: boolean }
-): boolean {
-  const expected: number = stats?.expected ?? 0;
-  if (metric.inverse) {
-    return expected < 0;
-  }
-  return expected > 0;
-}
-
-export function isStatSig(pValue: number, pValueThreshold: number): boolean {
-  return pValue < pValueThreshold;
 }
 
 export function pValueFormatter(pValue: number, digits: number = 3): string {
@@ -526,40 +453,6 @@ export function getRowResults({
     maximumFractionDigits: 2,
   });
 
-  const inverse = metric?.inverse;
-  const directionalStatus: "winning" | "losing" =
-    (stats.expected ?? 0) * (inverse ? -1 : 1) > 0 ? "winning" : "losing";
-
-  let significant: boolean;
-  let significantUnadjusted: boolean;
-  let significantReason = "";
-  if (statsEngine === "bayesian") {
-    if (
-      (stats.chanceToWin ?? 0) > ciUpper ||
-      (stats.chanceToWin ?? 0) < ciLower
-    ) {
-      significant = true;
-      significantUnadjusted = true;
-    } else {
-      significant = false;
-      significantUnadjusted = false;
-      significantReason = `This metric is not statistically significant. The chance to win is outside the CI interval [${percentFormatter.format(
-        ciLower
-      )}, ${percentFormatter.format(ciUpper)}].`;
-    }
-  } else {
-    significant = isStatSig(
-      stats.pValueAdjusted ?? stats.pValue ?? 1,
-      pValueThreshold
-    );
-    significantUnadjusted = isStatSig(stats.pValue ?? 1, pValueThreshold);
-    if (!significant) {
-      significantReason = `This metric is not statistically significant. The p-value (${pValueFormatter(
-        stats.pValueAdjusted ?? stats.pValue ?? 1
-      )}) is greater than the threshold (${pValueFormatter(pValueThreshold)}).`;
-    }
-  }
-
   const hasData = !!stats?.value && !!baseline?.value;
   const metricSampleSize = getMetricSampleSize(baseline, stats, metric);
   const baselineSampleSize = metricSampleSize.baselineValue ?? baseline.value;
@@ -610,13 +503,6 @@ export function getRowResults({
       )}).`
     : "";
 
-  const belowMinChange = isBelowMinChange(
-    baseline,
-    stats,
-    metric,
-    metricDefaults
-  );
-
   const { risk, relativeRisk, showRisk } = getRisk(
     stats,
     baseline,
@@ -624,8 +510,8 @@ export function getRowResults({
     metricDefaults,
     baseline.cr
   );
-  const winRiskThreshold = metric.winRisk ?? defaultWinRiskThreshold;
-  const loseRiskThreshold = metric.loseRisk ?? defaultLoseRiskThreshold;
+  const winRiskThreshold = metric.winRisk ?? DEFAULT_WIN_RISK_THRESHOLD;
+  const loseRiskThreshold = metric.loseRisk ?? DEFAULT_LOSE_RISK_THRESHOLD;
   let riskStatus: "ok" | "warning" | "danger" = "ok";
   let riskReason = "";
   if (relativeRisk > winRiskThreshold && relativeRisk < loseRiskThreshold) {
@@ -662,56 +548,62 @@ export function getRowResults({
     riskReason,
   };
 
-  const _shouldHighlight = shouldHighlight({
+  const {
+    belowMinChange,
+    significant,
+    significantUnadjusted,
+    resultsStatus,
+    directionalStatus,
+  } = getMetricResultStatus({
     metric,
+    metricDefaults,
     baseline,
     stats,
-    hasEnoughData: enoughData,
-    belowMinChange,
+    ciLower,
+    ciUpper,
+    pValueThreshold,
+    statsEngine,
   });
 
-  let resultsStatus: "won" | "lost" | "draw" | "" = "";
+  let significantReason = "";
+  if (!significant) {
+    if (statsEngine === "bayesian") {
+      significantReason = `This metric is not statistically significant. The chance to win is not less than ${percentFormatter.format(
+        ciLower
+      )} or greater than ${percentFormatter.format(ciUpper)}.`;
+    } else {
+      significantReason = `This metric is not statistically significant. The p-value (${pValueFormatter(
+        stats.pValueAdjusted ?? stats.pValue ?? 1
+      )}) is greater than the threshold (${pValueFormatter(pValueThreshold)}).`;
+    }
+  }
+
   let resultsReason = "";
   if (statsEngine === "bayesian") {
-    if (_shouldHighlight && (stats.chanceToWin ?? 0) > ciUpper) {
+    if (resultsStatus === "won") {
       resultsReason = `Significant win as the chance to win is above the ${percentFormatter.format(
         ciUpper
       )} threshold and the change is in the desired direction.`;
-      resultsStatus = "won";
-    } else if (_shouldHighlight && (stats.chanceToWin ?? 0) < ciLower) {
+    } else if (resultsStatus === "lost") {
       resultsReason = `Significant loss as the chance to win is below the ${percentFormatter.format(
         ciLower
       )} threshold and the change is not in the desired direction.`;
-      resultsStatus = "lost";
-    }
-    if (
-      enoughData &&
-      belowMinChange &&
-      ((stats.chanceToWin ?? 0) > ciUpper || (stats.chanceToWin ?? 0) < ciLower)
-    ) {
+    } else if (resultsStatus === "draw") {
       resultsReason =
         "The change is significant, but too small to matter (below the min detectable change threshold). Consider this a draw.";
-      resultsStatus = "draw";
     }
   } else {
-    if (_shouldHighlight && significant && directionalStatus === "winning") {
+    if (resultsStatus === "won") {
       resultsReason = `Significant win as the p-value is below the ${numberFormatter.format(
         pValueThreshold
       )} threshold`;
-      resultsStatus = "won";
-    } else if (
-      _shouldHighlight &&
-      significant &&
-      directionalStatus === "losing"
-    ) {
+    } else if (resultsStatus === "lost") {
       resultsReason = `Significant loss as the p-value is below the ${numberFormatter.format(
         pValueThreshold
       )} threshold`;
-      resultsStatus = "lost";
-    } else if (enoughData && significant && belowMinChange) {
+    } else if (resultsStatus === "draw") {
       resultsReason =
         "The change is significant, but too small to matter (below the min detectable change threshold). Consider this a draw.";
-      resultsStatus = "draw";
     }
   }
 

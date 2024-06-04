@@ -198,6 +198,12 @@ const baseMetric: Omit<
     type: "",
     value: 0,
   },
+  priorSettings: {
+    override: false,
+    proper: false,
+    mean: 0,
+    stddev: 0,
+  },
   description: "",
   inverse: false,
   dateCreated: null,
@@ -312,6 +318,13 @@ const baseFactMetric: Omit<
   cappingSettings: {
     type: "",
     value: 0,
+  },
+
+  priorSettings: {
+    override: false,
+    proper: false,
+    mean: 0,
+    stddev: 0,
   },
 
   regressionAdjustmentDays: 14,

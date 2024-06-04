@@ -120,7 +120,7 @@ if (SENTRY_DSN) {
   );
 }
 
-if (!process.env.NO_INIT) {
+if (!process.env.NO_INIT && process.env.NODE_ENV !== "test") {
   init();
 }
 
@@ -366,7 +366,6 @@ app.get(
   "/dimension-slices/datasource/:datasourceId/:exposureQueryId",
   datasourcesController.getLatestDimensionSlicesForDatasource
 );
-app.post("/organization/sample-data", datasourcesController.postSampleData);
 
 if (IS_CLOUD) {
   app.get("/vercel/has-token", vercelController.getHasToken);
@@ -608,6 +607,7 @@ app.post("/datasources", datasourcesController.postDataSources);
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
+app.get("/datasource/:id/queries", datasourcesController.getDataSourceQueries);
 app.put(
   "/datasource/:datasourceId/exposureQuery/:exposureQueryId",
   datasourcesController.updateExposureQuery
@@ -683,6 +683,7 @@ app.use("/teams", teamRouter);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
+app.put("/admin/organization", adminController.putOrganization);
 
 // License
 app.get("/license", licenseController.getLicenseData);

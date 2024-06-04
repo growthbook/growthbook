@@ -122,6 +122,27 @@ properties:
                 - "hours"
                 - "days"
                 - "weeks"
+      priorSettings:
+        type: object
+        description: Controls the bayesian prior for the metric.
+        required:
+          - override
+          - proper
+          - mean
+          - stddev
+        properties:
+          override:
+            type: boolean
+            description: If false, the organization default settings will be used instead of the other settings in this object
+          proper:
+            type: boolean
+            description: If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.
+          mean:
+            type: number
+            description: The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)
+          stddev:
+            type: number
+            description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
       conversionWindowStart:
         type: number
         deprecated: true

@@ -11,6 +11,7 @@ import experimentsRouter from "./experiments/experiments.router";
 import metricsRouter from "./metrics/metrics.router";
 import segmentsRouter from "./segments/segments.router";
 import projectsRouter from "./projects/projects.router";
+import environmentsRouter from "./environments/environments.router";
 import savedGroupsRouter from "./saved-groups/saved-groups.router";
 import sdkConnectionsRouter from "./sdk-connections/sdk-connections.router";
 import sdkPayloadRouter from "./sdk-payload/sdk-payload.router";
@@ -26,7 +27,6 @@ import { postCopyTransform } from "./openai/postCopyTransform";
 import { getFeatureKeys } from "./features/getFeatureKeys";
 
 const router = Router();
-
 let openapiSpec: string;
 router.get("/openapi.yaml", (req, res) => {
   if (!openapiSpec) {
@@ -83,6 +83,7 @@ router.use("/metrics", metricsRouter);
 router.use("/segments", segmentsRouter);
 router.use("/dimensions", dimensionsRouter);
 router.use("/projects", projectsRouter);
+router.use("/environments", environmentsRouter);
 router.use("/sdk-connections", sdkConnectionsRouter);
 router.use("/data-sources", dataSourcesRouter);
 router.use("/visual-changesets", visualChangesetsRouter);

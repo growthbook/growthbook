@@ -1,4 +1,5 @@
 import { omit } from "lodash";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import {
   FactMetricInterface,
   FactTableInterface,
@@ -21,7 +22,6 @@ const BaseClass = MakeModelClass({
     updateEvent: "metric.update",
     deleteEvent: "metric.delete",
   },
-  projectScoping: "multiple",
   globallyUniqueIds: false,
   readonlyFields: ["datasource"],
 });
@@ -31,16 +31,16 @@ export class FactMetricModel extends BaseClass {
     return this.context.hasPermission("readData", doc.projects || []);
   }
   protected canCreate(doc: FactMetricInterface): boolean {
-    return this.context.permissions.canCreateMetric(doc);
+    return this.context.permissions.canCreateFactMetric(doc);
   }
   protected canUpdate(
     existing: FactMetricInterface,
     updates: UpdateProps<FactMetricInterface>
   ): boolean {
-    return this.context.permissions.canUpdateMetric(existing, updates);
+    return this.context.permissions.canUpdateFactMetric(existing, updates);
   }
   protected canDelete(doc: FactMetricInterface): boolean {
-    return this.context.permissions.canDeleteMetric(doc);
+    return this.context.permissions.canDeleteFactMetric(doc);
   }
 
   public static upgradeFactMetricDoc(
@@ -62,6 +62,15 @@ export class FactMetricModel extends BaseClass {
       newDoc.cappingSettings = {
         type: doc.capping || "",
         value: doc.capValue || 0,
+      };
+    }
+
+    if (doc.priorSettings === undefined) {
+      newDoc.priorSettings = {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
       };
     }
 
@@ -156,6 +165,17 @@ export class FactMetricModel extends BaseClass {
         throw new Error("Must specify `quantileSettings` for Quantile metrics");
       }
     }
+    if (data.loseRisk < data.winRisk) {
+      throw new Error(
+        `riskThresholdDanger (${data.loseRisk}) must be greater than riskThresholdSuccess (${data.winRisk})`
+      );
+    }
+
+    if (data.minPercentChange >= data.maxPercentChange) {
+      throw new Error(
+        `maxPercentChange (${data.maxPercentChange}) must be greater than minPercentChange (${data.minPercentChange})`
+      );
+    }
   }
 
   public toApiInterface(factMetric: FactMetricInterface): ApiFactMetric {
@@ -170,11 +190,15 @@ export class FactMetricModel extends BaseClass {
       dateUpdated,
       denominator,
       metricType,
+      loseRisk,
+      winRisk,
       ...otherFields
     } = omit(factMetric, ["organization"]);
 
     return {
       ...otherFields,
+      riskThresholdDanger: loseRisk,
+      riskThresholdSuccess: winRisk,
       metricType: metricType,
       quantileSettings: quantileSettings || undefined,
       cappingSettings: {

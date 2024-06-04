@@ -5,7 +5,10 @@ import {
   MetricOverride,
 } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
+import {
+  DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+} from "shared/constants";
 import { OrganizationSettings } from "back-end/types/organization";
 import { ExperimentMetricInterface } from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -59,6 +62,34 @@ export function getDefaultMetricOverridesFormValue(
           settings.regressionAdjustmentDays ??
           DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
       }
+    }
+    if (
+      isNaN(defaultMetricOverrides[i].properPriorMean ?? NaN) ||
+      isNaN(defaultMetricOverrides[i].properPriorMean ?? NaN)
+    ) {
+      const metricDefinition = getExperimentMetricById(
+        defaultMetricOverrides[i].id
+      );
+      const defaultValues = metricDefinition?.priorSettings?.override
+        ? {
+            proper: metricDefinition.priorSettings.proper,
+            mean: metricDefinition.priorSettings.mean,
+            stddev: metricDefinition.priorSettings.stddev,
+          }
+        : {
+            proper: settings.metricDefaults?.priorSettings?.proper ?? false,
+            mean: settings.metricDefaults?.priorSettings?.mean ?? 0,
+            stddev:
+              settings.metricDefaults?.priorSettings?.stddev ??
+              DEFAULT_PROPER_PRIOR_STDDEV,
+          };
+
+      defaultMetricOverrides[i].properPriorEnabled =
+        defaultMetricOverrides[i].properPriorEnabled ?? defaultValues.proper;
+      defaultMetricOverrides[i].properPriorMean =
+        defaultMetricOverrides[i].properPriorMean ?? defaultValues.mean;
+      defaultMetricOverrides[i].properPriorStdDev =
+        defaultMetricOverrides[i].properPriorStdDev ?? defaultValues.stddev;
     }
   }
   return defaultMetricOverrides;

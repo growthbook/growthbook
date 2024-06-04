@@ -6,7 +6,7 @@ import { createApiRequestHandler } from "../../util/handler";
 import { postFeatureValidator } from "../../validators/openapi";
 import { createFeature, getFeature } from "../../models/FeatureModel";
 import { getExperimentMapForFeature } from "../../models/ExperimentModel";
-import { FeatureInterface } from "../../../types/feature";
+import { FeatureInterface, JSONSchemaDef } from "../../../types/feature";
 import { getEnabledEnvironments } from "../../util/features";
 import {
   addIdsToRules,
@@ -43,8 +43,10 @@ export const parseJsonSchemaForEnterprise = (
   org: OrganizationInterface,
   jsonSchema: string | undefined
 ) => {
-  const jsonSchemaWrapper = {
+  const jsonSchemaWrapper: JSONSchemaDef = {
+    schemaType: "schema",
     schema: "",
+    simple: { type: "object", fields: [] },
     date: new Date(),
     enabled: false,
   };
@@ -64,7 +66,9 @@ export const parseJsonSchemaForEnterprise = (
 
 export const postFeature = createApiRequestHandler(postFeatureValidator)(
   async (req): Promise<PostFeatureResponse> => {
-    req.checkPermissions("manageFeatures", req.body.project);
+    if (!req.context.permissions.canCreateFeature(req.body)) {
+      req.context.permissions.throwPermissionError();
+    }
 
     const existing = await getFeature(req.context, req.body.id);
     if (existing) {
@@ -88,7 +92,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       dateCreated: new Date(),
       dateUpdated: new Date(),
       organization: req.organization.id,
-      id: req.body.id.toLowerCase(),
+      id: req.body.id,
       archived: !!req.body.archived,
       version: 1,
       environmentSettings: {},
@@ -112,14 +116,19 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
     // ensure default value matches value type
     feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
 
-    req.checkPermissions(
-      "publishFeatures",
-      feature.project,
-      getEnabledEnvironments(
+    if (
+      !req.context.permissions.canPublishFeature(
         feature,
-        orgEnvs.map((e) => e.id)
+        Array.from(
+          getEnabledEnvironments(
+            feature,
+            orgEnvs.map((e) => e.id)
+          )
+        )
       )
-    );
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
 
     addIdsToRules(feature.environmentSettings, feature.id);
 

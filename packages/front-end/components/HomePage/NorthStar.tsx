@@ -10,6 +10,7 @@ import Toggle from "@/components/Forms/Toggle";
 import Modal from "@/components/Modal";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import Field from "@/components/Forms/Field";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import NorthStarMetricDisplay from "./NorthStarMetricDisplay";
 
 const NorthStar: FC<{
@@ -17,8 +18,9 @@ const NorthStar: FC<{
 }> = ({ experiments }) => {
   const { apiCall } = useAuth();
 
-  const { permissions, refreshOrganization } = useUser();
+  const { refreshOrganization } = useUser();
   const settings = useOrgSettings();
+  const permissionsUtil = usePermissionsUtil();
 
   const smoothByStorageKey = `northstar_metrics_smoothBy`;
   const [smoothBy, setSmoothBy] = useLocalStorage<"day" | "week">(
@@ -35,10 +37,6 @@ const NorthStar: FC<{
   useEffect(() => {
     if (settings.northStar?.metricIds) {
       form.setValue("metrics", settings.northStar?.metricIds || []);
-      // form.setValue(
-      //   "window",
-      //   settings.northStar?.window || ""
-      // );
       form.setValue("title", settings.northStar?.title || "");
     }
   }, [settings.northStar]);
@@ -64,7 +62,7 @@ const NorthStar: FC<{
     <>
       {hasNorthStar && (
         <div className="list-group activity-box mb-3 position-relative">
-          {permissions.manageNorthStarMetric && (
+          {permissionsUtil.canManageNorthStarMetric() && (
             <a
               role="button"
               className="p-1"

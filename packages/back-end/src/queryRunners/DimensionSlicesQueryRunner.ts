@@ -22,9 +22,15 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
   DimensionSlicesParams,
   DimensionSlicesResult[]
 > {
+  checkPermissions(): boolean {
+    return this.context.permissions.canRunHealthQueries(
+      this.integration.datasource
+    );
+  }
+
   async startQueries(params: DimensionSlicesParams): Promise<Queries> {
     const exposureQuery = (
-      this.integration.settings?.queries?.exposure || []
+      this.integration.datasource.settings?.queries?.exposure || []
     ).find((q) => q.id === params.exposureQueryId);
 
     const dimensions: ExperimentDimension[] = (

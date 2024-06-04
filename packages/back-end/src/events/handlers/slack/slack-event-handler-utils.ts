@@ -1,10 +1,12 @@
 import { KnownBlock } from "@slack/web-api";
+import formatNumber from "number-format.js";
 import { logger } from "../../../util/logger";
 import { cancellableFetch } from "../../../util/http.util";
 import {
   ExperimentCreatedNotificationEvent,
   ExperimentDeletedNotificationEvent,
   ExperimentUpdatedNotificationEvent,
+  ExperimentWarningNotificationEvent,
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
   FeatureUpdatedNotificationEvent,
@@ -49,6 +51,12 @@ export const getSlackMessageForNotificationEvent = async (
 
     case "experiment.updated":
       return buildSlackMessageForExperimentUpdatedEvent(event, eventId);
+
+    case "experiment.warning":
+      return buildSlackMessageForExperimentWarningEvent(event);
+
+    case "experiment.info":
+      return null;
 
     case "experiment.deleted":
       return buildSlackMessageForExperimentDeletedEvent(event, eventId);
@@ -305,6 +313,87 @@ const buildSlackMessageForExperimentDeletedEvent = (
       },
     ],
   };
+};
+
+const buildSlackMessageForExperimentWarningEvent = ({
+  data,
+}: ExperimentWarningNotificationEvent): SlackMessage => {
+  let invalidData: never;
+
+  switch (data.type) {
+    case "auto-update": {
+      const makeText = (name: string) =>
+        `Automatic snapshot creation for ${name} ${
+          data.success ? "succeeded" : "failed"
+        }!`;
+
+      return {
+        text: makeText(data.experimentName),
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text:
+                makeText(`*${data.experimentName}*`) +
+                getExperimentUrlFormatted(data.experimentId),
+            },
+          },
+        ],
+      };
+    }
+
+    case "multiple-exposures": {
+      const numberFormatter = (v: number) => formatNumber("#,##0.", v);
+      const percentFormatter = (v: number) => formatNumber("#0.%", v * 100);
+
+      const text = (experimentName: string) =>
+        `Multiple Exposures Warning for experiment ${experimentName}: ${numberFormatter(
+          data.usersCount
+        )} users (${percentFormatter(
+          data.percent
+        )}%) saw multiple variations and were automatically removed from results.`;
+
+      return {
+        text: text(data.experimentName),
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text:
+                text(`*${data.experimentName}*`) +
+                getExperimentUrlFormatted(data.experimentId),
+            },
+          },
+        ],
+      };
+    }
+
+    case "srm": {
+      const text = (experimentName: string) =>
+        `Traffic imbalance detected for experiment detected for experiment ${experimentName} : Sample Ratio Mismatch (SRM) p-value below ${data.threshold}.`;
+
+      return {
+        text: text(data.experimentName),
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text:
+                text(`*${data.experimentName}*`) +
+                getExperimentUrlFormatted(data.experimentId),
+            },
+          },
+        ],
+      };
+    }
+
+    default:
+      invalidData = data;
+      throw `Invalid data: ${invalidData}`;
+  }
 };
 
 // endregion Event-specific messages -> Experiment

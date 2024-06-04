@@ -23,7 +23,8 @@
     "migrate-encryption-key": "yarn workspace back-end migrate-encryption-key",
     "generate-api-types": "yarn workspace back-end generate-api-types",
     "ci": "yarn lint:ci && yarn run type-check && yarn run test",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "generate-sdk-report": "yarn workspace shared generate-sdk-report"
   },
   "workspaces": [
     "packages/*"
@@ -64,7 +65,7 @@
     ]
   },
   "resolutions": {
-    "@growthbook/growthbook": "0.36.0"
+    "@growthbook/growthbook": "1.0.0"
   },
   "prettier": {
     "overrides": [

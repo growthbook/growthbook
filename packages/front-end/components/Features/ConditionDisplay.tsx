@@ -6,6 +6,7 @@ import {
   SavedGroupTargeting,
 } from "back-end/types/feature";
 import Link from "next/link";
+import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Condition, jsonToConds, useAttributeMap } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -315,7 +316,7 @@ export default function ConditionDisplay({
         });
         return cond;
       })
-      .filter(Boolean) as ConditionWithParentId[][];
+      .filter(isDefined);
 
     const prereqConds =
       prereqConditionsGrouped.reduce(

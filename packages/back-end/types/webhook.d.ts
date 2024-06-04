@@ -18,3 +18,8 @@ export interface WebhookInterface {
 }
 
 export type WebhookMethod = "GET" | "PUT" | "POST" | "DELETE" | "PURGE";
+
+export type {
+  UpdateSdkWebhookProps,
+  CreateSdkWebhookProps,
+} from "../src/models/WebhookModel";

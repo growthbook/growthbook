@@ -10,10 +10,10 @@ import {
 } from "shared/util";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import Field from "@/components/Forms/Field";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export interface Props {
   feature: FeatureInterface;
@@ -77,7 +77,7 @@ export default function DraftModal({
 }: Props) {
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const { apiCall } = useAuth();
 
@@ -133,9 +133,8 @@ export default function DraftModal({
 
   if (!revision || !mergeResult) return null;
 
-  const hasPermission = permissions.check(
-    "publishFeatures",
-    feature.project,
+  const hasPermission = permissionsUtil.canPublishFeature(
+    feature,
     getAffectedRevisionEnvs(feature, revision, environments)
   );
 
@@ -174,7 +173,7 @@ export default function DraftModal({
       closeCta="Cancel"
       size="max"
       secondaryCTA={
-        permissions.check("createFeatureDrafts", feature.project) ? (
+        permissionsUtil.canManageFeatureDrafts(feature) ? (
           <Button
             color="outline-danger"
             onClick={async () => {

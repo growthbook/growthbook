@@ -51,7 +51,7 @@ export default function FactMetricList({ factTable }: Props) {
     searchFields: ["name^3", "description"],
   });
 
-  const canCreateMetrics = permissionsUtil.canCreateMetric({
+  const canCreateMetrics = permissionsUtil.canCreateFactMetric({
     projects: factTable.projects,
   });
 

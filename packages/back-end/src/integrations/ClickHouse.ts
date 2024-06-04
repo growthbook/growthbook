@@ -6,9 +6,7 @@ import { getHost } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class ClickHouse extends SqlIntegration {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  params: ClickHouseConnectionParams;
+  params!: ClickHouseConnectionParams;
   requiresDatabase = false;
   requiresSchema = false;
   setParams(encryptedParams: string) {
@@ -36,6 +34,7 @@ export default class ClickHouse extends SqlIntegration {
       password: this.params.password,
       database: this.params.database,
       application: "GrowthBook",
+      request_timeout: 3620_000,
       clickhouse_settings: {
         max_execution_time: Math.min(
           this.params.maxExecutionTime ?? 1800,
