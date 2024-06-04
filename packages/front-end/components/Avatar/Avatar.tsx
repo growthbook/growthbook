@@ -1,5 +1,4 @@
 import { FC } from "react";
-import md5 from "md5";
 import clsx from "clsx";
 import { violet } from "@radix-ui/colors";
 
@@ -32,15 +31,4 @@ const Avatar: FC<{
     </div>
   );
 };
-{
-  /* <img
-  className={clsx("border rounded-circle", className)}
-  src={url}
-  title={title}
-  style={{
-    width: size + 2,
-    height: size + 2,
-  }}
-/> */
-}
 export default Avatar;

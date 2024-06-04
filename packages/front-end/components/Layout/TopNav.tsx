@@ -400,13 +400,13 @@ const TopNav: FC<{
               </DropdownMenu.Label>
               {renderOrganizationSubDropDown()}
               <DropdownMenu.Separator />
+              {renderNameAndEmailDropdownLabel()}
+              {renderEditProfileDropDown()}
               {renderThemeSubDropDown()}
               {renderMyActivityFeedsDropDown()}
               {renderMyReportsDropDown()}
               {renderPersonalAccessTokensDropDown()}
               <DropdownMenu.Separator />
-              {renderNameAndEmailDropdownLabel()}
-              {renderEditProfileDropDown()}
               {renderLogoutDropDown()}
             </DropdownMenu.Content>
           </DropdownMenu.Root>
