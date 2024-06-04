@@ -21,6 +21,7 @@ export const entityEvents = {
     "screenshot.delete",
     "screenshot.create",
   ],
+  project: ["create", "update", "delete"],
   environment: ["create", "update", "delete"],
   feature: [
     "create",
@@ -35,6 +36,7 @@ export const entityEvents = {
   metric: ["autocreate", "create", "update", "delete", "analysis"],
   datasource: ["create", "update", "delete", "import"],
   comment: ["create", "update", "delete"],
+  "sdk-connection": ["create", "update", "delete"],
   user: ["create", "update", "delete", "invite"],
   organization: ["create", "update", "delete"],
   savedGroup: ["created", "deleted", "updated"],
