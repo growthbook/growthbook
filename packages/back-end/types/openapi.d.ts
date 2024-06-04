@@ -2672,6 +2672,11 @@ export interface operations {
         "application/json": {
           name: string;
           description?: string;
+          /** @description Project settings. */
+          settings?: {
+            /** @description Stats engine. */
+            statsEngine?: string;
+          };
         };
       };
     };

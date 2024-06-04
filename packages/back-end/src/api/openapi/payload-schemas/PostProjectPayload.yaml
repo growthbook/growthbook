@@ -6,3 +6,10 @@ properties:
     type: string
   description:
     type: string
+  settings:
+    description: Project settings.
+    type: object
+    properties:
+      statsEngine:
+        description: Stats engine.
+        type: string

@@ -49,7 +49,7 @@ export const listProjectsValidator = {
 };
 
 export const postProjectValidator = {
-  bodySchema: z.object({ "name": z.string(), "description": z.string().optional() }).strict(),
+  bodySchema: z.object({ "name": z.string(), "description": z.string().optional(), "settings": z.object({ "statsEngine": z.string().describe("Stats engine.").optional() }).describe("Project settings.").optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
 };
