@@ -7,7 +7,7 @@ import { baseSchema, MakeModelClass } from "./BaseModel";
 export const statsEnginesValidator = z.enum(statsEngines);
 
 export const projectSettingsValidator = z.object({
-  statsEngine: statsEnginesValidator.default(DEFAULT_STATS_ENGINE),
+  statsEngine: statsEnginesValidator.default(DEFAULT_STATS_ENGINE).optional(),
 });
 
 export const projectValidator = baseSchema
