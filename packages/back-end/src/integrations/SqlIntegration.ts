@@ -805,8 +805,8 @@ export default abstract class SqlIntegration
     const idJoinMap: Record<string, string> = {};
 
     // Generate table names and SQL for each of the required joins
-    joinsRequired.forEach((idType, i) => {
-      const table = `__identities${i}`;
+    joinsRequired.forEach((idType) => {
+      const table = `__identities_${idType}`;
       idJoinMap[idType] = table;
       joins.push(
         `${table} as (
