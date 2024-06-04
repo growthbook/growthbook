@@ -82,7 +82,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     cdnHost: CDN_HOST || "",
     cloud: stringToBoolean(IS_CLOUD),
     isMultiOrg: stringToBoolean(IS_MULTI_ORG),
-    allowSelfOrgCreation: stringToBoolean(ALLOW_SELF_ORG_CREATION, true), // Default to true
+    allowSelfOrgCreation: stringToBoolean(ALLOW_SELF_ORG_CREATION),
     config: hasConfigFile ? "file" : "db",
     allowCreateMetrics: !hasConfigFile || stringToBoolean(ALLOW_CREATE_METRICS),
     build,
