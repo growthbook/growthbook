@@ -32,10 +32,8 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
     dataSource.settings.userIdTypes,
   ]);
   const existingIdentityJoins = useMemo(
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    () => dataSource.settings.queries.identityJoins || [],
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    [dataSource.settings.queries.identityJoins]
+    () => dataSource.settings.queries?.identityJoins || [],
+    [dataSource.settings.queries?.identityJoins]
   );
 
   const defaultQuery = useMemo(() => {

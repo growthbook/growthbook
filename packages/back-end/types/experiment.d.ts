@@ -93,6 +93,12 @@ export type MetricOverride = {
 
   winRisk?: number;
   loseRisk?: number;
+
+  properPriorOverride?: boolean;
+  properPriorEnabled?: boolean;
+  properPriorMean?: number;
+  properPriorStdDev?: number;
+
   regressionAdjustmentOverride?: boolean;
   regressionAdjustmentEnabled?: boolean;
   regressionAdjustmentDays?: number;

@@ -28,6 +28,8 @@ const pastExperimentsSchema = new mongoose.Schema({
       startDate: Date,
       endDate: Date,
       exposureQueryId: String,
+      latestData: Date,
+      startOfRange: Boolean,
     },
   ],
   config: {
@@ -39,6 +41,7 @@ const pastExperimentsSchema = new mongoose.Schema({
   error: String,
   dateCreated: Date,
   dateUpdated: Date,
+  latestData: Date,
 });
 
 type PastExperimentsDocument = mongoose.Document & PastExperimentsInterface;

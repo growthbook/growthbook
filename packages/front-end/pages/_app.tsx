@@ -20,6 +20,8 @@ import Layout from "@/components/Layout/Layout";
 import { AppearanceUIThemeProvider } from "@/services/AppearanceUIThemeProvider";
 import TopNavLite from "@/components/Layout/TopNavLite";
 import { AppFeatures } from "@/./types/app-features";
+import GetStartedProvider from "@/services/GetStartedProvider";
+import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
 
 type ModAppProps = AppProps & {
   Component: {
@@ -91,43 +93,42 @@ function App({
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       {ready ? (
-        <>
-          {preAuth ? (
-            <Component {...pageProps} />
-          ) : (
-            <PageHeadProvider>
-              <AuthProvider>
-                <AppearanceUIThemeProvider>
-                  <GrowthBookProvider growthbook={growthbook}>
-                    <RadixTheme>
-                      <ProtectedPage
-                        organizationRequired={organizationRequired}
-                      >
-                        {organizationRequired ? (
+        preAuth ? (
+          <Component {...pageProps} />
+        ) : (
+          <PageHeadProvider>
+            <AuthProvider>
+              <AppearanceUIThemeProvider>
+                <GrowthBookProvider growthbook={growthbook}>
+                  <RadixTheme>
+                    <ProtectedPage organizationRequired={organizationRequired}>
+                      {organizationRequired ? (
+                        <GetStartedProvider>
                           <DefinitionsProvider>
                             {!liteLayout && <Layout />}
                             <main className={`main ${parts[0]}`}>
+                              <GuidedGetStartedBar />
                               <OrganizationMessagesContainer />
                               <DemoDataSourceGlobalBannerContainer />
                               <Component {...pageProps} />
                             </main>
                           </DefinitionsProvider>
-                        ) : (
-                          <div>
-                            <TopNavLite />
-                            <main className="container mt-5">
-                              <Component {...pageProps} />
-                            </main>
-                          </div>
-                        )}
-                      </ProtectedPage>
-                    </RadixTheme>
-                  </GrowthBookProvider>
-                </AppearanceUIThemeProvider>
-              </AuthProvider>
-            </PageHeadProvider>
-          )}
-        </>
+                        </GetStartedProvider>
+                      ) : (
+                        <div>
+                          <TopNavLite />
+                          <main className="container mt-5">
+                            <Component {...pageProps} />
+                          </main>
+                        </div>
+                      )}
+                    </ProtectedPage>
+                  </RadixTheme>
+                </GrowthBookProvider>
+              </AppearanceUIThemeProvider>
+            </AuthProvider>
+          </PageHeadProvider>
+        )
       ) : error ? (
         <div className="container mt-3">
           <div className="alert alert-danger">

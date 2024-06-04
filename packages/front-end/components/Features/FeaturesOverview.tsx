@@ -3,7 +3,6 @@ import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useEffect, useMemo, useState } from "react";
 import {
-  FaChevronRight,
   FaDraftingCompass,
   FaExchangeAlt,
   FaExclamationTriangle,
@@ -12,7 +11,7 @@ import {
   FaLock,
   FaTimes,
 } from "react-icons/fa";
-import { ago, date, datetime } from "shared/dates";
+import { ago, date } from "shared/dates";
 import {
   autoMerge,
   checkIfRevisionNeedsReview,
@@ -56,7 +55,6 @@ import Tab from "@/components/Tabs/Tab";
 import Modal from "@/components/Modal";
 import DraftModal from "@/components/Features/DraftModal";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
-import usePermissions from "@/hooks/usePermissions";
 import DiscussionThread from "@/components/DiscussionThread";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -79,6 +77,7 @@ import PrerequisiteStatusRow, {
 import { PrerequisiteAlerts } from "./PrerequisiteTargetingField";
 import PrerequisiteModal from "./PrerequisiteModal";
 import RequestReviewModal from "./RequestReviewModal";
+import JSONSchemaDescription from "./JSONSchemaDescription";
 
 export default function FeaturesOverview({
   baseFeature,
@@ -133,7 +132,6 @@ export default function FeaturesOverview({
     i: number;
   } | null>(null);
   const [showDependents, setShowDependents] = useState(false);
-  const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
 
   const [revertIndex, setRevertIndex] = useState(0);
@@ -258,35 +256,16 @@ export default function FeaturesOverview({
 
   const projectId = feature.project;
 
-  const schemaDescription = new Map();
-  if (jsonSchema && "properties" in jsonSchema) {
-    Object.keys(jsonSchema.properties).map((key) => {
-      schemaDescription.set(key, { required: false, describes: true });
-    });
-  }
-  if (jsonSchema && "required" in jsonSchema) {
-    Object.values(jsonSchema.required).map((key) => {
-      if (schemaDescription.has(key)) {
-        schemaDescription.set(key, { required: true, describes: true });
-      } else {
-        schemaDescription.set(key, { required: true, describes: false });
-      }
-    });
-  }
-  const schemaDescriptionItems = [...schemaDescription.keys()];
-
   const hasDraftPublishPermission =
     (approved &&
-      permissions.check(
-        "publishFeatures",
-        projectId,
+      permissionsUtil.canPublishFeature(
+        feature,
         getAffectedRevisionEnvs(feature, revision, environments)
       )) ||
     (isDraft &&
       !requireReviews &&
-      permissions.check(
-        "publishFeatures",
-        projectId,
+      permissionsUtil.canPublishFeature(
+        feature,
         getAffectedRevisionEnvs(feature, revision, environments)
       ));
 
@@ -301,7 +280,7 @@ export default function FeaturesOverview({
     (revision.status === "published" || revision.status === "discarded") &&
     (!isLive || drafts.length > 0);
 
-  const canEdit = permissions.check("manageFeatures", projectId);
+  const canEdit = permissionsUtil.canViewFeatureModal(projectId);
   const canEditDrafts = permissionsUtil.canManageFeatureDrafts(feature);
   const renderStatusCopy = () => {
     switch (revision.status) {
@@ -630,114 +609,87 @@ export default function FeaturesOverview({
 
         {feature.valueType === "json" && (
           <div>
-            <h3 className={hasJsonValidator ? "" : "mb-4"}>
-              <PremiumTooltip commercialFeature="json-validation">
-                {" "}
-                Json Schema{" "}
-              </PremiumTooltip>
+            <h3>
+              JSON Validation{" "}
               <Tooltip
                 body={
-                  "Adding a json schema will allow you to validate json objects used in this feature."
+                  "Prevent typos and mistakes by specifying validation rules using JSON Schema or our Simple Validation Builder"
                 }
               />
-              {hasJsonValidator && canEdit && (
-                <>
-                  <a
-                    className="ml-2 cursor-pointer"
-                    onClick={() => setEditValidator(true)}
-                  >
-                    <GBEdit />
-                  </a>
-                </>
-              )}
+              <span
+                className="badge badge-dark ml-2"
+                style={{ fontStyle: "normal", fontSize: "0.7em" }}
+              >
+                ENTERPRISE
+              </span>
             </h3>
-            {hasJsonValidator && (
-              <div className="appbox mb-4 p-3 card">
-                {jsonSchema ? (
-                  <>
-                    <div className="d-flex justify-content-between">
-                      {/* region Title Bar */}
+            <div className="appbox mb-4 p-3 card">
+              {hasJsonValidator && jsonSchema ? (
+                <>
+                  <div className="d-flex align-items-center">
+                    <strong>
+                      {validationEnabled ? "Enabled" : "Disabled"}
+                    </strong>
 
-                      <div className="d-flex align-items-left flex-column">
-                        <div>
-                          {validationEnabled ? (
-                            <strong className="text-success">Enabled</strong>
-                          ) : (
-                            <>
-                              <strong className="text-warning">Disabled</strong>
-                            </>
-                          )}
-                          {schemaDescription && schemaDescriptionItems && (
-                            <>
-                              {" "}
-                              Describes:
-                              {schemaDescriptionItems.map((v, i) => {
-                                const required = schemaDescription.has(v)
-                                  ? schemaDescription.get(v).required
-                                  : false;
-                                return (
-                                  <strong
-                                    className="ml-1"
-                                    key={i}
-                                    title={
-                                      required ? "This field is required" : ""
-                                    }
-                                  >
-                                    {v}
-                                    {required && (
-                                      <span className="text-danger text-su">
-                                        *
-                                      </span>
-                                    )}
-                                    {i < schemaDescriptionItems.length - 1 && (
-                                      <span>, </span>
-                                    )}
-                                  </strong>
-                                );
-                              })}
-                            </>
-                          )}
-                        </div>
-                        {schemaDateUpdated && (
-                          <div className="text-muted">
-                            Date updated:{" "}
-                            {schemaDateUpdated
-                              ? datetime(schemaDateUpdated)
-                              : ""}
-                          </div>
-                        )}
+                    {schemaDateUpdated && (
+                      <div className="text-muted ml-3">
+                        Updated{" "}
+                        {schemaDateUpdated ? ago(schemaDateUpdated) : ""}
                       </div>
-
-                      <div className="d-flex align-items-center">
-                        <button
-                          className="btn ml-3 text-dark"
-                          onClick={() => setShowSchema(!showSchema)}
-                        >
-                          <FaChevronRight
-                            style={{
-                              transform: `rotate(${
-                                showSchema ? "90deg" : "0deg"
-                              })`,
-                            }}
-                          />
-                        </button>
-                      </div>
-                    </div>
-                    {showSchema && (
-                      <>
-                        <Code
-                          language="json"
-                          code={feature?.jsonSchema?.schema || "{}"}
-                          className="disabled"
-                        />
-                      </>
                     )}
-                  </>
-                ) : (
-                  "No schema defined"
-                )}
-              </div>
-            )}
+
+                    {validationEnabled ? (
+                      <div className="ml-auto">
+                        <a
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setShowSchema(!showSchema);
+                          }}
+                        >
+                          <small>
+                            {showSchema
+                              ? "Hide JSON Schema"
+                              : "Show JSON Schema"}
+                          </small>
+                        </a>
+                      </div>
+                    ) : null}
+                  </div>
+                  {validationEnabled ? (
+                    <JSONSchemaDescription jsonSchema={jsonSchema} />
+                  ) : null}
+                  {showSchema && validationEnabled && (
+                    <div className="mt-4">
+                      <Code
+                        language="json"
+                        code={JSON.stringify(jsonSchema, null, 2)}
+                      />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div>
+                  <em>No validation added.</em>
+                </div>
+              )}
+
+              {hasJsonValidator && canEdit && (
+                <div className="mt-3">
+                  <a
+                    href="#"
+                    className="text-purple"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setEditValidator(true);
+                    }}
+                  >
+                    {validationEnabled ? <GBEdit /> : <GBAddCircle />}{" "}
+                    {validationEnabled ? "Edit" : "Add"} JSON Validation
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -1260,8 +1212,8 @@ export default function FeaturesOverview({
                 method: "PUT",
                 body: JSON.stringify({ owner }),
               });
-              mutate();
             }}
+            mutate={mutate}
           />
         )}
         {editValidator && (

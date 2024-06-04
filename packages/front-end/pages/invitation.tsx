@@ -1,4 +1,3 @@
-import { MemberRole } from "back-end/types/organization";
 import { useCallback, useMemo } from "react";
 import Button from "@/components/Button";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -17,7 +16,7 @@ const InvitationPage = (): React.ReactElement => {
   // Get data about the invitation
   const { data, error: keyError } = useApi<{
     organization: string;
-    role: MemberRole;
+    role: string;
   }>(`/invite/${key}`);
 
   // Click handler for accept button

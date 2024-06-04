@@ -18,7 +18,6 @@ import {
   useEnvironments,
 } from "@/services/features";
 import { useWatching } from "@/services/WatchProvider";
-import usePermissions from "@/hooks/usePermissions";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FeatureValueField from "@/components/Features/FeatureValueField";
@@ -66,13 +65,13 @@ const genEnvironmentSettings = ({
 }: {
   environments: ReturnType<typeof useEnvironments>;
   featureToDuplicate?: FeatureInterface;
-  permissions: ReturnType<typeof usePermissions>;
+  permissions: ReturnType<typeof usePermissionsUtil>;
   project: string;
 }): Record<string, FeatureEnvironment> => {
   const envSettings: Record<string, FeatureEnvironment> = {};
 
   environments.forEach((e) => {
-    const canPublish = permissions.check("publishFeatures", project, [e.id]);
+    const canPublish = permissions.canPublishFeature({ project }, [e.id]);
     const defaultEnabled = canPublish ? e.defaultState ?? true : false;
     const enabled = canPublish
       ? featureToDuplicate?.environmentSettings?.[e.id]?.enabled ??
@@ -88,12 +87,12 @@ const genEnvironmentSettings = ({
 
 const genFormDefaultValues = ({
   environments,
-  permissions,
+  permissions: permissionsUtil,
   featureToDuplicate,
   project,
 }: {
   environments: ReturnType<typeof useEnvironments>;
-  permissions: ReturnType<typeof usePermissions>;
+  permissions: ReturnType<typeof usePermissionsUtil>;
   featureToDuplicate?: FeatureInterface;
   project: string;
 }): Pick<
@@ -109,7 +108,7 @@ const genFormDefaultValues = ({
   const environmentSettings = genEnvironmentSettings({
     environments,
     featureToDuplicate,
-    permissions,
+    permissions: permissionsUtil,
     project,
   });
   return featureToDuplicate
@@ -123,7 +122,7 @@ const genFormDefaultValues = ({
         environmentSettings,
       }
     : {
-        valueType: "boolean",
+        valueType: "" as FeatureValueType,
         defaultValue: getDefaultValue("boolean"),
         description: "",
         id: "",
@@ -143,13 +142,12 @@ export default function FeatureModal({
 }: Props) {
   const { project, refreshTags } = useDefinitions();
   const environments = useEnvironments();
-  const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
 
   const defaultValues = genFormDefaultValues({
     environments,
-    permissions,
+    permissions: permissionsUtil,
     featureToDuplicate,
     project,
   });
@@ -199,7 +197,12 @@ export default function FeatureModal({
       secondaryCTA={secondaryCTA}
       submit={form.handleSubmit(async (values) => {
         const { defaultValue, ...feature } = values;
-        const valueType = feature.valueType as FeatureValueType;
+        const valueType = feature.valueType;
+
+        if (!valueType) {
+          throw new Error("Please select a value type");
+        }
+
         const passedFeature = feature as FeatureInterface;
         const newDefaultValue = validateFeatureValue(
           passedFeature,
@@ -312,7 +315,7 @@ export default function FeatureModal({
           decision of which rule to display (out of potentially many) in the
           modal is not deterministic.
       */}
-      {!featureToDuplicate && (
+      {!featureToDuplicate && valueType && (
         <>
           <FeatureValueField
             label={"Default Value when Enabled"}

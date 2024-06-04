@@ -1,0 +1,20 @@
+{
+  "versions": [
+    {
+      "version": "0.0.5",
+      "capabilities": [
+        "looseUnmarshalling",
+        "encryption",
+        "streaming",
+        "bucketingV2",
+        "visualEditor",
+        "semverTargeting",
+        "visualEditorJS",
+        "visualEditorDragDrop",
+        "prerequisites",
+        "redirects",
+        "stickyBucketing"
+      ]
+    }
+  ]
+}

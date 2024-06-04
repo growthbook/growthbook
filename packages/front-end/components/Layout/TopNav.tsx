@@ -1,8 +1,7 @@
 import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FaAngleRight, FaBars, FaBuilding } from "react-icons/fa";
+import { FaAngleRight, FaBars } from "react-icons/fa";
 import Link from "next/link";
-import clsx from "clsx";
 import Head from "next/head";
 import { DropdownMenu, Text } from "@radix-ui/themes";
 import {
@@ -34,7 +33,6 @@ const TopNav: FC<{
   pageTitle: string;
   showNotices?: boolean;
 }> = ({ toggleLeftMenu, pageTitle }) => {
-  const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [
@@ -266,8 +264,6 @@ const TopNav: FC<{
                 } catch (e) {
                   console.warn("Cannot set gb-last-picked-org");
                 }
-
-                setOrgDropdownOpen(false);
               }}
             >
               <span className="status"></span>
@@ -378,57 +374,6 @@ const TopNav: FC<{
               <>{pageTitle}</>
             )}
           </div>
-          {organizations && organizations.length > 1 && (
-            <div className="dropdown top-nav-org-menu">
-              <div
-                className={`nav-link dropdown-toggle`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setOrgDropdownOpen(!orgDropdownOpen);
-                }}
-                style={{ cursor: "pointer" }}
-              >
-                <FaBuilding className="text-muted mr-1" />
-                <span className="d-none d-lg-inline">
-                  <OverflowText maxWidth={200}>{orgName}</OverflowText>
-                </span>
-              </div>
-              <div
-                className={clsx("dropdown-menu dropdown-menu-right", {
-                  show: orgDropdownOpen,
-                })}
-              >
-                <div className="dropdown-header">Organization</div>
-                {organizations.map((o) => (
-                  <a
-                    className={clsx("dropdown-item", {
-                      active: o.id === orgId,
-                    })}
-                    key={o.id}
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (setOrgId) {
-                        setOrgId(o.id);
-                      }
-
-                      try {
-                        localStorage.setItem("gb-last-picked-org", `"${o.id}"`);
-                      } catch (e) {
-                        console.warn("Cannot set gb-last-picked-org");
-                      }
-
-                      setOrgDropdownOpen(false);
-                    }}
-                  >
-                    <span className="status"></span>
-                    {o.name}
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-
           <DropdownMenu.Root>
             <DropdownMenu.Trigger>
               <div className="nav-link d-flex">

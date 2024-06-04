@@ -28,7 +28,12 @@ import { updateSubscriptionInDb } from "../services/stripe";
  * want to restart their servers.
  */
 export async function getLicenseData(req: AuthRequest, res: Response) {
-  req.checkPermissions("manageBilling");
+  if (!req.superAdmin) {
+    const context = getContextFromReq(req);
+    if (!context.permissions.canManageBilling()) {
+      context.permissions.throwPermissionError();
+    }
+  }
 
   let licenseData;
 
@@ -53,7 +58,11 @@ export async function getLicenseData(req: AuthRequest, res: Response) {
  * data and send it to us.
  */
 export async function getLicenseReport(req: AuthRequest, res: Response) {
-  req.checkPermissions("manageBilling");
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
 
   const timestamp = new Date().toISOString();
   const licenseMetaData = await getLicenseMetaData();
@@ -98,18 +107,27 @@ export async function postCreateTrialEnterpriseLicense(
   req: CreateTrialEnterpriseLicenseRequest,
   res: Response<{ status: 200 } | PrivateApiErrorResponse>
 ) {
-  req.checkPermissions("manageBilling");
+  const context = getContextFromReq(req);
+  const { org } = context;
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
 
-  const { email, name, organizationId, companyName, context } = req.body;
+  const {
+    email,
+    name,
+    organizationId,
+    companyName,
+    context: reqContext,
+  } = req.body;
   try {
     const results = await postCreateTrialEnterpriseLicenseToLicenseServer(
       email,
       name,
       organizationId,
       companyName,
-      context
+      reqContext
     );
 
     if (!org.licenseKey) {
@@ -133,12 +151,14 @@ export async function postResendEmailVerificationEmail(
   req: AuthRequest,
   res: Response
 ) {
-  req.checkPermissions("manageBilling");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
 
   try {
-    await postResendEmailVerificationEmailToLicenseServer(org.id);
+    await postResendEmailVerificationEmailToLicenseServer(context.org.id);
 
     return res.status(200).json({ status: 200 });
   } catch (e) {

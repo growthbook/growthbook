@@ -1,14 +1,10 @@
 import { ListProjectsResponse } from "../../../types/openapi";
-import {
-  findAllProjectsByOrganization,
-  toProjectApiInterface,
-} from "../../models/ProjectModel";
 import { applyPagination, createApiRequestHandler } from "../../util/handler";
 import { listProjectsValidator } from "../../validators/openapi";
 
 export const listProjects = createApiRequestHandler(listProjectsValidator)(
   async (req): Promise<ListProjectsResponse> => {
-    const projects = await findAllProjectsByOrganization(req.context);
+    const projects = await req.context.models.projects.getAll();
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
@@ -17,7 +13,9 @@ export const listProjects = createApiRequestHandler(listProjectsValidator)(
     );
 
     return {
-      projects: filtered.map((project) => toProjectApiInterface(project)),
+      projects: filtered.map((project) =>
+        req.context.models.projects.toApiInterface(project)
+      ),
       ...returnFields,
     };
   }

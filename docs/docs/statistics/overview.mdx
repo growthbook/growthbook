@@ -7,39 +7,53 @@ slug: overview
 
 # GrowthBook's Statistics
 
-This page is a summary verison of the statistical methods used by GrowthBook. GrowthBook primarily relies
-on Bayesian statistics to power experimental analysis, but also provides an option to perform frequentist tests.
-If you want to read more detail on the Bayesian approach, see our [white paper](/GrowthBookStatsEngine.pdf).
+GrowthBook provides both Bayesian and frequentist approaches to experiment analysis. We default to Bayesian statistics because
+they provide a more intuitive framework for decision making for most customers, but we provide ample tools to select between both
+approaches based on your experimentation needs. You can choose between the two statistics engines at the Organization or Project level.
 
 ## Bayesian Statistics
 
-Bayesian methods offer some distinct advantages over the frequentist approach. In order for
-frequentist methods to be valid, you must decide on
-the sample size in advance before running an experiment---a fixed horizon.
-Under the frequentist framework, if you peek at experimental results and make a decision
-before it has finished running, or even decide to run an experiment for longer, your false positive
-rates will no longer be controlled at the level you expect. This issue--commonly referred to as "peeking"---
-will inflate your false positive rates (Type I errors) and decision making is likely to suffer.
-In addition to being prone to the peeking problem, frequentist methods also provide p-values
-and confidence intervals, both of which can be difficult to interpret and explain to others (see below for
-how we solve the peeking problem in our frequentist engine).
+Bayesian methods provides a few key advantages over frequentist approaches.
 
-Bayesian methods help with both of these issues. There are no fixed horizons, and peeking problems are
-less of a concern, although not completely resolved. You can generally stop an experiment whenever you want
-without a huge increase in Type I errors. In addition, the results are very easy to explain and interpret. Everything
-has some probability of being true and you adjust the probabilities as you gather data
-and learn more about the world. This matches up with how most people think about
-experiments - _"there’s a 95% chance this new button is better and a 5% chance it’s
-worse."_
+First, they provide more intuitive results. Instead of p-values and confidence intervals, you get probabilities and distributions of likely outcomes.
+These values allow you to make statements like _"there’s a 95% chance this new button is better and a 5% chance it’s
+worse"_ while there is no direct analog in a frequentist framework.
+
+Second, Bayesian methods allow you to write down your prior knowledge about experiment effects to ensure that you do not
+over-interpret small sample sizes and to benefit from old knowledge to reduce uncertainty in new experiments.
+
+Third, Bayesian results are still valid even if you stop an experiment early. While they can suffer from the same "peeking"
+problems as frequentist statistics, at least the main probabilities and statistical results that you see are not invalidated by stopping early.
+However, this is something of a difference without a distinction, as the decision to stop an experiment early can still
+result in inflated false positive rates.
+
+However, they can require a bit more fine-tuning to get right; however, in GrowthBook both engines are very similar under the hood
+so picking one can come largely down to personal preference and familiarity. In fact, tools like CUPED are available for both engines.
 
 ### Priors and Posteriors
 
-At GrowthBook, we use an Uninformative Prior. This simply means that before an
-experiment runs, we assume both variations have an equal chance of
-being higher/lower than the other one. As the experiment runs and you gather data, the
-Prior is updated to create a Posterior distribution. For Binomial metrics (simple yes/no conversion events) we
-use a Beta-Binomial Prior. For count, duration, and revenue metrics, we use a Gaussian
-(or Normal) Prior.
+At GrowthBook, we default to an improper, uninformative prior. This means that we do not use prior information to
+impact your experiment results by default. We do this to ensure that people who want to use the Bayesian engine to
+the fullest are able to enable proper priors and reap their benefits, but without automatically affecting results when
+experimenters first begin experimenting with GrowthBook.
+
+A prior works by providing additional information to your analysis for what kinds of results are likely based on past evidence. Our statistics
+engine will combine it with the actual results from your experiment to come up with our final distribution (our "posterior").
+This represents the most likely outcomes of your experiment combining prior knowledge and the experiment data. Priors can be
+very helpful in reducing uncertainty in small sample sizes and in ensuring that you do not over-interpret results that are unlikely
+to be reliable.
+
+You can easily turn on proper priors by visiting the organization settings, going to the Bayesian engine settings,
+and turning on the "Proper Prior". By default, we use a Normal distribution with mean 0 and standard deviation 0.3.
+This prior implies that about 68% of effects are between -30% and 30%, 95% of effects are between -60% and 60%, and the average effect is 0%.
+In effect, it will shrink positive and negative results towards 0, but eventually will be overcome as more data is collected.
+
+The choice of 0 and 0.3 corresponds roughly to the distribution of effects that we have actually observed on GrowthBook and is both:
+
+1. Weak enough to not shrink experiments with large sample sizes
+2. Strong enough to ensure that experiments with small sample sizes are not over-interpreted
+
+You can read more about how we use the prior and your experiment data to produce experiment results in our [detailed documentation](/statistics/details).
 
 ### Inferential Statistics
 
@@ -67,18 +81,16 @@ external factors to determine when to stop an experiment and which variation to 
 
 ## Frequentist Statistics
 
-While frequentist statistics have the aforementioned issues, they also are familiar to many practitioners and have
+Frequentist statistics are are familiar to many practitioners, power much of our statistics engine, and have
 certain advantages. Their widespread adoption has spurred important developments in variance reduction, heterogeneous treatment
 effect detection, and indeed corrections to peeking issues (e.g. sequential testing) that make frequentist statistics
 less problematic and, at times, more valuable.
 
-GrowthBook has begun also investing in developing a frequentist statistics engine, and users can now select which approach
-fits their use case best under their organization settings. The current frequentist engine computes two-sample t-tests for
+The current frequentist engine computes two-sample t-tests for
 relative percent change; you can reduce variance (via [CUPED](/statistics/cuped)) and you can enable
 [sequential testing](/statistics/sequential) to mitigate concerns with peeking.
 
-Because our default results and confidence intervals display relative percent change, we use a delta
-method corrected variance for our p-values and confidence intervals that correctly incorporates uncertainty from the control variation mean.
+You can read more in our [detailed documentation](/statistics/details).
 
 ## Data Quality Checks
 
@@ -107,7 +119,7 @@ However, too much slicing and dicing of data can lead to
 what is known as the Multiple Testing Problem. If you look at the data in enough ways, one of them
 will look significant just by random chance.
 
-GrowthBook does not run any statistical corrections (e.g. Bonferroni). Instead, we change how much we show depending on the cardinality of the dimension. For example, if your dimension has only a few distinct values (e.g. "free" or "paid") we show the full statistical analysis since the impact to the false positive rate is low. However, if your dimension has many distinct values (e.g. `country`) we only show the raw conversion numbers without any statistical inferences at all.
+GrowthBook only provides multiple testing corrections for the frequentist engine, but we have a few guardrails at the metric level to ensure that results are only shown when there's at least enough data to reliably learn about a specific dimension.
 
 In addition, we apply automatic grouping to very high-cardinality dimensions. In the country example, only the top 20 countries will be shown individually. The rest will be lumped together into an `(other)` category.
 
@@ -115,10 +127,7 @@ We have found this to be a good trade-off between false positives and false nega
 
 ## Conclusion
 
-GrowthBook utilizes a combination of Bayesian statistics, fast estimation techniques,
+GrowthBook utilizes a combination of Bayesian and frequentist statistics, fast estimation techniques,
 and data quality checks to robustly analyze A/B tests at scale and provide intuitive
-results to decision makers. GrowthBook also provides a frequentist statistics engine
-for customers who prefer operating in that paradigm.
-The implementation is fully open source under an MIT license
-and available on GitHub. You can also read more about the statistics and equations used
-in the [white paper PDF](/GrowthBookStatsEngine.pdf).
+results to decision makers. The implementation is fully open source under an MIT license
+and available on GitHub.

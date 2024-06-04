@@ -1,6 +1,7 @@
 import {
   CappingType,
   MetricCappingSettings,
+  MetricPriorSettings,
   MetricWindowSettings,
 } from "./fact-table";
 import { Queries } from "./query";
@@ -65,6 +66,7 @@ export interface MetricInterface {
 
   cappingSettings: MetricCappingSettings;
   windowSettings: MetricWindowSettings;
+  priorSettings: MetricPriorSettings;
 
   winRisk?: number;
   loseRisk?: number;
@@ -92,11 +94,12 @@ export interface MetricInterface {
 
 export type LegacyMetricInterface = Omit<
   MetricInterface,
-  "cappingSettings" | "windowSettings"
+  "cappingSettings" | "windowSettings" | "priorSettings"
 > & {
   // make new mandatory fields optional
   cappingSettings?: MetricCappingSettings;
   windowSettings?: MetricWindowSettings;
+  priorSettings?: MetricPriorSettings;
 
   // keep old fields around for migration
   cap?: number;

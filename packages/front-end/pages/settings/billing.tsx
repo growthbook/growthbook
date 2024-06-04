@@ -4,16 +4,16 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import SubscriptionInfo from "@/components/Settings/SubscriptionInfo";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
-import usePermissions from "@/hooks/usePermissions";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
 
   const { canSubscribe, subscriptionStatus, loading } = useStripeSubscription();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const { accountPlan } = useUser();
 
@@ -59,7 +59,7 @@ const BillingPage: FC = () => {
     return <LoadingOverlay />;
   }
 
-  if (!permissions.manageBilling) {
+  if (!permissionsUtil.canManageBilling()) {
     return (
       <div className="container pagecontents">
         <div className="alert alert-danger">

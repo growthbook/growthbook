@@ -1,8 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
-import { omit } from "lodash";
-import { hasReadAccess } from "shared/permissions";
+import { isEqual, omit } from "lodash";
 import { ApiSdkConnection } from "../../types/openapi";
 import {
   CreateSDKConnectionParams,
@@ -114,7 +113,7 @@ export async function findSDKConnectionById(
   if (!doc) return null;
 
   const connection = toInterface(doc);
-  return hasReadAccess(context.readAccessFilter, connection.projects || [])
+  return context.permissions.canReadMultiProjectResource(connection.projects)
     ? connection
     : null;
 }
@@ -128,17 +127,23 @@ export async function findSDKConnectionsByOrganization(
 
   const connections = docs.map(toInterface);
   return connections.filter((conn) =>
-    hasReadAccess(context.readAccessFilter, conn.projects || [])
+    context.permissions.canReadMultiProjectResource(conn.projects)
   );
 }
 
-export async function findAllSDKConnections() {
+export async function findAllSDKConnectionsAcrossAllOrgs() {
   const docs = await SDKConnectionModel.find();
   return docs.map(toInterface);
 }
 
-export async function findSDKConnectionsByIds(keys: string[]) {
-  const docs = await SDKConnectionModel.find({ id: { $in: keys } });
+export async function findSDKConnectionsByIds(
+  context: ReqContext,
+  ids: string[]
+) {
+  const docs = await SDKConnectionModel.find({
+    organization: context.org.id,
+    id: { $in: ids },
+  });
   return docs.map(toInterface);
 }
 
@@ -242,8 +247,14 @@ export async function editSDKConnection(
   const {
     proxyEnabled,
     proxyHost,
-    ...otherChanges
+    languages,
+    ...rest
   } = editSDKConnectionValidator.parse(updates);
+
+  const otherChanges = {
+    ...rest,
+    languages: languages as SDKLanguage[],
+  };
 
   let newProxy = {
     ...connection.proxy,
@@ -283,10 +294,17 @@ export async function editSDKConnection(
     "remoteEvalEnabled",
   ] as const;
   keysRequiringProxyUpdate.forEach((key) => {
-    if (key in otherChanges && otherChanges[key] !== connection[key]) {
+    if (key in otherChanges && !isEqual(otherChanges[key], connection[key])) {
       needsProxyUpdate = true;
     }
   });
+
+  const fullChanges = {
+    ...otherChanges,
+    proxy: newProxy,
+    project: "",
+    dateUpdated: new Date(),
+  };
 
   await SDKConnectionModel.updateOne(
     {
@@ -294,12 +312,7 @@ export async function editSDKConnection(
       id: connection.id,
     },
     {
-      $set: {
-        ...otherChanges,
-        proxy: newProxy,
-        project: "",
-        dateUpdated: new Date(),
-      },
+      $set: fullChanges,
     }
   );
 
@@ -307,13 +320,15 @@ export async function editSDKConnection(
     // Purge CDN if used
     const isUsingProxy = !!(newProxy.enabled && newProxy.host);
     await triggerSingleSDKWebhookJobs(
-      context.org.id,
+      context,
       connection,
       otherChanges as Partial<SDKConnectionInterface>,
       newProxy,
       isUsingProxy
     );
   }
+
+  return { ...connection, ...fullChanges };
 }
 
 export async function deleteSDKConnectionById(

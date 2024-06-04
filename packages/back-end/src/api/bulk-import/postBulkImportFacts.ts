@@ -13,7 +13,6 @@ import {
   updateFactFilter,
   getFactTableMap,
 } from "../../models/FactTableModel";
-import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { postBulkImportFactsValidator } from "../../validators/openapi";
 import { getCreateMetricPropsFromBody } from "../fact-metrics/postFactMetric";
@@ -48,7 +47,7 @@ export const postBulkImportFacts = createApiRequestHandler(
 
     const tagsToAdd = new Set<string>();
 
-    const projects = await findAllProjectsByOrganization(req.context);
+    const projects = await req.context.models.projects.getAll();
     const projectIds = new Set(projects.map((p) => p.id));
     function validateProjectIds(ids: string[]) {
       for (const id of ids) {
@@ -151,7 +150,7 @@ export const postBulkImportFacts = createApiRequestHandler(
             `Could not find fact table ${factTableId} for filter ${id}`
           );
         }
-        if (!req.context.permissions.canUpdateFactTable(factTable, {})) {
+        if (!req.context.permissions.canCreateAndUpdateFactFilter(factTable)) {
           req.context.permissions.throwPermissionError();
         }
 

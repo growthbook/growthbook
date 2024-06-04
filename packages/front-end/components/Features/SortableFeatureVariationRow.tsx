@@ -2,7 +2,11 @@ import React, { forwardRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { FaArrowsAlt } from "react-icons/fa";
-import { ExperimentValue, FeatureValueType } from "@back-end/types/feature";
+import {
+  ExperimentValue,
+  FeatureInterface,
+  FeatureValueType,
+} from "@back-end/types/feature";
 import clsx from "clsx";
 import {
   decimalToPercent,
@@ -33,6 +37,7 @@ interface SortableProps {
   setWeight?: (i: number, weight: number) => void;
   customSplit: boolean;
   valueAsId: boolean;
+  feature?: FeatureInterface;
 }
 
 type VariationProps = SortableProps &
@@ -52,6 +57,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       valueType,
       customSplit,
       setWeight,
+      feature,
       ...props
     },
     ref
@@ -101,6 +107,8 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
               }}
               label=""
               valueType={valueType}
+              feature={feature}
+              renderJSONInline={false}
             />
           ) : (
             <>{variation.value}</>
