@@ -5,29 +5,18 @@ import Link from "next/link";
 import clsx from "clsx";
 import Head from "next/head";
 import { DropdownMenu, Text } from "@radix-ui/themes";
-import { BsCircleHalf } from "react-icons/bs";
-import { ImSun } from "react-icons/im";
-import { render } from "react-dom";
 import {
-  PiArrowDownFill,
-  PiBell,
   PiCaretDownFill,
   PiCircleHalf,
   PiFiles,
   PiKey,
-  PiList,
   PiListChecks,
   PiMoon,
   PiSunDim,
 } from "react-icons/pi";
-import { ro } from "date-fns/locale";
 import router from "next/router";
-import { useWatching } from "@/services/WatchProvider";
-import useGlobalMenu from "@/services/useGlobalMenu";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
-import { usingSSO } from "@/services/env";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCelebrationLocalStorage } from "@/hooks/useCelebration";
 import Modal from "@/components/Modal";
 import Avatar from "@/components/Avatar/Avatar";
@@ -37,25 +26,17 @@ import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import Dropdown from "@/components/Dropdown/Dropdown";
 import styles from "./TopNav.module.scss";
-import { ThemeToggler } from "./ThemeToggler/ThemeToggler";
-import AccountPlanBadge from "./AccountPlanBadge";
-import AccountPlanNotices from "./AccountPlanNotices";
 import { usePageHead } from "./PageHead";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
   pageTitle: string;
   showNotices?: boolean;
-}> = ({ toggleLeftMenu, pageTitle, showNotices }) => {
-  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+}> = ({ toggleLeftMenu, pageTitle }) => {
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
-  const { watchedExperiments, watchedFeatures } = useWatching();
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-  useGlobalMenu(".top-nav-user-menu", () => setUserDropdownOpen(false));
-  useGlobalMenu(".top-nav-org-menu", () => setOrgDropdownOpen(false));
   const [
     enableCelebrations,
     setEnableCelebrations,
@@ -64,8 +45,6 @@ const TopNav: FC<{
   const { breadcrumb } = usePageHead();
 
   const { updateUser, name, email, effectiveAccountPlan } = useUser();
-
-  const { datasources } = useDefinitions();
 
   const { apiCall, logout, organizations, orgId, setOrgId } = useAuth();
   const { setTheme, preferredTheme } = useAppearanceUITheme();
@@ -81,7 +60,6 @@ const TopNav: FC<{
         body: JSON.stringify({ name: value.name }),
       });
       updateUser();
-      setUserDropdownOpen(false);
     }
 
     if (value.enableCelebrations !== enableCelebrations) {
@@ -94,7 +72,7 @@ const TopNav: FC<{
       case "dark":
         return (
           <div className="align-middle">
-            <PiMoon size="16" className="mr-1 text-secondary" />
+            <PiMoon size="16" className="mr-1 " />
             Theme
           </div>
         );
@@ -102,7 +80,7 @@ const TopNav: FC<{
       case "light":
         return (
           <div className="align-middle">
-            <PiSunDim size="16" className="mr-1 text-secondary" />
+            <PiSunDim size="16" className="mr-1" />
             Theme
           </div>
         );
@@ -110,7 +88,7 @@ const TopNav: FC<{
       case "system":
         return (
           <div className="align-middle">
-            <PiCircleHalf size="16" className="mr-1 text-secondary" />
+            <PiCircleHalf size="16" className="mr-1" />
             Theme
           </div>
         );
@@ -171,12 +149,13 @@ const TopNav: FC<{
   const renderPersonalAccessTokensDropDown = () => {
     return (
       <DropdownMenu.Item
+        className="dropdown-text-color"
         onClick={() => {
           router.push("/account/personal-access-tokens");
         }}
       >
         <div className="align-middle">
-          <PiKey size="16" className="mr-1 text-secondary" />
+          <PiKey size="16" className="mr-1" />
           Personal Access Tokens
         </div>
       </DropdownMenu.Item>
@@ -185,12 +164,13 @@ const TopNav: FC<{
   const renderMyReportsDropDown = () => {
     return (
       <DropdownMenu.Item
+        className="dropdown-text-color"
         onClick={() => {
           router.push("/reports");
         }}
       >
         <div className="align-middle">
-          <PiFiles size="16" className="mr-1 text-secondary" />
+          <PiFiles size="16" className="mr-1" />
           My Reports
         </div>
       </DropdownMenu.Item>
@@ -199,12 +179,13 @@ const TopNav: FC<{
   const renderMyActivityFeedsDropDown = () => {
     return (
       <DropdownMenu.Item
+        className="dropdown-text-color"
         onClick={() => {
           router.push("/activity");
         }}
       >
         <div className="align-middle">
-          <PiListChecks size="16" className="mr-1 text-secondary" />
+          <PiListChecks size="16" className="mr-1" />
           Activity Feed
         </div>
       </DropdownMenu.Item>
@@ -214,38 +195,43 @@ const TopNav: FC<{
   const renderThemeSubDropDown = () => {
     return (
       <DropdownMenu.Sub>
-        <DropdownMenu.SubTrigger>{activeIcon}</DropdownMenu.SubTrigger>
+        <DropdownMenu.SubTrigger className="dropdown-text-color">
+          {activeIcon}
+        </DropdownMenu.SubTrigger>
         <DropdownMenu.SubContent>
           <DropdownMenu.Item
+            className="dropdown-text-color"
             key="system"
             onSelect={() => {
               setTheme("system");
             }}
           >
             <span>
-              <PiCircleHalf size="16" className="mr-1 text-secondary" />
+              <PiCircleHalf size="16" className="mr-1" />
               System Default
             </span>
           </DropdownMenu.Item>
           <DropdownMenu.Item
+            className="dropdown-text-color"
             key="light"
             onSelect={() => {
               setTheme("light");
             }}
           >
             <span>
-              <PiSunDim size="16" className="mr-1 text-secondary" />
+              <PiSunDim size="16" className="mr-1" />
               Light
             </span>
           </DropdownMenu.Item>
           <DropdownMenu.Item
+            className="dropdown-text-color"
             key="dark"
             onSelect={() => {
               setTheme("dark");
             }}
           >
             <span>
-              <PiMoon size="16" className="mr-1 text-secondary" />
+              <PiMoon size="16" className="mr-1" />
               Dark
             </span>
           </DropdownMenu.Item>
