@@ -22,7 +22,7 @@ const CreateOrJoinOrganization: FC<{
   showFrame?: boolean;
   title?: string;
   subtitle?: string;
-}> = ({ showFrame = true, title = "", subtitle = "" }) => {
+}> = ({ showFrame = true, title, subtitle }) => {
   const { data } = useApi<{
     hasOrganizations: boolean;
   }>("/auth/hasorgs");
@@ -122,6 +122,24 @@ const CreateOrJoinOrganization: FC<{
     </>
   );
 
+  const titleCopy = (orgs) => {
+    if (title) return title;
+
+    return `We found ${
+      orgs.length === 1 ? "your organization" : "possible organizations for you"
+    } on GrowthBook!`;
+  };
+
+  const subtitleCopy = (orgs) => {
+    if (orgs.length === 0) {
+      return "There are no other organizations that you are not already a member of.";
+    }
+
+    if (subtitle) return subtitle;
+
+    return "Join your organization to get started.";
+  };
+
   const rightSide = (
     <div
       className="d-flex justify-content-center align-items-center"
@@ -133,24 +151,8 @@ const CreateOrJoinOrganization: FC<{
             {mode === "join" && showJoin ? (
               <>
                 <div>
-                  <h3>
-                    {title
-                      ? title
-                      : `We found 
-                    ${
-                      orgs.length === 1
-                        ? "your organization"
-                        : "possible organizations for you"
-                    } 
-                    on GrowthBook!`}
-                  </h3>
-                  <p className="text-muted">
-                    {orgs.length === 0
-                      ? "There are no other organizations that you are not already a member of."
-                      : subtitle
-                      ? subtitle
-                      : "Join your organization to get started."}
-                  </p>
+                  <h3>{titleCopy(orgs)}</h3>
+                  <p className="text-muted">{subtitleCopy(orgs)}</p>
                 </div>
                 {orgs.map((org) => (
                   <div key={org.id} className={`${style.recommendedOrgBox}`}>
