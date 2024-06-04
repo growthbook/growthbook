@@ -96,7 +96,6 @@ import {
   updateExperimentValidator,
 } from "../validators/openapi";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { findProjectById } from "../models/ProjectModel";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
@@ -106,6 +105,7 @@ import { getFeaturesByIds } from "../models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel";
 import { ExperimentRefRule, FeatureRule } from "../../types/feature";
 import { ApiReqContext } from "../../types/api";
+import { ProjectInterface } from "../../types/project";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import {
@@ -766,10 +766,10 @@ export async function toExperimentApiInterface(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
 ): Promise<ApiExperiment> {
-  let project = null;
+  let project: ProjectInterface | null = null;
   const organization = context.org;
   if (experiment.project) {
-    project = await findProjectById(context, experiment.project);
+    project = await context.models.projects.getById(experiment.project);
   }
   const { settings: scopedSettings } = getScopedSettings({
     organization,

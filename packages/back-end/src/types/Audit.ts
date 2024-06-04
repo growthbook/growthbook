@@ -21,6 +21,7 @@ export const entityEvents = {
     "screenshot.delete",
     "screenshot.create",
   ],
+  project: ["create", "update", "delete"],
   environment: ["create", "update", "delete"],
   feature: [
     "create",
@@ -31,6 +32,7 @@ export const entityEvents = {
     "archive",
     "delete",
   ],
+  urlRedirect: ["create", "update", "delete"],
   metric: ["autocreate", "create", "update", "delete", "analysis"],
   datasource: ["create", "update", "delete", "import"],
   comment: ["create", "update", "delete"],

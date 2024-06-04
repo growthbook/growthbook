@@ -7,7 +7,6 @@ import {
   toFactTableApiInterface,
   getFactTable,
 } from "../../models/FactTableModel";
-import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { addTagsDiff } from "../../models/TagModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { updateFactTableValidator } from "../../validators/openapi";
@@ -27,7 +26,7 @@ export const updateFactTable = createApiRequestHandler(
 
     // Validate projects
     if (req.body.projects?.length) {
-      const projects = await findAllProjectsByOrganization(req.context);
+      const projects = await req.context.models.projects.getAll();
       const projectIds = new Set(projects.map((p) => p.id));
       for (const projectId of req.body.projects) {
         if (!projectIds.has(projectId)) {

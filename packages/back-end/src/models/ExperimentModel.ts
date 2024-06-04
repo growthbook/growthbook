@@ -42,7 +42,6 @@ import {
   VisualChangesetModel,
 } from "./VisualChangesetModel";
 import { getFeaturesByIds } from "./FeatureModel";
-import { findURLRedirects } from "./UrlRedirectModel";
 
 type FindOrganizationOptions = {
   experimentId: string;
@@ -338,7 +337,7 @@ export async function createExperiment({
   if (!data.trackingKey) {
     // Try to generate a unique tracking key based on the experiment name
     let n = 1;
-    let found = null;
+    let found: null | string = null;
     while (n < 10 && !found) {
       const key = generateTrackingKey(data.name || data.id || "", n);
       if (!(await getExperimentByTrackingKey(context, key))) {
@@ -640,6 +639,8 @@ export async function deleteExperimentSegment(
       oldExperiment: previous,
       newExperiment: current,
       bypassWebhooks: true,
+    }).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on experiment update");
     });
   });
 }
@@ -934,14 +935,16 @@ export async function removeMetricFromExperiments(
   });
 
   // Log all the changes
-  each(oldExperiments, async (changeSet) => {
+  each(oldExperiments, (changeSet) => {
     const { previous, current } = changeSet;
     if (current && previous) {
-      await onExperimentUpdate({
+      onExperimentUpdate({
         context,
         oldExperiment: previous,
         newExperiment: current,
         bypassWebhooks: true,
+      }).catch((e) => {
+        logger.error(e, "Error refreshing SDK Payload on experiment update");
       });
     }
   });
@@ -998,6 +1001,8 @@ export async function addLinkedFeatureToExperiment(
       ...experiment,
       linkedFeatures: [...(experiment.linkedFeatures || []), featureId],
     },
+  }).catch((e) => {
+    logger.error(e, "Error refreshing SDK Payload on experiment update");
   });
 }
 
@@ -1036,6 +1041,8 @@ export async function removeLinkedFeatureFromExperiment(
         (f) => f !== featureId
       ),
     },
+  }).catch((e) => {
+    logger.error(e, "Error refreshing SDK Payload on experiment update");
   });
 }
 
@@ -1051,6 +1058,8 @@ function logAllChanges(
       context,
       oldExperiment: previous,
       newExperiment: current,
+    }).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on experiment update");
     });
   });
 }
@@ -1208,7 +1217,7 @@ export const getAllURLRedirectExperiments = async (
   context: ReqContext | ApiReqContext,
   experimentMap: Map<string, ExperimentInterface>
 ): Promise<Array<URLRedirectExperiment>> => {
-  const redirects = await findURLRedirects(context.org.id);
+  const redirects = await context.models.urlRedirects.getAll();
 
   if (!redirects.length) return [];
 
@@ -1259,11 +1268,11 @@ export function getPayloadKeysForAllEnvs(
   return keys;
 }
 
-export const getPayloadKeys = (
+export function getPayloadKeys(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   linkedFeatures?: FeatureInterface[]
-): SDKPayloadKey[] => {
+): SDKPayloadKey[] {
   // If experiment is not included in the SDK payload
   if (!includeExperimentInPayload(experiment, linkedFeatures)) {
     return [];
@@ -1300,7 +1309,7 @@ export const getPayloadKeys = (
 
   // Otherwise, if no linked changes, there are no affected payload keys
   return [];
-};
+}
 
 const getExperimentChanges = (
   experiment: ExperimentInterface

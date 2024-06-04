@@ -1,5 +1,4 @@
 import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
-import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { ApiReqContext } from "../../../types/api";
 import { sdkLanguages } from "../../util/constants";
 import { getEnvironments } from "../../services/organizations";
@@ -79,7 +78,7 @@ export const validatePayload = async (
     throw new Error(`Environment ${environment} does not exist!`);
 
   if (projects && projects.length) {
-    const allProjects = await findAllProjectsByOrganization(context);
+    const allProjects = await context.models.projects.getAll();
     const nonexistentProjects = projects.filter(
       (p) => !allProjects.some(({ id }) => p === id)
     );

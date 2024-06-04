@@ -22,3 +22,5 @@ export const sdkLanguages = [
   "edge-other",
   "other",
 ] as const;
+
+export const statsEngines = ["bayesian", "frequentist"] as const;

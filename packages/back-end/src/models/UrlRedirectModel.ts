@@ -1,311 +1,231 @@
-import { isEqual, keyBy } from "lodash";
-import omit from "lodash/omit";
-import mongoose from "mongoose";
-import uniqid from "uniqid";
+import { keyBy } from "lodash";
+import { getAffectedEnvsForExperiment } from "shared/util";
+import { isURLTargeted } from "@growthbook/growthbook";
 import { ExperimentInterface } from "../../types/experiment";
-import { ReqContext } from "../../types/organization";
 import { DestinationURL, URLRedirectInterface } from "../../types/url-redirect";
 import { refreshSDKPayloadCache } from "../services/features";
-import { ApiReqContext } from "../../types/api";
+import { urlRedirectValidator } from "../routers/url-redirects/url-redirects.validators";
 import {
-  getExperimentById,
+  getAllPayloadExperiments,
+  getAllURLRedirectExperiments,
   getPayloadKeys,
   updateExperiment,
 } from "./ExperimentModel";
+import { MakeModelClass } from "./BaseModel";
 
-const urlRedirectSchema = new mongoose.Schema<URLRedirectInterface>({
-  id: {
-    type: String,
-    required: true,
+type WriteOptions = {
+  checkCircularDependencies?: boolean;
+  skipSDKRefresh?: boolean;
+};
+
+const BaseClass = MakeModelClass({
+  schema: urlRedirectValidator,
+  collectionName: "urlredirects",
+  idPrefix: "url_",
+  auditLog: {
+    entity: "urlRedirect",
+    createEvent: "urlRedirect.create",
+    updateEvent: "urlRedirect.update",
+    deleteEvent: "urlRedirect.delete",
   },
-  organization: {
-    type: String,
-    required: true,
-  },
-  urlPattern: {
-    type: String,
-    required: true,
-  },
-  experiment: {
-    type: String,
-    required: true,
-  },
-  destinationURLs: [
-    {
-      _id: false,
-      variation: String,
-      url: String,
-    },
-  ],
-  persistQueryString: Boolean,
+  globallyUniqueIds: false,
+  readonlyFields: ["experiment"],
 });
-urlRedirectSchema.index({ organization: 1, id: 1 }, { unique: true });
-urlRedirectSchema.index({ organization: 1, experiment: 1 });
 
-export type URLRedirectDocument = mongoose.Document & URLRedirectInterface;
-
-export const URLRedirectModel = mongoose.model<URLRedirectInterface>(
-  "URLRedirect",
-  urlRedirectSchema
-);
-
-const toInterface = (doc: URLRedirectDocument): URLRedirectInterface =>
-  omit(
-    doc.toJSON<URLRedirectDocument>({ flattenMaps: true }),
-    ["__v", "_id"]
-  );
-
-export async function findURLRedirectById(
-  id: string,
-  organization: string
-): Promise<URLRedirectInterface | null> {
-  const doc = await URLRedirectModel.findOne({
-    organization,
-    id,
-  });
-  return doc ? toInterface(doc) : null;
-}
-
-export async function findURLRedirectsByExperiment(
-  experiment: string,
-  organization: string
-): Promise<URLRedirectInterface[]> {
-  const docs = await URLRedirectModel.find({
-    experiment,
-    organization,
-  });
-  return docs.map(toInterface);
-}
-
-export async function findURLRedirects(
-  organization: string
-): Promise<URLRedirectInterface[]> {
-  return (
-    await URLRedirectModel.find({
-      organization,
-    })
-  ).map(toInterface);
-}
-
-export const createURLRedirect = async ({
-  experiment,
-  context,
-  urlPattern,
-  destinationURLs,
-  persistQueryString,
-}: {
-  experiment: ExperimentInterface;
-  context: ReqContext | ApiReqContext;
-  urlPattern: string;
-  destinationURLs: DestinationURL[];
-  persistQueryString: boolean;
-}): Promise<URLRedirectInterface> => {
-  const doc = toInterface(
-    await URLRedirectModel.create({
-      id: uniqid("url_"),
-      experiment: experiment.id,
-      organization: context.org.id,
-      urlPattern,
-      destinationURLs,
-      persistQueryString,
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-    })
-  );
-
-  // mark the experiment as having a url redirect
-  if (!experiment.hasURLRedirects) {
-    experiment = await updateExperiment({
-      context,
-      experiment,
-      changes: { hasURLRedirects: true },
-      bypassWebhooks: true,
-    });
+export class UrlRedirectModel extends BaseClass<WriteOptions> {
+  public findByExperiment(experiment: string) {
+    // Assume we already checked read permissions for the experiment
+    return this._find({ experiment }, { bypassReadPermissionChecks: true });
   }
 
-  await onURLRedirectCreate({
-    context,
-    experiment,
-  });
+  protected canRead(doc: URLRedirectInterface): boolean {
+    const { experiment } = this.getForeignRefs(doc);
+    if (!experiment) throw new Error("Could not find experiment");
+    return this.context.permissions.canReadSingleProjectResource(
+      experiment.project
+    );
+  }
 
-  return doc;
-};
+  // Create/Update/Delete all do the exact same permission check
+  private canWrite(doc: URLRedirectInterface): boolean {
+    const { experiment } = this.getForeignRefs(doc);
+    if (!experiment) throw new Error("Could not find experiment");
+    const envs = getAffectedEnvsForExperiment({ experiment });
+    return this.context.permissions.canRunExperiment(experiment, envs);
+  }
+  protected canCreate(doc: URLRedirectInterface): boolean {
+    return this.canWrite(doc);
+  }
+  protected canUpdate(doc: URLRedirectInterface): boolean {
+    return this.canWrite(doc);
+  }
+  protected canDelete(doc: URLRedirectInterface): boolean {
+    return this.canWrite(doc);
+  }
 
-export const updateURLRedirect = async ({
-  urlRedirect,
-  experiment,
-  context,
-  updates,
-  bypassWebhooks,
-}: {
-  urlRedirect: URLRedirectInterface;
-  experiment: ExperimentInterface | null;
-  context: ReqContext | ApiReqContext;
-  updates: Partial<URLRedirectInterface>;
-  bypassWebhooks?: boolean;
-}) => {
-  updates.dateUpdated = new Date();
-
-  await URLRedirectModel.updateOne(
-    {
-      id: urlRedirect.id,
-      organization: context.org.id,
-    },
-    {
-      $set: {
-        ...updates,
-      },
+  protected async beforeCreate(doc: URLRedirectInterface) {
+    const { experiment } = this.getForeignRefs(doc);
+    if (!experiment) {
+      throw new Error("Could not find experiment");
     }
-  );
+    const variationIds = experiment.variations.map((v) => v.id);
+    const reqVariationIds = doc.destinationURLs.map((r) => r.variation);
 
-  // double-check that the experiment is marked as having url redirects
-  if (experiment && !experiment.hasURLRedirects) {
-    await updateExperiment({
-      context,
-      experiment,
-      changes: { hasURLRedirects: true },
-      bypassWebhooks: true,
-    });
+    const areValidVariations = variationIds.every((v) =>
+      reqVariationIds.includes(v)
+    );
+    if (!areValidVariations) {
+      throw new Error("Invalid variation IDs for urlRedirects");
+    }
   }
 
-  const newURLRedirect = {
-    ...urlRedirect,
-    ...updates,
-  };
-
-  await onURLRedirectUpdate({
-    oldURLRedirect: urlRedirect,
-    newURLRedirect: newURLRedirect,
-    context,
-    bypassWebhooks,
-  });
-
-  return newURLRedirect;
-};
-
-const onURLRedirectCreate = async ({
-  context,
-  experiment,
-}: {
-  context: ReqContext | ApiReqContext;
-  experiment: ExperimentInterface;
-}) => {
-  const payloadKeys = getPayloadKeys(context, experiment);
-  await refreshSDKPayloadCache(context, payloadKeys);
-};
-
-const onURLRedirectUpdate = async ({
-  context,
-  oldURLRedirect,
-  newURLRedirect,
-  bypassWebhooks = false,
-}: {
-  context: ReqContext | ApiReqContext;
-  oldURLRedirect: URLRedirectInterface;
-  newURLRedirect: URLRedirectInterface;
-  bypassWebhooks?: boolean;
-}) => {
-  if (bypassWebhooks) return;
-
-  if (
-    isEqual(
-      omit(oldURLRedirect, "dateUpdated"),
-      omit(newURLRedirect, "dateUpdated")
-    )
+  protected async customValidation(
+    doc: URLRedirectInterface,
+    writeOptions?: WriteOptions
   ) {
-    return;
+    if (!doc.urlPattern) {
+      throw new Error("url pattern cannot be empty");
+    }
+
+    if (writeOptions?.checkCircularDependencies) {
+      await this.checkCircularDependencies(
+        doc.urlPattern,
+        doc.destinationURLs,
+        doc.id
+      );
+    }
   }
 
-  const experiment = await getExperimentById(
-    context,
-    newURLRedirect.experiment
-  );
+  protected async afterCreateOrUpdate(
+    doc: URLRedirectInterface,
+    writeOptions?: WriteOptions
+  ) {
+    let { experiment } = this.getForeignRefs(doc);
+    if (!experiment) return;
 
-  if (!experiment) return;
-
-  const payloadKeys = getPayloadKeys(context, experiment);
-
-  await refreshSDKPayloadCache(context, payloadKeys);
-};
-
-const onURLRedirectDelete = async ({
-  context,
-  urlRedirect,
-}: {
-  context: ReqContext | ApiReqContext;
-  urlRedirect: URLRedirectInterface;
-}) => {
-  // get payload keys
-  const experiment = await getExperimentById(context, urlRedirect.experiment);
-
-  if (!experiment) return;
-
-  const payloadKeys = getPayloadKeys(context, experiment);
-
-  await refreshSDKPayloadCache(context, payloadKeys);
-};
-
-// when an experiment adds/removes variations, we need to update the analogous
-// url redirect changes to be in sync
-export const syncURLRedirectsWithVariations = async ({
-  experiment,
-  context,
-  urlRedirect,
-}: {
-  experiment: ExperimentInterface;
-  context: ReqContext | ApiReqContext;
-  urlRedirect: URLRedirectInterface;
-}) => {
-  const { variations } = experiment;
-  const { destinationURLs } = urlRedirect;
-  const byVariationId = keyBy(destinationURLs, "variation");
-  const newDestinationURLs = variations.map((variation) => {
-    const destination = byVariationId[variation.id];
-    return destination ? destination : { variation: variation.id, url: "" };
-  });
-
-  await updateURLRedirect({
-    context,
-    urlRedirect: urlRedirect,
-    experiment,
-    updates: { destinationURLs: newDestinationURLs },
-    // bypass webhooks since the payload was already updated by the experiment change
-    bypassWebhooks: true,
-  });
-};
-
-export const deleteURLRedirectById = async ({
-  urlRedirect,
-  experiment,
-  context,
-}: {
-  urlRedirect: URLRedirectInterface;
-  experiment: ExperimentInterface | null;
-  context: ReqContext | ApiReqContext;
-}) => {
-  await URLRedirectModel.deleteOne({
-    id: urlRedirect.id,
-    organization: context.org.id,
-  });
-
-  // if experiment has no more url redirects, update experiment
-  const remaining = await findURLRedirectsByExperiment(
-    urlRedirect.experiment,
-    context.org.id
-  );
-  if (remaining.length === 0) {
-    if (experiment && experiment.hasURLRedirects) {
-      await updateExperiment({
-        context,
+    if (!experiment.hasURLRedirects) {
+      // Important: update the experiment variable to the updated version
+      // This way, `hasURLRedirects` will be true, which will force the SDK to update
+      experiment = await updateExperiment({
+        context: this.context,
         experiment,
-        changes: { hasURLRedirects: false },
+        changes: { hasURLRedirects: true },
         bypassWebhooks: true,
       });
     }
+
+    if (!writeOptions?.skipSDKRefresh) {
+      const payloadKeys = getPayloadKeys(this.context, experiment);
+      await refreshSDKPayloadCache(this.context, payloadKeys);
+    }
   }
 
-  await onURLRedirectDelete({
-    context,
-    urlRedirect,
-  });
-};
+  protected async afterDelete(doc: URLRedirectInterface) {
+    const { experiment } = this.getForeignRefs(doc);
+    if (!experiment) return;
+
+    const remaining = await this.findByExperiment(doc.experiment);
+    if (remaining.length === 0) {
+      if (experiment.hasURLRedirects) {
+        await updateExperiment({
+          context: this.context,
+          experiment,
+          changes: { hasURLRedirects: false },
+          bypassWebhooks: true,
+        });
+      }
+    }
+
+    // Important: pass the old `experiment` object before doing the update
+    // The updated experiment has `hasURLRedirects: false`, which may stop the SDK from updating
+    const payloadKeys = getPayloadKeys(this.context, experiment);
+    await refreshSDKPayloadCache(this.context, payloadKeys);
+  }
+
+  // When an experiment adds/removes variations, we need to update
+  // url redirect changes to be in sync
+  public async syncURLRedirectsWithVariations(
+    urlRedirect: URLRedirectInterface,
+    experiment: ExperimentInterface
+  ) {
+    const { variations } = experiment;
+    const { destinationURLs } = urlRedirect;
+    const byVariationId = keyBy(destinationURLs, "variation");
+    const newDestinationURLs = variations.map((variation) => {
+      const destination = byVariationId[variation.id];
+      return destination ? destination : { variation: variation.id, url: "" };
+    });
+
+    return await this.update(
+      urlRedirect,
+      {
+        destinationURLs: newDestinationURLs,
+      },
+      // The SDK was already refreshed by the experiment change
+      { skipSDKRefresh: true }
+    );
+  }
+
+  private async checkCircularDependencies(
+    origin: string,
+    destinations: DestinationURL[],
+    urlRedirectId?: string
+  ) {
+    const payloadExperiments = await getAllPayloadExperiments(this.context);
+    const urlRedirects = await getAllURLRedirectExperiments(
+      this.context,
+      payloadExperiments
+    );
+    const originUrl = origin;
+
+    const existingRedirects = urlRedirects.filter(
+      (r) => r.urlRedirect.id !== urlRedirectId
+    );
+
+    existingRedirects.forEach((existing) => {
+      if (
+        isURLTargeted(originUrl, [
+          {
+            type: "simple",
+            pattern: existing.urlRedirect.urlPattern,
+            include: true,
+          },
+        ])
+      ) {
+        throw new Error(
+          "Origin URL matches an existing redirect's origin URL."
+        );
+      }
+      existing.urlRedirect.destinationURLs?.forEach((d) => {
+        if (
+          isURLTargeted(d.url, [
+            {
+              type: "simple",
+              pattern: origin,
+              include: true,
+            },
+          ])
+        ) {
+          throw new Error(
+            "Origin URL targets the destination url of an existing redirect."
+          );
+        }
+      });
+      destinations.forEach((dest) => {
+        if (
+          isURLTargeted(dest.url, [
+            {
+              type: "simple",
+              pattern: existing.urlRedirect.urlPattern,
+              include: true,
+            },
+          ])
+        ) {
+          throw new Error(
+            "Origin URL of an existing redirect targets a destination URL in this redirect."
+          );
+        }
+      });
+    });
+  }
+}

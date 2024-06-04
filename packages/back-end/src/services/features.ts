@@ -752,7 +752,10 @@ export function evaluateFeature({
   // change the NODE ENV so that we can get the debug log information:
   let switchEnv = false;
   if (process.env.NODE_ENV === "production") {
-    process.env.NODE_ENV = "development";
+    process.env = {
+      ...process.env,
+      NODE_ENV: "development",
+    };
     switchEnv = true;
   }
   // I could loop through the feature's defined environments, but if environments change in the org,
@@ -832,7 +835,10 @@ export function evaluateFeature({
   });
   if (switchEnv) {
     // change the NODE ENV back
-    process.env.NODE_ENV = "production";
+    process.env = {
+      ...process.env,
+      NODE_ENV: "production",
+    };
   }
   return results;
 }
@@ -1098,7 +1104,12 @@ any {
   // Given an object of unknown type, determine whether to recurse into it or return it
   if (Array.isArray(obj)) {
     // loop over array elements, process them
-    const newObj = [];
+    const newObj: {
+      // eslint-disable-next-line
+      obj: any;
+      attribute?: SDKAttribute;
+      doHash?: boolean;
+    }[] = [];
     for (let i = 0; i < obj.length; i++) {
       newObj[i] = processVal({
         obj: obj[i],
