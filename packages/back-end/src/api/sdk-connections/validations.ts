@@ -7,6 +7,8 @@ import { getEnvironments } from "../../services/organizations";
 const capabilityParams = [
   ["encryption", "encryptPayload"],
   ["remoteEval", "remoteEvalEnabled"],
+  ["visualEditor", "includeVisualExperiments"],
+  ["redirects", "includeRedirectExperiments"],
 ] as const;
 
 type CababilitiesParamKey = typeof capabilityParams[number][1];
@@ -14,10 +16,25 @@ type CababilitiesParams = { [k in CababilitiesParamKey]?: boolean };
 
 const premiumFeatures = [
   ["encrypt-features-endpoint", "encryptPayload"],
+  ["visual-editor", "includeVisualExperiments"],
+  ["hash-secure-attributes", "hashSecureAttributes"],
+  ["remote-evaluation", "remoteEvalEnabled"],
+  ["redirects", "includeRedirectExperiments"],
+  ["cloud-proxy", "proxyEnabled"],
 ] as const;
 
-type PremiumFeatureKey = typeof premiumFeatures[number][1];
-type PremiumFeatures = { [k in PremiumFeatureKey]?: boolean };
+type PremiumFeatureName = typeof premiumFeatures[number][0];
+type PremiumFeatureParam = typeof premiumFeatures[number][1];
+type PremiumFeatures = { [k in PremiumFeatureParam]?: boolean };
+
+const premiumExtraChecks: {
+  [k in PremiumFeatureName]?: { check: boolean; reason: string };
+} = {
+  "cloud-proxy": {
+    check: !!process.env.IS_CLOUD,
+    reason: "only available when deployed in cloud mode.",
+  },
+} as const;
 
 export const validatePayload = async (
   context: ApiReqContext,
@@ -47,7 +64,6 @@ export const validatePayload = async (
     includeDraftExperiments?: boolean;
     includeExperimentNames?: boolean;
     includeRedirectExperiments?: boolean;
-    proxyEnabled?: boolean;
     proxyHost?: string;
     hashSecureAttributes?: boolean;
   } & CababilitiesParams &
@@ -79,8 +95,10 @@ export const validatePayload = async (
 
   const language = sdkLanguages.find((l) => l === reqLanguage);
   if (!language) throw new Error(`Language ${reqLanguage} is not supported!`);
-  const sdkVersion = reqSdkVersion || getLatestSDKVersion(language);
+  const latestSdkVersion = getLatestSDKVersion(language);
+  const sdkVersion = reqSdkVersion || latestSdkVersion;
 
+  const latestCapabilities = getSDKCapabilities(language, latestSdkVersion);
   const capabilities = getSDKCapabilities(language, sdkVersion);
 
   const payload = {
@@ -102,14 +120,30 @@ export const validatePayload = async (
 
   capabilityParams.forEach(([capability, param]) => {
     if (payload[param] && !capabilities.includes(capability))
-      throw new Error(
-        `SDK version ${sdkVersion} doesn not support ${capability}`
-      );
+      if (latestCapabilities.includes(capability))
+        throw new Error(
+          `You need to ugrade to version ${latestSdkVersion} to support ${capability}`
+        );
+      else
+        throw new Error(
+          `SDK version ${sdkVersion} doesn not support ${capability}`
+        );
   });
 
   premiumFeatures.forEach(([feature, param]) => {
-    if (payload[param] && !context.hasPremiumFeature(feature))
+    if (!payload[param]) return;
+
+    if (!context.hasPremiumFeature(feature))
       throw new Error(`Feature ${feature} requires premium subscription!`);
+
+    const extraCheck = premiumExtraChecks[feature];
+
+    if (extraCheck === undefined) return;
+
+    if (!extraCheck.check)
+      throw new Error(
+        `Feature ${feature} is not available: ${extraCheck.reason}`
+      );
   });
 
   return payload;

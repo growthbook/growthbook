@@ -195,7 +195,7 @@ describe("sdk-connections API", () => {
 
   it("checks for premium features when creating new sdk-connections", async () => {
     const hasPremiumFeatureMock = jest.fn(() => false);
-    getLatestSDKVersion.mockReturnValue("some-version");
+    getLatestSDKVersion.mockReturnValue("latest-version");
     getSDKCapabilities.mockReturnValue(["encryption"]);
 
     setReqContext({
@@ -221,7 +221,7 @@ describe("sdk-connections API", () => {
     expect(response.status).toBe(400);
     expect(getSDKCapabilities).toHaveBeenCalledWith(
       "javascript",
-      "some-version"
+      "latest-version"
     );
     expect(hasPremiumFeatureMock).toHaveBeenCalledWith(
       "encrypt-features-endpoint"
@@ -232,8 +232,45 @@ describe("sdk-connections API", () => {
     });
   });
 
+  it("checks for premium features with extra checks when creating new sdk-connections", async () => {
+    const hasPremiumFeatureMock = jest.fn(() => true);
+    getLatestSDKVersion.mockReturnValue("latest-version");
+    getSDKCapabilities.mockReturnValue(["encryption"]);
+
+    setReqContext({
+      org,
+      hasPremiumFeature: hasPremiumFeatureMock,
+      permissions: {
+        canCreateSDKConnection: () => true,
+      },
+    });
+
+    const connection = {
+      name: "my-connection",
+      environment: org.environments[0].id,
+      language: "javascript",
+      proxyEnabled: true,
+    };
+
+    const response = await request(app)
+      .post("/api/v1/sdk-connections")
+      .send(connection)
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(400);
+    expect(getSDKCapabilities).toHaveBeenCalledWith(
+      "javascript",
+      "latest-version"
+    );
+    expect(hasPremiumFeatureMock).toHaveBeenCalledWith("cloud-proxy");
+    expect(response.body).toEqual({
+      message:
+        "Feature cloud-proxy is not available: only available when deployed in cloud mode.",
+    });
+  });
+
   it("checks for SDK cacapbilities when creating new sdk-connections", async () => {
-    getLatestSDKVersion.mockReturnValue("some-version");
+    getLatestSDKVersion.mockReturnValue("latest-version");
     getSDKCapabilities.mockReturnValue([]);
 
     setReqContext({
@@ -258,10 +295,43 @@ describe("sdk-connections API", () => {
     expect(response.status).toBe(400);
     expect(getSDKCapabilities).toHaveBeenCalledWith(
       "javascript",
-      "some-version"
+      "latest-version"
     );
     expect(response.body).toEqual({
-      message: "SDK version some-version doesn not support remoteEval",
+      message: "SDK version latest-version doesn not support remoteEval",
+    });
+  });
+
+  it("checks for SDK cacapbilities for the latest version when creating new sdk-connections", async () => {
+    getLatestSDKVersion.mockReturnValue("latest-version");
+    getSDKCapabilities.mockImplementation((_, v) =>
+      v === "latest-version" ? ["remoteEval"] : []
+    );
+
+    setReqContext({
+      org,
+      permissions: {
+        canCreateSDKConnection: () => true,
+      },
+    });
+
+    const connection = {
+      name: "my-connection",
+      sdkVersion: "old-version",
+      environment: org.environments[0].id,
+      language: "javascript",
+      remoteEvalEnabled: true,
+    };
+
+    const response = await request(app)
+      .post("/api/v1/sdk-connections")
+      .send(connection)
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      message:
+        "You need to ugrade to version latest-version to support remoteEval",
     });
   });
 
@@ -372,7 +442,7 @@ describe("sdk-connections API", () => {
         existing.id
       }","name":"my-new-connection","dateCreated":"${existing.dateCreated.toISOString()}","dateUpdated":"${existing.dateCreated.toISOString()}","languages":["javascript"],"environment":"production","projects":[],"encryptPayload":false,"encryptionKey":"","key":"${
         existing.key
-      }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"sdkVersion":"some-version","includeVisualExperiments":false,"includeDraftExperiments":false,"includeExperimentNames":false,"includeRedirectExperiments":false,"hashSecureAttributes":false},"context":{}}`,
+      }","connected":false,"proxy":{"enabled":false,"host":"","signingKey":"","connected":false,"version":"","error":"","lastError":null},"sdkVersion":"latest-version","includeVisualExperiments":false,"includeDraftExperiments":false,"includeExperimentNames":false,"includeRedirectExperiments":false,"hashSecureAttributes":false},"context":{}}`,
       entity: { id: updated.id, object: "sdk-connection" },
       event: "sdk-connection.update",
     });
