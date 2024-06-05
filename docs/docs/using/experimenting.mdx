@@ -116,9 +116,8 @@ see the full data, including 'risk', mouse over any of the results.
 ![GrowthBook Results](/images/using/experiment-results-bayesian-details2.png)
 
 Risk tells you how much you are predicted to lose if you choose the selected variation as the winner
-and you are wrong. Anything highlighted in green indicates that the risk is very low and it may be safe
-to call the experiment. You can use the dropdown to see the risk of choosing a different winner if you
-have multiple variations. Risk thresholds are adjustable per metric.
+and you are wrong. You can specify upper risk thresholds (designed to flag high-risk outcomes) and lower risk thresholds (designed to flag low-risk outcomes) in Behavior on the Metrics tab. Red indicates that the treatment variation has risk above the high-risk threshold.
+Amber indicates that your risk is between the two thresholds. Green indicates that risk is below the low-risk threshold, and it may be safe to call the experiment. You can use the dropdown to see the risk of choosing a different winner if you have multiple variations.
 
 Value is the conversion rate or average value per user. In small print you can see the raw numbers
 used to calculate this.
