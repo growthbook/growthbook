@@ -2,6 +2,7 @@ import {
   AutoExperimentWithProject,
   FeatureDefinitionWithProject,
 } from "back-end/types/api";
+import { IdLists } from "back-end/types/saved-group";
 import { pick, omit } from "lodash";
 import cloneDeep from "lodash/cloneDeep";
 import { SDKCapability } from "./index";
@@ -157,4 +158,14 @@ export const scrubExperiments = (
     newExperiments.push(experiment);
   }
   return newExperiments;
+};
+
+export const scrubIdLists = (
+  idLists: IdLists,
+  capabilities: SDKCapability[]
+): IdLists | undefined => {
+  if (!capabilities.includes("savedGroupReferences")) {
+    return undefined;
+  }
+  return idLists;
 };

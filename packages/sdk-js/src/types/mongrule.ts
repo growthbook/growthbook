@@ -44,7 +44,9 @@ export type VarType =
   | "undefined";
 export type OperatorConditionValue = {
   $in?: (string | number)[];
+  $ingroup?: string;
   $nin?: (string | number)[];
+  $ningroup?: string;
   $gt?: number | string;
   $gte?: number | string;
   $lt?: number | string;

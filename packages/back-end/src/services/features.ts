@@ -20,6 +20,7 @@ import {
 import {
   scrubExperiments,
   scrubFeatures,
+  scrubIdLists,
   SDKCapability,
 } from "shared/sdk-versioning";
 import cloneDeep from "lodash/cloneDeep";
@@ -533,6 +534,7 @@ async function getFeatureDefinitionsResponse({
 
   features = scrubFeatures(features, capabilities);
   experiments = scrubExperiments(experiments, capabilities);
+  const scrubbedIdLists = scrubIdLists(idLists, capabilities);
 
   const includeAutoExperiments =
     !!includeRedirectExperiments || !!includeVisualExperiments;
@@ -551,7 +553,7 @@ async function getFeatureDefinitionsResponse({
       features,
       ...(includeAutoExperiments && { experiments }),
       dateUpdated,
-      idLists: idLists,
+      idLists: scrubbedIdLists,
     };
   }
 
@@ -569,7 +571,7 @@ async function getFeatureDefinitionsResponse({
     dateUpdated,
     encryptedFeatures,
     ...(includeAutoExperiments && { encryptedExperiments }),
-    idLists: idLists,
+    idLists: scrubbedIdLists,
   };
 }
 
@@ -592,7 +594,7 @@ export type FeatureDefinitionSDKPayload = {
   dateUpdated: Date | null;
   encryptedFeatures?: string;
   encryptedExperiments?: string;
-  idLists: IdLists;
+  idLists?: IdLists;
 };
 
 export async function getFeatureDefinitions({
