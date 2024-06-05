@@ -532,8 +532,8 @@ async function getFeatureDefinitionsResponse({
     }
   }
 
-  features = scrubFeatures(features, capabilities);
-  experiments = scrubExperiments(experiments, capabilities);
+  features = scrubFeatures(features, capabilities, idLists);
+  experiments = scrubExperiments(experiments, capabilities, idLists);
   const scrubbedIdLists = scrubIdLists(idLists, capabilities);
 
   const includeAutoExperiments =

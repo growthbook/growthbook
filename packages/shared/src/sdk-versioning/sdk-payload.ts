@@ -38,7 +38,8 @@ const prerequisiteKeys = ["parentConditions"];
 
 export const scrubFeatures = (
   features: Record<string, FeatureDefinitionWithProject>,
-  capabilities: SDKCapability[]
+  capabilities: SDKCapability[],
+  idLists: IdLists
 ): Record<string, FeatureDefinitionWithProject> => {
   const allowedFeatureKeys = [...strictFeatureKeys];
   const allowedFeatureRuleKeys = [...strictFeatureRuleKeys];
@@ -51,9 +52,11 @@ export const scrubFeatures = (
   if (capabilities.includes("prerequisites")) {
     allowedFeatureRuleKeys.push(...prerequisiteKeys);
   }
-  const supportsSavedGroupReferences = capabilities.includes(
-    "savedGroupReferences"
-  );
+  if (!capabilities.includes("savedGroupReferences")) {
+    features = JSON.parse(
+      replaceGroupOperationsInString(JSON.stringify(features), idLists)
+    ) as Record<string, FeatureDefinitionWithProject>;
+  }
 
   const newFeatures = cloneDeep(features);
 
@@ -92,11 +95,6 @@ export const scrubFeatures = (
         rule = {
           ...pick(rule, allowedFeatureRuleKeys),
         };
-        // Replace the saved group operations if not supported
-        // TODO: logic on the condition
-        if (!supportsSavedGroupReferences && rule.condition) {
-          rule.condition = rule.condition || undefined;
-        }
         return rule;
       });
     }
@@ -107,21 +105,20 @@ export const scrubFeatures = (
 
 export const scrubExperiments = (
   experiments: AutoExperimentWithProject[],
-  capabilities: SDKCapability[]
+  capabilities: SDKCapability[],
+  idLists: IdLists
 ): AutoExperimentWithProject[] => {
   const removedExperimentKeys: string[] = [];
   const supportsPrerequisites = capabilities.includes("prerequisites");
   const supportsRedirects = capabilities.includes("redirects");
-  const supportsSavedGroupReferences = capabilities.includes(
-    "savedGroupReferences"
-  );
 
-  if (
-    supportsPrerequisites &&
-    supportsRedirects &&
-    supportsSavedGroupReferences
-  )
-    return experiments;
+  if (!capabilities.includes("savedGroupReferences")) {
+    experiments = JSON.parse(
+      replaceGroupOperationsInString(JSON.stringify(experiments), idLists)
+    ) as AutoExperimentWithProject[];
+  }
+
+  if (supportsPrerequisites && supportsRedirects) return experiments;
 
   if (!supportsPrerequisites) {
     removedExperimentKeys.push(...prerequisiteKeys);
@@ -143,12 +140,6 @@ export const scrubExperiments = (
       continue;
     }
 
-    // Replace the saved group operations if not supported
-    // TODO: logic on the condition
-    if (!supportsSavedGroupReferences && experiment.condition) {
-      experiment.condition = experiment.condition || undefined;
-    }
-
     // Scrub fields from the experiment
     experiment = omit(
       experiment,
@@ -168,4 +159,16 @@ export const scrubIdLists = (
     return undefined;
   }
   return idLists;
+};
+
+const replaceGroupOperationsInString = (s: string, idLists: IdLists) => {
+  Object.entries(idLists).forEach(([id, values]) => {
+    const stringifiedValues = JSON.stringify(values);
+    // Replace all instances of "$(n)ingroup": "groupId" with "$(n)in": "[...group_values]"
+    s = s.replace(
+      new RegExp(`\\$(in|nin)group":\\s*"${id}"`, "g"),
+      (_match, captureGroup) => `${captureGroup}":${stringifiedValues}`
+    );
+  });
+  return s;
 };
