@@ -17,9 +17,11 @@ repositories {
 }
 
 dependencies {
-    implementation 'io.growthbook.sdk:GrowthBook:1.1.58'
+    implementation 'io.growthbook.sdk:GrowthBook:1.1.59'
+    implementation 'io.growthbook.sdk:DefaultNetworkDispatcher:1.0.0'
 }
 ```
+`DefaultNetworkDispatcher` artifact provides `NetworkDispatcher` implementation based on `ktor` network client. If you are using other network client for example `OkHttp` and don't want to have any other network client in your application, you can provide your own implementation of `NetworkDispatcher` for example based on `OkHttp` client. You will not need to include `DefaultNetworkDispatcher` artifact in this case.
 
 ## Quick Usage
 
