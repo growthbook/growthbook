@@ -33,7 +33,7 @@ const TopNav: FC<{
   toggleLeftMenu?: () => void;
   pageTitle: string;
   showNotices?: boolean;
-}> = ({ toggleLeftMenu, pageTitle }) => {
+}> = ({ toggleLeftMenu, pageTitle, showNotices }) => {
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [
@@ -274,6 +274,31 @@ const TopNav: FC<{
       </DropdownMenu.Sub>
     );
   };
+  const renderBreadCrumb = () => {
+    return breadcrumb?.map((b, i) => (
+      <span
+        key={i}
+        className={i < breadcrumb.length - 1 ? "d-none d-lg-inline" : ""}
+        title={b.display}
+      >
+        {i > 0 && <FaAngleRight className="mx-2 d-none d-lg-inline" />}
+        {b.href ? (
+          <Link className={styles.breadcrumblink} href={b.href}>
+            {b.display}
+          </Link>
+        ) : (
+          b.display
+        )}
+      </span>
+    ));
+  };
+  const renderTitleOrBreadCrumb = () => {
+    let titleOrBreadCrumb: string | JSX.Element[] = pageTitle;
+    if (breadcrumb.length > 0) {
+      titleOrBreadCrumb = renderBreadCrumb();
+    }
+    return <div className={styles.pagetitle}>{titleOrBreadCrumb}</div>;
+  };
   const planCopy = useMemo(() => {
     switch (effectiveAccountPlan) {
       case "enterprise":
@@ -348,32 +373,8 @@ const TopNav: FC<{
               />
             </div>
           )}
-          <div className={styles.pagetitle}>
-            {breadcrumb.length > 0 ? (
-              breadcrumb.map((b, i) => (
-                <span
-                  key={i}
-                  className={
-                    i < breadcrumb.length - 1 ? "d-none d-lg-inline" : ""
-                  }
-                  title={b.display}
-                >
-                  {i > 0 && (
-                    <FaAngleRight className="mx-2 d-none d-lg-inline" />
-                  )}
-                  {b.href ? (
-                    <Link className={styles.breadcrumblink} href={b.href}>
-                      {b.display}
-                    </Link>
-                  ) : (
-                    b.display
-                  )}
-                </span>
-              ))
-            ) : (
-              <>{pageTitle}</>
-            )}
-          </div>
+          {renderTitleOrBreadCrumb()}
+          {showNotices && <AccountPlanNotices />}
           <AccountPlanNotices />
           <DropdownMenu.Root>
             <DropdownMenu.Trigger>
