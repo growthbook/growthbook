@@ -2,6 +2,7 @@ import { PutProjectResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
 import { putProjectValidator } from "../../validators/openapi";
 import { auditDetailsUpdate } from "../../services/audit";
+import { projectValidator } from "../../models/ProjectModel";
 
 export const putProject = createApiRequestHandler(putProjectValidator)(
   async (req): Promise<PutProjectResponse> => {
@@ -10,9 +11,12 @@ export const putProject = createApiRequestHandler(putProjectValidator)(
       throw new Error("Could not find project with that id");
     }
 
+    const ret = projectValidator.safeParse(req.body);
+    if (ret.success === false) throw new Error(`Invalid project: ${ret.error}`);
+
     const newProject = await req.context.models.projects.update(
       project,
-      req.body
+      ret.data
     );
 
     await req.audit({

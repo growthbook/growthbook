@@ -13,7 +13,7 @@ export const projectSettingsValidator = z.object({
 export const projectValidator = baseSchema
   .extend({
     name: z.string(),
-    description: z.string(),
+    description: z.string().default("").optional(),
     settings: projectSettingsValidator,
   })
   .strict();

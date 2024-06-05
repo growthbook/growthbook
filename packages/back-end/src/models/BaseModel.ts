@@ -205,21 +205,21 @@ export abstract class BaseModel<
     return this._find();
   }
   public create(
-    props: unknown | CreateProps<z.infer<T>>,
+    props: CreateProps<z.infer<T>>,
     writeOptions?: WriteOptions
   ): Promise<z.infer<T>> {
     return this._createOne(props, writeOptions);
   }
   public update(
     existing: z.infer<T>,
-    updates: unknown | UpdateProps<z.infer<T>>,
+    updates: UpdateProps<z.infer<T>>,
     writeOptions?: WriteOptions
   ): Promise<z.infer<T>> {
     return this._updateOne(existing, updates, { writeOptions });
   }
   public async updateById(
     id: string,
-    updates: unknown | UpdateProps<z.infer<T>>,
+    updates: UpdateProps<z.infer<T>>,
     writeOptions?: WriteOptions
   ): Promise<z.infer<T>> {
     const existing = await this.getById(id);
@@ -320,7 +320,7 @@ export abstract class BaseModel<
   }
 
   protected async _createOne(
-    rawData: unknown | CreateProps<z.infer<T>>,
+    rawData: CreateProps<z.infer<T>>,
     writeOptions?: WriteOptions
   ) {
     const props = this.config.schema
@@ -397,7 +397,7 @@ export abstract class BaseModel<
 
   protected async _updateOne(
     doc: z.infer<T>,
-    rawUpdates: unknown | UpdateProps<z.infer<T>>,
+    rawUpdates: UpdateProps<z.infer<T>>,
     options?: {
       auditEvent?: EventType;
       writeOptions?: WriteOptions;
