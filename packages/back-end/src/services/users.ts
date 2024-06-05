@@ -115,12 +115,14 @@ export async function createUser({
   password,
   verified = false,
   superAdmin = false,
+  agreedToTerms = false,
 }: {
   name: string;
   email: string;
   password?: string;
   verified?: boolean;
   superAdmin?: boolean;
+  agreedToTerms?: boolean;
 }) {
   let passwordHash = "";
 
@@ -136,6 +138,7 @@ export async function createUser({
     id: uniqid("u_"),
     verified,
     superAdmin,
+    agreedToTerms,
   });
 }
 
