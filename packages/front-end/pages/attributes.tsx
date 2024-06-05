@@ -138,7 +138,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
                         setModalData("");
                       }}
                     >
-                      <GBAddCircle /> Add Attribute
+                      <span
+                        style={{ position: "relative", top: "-1px" }}
+                        className="mr-2"
+                      >
+                        <GBAddCircle />
+                      </span>
+                      Add Attribute
                     </button>
                   </div>
                 )}
