@@ -92,7 +92,10 @@ export default function EditSavedGroupPage() {
     <>
       {savedGroupForm && (
         <SavedGroupForm
-          close={() => setSavedGroupForm(null)}
+          close={() => {
+            setSavedGroupForm(null);
+            mutate();
+          }}
           current={savedGroupForm}
           type="list"
         />

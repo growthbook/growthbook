@@ -35,6 +35,8 @@ export type GroupMap = Map<
     values?: (string | number)[];
   }
 >;
+// The data going out in an sdk payload to map from a saved group ID to its array of values
+export type IdLists = Record<string, string[] | number[]>;
 
 export type CreateSavedGroupProps = z.infer<typeof postSavedGroupBodyValidator>;
 export type UpdateSavedGroupProps = z.infer<typeof putSavedGroupBodyValidator>;

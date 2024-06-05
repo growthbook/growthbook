@@ -12,7 +12,9 @@ type NotCondition = {
 };
 export type Operator =
   | "$in"
+  | "$ingroup"
   | "$nin"
+  | "$ningroup"
   | "$gt"
   | "$gte"
   | "$lt"

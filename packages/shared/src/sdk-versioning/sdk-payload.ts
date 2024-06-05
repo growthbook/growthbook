@@ -50,6 +50,9 @@ export const scrubFeatures = (
   if (capabilities.includes("prerequisites")) {
     allowedFeatureRuleKeys.push(...prerequisiteKeys);
   }
+  const supportsSavedGroupReferences = capabilities.includes(
+    "savedGroupReferences"
+  );
 
   const newFeatures = cloneDeep(features);
 
@@ -88,6 +91,11 @@ export const scrubFeatures = (
         rule = {
           ...pick(rule, allowedFeatureRuleKeys),
         };
+        // Replace the saved group operations if not supported
+        // TODO: logic on the condition
+        if (!supportsSavedGroupReferences && rule.condition) {
+          rule.condition = rule.condition || undefined;
+        }
         return rule;
       });
     }
@@ -103,8 +111,16 @@ export const scrubExperiments = (
   const removedExperimentKeys: string[] = [];
   const supportsPrerequisites = capabilities.includes("prerequisites");
   const supportsRedirects = capabilities.includes("redirects");
+  const supportsSavedGroupReferences = capabilities.includes(
+    "savedGroupReferences"
+  );
 
-  if (supportsPrerequisites && supportsRedirects) return experiments;
+  if (
+    supportsPrerequisites &&
+    supportsRedirects &&
+    supportsSavedGroupReferences
+  )
+    return experiments;
 
   if (!supportsPrerequisites) {
     removedExperimentKeys.push(...prerequisiteKeys);
@@ -124,6 +140,12 @@ export const scrubExperiments = (
       (experiment.parentConditions?.length ?? 0) > 0
     ) {
       continue;
+    }
+
+    // Replace the saved group operations if not supported
+    // TODO: logic on the condition
+    if (!supportsSavedGroupReferences && experiment.condition) {
+      experiment.condition = experiment.condition || undefined;
     }
 
     // Scrub fields from the experiment

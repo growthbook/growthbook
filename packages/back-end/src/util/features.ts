@@ -17,14 +17,13 @@ import { ExperimentInterface } from "../../types/experiment";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { getCurrentEnabledState } from "./scheduleRules";
 
-// eslint-disable-next-line
-type GroupMapValue = GroupMap extends Map<any, infer I> ? I : never;
-
 function getSavedGroupCondition(
-  group: GroupMapValue,
+  groupId: string,
   groupMap: GroupMap,
   include: boolean
 ): null | ConditionInterface {
+  const group = groupMap.get(groupId);
+  if (!group) return null;
   if (group.type === "condition") {
     try {
       const cond = JSON.parse(
@@ -39,7 +38,7 @@ function getSavedGroupCondition(
   if (!group.attributeKey) return null;
 
   return {
-    [group.attributeKey]: { [include ? "$in" : "$nin"]: group.values || [] },
+    [group.attributeKey]: { [include ? "$ingroup" : "$ningroup"]: groupId },
   };
 }
 
@@ -62,32 +61,31 @@ export function getParsedCondition(
 
   if (savedGroups) {
     savedGroups.forEach(({ ids, match }) => {
-      const groups = ids
-        .map((id) => groupMap.get(id))
+      const groupIds = ids.filter((id) => {
         // Must either have at least 1 value or be a non-empty condition
-        .filter((group) => {
-          if (!group) return false;
-          if (group.type === "condition") {
-            if (!group.condition || group.condition === "{}") return false;
-          } else {
-            if (!group.values?.length) return false;
-          }
-          return true;
-        }) as GroupMapValue[];
-      if (!groups.length) return;
+        const group = groupMap.get(id);
+        if (!group) return false;
+        if (group.type === "condition") {
+          if (!group.condition || group.condition === "{}") return false;
+        } else {
+          if (!group.values?.length) return false;
+        }
+        return true;
+      });
+      if (!groupIds.length) return;
 
       // Add each group as a separate top-level AND
       if (match === "all") {
-        groups.forEach((group) => {
-          const cond = getSavedGroupCondition(group, groupMap, true);
+        groupIds.forEach((groupId) => {
+          const cond = getSavedGroupCondition(groupId, groupMap, true);
           if (cond) conditions.push(cond);
         });
       }
       // Add one top-level AND with nested OR conditions
       else if (match === "any") {
         const ors: ConditionInterface[] = [];
-        groups.forEach((group) => {
-          const cond = getSavedGroupCondition(group, groupMap, true);
+        groupIds.forEach((groupId) => {
+          const cond = getSavedGroupCondition(groupId, groupMap, true);
           if (cond) ors.push(cond);
         });
 
@@ -102,8 +100,8 @@ export function getParsedCondition(
       }
       // Add each group as a separate top-level AND with a NOT condition
       else if (match === "none") {
-        groups.forEach((group) => {
-          const cond = getSavedGroupCondition(group, groupMap, false);
+        groupIds.forEach((groupId) => {
+          const cond = getSavedGroupCondition(groupId, groupMap, false);
           if (cond) conditions.push(cond);
         });
       }

@@ -1,10 +1,12 @@
 import type { AutoExperiment } from "@growthbook/growthbook";
 import { FeatureDefinition } from "./api";
+import { IdLists } from "./saved-group";
 
 // If this changes, also increment the LATEST_SDK_PAYLOAD_SCHEMA_VERSION constant
 export type SDKPayloadContents = {
   features: Record<string, FeatureDefinition>;
   experiments: AutoExperiment[];
+  idLists: IdLists;
 };
 
 interface DOMMutation {

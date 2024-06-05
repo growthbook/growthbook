@@ -58,7 +58,7 @@ import {
 import { getSDKPayload, updateSDKPayload } from "../models/SdkPayloadModel";
 import { logger } from "../util/logger";
 import { promiseAllChunks } from "../util/promise";
-import { GroupMap } from "../../types/saved-group";
+import { GroupMap, IdLists } from "../../types/saved-group";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
@@ -323,6 +323,18 @@ export async function getSavedGroupMap(
   return groupMap;
 }
 
+export function getIdListsFromGroupMap(groupMap: GroupMap): IdLists {
+  return Object.fromEntries(
+    Array.from(groupMap.entries())
+      .filter(
+        ([_id, groupMapVal]) =>
+          groupMapVal.type === "list" && groupMapVal.values !== undefined
+      )
+      .map(([id, groupMapVal]) => [id, groupMapVal.values])
+    // TODO: maybe fix type inference
+  ) as IdLists;
+}
+
 export async function refreshSDKPayloadCache(
   baseContext: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[],
@@ -359,6 +371,7 @@ export async function refreshSDKPayloadCache(
 
   experimentMap = experimentMap || (await getAllPayloadExperiments(context));
   const groupMap = await getSavedGroupMap(context.org);
+  const idLists = getIdListsFromGroupMap(groupMap);
   allFeatures = allFeatures || (await getAllFeatures(context));
   const allVisualExperiments = await getAllVisualExperiments(
     context,
@@ -405,6 +418,7 @@ export async function refreshSDKPayloadCache(
         environment: environment,
         featureDefinitions,
         experimentsDefinitions,
+        idLists,
       });
     });
   }
@@ -435,6 +449,7 @@ export type FeatureDefinitionsResponseArgs = {
   secureAttributeSalt?: string;
   projects: string[];
   capabilities: SDKCapability[];
+  idLists: IdLists;
 };
 async function getFeatureDefinitionsResponse({
   features,
@@ -449,6 +464,7 @@ async function getFeatureDefinitionsResponse({
   secureAttributeSalt,
   projects,
   capabilities,
+  idLists,
 }: FeatureDefinitionsResponseArgs) {
   if (!includeDraftExperiments) {
     experiments = experiments?.filter((e) => e.status !== "draft") || [];
@@ -535,6 +551,7 @@ async function getFeatureDefinitionsResponse({
       features,
       ...(includeAutoExperiments && { experiments }),
       dateUpdated,
+      idLists: idLists,
     };
   }
 
@@ -552,6 +569,7 @@ async function getFeatureDefinitionsResponse({
     dateUpdated,
     encryptedFeatures,
     ...(includeAutoExperiments && { encryptedExperiments }),
+    idLists: idLists,
   };
 }
 
@@ -574,6 +592,7 @@ export type FeatureDefinitionSDKPayload = {
   dateUpdated: Date | null;
   encryptedFeatures?: string;
   encryptedExperiments?: string;
+  idLists: IdLists;
 };
 
 export async function getFeatureDefinitions({
@@ -601,6 +620,7 @@ export async function getFeatureDefinitions({
           features: {},
           experiments: [],
           dateUpdated: cached.dateUpdated,
+          idLists: {},
         };
       }
       let attributes: SDKAttributeSchema | undefined = undefined;
@@ -612,7 +632,7 @@ export async function getFeatureDefinitions({
           attributes = org.settings?.attributeSchema;
         }
       }
-      const { features, experiments } = cached.contents;
+      const { features, experiments, idLists } = cached.contents;
       return await getFeatureDefinitionsResponse({
         features,
         experiments: experiments || [],
@@ -626,6 +646,7 @@ export async function getFeatureDefinitions({
         secureAttributeSalt,
         projects: projects || [],
         capabilities,
+        idLists: idLists || {},
       });
     }
   } catch (e) {
@@ -655,6 +676,7 @@ export async function getFeatureDefinitions({
       secureAttributeSalt,
       projects: projects || [],
       capabilities,
+      idLists: {},
     });
   }
 
@@ -662,6 +684,7 @@ export async function getFeatureDefinitions({
   const features = await getAllFeatures(context);
   const groupMap = await getSavedGroupMap(org);
   const experimentMap = await getAllPayloadExperiments(context);
+  const idLists = getIdListsFromGroupMap(groupMap);
 
   const prereqStateCache: Record<
     string,
@@ -701,6 +724,7 @@ export async function getFeatureDefinitions({
     environment,
     featureDefinitions,
     experimentsDefinitions,
+    idLists,
   });
 
   if (projects === null) {
@@ -709,6 +733,7 @@ export async function getFeatureDefinitions({
       features: {},
       experiments: [],
       dateUpdated: new Date(),
+      idLists: {},
     };
   }
 
@@ -725,6 +750,7 @@ export async function getFeatureDefinitions({
     secureAttributeSalt,
     projects: projects || [],
     capabilities,
+    idLists,
   });
 }
 

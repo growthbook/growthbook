@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { IdLists } from "../../types/saved-group";
 import {
   AutoExperimentWithProject,
   FeatureDefinitionWithProject,
@@ -69,15 +70,18 @@ export async function updateSDKPayload({
   environment,
   featureDefinitions,
   experimentsDefinitions,
+  idLists,
 }: {
   organization: string;
   environment: string;
   featureDefinitions: Record<string, FeatureDefinitionWithProject>;
   experimentsDefinitions: AutoExperimentWithProject[];
+  idLists: IdLists;
 }) {
   const contents: SDKPayloadContents = {
     features: featureDefinitions,
     experiments: experimentsDefinitions,
+    idLists: idLists,
   };
 
   await SDKPayloadModel.updateOne(
