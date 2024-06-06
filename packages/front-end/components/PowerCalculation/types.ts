@@ -1,5 +1,6 @@
 import { OrganizationSettings } from "@back-end/types/organization";
 import { MetricPriorSettings } from "@back-end/types/fact-table";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 
 export interface MetricParamsBase {
   name: string;
@@ -132,7 +133,7 @@ export const config = checkConfig({
       priorSettings?.override
         ? priorSettings.stddev
         : s.metricDefaults?.priorSettings?.stddev,
-    defaultValue: 1,
+    defaultValue: DEFAULT_PROPER_PRIOR_STDDEV,
   },
   proper: {
     title: "Use proper prior",
