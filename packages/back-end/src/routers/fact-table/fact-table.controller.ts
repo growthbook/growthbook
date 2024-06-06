@@ -29,7 +29,7 @@ import { getSourceIntegrationObject } from "../../services/datasource";
 import { getDataSourceById } from "../../models/DataSourceModel";
 import { DataSourceInterface } from "../../../types/datasource";
 import { runRefreshColumnsQuery } from "../../jobs/refreshFactTableColumns";
-import { factMetricValidator } from "./fact-table.validators";
+import { FactMetricModel } from "../../models/FactMetricModel";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -337,7 +337,7 @@ export const postFactMetric = async (
   req: AuthRequest<unknown>,
   res: Response<{ status: 200; factMetric: FactMetricInterface }>
 ) => {
-  const data = factMetricValidator.parse(req.body);
+  const data = FactMetricModel.createValidator.parse(req.body);
   const context = getContextFromReq(req);
 
   const factMetric = await context.models.factMetrics.create(data);
@@ -352,7 +352,7 @@ export const putFactMetric = async (
   req: AuthRequest<unknown, { id: string }>,
   res: Response<{ status: 200 }>
 ) => {
-  const data = factMetricValidator.partial().parse(req.body);
+  const data = FactMetricModel.updateValidator.parse(req.body);
   const context = getContextFromReq(req);
 
   await context.models.factMetrics.updateById(req.params.id, data);

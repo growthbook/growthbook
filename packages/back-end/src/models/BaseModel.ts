@@ -8,7 +8,6 @@ import { z } from "zod";
 import { isEqual, pick } from "lodash";
 import { ApiReqContext } from "../../types/api";
 import { ReqContext } from "../../types/organization";
-import { CreateProps, UpdateProps } from "../../types/models";
 import { logger } from "../util/logger";
 import { EntityType, EventTypes, EventType } from "../types/Audit";
 import { AuditInterfaceTemplate } from "../../types/audit";
@@ -35,6 +34,38 @@ export const baseSchema = z
   .strict();
 
 export type BaseSchema = typeof baseSchema;
+
+export type CreateProps<T extends object> = Omit<
+  T,
+  "id" | "organization" | "dateCreated" | "dateUpdated"
+>;
+
+export type CreateZodObject<T> = T extends z.ZodObject<
+  infer RawShape,
+  infer UnknownKeysParam,
+  infer ZodTypeAny
+>
+  ? z.ZodObject<CreateProps<RawShape>, UnknownKeysParam, ZodTypeAny>
+  : never;
+
+export type UpdateProps<T extends object> = Partial<
+  Omit<T, "id" | "organization" | "dateCreated" | "dateUpdated">
+>;
+
+export type UpdateRawShape<T extends z.ZodRawShape> = {
+  [k in keyof Omit<
+    T,
+    "id" | "organization" | "dateCreated" | "dateUpdated"
+  >]: z.ZodOptional<T[k]>;
+};
+
+export type UpdateZodObject<T> = T extends z.ZodObject<
+  infer RawShape,
+  infer UnknownKeysParam,
+  infer ZodTypeAny
+>
+  ? z.ZodObject<UpdateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
+  : never;
 
 type AuditLogConfig<Entity extends EntityType> = {
   entity: Entity;
@@ -73,6 +104,7 @@ export abstract class BaseModel<
   WriteOptions = never
 > {
   protected context: Context;
+
   public constructor(context: Context) {
     this.context = context;
     this.config = this.getConfig();
@@ -320,14 +352,9 @@ export abstract class BaseModel<
   }
 
   protected async _createOne(
-    rawData: CreateProps<z.infer<T>>,
+    props: CreateProps<z.infer<T>>,
     writeOptions?: WriteOptions
   ) {
-    const props = this.config.schema
-      .omit({ organization: true, dateCreated: true, dateUpdated: true })
-      .partial({ id: true })
-      .parse(rawData) as CreateProps<z.infer<T>>;
-
     if (this.config.globallyUniqueIds && "id" in props) {
       throw new Error("Cannot set a custom id for this model");
     }
@@ -397,22 +424,12 @@ export abstract class BaseModel<
 
   protected async _updateOne(
     doc: z.infer<T>,
-    rawUpdates: UpdateProps<z.infer<T>>,
+    updates: UpdateProps<z.infer<T>>,
     options?: {
       auditEvent?: EventType;
       writeOptions?: WriteOptions;
     }
   ) {
-    let updates = this.config.schema
-      .omit({
-        organization: true,
-        dateCreated: true,
-        dateUpdated: true,
-        id: true,
-      })
-      .partial()
-      .parse(rawUpdates) as UpdateProps<z.infer<T>>;
-
     // Only consider updates that actually change the value
     const updatedFields = Object.entries(updates)
       .filter(([k, v]) => !isEqual(doc[k as keyof z.infer<T>], v))
@@ -694,11 +711,33 @@ export abstract class BaseModel<
 export const MakeModelClass = <T extends BaseSchema, E extends EntityType>(
   config: ModelConfig<T, E>
 ) => {
+  const createValidator = config.schema
+    .omit({
+      organization: true,
+      dateCreated: true,
+      dateUpdated: true,
+    })
+    .extend({ id: z.string().optional() })
+    .strict();
+
+  const updateValidator = config.schema
+    .omit({
+      organization: true,
+      dateCreated: true,
+      dateUpdated: true,
+    })
+    .partial()
+    .strict();
+
   abstract class Model<WriteOptions = never> extends BaseModel<
     T,
     E,
     WriteOptions
   > {
+    static validator = config.schema;
+    static createValidator = (createValidator as unknown) as CreateZodObject<T>;
+    static updateValidator = (updateValidator as unknown) as UpdateZodObject<T>;
+
     getConfig() {
       return config;
     }
