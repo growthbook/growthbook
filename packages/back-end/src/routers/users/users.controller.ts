@@ -223,9 +223,15 @@ export async function getRecommendedOrgs(req: AuthRequest, res: Response) {
     });
   }
   const orgs = await findVerifiedOrgsForNewUser(email);
-  if (orgs) {
+
+  // Filter out orgs that the user is already a member of
+  const joinableOrgs = orgs?.filter((org) => {
+    return !org.members.find((m) => m.id === user.id);
+  });
+
+  if (joinableOrgs) {
     return res.status(200).json({
-      organizations: orgs.map((org: OrganizationInterface) => {
+      organizations: joinableOrgs.map((org: OrganizationInterface) => {
         const currentUserIsPending = !!org?.pendingMembers?.find(
           (m) => m.id === user.id
         );

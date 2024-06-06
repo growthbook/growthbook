@@ -8,7 +8,13 @@ import { useWatching } from "@/services/WatchProvider";
 import useGlobalMenu from "@/services/useGlobalMenu";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
-import { usingSSO } from "@/services/env";
+import {
+  allowSelfOrgCreation,
+  isCloud,
+  isMultiOrg,
+  showMultiOrgSelfSelector,
+  usingSSO,
+} from "@/services/env";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCelebrationLocalStorage } from "@/hooks/useCelebration";
 import Modal from "@/components/Modal";
@@ -230,6 +236,27 @@ const TopNav: FC<{
                     {o.name}
                   </a>
                 ))}
+                {!isCloud() &&
+                  isMultiOrg() &&
+                  (showMultiOrgSelfSelector() || allowSelfOrgCreation()) && (
+                    <div className={styles["add-organization"]}>
+                      <hr />
+                      <div>
+                        <div>
+                          <img src="/images/pi-plus-bold.svg" alt="+" />
+                        </div>
+                        <Link
+                          href="/settings/organizations"
+                          className="dropdown-item"
+                          onClick={() => {
+                            setOrgDropdownOpen(false);
+                          }}
+                        >
+                          Add Organization
+                        </Link>
+                      </div>
+                    </div>
+                  )}
               </div>
             </div>
           )}
