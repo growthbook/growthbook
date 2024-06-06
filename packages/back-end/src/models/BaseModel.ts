@@ -391,7 +391,7 @@ export abstract class BaseModel<
     rawData: CreateProps<z.infer<T>>,
     writeOptions?: WriteOptions
   ) {
-    const props = createSchema(this.config.schema).parse(rawData);
+    const props = this.createValidator.parse(rawData);
 
     if (this.config.globallyUniqueIds && "id" in props) {
       throw new Error("Cannot set a custom id for this model");
@@ -468,7 +468,7 @@ export abstract class BaseModel<
       writeOptions?: WriteOptions;
     }
   ) {
-    updates = updateSchema(this.config.schema).parse(updates);
+    updates = this.updateValidator.parse(updates);
 
     // Only consider updates that actually change the value
     const updatedFields = Object.entries(updates)
