@@ -107,7 +107,7 @@ export const config = checkConfig({
   priorLiftMean: {
     title: "Prior mean",
     metricType: "all",
-    type: "percent",
+    type: "number",
     tooltip: "Prior mean for the relative effect size.",
     defaultSettingsValue: (s) => s.metricDefaults?.priorSettings?.mean,
     defaultValue: 0,
@@ -125,7 +125,7 @@ export const config = checkConfig({
     title: "Use proper prior",
     metricType: "all",
     type: "boolean",
-    defaultSettingsValue: (s) => s.metricDefaults?.priorSettings?.override,
+    defaultSettingsValue: (s) => s.metricDefaults?.priorSettings?.proper,
     defaultValue: false,
   },
 });

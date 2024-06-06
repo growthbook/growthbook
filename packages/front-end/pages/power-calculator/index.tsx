@@ -55,18 +55,25 @@ const PowerCalculationPage = (): React.ReactElement => {
 
   const [variations, setVariations] = useState(initialParams.variations);
 
+  const defaultStatsEngineSettings: StatsEngineSettings = {
+    type: orgSettings.statsEngine || "frequentist",
+    sequentialTesting: orgSettings.sequentialTestingEnabled
+      ? orgSettings.sequentialTestingTuningParameter ||
+        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
+      : false,
+  };
+
   const [
     statsEngineSettings,
     setStatsEngineSettings,
   ] = useState<StatsEngineSettings>(
-    initialParams.statsEngineSettings || {
-      type: orgSettings.statsEngine || "frequentist",
-      sequentialTesting: orgSettings.sequentialTestingEnabled
-        ? orgSettings.sequentialTestingTuningParameter ||
-          DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
-        : false,
-    }
+    initialParams.statsEngineSettings || defaultStatsEngineSettings
   );
+
+  const [
+    modalStatsEngineSettings,
+    setModalStatsEngineSettings,
+  ] = useState<StatsEngineSettings>(statsEngineSettings);
 
   useEffect(() => {
     localStorage.setItem(
@@ -84,6 +91,7 @@ const PowerCalculationPage = (): React.ReactElement => {
     variations,
     statsEngineSettings,
   ]);
+
   const finalParams: PowerCalculationParams | undefined = useMemo(() => {
     if (!powerCalculationParams) return;
     return {
@@ -109,9 +117,10 @@ const PowerCalculationPage = (): React.ReactElement => {
           onSuccess={(p) => {
             setSettingsModalParams(p);
             setPowerCalculationParams(p);
+            setStatsEngineSettings(modalStatsEngineSettings);
             setShowModal(false);
           }}
-          statsEngineSettings={statsEngineSettings}
+          statsEngineSettings={modalStatsEngineSettings}
           params={settingsModalParams}
         />
       )}
@@ -124,11 +133,13 @@ const PowerCalculationPage = (): React.ReactElement => {
           results={results}
           edit={() => {
             setSettingsModalParams(powerCalculationParams);
+            setModalStatsEngineSettings(statsEngineSettings);
             setShowModal(true);
           }}
           updateVariations={setVariations}
           updateStatsEngineSettings={setStatsEngineSettings}
           newCalculation={() => {
+            setModalStatsEngineSettings(defaultStatsEngineSettings);
             setSettingsModalParams(INITIAL_FORM_PARAMS);
             setShowModal(true);
           }}

@@ -284,8 +284,9 @@ const InputField = ({
               <Toggle
                 id={`input-value-${metricId}-${entry}`}
                 value={entryValue}
-                setValue={(v) => {console.log(`metrics.${metricId}.${entry}`, v)
-                                  form.setValue(`metrics.${metricId}.${entry}`, v)}}
+                setValue={(v) => {
+                  form.setValue(`metrics.${metricId}.${entry}`, v);
+                }}
               />
             </div>
             <div>{title}</div>
@@ -308,6 +309,7 @@ const MetricParamsInput = ({
   const metrics = form.watch("metrics");
   // eslint-disable-next-line
   const { name, type: _type, ...params } = ensureAndReturn(metrics[metricId]);
+  const [showBayesian, setShowBayesian] = useState(false);
 
   return (
     <div className="card gsbox mb-3 p-3 mb-2 power-analysis-params">
@@ -325,18 +327,33 @@ const MetricParamsInput = ({
           ))}
       </div>
       {engineType === "bayesian" && (
-        <div className="row">
-          {Object.keys(params)
-            .filter((v) => (bayesianParams as readonly string[]).includes(v))
-            .map((entry: keyof Omit<MetricParams, "name" | "type">) => (
-              <InputField
-                key={`${name}-${entry}`}
-                entry={entry}
-                form={form}
-                metricId={metricId}
+        <>
+          <div className="row align-items-center h-100 mb-2">
+            <div className="col-auto">
+              <Toggle
+                id={`input-value-${metricId}-showBayesian`}
+                value={showBayesian}
+                setValue={setShowBayesian}
               />
-            ))}
-        </div>
+            </div>
+            <div>Show bayesian parameters</div>
+          </div>
+          <div className="row">
+            {showBayesian &&
+              Object.keys(params)
+                .filter((v) =>
+                  (bayesianParams as readonly string[]).includes(v)
+                )
+                .map((entry: keyof Omit<MetricParams, "name" | "type">) => (
+                  <InputField
+                    key={`${name}-${entry}`}
+                    entry={entry}
+                    form={form}
+                    metricId={metricId}
+                  />
+                ))}
+          </div>
+        </>
       )}
     </div>
   );
