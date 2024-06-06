@@ -38,14 +38,23 @@ export type BaseSchema = typeof baseSchema;
 export type CreateProps<T extends object> = Omit<
   T,
   "id" | "organization" | "dateCreated" | "dateUpdated"
->;
+> & { id?: string };
+
+export type CreateRawShape<T extends z.ZodRawShape> = {
+  [k in keyof Omit<
+    T,
+    "id" | "organization" | "dateCreated" | "dateUpdated"
+  >]: T[k];
+} & {
+  id: z.ZodOptional<z.ZodString>;
+};
 
 export type CreateZodObject<T> = T extends z.ZodObject<
   infer RawShape,
   infer UnknownKeysParam,
   infer ZodTypeAny
 >
-  ? z.ZodObject<CreateProps<RawShape>, UnknownKeysParam, ZodTypeAny>
+  ? z.ZodObject<CreateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
   : never;
 
 export type UpdateProps<T extends object> = Partial<
