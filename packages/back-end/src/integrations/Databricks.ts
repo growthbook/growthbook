@@ -18,6 +18,9 @@ export default class Databricks extends SqlIntegration {
   isWritingTablesSupported(): boolean {
     return true;
   }
+  dropUnitsTable(): boolean {
+    return true;
+  }
   createUnitsTableOptions() {
     return databricksCreateTableOptions(
       this.datasource.settings.pipelineSettings ?? {}

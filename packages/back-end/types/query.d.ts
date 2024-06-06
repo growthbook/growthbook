@@ -31,6 +31,7 @@ export type QueryType =
   | "experimentMetric"
   | "dimensionSlices"
   | "experimentUnits"
+  | "experimentDropUnitsTable"
   | "experimentResults"
   | "experimentTraffic"
   | "experimentMultiMetric";

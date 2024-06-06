@@ -15,6 +15,10 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
   dataSource,
   onSave,
   onCancel,
+}: {
+  dataSource: DataSourceInterfaceWithParams;
+  onSave: (dataSource: DataSourceInterfaceWithParams) => Promise<void>;
+  onCancel: () => void;
 }) => {
   if (!dataSource) {
     throw new Error("ImplementationError: dataSource cannot be null");
@@ -28,6 +32,7 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
       writeDataset: dataSource.settings.pipelineSettings?.writeDataset ?? "",
       unitsTableRetentionHours:
         dataSource.settings.pipelineSettings?.unitsTableRetentionHours ?? 24,
+      unitsTableDeletion: dataSource.settings.pipelineSettings?.unitsTableDeletion ?? true,
     },
   });
 
@@ -80,6 +85,8 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
             required
             {...form.register("writeDataset")}
           />
+          {dataSource.type === "databricks" ? (
+          ): 
           <Field
             label="Retention of temporary units table (hours)"
             helpText={
@@ -92,7 +99,7 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
             type="number"
             min={1}
             {...form.register("unitsTableRetentionHours")}
-          />
+          />}
         </div>
       ) : null}
     </Modal>

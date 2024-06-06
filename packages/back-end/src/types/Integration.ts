@@ -314,6 +314,7 @@ export type ExperimentFactMetricsQueryResponse = QueryResponse<ExperimentFactMet
 export type ExperimentUnitsQueryResponse = QueryResponse;
 export type ExperimentAggregateUnitsQueryResponse = QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
 export type DimensionSlicesQueryResponse = QueryResponse<DimensionSlicesQueryResponseRows>;
+export type DropTableQueryResponse = QueryResponse;
 
 export interface TestQueryRow {
   [key: string]: unknown;
@@ -323,6 +324,7 @@ export interface TestQueryResult {
   results: TestQueryRow[];
   duration: number;
 }
+
 
 export interface RawInformationSchema {
   table_name: string;
@@ -430,6 +432,10 @@ export interface SourceIntegrationInterface {
     sql: string,
     timestampCols?: string[]
   ): Promise<TestQueryResult>;
+  runDropTablesQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<DropTableQueryResponse>; // TODO query class that has no return
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentFactMetricsQuery?(
     params: ExperimentFactMetricsQueryParams

@@ -369,6 +369,19 @@ export const startExperimentResultQueries = async (
     queries.push(trafficQuery);
   }
 
+  if (useUnitsTable && integration.getSourceProperties().dropUnitsTable) {
+    const dropUnitsTableQuery = await startQuery({
+      name: `drop_${queryParentId}`,
+      query: "DROP TABLE IF EXISTS " + unitsTableFullName,
+      dependencies: queries.map((q) => q.query),
+      run: (query, setExternalId) =>
+        integration.runDropTablesQuery(query, setExternalId),
+      process: (rows) => rows,
+      queryType: "experimentDropUnitsTable",
+    });
+    queries.push(dropUnitsTableQuery);
+  }
+
   return queries;
 };
 
