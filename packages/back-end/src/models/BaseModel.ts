@@ -132,11 +132,18 @@ export abstract class BaseModel<
   E extends EntityType,
   WriteOptions = never
 > {
+  public validator: T;
+  public createValidator: CreateZodObject<T>;
+  public updateValidator: UpdateZodObject<T>;
+
   protected context: Context;
 
   public constructor(context: Context) {
     this.context = context;
     this.config = this.getConfig();
+    this.validator = this.config.schema;
+    this.createValidator = createSchema(this.config.schema);
+    this.updateValidator = updateSchema(this.config.schema);
     this.addIndexes();
   }
 
@@ -749,10 +756,6 @@ export const MakeModelClass = <T extends BaseSchema, E extends EntityType>(
     E,
     WriteOptions
   > {
-    static validator = config.schema;
-    static createValidator = createSchema(config.schema);
-    static updateValidator = updateSchema(config.schema);
-
     getConfig() {
       return config;
     }

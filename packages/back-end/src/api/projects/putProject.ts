@@ -2,7 +2,6 @@ import { PutProjectResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
 import { putProjectValidator } from "../../validators/openapi";
 import { auditDetailsUpdate } from "../../services/audit";
-import { ProjectModel } from "../../models/ProjectModel";
 
 export const putProject = createApiRequestHandler(putProjectValidator)(
   async (req): Promise<PutProjectResponse> => {
@@ -13,7 +12,7 @@ export const putProject = createApiRequestHandler(putProjectValidator)(
 
     const newProject = await req.context.models.projects.update(
       project,
-      ProjectModel.updateValidator.parse(req.body)
+      req.context.models.projects.updateValidator.parse(req.body)
     );
 
     await req.audit({
