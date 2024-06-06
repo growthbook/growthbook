@@ -11,7 +11,7 @@ export const putProject = createApiRequestHandler(putProjectValidator)(
       throw new Error("Could not find project with that id");
     }
 
-    const ret = projectValidator.safeParse(req.body);
+    const ret = projectValidator.partial().safeParse(req.body);
     if (ret.success === false) throw new Error(`Invalid project: ${ret.error}`);
 
     const newProject = await req.context.models.projects.update(
