@@ -33,14 +33,14 @@ export const trackJob = (
 
   // init metrics
   try {
-    counter = getUpDownCounter(`jobs.${jobName}.running_count`);
-    counter.add(1);
+    counter = getUpDownCounter(`jobs.running_count`);
+    counter.add(1, { jobName });
     hasMetricsStarted = true;
   } catch (e) {
     logger.error(`error init'ing counter for job: ${jobName}: ${e}`);
   }
   try {
-    histogram = getHistogram(`jobs.${jobName}.duration`);
+    histogram = getHistogram(`jobs.duration`);
   } catch (e) {
     logger.error(`error init'ing histogram for job: ${jobName}: ${e}`);
   }
@@ -48,13 +48,13 @@ export const trackJob = (
   // wrap up metrics function, to be called at the end of the job
   const wrapUpMetrics = () => {
     try {
-      histogram?.record(new Date().getTime() - startTime);
+      histogram?.record(new Date().getTime() - startTime, { jobName });
     } catch (e) {
       logger.error(`error recording duration metric for job: ${jobName}: ${e}`);
     }
     if (!hasMetricsStarted) return;
     try {
-      counter.add(-1);
+      counter.add(-1, { jobName });
     } catch (e) {
       logger.error(`error decrementing count metric for job: ${jobName}: ${e}`);
     }
@@ -68,7 +68,7 @@ export const trackJob = (
     logger.error(`error running job: ${jobName}: ${e}`);
     try {
       wrapUpMetrics();
-      getCounter(`jobs.${jobName}.errors`).add(1);
+      getCounter(`jobs.errors`).add(1, { jobName });
     } catch (e) {
       logger.error(`error wrapping up metrics: ${jobName}: ${e}`);
     }
@@ -78,7 +78,7 @@ export const trackJob = (
   // on successful job
   try {
     wrapUpMetrics();
-    getCounter(`jobs.${jobName}.successes`).add(1);
+    getCounter(`jobs.successes`).add(1, { jobName });
   } catch (e) {
     logger.error(`error wrapping up metrics: ${jobName}: ${e}`);
   }
