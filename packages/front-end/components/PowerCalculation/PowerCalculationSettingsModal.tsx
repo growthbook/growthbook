@@ -9,6 +9,7 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import { OrganizationSettings } from "@back-end/types/organization";
+import { MetricPriorSettings } from "@back-end/types/fact-table";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -39,19 +40,26 @@ type Form = UseFormReturn<PartialPowerCalculationParams>;
 
 type Config =
   | {
-      defaultSettingsValue?: (_: OrganizationSettings) => number | undefined;
+      defaultSettingsValue?: (
+        priorSettings: MetricPriorSettings | undefined,
+        orgSettings: OrganizationSettings
+      ) => number | undefined;
       defaultValue?: number;
     }
   | {
-      defaultSettingsValue?: (_: OrganizationSettings) => boolean | undefined;
+      defaultSettingsValue?: (
+        priorSettings: MetricPriorSettings | undefined,
+        orgSettings: OrganizationSettings
+      ) => boolean | undefined;
       defaultValue?: boolean;
     };
 
 const defaultValue = (
   { defaultSettingsValue, defaultValue }: Config,
+  priorSettings: MetricPriorSettings | undefined,
   settings: OrganizationSettings
 ) => {
-  const settingsDefault = defaultSettingsValue?.(settings);
+  const settingsDefault = defaultSettingsValue?.(priorSettings, settings);
   if (settingsDefault !== undefined) return settingsDefault;
 
   return defaultValue;
@@ -98,8 +106,11 @@ const SelectStep = ({
     isNaN(usersPerWeek) ||
     isUsersPerDayInvalid;
 
-  const field = (key: keyof typeof config) => ({
-    [key]: defaultValue(config[key], settings),
+  const field = (
+    key: keyof typeof config,
+    metric: ExperimentMetricInterface
+  ) => ({
+    [key]: defaultValue(config[key], metric.priorSettings, settings),
   });
 
   return (
@@ -152,18 +163,18 @@ const SelectStep = ({
                 ...result,
                 [id]: metrics[id] || {
                   name: metric.name,
-                  ...field("effectSize"),
+                  ...field("effectSize", metric),
                   ...(isBinomialMetric(metric)
-                    ? { type: "binomial", ...field("conversionRate") }
+                    ? { type: "binomial", ...field("conversionRate", metric) }
                     : {
                         type: "mean",
-                        ...field("mean"),
-                        ...field("standardDeviation"),
+                        ...field("mean", metric),
+                        ...field("standardDeviation", metric),
                         standardDeviation: undefined,
                       }),
-                  ...field("priorLiftMean"),
-                  ...field("priorLiftStandardDeviation"),
-                  ...field("proper"),
+                  ...field("priorLiftMean", metric),
+                  ...field("priorLiftStandardDeviation", metric),
+                  ...field("proper", metric),
                 },
               };
             }, {})
@@ -444,7 +455,7 @@ export default function PowerCalculationModal({
             ...defaultValues,
             [key]: {
               type: config[key].metricType,
-              value: defaultValue(config[key], settings),
+              value: defaultValue(config[key], undefined, settings),
             },
           }
         : defaultValues,

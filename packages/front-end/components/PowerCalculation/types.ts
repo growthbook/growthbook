@@ -1,4 +1,5 @@
 import { OrganizationSettings } from "@back-end/types/organization";
+import { MetricPriorSettings } from "@back-end/types/fact-table";
 
 export interface MetricParamsBase {
   name: string;
@@ -60,12 +61,18 @@ type Config = {
       type: "percent" | "number";
       minValue?: number;
       maxValue?: number;
-      defaultSettingsValue?: (_: OrganizationSettings) => number | undefined;
+      defaultSettingsValue?: (
+        priorSettings: MetricPriorSettings | undefined,
+        orgSettings: OrganizationSettings
+      ) => number | undefined;
       defaultValue?: number;
     }
   | {
       type: "boolean";
-      defaultSettingsValue?: (_: OrganizationSettings) => boolean | undefined;
+      defaultSettingsValue?: (
+        priorSettings: MetricPriorSettings | undefined,
+        orgSettings: OrganizationSettings
+      ) => boolean | undefined;
       defaultValue?: boolean;
     }
 );
@@ -109,7 +116,10 @@ export const config = checkConfig({
     metricType: "all",
     type: "number",
     tooltip: "Prior mean for the relative effect size.",
-    defaultSettingsValue: (s) => s.metricDefaults?.priorSettings?.mean,
+    defaultSettingsValue: (priorSettings, s) =>
+      priorSettings?.override
+        ? priorSettings.mean
+        : s.metricDefaults?.priorSettings?.mean,
     defaultValue: 0,
   },
   priorLiftStandardDeviation: {
@@ -118,14 +128,20 @@ export const config = checkConfig({
     type: "percent",
     tooltip: "Prior standard deviation for the relative effect size.",
     minValue: 0,
-    defaultSettingsValue: (s) => s.metricDefaults?.priorSettings?.stddev,
+    defaultSettingsValue: (priorSettings, s) =>
+      priorSettings?.override
+        ? priorSettings.stddev
+        : s.metricDefaults?.priorSettings?.stddev,
     defaultValue: 1,
   },
   proper: {
     title: "Use proper prior",
     metricType: "all",
     type: "boolean",
-    defaultSettingsValue: (s) => s.metricDefaults?.priorSettings?.proper,
+    defaultSettingsValue: (priorSettings, s) =>
+      priorSettings?.override
+        ? priorSettings.proper
+        : s.metricDefaults?.priorSettings?.proper,
     defaultValue: false,
   },
 });
