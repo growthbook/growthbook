@@ -28,10 +28,11 @@ import { updateSubscriptionInDb } from "../services/stripe";
  * want to restart their servers.
  */
 export async function getLicenseData(req: AuthRequest, res: Response) {
-  const context = getContextFromReq(req);
-
-  if (!context.permissions.canManageBilling()) {
-    context.permissions.throwPermissionError();
+  if (!req.superAdmin) {
+    const context = getContextFromReq(req);
+    if (!context.permissions.canManageBilling()) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   let licenseData;

@@ -1,14 +1,21 @@
 parameters:
 - $ref: "../parameters.yaml#/id"
-summary: Get a single sdk connection
+summary: Update a single sdk connection
 tags:
   - sdk-connections
-operationId: getSdkConnection
+operationId: putSdkConnection
 x-codeSamples:
   - lang: 'cURL'
     source: |
-      curl https://api.growthbook.io/api/v1/sdk-connections/sdk_123abc \
+      curl -X PUT https://api.growthbook.io/api/v1/sdk-connections/connection_id \
+        -d '{ name: "new-connection", ... }'
         -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/PutSdkConnectionPayload.yaml"
 responses:
   "200":
     content:

@@ -247,8 +247,14 @@ export async function editSDKConnection(
   const {
     proxyEnabled,
     proxyHost,
-    ...otherChanges
+    languages,
+    ...rest
   } = editSDKConnectionValidator.parse(updates);
+
+  const otherChanges = {
+    ...rest,
+    languages: languages as SDKLanguage[],
+  };
 
   let newProxy = {
     ...connection.proxy,
@@ -293,18 +299,20 @@ export async function editSDKConnection(
     }
   });
 
+  const fullChanges = {
+    ...otherChanges,
+    proxy: newProxy,
+    project: "",
+    dateUpdated: new Date(),
+  };
+
   await SDKConnectionModel.updateOne(
     {
       organization: connection.organization,
       id: connection.id,
     },
     {
-      $set: {
-        ...otherChanges,
-        proxy: newProxy,
-        project: "",
-        dateUpdated: new Date(),
-      },
+      $set: fullChanges,
     }
   );
 
@@ -319,6 +327,8 @@ export async function editSDKConnection(
       isUsingProxy
     );
   }
+
+  return { ...connection, ...fullChanges };
 }
 
 export async function deleteSDKConnectionById(
