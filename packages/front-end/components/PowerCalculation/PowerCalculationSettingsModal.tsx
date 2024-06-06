@@ -347,7 +347,7 @@ const MetricParamsInput = ({
                 setValue={setShowBayesian}
               />
             </div>
-            <div>Show bayesian parameters</div>
+            <div>Modify metric priors</div>
           </div>
           <div className="row">
             {showBayesian &&
