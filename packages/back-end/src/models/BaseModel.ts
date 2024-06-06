@@ -57,6 +57,16 @@ export type CreateZodObject<T> = T extends z.ZodObject<
   ? z.ZodObject<CreateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
   : never;
 
+export const createSchema = <T extends BaseSchema>(schema: T) =>
+  (schema
+    .omit({
+      organization: true,
+      dateCreated: true,
+      dateUpdated: true,
+    })
+    .extend({ id: z.string().optional() })
+    .strict() as unknown) as CreateZodObject<T>;
+
 export type UpdateProps<T extends object> = Partial<
   Omit<T, "id" | "organization" | "dateCreated" | "dateUpdated">
 >;
@@ -75,6 +85,16 @@ export type UpdateZodObject<T> = T extends z.ZodObject<
 >
   ? z.ZodObject<UpdateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
   : never;
+
+const updateSchema = <T extends BaseSchema>(schema: T) =>
+  (schema
+    .omit({
+      organization: true,
+      dateCreated: true,
+      dateUpdated: true,
+    })
+    .partial()
+    .strict() as unknown) as UpdateZodObject<T>;
 
 type AuditLogConfig<Entity extends EntityType> = {
   entity: Entity;
@@ -361,9 +381,11 @@ export abstract class BaseModel<
   }
 
   protected async _createOne(
-    props: CreateProps<z.infer<T>>,
+    rawData: CreateProps<z.infer<T>>,
     writeOptions?: WriteOptions
   ) {
+    const props = createSchema(this.config.schema).parse(rawData);
+
     if (this.config.globallyUniqueIds && "id" in props) {
       throw new Error("Cannot set a custom id for this model");
     }
@@ -439,6 +461,8 @@ export abstract class BaseModel<
       writeOptions?: WriteOptions;
     }
   ) {
+    updates = updateSchema(this.config.schema).parse(updates);
+
     // Only consider updates that actually change the value
     const updatedFields = Object.entries(updates)
       .filter(([k, v]) => !isEqual(doc[k as keyof z.infer<T>], v))
@@ -720,32 +744,14 @@ export abstract class BaseModel<
 export const MakeModelClass = <T extends BaseSchema, E extends EntityType>(
   config: ModelConfig<T, E>
 ) => {
-  const createValidator = config.schema
-    .omit({
-      organization: true,
-      dateCreated: true,
-      dateUpdated: true,
-    })
-    .extend({ id: z.string().optional() })
-    .strict();
-
-  const updateValidator = config.schema
-    .omit({
-      organization: true,
-      dateCreated: true,
-      dateUpdated: true,
-    })
-    .partial()
-    .strict();
-
   abstract class Model<WriteOptions = never> extends BaseModel<
     T,
     E,
     WriteOptions
   > {
     static validator = config.schema;
-    static createValidator = (createValidator as unknown) as CreateZodObject<T>;
-    static updateValidator = (updateValidator as unknown) as UpdateZodObject<T>;
+    static createValidator = createSchema(config.schema);
+    static updateValidator = updateSchema(config.schema);
 
     getConfig() {
       return config;
