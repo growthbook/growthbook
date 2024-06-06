@@ -189,6 +189,14 @@ export interface paths {
     /** Deletes a single saved group */
     delete: operations["deleteSavedGroup"];
   };
+  "/saved-groups/{id}/add-member/{mid}": {
+    /** Adds a single member to a single saved group */
+    post: operations["postSavedGroupAddMember"];
+  };
+  "/saved-groups/{id}/remove-member/{mid}": {
+    /** Removes a single member from a single saved group */
+    post: operations["postSavedGroupRemoveMember"];
+  };
   "/organizations": {
     /** Get all organizations (only for super admins on multi-org Enterprise Plan only) */
     get: operations["listOrganizations"];
@@ -5048,6 +5056,43 @@ export interface operations {
       };
     };
   };
+  postSavedGroupAddMember: {
+    /** Adds a single member to a single saved group */
+    parameters: {
+      path: {
+      /** @description The id of the saved group to modify */
+        id: string;
+      /** @description The id of the member to add */
+        mid: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {};
+        };
+      };
+    };
+  };
+  postSavedGroupRemoveMember: {
+    /** Removes a single member from a single saved group */
+    parameters: {
+      path: {
+        /** @description The id of the saved group to modify */
+          id: string;
+        /** @description The id of the member to remove */
+          mid: string;
+        };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+          };
+        };
+      };
+    };
+  };
   getSavedGroup: {
     /** Get a single saved group */
     parameters: {
@@ -6663,6 +6708,8 @@ export type PostVisualChangeResponse = operations["postVisualChange"]["responses
 export type PutVisualChangeResponse = operations["putVisualChange"]["responses"]["200"]["content"]["application/json"];
 export type ListSavedGroupsResponse = operations["listSavedGroups"]["responses"]["200"]["content"]["application/json"];
 export type PostSavedGroupResponse = operations["postSavedGroup"]["responses"]["200"]["content"]["application/json"];
+export type PostSavedGroupAddMemberResponse = operations["postSavedGroupAddMember"]["responses"]["200"]["content"]["application/json"];
+export type PostSavedGroupRemoveMemberResponse = operations["postSavedGroupRemoveMember"]["responses"]["200"]["content"]["application/json"];
 export type GetSavedGroupResponse = operations["getSavedGroup"]["responses"]["200"]["content"]["application/json"];
 export type UpdateSavedGroupResponse = operations["updateSavedGroup"]["responses"]["200"]["content"]["application/json"];
 export type DeleteSavedGroupResponse = operations["deleteSavedGroup"]["responses"]["200"]["content"]["application/json"];

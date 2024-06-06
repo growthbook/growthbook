@@ -240,6 +240,18 @@ export const postSavedGroupValidator = {
   paramsSchema: z.never(),
 };
 
+export const postSavedGroupAddMemberValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string(), "mid": z.string() }).strict(),
+};
+
+export const postSavedGroupRemoveMemberValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string(), "mid": z.string() }).strict(),
+};
+
 export const getSavedGroupValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
