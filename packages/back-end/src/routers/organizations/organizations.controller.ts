@@ -32,7 +32,7 @@ import {
   addMemberToOrg,
   addPendingMemberToOrg,
   expandOrgMembers,
-  findVerifiedOrgForNewUser,
+  findVerifiedOrgsForNewUser,
   getContextFromReq,
   getInviteUrl,
   getNumberOfUniqueMembersAndInvites,
@@ -390,9 +390,14 @@ export async function putMember(
     throw new Error("User is not verified");
   }
 
-  // ensure org matches calculated verified org
-  const organization = await findVerifiedOrgForNewUser(req.email);
-  if (!organization || organization.id !== orgId) {
+  // ensure org matches one of the calculated verified org
+  const organizations = await findVerifiedOrgsForNewUser(req.email);
+  if (!organizations) {
+    throw new Error("Invalid orgId");
+  }
+
+  const organization = organizations.find((o) => o.id === orgId);
+  if (!organization) {
     throw new Error("Invalid orgId");
   }
 

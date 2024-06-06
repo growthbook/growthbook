@@ -5,7 +5,11 @@ import { FaCheck, FaPlus } from "react-icons/fa";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
-import { allowSelfOrgCreation, isMultiOrg } from "@/services/env";
+import {
+  allowSelfOrgCreation,
+  isMultiOrg,
+  showMultiOrgSelfSelector,
+} from "@/services/env";
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -23,16 +27,10 @@ export default function CreateOrganization(): ReactElement {
       company: "",
     },
   });
-  const joinOrgForm = useForm({
-    defaultValues: {
-      orgId: "",
-    },
-  });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [mode, setMode] = useState<"create" | "join">("create");
-  const [currentUserIsPending, setCurrentUserIsPending] = useState(false);
   function switchMode() {
     setMode(mode === "create" ? "join" : "create");
   }
@@ -40,40 +38,69 @@ export default function CreateOrganization(): ReactElement {
   const { apiCall, logout } = useAuth();
   const { updateUser } = useUser();
 
-  const { data: recommendedOrgData } = useApi<{
-    organization: {
-      id: string;
-      name: string;
-      members: number;
-      currentUserIsPending: boolean;
-    };
-  }>(`/user/getRecommendedOrg`);
-  const org = recommendedOrgData?.organization;
+  const { data: recommendedOrgsData } = useApi<{
+    organizations: [
+      {
+        id: string;
+        name: string;
+        members: number;
+        currentUserIsPending: boolean;
+      }
+    ];
+  }>(showMultiOrgSelfSelector() ? `/user/getRecommendedOrgs` : null);
+  const orgs = recommendedOrgsData?.organizations;
 
   useEffect(() => {
-    if (org) {
+    if (orgs) {
       setMode("join");
-      joinOrgForm.setValue("orgId", org.id);
-      if (org.currentUserIsPending) {
-        setCurrentUserIsPending(true);
-      }
     } else {
       setMode("create");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [org]);
+  }, [orgs]);
 
-  if (!data) {
+  const joinOrgFormSubmit = async (org) => {
+    if (loading) return;
+    setError(null);
+    setLoading(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const resp: any = await apiCall("/member", {
+        method: "PUT",
+        body: JSON.stringify({ orgId: org.id }),
+      });
+      track("Join Organization");
+      updateUser();
+      setLoading(false);
+      if (resp?.isPending && orgs) {
+        org.currentUserIsPending = true;
+      }
+    } catch (e) {
+      setError(e.message);
+      setLoading(false);
+    }
+  };
+
+  if (!data || (showMultiOrgSelfSelector() && !recommendedOrgsData)) {
     return <LoadingOverlay />;
   }
+
+  const showCreate =
+    (isMultiOrg() && allowSelfOrgCreation()) || !data.hasOrganizations;
+
+  const showJoin = isMultiOrg() && showMultiOrgSelfSelector() && orgs;
 
   const leftside = (
     <>
       <h1 className="title h1">Welcome to GrowthBook</h1>
-      {(isMultiOrg() && allowSelfOrgCreation()) || !data.hasOrganizations ? (
+      {showCreate || showJoin ? (
         <p>
           You aren&apos;t part of an organization yet. <br />
-          {org ? `Create or join one here.` : `Create a new one here.`}
+          {showCreate && showJoin
+            ? `Create or join one here.`
+            : showCreate
+            ? `Create a new one here.`
+            : `Join one here.`}
         </p>
       ) : (
         <p>Ask your admin to invite you to the organization.</p>
@@ -95,80 +122,72 @@ export default function CreateOrganization(): ReactElement {
         >
           <FiLogOut /> log out
         </a>
-        {(isMultiOrg() && allowSelfOrgCreation()) || !data.hasOrganizations ? (
+        {showCreate || showJoin ? (
           <>
-            {mode === "join" && org ? (
+            {mode === "join" && showJoin ? (
               <>
-                <form
-                  onSubmit={joinOrgForm.handleSubmit(async (value) => {
-                    if (loading) return;
-                    setError(null);
-                    setLoading(true);
-                    try {
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      const resp: any = await apiCall("/member", {
-                        method: "PUT",
-                        body: JSON.stringify(value),
-                      });
-                      track("Join Organization");
-                      updateUser();
-                      setLoading(false);
-                      if (resp?.isPending) {
-                        setCurrentUserIsPending(true);
-                      }
-                    } catch (e) {
-                      setError(e.message);
-                      setLoading(false);
-                    }
-                  })}
-                >
-                  <div>
-                    <h3>We found your organization on GrowthBook!</h3>
-                    <p className="text-muted">
-                      Join your organization to get started.
-                    </p>
-                  </div>
-                  <div className={`${style.recommendedOrgBox} mt-5 mb-3`}>
-                    <div className={style.recommendedOrgLogo}>
-                      <div className={style.recommendedOrgLogoText}>
-                        {org.name.slice(0, 1)?.toUpperCase()}
+                <div>
+                  <h3>
+                    We found{" "}
+                    {orgs.length === 1
+                      ? "your organization"
+                      : "possible organizations for you"}{" "}
+                    on GrowthBook!
+                  </h3>
+                  <p className="text-muted">
+                    Join your organization to get started.
+                  </p>
+                </div>
+                {orgs.map((org) => (
+                  <div key={org.id} className={`${style.recommendedOrgBox}`}>
+                    <div className={`${style.recommendedOrgRow}`}>
+                      <div className={style.recommendedOrgLogo}>
+                        <div className={style.recommendedOrgLogoText}>
+                          {org.name.slice(0, 1)?.toUpperCase()}
+                        </div>
                       </div>
-                    </div>
-                    <div className={style.recommendedOrgInfo}>
-                      <div className={style.recommendedOrgName}>{org.name}</div>
-                      <div className={style.recommendedOrgMembers}>
-                        {org.members === 1
-                          ? `${org.members} member`
-                          : `${org.members} members`}
+                      <div className={style.recommendedOrgInfo}>
+                        <div className={style.recommendedOrgName}>
+                          {org.name}
+                        </div>
+                        <div className={style.recommendedOrgMembers}>
+                          {org.members === 1
+                            ? `${org.members} member`
+                            : `${org.members} members`}
+                        </div>
                       </div>
+                      <button
+                        type="button"
+                        className="btn btn-lg btn-primary"
+                        onClick={() => {
+                          joinOrgFormSubmit(org);
+                        }}
+                        disabled={org.currentUserIsPending || false}
+                      >
+                        {org.currentUserIsPending ? "Pending" : "Join"}
+                      </button>
                     </div>
-                    <Field type="hidden" {...joinOrgForm.register("orgId")} />
-                    <button
-                      type="submit"
-                      className="btn btn-lg btn-primary"
-                      disabled={currentUserIsPending || false}
-                    >
-                      {currentUserIsPending ? "Pending" : "Join"}
-                    </button>
+                    {org.currentUserIsPending && (
+                      <div className="alert alert-success mt-2 mb-0">
+                        <div className="mb-2">
+                          <FaCheck /> Your membership is pending.
+                        </div>
+                        <div>
+                          Please contact your organization&apos;s admin to
+                          approve your membership.
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </form>
-                {currentUserIsPending && (
-                  <div className="alert alert-success">
-                    <div className="mb-2">
-                      <FaCheck /> Your membership is pending.
-                    </div>
-                    <div>
-                      Please contact your organization&apos;s admin to approve
-                      your membership.
-                    </div>
+                ))}
+                {showCreate && (
+                  <div
+                    className={`${style.switchModeButton} btn btn-light mt-3`}
+                    onClick={switchMode}
+                  >
+                    <FaPlus /> <span>Create a new organization instead</span>
                   </div>
                 )}
-                <div
-                  className={`${style.switchModeButton} btn btn-light mt-3`}
-                  onClick={switchMode}
-                >
-                  <FaPlus /> <span>Create a new organization instead</span>
-                </div>
               </>
             ) : (
               <>
@@ -212,7 +231,7 @@ export default function CreateOrganization(): ReactElement {
                   </button>
                 </form>
 
-                {org && (
+                {showJoin && (
                   <div
                     className={`${style.switchModeButton} btn btn-light mt-5`}
                     onClick={switchMode}
