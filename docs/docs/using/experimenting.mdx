@@ -25,7 +25,7 @@ This number will always be the same for the same set of inputs.
 
 There is quite often a need to de-risk a new A/B test by running the control at a higher percentage of
 users than the new variation, for example, 80% of users get the control, and 20% get the new variation.
-To solve this case, we recommend keeping the experiment spits equal, and adjusting the overall
+To solve this case, we recommend keeping the experiment splits equal, and adjusting the overall
 exposure (ie, 20% exposure, 50/50 on each variation, so each variation gets 10%). This way the overall
 exposure can be ramped up (or down) without having any users potentially switch variations.
 
@@ -35,7 +35,7 @@ GrowthBook lets you choose goal metrics and guardrail metrics. Goal metrics are 
 trying to improve or measure the impact of the change of your experiment. Guardrail metrics are
 metrics you’re not necessarily trying to improve, but you don’t want to hurt. With goal metrics we
 show full statistical changes on the metrics. Guardrail metrics we only show the chance of that metric
-being worse- if there is a significant chance that the guard rail metric is worse, it will be shown in red,
+being worse- if there is a significant chance that the guardrail metric is worse, it will be shown in red,
 otherwise it will be green.
 
 <div style={{textAlign: 'center'}}>
@@ -49,12 +49,12 @@ like to your experiment, but we suggest each experiment have only a few primary 
 making the shipping decision. Adding all your metrics is not recommended, as this can lead to false
 positives caused by random variations (see [Multiple testing problem](/using/experimentation-problems#multiple-testing-problem))
 
-Before you being a test, you should have selected a primary metric or set of metrics that you are
-trying to improve. These metrics are often called the OEC for Overall Evaluation Criterion. It is
+Before you begin a test, you should have selected a primary metric or set of metrics that you are
+trying to improve. These metrics are often called the OEC (Overall Evaluation Criterion). It is
 important to have this decided ahead of time so when you look at your experiment results you're not just shopping for metrics that confirm
 your bias (see [confirmation bias](/using/experimentation-problems#confirmation-bias)).
 
-With GrowthBook, Goal and guardrail metrics can be added retroactively to experiments, as long as
+With GrowthBook, goal and guardrail metrics can be added retroactively to experiments, as long as
 the data exists in your data warehouse. This allows you to reprocess old experiments if you add new
 metrics or redefine a metric.
 
@@ -97,7 +97,7 @@ At the metric level, you can pick three different metric windows:
 Here's a representation of how these metric windows work for a hypothetical user:
 ![Metric Windows](/images/metric-windows.png)
 
-Here's a second example for a hypothetical User 2, who joins the experiment late. Notice that the conversion window can extend beyond the experiment end date.
+Here's a second example for a hypothetical User 2, who joins the experiment late. Notice that the conversion window can extend beyond the experiment end date:
 ![Metric Windows (User 2)](/images/metric-windows-user-2.png)
 
 You can override all Conversion windows to be No window at the experiment level using the "Conversion Window Override" in the Experiment Analysis Settings.
@@ -106,21 +106,21 @@ You can override all Conversion windows to be No window at the experiment level 
 
 ### Bayesian Results
 
-In GrowthBook the experiment results will look like this.
+In GrowthBook the experiment results will look like this:
 
 ![GrowthBook Results](/images/using/experiment-results-bayesian.png)
 
 Each row of this table is a different metric. This is a simplified overview of the data. If you want to
-see the full data, including 'risk', mouse over any of the results.
+see the full data, including 'risk', mouse over any of the results:
 
 ![GrowthBook Results](/images/using/experiment-results-bayesian-details2.png)
 
-Risk tells you how much you are predicted to lose if you choose the selected variation as the winner
+**Risk** tells you how much you are predicted to lose if you choose the selected variation as the winner
 and you are wrong. Anything highlighted in green indicates that the risk is very low and it may be safe
 to call the experiment. You can use the dropdown to see the risk of choosing a different winner if you
 have multiple variations. Risk thresholds are adjustable per metric.
 
-Value is the conversion rate or average value per user. In small print you can see the raw numbers
+**Value** is the conversion rate or average value per user. In small print you can see the raw numbers
 used to calculate this.
 
 **Chance to Beat Control** tells you the probability that the variation is better. If you are familiar with
@@ -212,7 +212,7 @@ GrowthBook will show an alert. Large uplifts may indicate a bug - see [Twymans L
 
 ### Guardrails
 
-metrics are ones that you want to keep an eye on, but aren't trying to specifically improve with your
+Metrics are ones that you want to keep an eye on, but aren't trying to specifically improve with your
 experiment. For example, if you are trying to improve page load times, you may add revenue as a
 guardrail since you don't want to inadvertently harm it.
 
@@ -278,7 +278,7 @@ be shared publicly and live at the bottom of the report, to make sure you captur
 ## Deciding A/B test results
 
 Hopefully you are analysing your experiment results with your OEC already documented. Even so, when
-to stop, and how to interpret results may not be straight forward.
+to stop, and how to interpret results may not be straightforward.
 
 ### When to stop an experiment
 
@@ -291,7 +291,7 @@ When using the Bayesian statistic engine, there are a few methods you can use wh
 
 It all depends on what you’re trying to do with the experiment. For example, if you’d like to know what
 impact your change has, you should use the first method. If you’re doing a design change, and want to
-make sure you haven’t broken anything on your product, you can use the risk or guard rail approach.
+make sure you haven’t broken anything on your product, you can use the risk or guardrail approach.
 You should also make sure that the experiment has run for your minimum test duration (typically 1 or 2
 weeks), so that you’re not looking at highly skewed sampling.
 
@@ -312,7 +312,7 @@ towards the top of the results. This will open a modal where you can document th
 the result, and observations.
 
 This creates a card on the top of the experiment results with your conclusion.
-Please note that currently this marking a test as finished does not stop the test from running. If you are
+Please note, that currently this marking a test as finished does not stop the test from running. If you are
 using feature flags to run the experiment, you should also go to the feature and turn off the experiment.
 
 ### Inconclusive results
