@@ -115,7 +115,7 @@ export const config = checkConfig({
   priorLiftMean: {
     title: "Prior mean",
     metricType: "all",
-    type: "number",
+    type: "percent",
     tooltip: "Prior mean for the relative effect size.",
     defaultSettingsValue: (priorSettings, s) =>
       priorSettings?.override
