@@ -48,7 +48,25 @@ export const listProjectsValidator = {
   paramsSchema: z.never(),
 };
 
+export const postProjectValidator = {
+  bodySchema: z.object({ "name": z.string(), "description": z.string().optional(), "settings": z.object({ "statsEngine": z.string().describe("Stats engine.").optional() }).describe("Project settings.").optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
 export const getProjectValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const putProjectValidator = {
+  bodySchema: z.object({ "name": z.string().describe("Project name.").optional(), "description": z.string().describe("Project description.").optional(), "settings": z.object({ "statsEngine": z.string().describe("Stats engine.").optional() }).describe("Project settings.").optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const deleteProjectValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
@@ -84,7 +102,25 @@ export const listSdkConnectionsValidator = {
   paramsSchema: z.never(),
 };
 
+export const postSdkConnectionValidator = {
+  bodySchema: z.object({ "name": z.string(), "language": z.string(), "sdkVersion": z.string().optional(), "environment": z.string(), "projects": z.array(z.string()).optional(), "encryptPayload": z.boolean().optional(), "includeVisualExperiments": z.boolean().optional(), "includeDraftExperiments": z.boolean().optional(), "includeExperimentNames": z.boolean().optional(), "includeRedirectExperiments": z.boolean().optional(), "proxyEnabled": z.boolean().optional(), "proxyHost": z.string().optional(), "hashSecureAttributes": z.boolean().optional(), "remoteEvalEnabled": z.boolean().optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
 export const getSdkConnectionValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const putSdkConnectionValidator = {
+  bodySchema: z.object({ "name": z.string().optional(), "language": z.string().optional(), "sdkVersion": z.string().optional(), "environment": z.string().optional(), "projects": z.array(z.string()).optional(), "encryptPayload": z.boolean().optional(), "includeVisualExperiments": z.boolean().optional(), "includeDraftExperiments": z.boolean().optional(), "includeExperimentNames": z.boolean().optional(), "includeRedirectExperiments": z.boolean().optional(), "proxyEnabled": z.boolean().optional(), "proxyHost": z.string().optional(), "hashSecureAttributes": z.boolean().optional(), "remoteEvalEnabled": z.boolean().optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const deleteSdkConnectionValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
