@@ -23,9 +23,9 @@ const ImpactModal: FC<{
     defaultValues: {
       metric: estimate?.metric || metrics[0]?.id || "",
       segment: estimate?.segment || "",
-      userAdjustment: idea.estimateParams.userAdjustment || 100,
-      numVariations: idea.estimateParams.numVariations || 2,
-      improvement: idea.estimateParams.improvement || 10,
+      userAdjustment: idea.estimateParams?.userAdjustment || 100,
+      numVariations: idea.estimateParams?.numVariations || 2,
+      improvement: idea.estimateParams?.improvement || 10,
     },
   });
 
