@@ -131,6 +131,7 @@ describe("environements API", () => {
   it("can update projects", async () => {
     const getByIdMock = jest.fn();
     const updateMock = jest.fn();
+    const updateValidatorMock = jest.fn();
     const toApiInterfaceMock = jest.fn();
 
     setReqContext({
@@ -138,6 +139,7 @@ describe("environements API", () => {
         projects: {
           getById: getByIdMock,
           update: updateMock,
+          updateValidator: { parse: updateValidatorMock },
           toApiInterface: toApiInterfaceMock,
         },
       },
@@ -148,6 +150,7 @@ describe("environements API", () => {
       ...existing,
       ...updated,
     }));
+    updateValidatorMock.mockImplementation((v) => v);
     toApiInterfaceMock.mockImplementation((v) => ({
       ...v,
       id: `${v.id}__interface`,
@@ -172,6 +175,9 @@ describe("environements API", () => {
       { id: "prj__3", description: "le proj 3" },
       { description: "new description" }
     );
+    expect(updateValidatorMock).toHaveBeenCalledWith({
+      description: "new description",
+    });
     expect(toApiInterfaceMock).toHaveBeenCalledWith({
       id: "prj__3",
       description: "new description",
@@ -222,18 +228,21 @@ describe("environements API", () => {
 
   it("can create projects", async () => {
     const createMock = jest.fn();
+    const createValidatorMock = jest.fn();
     const toApiInterfaceMock = jest.fn();
 
     setReqContext({
       models: {
         projects: {
           create: createMock,
+          createValidator: { parse: createValidatorMock },
           toApiInterface: toApiInterfaceMock,
         },
       },
     });
 
     createMock.mockImplementation((v) => ({ ...v, id: "prj__3" }));
+    createValidatorMock.mockImplementation((v) => v);
     toApiInterfaceMock.mockImplementation((v) => ({
       ...v,
       id: `${v.id}__interface`,
@@ -254,6 +263,9 @@ describe("environements API", () => {
       },
     });
     expect(createMock).toHaveBeenCalledWith({
+      name: "le proj trois",
+    });
+    expect(createValidatorMock).toHaveBeenCalledWith({
       name: "le proj trois",
     });
     expect(toApiInterfaceMock).toHaveBeenCalledWith({
