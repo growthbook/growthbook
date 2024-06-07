@@ -132,6 +132,10 @@ export type ProcessedDimensions = {
   activationDimension: ActivationDimension | null;
 };
 
+export interface DropTableQueryParams {
+  tableName: string;
+}
+
 interface ExperimentBaseQueryParams {
   settings: ExperimentSnapshotSettings;
   activationMetric: ExperimentMetricInterface | null;
@@ -325,7 +329,6 @@ export interface TestQueryResult {
   duration: number;
 }
 
-
 export interface RawInformationSchema {
   table_name: string;
   table_catalog: string;
@@ -432,7 +435,8 @@ export interface SourceIntegrationInterface {
     sql: string,
     timestampCols?: string[]
   ): Promise<TestQueryResult>;
-  runDropTablesQuery(
+  getDropTableQuery(params: DropTableQueryParams): string;
+  runDropTableQuery(
     query: string,
     setExternalId: ExternalIdCallback
   ): Promise<DropTableQueryResponse>; // TODO query class that has no return

@@ -56,6 +56,7 @@ import {
   ExperimentFactMetricsQueryResponse,
   FactMetricData,
   DropTableQueryResponse,
+  DropTableQueryParams,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
@@ -794,12 +795,14 @@ export default abstract class SqlIntegration
     return { results: results.rows, duration };
   }
 
-  async runDropTablesQuery(
+  getDropTableQuery(params: DropTableQueryParams): string {
+    return `DROP TABLE IF EXISTS ${params.tableName}`;
+  }
+  async runDropTableQuery(
     sql: string,
     setExternalId: ExternalIdCallback
   ): Promise<DropTableQueryResponse> {
     const results = await this.runQuery(sql, setExternalId);
-
     return results;
   }
 

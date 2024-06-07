@@ -38,6 +38,7 @@ export class PastExperimentsQueryRunner extends QueryRunner<
         name: "experiments",
         query: this.integration.getPastExperimentQuery(params),
         dependencies: [],
+        prerequisites: [],
         run: (query, setExternalId) =>
           this.integration.runPastExperimentQuery(query, setExternalId),
         process: (rows) =>

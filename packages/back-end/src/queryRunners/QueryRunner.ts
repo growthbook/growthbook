@@ -50,6 +50,7 @@ export type StartQueryParams<Rows, ProcessedRows> = {
   name: string;
   query: string;
   dependencies: string[];
+  prerequisites: string[];
   run: (
     query: string,
     setExternalId: ExternalIdCallback
@@ -263,9 +264,6 @@ export abstract class QueryRunner<
     await Promise.all(
       queuedQueries.map(async (query) => {
         // check if all dependencies are finished
-        // assumes all dependencies are within the model; if any are not, query will hang
-        // in queued state
-
         const failedDependencies: QueryPointer[] = [];
         const succeededDependencies: QueryPointer[] = [];
         const pendingDependencies: QueryPointer[] = [];
@@ -302,8 +300,38 @@ export abstract class QueryRunner<
           logger.debug(`${query.id}: Dependencies pending...`);
           return;
         }
-        if (succeededDependencies.length === dependencyIds.length) {
-          logger.debug(`${query.id}: Dependencies completed, running...`);
+
+        // check if all prerequisites are finished
+        const finishedPrerequisites: QueryPointer[] = [];
+        const pendingPrerequisites: QueryPointer[] = [];
+        const prerequisiteIds: string[] = query.prerequisites ?? [];
+        prerequisiteIds.forEach((prerequisiteId) => {
+          const prerequisiteQuery = this.model.queries.find(
+            (q) => q.query == prerequisiteId
+          );
+          if (prerequisiteQuery === undefined) {
+            throw new Error(`Dependency ${prerequisiteId} not found in model`);
+          } else if (
+            prerequisiteQuery.status === "succeeded" ||
+            prerequisiteQuery.status === "failed"
+          ) {
+            finishedPrerequisites.push(prerequisiteQuery);
+          } else {
+            pendingPrerequisites.push(prerequisiteQuery);
+          }
+        });
+        if (pendingDependencies.length) {
+          logger.debug(`${query.id}: Prerequisites pending...`);
+          return;
+        }
+
+        if (
+          succeededDependencies.length === dependencyIds.length &&
+          finishedPrerequisites.length === prerequisiteIds.length
+        ) {
+          logger.debug(
+            `${query.id}: Dependencies and prerequisites completed, running...`
+          );
           const runCallbacks = this.runCallbacks[query.id];
           if (runCallbacks === undefined) {
             logger.debug(`${query.id}: Run callbacks not found..`);
@@ -509,7 +537,15 @@ export abstract class QueryRunner<
     Rows extends RowsType,
     ProcessedRows extends ProcessedRowsType
   >(params: StartQueryParams<Rows, ProcessedRows>): Promise<QueryPointer> {
-    const { name, query, dependencies, run, process, queryType } = params;
+    const {
+      name,
+      query,
+      dependencies,
+      prerequisites,
+      run,
+      process,
+      queryType,
+    } = params;
     // Re-use recent identical query if it exists
     if (this.useCache) {
       logger.debug("Trying to reuse existing query for " + name);
@@ -566,6 +602,7 @@ export abstract class QueryRunner<
           const copiedCachedDoc = await createNewQueryFromCached({
             existing: existing,
             dependencies: dependencies,
+            prerequisites: prerequisites,
           });
           return {
             name,
@@ -580,7 +617,7 @@ export abstract class QueryRunner<
 
     // Create a new query in mongo
     logger.debug("Creating query for: " + name);
-    const readyToRun = dependencies.length === 0;
+    const readyToRun = dependencies.length + prerequisites.length === 0;
     const doc = await createNewQuery({
       query,
       queryType,
@@ -588,6 +625,7 @@ export abstract class QueryRunner<
       organization: this.integration.context.org.id,
       language: this.integration.getSourceProperties().queryLanguage,
       dependencies: dependencies,
+      prerequisites: prerequisites,
       running: readyToRun,
     });
 

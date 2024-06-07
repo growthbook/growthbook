@@ -52,7 +52,8 @@ export interface QueryInterface {
   queryType?: QueryType;
   rawResult?: Record<string, number | string | boolean | object>[];
   error?: string;
-  dependencies?: string[];
+  dependencies?: string[]; // must succeed before running query
+  prerequisites?: string[]; // must succeed or fail before running query
   cachedQueryUsed?: string;
   statistics?: QueryStatistics;
   externalId?: string;

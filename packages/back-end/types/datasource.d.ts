@@ -199,7 +199,7 @@ export type DataSourceSettings = {
     table?: string;
     timestampColumn?: string;
     userIdColumn?: string;
-    anonymousIdColumn?: string; 
+    anonymousIdColumn?: string;
     experimentIdColumn?: string;
     variationColumn?: string;
   };

@@ -264,6 +264,7 @@ export const startExperimentResultQueries = async (
       name: queryParentId,
       query: integration.getExperimentUnitsTableQuery(unitQueryParams),
       dependencies: [],
+      prerequisites: [],
       run: (query, setExternalId) =>
         integration.runExperimentUnitsQuery(query, setExternalId),
       process: (rows) => rows,
@@ -307,6 +308,7 @@ export const startExperimentResultQueries = async (
         name: m.id,
         query: integration.getExperimentMetricQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
+        prerequisites: [],
         run: (query, setExternalId) =>
           integration.runExperimentMetricQuery(query, setExternalId),
         process: (rows) => rows,
@@ -339,6 +341,7 @@ export const startExperimentResultQueries = async (
         name: `group_${i}`,
         query: integration.getExperimentFactMetricsQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
+        prerequisites: [],
         run: (query, setExternalId) =>
           (integration as SqlIntegration).runExperimentFactMetricsQuery(
             query,
@@ -352,8 +355,9 @@ export const startExperimentResultQueries = async (
 
   await Promise.all([...singlePromises, ...groupPromises]);
 
+  let trafficQuery: QueryPointer | null = null;
   if (runTrafficQuery) {
-    const trafficQuery = await startQuery({
+    trafficQuery = await startQuery({
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
@@ -361,6 +365,7 @@ export const startExperimentResultQueries = async (
         useUnitsTable: !!unitQuery,
       }),
       dependencies: unitQuery ? [unitQuery.query] : [],
+      prerequisites: [],
       run: (query, setExternalId) =>
         integration.runExperimentAggregateUnitsQuery(query, setExternalId),
       process: (rows) => rows,
@@ -372,10 +377,17 @@ export const startExperimentResultQueries = async (
   if (useUnitsTable && integration.getSourceProperties().dropUnitsTable) {
     const dropUnitsTableQuery = await startQuery({
       name: `drop_${queryParentId}`,
-      query: "DROP TABLE IF EXISTS " + unitsTableFullName,
-      dependencies: queries.map((q) => q.query),
+      query: integration.getDropTableQuery({
+        tableName: unitsTableFullName,
+      }),
+      // unit query must succeed
+      dependencies: unitQuery ? [unitQuery.query] : [],
+      // all other queries must succeed or fail first
+      prerequisites: queries
+        .map((q) => q.query)
+        .filter((q) => q !== unitQuery?.query),
       run: (query, setExternalId) =>
-        integration.runDropTablesQuery(query, setExternalId),
+        integration.runDropTableQuery(query, setExternalId),
       process: (rows) => rows,
       queryType: "experimentDropUnitsTable",
     });
@@ -542,6 +554,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         name: "results",
         query: query,
         dependencies: [],
+        prerequisites: [],
         run: async () => {
           const rows = (await this.integration.getExperimentResults(
             snapshotSettings,
