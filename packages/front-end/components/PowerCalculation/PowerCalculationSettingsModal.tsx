@@ -138,7 +138,7 @@ const SelectStep = ({
             <span className="mr-auto font-weight-bold">
               Select Metrics{" "}
               <Tooltip
-                body={"Ratio and quantile metrics can not be selected."}
+                body={"Ratio and quantile metrics cannot be selected."}
               />
             </span>{" "}
             Limit 5
@@ -190,7 +190,7 @@ const SelectStep = ({
             </span>
             <Tooltip
               popperClassName="text-left"
-              body="Total users accross all variations"
+              body="Total users across all variations"
               tipPosition="right"
             />
           </div>

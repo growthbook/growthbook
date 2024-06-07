@@ -276,7 +276,7 @@ const SampleSizeAndRuntime = ({
                           nWeeks: params.nWeeks,
                         })}
                       </span>{" "}
-                      (roughly collecting{" "}
+                      (collecting roughly{" "}
                       <span className="font-weight-bold">
                         {numberFormatter(selectedTarget.users)} users
                       </span>
