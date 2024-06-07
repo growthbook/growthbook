@@ -1,6 +1,7 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaAngleRight, FaBars, FaBell, FaBuilding } from "react-icons/fa";
+import { PiPlusBold } from "react-icons/pi";
 import Link from "next/link";
 import clsx from "clsx";
 import Head from "next/head";
@@ -243,7 +244,7 @@ const TopNav: FC<{
                       <hr />
                       <div>
                         <div>
-                          <img src="/images/pi-plus-bold.svg" alt="+" />
+                          <PiPlusBold />
                         </div>
                         <Link
                           href="/settings/organizations"
