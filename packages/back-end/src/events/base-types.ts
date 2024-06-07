@@ -42,8 +42,8 @@ export type OptionalNotificationEventNames<
  */
 export type NotificationEventPayload<
   ResourceType extends NotificationEventName | unknown,
-  EventName extends OptionalNotificationEventNames<ResourceType>,
-  DataType
+  EventName extends OptionalNotificationEventNames<ResourceType> = OptionalNotificationEventNames<ResourceType>,
+  DataType = unknown
 > = {
   event: EventName;
   object: ResourceType;
