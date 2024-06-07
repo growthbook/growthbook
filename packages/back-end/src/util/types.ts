@@ -52,3 +52,6 @@ type UnionToTupleRecursively<Union, Result extends any[]> = {
 }[[Union] extends [never] ? 1 : 0];
 
 export type UnionToTuple<U> = UnionToTupleRecursively<U, []>;
+
+export type UnionToIntersection<U> = 
+  (U extends any ? (x: U)=>void : never) extends ((x: infer I)=>void) ? I : never

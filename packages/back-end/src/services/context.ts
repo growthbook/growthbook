@@ -20,7 +20,7 @@ import { ProjectModel } from "../models/ProjectModel";
 import { ProjectInterface } from "../../types/project";
 import { addTags, getAllTags } from "../models/TagModel";
 import { AuditInterfaceInput } from "../../types/audit";
-import { insertAudit } from "../models/AuditModel";
+import { insertAudit } from "../util/legacyAudit";
 import { logger } from "../util/logger";
 import { UrlRedirectModel } from "../models/UrlRedirectModel";
 import { ExperimentInterface } from "../../types/experiment";

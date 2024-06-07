@@ -1,6 +1,5 @@
 import mongoose, { FilterQuery, QueryOptions } from "mongoose";
 import { omit } from "lodash";
-import uniqid from "uniqid";
 import { AuditInterface } from "../../types/audit";
 import { EntityType } from "../types/Audit";
 
@@ -51,16 +50,6 @@ const toInterface = (doc: AuditDocument): AuditInterface => {
     "_id",
   ]) as unknown) as AuditInterface;
 };
-
-export async function insertAudit(
-  data: Omit<AuditInterface, "id">
-): Promise<AuditInterface> {
-  const auditDoc = await AuditModel.create({
-    ...data,
-    id: uniqid("aud_"),
-  });
-  return toInterface(auditDoc);
-}
 
 export async function findAuditByOrganization(
   organization: string,

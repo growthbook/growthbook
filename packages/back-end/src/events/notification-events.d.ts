@@ -1,7 +1,11 @@
 import { ApiExperiment, ApiFeature } from "../../types/openapi";
-import { IfEqual } from "../util/types";
 import { ExperimentWarningNotificationPayload } from "../types/ExperimentNotification";
-import { NotificationEventName, NotificationEventPayload } from "./base-types";
+import {
+  NotificationEventPayload,
+  OptionalNotificationEventNames,
+  AuditEvents,
+  AuditEventResource,
+} from "./base-types";
 import { UserLoginAuditableProperties } from "./event-types";
 
 // region User
@@ -84,18 +88,15 @@ export type ExperimentWarningNotificationEvent = NotificationEventPayload<
   ExperimentWarningNotificationPayload
 >;
 
+// endregion Experiment
+
 export type WebhookTestEvent = NotificationEventPayload<
   "webhook",
   "webhook.test",
   { webhookId: string }
 >;
 
-// endregion Experiment
-
-/**
- * All supported event types in the database
- */
-type AllNotificationEvent =
+type DefinedNotificationEvent =
   | UserLoginNotificationEvent
   | FeatureCreatedNotificationEvent
   | FeatureUpdatedNotificationEvent
@@ -107,9 +108,32 @@ type AllNotificationEvent =
   | ExperimentWarningNotificationEvent
   | WebhookTestEvent;
 
-// Make sure we have a payload for each type of event
-type NotificationEvent = IfEqual<
-  NotificationEventName,
-  AllNotificationEvent["event"],
-  AllNotificationEvent
->;
+// We add back all audit payloads that are not otherwise defined above:
+
+type DefinedEventTemplate<R> = R extends DefinedNotificationEvent
+  ? R["event"]
+  : never;
+
+type DefinedEvent = DefinedEventTemplate<DefinedNotificationEvent>;
+
+type AuditResourceEventTemplate<R, E> = R extends AuditEventResource
+  ? E extends OptionalNotificationEventNames<R>
+    ? // Here we exluded events already defined.
+      E extends DefinedEvent
+      ? never
+      : NotificationEventPayload<R, E, undefined>
+    : never
+  : never;
+
+type AuditEventTemplate<R> = R extends AuditEventResource
+  ? AuditResourceEventTemplate<R, AuditEvents[R][number]>
+  : never;
+
+export type AuditNotificationEvent = AuditEventTemplate<AuditEventResource>;
+
+/**
+ * All supported event types in the database
+ */
+type NotificationEvent =
+  | DefinedNotificationEvent
+  | AuditNotificationEvent

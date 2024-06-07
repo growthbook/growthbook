@@ -103,7 +103,7 @@ const toInterface = <T>(doc: EventDocument<T>): EventInterface<T> =>
     ["__v", "_id"]
   ) as EventInterface<T>;
 
-const EventModel = mongoose.model<EventInterface<unknown>>(
+export const EventModel = mongoose.model<EventInterface<unknown>>(
   "Event",
   eventSchema
 );

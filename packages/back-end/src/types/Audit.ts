@@ -39,8 +39,8 @@ export const entityEvents = {
   "sdk-connection": ["create", "update", "delete"],
   user: ["create", "update", "delete", "invite"],
   organization: ["create", "update", "delete"],
-  savedGroup: ["created", "deleted", "updated"],
-  archetype: ["created", "deleted", "updated"],
+  savedGroup: ["create", "delete", "update"],
+  archetype: ["create", "delete", "update"],
   team: ["create", "delete", "update"],
 } as const;
 

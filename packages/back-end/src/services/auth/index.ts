@@ -22,7 +22,7 @@ import {
   EventAuditUserForResponseLocals,
   EventAuditUserLoggedIn,
 } from "../../events/event-types";
-import { insertAudit } from "../../models/AuditModel";
+import { insertAudit } from "../../util/legacyAudit";
 import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getLicenseMetaData, getUserCodesForOrg } from "../licenseData";
 import { AuthConnection } from "./AuthConnection";
