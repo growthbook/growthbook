@@ -80,6 +80,20 @@ export async function getAllFactTablesForOrganization(
     .filter((f) => context.permissions.canReadMultiProjectResource(f.projects));
 }
 
+export async function getFactTablesForDatasource(
+  context: ReqContext,
+  datasource: string
+): Promise<FactTableInterface[]> {
+  const docs = await FactTableModel.find({
+    organization: context.org.id,
+    datasource,
+  });
+
+  return docs
+    .map((doc) => toInterface(doc))
+    .filter((f) => context.permissions.canReadMultiProjectResource(f.projects));
+}
+
 export type FactTableMap = Map<string, FactTableInterface>;
 
 export async function getFactTableMap(

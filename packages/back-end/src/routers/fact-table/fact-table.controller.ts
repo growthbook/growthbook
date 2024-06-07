@@ -27,6 +27,7 @@ import {
   deleteFactFilter as deleteFactFilterInDb,
   createFactFilter,
   updateFactFilter,
+  getFactTablesForDatasource,
 } from "../../models/FactTableModel";
 import { addTags, addTagsDiff } from "../../models/TagModel";
 import {
@@ -127,8 +128,20 @@ export const getFactTablesFromTrackedEvents = async (
       throw new Error("Datasource does not support auto-metrics");
     }
 
+    const existingFactTables = await getFactTablesForDatasource(
+      context,
+      datasourceId
+    );
+
+    //MKTODO: This could be cleaner
+    const eventNamesWithFactTables: string[] = [];
+    existingFactTables.forEach((factTable) =>
+      eventNamesWithFactTables.push(factTable.eventName)
+    );
+
     const autoFactTablesToCreate: AutoFactTableTrackedEvent[] = await integration.getAutoFactTablesToCreate(
       integration.datasource.settings.schemaFormat,
+      eventNamesWithFactTables,
       schema
     );
 

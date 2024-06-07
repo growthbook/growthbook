@@ -376,6 +376,8 @@ export default function AutoGenerateFactTableModal({
                       <td>
                         <Toggle
                           id={table.event}
+                          disabledMessage="This event has already been used to create a Fact Table"
+                          disabled={table.alreadyExists}
                           value={table.shouldCreate}
                           setValue={(value) => {
                             const updatedFactTablesToCreate = cloneDeep(
