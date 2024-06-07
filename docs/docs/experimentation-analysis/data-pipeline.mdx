@@ -38,6 +38,6 @@ To enable Pipeline Mode, follow the steps for your data warehouse:
 ### Databricks
 
 1. (strongly recommended, but optional) Create a dedicated schema to which GrowthBook will write temporary tables. This will keep your data warehouse clean and ensure that we are only writing to a dedicated space.
-2. Grant permissions to your user account or service principal that already has read permission in your warehouse. That user/service principle will need to be able to `USE SCHEMA`, `CREATE TABLE`, and to `SELECT` and `EXECUTE` in the schema.
+2. Grant permissions to your user account or service principal that already has read permission in your warehouse. That user/service principle will need to be able to `USE SCHEMA`, `CREATE TABLE`, `DROP TABLE`, and to `SELECT` and `EXECUTE` in the schema.
 3. Navigate to your Databricks Data Source in GrowthBook and scroll down to "Data Pipeline Settings"
-4. Click "Edit" and enable pipeline mode, set the destination schema to your new dedicated GrowthBook schema from step 1, and set the number of hours you will retain our temporary tables.
+4. Click "Edit" and enable pipeline mode, set the destination schema to your new dedicated GrowthBook schema from step 1, and whether you want the table to be deleted (we recommend you leave this setting on as we will not re-use these tables at a later date).
