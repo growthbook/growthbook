@@ -374,7 +374,10 @@ export const startExperimentResultQueries = async (
     queries.push(trafficQuery);
   }
 
-  if (useUnitsTable && integration.getSourceProperties().dropUnitsTable) {
+  const dropUnitsTable =
+    integration.getSourceProperties().dropUnitsTable &&
+    settings.pipelineSettings?.unitsTableDeletion;
+  if (useUnitsTable && dropUnitsTable) {
     const dropUnitsTableQuery = await startQuery({
       name: `drop_${queryParentId}`,
       query: integration.getDropTableQuery({

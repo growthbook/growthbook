@@ -72,7 +72,6 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
             />
           </label>
           <Field
-            label={`Destination ${pathNames.schemaName} with write permissions`}
             className="ml-2"
             containerClassName="mb-2"
             type="text"
@@ -86,20 +85,40 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
             required
             {...form.register("writeDataset")}
           />
-          {`Destination ${pathNames.databaseName} (optional)`}{" "}
-          <Field
-            label="Retention of temporary units table (hours)"
-            helpText={
-              dataSource.type === "snowflake"
-                ? "Rounded up to nearest day for Snowflake"
-                : ""
-            }
-            className="ml-2"
-            containerClassName="mb-2"
-            type="number"
-            min={1}
-            {...form.register("unitsTableRetentionHours")}
-          />
+          {dataSource.type === "databricks" ? (
+            <>
+              <div className="mt-4">
+                <label>Delete temporary units table (recommended)</label>
+                <Toggle
+                  id={"toggle-unitsTableDeletion"}
+                  value={!!form.watch("unitsTableDeletion")}
+                  setValue={(value) => {
+                    form.setValue("unitsTableDeletion", value);
+                  }}
+                />
+              </div>
+              {!form.watch("unitsTableDeletion") ? (
+                <div className="text-muted mt-1">
+                  Disabling this will require you to periodically remove
+                  temporary tables from your Databricks Warehouse
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <Field
+              label="Retention of temporary units table (hours)"
+              helpText={
+                dataSource.type === "snowflake"
+                  ? "Rounded up to nearest day for Snowflake"
+                  : ""
+              }
+              className="ml-2"
+              containerClassName="mb-2"
+              type="number"
+              min={1}
+              {...form.register("unitsTableRetentionHours")}
+            />
+          )}
         </div>
       ) : null}
     </Modal>
