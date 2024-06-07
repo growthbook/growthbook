@@ -42,6 +42,7 @@ export const entityEvents = {
   savedGroup: ["created", "deleted", "updated"],
   archetype: ["created", "deleted", "updated"],
   team: ["create", "delete", "update"],
+  factTable: ["autocreate"],
 } as const;
 
 export type EntityEvents = typeof entityEvents;
