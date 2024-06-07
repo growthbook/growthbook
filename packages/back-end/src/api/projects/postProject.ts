@@ -5,7 +5,8 @@ import { auditDetailsCreate } from "../../services/audit";
 
 export const postProject = createApiRequestHandler(postProjectValidator)(
   async (req): Promise<PostProjectResponse> => {
-    const project = await req.context.models.projects.create(req.body);
+    const payload = req.context.models.projects.createValidator.parse(req.body);
+    const project = await req.context.models.projects.create(payload);
 
     await req.audit({
       event: "project.create",
