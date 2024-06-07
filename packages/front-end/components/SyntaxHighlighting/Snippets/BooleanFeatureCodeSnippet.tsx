@@ -229,9 +229,10 @@ return new Response("<h1>bar</h1>");
 if (growthbook.isOn("my-feature")) {
   const resp = { status: "200", body: "<h1>foo</h1>" };
   callback(null, resp);
+} else {
+  const resp = { status: "200", body: "<h1>bar</h1>" };
+  callback(null, resp);
 }
-const resp = { status: "200", body: "<h1>bar</h1>" };
-callback(null, resp);
         `.trim()}
       />
     );
