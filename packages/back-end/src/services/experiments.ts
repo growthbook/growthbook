@@ -1,6 +1,5 @@
 import uniqid from "uniqid";
 import cronParser from "cron-parser";
-import uniq from "lodash/uniq";
 import { z } from "zod";
 import { isEqual } from "lodash";
 import {
@@ -362,6 +361,27 @@ export function getAdditionalExperimentAnalysisSettings(
   return [];
 }
 
+export function getAllMetricIdsFromExperiment(
+  exp: Partial<
+    Pick<
+      ExperimentInterface,
+      | "goalMetrics"
+      | "secondaryMetrics"
+      | "guardrailMetrics"
+      | "activationMetric"
+    >
+  >
+) {
+  return Array.from(
+    new Set([
+      ...(exp.goalMetrics || []),
+      ...(exp.secondaryMetrics || []),
+      ...(exp.guardrailMetrics || []),
+      ...(exp.activationMetric ? [exp.activationMetric] : []),
+    ])
+  );
+}
+
 export function getSnapshotSettings({
   experiment,
   phaseIndex,
@@ -388,14 +408,7 @@ export function getSnapshotSettings({
     mean: 0,
     stddev: DEFAULT_PROPER_PRIOR_STDDEV,
   };
-  const metricSettings = [
-    // Combine goals, guardrails, and activation metric and de-dupe the list
-    ...new Set([
-      ...experiment.metrics,
-      ...(experiment.guardrails || []),
-      ...(experiment.activationMetric ? [experiment.activationMetric] : []),
-    ]),
-  ]
+  const metricSettings = getAllMetricIdsFromExperiment(experiment)
     .map((m) =>
       getMetricForSnapshot(
         m,
@@ -418,8 +431,9 @@ export function getSnapshotSettings({
     startDate: phase.dateStarted,
     endDate: phase.dateEnded || new Date(),
     experimentId: experiment.trackingKey || experiment.id,
-    goalMetrics: experiment.metrics,
-    guardrailMetrics: experiment.guardrails || [],
+    goalMetrics: experiment.goalMetrics,
+    secondaryMetrics: experiment.secondaryMetrics,
+    guardrailMetrics: experiment.guardrailMetrics,
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
@@ -836,8 +850,13 @@ export async function toExperimentApiInterface(
       inProgressConversions: experiment.skipPartialData ? "exclude" : "include",
       attributionModel: experiment.attributionModel || "firstExposure",
       statsEngine: scopedSettings.statsEngine.value || DEFAULT_STATS_ENGINE,
-      goals: experiment.metrics.map((m) => getExperimentMetric(experiment, m)),
-      guardrails: (experiment.guardrails || []).map((m) =>
+      goals: experiment.goalMetrics.map((m) =>
+        getExperimentMetric(experiment, m)
+      ),
+      secondaryMetrics: experiment.secondaryMetrics.map((m) =>
+        getExperimentMetric(experiment, m)
+      ),
+      guardrails: experiment.guardrailMetrics.map((m) =>
         getExperimentMetric(experiment, m)
       ),
       ...(activationMetric
@@ -887,13 +906,7 @@ export function toSnapshotApiInterface(
   const activationMetric =
     snapshot.settings.activationMetric || experiment.activationMetric;
 
-  const metricIds = new Set([
-    ...experiment.metrics,
-    ...(experiment.guardrails || []),
-  ]);
-  if (activationMetric) {
-    metricIds.add(activationMetric);
-  }
+  const metricIds = getAllMetricIdsFromExperiment(experiment);
 
   const variationIds = experiment.variations.map((v) => v.id);
 
@@ -922,8 +935,13 @@ export function toSnapshotApiInterface(
         : "include",
       attributionModel: experiment.attributionModel || "firstExposure",
       statsEngine: analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
-      goals: experiment.metrics.map((m) => getExperimentMetric(experiment, m)),
-      guardrails: (experiment.guardrails || []).map((m) =>
+      goals: experiment.goalMetrics.map((m) =>
+        getExperimentMetric(experiment, m)
+      ),
+      secondaryMetrics: experiment.secondaryMetrics.map((m) =>
+        getExperimentMetric(experiment, m)
+      ),
+      guardrails: experiment.guardrailMetrics.map((m) =>
         getExperimentMetric(experiment, m)
       ),
       ...(activationMetric
@@ -1813,9 +1831,10 @@ export function postExperimentApiPayloadToInterface(
     tags: payload.tags || [],
     description: payload.description || "",
     hypothesis: payload.hypothesis || "",
-    metrics: payload.metrics || [],
+    goalMetrics: payload.metrics || [],
+    secondaryMetrics: payload.secondaryMetrics || [],
     metricOverrides: [],
-    guardrails: payload.guardrailMetrics || [],
+    guardrailMetrics: payload.guardrailMetrics || [],
     activationMetric: "",
     segment: "",
     queryFilter: "",
@@ -1961,10 +1980,7 @@ export async function getSettingsForSnapshotMetrics(
 
   const metricMap = await getMetricMap(context);
 
-  const allExperimentMetricIds = uniq([
-    ...experiment.metrics,
-    ...(experiment.guardrails ?? []),
-  ]);
+  const allExperimentMetricIds = getAllMetricIdsFromExperiment(experiment);
   const allExperimentMetrics = allExperimentMetricIds
     .map((id) => metricMap.get(id))
     .filter(isDefined);

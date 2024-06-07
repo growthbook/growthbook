@@ -16,11 +16,11 @@ import {
   createSnapshot,
   createSnapshotAnalysis,
   getAdditionalExperimentAnalysisSettings,
+  getAllMetricIdsFromExperiment,
   getDefaultExperimentAnalysisSettings,
-  getExperimentMetricById,
   getLinkedFeatureInfo,
 } from "../services/experiments";
-import { MetricStats } from "../../types/metric";
+import { MetricInterface, MetricStats } from "../../types/metric";
 import {
   createExperiment,
   deleteExperimentByIdForOrganization,
@@ -64,7 +64,7 @@ import {
   ExperimentTargetingData,
   Variation,
 } from "../../types/experiment";
-import { getMetricById, getMetricMap } from "../models/MetricModel";
+import { getMetricMap } from "../models/MetricModel";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
@@ -460,10 +460,11 @@ export async function postExperiments(
   }
 
   // Validate that specified metrics exist and belong to the organization
-  if (data.metrics && data.metrics.length) {
-    for (let i = 0; i < data.metrics.length; i++) {
-      const metric = await getExperimentMetricById(context, data.metrics[i]);
-
+  const metricIds = getAllMetricIdsFromExperiment(data);
+  if (metricIds.length) {
+    const map = await getMetricMap(context);
+    for (let i = 0; i < metricIds.length; i++) {
+      const metric = map.get(metricIds[i]);
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
         if (data.datasource && metric.datasource !== data.datasource) {
@@ -471,7 +472,7 @@ export async function postExperiments(
             status: 400,
             message:
               "Metrics must be tied to the same datasource as the experiment: " +
-              data.metrics[i],
+              metricIds[i],
           });
           return;
         }
@@ -479,7 +480,7 @@ export async function postExperiments(
         // new metric that's not recognized...
         res.status(403).json({
           status: 403,
-          message: "Unknown metric: " + data.metrics[i],
+          message: "Unknown metric: " + metricIds[i],
         });
         return;
       }
@@ -513,9 +514,10 @@ export async function postExperiments(
     tags: data.tags || [],
     description: data.description || "",
     hypothesis: data.hypothesis || "",
-    metrics: data.metrics || [],
+    goalMetrics: data.goalMetrics || [],
+    secondaryMetrics: data.secondaryMetrics || [],
     metricOverrides: data.metricOverrides || [],
-    guardrails: data.guardrails || [],
+    guardrailMetrics: data.guardrailMetrics || [],
     activationMetric: data.activationMetric || "",
     segment: data.segment || "",
     queryFilter: data.queryFilter || "",
@@ -595,11 +597,7 @@ export async function postExperiments(
       }
     }
 
-    if (
-      datasource &&
-      req.query.autoRefreshResults &&
-      experiment.metrics.length > 0
-    ) {
+    if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
       // This is doing an expensive analytics SQL query, so may take a long time
       // Set timeout to 30 minutes
       req.setTimeout(30 * 60 * 1000);
@@ -703,10 +701,16 @@ export async function postExperiment(
       return;
     }
   }
+  // Validate that specified metrics exist and belong to the organization
+  const oldMetricIds = getAllMetricIdsFromExperiment(experiment);
+  const metricIds = getAllMetricIdsFromExperiment(data);
+  if (metricIds.length) {
+    const map = await getMetricMap(context);
+    for (let i = 0; i < metricIds.length; i++) {
+      // Only validate newly added metrics
+      if (oldMetricIds.includes(metricIds[i])) continue;
 
-  if (data.metrics && data.metrics.length) {
-    for (let i = 0; i < data.metrics.length; i++) {
-      const metric = await getExperimentMetricById(context, data.metrics[i]);
+      const metric = map.get(metricIds[i]);
 
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
@@ -718,7 +722,7 @@ export async function postExperiment(
             status: 400,
             message:
               "Metrics must be tied to the same datasource as the experiment: " +
-              data.metrics[i],
+              metricIds[i],
           });
           return;
         }
@@ -726,7 +730,7 @@ export async function postExperiment(
         // new metric that's not recognized...
         res.status(403).json({
           status: 403,
-          message: "Unknown metric: " + data.metrics[i],
+          message: "Unknown metric: " + metricIds[i],
         });
         return;
       }
@@ -754,9 +758,10 @@ export async function postExperiment(
     "queryFilter",
     "skipPartialData",
     "attributionModel",
-    "metrics",
+    "goalMetrics",
+    "secondaryMetrics",
+    "guardrailMetrics",
     "metricOverrides",
-    "guardrails",
     "variations",
     "status",
     "results",
@@ -788,7 +793,9 @@ export async function postExperiment(
     // Do a deep comparison for arrays, shallow for everything else
     let hasChanges = data[key] !== existing[key];
     if (
-      key === "metrics" ||
+      key === "goalMetrics" ||
+      key === "secondaryMetrics" ||
+      key === "guardrailMetrics" ||
       key === "metricOverrides" ||
       key === "variations"
     ) {
@@ -1790,23 +1797,18 @@ async function createExperimentSnapshot({
   });
   const statsEngine = settings.statsEngine.value;
 
-  const allExperimentMetricIds = uniq([
-    ...experiment.metrics,
-    ...(experiment.guardrails ?? []),
-  ]);
-  const allExperimentMetrics = await Promise.all(
-    allExperimentMetricIds.map((m) => getExperimentMetricById(context, m))
-  );
+  const metricMap = await getMetricMap(context);
+  const metricIds = getAllMetricIdsFromExperiment(experiment);
+
+  const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
   const denominatorMetricIds = uniq<string>(
     allExperimentMetrics
       .map((m) => m?.denominator)
       .filter((d) => d && typeof d === "string") as string[]
   );
-  const denominatorMetrics = (
-    await Promise.all(
-      denominatorMetricIds.map((m) => getMetricById(context, m))
-    )
-  ).filter(isDefined);
+  const denominatorMetrics = denominatorMetricIds
+    .map((m) => metricMap.get(m) || null)
+    .filter(isDefined) as MetricInterface[];
 
   const {
     settingsForSnapshotMetrics,
@@ -1830,7 +1832,6 @@ async function createExperimentSnapshot({
     dimension
   );
 
-  const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
   const queryRunner = await createSnapshot({

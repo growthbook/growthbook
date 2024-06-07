@@ -1046,6 +1046,9 @@ describe("Experiment Migration", () => {
     hashVersion: 2,
     releasedVariationId: "",
     attributionModel: "experimentDuration",
+    goalMetrics: [],
+    secondaryMetrics: [],
+    guardrailMetrics: [],
     variations: [
       {
         id: "0",
@@ -1194,6 +1197,43 @@ describe("Experiment Migration", () => {
           };
         }),
       ],
+    });
+  });
+  it("Updates metric field names", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        metrics: ["met_abc"],
+        guardrails: ["met_def"],
+      })
+    ).toEqual({
+      ...upgraded,
+      goalMetrics: ["met_abc"],
+      guardrailMetrics: ["met_def"],
+      // Keeps old metric fields around, but they're not used
+      metrics: ["met_abc"],
+      guardrails: ["met_def"],
+    });
+  });
+
+  it("Does not override new metrics", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        goalMetrics: ["met_123"],
+        secondaryMetrics: ["met_456"],
+        guardrailMetrics: ["met_789"],
+        metrics: ["met_abc"],
+        guardrails: ["met_def"],
+      })
+    ).toEqual({
+      ...upgraded,
+      goalMetrics: ["met_123"],
+      secondaryMetrics: ["met_456"],
+      guardrailMetrics: ["met_789"],
+      // Keeps old metric fields around, but they're not used
+      metrics: ["met_abc"],
+      guardrails: ["met_def"],
     });
   });
 });
@@ -1384,6 +1424,7 @@ describe("Snapshot Migration", () => {
         experimentId: "",
         exposureQueryId: "",
         goalMetrics: ["met_abc"],
+        secondaryMetrics: [],
         guardrailMetrics: [],
         manual: false,
         metricSettings: [
@@ -1486,6 +1527,7 @@ describe("Snapshot Migration", () => {
         experimentId: "",
         exposureQueryId: "",
         goalMetrics: [],
+        secondaryMetrics: [],
         guardrailMetrics: [],
         manual: false,
         metricSettings: [],
@@ -1595,6 +1637,7 @@ describe("Snapshot Migration", () => {
         experimentId: "",
         exposureQueryId: "",
         goalMetrics: ["met_abc"],
+        secondaryMetrics: [],
         guardrailMetrics: [],
         manual: true,
         metricSettings: [

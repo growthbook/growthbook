@@ -1208,6 +1208,10 @@ paths:
                   type: array
                   items:
                     type: string
+                secondaryMetrics:
+                  type: array
+                  items:
+                    type: string
                 guardrailMetrics:
                   type: array
                   items:
@@ -1445,6 +1449,10 @@ paths:
                   items:
                     type: string
                 metrics:
+                  type: array
+                  items:
+                    type: string
+                secondaryMetrics:
                   type: array
                   items:
                     type: string
@@ -5008,6 +5016,7 @@ components:
         - attributionModel
         - statsEngine
         - goals
+        - secondaryMetrics
         - guardrails
       properties:
         datasourceId:
@@ -5033,6 +5042,10 @@ components:
             - bayesian
             - frequentist
         goals:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExperimentMetric'
+        secondaryMetrics:
           type: array
           items:
             $ref: '#/components/schemas/ExperimentMetric'
