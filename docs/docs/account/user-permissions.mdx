@@ -4,7 +4,23 @@ description: GrowthBook's User & Team Permissions
 sidebar_label: User & Team Permissions
 slug: user-permissions
 ---
+## Adding Users
 
+Team members can be added to your GrowthBook account via the Settings -> Members page. From this main page, you'll see an "Invite Member" button on the right. If you do not see this button, you do not have permission to add members to your organization. Clicking on "Invite Member" will open a modal window from which you can choose some options for the new user. 
+
+Each GrowthBook user needs an email address, and you can select what global permissions you want to assign and select per-project overrides (if any). For example, a new user could be a `collaborator` by default for all projects, but on the `mobile` project, they could be an `experimenter` so they can manage all feature flags and experiments assigned to that project. 
+
+Inviting a new member to your organization will send an email to that user inviting them to join. 
+
+It is possible for a user to join more than one organization. If the user is a member to multiple organizations, they will see a drop-down next to their email address on the top right of the page, where they can select the organization they want to work in. 
+
+### Self-registering and Automatic Approvals
+
+If users create an account with a verified email address that matches the domain of your account owner, they will be presented with an option to join your organization. If you have not selected `Automatically approve new verified users` (which is the default), those users will be listed at the bottom of the page under a section called `Pending Members`. From this list, you'll have the option of approving or deleting these self-registered users. 
+
+If you are the account owner, you will see a toggle at the top of the members' page that allows you to automatically approve new members who match your domain. This means that instead of being placed in your `pending members` list, they will automatically join your organization. 
+
+## Permissions
 Fine-tuning user permissions in an application like GrowthBook ensures a tailored experience, empowering organizations to grant precisely defined access levels. This granular control not only enhances security but also enables teams to collaborate efficiently while safeguarding sensitive features or data.
 
 Organizations using GrowthBook have a number of different ways of defining a user's permission level, depending on the organization's plan.
