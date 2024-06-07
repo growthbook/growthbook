@@ -47,6 +47,8 @@ class SimulationStudy(ABC):
             self.upper_limit[i, j] = test_result.ci[1]
             self.theta[i, j] = estimand
             self.results[i, j] = test_result
+            self.test_statistic_a[i, j] = stat_a
+            self.test_statistic_b[i, j] = stat_b
 
     def create_storage_arrays(self):
         array_shape = (self.n_sim, self.n_tests)
@@ -56,6 +58,8 @@ class SimulationStudy(ABC):
         self.lower_limit = np.empty(array_shape)
         self.upper_limit = np.empty(array_shape)
         self.results = np.empty(array_shape, dtype=object)
+        self.test_statistic_a = np.empty(array_shape, dtype=object)
+        self.test_statistic_b = np.empty(array_shape, dtype=object)
 
     @abstractmethod
     def generate_data(self) -> Tuple[TestStatistic, TestStatistic, float]:
@@ -93,4 +97,4 @@ class SimulationStudy(ABC):
 
     @property
     def variance(self):
-        return [np.var(self.pt[:, j]) for j in range(self.n_tests)]
+        return [np.var(self.pt[:, j], ddof=1) for j in range(self.n_tests)]
