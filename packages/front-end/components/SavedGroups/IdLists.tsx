@@ -2,7 +2,7 @@ import { SavedGroupInterface } from "back-end/types/saved-group";
 import { useMemo, useState } from "react";
 import { ago } from "shared/dates";
 import { getMatchingRules } from "shared/util";
-import { Link } from "spectacle";
+import Link from "next/link";
 import { useAuth } from "@/services/auth";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";

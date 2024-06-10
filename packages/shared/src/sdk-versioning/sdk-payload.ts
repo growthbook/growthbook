@@ -36,6 +36,33 @@ const stickyBucketingKeys = [
 ];
 const prerequisiteKeys = ["parentConditions"];
 
+// eslint-disable-next-line
+type Node = [string, any];
+type NodeModifier = (node: Node) => Node | undefined;
+
+// Modifies the given object in place by calling onNode on each key/value pair and replacing the
+// existing entry with the key/value pair returned by onNode if one was returned
+// eslint-disable-next-line
+const recursiveWalk = (object: any, onNode: NodeModifier) => {
+  if (typeof object !== "object") {
+    return;
+  }
+  Object.entries(object).forEach((node) => {
+    const result = onNode(node);
+    let key = node[0];
+    if (result) {
+      if (Array.isArray(object)) {
+        object.splice(parseInt(key), 1);
+      } else {
+        delete object[key];
+      }
+      key = result[0];
+      object[key] = result[1];
+    }
+    recursiveWalk(object[key], onNode);
+  });
+};
+
 export const scrubFeatures = (
   features: Record<string, FeatureDefinitionWithProject>,
   capabilities: SDKCapability[],
@@ -53,9 +80,7 @@ export const scrubFeatures = (
     allowedFeatureRuleKeys.push(...prerequisiteKeys);
   }
   if (!capabilities.includes("savedGroupReferences")) {
-    features = JSON.parse(
-      replaceGroupOperationsInString(JSON.stringify(features), idLists)
-    ) as Record<string, FeatureDefinitionWithProject>;
+    recursiveWalk(features, replaceIdLists(idLists));
   }
 
   const newFeatures = cloneDeep(features);
@@ -113,9 +138,7 @@ export const scrubExperiments = (
   const supportsRedirects = capabilities.includes("redirects");
 
   if (!capabilities.includes("savedGroupReferences")) {
-    experiments = JSON.parse(
-      replaceGroupOperationsInString(JSON.stringify(experiments), idLists)
-    ) as AutoExperimentWithProject[];
+    recursiveWalk(experiments, replaceIdLists(idLists));
   }
 
   if (supportsPrerequisites && supportsRedirects) return experiments;
@@ -161,14 +184,12 @@ export const scrubIdLists = (
   return idLists;
 };
 
-const replaceGroupOperationsInString = (s: string, idLists: IdLists) => {
-  Object.entries(idLists).forEach(([id, values]) => {
-    const stringifiedValues = JSON.stringify(values);
-    // Replace all instances of "$(n)ingroup": "groupId" with "$(n)in": "[...group_values]"
-    s = s.replace(
-      new RegExp(`\\$(in|nin)group":\\s*"${id}"`, "g"),
-      (_match, captureGroup) => `${captureGroup}":${stringifiedValues}`
-    );
-  });
-  return s;
+const replaceIdLists: (idLists: IdLists) => NodeModifier = (
+  idLists: IdLists
+) => {
+  return ([key, value]) => {
+    if (key === "$ingroup" || key === "$ningroup") {
+      return [key.replace("group", ""), idLists[value] || []];
+    }
+  };
 };
