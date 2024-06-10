@@ -2948,6 +2948,13 @@ export default abstract class SqlIntegration
           eventColumn: "event_type",
           timestampColumn: "event_time",
           userIdColumn: "user_id",
+          filterColumns: `event_time as timestamp,
+          event_properties:experiment_id as experiment_id,
+          event_properties:variation_id as variation_id,
+          device_family as device,
+          os_name as os,
+          country,
+          paying`,
           anonymousIdColumn: "amplitude_id",
           getMetricTableName: ({ schema }) =>
             this.generateTablePath(
@@ -2972,6 +2979,12 @@ export default abstract class SqlIntegration
           eventColumn: "event_name",
           timestampColumn: "TIMESTAMP_MICROS(event_timestamp)",
           userIdColumn: "user_id",
+          filterColumns: `geo.country as country,
+          traffic_source.source as source,
+          traffic_source.medium as medium,
+          device.category as device,
+          device.web_info.browser as browser,
+          device.operating_system as os`,
           anonymousIdColumn: "user_pseudo_id",
           getMetricTableName: ({ schema }) =>
             this.generateTablePath("events_*", schema),
@@ -3000,6 +3013,19 @@ AND event_name = '${eventName}'`,
           eventColumn: "event",
           timestampColumn: "received_at",
           userIdColumn: "user_id",
+          filterColumns: `
+          (CASE
+            WHEN context_user_agent LIKE '%Mobile%' THEN 'Mobile'
+            ELSE 'Tablet/Desktop' END
+          ) as device,
+          (CASE 
+            WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
+            WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
+            WHEN context_user_agent LIKE '% Edg%' THEN ' Edge' 
+            WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
+            WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
+            ELSE 'Other' END
+          ) as browser`,
           anonymousIdColumn: "anonymous_id",
           displayNameColumn: "event_text",
           getMetricTableName: ({ eventName, schema }) =>
@@ -3073,13 +3099,15 @@ AND event_name = '${eventName}'`,
       anonymousIdColumn,
       getMetricTableName,
       getMetricWhereClause,
+      filterColumns,
     } = this.getSchemaFormatConfig(schemaFormat);
 
     const sqlQuery = `
       SELECT
         ${userIdColumn} as user_id,
         ${anonymousIdColumn} as anonymous_id,
-        ${timestampColumn} as timestamp
+        ${timestampColumn} as timestamp,
+        ${filterColumns}
         FROM ${getMetricTableName({ eventName, schema })}
       ${getMetricWhereClause(eventName)}
 `;
