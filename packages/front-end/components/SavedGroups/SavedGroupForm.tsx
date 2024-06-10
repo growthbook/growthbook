@@ -39,6 +39,7 @@ const SavedGroupForm: FC<{
     null
   );
   const [successText, setSuccessText] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   const form = useForm<CreateSavedGroupProps>({
     defaultValues: {
@@ -88,13 +89,25 @@ const SavedGroupForm: FC<{
           const payload: CreateSavedGroupProps = {
             ...value,
           };
-          await apiCall(`/saved-groups`, {
-            method: "POST",
-            body: JSON.stringify(payload),
-          });
+          setErrorMessage("");
+          await apiCall(
+            `/saved-groups`,
+            {
+              method: "POST",
+              body: JSON.stringify(payload),
+            },
+            (responseData) => {
+              if (responseData.status === 413) {
+                setErrorMessage(
+                  "Cannot import such a large CSV. Try again with a smaller payload"
+                );
+              }
+            }
+          );
         }
         mutateDefinitions({});
       })}
+      error={errorMessage}
     >
       <Field
         label="Group Name"
@@ -208,45 +221,54 @@ const SavedGroupForm: FC<{
           )}
           {importMethod === "values" && (
             <>
-              {rawTextMode ? (
-                <Field
-                  containerClassName="mb-0"
-                  label="Create list of comma separated values"
-                  required
-                  textarea
-                  value={rawText}
-                  onChange={(e) => {
-                    setRawText(e.target.value);
-                    form.setValue(
-                      "values",
-                      e.target.value.split(",").map((val) => val.trim())
-                    );
-                  }}
-                />
+              {(form.watch("values") || []).length > 1000 ? (
+                <p>
+                  There are too many members in this saved group to edit them
+                  directly. Try importing a csv instead.
+                </p>
               ) : (
-                <StringArrayField
-                  containerClassName="mb-0"
-                  label="Create list of values"
-                  value={form.watch("values") || []}
-                  onChange={(values) => {
-                    form.setValue("values", values);
-                    setRawText(values.join(","));
-                  }}
-                  placeholder="Enter some values..."
-                  delimiters={["Enter", "Tab"]}
-                />
+                <>
+                  {rawTextMode ? (
+                    <Field
+                      containerClassName="mb-0"
+                      label="Create list of comma separated values"
+                      required
+                      textarea
+                      value={rawText}
+                      onChange={(e) => {
+                        setRawText(e.target.value);
+                        form.setValue(
+                          "values",
+                          e.target.value.split(",").map((val) => val.trim())
+                        );
+                      }}
+                    />
+                  ) : (
+                    <StringArrayField
+                      containerClassName="mb-0"
+                      label="Create list of values"
+                      value={form.watch("values") || []}
+                      onChange={(values) => {
+                        form.setValue("values", values);
+                        setRawText(values.join(","));
+                      }}
+                      placeholder="Enter some values..."
+                      delimiters={["Enter", "Tab"]}
+                    />
+                  )}
+                  <a
+                    className="d-flex flex-column align-items-end"
+                    href="#"
+                    style={{ fontSize: "0.8em" }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setRawTextMode((prev) => !prev);
+                    }}
+                  >
+                    Switch to {rawTextMode ? "token" : "raw text"} mode
+                  </a>
+                </>
               )}
-              <a
-                className="d-flex flex-column align-items-end"
-                href="#"
-                style={{ fontSize: "0.8em" }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setRawTextMode((prev) => !prev);
-                }}
-              >
-                Switch to {rawTextMode ? "token" : "raw text"} mode
-              </a>
             </>
           )}
         </>
