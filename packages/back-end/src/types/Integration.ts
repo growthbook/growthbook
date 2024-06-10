@@ -241,7 +241,12 @@ export type MetricValueQueryResponseRow = {
   count: number;
   main_sum: number;
   main_sum_squares: number;
+  denominator_cap_value?: number;
+  denominator_sum?: number;
+  denominator_sum_squares?: number;
+  main_denominator_sum_product?: number;
 };
+
 export type MetricValueQueryResponseRows = MetricValueQueryResponseRow[];
 
 export type PastExperimentResponseRows = {
