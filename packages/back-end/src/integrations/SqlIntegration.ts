@@ -76,6 +76,7 @@ import { logger } from "../util/logger";
 import {
   FactFilterInterface,
   FactMetricInterface,
+  FactTableInterface,
   MetricQuantileSettings,
 } from "../../types/fact-table";
 import { applyMetricOverrides } from "../util/integration";
@@ -3203,10 +3204,9 @@ AND event_name = '${eventName}'`,
 
   async getAutoFactTablesToCreate(
     schemaFormat: AutoMetricSchemas,
-    eventNamesWithFactTables: string[],
+    existingFactTables: FactTableInterface[],
     schema?: string
   ): Promise<AutoFactTableTrackedEvent[]> {
-    // Get the events tracked by this data source
     const trackedEvents = await this.getEventsTrackedByDatasourceUpdated(
       schemaFormat,
       schema
@@ -3218,9 +3218,10 @@ AND event_name = '${eventName}'`,
       );
     }
 
-    // process the events for fact tables
     return trackedEvents.map((event) => {
-      const alreadyExists = eventNamesWithFactTables.includes(event.event);
+      const alreadyExists = existingFactTables.some(
+        (factTable) => factTable.eventName === event.event
+      );
       return {
         ...event,
         shouldCreate: alreadyExists ? false : true,

@@ -133,15 +133,9 @@ export const getFactTablesFromTrackedEvents = async (
       datasourceId
     );
 
-    //MKTODO: This could be cleaner
-    const eventNamesWithFactTables: string[] = [];
-    existingFactTables.forEach((factTable) =>
-      eventNamesWithFactTables.push(factTable.eventName)
-    );
-
     const autoFactTablesToCreate: AutoFactTableTrackedEvent[] = await integration.getAutoFactTablesToCreate(
       integration.datasource.settings.schemaFormat,
-      eventNamesWithFactTables,
+      existingFactTables,
       schema
     );
 
