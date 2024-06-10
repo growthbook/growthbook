@@ -38,28 +38,22 @@ const prerequisiteKeys = ["parentConditions"];
 
 // eslint-disable-next-line
 type Node = [string, any];
-type NodeModifier = (node: Node) => Node | undefined;
-
-// Modifies the given object in place by calling onNode on each key/value pair and replacing the
-// existing entry with the key/value pair returned by onNode if one was returned
 // eslint-disable-next-line
-const recursiveWalk = (object: any, onNode: NodeModifier) => {
-  if (typeof object !== "object") {
+export type NodeHandler = (node: Node, object: any) => void;
+
+// Recursively traverses the given object and calls onNode on each key/value pair.
+// If onNode modifies the object in place, it walks the new values as they're inserted, updated, or deleted
+// eslint-disable-next-line
+export const recursiveWalk = (object: any, onNode: NodeHandler) => {
+  // Base case: stop recursion once you hit a primitive or null
+  if (object === null || typeof object !== "object") {
     return;
   }
+  // If currently walking over an object or array, iterate the entries and call onNode before recurring
   Object.entries(object).forEach((node) => {
-    const result = onNode(node);
-    let key = node[0];
-    if (result) {
-      if (Array.isArray(object)) {
-        object.splice(parseInt(key), 1);
-      } else {
-        delete object[key];
-      }
-      key = result[0];
-      object[key] = result[1];
-    }
-    recursiveWalk(object[key], onNode);
+    onNode(node, object);
+    // Recompute the reference for the recursive call as the key may have changed
+    recursiveWalk(object[node[0]], onNode);
   });
 };
 
@@ -80,7 +74,15 @@ export const scrubFeatures = (
     allowedFeatureRuleKeys.push(...prerequisiteKeys);
   }
   if (!capabilities.includes("savedGroupReferences")) {
-    recursiveWalk(features, replaceIdLists(idLists));
+    Object.values(features).forEach((feature) => {
+      if (!feature.rules) {
+        return;
+      }
+      feature.rules.forEach((rule) => {
+        recursiveWalk(rule.condition, replaceIdLists(idLists));
+        recursiveWalk(rule.parentConditions, replaceIdLists(idLists));
+      });
+    });
   }
 
   const newFeatures = cloneDeep(features);
@@ -138,7 +140,13 @@ export const scrubExperiments = (
   const supportsRedirects = capabilities.includes("redirects");
 
   if (!capabilities.includes("savedGroupReferences")) {
-    recursiveWalk(experiments, replaceIdLists(idLists));
+    experiments.forEach((experimentDefinition) => {
+      recursiveWalk(experimentDefinition.condition, replaceIdLists(idLists));
+      recursiveWalk(
+        experimentDefinition.parentConditions,
+        replaceIdLists(idLists)
+      );
+    });
   }
 
   if (supportsPrerequisites && supportsRedirects) return experiments;
@@ -184,12 +192,14 @@ export const scrubIdLists = (
   return idLists;
 };
 
-const replaceIdLists: (idLists: IdLists) => NodeModifier = (
+// Returns a handler which modifies the object in place, replacing saved group IDs with the contents of those groups
+const replaceIdLists: (idLists: IdLists) => NodeHandler = (
   idLists: IdLists
 ) => {
-  return ([key, value]) => {
+  return ([key, value], object) => {
     if (key === "$ingroup" || key === "$ningroup") {
-      return [key.replace("group", ""), idLists[value] || []];
+      object[key.replace("group", "")] = idLists[value] || [];
+      delete object[key];
     }
   };
 };

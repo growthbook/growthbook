@@ -18,12 +18,15 @@ import {
   validateFeatureValue,
 } from "shared/util";
 import {
+  NodeHandler,
+  recursiveWalk,
   scrubExperiments,
   scrubFeatures,
   scrubIdLists,
   SDKCapability,
 } from "shared/sdk-versioning";
 import cloneDeep from "lodash/cloneDeep";
+import pickBy from "lodash/pickBy";
 import {
   ApiReqContext,
   AutoExperimentWithProject,
@@ -336,6 +339,36 @@ export function getIdListsFromGroupMap(groupMap: GroupMap): IdLists {
   ) as IdLists;
 }
 
+// Only produce the id lists which are used by at least one feature or experiment
+export function filterUsedIdLists(
+  idLists: IdLists,
+  features: Record<string, FeatureDefinition>,
+  experimentsDefinitions: AutoExperimentWithProject[]
+) {
+  const usedGroupIds = new Set(["grp_341u57sslws4ggzr"]);
+  const addToUsedGroupIds: NodeHandler = (node) => {
+    if (node[0] === "$ingroup" || node[0] === "$ningroup") {
+      usedGroupIds.add(node[1]);
+    }
+  };
+  Object.values(features).forEach((feature) => {
+    if (!feature.rules) {
+      return;
+    }
+    feature.rules.forEach((rule) => {
+      recursiveWalk(rule.condition, addToUsedGroupIds);
+      recursiveWalk(rule.parentConditions, addToUsedGroupIds);
+    });
+  });
+  experimentsDefinitions.forEach((experimentDefinition) => {
+    recursiveWalk(experimentDefinition.condition, addToUsedGroupIds);
+    recursiveWalk(experimentDefinition.parentConditions, addToUsedGroupIds);
+  });
+  return pickBy(idLists, (_values, savedGroupId) =>
+    usedGroupIds.has(savedGroupId)
+  );
+}
+
 export async function refreshSDKPayloadCache(
   baseContext: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[],
@@ -372,7 +405,6 @@ export async function refreshSDKPayloadCache(
 
   experimentMap = experimentMap || (await getAllPayloadExperiments(context));
   const groupMap = await getSavedGroupMap(context.org);
-  const idLists = getIdListsFromGroupMap(groupMap);
   allFeatures = allFeatures || (await getAllFeatures(context));
   const allVisualExperiments = await getAllVisualExperiments(
     context,
@@ -411,6 +443,12 @@ export async function refreshSDKPayloadCache(
       environment,
       prereqStateCache,
     });
+
+    const idLists = filterUsedIdLists(
+      getIdListsFromGroupMap(groupMap),
+      featureDefinitions,
+      experimentsDefinitions
+    );
 
     promises.push(async () => {
       logger.debug(`Updating SDK Payload for ${context.org.id} ${environment}`);
@@ -686,7 +724,6 @@ export async function getFeatureDefinitions({
   const features = await getAllFeatures(context);
   const groupMap = await getSavedGroupMap(org);
   const experimentMap = await getAllPayloadExperiments(context);
-  const idLists = getIdListsFromGroupMap(groupMap);
 
   const prereqStateCache: Record<
     string,
@@ -719,6 +756,12 @@ export async function getFeatureDefinitions({
     environment,
     prereqStateCache,
   });
+
+  const idLists = filterUsedIdLists(
+    getIdListsFromGroupMap(groupMap),
+    featureDefinitions,
+    experimentsDefinitions
+  );
 
   // Cache in Mongo
   await updateSDKPayload({
