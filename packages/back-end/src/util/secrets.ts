@@ -5,6 +5,21 @@ import { stringToBoolean } from "shared/util";
 import { DEFAULT_METRIC_WINDOW_HOURS } from "shared/constants";
 import { z } from "zod";
 
+// Parses an environment variable as an integer (allowing 0), with a default value in case
+// it's not set or not a valid integer
+function parseEnvInt(
+  envVarValue: string | undefined,
+  defaultValue: number
+): number {
+  if (envVarValue !== undefined) {
+    const parsed = parseInt(envVarValue, 10);
+    if (!isNaN(parsed)) {
+      return parsed;
+    }
+  }
+  return defaultValue;
+}
+
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";
 
@@ -251,3 +266,20 @@ export const USE_PROXY =
   !!process.env.http_proxy ||
   !!process.env.https_proxy ||
   !!process.env.HTTPS_PROXY;
+
+export const AGENDA_DEFAULT_LOCK_LIMIT = parseEnvInt(
+  process.env.AGENDA_DEFAULT_LOCK_LIMIT,
+  5
+);
+
+export const AGENDA_LOCK_LIMIT = parseEnvInt(process.env.AGENDA_LOCK_LIMIT, 5);
+
+export const AGENDA_DEFAULT_CONCURRENCY = parseEnvInt(
+  process.env.AGENDA_DEFAULT_CONCURRENCY,
+  5
+);
+
+export const AGENDA_MAX_CONCURRENCY = parseEnvInt(
+  process.env.AGENDA_MAX_CONCURRENCY,
+  20
+);
