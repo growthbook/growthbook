@@ -265,9 +265,15 @@ export default function AutoGenerateFactTableModal({
       close={() => setShowAutoGenerateFactTableModal(false)}
       submit={submit}
       cta={`Create Fact Table${
-        form.watch("factTablesToCreate").length === 1 ? "" : "s"
+        factTablesToCreate.filter((factTable) => factTable.shouldCreate)
+          .length > 1
+          ? "s"
+          : ""
       }`}
-      ctaEnabled={form.watch("factTablesToCreate").length > 0}
+      ctaEnabled={
+        factTablesToCreate.length > 0 &&
+        factTablesToCreate.some((factTable) => factTable.shouldCreate)
+      }
     >
       <>
         <h4>Generate Fact Tables Automatically</h4>
@@ -280,6 +286,7 @@ export default function AutoGenerateFactTableModal({
           label="Select A Data Source"
           value={selectedDatasource?.id || ""}
           onChange={(datasourceId) => {
+            form.setValue("schema", "");
             form.setValue("datasourceId", datasourceId);
           }}
           options={(datasources || []).map((d) => ({
@@ -353,10 +360,16 @@ export default function AutoGenerateFactTableModal({
         {factTablesToCreate.length > 0 ? (
           <div>
             <p className="alert alert-info">
-              These are the tracked events we found that we can use to
-              automatically generate the following Fact Tables for you. And
-              don&apos;t worry, you can always edit and remove these Fact Tables
-              at anytime after they&apos;re created.{" "}
+              {selectedDatasource?.settings.schemaFormat === "ga4" ? (
+                <>
+                  Given that Google Analytics 4 uses intraday{" "}
+                  <code>events_</code> tables to store events, we recommend
+                  creating a single Fact Table for all events. Metrics can then
+                  be defined with additional filters.
+                </>
+              ) : (
+                "These are the tracked events we found that we can use to automatically generate the following Fact Tables for you. And don't worry, you can always edit and remove these Fact Tables at anytime after they're created."
+              )}{" "}
               <DocLink docSection={"factTables"}>
                 Click here to learn more about GrowthBook Fact Tables.
               </DocLink>

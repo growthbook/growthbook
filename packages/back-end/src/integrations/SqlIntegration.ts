@@ -3247,13 +3247,19 @@ AND event_name = '${eventName}'`,
         );
       }
 
+      const alreadyExists = existingFactTables.some(
+        (factTable) =>
+          factTable.datasource === datasourceId &&
+          factTable.eventName === trackedEventTableName
+      );
+
       return [
         {
           eventName: trackedEventTableName,
           displayName: "events",
           lastTrackedAt: new Date(),
-          shouldCreate: true,
-          alreadyExists: false,
+          shouldCreate: !alreadyExists,
+          alreadyExists,
           count: 1,
           hasUserId: true,
           sql,
