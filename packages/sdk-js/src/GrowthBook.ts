@@ -203,6 +203,9 @@ export class GrowthBook<
       this._ctx.experiments = data.experiments;
       this._updateAllAutoExperiments();
     }
+    if (data.idLists) {
+      this._ctx.idLists = data.idLists;
+    }
     this.ready = true;
     this._render();
   }
@@ -456,6 +459,15 @@ export class GrowthBook<
         )
       );
       delete data.encryptedExperiments;
+    }
+    if (data.encryptedIdLists) {
+      data.idLists = JSON.parse(
+        await decrypt(
+          data.encryptedIdLists,
+          decryptionKey || this._ctx.decryptionKey,
+          subtle
+        )
+      );
     }
     return data;
   }
@@ -963,7 +975,8 @@ export class GrowthBook<
             const evalObj = { value: parentResult.value };
             const evaled = evalCondition(
               evalObj,
-              parentCondition.condition || {}
+              parentCondition.condition || {},
+              this._ctx.idLists || {}
             );
             if (!evaled) {
               // blocking prerequisite eval failed: feature evaluation fails
@@ -1138,7 +1151,11 @@ export class GrowthBook<
   }
 
   private _conditionPasses(condition: ConditionInterface): boolean {
-    return evalCondition(this.getAttributes(), condition);
+    return evalCondition(
+      this.getAttributes(),
+      condition,
+      this._ctx.idLists || {}
+    );
   }
 
   private _isFilteredOut(filters: Filter[]): boolean {
@@ -1308,7 +1325,13 @@ export class GrowthBook<
           }
 
           const evalObj = { value: parentResult.value };
-          if (!evalCondition(evalObj, parentCondition.condition || {})) {
+          if (
+            !evalCondition(
+              evalObj,
+              parentCondition.condition || {},
+              this._ctx.idLists || {}
+            )
+          ) {
             process.env.NODE_ENV !== "production" &&
               this.log("Skip because prerequisite evaluation fails", {
                 id: key,

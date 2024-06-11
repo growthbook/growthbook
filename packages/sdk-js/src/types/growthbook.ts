@@ -235,6 +235,7 @@ export interface Context {
   antiFlicker?: boolean;
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
+  idLists?: IdLists;
 }
 
 export type PrefetchOptions = Pick<
@@ -319,6 +320,8 @@ export type FeatureApiResponse = {
   encryptedFeatures?: string;
   experiments?: AutoExperiment[];
   encryptedExperiments?: string;
+  idLists?: IdLists;
+  encryptedIdLists?: string;
 };
 
 // Alias
@@ -433,3 +436,5 @@ export interface StickyAssignmentsDocument {
   attributeValue: string;
   assignments: StickyAssignments;
 }
+
+export type IdLists = Record<string, string[] | number[]>;
