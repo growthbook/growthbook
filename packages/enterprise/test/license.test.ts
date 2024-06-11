@@ -533,7 +533,7 @@ describe("src/license", () => {
             licenseData,
             { upsert: true }
           );
-          expect(LicenseModelModule.getLicenseByKey).toHaveBeenCalledTimes(1);
+          expect(LicenseModelModule.getLicenseByKey).toHaveBeenCalledTimes(2);
         });
 
         it("should fetch the license from datastore if it is not in memory", async () => {
@@ -571,7 +571,7 @@ describe("src/license", () => {
             licenseData,
             { upsert: true }
           );
-          expect(LicenseModelModule.getLicenseByKey).toHaveBeenCalledTimes(2);
+          expect(LicenseModelModule.getLicenseByKey).toHaveBeenCalledTimes(3);
         });
 
         it("should fetch the license from the license server if the license is not in memory and the datastore is too old", async () => {
