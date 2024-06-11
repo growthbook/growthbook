@@ -54,6 +54,7 @@ import {
   evaluateFeature,
   generateRuleId,
   getFeatureDefinitions,
+  getIdListsFromGroupMap,
   getSavedGroupMap,
 } from "../services/features";
 import { FeatureUsageRecords } from "../../types/realtime";
@@ -1890,6 +1891,7 @@ export async function postFeatureEvaluate(
   }
 
   const groupMap = await getSavedGroupMap(org);
+  const idLists = getIdListsFromGroupMap(groupMap);
   const experimentMap = await getAllPayloadExperiments(context);
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -1898,6 +1900,7 @@ export async function postFeatureEvaluate(
     revision,
     attributes,
     groupMap,
+    idLists,
     experimentMap,
     environments,
     scrubPrerequisites,

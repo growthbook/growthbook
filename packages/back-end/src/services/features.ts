@@ -603,13 +603,19 @@ async function getFeatureDefinitionsResponse({
     ? await encrypt(JSON.stringify(experiments || []), encryptionKey)
     : undefined;
 
+  const encryptedIdLists = await encrypt(
+    JSON.stringify(scrubbedIdLists),
+    encryptionKey
+  );
+
   return {
     features: {},
     ...(includeAutoExperiments && { experiments: [] }),
     dateUpdated,
     encryptedFeatures,
     ...(includeAutoExperiments && { encryptedExperiments }),
-    idLists: scrubbedIdLists,
+    idLists: {},
+    encryptedIdLists: encryptedIdLists,
   };
 }
 
@@ -633,6 +639,7 @@ export type FeatureDefinitionSDKPayload = {
   encryptedFeatures?: string;
   encryptedExperiments?: string;
   idLists?: IdLists;
+  encryptedIdLists?: string;
 };
 
 export async function getFeatureDefinitions({
@@ -804,6 +811,7 @@ export function evaluateFeature({
   attributes,
   environments,
   groupMap,
+  idLists,
   experimentMap,
   revision,
   scrubPrerequisites = true,
@@ -812,6 +820,7 @@ export function evaluateFeature({
   feature: FeatureInterface;
   attributes: ArchetypeAttributeValues;
   groupMap: GroupMap;
+  idLists: IdLists;
   experimentMap: Map<string, ExperimentInterface>;
   environments: Environment[];
   revision: FeatureRevisionInterface;
@@ -882,6 +891,7 @@ export function evaluateFeature({
           features: {
             [feature.id]: definition,
           },
+          idLists: idLists,
           attributes: attributes,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           log: (msg: string, ctx: any) => {
