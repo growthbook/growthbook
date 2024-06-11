@@ -46,7 +46,7 @@ val gb = GBSDKBuilder(
     print("Experiment Id: " + gbExperiment.key)
     print("Variation Id: " + gbExperimentResult.variationId)
   },
-  networkDispatcher = DefaultGBNetworkClient(),
+  networkDispatcher = DefaultGBNetworkDispatcher(),
   encryptionKey = "insert_your_encription_key_if_you_are_using_encryption",
 ).initialize()
 ```
