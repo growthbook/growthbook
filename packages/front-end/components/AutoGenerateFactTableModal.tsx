@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import {
-  AutoFactTableTrackedEvent,
+  AutoFactTableToCreate,
   InformationSchemaInterface,
 } from "@back-end/src/types/Integration";
 import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
@@ -49,7 +49,7 @@ export default function AutoGenerateFactTableModal({
   const form = useForm<{
     datasourceId: string;
     schema: string;
-    factTablesToCreate: AutoFactTableTrackedEvent[];
+    factTablesToCreate: AutoFactTableToCreate[];
   }>({
     defaultValues: {
       datasourceId: datasource?.id || "",
@@ -143,7 +143,7 @@ export default function AutoGenerateFactTableModal({
           newDatasourceForm: true,
         });
         const res = await apiCall<{
-          autoFactTablesToCreate: AutoFactTableTrackedEvent[];
+          autoFactTablesToCreate: AutoFactTableToCreate[];
           message?: string;
         }>(`/fact-tables/tracked-events/${datasourceObj.id}`, {
           method: "POST",

@@ -58,7 +58,7 @@ export type SchemaFormat =
   | "clevertap"
   | "custom";
 
-export type AutoMetricAndFactTableSchemas =
+export type SchemasThatSupportAutoFactTablesAndMetrics =
   | "segment"
   | "rudderstack"
   | "amplitude"

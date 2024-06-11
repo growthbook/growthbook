@@ -306,7 +306,7 @@ export async function getMetricsFromTrackedEvents(
       integration.datasource.id
     );
 
-    const autoMetricsToCreate: AutoMetricTrackedEvent[] = await integration.getAutoMetricsToCreate(
+    const trackedEvents: AutoMetricTrackedEvent[] = await integration.getAutoMetricsToCreate(
       integration.datasource.settings.schemaFormat,
       existingMetrics,
       schema
@@ -314,12 +314,12 @@ export async function getMetricsFromTrackedEvents(
 
     return res.status(200).json({
       status: 200,
-      autoMetricsToCreate,
+      trackedEvents,
     });
   } catch (e) {
     res.status(200).json({
       status: 200,
-      autoMetricsToCreate: [],
+      trackedEvents: [],
       message: e.message,
     });
     return;
