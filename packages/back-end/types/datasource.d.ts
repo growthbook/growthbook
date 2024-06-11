@@ -100,6 +100,7 @@ export interface SchemaFormatConfig {
     schema?: string;
   }) => string;
   getMetricWhereClause: (metricName?: string) => string;
+  getFactTableWhereClause: (metricName?: string) => string;
   getDateLimitClause: (start: Date, end: Date) => string;
   displayNameColumn?: string;
 }
