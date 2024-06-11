@@ -2991,7 +2991,8 @@ export default abstract class SqlIntegration
           eventColumn: "event_name",
           timestampColumn: "TIMESTAMP_MICROS(event_timestamp)",
           userIdColumn: "user_id",
-          filterColumns: `geo.country as country,
+          filterColumns: `event_name,
+          geo.country as country,
           traffic_source.source as source,
           traffic_source.medium as medium,
           device.category as device,
@@ -3222,7 +3223,7 @@ AND event_name = '${eventName}'`,
     datasourceId: string,
     schema?: string
   ): Promise<AutoFactTableTrackedEvent[]> {
-    // GA4 stores all events in a single table
+    // GA4 stores all events in a single table - so we don't need to get all events, just check the events_* tables
     if (schemaFormat === "ga4") {
       const { trackedEventTableName } = this.getSchemaFormatConfig(
         schemaFormat
@@ -3234,9 +3235,8 @@ AND event_name = '${eventName}'`,
         schema
       );
 
-      //MKTODO: Going back and forth on if this is necessary - it helps ensure the ds is setup correctly
-      // but the count is going to be odd since we're running a limit query
-      const testSql = sql + `\nLIMIT 5`;
+      const testSql = sql + `\nLIMIT 1`;
+      // Run the test query to ensure we can actually query the DB
       const { rows: resultRows } = await this.runQuery(
         format(testSql, this.getFormatDialect())
       );
@@ -3254,13 +3254,13 @@ AND event_name = '${eventName}'`,
           lastTrackedAt: new Date(),
           shouldCreate: true,
           alreadyExists: false,
-          count: resultRows.length, // should count only exist on AutoMetricTackedEvent rather than trackedEvent?
+          count: 1,
           hasUserId: true,
           sql,
         },
       ];
     }
-    // otherwise, we need to get all of the trackedEvents in their various tables
+    // for other data sources, we need to get every event table
     const trackedEvents = await this.getEventsTrackedByDatasource(
       schemaFormat,
       schema
