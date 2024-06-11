@@ -235,7 +235,6 @@ export async function putDataSource(
   res: Response
 ) {
   const userId = req.userId;
-  console.log("putDataSource also hit");
 
   if (!userId) {
     res.status(403).json({

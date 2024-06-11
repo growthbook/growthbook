@@ -223,22 +223,19 @@ export type TrackedEventResponseRow = {
   last_tracked_at: Date | BigQueryTimestamp;
 };
 
-export type TrackedEventDataUpdated = {
-  event: string;
+export interface TrackedEventData {
+  eventName: string;
   displayName: string;
   hasUserId: boolean;
   count: number;
   lastTrackedAt: Date;
-};
+}
 
-export type AutoFactTableTrackedEvent = {
-  event: string;
-  displayName: string;
-  lastTrackedAt: Date;
+export interface AutoFactTableTrackedEvent extends TrackedEventData {
   sql: string;
   shouldCreate: boolean;
   alreadyExists: boolean;
-};
+}
 
 export type AutoMetricToCreate = {
   name: string;
@@ -248,14 +245,9 @@ export type AutoMetricToCreate = {
   alreadyExists: boolean;
 };
 
-export type AutoMetricTrackedEvent = {
-  event: string;
-  displayName: string;
-  hasUserId: boolean;
-  lastTrackedAt: Date;
-  count: number;
+export interface AutoMetricTrackedEvent extends TrackedEventData {
   metricsToCreate: AutoMetricToCreate[];
-};
+}
 
 export type MetricValueQueryResponseRow = {
   date: string;
@@ -493,10 +485,11 @@ export interface SourceIntegrationInterface {
   getEventsTrackedByDatasource?: (
     schemaFormat: SchemaFormat,
     schema?: string
-  ) => Promise<TrackedEventDataUpdated[]>;
+  ) => Promise<TrackedEventData[]>;
   getAutoFactTablesToCreate?: (
     schemaFormat: SchemaFormat,
     existingFactTables: FactTableInterface[],
+    datasourceId: string,
     schema?: string
   ) => Promise<AutoFactTableTrackedEvent[]>;
   getAutoMetricsToCreate?: (

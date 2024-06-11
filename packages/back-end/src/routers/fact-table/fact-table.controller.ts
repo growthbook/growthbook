@@ -136,6 +136,7 @@ export const getFactTablesFromTrackedEvents = async (
     const autoFactTablesToCreate: AutoFactTableTrackedEvent[] = await integration.getAutoFactTablesToCreate(
       integration.datasource.settings.schemaFormat,
       existingFactTables,
+      datasourceId,
       schema
     );
 

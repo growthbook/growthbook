@@ -101,7 +101,7 @@ export default function AutoGenerateFactTableModal({
           .filter((table) => table.shouldCreate === true)
           .map((table) => {
             return {
-              name: table.event,
+              name: table.eventName,
               sql: table.sql,
             };
           }),
@@ -375,7 +375,7 @@ export default function AutoGenerateFactTableModal({
                     <tr key={`${table}-${i}`}>
                       <td>
                         <Toggle
-                          id={table.event}
+                          id={table.eventName}
                           disabledMessage="This event has already been used to create a Fact Table"
                           disabled={table.alreadyExists}
                           value={table.shouldCreate}
