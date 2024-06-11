@@ -5,7 +5,7 @@ const env: EnvironmentInitValue = {
   telemetry: "enable",
   cloud: false,
   isMultiOrg: false,
-  allowSelfOrgCreation: true,
+  allowSelfOrgCreation: false,
   showMultiOrgSelfSelector: true,
   appOrigin: "",
   apiHost: "",
