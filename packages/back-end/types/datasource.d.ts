@@ -58,7 +58,11 @@ export type SchemaFormat =
   | "clevertap"
   | "custom";
 
-export type AutoMetricSchemas = "segment" | "rudderstack" | "amplitude" | "ga4";
+export type AutoMetricAndFactTableSchemas =
+  | "segment"
+  | "rudderstack"
+  | "amplitude"
+  | "ga4";
 
 export type SchemaOption = {
   name: string;
@@ -95,7 +99,7 @@ export interface SchemaFormatConfig {
     displayName: string;
     groupBy: string;
   }[];
-  getMetricTableName: (options: {
+  getTrackedEventTablePath: (options: {
     eventName: string;
     schema?: string;
   }) => string;
