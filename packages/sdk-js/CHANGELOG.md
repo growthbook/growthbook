@@ -2,7 +2,9 @@
 
 ## **1.0.1** - June 11, 2024
 
-- Small refactor to avoid circular dependency.
+- Small refactor to avoid circular dependency warning
+- Fix bug preventing multiple logical targeting operators at the same level (`$or`, `$and`, etc.)
+- Fix typings for timeouts (NodeJS.Timeout vs NodeJS.Timer)
 
 ## **1.0.0** - May 1, 2024
 
