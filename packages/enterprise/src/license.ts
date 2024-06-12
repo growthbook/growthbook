@@ -609,6 +609,13 @@ export function verifyAndSetServerLicenseData(license: LicenseInterface) {
   });
 }
 
+function verifyAndSetCachedLicenseData(license: LicenseInterface) {
+  license.usingMongoCache = true;
+  verifyLicenseInterface(license);
+  keyToLicenseData[license.id] = license;
+  keyToCacheDate[license.id] = new Date();
+}
+
 async function getLicenseDataFromServer(
   licenseId: string,
   userLicenseCodes: string[],
@@ -704,78 +711,96 @@ export async function licenseInit(
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
 
-  // When hitting a page for a new license we often make many simulataneous requests
-  // By acquiring a lock we make sure to only call the license server once, the remaining
-  // calls will be able to read from the cache.
-  await lock.acquire(key, async () => {
-    try {
-      // Only refetch the license data if forceRefresh is true
-      // or if the license data is not in the cache
-      // or if the cache date exists and is older than 1 day
+  // Only refetch the license data if forceRefresh is true
+  // or if the license data is not in the cache
+  // or if the cache date exists and is older than 1 minute
+  if (
+    forceRefresh ||
+    !keyToLicenseData[key] ||
+    (keyToCacheDate[key] !== null && keyToCacheDate[key] <= oneMinuteAgo)
+  ) {
+    if (!isAirGappedLicenseKey(key)) {
+      if (!org || !getUserCodesForOrg || !getLicenseMetaData) {
+        throw new Error(
+          "Missing org, getUserCodesForOrg, or getLicenseMetaData for connected license key"
+        );
+      }
+
+      //let license: LicenseInterface;
+      const mongoCache = await getLicenseByKey(key);
+      const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       if (
         forceRefresh ||
-        !keyToLicenseData[key] ||
-        (keyToCacheDate[key] !== null && keyToCacheDate[key] <= oneMinuteAgo)
+        !mongoCache ||
+        !mongoCache.dateUpdated || // If the first call to get the license errors, the cache will be created with no dateUpdated
+        new Date(mongoCache.dateUpdated) < oneWeekAgo
       ) {
-        if (!isAirGappedLicenseKey(key)) {
-          if (!org || !getUserCodesForOrg || !getLicenseMetaData) {
-            throw new Error(
-              "Missing org, getUserCodesForOrg, or getLicenseMetaData for connected license key"
-            );
-          }
+        // It is time to update the license data from the server.
+        // However when hitting a page we often make many simulataneous requests
+        // By acquiring a lock we make sure to only call the license server once, the remaining
+        // calls will be able to read from the cache.
+        await lock.acquire(key, async () => {
+          try {
+            if (
+              !forceRefresh &&
+              keyToLicenseData[key] &&
+              keyToCacheDate[key] > oneMinuteAgo
+            ) {
+              // Another request has already fetched the license data recently
+              return;
+            }
 
-          let license: LicenseInterface;
-          const mongoCache = await getLicenseByKey(key);
-          const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-          if (
-            forceRefresh ||
-            !mongoCache ||
-            !mongoCache.dateUpdated || // If the first call to get the license errors, the cache will be created with no dateUpdated
-            new Date(mongoCache.dateUpdated) < oneWeekAgo
-          ) {
-            license = await updateLicenseFromServer(
-              key,
-              org,
-              getUserCodesForOrg,
-              getLicenseMetaData,
-              mongoCache
-            );
-          } else {
-            // Use the cache
-            license = mongoCache;
-            license.usingMongoCache = true;
-            verifyLicenseInterface(license);
-            keyToLicenseData[key] = license;
-            keyToCacheDate[key] = new Date();
-            if (new Date(mongoCache.dateUpdated) < oneDayAgo) {
-              // But if it is older than a day update it in the background
-              backgroundUpdateLicenseFromServerForTests = updateLicenseFromServer(
+            // Fetch the license data from the cache again in case another request has updated it from a different server
+            const mongoCache = await getLicenseByKey(key);
+            if (
+              forceRefresh ||
+              !mongoCache ||
+              !mongoCache.dateUpdated || // If the first call to get the license errors, the cache will be created with no dateUpdated
+              new Date(mongoCache.dateUpdated) < oneWeekAgo
+            ) {
+              await updateLicenseFromServer(
                 key,
                 org,
                 getUserCodesForOrg,
                 getLicenseMetaData,
                 mongoCache
-              ).catch((e) => {
-                logger.error(
-                  `Failed to update license ${key} in the background: ${e}`
-                );
-              });
+              );
+            } else {
+              // Use the newly created cache
+              verifyAndSetCachedLicenseData(mongoCache);
             }
+          } catch (e) {
+            // Hack to get the stack trace to show the original call to licenseInit
+            // as AsyncLock seems to swallow the top of the stack frame.
+            const tempError = new Error();
+            Error.captureStackTrace(tempError, licenseInit);
+            e.stack += "\n" + tempError.stack?.split("\n").slice(1).join("\n");
+            throw e;
           }
-        } else {
-          // Old style: the key itself has the encrypted license data in it.
-          keyToLicenseData[key] = getVerifiedLicenseData(key);
+        });
+      } else {
+        // Use the cache
+        verifyAndSetCachedLicenseData(mongoCache);
+        if (new Date(mongoCache.dateUpdated) < oneDayAgo) {
+          // But if it is older than a day update it in the background
+          backgroundUpdateLicenseFromServerForTests = updateLicenseFromServer(
+            key,
+            org,
+            getUserCodesForOrg,
+            getLicenseMetaData,
+            mongoCache
+          ).catch((e) => {
+            logger.error(
+              `Failed to update license ${key} in the background: ${e}`
+            );
+          });
         }
       }
-    } catch (e) {
-      // Hack to get the stack trace to show the original call to licenseInit
-      // as AsyncLock seems to swallow the top of the stack frame.
-      const tempError = new Error();
-      Error.captureStackTrace(tempError, licenseInit);
-      e.stack += "\n" + tempError.stack?.split("\n").slice(1).join("\n");
-      throw e;
+    } else {
+      // Old style: the key itself has the encrypted license data in it.
+      keyToLicenseData[key] = getVerifiedLicenseData(key);
     }
-  });
+  }
 
   // If an organization replaces an expired org.licenseKey with an env var
   // for license key that is not expired, use the env var license key instead.
