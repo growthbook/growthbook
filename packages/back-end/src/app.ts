@@ -109,6 +109,7 @@ import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
 import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
+import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
 
 const app = express();
 
@@ -404,8 +405,14 @@ app.get("/metric/:id", metricsController.getMetric);
 app.put("/metric/:id", metricsController.putMetric);
 app.delete("/metric/:id", metricsController.deleteMetric);
 app.get("/metric/:id/usage", metricsController.getMetricUsage);
-app.post("/metric/:id/analysis", metricsController.postMetricAnalysis);
-app.post("/metric/:id/analysis/cancel", metricsController.cancelMetricAnalysis);
+app.post("/metric/:id/analysis", metricsController.postLegacyMetricAnalysis);
+app.post(
+  "/metric/:id/analysis/cancel",
+  metricsController.cancelLegacyMetricAnalysis
+);
+
+// Metric Analyses
+app.use(metricAnalysisRouter);
 
 // Experiments
 app.get("/experiments", experimentsController.getExperiments);

@@ -1,19 +1,18 @@
-import { getValidDateOffsetByUTC } from "shared/dates";
-import { MetricAnalysis, MetricInterface } from "../../types/metric";
+import { MetricAnalysisInterface } from "@back-end/types/metric-analysis";
+import { LegacyMetricAnalysis } from "../../types/metric";
 import { Queries, QueryStatus } from "../../types/query";
-import { getMetricById, updateMetric } from "../models/MetricModel";
 import {
-  MetricValueParams,
-  MetricValueQueryResponseRows,
+  MetricAnalysisParams,
+  MetricAnalysisQueryResponseRows,
   MetricValueResult,
 } from "../types/Integration";
 import { meanVarianceFromSums } from "../util/stats";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export class MetricAnalysisQueryRunner extends QueryRunner<
-  MetricInterface,
-  MetricValueParams,
-  MetricAnalysis
+  MetricAnalysisInterface,
+  MetricAnalysisParams,
+  LegacyMetricAnalysis
 > {
   checkPermissions(): boolean {
     return this.context.permissions.canRunMetricQueries(
@@ -21,69 +20,32 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
     );
   }
 
-  async startQueries(params: MetricValueParams): Promise<Queries> {
+  async startQueries(params: MetricAnalysisParams): Promise<Queries> {
     return [
       await this.startQuery({
-        name: "metric",
-        query: this.integration.getMetricValueQuery(params),
+        name: "metricAnalysis",
+        query: this.integration.getMetricAnalysisQuery(params),
         dependencies: [],
         run: (query, setExternalId) =>
-          this.integration.runMetricValueQuery(query, setExternalId),
-        process: (rows) => processMetricValueQueryResponse(rows),
+          this.integration.runMetricAnalysisQuery(query, setExternalId),
+        process: (rows) => processMetricAnalysisQueryResponse(rows),
         queryType: "metricAnalysis",
       }),
     ];
   }
-  async runAnalysis(queryMap: QueryMap): Promise<MetricAnalysis> {
-    const metricData = (queryMap.get("metric")
-      ?.result as MetricValueResult) || {
-      users: 0,
-      count: 0,
-      mean: 0,
-      stddev: 0,
-    };
-
-    let total = (metricData.count || 0) * (metricData.mean || 0);
-    let count = metricData.count || 0;
-    const dates: { d: Date; v: number; s: number; c: number }[] = [];
-
-    // Calculate total from dates
-    if (metricData.dates) {
-      total = 0;
-      count = 0;
-
-      metricData.dates.forEach((d) => {
-        const mean = d.mean;
-        const stddev = d.stddev;
-
-        const dateTotal = (d.count || 0) * (d.mean || 0);
-        total += dateTotal;
-        count += d.count || 0;
-        dates.push({
-          d: getValidDateOffsetByUTC(d.date),
-          v: mean,
-          c: d.count || 0,
-          s: stddev,
-        });
-      });
-    }
-
-    const averageBase = count;
-    const average = averageBase > 0 ? total / averageBase : 0;
-
-    return {
-      createdAt: new Date(),
-      average,
-      dates,
-      segment: this.model.segment || "",
-    };
+  async runAnalysis(queryMap: QueryMap): Promise<LegacyMetricAnalysis> {
+    console.log(queryMap);
+    throw new Error("runAnalysis");
   }
-  async getLatestModel(): Promise<MetricInterface> {
-    const model = await getMetricById(this.context, this.model.id, true);
-    if (!model) throw new Error("Could not find metric");
+  async getLatestModel(): Promise<MetricAnalysisInterface> {
+    const model = await this.context.models.metricAnalysis.getById(this.model.id);
+    if (!model) {
+      throw new Error("Metric analysis not found");
+    }
     return model;
   }
   async updateModel({
+    status,
     queries,
     runStarted,
     result,
@@ -92,27 +54,34 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
     status: QueryStatus;
     queries: Queries;
     runStarted?: Date | undefined;
-    result?: MetricAnalysis | undefined;
+    result?: LegacyMetricAnalysis | undefined;
     error?: string | undefined;
-  }): Promise<MetricInterface> {
-    const updates: Partial<MetricInterface> = {
+  }): Promise<MetricAnalysisInterface> {
+    const updates: Partial<MetricAnalysisInterface> = {
       queries,
-      ...(runStarted ? { runStarted } : {}),
-      ...(result ? { analysis: result } : {}),
-      analysisError: result ? "" : error,
-    };
+      runStarted,
+      error,
+      ...result,
+      status:
+        status === "running"
+          ? "running"
+          : status === "failed"
+          ? "error"
+          : "success",
+    }
 
-    await updateMetric(this.context, this.model, updates);
-
-    return {
-      ...this.model,
-      ...updates,
-    };
+    const latest = await this.getLatestModel();
+    const updated = await this.context.models.metricAnalysis.update(
+      latest,
+      updates
+    );
+    console.log(updated)
+    return updated
   }
 }
 
-export function processMetricValueQueryResponse(
-  rows: MetricValueQueryResponseRows
+export function processMetricAnalysisQueryResponse(
+  rows: MetricAnalysisQueryResponseRows
 ): MetricValueResult {
   const ret: MetricValueResult = { count: 0, mean: 0, stddev: 0 };
 

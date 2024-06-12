@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
 import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
-import { ColumnRef, FactTableInterface } from "back-end/types/fact-table";
+import { ColumnRef, FactMetricInterface, FactTableInterface } from "back-end/types/fact-table";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { quantileMetricType } from "shared/experiments";
 import {
@@ -33,6 +33,11 @@ import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
+import RunQueriesButton from "@/components/Queries/RunQueriesButton";
+import { CreateMetricAnalysisProps, MetricAnalysisInterface } from "@back-end/types/metric-analysis";
+import { datetime } from "shared/dates";
+import useApi from "@/hooks/useApi";
+import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -219,6 +224,13 @@ export default function FactMetricPage() {
     );
   }
 
+  const { data, error, mutate } = useApi<{
+    metricAnalysis: MetricAnalysisInterface;
+  }>(`/metric-analysis/metric/${factMetric.id}`);
+
+  const metricAnalysis = data?.metricAnalysis;
+  const hasQueries = (metricAnalysis?.queries ?? []).length > 0;
+
   const canEdit =
     permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
     !factMetric.managedBy;
@@ -234,6 +246,12 @@ export default function FactMetricPage() {
     );
   }
 
+  const datasource = factMetric.datasource
+    ? getDatasourceById(factMetric.datasource)
+    : null;
+
+  const canRunMetricQuery =
+    datasource && permissionsUtil.canRunMetricQueries(datasource);
   return (
     <div className="pagecontents container-fluid">
       {editOpen && (
@@ -523,10 +541,66 @@ export default function FactMetricPage() {
             </div>
           </div>
 
-          <div className="alert alert-info">
-            Fact Metrics are brand new and are somewhat limited in functionality
-            right now. We have a lot planned here, so stay tuned!
-          </div>
+          {!!datasource && (
+            <div>
+              <div className="row mb-1 align-items-center">
+                <div className="col-auto">
+                  <h3 className="d-inline-block mb-0">Metric Analysis</h3>
+                </div>
+                <div style={{ flex: 1 }} />
+
+              {hasQueries && (
+                        <div className="row my-3">
+                          <div className="col-auto">
+                            <ViewAsyncQueriesButton
+                              queries={metricAnalysis?.queries.map((q) => q.query) ?? []}
+                              color={metricAnalysis?.status === "error" ? "danger" : "info"}
+                              error={metricAnalysis?.error}
+                            />
+                          </div>
+                        </div>
+                      )}
+                <div className="col-auto">
+                  {canRunMetricQuery && (
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        try {
+                          const from = new Date();
+                          from.setDate(from.getDate() - 900);
+                          const to = new Date();
+                          to.setDate(to.getDate() + 1);
+
+                          const data: CreateMetricAnalysisProps = {
+                            id: factMetric.id,
+                            dimensions: [],
+                          startDate: datetime(from),
+                            endDate: datetime(to),
+                          }
+                          await apiCall(`/metric-analysis`, {
+                            method: "POST",
+                            body: JSON.stringify(data),
+                          });
+                          mutate();
+                        } catch (e) {
+                          console.error(e);
+                        }
+                      }}
+                    >
+                      <RunQueriesButton
+                        icon="refresh"
+                        cta={"Run Analysis"}
+                        mutate={mutate}
+                        model={metricAnalysis ?? { queries: [], runStarted: new Date() }}
+                        cancelEndpoint={`/metric-analysis/${metricAnalysis?.id}/cancel`}
+                        color="outline-primary"
+                      />
+                    </form>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         <div className="col-12 col-md-4">
           <div className="appbox p-3" style={{ marginTop: "7px" }}>

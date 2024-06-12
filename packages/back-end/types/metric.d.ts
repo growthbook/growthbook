@@ -19,7 +19,7 @@ export interface MetricStats {
   mean: number;
 }
 
-export interface MetricAnalysis {
+export interface LegacyMetricAnalysis {
   createdAt: Date;
   segment?: string;
   average: number;
@@ -81,7 +81,7 @@ export interface MetricInterface {
   // metric analysis fields
   queries: Queries;
   runStarted: Date | null;
-  analysis?: MetricAnalysis;
+  analysis?: LegacyMetricAnalysis;
   analysisError?: string;
 
   // Query Builder Props (alternative to sql)

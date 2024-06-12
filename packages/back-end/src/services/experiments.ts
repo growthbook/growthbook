@@ -45,6 +45,7 @@ import {
 import {
   getMetricById,
   getMetricMap,
+  getMetricsByIds,
   insertMetric,
 } from "../models/MetricModel";
 import { checkSrm, sumSquaresFromStats } from "../util/stats";
@@ -96,7 +97,7 @@ import {
   updateExperimentValidator,
 } from "../validators/openapi";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
+import { LegacyMetricAnalysisQueryRunner } from "../queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
 import { FactTableMap } from "../models/FactTableModel";
@@ -144,6 +145,24 @@ export async function getExperimentMetricById(
   return getMetricById(context, metricId);
 }
 
+export async function getExperimentMetricsByIds(
+  context: Context,
+  metricIds: string[]
+): Promise<ExperimentMetricInterface[]> {
+  const factMetricIds: string[] = [];
+  const nonFactMetricIds: string[] = [];
+  metricIds.forEach((id) => {
+    if (isFactMetricId(id)) {
+      factMetricIds.push(id);
+    } else {
+      nonFactMetricIds.push(id);
+    }
+  });
+  const factMetrics = await context.models.factMetrics.getByIds(factMetricIds);
+  const metrics = await getMetricsByIds(context, nonFactMetricIds);
+  return [...factMetrics, ...metrics];
+}
+
 export async function refreshMetric(
   context: Context,
   metric: MetricInterface,
@@ -175,7 +194,7 @@ export async function refreshMetric(
     const to = new Date();
     to.setDate(to.getDate() + 1);
 
-    const queryRunner = new MetricAnalysisQueryRunner(
+    const queryRunner = new LegacyMetricAnalysisQueryRunner(
       context,
       metric,
       integration

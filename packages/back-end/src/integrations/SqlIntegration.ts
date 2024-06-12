@@ -55,6 +55,9 @@ import {
   ExperimentFactMetricsQueryParams,
   ExperimentFactMetricsQueryResponse,
   FactMetricData,
+  MetricAnalysisParams,
+  MetricAnalysisQueryResponse,
+  MetricAnalysisQueryResponseRow,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
@@ -548,6 +551,165 @@ export default abstract class SqlIntegration
       `,
       this.getFormatDialect()
     );
+  }
+
+  getMetricAnalysisQuery(params: MetricAnalysisParams): string {
+    const { metric, settings } = params;
+    // TODO
+    // const { unitDimensions } = this.processDimensions(
+    //   params.settings.dimensions,
+    //   settings,
+    //   activationMetric
+    // );
+
+    // Get any required identity join queries
+    const idTypeObjects = [
+      getUserIdTypes(metric, params.factTableMap),
+      // population id type
+      //...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
+      //settings.segment ? [settings.segment.userIdType || "user_id"] : [],
+    ];
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
+      idTypeObjects,
+      settings.startDate,
+      settings.endDate
+      // TODO default id type?
+    );
+    // Get rough date filter for metrics to improve performance
+    const metricStart = this.getMetricStart(
+      settings.startDate,
+      this.getMetricMinDelay([params.metric]),
+      0
+    );
+    const metricEnd = this.getMetricEnd([params.metric], settings.endDate);
+
+    const aggregate = this.getAggregateMetricColumn(params.metric);
+
+    // TODO query is broken if segment has template variables
+    return format(
+      `-- ${metric.name} Metric Analysis
+      WITH
+        ${idJoinSQL}
+        __metric as (${this.getMetricCTE({
+          metric: params.metric,
+          baseIdType,
+          idJoinMap,
+          startDate: metricStart,
+          endDate: metricEnd,
+          // Facts tables are not supported for this query yet
+          factTableMap: params.factTableMap,
+        })})
+        , __filteredMetrics as (
+          -- 
+          SELECT
+            m.${baseIdType} as ${baseIdType},
+            m.value as value,
+            m.timestamp as timestamp
+            -- DIMENSION
+          FROM
+            __metric m
+        )
+        , __userMetricDaily as (
+          -- Get aggregated metric per user by day
+          SELECT
+            ${this.dateTrunc("m.timestamp")} as date,
+            -- TODO dimension
+            ${aggregate} as value
+          FROM
+            __distinctUsers
+          GROUP BY
+            ${this.dateTrunc("m.timestamp")},
+            m.${baseIdType}
+        )
+        , __userMetricOverall as (
+          -- Re-sum across all users (NOTE DOES NOT WORK FOR CERTAIN AGGREGATIONS!)
+          SELECT
+            SUM(value) as value
+          FROM
+            __userMetricDaily
+          GROUP BY
+            m.${baseIdType}
+        )
+        , __statisticsDaily AS (
+          SELECT
+            date,
+            MAX(${this.castToString("'date'")}) AS data_type,
+            COUNT(*) as count,
+            COALESCE(SUM(value), 0) as main_sum,
+            COALESCE(SUM(POWER(value, 2)), 0) as main_sum_squares,
+            MIN(value) as value_p0,
+            MAX(value) as value_p100,
+            NULL as value_p90,
+            NULL as value_p95,
+            NULL as value_p99
+          FROM __userMetricDaily
+          GROUP BY date
+        )
+        , __statisticsOverall AS (
+          SELECT
+            NULL AS date,
+            MAX(${this.castToString("'overall'")}) AS data_type,
+            COUNT(*) as count,
+            COALESCE(SUM(value), 0) as main_sum,
+            COALESCE(SUM(POWER(value, 2)), 0) as main_sum_squares,
+            MIN(value) as value_p0,
+            MAX(value) as value_p100,
+            ${this.approxQuantile("value", 0.9)} as value_p90,
+            ${this.approxQuantile("value", 0.95)} as value_p95,
+            ${this.approxQuantile("value", 0.99)} as value_p99
+          FROM __userMetricOverall
+        )
+        -- TODO capped
+        SELECT
+            *
+        FROM __statisticsDaily
+        UNION ALL
+        SELECT
+            *
+        FROM __statisticsOverall
+      `,
+      this.getFormatDialect()
+    );
+  }
+
+  async runMetricAnalysisQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<MetricAnalysisQueryResponse> {
+    const { rows, statistics } = await this.runQuery(query, setExternalId);
+
+    return {
+      rows: rows.map((row) => {
+        const {
+          date,
+          data_type,
+          count,
+          main_sum,
+          main_sum_squares,
+          value_p0,
+          value_p100,
+          value_p90,
+          value_p95,
+          value_p99,
+        } = row;
+
+        const ret: MetricAnalysisQueryResponseRow = {
+          date: date ? this.convertDate(date).toISOString() : "",
+          data_type: data_type ?? "",
+          count: parseFloat(count) || 0,
+          main_sum: parseFloat(main_sum) || 0,
+          main_sum_squares: parseFloat(main_sum_squares) || 0,
+
+          value_p0: parseFloat(value_p0) || 0,
+          value_p100: parseFloat(value_p100) || 0,
+          ...(parseFloat(value_p90) && { value_p90: parseFloat(value_p90) }),
+          ...(parseFloat(value_p95) && { value_p90: parseFloat(value_p95) }),
+          ...(parseFloat(value_p99) && { value_p90: parseFloat(value_p99) }),
+        };
+        return ret;
+      }),
+      statistics: statistics,
+    };
   }
 
   getQuantileBoundsFromQueryResponse(

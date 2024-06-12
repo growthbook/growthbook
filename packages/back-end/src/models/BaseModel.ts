@@ -246,6 +246,12 @@ export abstract class BaseModel<
       keys.datasource = datasource;
     }
 
+    // Metric
+    const metric = this.detectForeignKey(doc, ["metric", "metricId"]);
+    if (metric) {
+      keys.metric = metric;
+    }
+
     return keys;
   }
 

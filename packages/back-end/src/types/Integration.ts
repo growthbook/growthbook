@@ -1,5 +1,6 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { MetricAnalysisSettings } from "@back-end/types/metric-analysis";
 import { ReqContext } from "../../types/organization";
 import {
   DataSourceInterface,
@@ -182,6 +183,19 @@ export type MetricValueParams = {
   includeByDate?: boolean;
 };
 
+export type MetricAnalysisParams = {
+  settings: MetricAnalysisSettings;
+  metric: FactMetricInterface;
+  factTableMap: FactTableMap;
+};
+
+export type MetricAnalysisResult = {
+  count: number;
+  stddev: number;
+  mean: number;
+  dates?: MetricValueResultDate[];
+};
+
 export type MetricValueResultDate = {
   date: string;
   count: number;
@@ -241,13 +255,25 @@ export type MetricValueQueryResponseRow = {
   count: number;
   main_sum: number;
   main_sum_squares: number;
-  denominator_cap_value?: number;
-  denominator_sum?: number;
-  denominator_sum_squares?: number;
-  main_denominator_sum_product?: number;
 };
 
 export type MetricValueQueryResponseRows = MetricValueQueryResponseRow[];
+
+export type MetricAnalysisQueryResponseRow = {
+  date: string;
+  data_type: string;
+  count: number;
+  main_sum: number;
+  main_sum_squares: number;
+
+  value_p0: number;
+  value_p100: number;
+  value_p90?: number;
+  value_p95?: number;
+  value_p99?: number;
+};
+
+export type MetricAnalysisQueryResponseRows = MetricAnalysisQueryResponseRow[];
 
 export type PastExperimentResponseRows = {
   exposure_query: string;
@@ -313,6 +339,7 @@ export type QueryResponse<Rows = Record<string, any>[]> = {
 };
 
 export type MetricValueQueryResponse = QueryResponse<MetricValueQueryResponseRows>;
+export type MetricAnalysisQueryResponse = QueryResponse<MetricAnalysisQueryResponseRows>;
 export type PastExperimentQueryResponse = QueryResponse<PastExperimentResponseRows>;
 export type ExperimentMetricQueryResponse = QueryResponse<ExperimentMetricQueryResponseRows>;
 export type ExperimentFactMetricsQueryResponse = QueryResponse<ExperimentFactMetricsQueryResponseRows>;
@@ -435,6 +462,11 @@ export interface SourceIntegrationInterface {
     sql: string,
     timestampCols?: string[]
   ): Promise<TestQueryResult>;
+  getMetricAnalysisQuery(params: MetricAnalysisParams): string;
+  runMetricAnalysisQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<MetricAnalysisQueryResponse>;
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentFactMetricsQuery?(
     params: ExperimentFactMetricsQueryParams

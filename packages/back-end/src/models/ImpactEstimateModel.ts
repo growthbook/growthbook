@@ -6,7 +6,7 @@ import { getMetricById } from "../models/MetricModel";
 import { getIntegrationFromDatasourceId } from "../services/datasource";
 import { SegmentInterface } from "../../types/segment";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
-import { processMetricValueQueryResponse } from "../queryRunners/MetricAnalysisQueryRunner";
+import { processMetricValueQueryResponse } from "../queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ReqContext } from "../../types/organization";
 import { ApiReqContext } from "../../types/api";
 import { findSegmentById } from "./SegmentModel";
