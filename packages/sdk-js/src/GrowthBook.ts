@@ -1,5 +1,5 @@
 import mutate, { DeclarativeMutation } from "dom-mutator";
-import type {
+import {
   ApiHost,
   Attributes,
   AutoExperiment,
@@ -31,6 +31,7 @@ import type {
   InitOptions,
   InitResponse,
   InitSyncOptions,
+  PrefetchOptions,
 } from "./types/growthbook";
 import type { ConditionInterface } from "./types/mongrule";
 import {
@@ -1944,4 +1945,18 @@ export class GrowthBook<
       changed,
     };
   }
+}
+
+export async function prefetchPayload(options: PrefetchOptions) {
+  // Create a temporary instance, just to fetch the payload
+  const instance = new GrowthBook(options);
+
+  await refreshFeatures({
+    instance,
+    skipCache: options.skipCache,
+    allowStale: false,
+    backgroundSync: options.streaming,
+  });
+
+  instance.destroy();
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## **1.0.1** - June 11, 2024
+
+- Small refactor to avoid circular dependency.
+
 ## **1.0.0** - May 1, 2024
 
 - New `init` and `initSync` functions as a replacement for `loadFeatures`.
