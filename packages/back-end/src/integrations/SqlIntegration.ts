@@ -3225,7 +3225,7 @@ AND event_name = '${eventName}'`,
     datasourceId: string,
     schema?: string
   ): Promise<AutoFactTableToCreate[]> {
-    // GA4 stores all events in a single table - so we don't need to get all events, just check the events_* tables
+    // GA4 stores all events in on the events_* table(s) - so we don't need to get a list of all events
     if (schemaFormat === "ga4") {
       const { trackedEventTableName } = this.getSchemaFormatConfig(
         schemaFormat

@@ -156,6 +156,23 @@ export async function createFactTable(
   return factTable;
 }
 
+export async function createFactTables(
+  factTables: Omit<FactTableInterface, "id" | "dateCreated" | "dateUpdated">[]
+) {
+  const factTablesToCreate: FactTableInterface[] = factTables.map(
+    (factTable) => {
+      return {
+        ...factTable,
+        id: uniqid("ftb_"),
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+      };
+    }
+  );
+
+  return (await FactTableModel.insertMany(factTablesToCreate)).map(toInterface);
+}
+
 export async function updateFactTable(
   context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,

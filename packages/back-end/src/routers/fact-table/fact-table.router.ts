@@ -45,7 +45,7 @@ router.post(
     body: z
       .object({
         datasourceId: z.string(),
-        factTablesToCreate: z.array(
+        factTables: z.array(
           z.object({ name: z.string(), sql: z.string() }).strict()
         ),
       })

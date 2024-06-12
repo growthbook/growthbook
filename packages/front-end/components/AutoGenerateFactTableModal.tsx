@@ -97,7 +97,7 @@ export default function AutoGenerateFactTableModal({
       method: "POST",
       body: JSON.stringify({
         datasourceId: selectedDatasource.id,
-        factTablesToCreate: data.factTablesToCreate
+        factTables: data.factTablesToCreate
           .filter((table) => table.shouldCreate === true)
           .map((table) => {
             return {
