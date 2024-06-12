@@ -8,6 +8,7 @@ import { pick, sortBy } from "lodash";
 import AsyncLock from "async-lock";
 import { stringToBoolean } from "shared/util";
 import { ProxyAgent } from "proxy-agent";
+import cloneDeep from "lodash/cloneDeep";
 import { getLicenseByKey, LicenseModel } from "./models/licenseModel";
 
 export const LICENSE_SERVER_URL =
@@ -630,12 +631,15 @@ async function getLicenseDataFromServer(
 
 async function updateLicenseFromServer(
   licenseKey: string,
-  userLicenseCodes: string[],
-  metaData: LicenseMetaData,
+  org: MinimalOrganization,
+  getUserCodesForOrg: (org: MinimalOrganization) => Promise<string[]>,
+  getLicenseMetaData: () => Promise<LicenseMetaData>,
   mongoCache: LicenseInterface | null
 ) {
   let license: LicenseInterface;
   try {
+    const userLicenseCodes = await getUserCodesForOrg(org);
+    const metaData = await getLicenseMetaData();
     license = await getLicenseDataFromServer(
       licenseKey,
       userLicenseCodes,
@@ -686,12 +690,12 @@ const keyToCacheDate: Record<string, Date> = {};
 export let backgroundUpdateLicenseFromServerForTests: Promise<void | LicenseInterface>;
 
 export async function licenseInit(
-  licenseKey?: string,
-  userLicenseCodes?: string[],
-  metaData?: LicenseMetaData,
+  org?: MinimalOrganization,
+  getUserCodesForOrg?: (org: MinimalOrganization) => Promise<string[]>,
+  getLicenseMetaData?: () => Promise<LicenseMetaData>,
   forceRefresh = false
 ): Promise<Partial<LicenseInterface> | undefined> {
-  const key = licenseKey || process.env.LICENSE_KEY || null;
+  const key = org?.licenseKey || process.env.LICENSE_KEY || null;
 
   if (!key) {
     return;
@@ -714,9 +718,9 @@ export async function licenseInit(
         (keyToCacheDate[key] !== null && keyToCacheDate[key] <= oneMinuteAgo)
       ) {
         if (!isAirGappedLicenseKey(key)) {
-          if (!userLicenseCodes || !metaData) {
+          if (!org || !getUserCodesForOrg || !getLicenseMetaData) {
             throw new Error(
-              "Missing userLicenseCodes or metaData for license key"
+              "Missing org, getUserCodesForOrg, or getLicenseMetaData for connected license key"
             );
           }
 
@@ -731,8 +735,9 @@ export async function licenseInit(
           ) {
             license = await updateLicenseFromServer(
               key,
-              userLicenseCodes,
-              metaData,
+              org,
+              getUserCodesForOrg,
+              getLicenseMetaData,
               mongoCache
             );
           } else {
@@ -746,8 +751,9 @@ export async function licenseInit(
               // But if it is older than a day update it in the background
               backgroundUpdateLicenseFromServerForTests = updateLicenseFromServer(
                 key,
-                userLicenseCodes,
-                metaData,
+                org,
+                getUserCodesForOrg,
+                getLicenseMetaData,
                 mongoCache
               ).catch((e) => {
                 logger.error(
@@ -778,10 +784,15 @@ export async function licenseInit(
     key != process.env.LICENSE_KEY &&
     new Date(keyToLicenseData[key]?.dateExpires || "") < new Date()
   ) {
+    const orgWithEnvVarAsLicenseKey = cloneDeep(org);
+    if (orgWithEnvVarAsLicenseKey) {
+      orgWithEnvVarAsLicenseKey.licenseKey = process.env.LICENSE_KEY;
+    }
+
     const result = await licenseInit(
-      process.env.LICENSE_KEY,
-      userLicenseCodes,
-      metaData,
+      orgWithEnvVarAsLicenseKey,
+      getUserCodesForOrg,
+      getLicenseMetaData,
       forceRefresh
     );
     if (result) {
