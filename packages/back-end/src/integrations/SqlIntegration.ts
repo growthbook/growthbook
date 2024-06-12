@@ -187,7 +187,6 @@ export default abstract class SqlIntegration
     return false;
   }
 
-  //MKTODO: Can I make this and the method above a single, reusable method?
   isAutoGeneratingFactTablesSupported(): boolean {
     const supportedEventTrackers: Record<
       SchemasThatSupportAutoFactTablesAndMetrics,
