@@ -295,7 +295,7 @@ export async function getSavedGroupMap(
   });
 
   // Get "SavedGroups" for an organization and build a map of the SavedGroup's Id to the actual array of IDs, respecting the type.
-  const allGroups = await getAllSavedGroups(organization.id);
+  const allGroups = await getAllSavedGroups(organization.id, false);
 
   function getGroupValues(
     values: string[],
@@ -489,6 +489,7 @@ export type FeatureDefinitionsResponseArgs = {
   projects: string[];
   capabilities: SDKCapability[];
   idLists: IdLists;
+  savedGroupAttributeKeys?: Record<string, string>;
 };
 async function getFeatureDefinitionsResponse({
   features,
@@ -504,6 +505,7 @@ async function getFeatureDefinitionsResponse({
   projects,
   capabilities,
   idLists,
+  savedGroupAttributeKeys,
 }: FeatureDefinitionsResponseArgs) {
   if (!includeDraftExperiments) {
     experiments = experiments?.filter((e) => e.status !== "draft") || [];
@@ -565,6 +567,15 @@ async function getFeatureDefinitionsResponse({
       experiments = applyExperimentHashing(
         experiments,
         attributes,
+        secureAttributeSalt
+      );
+    }
+
+    if (savedGroupAttributeKeys) {
+      idLists = applyIdListHashing(
+        idLists,
+        attributes,
+        savedGroupAttributeKeys,
         secureAttributeSalt
       );
     }
@@ -672,11 +683,20 @@ export async function getFeatureDefinitions({
       }
       let attributes: SDKAttributeSchema | undefined = undefined;
       let secureAttributeSalt: string | undefined = undefined;
+      let savedGroupAttributeKeys:
+        | Record<string, string>
+        | undefined = undefined;
       if (hashSecureAttributes) {
         const org = await getOrganizationById(context.org.id);
         if (org && orgHasPremiumFeature(org, "hash-secure-attributes")) {
           secureAttributeSalt = org.settings?.secureAttributeSalt;
           attributes = org.settings?.attributeSchema;
+          savedGroupAttributeKeys = Object.fromEntries(
+            (await getAllSavedGroups(org.id)).map((savedGroup) => [
+              savedGroup.id,
+              savedGroup.attributeKey || "",
+            ])
+          );
         }
       }
       const { features, experiments, idLists } = cached.contents;
@@ -694,6 +714,7 @@ export async function getFeatureDefinitions({
         projects: projects || [],
         capabilities,
         idLists: idLists || {},
+        savedGroupAttributeKeys,
       });
     }
   } catch (e) {
@@ -703,10 +724,17 @@ export async function getFeatureDefinitions({
   const org = await getOrganizationById(context.org.id);
   let attributes: SDKAttributeSchema | undefined = undefined;
   let secureAttributeSalt: string | undefined = undefined;
+  let savedGroupAttributeKeys: Record<string, string> | undefined = undefined;
   if (hashSecureAttributes) {
     if (org && orgHasPremiumFeature(org, "hash-secure-attributes")) {
       secureAttributeSalt = org?.settings?.secureAttributeSalt;
       attributes = org.settings?.attributeSchema;
+      savedGroupAttributeKeys = Object.fromEntries(
+        (await getAllSavedGroups(org.id)).map((savedGroup) => [
+          savedGroup.id,
+          savedGroup.attributeKey || "",
+        ])
+      );
     }
   }
   if (!org) {
@@ -724,6 +752,7 @@ export async function getFeatureDefinitions({
       projects: projects || [],
       capabilities,
       idLists: {},
+      savedGroupAttributeKeys: {},
     });
   }
 
@@ -803,6 +832,7 @@ export async function getFeatureDefinitions({
     projects: projects || [],
     capabilities,
     idLists,
+    savedGroupAttributeKeys,
   });
 }
 
@@ -1165,6 +1195,34 @@ export function applyExperimentHashing(
   });
 }
 
+// Specific hashing entrypoint for idList values
+export function applyIdListHashing(
+  idLists: IdLists,
+  attributes: SDKAttributeSchema,
+  savedGroupAttributeKeys: Record<string, string>,
+  salt: string
+): IdLists {
+  return Object.fromEntries(
+    Object.entries(idLists).map(([savedGroupId, savedGroupMembers]) => {
+      const attribute = attributes.find(
+        (attr) => attr.property === savedGroupAttributeKeys[savedGroupId]
+      );
+      return attribute
+        ? [
+            savedGroupId,
+            hashStrings({
+              obj: savedGroupMembers,
+              salt,
+              attributes,
+              attribute,
+              doHash: true,
+            }),
+          ]
+        : [savedGroupId, savedGroupMembers];
+    })
+  );
+}
+
 interface hashStringsArgs {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   obj: any;
@@ -1212,7 +1270,8 @@ any {
             attribute?.datatype &&
             ["secureString", "secureString[]"].includes(
               attribute?.datatype ?? ""
-            )
+            ) &&
+            !["$ingroup", "$ningroup"].includes(key)
           )
         : doHash;
 

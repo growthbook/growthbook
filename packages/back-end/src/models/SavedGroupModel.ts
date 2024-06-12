@@ -72,11 +72,23 @@ export async function createSavedGroup(
 }
 
 export async function getAllSavedGroups(
-  organization: string
+  organization: string,
+  // By default, don't return the values as they are likely to be extremely large
+  omitValues: boolean = true
 ): Promise<SavedGroupInterface[]> {
-  const savedGroups: SavedGroupDocument[] = await SavedGroupModel.find({
-    organization,
-  });
+  let savedGroups: SavedGroupDocument[] = [];
+  if (omitValues) {
+    savedGroups = await SavedGroupModel.find(
+      {
+        organization,
+      },
+      { values: 0 }
+    );
+  } else {
+    savedGroups = await SavedGroupModel.find({
+      organization,
+    });
+  }
   return savedGroups.map(toInterface);
 }
 
