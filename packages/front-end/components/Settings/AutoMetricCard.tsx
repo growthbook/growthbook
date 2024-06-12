@@ -10,7 +10,7 @@ import SQLInputField from "@/components/SQLInputField";
 type Props = {
   event: AutoMetricTrackedEvent;
   trackedEvents: AutoMetricTrackedEvent[];
-  setValue: (value: AutoMetricTrackedEvent[]) => void; //MKTODO: This is kinda weird
+  setTrackedEvents: (events: AutoMetricTrackedEvent[]) => void;
   dataSourceId: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   form: any;
@@ -20,7 +20,7 @@ type Props = {
 export default function AutoMetricCard({
   event,
   trackedEvents,
-  setValue,
+  setTrackedEvents,
   dataSourceId,
   form,
   i,
@@ -80,7 +80,7 @@ export default function AutoMetricCard({
                   updates[i].metricsToCreate[
                     binomialIndex
                   ].shouldCreate = value;
-                  setValue(updates);
+                  setTrackedEvents(updates);
                 }}
               />
               <Button
@@ -116,7 +116,7 @@ export default function AutoMetricCard({
                 setValue={(value) => {
                   const updates = cloneDeep(trackedEvents);
                   updates[i].metricsToCreate[countIndex].shouldCreate = value;
-                  setValue(updates);
+                  setTrackedEvents(updates);
                 }}
               />
               <Button

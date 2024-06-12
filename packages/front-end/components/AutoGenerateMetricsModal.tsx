@@ -81,11 +81,10 @@ export default function AutoGenerateMetricsModal({
       : "Schema";
 
   const submit = form.handleSubmit(async (data) => {
-    const autoMetricsToCreate: AutoMetricToCreate[] = []; //MKTODO: Type this
+    const autoMetricsToCreate: AutoMetricToCreate[] = [];
 
-    data.trackedEvents.forEach((metricToCreate) => {
-      //MKTODO: Rename the first metricsToCreate - should this instead be eventsTracked or trackedEvents?
-      metricToCreate.metricsToCreate.forEach((metric) => {
+    data.trackedEvents.forEach((trackedEvent) => {
+      trackedEvent.metricsToCreate.forEach((metric) => {
         if (metric.shouldCreate) {
           autoMetricsToCreate.push(metric);
         }
@@ -440,7 +439,7 @@ export default function AutoGenerateMetricsModal({
                       event={event}
                       form={form}
                       trackedEvents={trackedEvents}
-                      setValue={(value: AutoMetricTrackedEvent[]) =>
+                      setTrackedEvents={(value: AutoMetricTrackedEvent[]) =>
                         form.setValue("trackedEvents", value)
                       }
                       i={i}
