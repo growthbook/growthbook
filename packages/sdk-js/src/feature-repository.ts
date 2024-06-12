@@ -283,11 +283,11 @@ function promiseTimeout<T>(
 ): Promise<T | null> {
   return new Promise((resolve) => {
     let resolved = false;
-    let timer: unknown;
+    let timer: NodeJS.Timeout | undefined;
     const finish = (data?: T) => {
       if (resolved) return;
       resolved = true;
-      timer && clearTimeout(timer as NodeJS.Timer);
+      timer && clearTimeout(timer);
       resolve(data || null);
     };
 
