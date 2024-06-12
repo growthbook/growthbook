@@ -1,5 +1,5 @@
 import mutate, { DeclarativeMutation } from "dom-mutator";
-import {
+import type {
   ApiHost,
   Attributes,
   AutoExperiment,
