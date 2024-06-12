@@ -506,8 +506,8 @@ export const postFactMetric = async (
   req: AuthRequest<unknown>,
   res: Response<{ status: 200; factMetric: FactMetricInterface }>
 ) => {
-  const data = req.body;
   const context = getContextFromReq(req);
+  const data = context.models.factMetrics.createValidator.parse(req.body);
 
   const factMetric = await context.models.factMetrics.create(data);
 
@@ -521,8 +521,8 @@ export const putFactMetric = async (
   req: AuthRequest<unknown, { id: string }>,
   res: Response<{ status: 200 }>
 ) => {
-  const data = req.body;
   const context = getContextFromReq(req);
+  const data = context.models.factMetrics.updateValidator.parse(req.body);
 
   await context.models.factMetrics.updateById(req.params.id, data);
 
