@@ -6,7 +6,6 @@ import {
   createFactTable,
   toFactTableApiInterface,
 } from "../../models/FactTableModel";
-import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { addTags } from "../../models/TagModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { postFactTableValidator } from "../../validators/openapi";
@@ -37,7 +36,7 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
 
     // Validate projects
     if (req.body.projects?.length) {
-      const projects = await findAllProjectsByOrganization(req.context);
+      const projects = await req.context.models.projects.getAll();
       const projectIds = new Set(projects.map((p) => p.id));
       for (const projectId of req.body.projects) {
         if (!projectIds.has(projectId)) {

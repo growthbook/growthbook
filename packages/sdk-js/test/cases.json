@@ -2775,6 +2775,59 @@
         "version": "1.2.3.4"
       },
       true
+    ],
+    [
+      "$or pass but second condition fail",
+      {
+        "$or": [{ "foo": 1 }, { "bar": 1 }],
+        "baz": 2
+      },
+      {
+        "foo": 1,
+        "bar": 2,
+        "baz": 1
+      },
+      false
+    ],
+    [
+      "$or and second condition both pass",
+      {
+        "$or": [{ "foo": 1 }, { "bar": 1 }],
+        "baz": 2
+      },
+      {
+        "foo": 1,
+        "bar": 2,
+        "baz": 2
+      },
+      true
+    ],
+    [
+      "$and condition pass but $or fail",
+      {
+        "$and": [{ "foo": 1 }, { "bar": 1 }],
+        "$or": [{ "baz": 1 }, { "empty": 1 }]
+      },
+      {
+        "foo": 1,
+        "bar": 1,
+        "baz": 2
+      },
+      false
+    ],
+    [
+      "$and and $or both pass",
+      {
+        "$and": [{ "foo": 1 }, { "bar": 1 }],
+        "$or": [{ "baz": 1 }, { "empty": 1 }]
+      },
+      {
+        "foo": 1,
+        "bar": 1,
+        "baz": 2,
+        "empty": 1
+      },
+      true
     ]
   ],
   "hash": [

@@ -3,6 +3,7 @@ import { Stripe } from "stripe";
 import {
   LicenseServerError,
   getLicense,
+  licenseInit,
   postCreateBillingSessionToLicenseServer,
   postNewProSubscriptionToLicenseServer,
   postNewProTrialSubscriptionToLicenseServer,
@@ -28,7 +29,10 @@ import { SubscriptionQuote } from "../../types/organization";
 import { sendStripeTrialWillEndEmail } from "../services/email";
 import { logger } from "../util/logger";
 import { updateOrganization } from "../models/OrganizationModel";
-import { initializeLicenseForOrg } from "../services/licenseData";
+import {
+  getLicenseMetaData,
+  getUserCodesForOrg,
+} from "../services/licenseData";
 
 function withLicenseServerErrorHandling<T>(
   fn: (req: AuthRequest<T>, res: Response) => Promise<void>
@@ -79,7 +83,7 @@ export const postNewProTrialSubscription = withLicenseServerErrorHandling(
       if (org.licenseKey !== result.license.id) {
         throw new Error("Your organization already has a license key.");
       }
-      await initializeLicenseForOrg(org, true);
+      await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
     }
 
     res.status(200).json(result);
@@ -228,7 +232,7 @@ export const postSubscriptionSuccess = withLicenseServerErrorHandling(
     await updateOrganization(org.id, { licenseKey: result.id });
 
     // update license info from the license server as it will have changed.
-    await initializeLicenseForOrg(req.organization, true);
+    await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 
     res.status(200).json({
       status: 200,

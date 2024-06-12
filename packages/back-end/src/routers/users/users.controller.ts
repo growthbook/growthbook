@@ -1,11 +1,12 @@
 import { Response } from "express";
+import { OrganizationInterface } from "@back-end/types/organization";
 import { AuthRequest } from "../../types/AuthRequest";
 import { usingOpenId } from "../../services/auth";
 import { createUser, getUserByEmail } from "../../services/users";
 import { findOrganizationsByMemberId } from "../../models/OrganizationModel";
 import {
   addMemberFromSSOConnection,
-  findVerifiedOrgForNewUser,
+  findVerifiedOrgsForNewUser,
   getContextFromReq,
   validateLoginMethod,
 } from "../../services/organizations";
@@ -213,7 +214,7 @@ export async function postUnwatchItem(
   }
 }
 
-export async function getRecommendedOrg(req: AuthRequest, res: Response) {
+export async function getRecommendedOrgs(req: AuthRequest, res: Response) {
   const { email } = req;
   const user = await getUserByEmail(email);
   if (!user?.verified) {
@@ -221,18 +222,26 @@ export async function getRecommendedOrg(req: AuthRequest, res: Response) {
       message: "no verified user found",
     });
   }
-  const org = await findVerifiedOrgForNewUser(email);
-  if (org) {
-    const currentUserIsPending = !!org?.pendingMembers?.find(
-      (m) => m.id === user.id
-    );
+  const orgs = await findVerifiedOrgsForNewUser(email);
+
+  // Filter out orgs that the user is already a member of
+  const joinableOrgs = orgs?.filter((org) => {
+    return !org.members.find((m) => m.id === user.id);
+  });
+
+  if (joinableOrgs) {
     return res.status(200).json({
-      organization: {
-        id: org.id,
-        name: org.name,
-        members: org?.members?.length || 0,
-        currentUserIsPending,
-      },
+      organizations: joinableOrgs.map((org: OrganizationInterface) => {
+        const currentUserIsPending = !!org?.pendingMembers?.find(
+          (m) => m.id === user.id
+        );
+        return {
+          id: org.id,
+          name: org.name,
+          members: org?.members?.length || 0,
+          currentUserIsPending,
+        };
+      }),
     });
   }
   res.status(200).json({

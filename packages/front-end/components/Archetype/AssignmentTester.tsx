@@ -14,7 +14,7 @@ import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Toggle from "@/components/Forms/Toggle";
-import { useIncrementer } from "@/hooks/useIncrementer";
+import { useArchetype } from "@/hooks/useArchetype";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import styles from "./AssignmentTester.module.scss";
 
@@ -26,11 +26,6 @@ export interface Props {
 export default function AssignmentTester({ feature, version }: Props) {
   const [open, setOpen] = useState(false);
   const [formValues, setFormValues] = useState({});
-  const [data, setData] = useState<{
-    status: number;
-    archetype: ArchetypeInterface[];
-    featureResults: Record<string, FeatureTestResult[]>;
-  } | null>(null);
   const [results, setResults] = useState<null | FeatureTestResult[]>(null);
   const [expandResults, setExpandResults] = useState<number[]>([]);
   const [
@@ -40,6 +35,14 @@ export default function AssignmentTester({ feature, version }: Props) {
   const [skipRulesWithPrerequisites, setSkipRulesWithPrerequisites] = useState(
     false
   );
+
+  const { data, mutate: mutateData } = useArchetype({
+    feature,
+    version,
+    skipRulesWithPrerequisites,
+  });
+
+  const { apiCall } = useAuth();
 
   const hasPrerequisites = useMemo(() => {
     if (feature?.prerequisites?.length) return true;
@@ -51,32 +54,6 @@ export default function AssignmentTester({ feature, version }: Props) {
       return true;
     return false;
   }, [feature]);
-
-  const [archetypeKey, forceArchetypeRefetch] = useIncrementer();
-  const { apiCall } = useAuth();
-
-  useEffect(() => {
-    apiCall<{
-      status: number;
-      archetype: ArchetypeInterface[];
-      featureResults: Record<string, FeatureTestResult[]>;
-    }>(
-      `/archetype/eval/${feature.id}/${version}?skipRulesWithPrerequisites=${
-        skipRulesWithPrerequisites ? 1 : 0
-      }`
-    )
-      .then((data) => {
-        setData(data);
-      })
-      .catch((e) => console.error(e));
-  }, [
-    formValues,
-    apiCall,
-    feature,
-    version,
-    skipRulesWithPrerequisites,
-    archetypeKey,
-  ]);
 
   const { hasCommercialFeature } = useUser();
   const hasArchetypeAccess = hasCommercialFeature("archetypes");
@@ -310,8 +287,7 @@ export default function AssignmentTester({ feature, version }: Props) {
             feature={feature}
             archetype={data.archetype}
             featureResults={data.featureResults}
-            onChange={forceArchetypeRefetch}
-            key={archetypeKey}
+            onChange={() => mutateData()}
           />
         )}
       </div>
@@ -398,7 +374,7 @@ export default function AssignmentTester({ feature, version }: Props) {
           {hasArchetypeAccess ? (
             <ArchetypeAttributesModal
               close={async () => {
-                forceArchetypeRefetch();
+                mutateData();
                 setOpenArchetypeModal(null);
               }}
               initialValues={openArchetypeModal}

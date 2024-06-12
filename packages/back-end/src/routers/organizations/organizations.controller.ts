@@ -7,6 +7,7 @@ import {
   getEffectiveAccountPlan,
   getLicense,
   getLicenseError,
+  licenseInit,
 } from "enterprise";
 import { experimentHasLinkedChanges } from "shared/util";
 import {
@@ -32,7 +33,7 @@ import {
   addMemberToOrg,
   addPendingMemberToOrg,
   expandOrgMembers,
-  findVerifiedOrgForNewUser,
+  findVerifiedOrgsForNewUser,
   getContextFromReq,
   getInviteUrl,
   getNumberOfUniqueMembersAndInvites,
@@ -93,7 +94,6 @@ import {
   removeCustomRole,
   addGetStartedChecklistItem,
 } from "../../models/OrganizationModel";
-import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { ConfigFile } from "../../init/config";
 import { ExperimentRule, NamespaceValue } from "../../../types/feature";
 import { usingOpenId } from "../../services/auth";
@@ -124,7 +124,10 @@ import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { TeamInterface } from "../../../types/team";
 import { fireSdkWebhook } from "../../jobs/sdkWebhooks";
-import { initializeLicenseForOrg } from "../../services/licenseData";
+import {
+  getLicenseMetaData,
+  getUserCodesForOrg,
+} from "../../services/licenseData";
 import { findSDKConnectionsByIds } from "../../models/SdkConnectionModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
@@ -151,7 +154,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     findSegmentsByOrganization(orgId),
     getAllTags(orgId),
     getAllSavedGroups(orgId),
-    findAllProjectsByOrganization(context),
+    context.models.projects.getAll(),
     getAllFactTablesForOrganization(context),
     context.models.factMetrics.getAll(),
   ]);
@@ -391,9 +394,14 @@ export async function putMember(
     throw new Error("User is not verified");
   }
 
-  // ensure org matches calculated verified org
-  const organization = await findVerifiedOrgForNewUser(req.email);
-  if (!organization || organization.id !== orgId) {
+  // ensure org matches one of the calculated verified org
+  const organizations = await findVerifiedOrgsForNewUser(req.email);
+  if (!organizations) {
+    throw new Error("Invalid orgId");
+  }
+
+  const organization = organizations.find((o) => o.id === orgId);
+  if (!organization) {
     throw new Error("Invalid orgId");
   }
 
@@ -660,7 +668,11 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     license = getLicense(licenseKey || process.env.LICENSE_KEY);
     if (!license || (license.organizationId && license.organizationId !== id)) {
       try {
-        license = await initializeLicenseForOrg(org);
+        license = await licenseInit(
+          org,
+          getUserCodesForOrg,
+          getLicenseMetaData
+        );
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error("setting license failed", e);
@@ -1934,7 +1946,7 @@ export async function setLicenseKey(
   }
 
   org.licenseKey = licenseKey;
-  await initializeLicenseForOrg(org, true);
+  await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 }
 
 export async function putLicenseKey(
