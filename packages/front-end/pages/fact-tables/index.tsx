@@ -21,7 +21,6 @@ import ProjectBadges from "@/components/ProjectBadges";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import AutoGenerateFactTableModal from "@/components/AutoGenerateFactTableModal";
 
 export default function FactTablesPage() {
   const {
@@ -29,7 +28,6 @@ export default function FactTablesPage() {
     getDatasourceById,
     project,
     factMetrics,
-    mutateDefinitions,
   } = useDefinitions();
 
   const router = useRouter();
@@ -39,7 +37,6 @@ export default function FactTablesPage() {
   const [aboutOpen, setAboutOpen] = useLocalStorage("aboutFactTables", true);
 
   const [createFactOpen, setCreateFactOpen] = useState(false);
-  const [discoverFactOpen, setDiscoverFactOpen] = useState(false);
 
   const factMetricCounts: Record<string, number> = {};
   factMetrics.forEach((m) => {
@@ -105,13 +102,6 @@ export default function FactTablesPage() {
     <div className="pagecontents container-fluid">
       {createFactOpen && (
         <FactTableModal close={() => setCreateFactOpen(false)} />
-      )}
-      {discoverFactOpen && (
-        <AutoGenerateFactTableModal
-          source="fact-tables-index-page"
-          setShowAutoGenerateFactTableModal={setDiscoverFactOpen}
-          mutate={mutateDefinitions}
-        />
       )}
       <PageHead breadcrumb={[{ display: "Fact Tables" }]} />
       <h1>
@@ -222,17 +212,6 @@ export default function FactTablesPage() {
                   }`
             }
           >
-            <button
-              className="btn btn-outline-info mr-2"
-              onClick={(e) => {
-                e.preventDefault();
-                if (!canCreate) return;
-                setDiscoverFactOpen(true);
-              }}
-              disabled={!canCreate}
-            >
-              <GBAddCircle /> <strong>Discover Fact Tables</strong>
-            </button>
             <button
               className="btn btn-primary"
               onClick={(e) => {

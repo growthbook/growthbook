@@ -1,16 +1,16 @@
 import { ago } from "shared/dates";
 import { cloneDeep } from "lodash";
 import { useState } from "react";
-import { AutoMetricTrackedEvent } from "@back-end/src/types/Integration";
+import { TrackedEventData } from "@back-end/src/types/Integration";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Toggle from "@/components/Forms/Toggle";
 import Button from "@/components/Button";
 import SQLInputField from "@/components/SQLInputField";
 
 type Props = {
-  event: AutoMetricTrackedEvent;
-  trackedEvents: AutoMetricTrackedEvent[];
-  setValue: (value: AutoMetricTrackedEvent[]) => void; //MKTODO: This is kinda weird
+  event: TrackedEventData;
+  setTrackedEvents: (events: TrackedEventData[]) => void;
+  trackedEvents: TrackedEventData[];
   dataSourceId: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   form: any;
@@ -19,8 +19,8 @@ type Props = {
 
 export default function AutoMetricCard({
   event,
+  setTrackedEvents,
   trackedEvents,
-  setValue,
   dataSourceId,
   form,
   i,
@@ -65,22 +65,20 @@ export default function AutoMetricCard({
                 value={
                   event.metricsToCreate[binomialIndex].shouldCreate || false
                 }
-                disabled={
-                  event.metricsToCreate[binomialIndex].alreadyExists || false
-                }
+                disabled={event.metricsToCreate[binomialIndex].exists || false}
                 disabledMessage="This metric has already been created."
                 style={
-                  event.metricsToCreate[binomialIndex].alreadyExists
+                  event.metricsToCreate[binomialIndex].exists
                     ? { opacity: 0.5 }
                     : {}
                 }
                 id={`${event}-${event.metricsToCreate[binomialIndex].name}`}
                 setValue={(value) => {
-                  const updates = cloneDeep(trackedEvents);
-                  updates[i].metricsToCreate[
+                  const updatedTrackedEvents = cloneDeep(trackedEvents);
+                  updatedTrackedEvents[i].metricsToCreate[
                     binomialIndex
                   ].shouldCreate = value;
-                  setValue(updates);
+                  setTrackedEvents(updatedTrackedEvents);
                 }}
               />
               <Button
@@ -104,19 +102,19 @@ export default function AutoMetricCard({
               <Toggle
                 value={event.metricsToCreate[countIndex].shouldCreate || false}
                 id={`${event}-${event.metricsToCreate[countIndex].name}`}
-                disabled={
-                  event.metricsToCreate[countIndex].alreadyExists || false
-                }
+                disabled={event.metricsToCreate[countIndex].exists || false}
                 disabledMessage="This metric has already been created."
                 style={
-                  event.metricsToCreate[countIndex].alreadyExists
+                  event.metricsToCreate[countIndex].exists
                     ? { opacity: 0.5 }
                     : {}
                 }
                 setValue={(value) => {
-                  const updates = cloneDeep(trackedEvents);
-                  updates[i].metricsToCreate[countIndex].shouldCreate = value;
-                  setValue(updates);
+                  const updatedTrackedEvents = cloneDeep(trackedEvents);
+                  updatedTrackedEvents[i].metricsToCreate[
+                    countIndex
+                  ].shouldCreate = value;
+                  setTrackedEvents(updatedTrackedEvents);
                 }}
               />
               <Button
