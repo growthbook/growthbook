@@ -256,7 +256,7 @@ export function validatePasswordFormat(password?: string): string {
   return password;
 }
 
-async function checkNewInstallation() {
+export async function isNewInstallation() {
   const doc = await hasOrganization();
   if (doc) {
     return false;
@@ -268,17 +268,6 @@ async function checkNewInstallation() {
   }
 
   return true;
-}
-
-let newInstallationPromise: Promise<boolean>;
-export function isNewInstallation() {
-  if (!newInstallationPromise) {
-    newInstallationPromise = checkNewInstallation();
-  }
-  return newInstallationPromise;
-}
-export function markInstalled() {
-  newInstallationPromise = new Promise((resolve) => resolve(false));
 }
 
 export function usingOpenId() {

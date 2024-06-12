@@ -1,4 +1,4 @@
-export const DEFAULT_STATS_ENGINE = "bayesian";
+export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 
 export const DEFAULT_P_VALUE_THRESHOLD = 0.05;
 
@@ -11,6 +11,9 @@ export const DEFAULT_METRIC_CAPPING = "";
 export const DEFAULT_METRIC_CAPPING_VALUE = 0;
 export const DEFAULT_WIN_RISK_THRESHOLD = 0.0025;
 export const DEFAULT_LOSE_RISK_THRESHOLD = 0.0125;
+
+// Bayesian prior
+export const DEFAULT_PROPER_PRIOR_STDDEV = 0.3;
 
 // Regression Adjustment (CUPED):
 export const DEFAULT_REGRESSION_ADJUSTMENT_ENABLED = false;

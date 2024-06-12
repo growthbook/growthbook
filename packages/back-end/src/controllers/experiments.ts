@@ -1,12 +1,11 @@
 import { Response } from "express";
-
 import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { getAffectedEnvsForExperiment } from "shared/util";
-import { getAllMetricRegressionAdjustmentStatuses } from "shared/experiments";
+import { getAffectedEnvsForExperiment, isDefined } from "shared/util";
+import { getAllMetricSettingsForSnapshot } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
@@ -21,7 +20,7 @@ import {
   getExperimentMetricById,
   getLinkedFeatureInfo,
 } from "../services/experiments";
-import { MetricInterface, MetricStats } from "../../types/metric";
+import { MetricStats } from "../../types/metric";
 import {
   createExperiment,
   deleteExperimentByIdForOrganization,
@@ -83,10 +82,6 @@ import {
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { ApiReqContext, PrivateApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
-import {
-  findAllProjectsByOrganization,
-  findProjectById,
-} from "../models/ProjectModel";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "../queryRunners/PastExperimentsQueryRunner";
 import {
@@ -96,11 +91,7 @@ import {
 import { getExperimentWatchers, upsertWatch } from "../models/WatchModel";
 import { getFactTableMap } from "../models/FactTableModel";
 import { OrganizationSettings, ReqContext } from "../../types/organization";
-import {
-  createURLRedirect,
-  findURLRedirectsByExperiment,
-  syncURLRedirectsWithVariations,
-} from "../models/UrlRedirectModel";
+import { CreateURLRedirectProps } from "../../types/url-redirect";
 import { logger } from "../util/logger";
 
 export async function getExperiments(
@@ -137,7 +128,7 @@ export async function getExperimentsFrequencyMonth(
     project = req.query.project;
   }
 
-  const allProjects = await findAllProjectsByOrganization(context);
+  const allProjects = await context.models.projects.getAll();
   const { num } = req.params;
   const experiments = await getAllExperiments(context, project);
 
@@ -285,9 +276,8 @@ export async function getExperiment(
     org.id
   );
 
-  const urlRedirects = await findURLRedirectsByExperiment(
-    experiment.id,
-    org.id
+  const urlRedirects = await context.models.urlRedirects.findByExperiment(
+    experiment.id
   );
 
   const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
@@ -591,18 +581,17 @@ export async function postExperiments(
         });
       }
 
-      const urlRedirects = await findURLRedirectsByExperiment(
-        req.query.originalId,
-        org.id
+      const urlRedirects = await context.models.urlRedirects.findByExperiment(
+        req.query.originalId
       );
       for (const urlRedirect of urlRedirects) {
-        await createURLRedirect({
-          experiment,
+        const props: CreateURLRedirectProps = {
+          experiment: experiment.id,
           destinationURLs: urlRedirect.destinationURLs,
-          context,
           persistQueryString: urlRedirect.persistQueryString,
           urlPattern: urlRedirect.urlPattern,
-        });
+        };
+        await context.models.urlRedirects.create(props);
       }
     }
 
@@ -887,18 +876,16 @@ export async function postExperiment(
       );
     }
 
-    const urlRedirects = await findURLRedirectsByExperiment(
-      experiment.id,
-      org.id
+    const urlRedirects = await context.models.urlRedirects.findByExperiment(
+      experiment.id
     );
     if (urlRedirects.length) {
       await Promise.all(
         urlRedirects.map((urlRedirect) =>
-          syncURLRedirectsWithVariations({
+          context.models.urlRedirects.syncURLRedirectsWithVariations(
             urlRedirect,
-            experiment: updated,
-            context,
-          })
+            updated
+          )
         )
       );
     }
@@ -1791,7 +1778,7 @@ async function createExperimentSnapshot({
 }) {
   let project = null;
   if (experiment.project) {
-    project = await findProjectById(context, experiment.project);
+    project = await context.models.projects.getById(experiment.project);
   }
 
   const { org } = context;
@@ -1819,16 +1806,15 @@ async function createExperimentSnapshot({
     await Promise.all(
       denominatorMetricIds.map((m) => getMetricById(context, m))
     )
-  ).filter(Boolean) as MetricInterface[];
+  ).filter(isDefined);
 
   const {
-    metricRegressionAdjustmentStatuses,
+    settingsForSnapshotMetrics,
     regressionAdjustmentEnabled,
-  } = getAllMetricRegressionAdjustmentStatuses({
+  } = getAllMetricSettingsForSnapshot({
     allExperimentMetrics,
     denominatorMetrics,
     orgSettings,
-    statsEngine,
     experimentRegressionAdjustmentEnabled:
       experiment.regressionAdjustmentEnabled,
     experimentMetricOverrides: experiment.metricOverrides,
@@ -1857,8 +1843,7 @@ async function createExperimentSnapshot({
       analysisSettings,
       experiment
     ),
-    metricRegressionAdjustmentStatuses:
-      metricRegressionAdjustmentStatuses || [],
+    settingsForSnapshotMetrics,
     metricMap,
     factTableMap,
   });
@@ -1911,7 +1896,7 @@ export async function postSnapshot(
 
     let project = null;
     if (experiment.project) {
-      project = await findProjectById(context, experiment.project);
+      project = await context.models.projects.getById(experiment.project);
     }
     const { settings } = getScopedSettings({
       organization: org,
@@ -1919,6 +1904,7 @@ export async function postSnapshot(
       experiment,
     });
     const statsEngine = settings.statsEngine.value;
+    const metricDefaults = settings.metricDefaults.value;
 
     const analysisSettings = getDefaultExperimentAnalysisSettings(
       statsEngine,
@@ -1936,6 +1922,7 @@ export async function postSnapshot(
         phaseIndex: phase,
         users,
         metrics,
+        orgPriorSettings: metricDefaults.priorSettings,
         analysisSettings,
         metricMap,
         context,

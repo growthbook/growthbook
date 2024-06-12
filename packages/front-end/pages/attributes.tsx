@@ -32,6 +32,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
           <span className="badge badge-secondary ml-2">archived</span>
         )}
       </td>
+      <td className="text-gray">{v.description}</td>
       <td
         className="text-gray"
         style={{ maxWidth: "20vw", wordWrap: "break-word" }}
@@ -137,7 +138,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
                         setModalData("");
                       }}
                     >
-                      <GBAddCircle /> Add Attribute
+                      <span
+                        style={{ position: "relative", top: "-1px" }}
+                        className="mr-2"
+                      >
+                        <GBAddCircle />
+                      </span>
+                      Add Attribute
                     </button>
                   </div>
                 )}
@@ -153,6 +160,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
             <thead>
               <tr>
                 <th>Attribute</th>
+                <th>Description</th>
                 <th>Data Type</th>
                 <th>Projects</th>
                 <th>

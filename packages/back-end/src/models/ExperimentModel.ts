@@ -42,7 +42,6 @@ import {
   VisualChangesetModel,
 } from "./VisualChangesetModel";
 import { getFeaturesByIds } from "./FeatureModel";
-import { findURLRedirects } from "./UrlRedirectModel";
 
 type FindOrganizationOptions = {
   experimentId: string;
@@ -92,6 +91,10 @@ const experimentSchema = new mongoose.Schema({
       delayHours: Number,
       winRisk: Number,
       loseRisk: Number,
+      properPriorOverride: Boolean,
+      properPriorEnabled: Boolean,
+      properPriorMean: Number,
+      properPriorStdDev: Number,
       regressionAdjustmentOverride: Boolean,
       regressionAdjustmentEnabled: Boolean,
       regressionAdjustmentDays: Number,
@@ -334,7 +337,7 @@ export async function createExperiment({
   if (!data.trackingKey) {
     // Try to generate a unique tracking key based on the experiment name
     let n = 1;
-    let found = null;
+    let found: null | string = null;
     while (n < 10 && !found) {
       const key = generateTrackingKey(data.name || data.id || "", n);
       if (!(await getExperimentByTrackingKey(context, key))) {
@@ -636,6 +639,8 @@ export async function deleteExperimentSegment(
       oldExperiment: previous,
       newExperiment: current,
       bypassWebhooks: true,
+    }).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on experiment update");
     });
   });
 }
@@ -705,6 +710,13 @@ const logExperimentCreated = async (
 ): Promise<string | undefined> => {
   const { org: organization } = context;
   const apiExperiment = await toExperimentApiInterface(context, experiment);
+
+  // If experiment is part of the SDK payload, it affects all environments
+  // Otherwise, it doesn't affect any
+  const changedEnvs = includeExperimentInPayload(experiment)
+    ? getEnvironmentIdsFromOrg(context.org)
+    : [];
+
   const payload: ExperimentCreatedNotificationEvent = {
     object: "experiment",
     event: "experiment.created",
@@ -712,6 +724,10 @@ const logExperimentCreated = async (
     data: {
       current: apiExperiment,
     },
+    projects: [apiExperiment.project],
+    tags: apiExperiment.tags,
+    environments: changedEnvs,
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(organization.id, payload);
@@ -748,6 +764,13 @@ const logExperimentUpdated = async ({
     currentApiExperimentPromise,
   ]);
 
+  // If experiment is part of the SDK payload, it affects all environments
+  // Otherwise, it doesn't affect any
+  const hasPayloadChanges = hasChangesForSDKPayloadRefresh(previous, current);
+  const changedEnvs = hasPayloadChanges
+    ? getEnvironmentIdsFromOrg(context.org)
+    : [];
+
   const payload: ExperimentUpdatedNotificationEvent = {
     object: "experiment",
     event: "experiment.updated",
@@ -756,6 +779,14 @@ const logExperimentUpdated = async ({
       previous: previousApiExperiment,
       current: currentApiExperiment,
     },
+    projects: Array.from(
+      new Set([previousApiExperiment.project, currentApiExperiment.project])
+    ),
+    tags: Array.from(
+      new Set([...previousApiExperiment.tags, ...currentApiExperiment.tags])
+    ),
+    environments: changedEnvs,
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(context.org.id, payload);
@@ -904,14 +935,16 @@ export async function removeMetricFromExperiments(
   });
 
   // Log all the changes
-  each(oldExperiments, async (changeSet) => {
+  each(oldExperiments, (changeSet) => {
     const { previous, current } = changeSet;
     if (current && previous) {
-      await onExperimentUpdate({
+      onExperimentUpdate({
         context,
         oldExperiment: previous,
         newExperiment: current,
         bypassWebhooks: true,
+      }).catch((e) => {
+        logger.error(e, "Error refreshing SDK Payload on experiment update");
       });
     }
   });
@@ -968,6 +1001,8 @@ export async function addLinkedFeatureToExperiment(
       ...experiment,
       linkedFeatures: [...(experiment.linkedFeatures || []), featureId],
     },
+  }).catch((e) => {
+    logger.error(e, "Error refreshing SDK Payload on experiment update");
   });
 }
 
@@ -1006,6 +1041,8 @@ export async function removeLinkedFeatureFromExperiment(
         (f) => f !== featureId
       ),
     },
+  }).catch((e) => {
+    logger.error(e, "Error refreshing SDK Payload on experiment update");
   });
 }
 
@@ -1021,6 +1058,8 @@ function logAllChanges(
       context,
       oldExperiment: previous,
       newExperiment: current,
+    }).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on experiment update");
     });
   });
 }
@@ -1045,6 +1084,13 @@ export const logExperimentDeleted = async (
   experiment: ExperimentInterface
 ): Promise<string | undefined> => {
   const apiExperiment = await toExperimentApiInterface(context, experiment);
+
+  // If experiment is part of the SDK payload, it affects all environments
+  // Otherwise, it doesn't affect any
+  const changedEnvs = includeExperimentInPayload(experiment)
+    ? getEnvironmentIdsFromOrg(context.org)
+    : [];
+
   const payload: ExperimentDeletedNotificationEvent = {
     object: "experiment",
     event: "experiment.deleted",
@@ -1052,6 +1098,10 @@ export const logExperimentDeleted = async (
     data: {
       previous: apiExperiment,
     },
+    projects: [apiExperiment.project],
+    environments: changedEnvs,
+    tags: apiExperiment.tags,
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(context.org.id, payload);
@@ -1139,9 +1189,10 @@ export const getAllVisualExperiments = async (
   };
 
   return visualChangesets
-    .map((c) => ({
-      experiment: experimentMap.get(c.experiment),
+    .map<VisualExperiment>((c) => ({
+      experiment: experimentMap.get(c.experiment) as ExperimentInterface,
       visualChangeset: c,
+      type: "visual",
     }))
     .filter(_isValidVisualExperiment)
     .filter((e) => {
@@ -1166,7 +1217,7 @@ export const getAllURLRedirectExperiments = async (
   context: ReqContext | ApiReqContext,
   experimentMap: Map<string, ExperimentInterface>
 ): Promise<Array<URLRedirectExperiment>> => {
-  const redirects = await findURLRedirects(context.org.id);
+  const redirects = await context.models.urlRedirects.getAll();
 
   if (!redirects.length) return [];
 
@@ -1217,11 +1268,11 @@ export function getPayloadKeysForAllEnvs(
   return keys;
 }
 
-export const getPayloadKeys = (
+export function getPayloadKeys(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   linkedFeatures?: FeatureInterface[]
-): SDKPayloadKey[] => {
+): SDKPayloadKey[] {
   // If experiment is not included in the SDK payload
   if (!includeExperimentInPayload(experiment, linkedFeatures)) {
     return [];
@@ -1258,7 +1309,7 @@ export const getPayloadKeys = (
 
   // Otherwise, if no linked changes, there are no affected payload keys
   return [];
-};
+}
 
 const getExperimentChanges = (
   experiment: ExperimentInterface
@@ -1360,7 +1411,9 @@ const onExperimentUpdate = async ({
       isEqual
     );
 
-    refreshSDKPayloadCache(context, payloadKeys);
+    refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
+      logger.error(e, "Error refreshing SDK payload cache");
+    });
   }
 };
 
@@ -1377,5 +1430,7 @@ const onExperimentDelete = async (
   }
 
   const payloadKeys = getPayloadKeys(context, experiment, linkedFeatures);
-  refreshSDKPayloadCache(context, payloadKeys);
+  refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
+    logger.error(e, "Error refreshing SDK payload cache");
+  });
 };

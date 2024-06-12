@@ -1,6 +1,5 @@
 import { Request } from "express";
 import { ApiRequestLocals } from "./api";
-import { MemberRole } from "./organization";
 
 export type BaseScimRequest = Request & ApiRequestLocals;
 
@@ -18,7 +17,7 @@ export interface ScimUser {
   userName: string;
   active: boolean;
   externalId?: string;
-  growthbookRole?: MemberRole;
+  growthbookRole?: string;
 }
 
 export interface ScimGroupMember {
@@ -34,7 +33,7 @@ export interface ScimGroup {
   meta: {
     resourceType: "Group";
   };
-  growthbookRole?: MemberRole;
+  growthbookRole?: string;
 }
 
 export interface ScimListResponse {
@@ -91,7 +90,7 @@ type ScimOperation = {
 export interface BasicScimGroup {
   id: string;
   displayName: string;
-  growthbookRole?: MemberRole;
+  growthbookRole?: string;
 }
 
 type ScimGroupOperation = {

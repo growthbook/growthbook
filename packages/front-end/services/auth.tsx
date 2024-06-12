@@ -375,12 +375,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       if (orgs.length > 0) {
         try {
           const pickedOrg = localStorage.getItem("gb-last-picked-org");
-          if (pickedOrg && !router.query.org) {
-            try {
-              setOrgId(JSON.parse(pickedOrg));
-            } catch (e) {
-              setOrgId(orgs[0].id);
-            }
+          if (
+            pickedOrg &&
+            !router.query.org &&
+            orgs.map((o) => o.id).includes(JSON.parse(pickedOrg))
+          ) {
+            setOrgId(JSON.parse(pickedOrg));
           } else {
             setOrgId(orgs[0].id);
           }
@@ -483,9 +483,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
 export function roleHasAccessToEnv(
   role: MemberRoleInfo,
-  env: string
+  env: string,
+  org: Partial<OrganizationInterface>
 ): "yes" | "no" | "N/A" {
-  if (!roleSupportsEnvLimit(role.role)) return "N/A";
+  if (!roleSupportsEnvLimit(role.role, org)) return "N/A";
 
   if (!role.limitAccessByEnvironment) return "yes";
 

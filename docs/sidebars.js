@@ -81,6 +81,7 @@ const sidebars = {
           type: "doc",
           id: "features/approval-flows",
           label: "Approval Flows",
+          className: "pill-new",
         },
       ],
     },
@@ -287,13 +288,11 @@ const sidebars = {
           type: "doc",
           id: "experimentation-analysis/data-pipeline",
           label: "Data Pipeline",
-          className: "pill-new",
         },
         {
           type: "doc",
           id: "experimentation-analysis/fact-tables",
           label: "Fact Tables",
-          className: "pill-new",
         },
         {
           type: "doc",
@@ -327,13 +326,18 @@ const sidebars = {
             },
             {
               type: "doc",
-              id: "statistics/cuped",
-              label: "Regression Adjustment (CUPED)",
+              id: "statistics/details",
+              label: "Statistical Details",
             },
             {
               type: "doc",
-              id: "statistics/multiple-corrections",
-              label: "Multiple Testing Corrections",
+              id: "statistics/quantile",
+              label: "Quantile Testing",
+            },
+            {
+              type: "doc",
+              id: "statistics/cuped",
+              label: "Regression Adjustment (CUPED)",
             },
             {
               type: "doc",
@@ -342,13 +346,13 @@ const sidebars = {
             },
             {
               type: "doc",
-              id: "statistics/aggregation",
-              label: "Aggregate Data",
+              id: "statistics/multiple-corrections",
+              label: "Multiple Testing Corrections",
             },
             {
               type: "doc",
-              id: "statistics/quantile",
-              label: "Quantile Testing",
+              id: "statistics/aggregation",
+              label: "Aggregate Data",
             },
             {
               type: "doc",
@@ -381,13 +385,11 @@ const sidebars = {
               type: "doc",
               id: "lib/java",
               label: "Java",
-              className: "pill-new",
             },
             {
               type: "doc",
               id: "lib/csharp",
               label: "C#",
-              className: "pill-new",
             },
             { type: "doc", id: "lib/go", label: "Go" },
             {
@@ -418,6 +420,29 @@ const sidebars = {
             { type: "doc", id: "lib/flutter", label: "Flutter" },
             { type: "doc", id: "lib/swift", label: "Swift (iOS)" },
             { type: "doc", id: "lib/react-native", label: "React Native" },
+          ],
+        },
+        {
+          type: "category",
+          label: "Edge",
+          collapsed: true,
+          items: [
+            {
+              type: "doc",
+              id: "lib/edge/cloudflare",
+              label: "Cloudflare Workers",
+            },
+            {
+              type: "doc",
+              id: "lib/edge/fastly",
+              label: "Fastly Compute",
+            },
+            { type: "doc", id: "lib/edge/lambda", label: "Lambda@Edge" },
+            {
+              type: "doc",
+              id: "lib/edge/other",
+              label: "Other edge providers",
+            },
           ],
         },
         { type: "doc", id: "lib/build-your-own", label: "Build Your Own" },
@@ -577,7 +602,6 @@ const sidebars = {
           type: "doc",
           id: "integrations/wordpress",
           label: "WordPress + GrowthBook",
-          className: "pill-new",
         },
         {
           type: "doc",

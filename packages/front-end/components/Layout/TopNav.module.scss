@@ -18,6 +18,16 @@ $sidebarwidth: 240px;
     padding: 0 8px;
   }
 }
+.guidedstepbar {
+  display: flex;
+  justify-content: space-between;
+  position: fixed;
+  top: 56px;
+  left: $sidebarwidth;
+  right: 0;
+  height: 56px;
+  z-index: 995;
+}
 .pagetitle {
   font-size: 18px;
   line-height: 1.1;
@@ -48,6 +58,32 @@ $sidebarwidth: 240px;
   justify-content: flex-start;
   align-items: center;
   width: 100%;
+}
+
+.add-organization {
+  hr {
+    margin: 0.25em 0.75rem;
+  }
+
+  div {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    div {
+      width: 1.5rem;
+      display: flex;
+      justify-content: center;
+    }
+  }
+
+  img {
+    height: 1em;
+  }
+
+  a {
+    padding: 0.25rem 1.5rem 0.25rem 0rem;
+  }
 }
 
 @media (max-width: 1180px) {

@@ -65,6 +65,39 @@ if (gb.isOn("my-feature")) {
 const color = gb.getFeatureValue("button-color", "blue");
 ```
 
+## OpenFeature Provider
+
+If you are using OpenFeature, we have created a [GrowthBook Provider](https://github.com/open-feature/js-sdk-contrib/tree/main/libs/providers/growthbook-client) that you can use client-side.
+Simply import our package and set `GrowthbookClientProvider` as the provider for your OpenFeature client.
+Similarly to using our SDK directly, you'll want to pass in GrowthBook `Context` into the new provider instance as well as any `InitOptions`.
+
+```js
+import { GrowthBook, Context, InitOptions } from '@growthbook/growthbook';
+import { GrowthbookClientProvider } from '@openfeature/growthbook-client-provider';
+
+/*
+ * Configure your GrowthBook instance with GrowthBook context
+ * @see https://docs.growthbook.io/lib/js#step-1-configure-your-app
+ */
+const gbContext: Context = {
+  apiHost: 'https://cdn.growthbook.io',
+  clientKey: 'sdk-abc123',
+  // Only required if you have feature encryption enabled in GrowthBook
+  decryptionKey: 'key_abc123',
+};
+
+/*
+ * optional init options
+ * @see https://docs.growthbook.io/lib/js#switching-to-init
+ */
+const initOptions: InitOptions = {
+  timeout: 2000,
+  streaming: true,
+};
+
+OpenFeature.setProvider(new GrowthbookClientProvider(gbContext, initOptions));
+```
+
 ## Node.js
 
 The GrowthBook SDK officially supports Node v18 and above.

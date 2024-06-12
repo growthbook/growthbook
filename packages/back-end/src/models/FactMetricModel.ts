@@ -1,4 +1,5 @@
 import { omit } from "lodash";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import {
   FactMetricInterface,
   FactTableInterface,
@@ -21,7 +22,6 @@ const BaseClass = MakeModelClass({
     updateEvent: "metric.update",
     deleteEvent: "metric.delete",
   },
-  projectScoping: "multiple",
   globallyUniqueIds: false,
   readonlyFields: ["datasource"],
 });
@@ -62,6 +62,15 @@ export class FactMetricModel extends BaseClass {
       newDoc.cappingSettings = {
         type: doc.capping || "",
         value: doc.capValue || 0,
+      };
+    }
+
+    if (doc.priorSettings === undefined) {
+      newDoc.priorSettings = {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
       };
     }
 

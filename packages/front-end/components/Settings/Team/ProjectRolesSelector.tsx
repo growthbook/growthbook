@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ProjectMemberRole } from "back-end/types/organization";
 import cloneDeep from "lodash/cloneDeep";
+import { getDefaultRole } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -15,8 +16,10 @@ export default function ProjectRolesSelector({
   setProjectRoles: (roles: ProjectMemberRole[]) => void;
 }) {
   const { projects, getProjectById } = useDefinitions();
-  const { hasCommercialFeature, settings } = useUser();
+  const { hasCommercialFeature, organization } = useUser();
   const [newProject, setNewProject] = useState("");
+
+  const defaultRole = getDefaultRole(organization);
 
   const hasFeature = hasCommercialFeature("advanced-permissions");
   if (!projects?.length) return null;
@@ -93,15 +96,15 @@ export default function ProjectRolesSelector({
               onClick={(e) => {
                 e.preventDefault();
                 if (!newProject) return;
-                setProjectRoles([
-                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ProjectMemberRole | { role?: MemberRole | un... Remove this comment to see the full error message
-                  ...projectRoles,
-                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ role?: MemberRole | undefined; limitAccess... Remove this comment to see the full error message
+
+                const newProjectRoles: ProjectMemberRole[] = [...projectRoles];
+                newProjectRoles.push(
                   cloneDeep({
                     project: newProject,
-                    ...settings.defaultRole,
-                  }),
-                ]);
+                    ...defaultRole,
+                  }) as ProjectMemberRole
+                );
+                setProjectRoles(newProjectRoles);
                 setNewProject("");
               }}
             >
