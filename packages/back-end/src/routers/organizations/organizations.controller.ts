@@ -8,6 +8,7 @@ import {
   getLicense,
   getLicenseError,
   licenseInit,
+  orgHasPremiumFeature,
 } from "enterprise";
 import { experimentHasLinkedChanges } from "shared/util";
 import {
@@ -1200,8 +1201,11 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
     // there are odd edge cases where a user can exist, but not an org,
     // so we want to allow org creation this way if there are no other orgs
     // on a local install.
-    if (orgs && !req.superAdmin) {
-      throw new Error("An organization already exists");
+    if (orgs) {
+      const { org } = getContextFromReq(req);
+      if (!req.superAdmin || !orgHasPremiumFeature(org, "multi-org")) {
+        throw new Error("An organization already exists");
+      }
     }
   }
 
