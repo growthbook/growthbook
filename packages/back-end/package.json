@@ -35,7 +35,7 @@
     "@google-cloud/bigquery": "5",
     "@google-cloud/storage": "^5.20.5",
     "@growthbook/growthbook": "^1.0.1",
-    "@growthbook/proxy-eval": "^1.0.2",
+    "@growthbook/proxy-eval": "^1.0.3",
     "@octokit/auth-app": "^6.0.1",
     "@octokit/core": "^5.0.2",
     "@octokit/oauth-methods": "^4.0.1",
