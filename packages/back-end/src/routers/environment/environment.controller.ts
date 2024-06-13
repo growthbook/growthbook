@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import z from "zod";
 import { isEqual } from "lodash";
 import { findSDKConnectionsByOrganization } from "../../models/SdkConnectionModel";
 import { triggerSingleSDKWebhookJobs } from "../../jobs/updateAllJobs";
@@ -18,19 +19,30 @@ import { EventAuditUserForResponseLocals } from "../../events/event-types";
 import { Environment } from "../../../types/organization";
 import { addEnvironmentToOrganizationEnvironments } from "../../util/environments";
 import { updateOrganization } from "../../models/OrganizationModel";
+import {
+  createEnvValidator,
+  deleteEnvValidator,
+  updateEnvOrderValidator,
+  updateEnvValidator,
+  updateEnvsValidator,
+} from "./environment.validators";
 
-type CreateEnvironmentRequest = AuthRequest<{
-  environment: Environment;
-}>;
+type UpdateEnvOrderProps = z.infer<typeof updateEnvOrderValidator>;
+
+type UpdateEnvironmentProps = z.infer<typeof updateEnvValidator>;
+
+type CreateEnvironmentProps = z.infer<typeof createEnvValidator>;
+
+type UpdateEnvironmentsProps = z.infer<typeof updateEnvsValidator>;
+
+type DeleteEnvironmentProps = z.infer<typeof deleteEnvValidator>;
 
 type CreateEnvironmentResponse = {
   environment: Environment;
 };
 
 export const putEnvironmentOrder = async (
-  req: AuthRequest<{
-    environments: string[];
-  }>,
+  req: AuthRequest<UpdateEnvOrderProps>,
   res: Response
 ) => {
   const context = getContextFromReq(req);
@@ -98,9 +110,7 @@ export const putEnvironmentOrder = async (
 };
 
 export const putEnvironments = async (
-  req: AuthRequest<{
-    environments: Environment[];
-  }>,
+  req: AuthRequest<UpdateEnvironmentsProps>,
   res: Response
 ) => {
   const context = getContextFromReq(req);
@@ -145,12 +155,7 @@ export const putEnvironments = async (
 };
 
 export const putEnvironment = async (
-  req: AuthRequest<
-    {
-      environment: Omit<Environment, "id">;
-    },
-    { id: string }
-  >,
+  req: AuthRequest<UpdateEnvironmentProps, { id: string }>,
   res: Response
 ) => {
   const { environment } = req.body;
@@ -220,7 +225,10 @@ export const putEnvironment = async (
         object: "environment",
         id,
       },
-      details: auditDetailsUpdate(envsArr[existingEnvIndex], environment),
+      details: auditDetailsUpdate(envsArr[existingEnvIndex], {
+        ...environment,
+        id,
+      }),
     });
 
     res.status(200).json({
@@ -244,7 +252,7 @@ export const putEnvironment = async (
  * @param res
  */
 export const postEnvironment = async (
-  req: CreateEnvironmentRequest,
+  req: AuthRequest<CreateEnvironmentProps>,
   res: Response<
     CreateEnvironmentResponse | PrivateApiErrorResponse,
     EventAuditUserForResponseLocals
@@ -301,7 +309,7 @@ export const postEnvironment = async (
 // endregion POST /environment
 
 export const deleteEnvironment = async (
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<null, DeleteEnvironmentProps>,
   res: Response
 ) => {
   const id = req.params.id;

@@ -99,7 +99,7 @@ export default function EnvironmentModal({
           }
           const newEnv: Environment = {
             id: value.id?.toLowerCase() || "",
-            description: value.description,
+            description: value.description || "",
             toggleOnList: value.toggleOnList,
             defaultState: value.defaultState,
             projects: value.projects,
