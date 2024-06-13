@@ -883,9 +883,13 @@ export default function SDKConnectionForm({
                             Use remote evaluation <FaInfoCircle />
                           </PremiumTooltip>
                         </label>
-                        {isCloud() ? (
-                          <div className="alert alert-info mb-0 ml-3 py-1 px-2">
+                      </div>
+                      {isCloud() ? (
+                        <div className="alert alert-info mb-0 mt-3 py-1 px-2 d-flex flex-row">
+                          <div className="pr-2">
                             <FaExclamationCircle className="mr-1" />
+                          </div>
+                          <div>
                             Cloud customers must self-host a remote evaluation
                             service such as{" "}
                             <a
@@ -897,8 +901,8 @@ export default function SDKConnectionForm({
                             </a>{" "}
                             or a CDN edge worker.
                           </div>
-                        ) : null}
-                      </div>
+                        </div>
+                      ) : null}
                     </div>
                     {!currentSdkCapabilities.includes("remoteEval") ? (
                       <div

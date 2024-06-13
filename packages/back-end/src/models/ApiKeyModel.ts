@@ -351,7 +351,10 @@ export async function getAllApiKeysByOrganization(
   });
 
   return keys.filter((k) => {
-    return context.permissions.canReadSingleProjectResource(k.project);
+    return (
+      context.permissions.canReadSingleProjectResource(k.project) ||
+      k.userId === context.userId
+    );
   });
 }
 

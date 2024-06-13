@@ -5,6 +5,8 @@ sidebar_label: Metrics
 slug: /app/metrics
 ---
 
+import Anchor from '@site/src/components/Anchor'
+
 # Metrics
 
 Metrics are what your experiments are trying to improve (or at least not hurt). GrowthBook has a very flexible and powerful way to define metrics.
@@ -81,7 +83,7 @@ When we go to conduct experiment analysis, any `user_id` that has a conversion i
 
 #### SQL Templates
 
-We use {{[Handlebars](https://handlebarsjs.com/guide/#language-features)}} to compile the sql into what is actually called to your database. This allows you to create template metrics that can be copied and reused by changing the variable values associate with the metrics.
+We use \{\{[Handlebars](https://handlebarsjs.com/guide/#language-features)\}\} to compile the sql into what is actually called to your database. This allows you to create template metrics that can be copied and reused by changing the variable values associate with the metrics.
 
 You can use the following user configurable variables within SQL templates:
 
@@ -106,7 +108,7 @@ You can also use any of the in-built helper functions:
 - **replace [str]&nbsp;[pattern]&nbsp;[replacement]** - Replace all occurences of a regular expression with something else. ex. `{{replace "My%%%Database!" "\[^a-zA-Z\]" ""}}` compiles to `MyDatabase`
 - **snakecase [str]** - ex. `{{pascalcase "My database"}}` compiles to `my_database`.
 - **uppercase [str]** - ex. `{{uppercase "My database"}}` compiles to `MY DATABASE`.
-  <a id="dateformat"/>
+  <Anchor id="dateformat"/>
 - **date [date]&nbsp;[format]** - Format an ISO date according to this [format](https://date-fns.org/v2.29.3/docs/format), being careful not to mix up months (MM) and minutes (mm). ex. `{{date startDateISO "yyyyMMdd"}}` might compile to `20230130`. The most common codes are:
 
 <ul>
@@ -138,7 +140,7 @@ WHERE
 
 :::note
 
-The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use <code>'{{&nbsp;startDate&nbsp;}}'</code> instead of just <code>{{&nbsp;startDate&nbsp;}}</code>)
+The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use `'{{&nbsp;startDate&nbsp;}}'` instead of just `{{&nbsp;startDate&nbsp;}}`
 
 :::
 

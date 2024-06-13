@@ -5,10 +5,14 @@
  * void within a week if something is not done to unblock the connection.
  */
 import Agenda from "agenda";
+import { licenseInit } from "enterprise";
 import { getSelfHostedOrganization } from "../models/OrganizationModel";
 import { trackJob } from "../services/otel";
 import { IS_CLOUD } from "../util/secrets";
-import { initializeLicenseForOrg } from "../services/licenseData";
+import {
+  getLicenseMetaData,
+  getUserCodesForOrg,
+} from "../services/licenseData";
 
 const UPDATE_LICENSES_JOB_NAME = "updateLicenses";
 
@@ -19,7 +23,7 @@ const updateLicense = trackJob(UPDATE_LICENSES_JOB_NAME, async () => {
 
   const org = await getSelfHostedOrganization();
   if (org) {
-    initializeLicenseForOrg(org);
+    licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
   }
 });
 

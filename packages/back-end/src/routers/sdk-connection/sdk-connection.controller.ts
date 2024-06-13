@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
+import { triggerSingleSDKWebhookJobs } from "../../jobs/updateAllJobs";
 import {
   CreateSdkWebhookProps,
   WebhookInterface,
@@ -83,7 +84,8 @@ export const postSDKConnection = async (
     remoteEvalEnabled,
     organization: org.id,
   });
-
+  const isUsingProxy = !!(doc.proxy.enabled && doc.proxy.host);
+  triggerSingleSDKWebhookJobs(context, doc, {}, doc.proxy, isUsingProxy);
   res.status(200).json({
     status: 200,
     connection: doc,
@@ -138,7 +140,6 @@ export const putSDKConnection = async (
     hashSecureAttributes,
     remoteEvalEnabled,
   });
-
   res.status(200).json({
     status: 200,
   });

@@ -1,6 +1,6 @@
-import type { MetricStats } from "./metric";
+export { StatsEngine } from "../src/models/ProjectModel";
 
-export type StatsEngine = "bayesian" | "frequentist";
+import type { MetricStats } from "./metric";
 
 export type PValueCorrection = null | "benjamini-hochberg" | "holm-bonferroni";
 

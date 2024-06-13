@@ -11,7 +11,7 @@ import {
   FaLock,
   FaTimes,
 } from "react-icons/fa";
-import { ago, date } from "shared/dates";
+import { ago, datetime } from "shared/dates";
 import {
   autoMerge,
   checkIfRevisionNeedsReview,
@@ -949,7 +949,7 @@ export default function FeaturesOverview({
                 <span className="text-muted">Revision created by</span>{" "}
                 <AuditUser user={revision.createdBy} display="name" />{" "}
                 <span className="text-muted">on</span>{" "}
-                {date(revision.dateCreated)}
+                {datetime(revision.dateCreated)}
               </div>
               <div className="col-auto">
                 <span className="text-muted">Revision Comment:</span>{" "}
@@ -971,7 +971,7 @@ export default function FeaturesOverview({
               {revision.status === "published" && revision.datePublished && (
                 <div className="col-auto">
                   <span className="text-muted">Published on</span>{" "}
-                  {date(revision.datePublished)}
+                  {datetime(revision.datePublished)}
                 </div>
               )}
               {revision.status === "draft" && (
