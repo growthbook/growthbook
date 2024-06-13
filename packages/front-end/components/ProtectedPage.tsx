@@ -3,7 +3,7 @@ import { useAuth, safeLogout } from "@/services/auth";
 import WatchProvider from "@/services/WatchProvider";
 import { UserContextProvider, useUser } from "@/services/UserContext";
 import LoadingOverlay from "./LoadingOverlay";
-import CreateOrganization from "./Auth/CreateOrganization";
+import CreateOrJoinOrganization from "./Auth/CreateOrJoinOrganization";
 import InAppHelp from "./Auth/InAppHelp";
 import Button from "./Button";
 import TopNavLite from "./Layout/TopNavLite";
@@ -85,7 +85,7 @@ const ProtectedPage: React.FC<{
         ) : orgId ? (
           <WatchProvider>{children}</WatchProvider>
         ) : (
-          <CreateOrganization />
+          <CreateOrJoinOrganization />
         )}
       </LoggedInPageGuard>
     </UserContextProvider>
