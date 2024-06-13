@@ -16,7 +16,6 @@ const generatedHypothesisSchema = new mongoose.Schema({
   organization: String,
   url: String,
   hypothesis: String,
-  payload: {},
   experiment: {
     type: String,
     index: true,
@@ -44,27 +43,25 @@ export const findOrCreateGeneratedHypothesis = async (
     uuid,
   });
   if (existing) return toInterface(existing);
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY)
     throw new Error("Supabase keys missing");
-  }
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_ANON_KEY
   );
-  const { data: generatedHypothesis, error: payloadErr } = await supabase
-    .from("hypotheses")
+  const { data: generatedHypothesis, error } = await supabase
+    .from("sites_hypotheses")
     .select()
     .eq("uuid", uuid)
     .single();
-  if (payloadErr) throw new Error(payloadErr.message);
+  if (error) throw new Error(error.message);
   const created = await GeneratedHypothesisModel.create({
     id: uniqid("genhyp_"),
     uuid,
     createdAt: new Date(),
     organization: context.org.id,
     url: generatedHypothesis.url,
-    hypothesis: generatedHypothesis.hypothesis,
-    payload: generatedHypothesis.translated_payload,
+    hypothesis: generatedHypothesis.hypothesis.hypothesis,
   });
   return toInterface(created);
 };

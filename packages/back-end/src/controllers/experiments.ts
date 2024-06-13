@@ -35,7 +35,6 @@ import {
   deleteVisualChangesetById,
   findVisualChangesetById,
   findVisualChangesetsByExperiment,
-  genNewVisualChange,
   syncVisualChangesWithVariations,
   updateVisualChangeset,
 } from "../models/VisualChangesetModel";
@@ -2546,31 +2545,6 @@ export async function linkGeneratedHypothesis(
   );
 
   if (!generatedHyp) throw new Error("Generated hypothesis not found");
-
-  const payload = generatedHyp.payload.experiments?.[0];
-
-  if (!payload) throw new Error("Generated hypothess payload is malformed");
-
-  const urlPatterns = payload.urlPatterns;
-  const editorUrl = generatedHyp.url;
-  const visualChanges = experiment.variations
-    .map(genNewVisualChange)
-    .map((v, i) => ({
-      ...v,
-      domMutations: payload.variations[i].domMutations || [],
-    }));
-
-  if (!urlPatterns || !editorUrl || !visualChanges)
-    throw new Error("Generated hypothess payload is malformed");
-
-  await createVisualChangeset({
-    context,
-    experiment,
-    urlPatterns,
-    editorUrl,
-    // @ts-expect-error SDK types are slightly inaccurate w.r.t. DOM mutations
-    visualChanges,
-  });
 
   await linkExperimentToHypothesis(context, generatedHyp.id, experiment.id);
 
