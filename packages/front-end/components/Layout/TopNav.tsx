@@ -12,6 +12,7 @@ import {
   PiListChecks,
   PiMoon,
   PiSunDim,
+  PiBuildingOffice,
 } from "react-icons/pi";
 import router from "next/router";
 import { useUser } from "@/services/UserContext";
@@ -26,6 +27,7 @@ import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
+import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 
@@ -43,7 +45,7 @@ const TopNav: FC<{
 
   const { breadcrumb } = usePageHead();
 
-  const { updateUser, name, email, effectiveAccountPlan } = useUser();
+  const { updateUser, name, email } = useUser();
 
   const { apiCall, logout, organizations, orgId, setOrgId } = useAuth();
   const { setTheme, preferredTheme } = useAppearanceUITheme();
@@ -240,39 +242,44 @@ const TopNav: FC<{
   const renderOrganizationSubDropDown = () => {
     if (organizations && organizations.length === 1) {
       return (
-        <DropdownMenu.Label>
-          <Text weight={"bold"} className="text-main">
-            {orgName}
-          </Text>
-        </DropdownMenu.Label>
+        <Text weight={"bold"} className="text-main">
+          <PiBuildingOffice /> {orgName}
+        </Text>
       );
     }
-    return (
-      <DropdownMenu.Sub>
-        <DropdownMenu.SubTrigger>{orgName}</DropdownMenu.SubTrigger>
-        <DropdownMenu.SubContent>
-          {organizations?.map((o) => (
-            <DropdownMenu.Item
-              key={o.id}
-              onSelect={() => {
-                if (setOrgId) {
-                  setOrgId(o.id);
-                }
+    if (organizations && organizations.length > 1)
+      return (
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger>
+            <Text weight={"bold"} className="text-main">
+              <PiBuildingOffice /> {orgName}
+            </Text>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content align="start">
+            {renderOrgItems(organizations)}
+          </DropdownMenu.Content>
+        </DropdownMenu.Root>
+      );
+  };
+  const renderOrgItems = (organizations): JSX.Element[] => {
+    return organizations.map((o) => (
+      <DropdownMenu.Item
+        key={o.id}
+        onSelect={() => {
+          if (setOrgId) {
+            setOrgId(o.id);
+          }
 
-                try {
-                  localStorage.setItem("gb-last-picked-org", `"${o.id}"`);
-                } catch (e) {
-                  console.warn("Cannot set gb-last-picked-org");
-                }
-              }}
-            >
-              <span className="status"></span>
-              {o.name}
-            </DropdownMenu.Item>
-          ))}
-        </DropdownMenu.SubContent>
-      </DropdownMenu.Sub>
-    );
+          try {
+            localStorage.setItem("gb-last-picked-org", `"${o.id}"`);
+          } catch (e) {
+            console.warn("Cannot set gb-last-picked-org");
+          }
+        }}
+      >
+        {o.name}
+      </DropdownMenu.Item>
+    ));
   };
   const renderBreadCrumb = () => {
     return breadcrumb?.map((b, i) => (
@@ -299,17 +306,6 @@ const TopNav: FC<{
     }
     return <div className={styles.pagetitle}>{titleOrBreadCrumb}</div>;
   };
-  const planCopy = useMemo(() => {
-    switch (effectiveAccountPlan) {
-      case "enterprise":
-        return <Text className="enterprise-text-color">ENTERPRISE</Text>;
-      case "pro":
-      case "pro_sso":
-        return <Text color="amber">PRO</Text>;
-      default:
-        return <Text color="green">FREE</Text>;
-    }
-  }, [effectiveAccountPlan]);
 
   return (
     <>
@@ -374,8 +370,13 @@ const TopNav: FC<{
             </div>
           )}
           {renderTitleOrBreadCrumb()}
-          {showNotices && <AccountPlanNotices />}
-          <AccountPlanNotices />
+          {showNotices && (
+            <>
+              <AccountPlanNotices />
+              <AccountPlanBadge />
+            </>
+          )}
+          {renderOrganizationSubDropDown()}
           <DropdownMenu.Root>
             <DropdownMenu.Trigger>
               <div className="nav-link d-flex">
@@ -396,11 +397,10 @@ const TopNav: FC<{
               </div>
             </DropdownMenu.Trigger>
             <DropdownMenu.Content align="start">
-              <DropdownMenu.Label>
+              {/* <DropdownMenu.Label>
                 <Text weight={"bold"}> {planCopy}</Text>
               </DropdownMenu.Label>
-              {renderOrganizationSubDropDown()}
-              <DropdownMenu.Separator />
+              {renderOrganizationSubDropDown()} */}
               {renderNameAndEmailDropdownLabel()}
               {renderEditProfileDropDown()}
               {renderThemeSubDropDown()}
