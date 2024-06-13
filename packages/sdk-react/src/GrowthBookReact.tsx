@@ -82,9 +82,7 @@ export function useFeatureIsOn<
   const [isOn, setIsOn] = React.useState(growthbook.isOn(id));
 
   React.useEffect(() => {
-    if (growthbook) {
-      setIsOn(growthbook.isOn(id));
-    }
+    setIsOn(growthbook.isOn(id));
   }, [id, growthbook]);
 
   return isOn;
