@@ -1196,13 +1196,9 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
   const { company, externalId } = req.body;
 
   const orgs = await hasOrganization();
-  if (!IS_MULTI_ORG) {
-    // there are odd edge cases where a user can exist, but not an org,
-    // so we want to allow org creation this way if there are no other orgs
-    // on a local install.
-    if (orgs && !req.superAdmin) {
-      throw new Error("An organization already exists");
-    }
+  // Only allow one organization per site unless IS_MULTI_ORG is true
+  if (!IS_MULTI_ORG && orgs) {
+    throw new Error("An organization already exists");
   }
 
   let verifiedDomain = "";
