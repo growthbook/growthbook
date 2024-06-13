@@ -44,29 +44,9 @@ export type CreateSDKConnectionParams = {
   remoteEvalEnabled?: boolean;
 };
 
-export type SDKLanguage =
-  | "nocode-webflow"
-  | "nocode-wordpress"
-  | "nocode-shopify"
-  | "nocode-other"
-  | "javascript"
-  | "nodejs"
-  | "react"
-  | "php"
-  | "ruby"
-  | "python"
-  | "go"
-  | "java"
-  | "csharp"
-  | "android"
-  | "ios"
-  | "flutter"
-  | "elixir"
-  | "edge-cloudflare"
-  | "edge-fastly"
-  | "edge-lambda"
-  | "edge-other"
-  | "other";
+import { sdkLanguages } from "../src/util/constants";
+
+export type SDKLanguage = typeof sdkLanguages[number];
 
 export interface SDKConnectionInterface {
   id: string;

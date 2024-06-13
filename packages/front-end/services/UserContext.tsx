@@ -185,7 +185,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     data: currentOrg,
     mutate: refreshOrganization,
     error: orgLoadingError,
-  } = useApi<OrgSettingsResponse>(isAuthenticated ? `/organization` : null);
+  } = useApi<OrgSettingsResponse>(
+    isAuthenticated && data?.userId ? `/organization` : null
+  );
 
   const [hashedOrganizationId, setHashedOrganizationId] = useState<string>("");
   useEffect(() => {
@@ -262,13 +264,13 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     };
   }, [orgId, data?.userId, role]);
 
-  // Refresh organization data when switching orgs or license key changes
+  // Refresh organization data when switching orgs or a new user gets an id.
   useEffect(() => {
-    if (orgId) {
+    if (orgId && data?.userId) {
       void refreshOrganization();
       track("Organization Loaded");
     }
-  }, [orgId, refreshOrganization]);
+  }, [orgId, data?.userId, refreshOrganization]);
 
   // Once authenticated, get userId, orgId from API
   useEffect(() => {
@@ -325,6 +327,15 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     );
   }, [currentOrg?.currentUserPermissions, data?.superAdmin]);
 
+  const getUserDisplay = useCallback(
+    (id: string, fallback = true) => {
+      const u = users.get(id);
+      if (!u && fallback) return id;
+      return u?.name || u?.email || "";
+    },
+    [users]
+  );
+
   return (
     <UserContext.Provider
       value={{
@@ -335,11 +346,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         updateUser,
         user,
         users,
-        getUserDisplay: (id, fallback = true) => {
-          const u = users.get(id);
-          if (!u && fallback) return id;
-          return u?.name || u?.email || "";
-        },
+        getUserDisplay: getUserDisplay,
         refreshOrganization: refreshOrganization as () => Promise<void>,
         roles: currentOrg?.roles || [],
         permissionsUtil,

@@ -3,7 +3,7 @@ import {
   FeatureRule as FeatureDefinitionRule,
 } from "@growthbook/growthbook";
 import { EventAuditUser } from "../src/events/event-types";
-import { AuditInterface } from "./audit";
+import { AuditInterfaceInput } from "./audit";
 import { ExperimentStatus } from "./experiment";
 import { OrganizationInterface, ReqContext } from "./organization";
 import { UserInterface } from "./user";
@@ -48,9 +48,7 @@ export type ApiRequestLocals = {
   user?: UserInterface;
   organization: OrganizationInterface;
   eventAudit: EventAuditUser;
-  audit: (
-    data: Omit<AuditInterface, "user" | "organization" | "dateCreated" | "id">
-  ) => Promise<void>;
+  audit: (data: AuditInterfaceInput) => Promise<void>;
   context: ApiReqContext;
 };
 

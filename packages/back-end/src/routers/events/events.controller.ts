@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { NotificationEvent } from "@back-end/src/events/notification-events";
+import { NotificationEvent } from "../../events/notification-events";
 import * as Event from "../../models/EventModel";
 import { AuthRequest } from "../../types/AuthRequest";
 import { EventInterface } from "../../../types/event";

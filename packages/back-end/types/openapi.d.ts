@@ -40,16 +40,16 @@ export interface paths {
   "/projects": {
     /** Get all projects */
     get: operations["listProjects"];
+    /** Create a single project */
+    post: operations["postProject"];
   };
   "/projects/{id}": {
     /** Get a single project */
     get: operations["getProject"];
-    parameters: {
-        /** @description The id of the requested resource */
-      path: {
-        id: string;
-      };
-    };
+    /** Edit a single project */
+    put: operations["putProject"];
+    /** Deletes a single project */
+    delete: operations["deleteProject"];
   };
   "/dimensions": {
     /** Get all dimensions */
@@ -82,16 +82,16 @@ export interface paths {
   "/sdk-connections": {
     /** Get all sdk connections */
     get: operations["listSdkConnections"];
+    /** Create a single sdk connection */
+    post: operations["postSdkConnection"];
   };
   "/sdk-connections/{id}": {
     /** Get a single sdk connection */
     get: operations["getSdkConnection"];
-    parameters: {
-        /** @description The id of the requested resource */
-      path: {
-        id: string;
-      };
-    };
+    /** Update a single sdk connection */
+    put: operations["putSdkConnection"];
+    /** Deletes a single SDK connection */
+    delete: operations["deleteSdkConnection"];
   };
   "/data-sources": {
     /** Get all data sources */
@@ -198,6 +198,18 @@ export interface paths {
   "/organizations/{id}": {
     /** Edit a single organization (only for super admins on multi-org Enterprise Plan only) */
     put: operations["putOrganization"];
+  };
+  "/environments": {
+    /** Get the organization's environments */
+    get: operations["listEnvironments"];
+    /** Create a new environment */
+    post: operations["postEnvironment"];
+  };
+  "/environments/${id}": {
+    /** Update an environment */
+    put: operations["putEnvironment"];
+    /** Deletes a single environment */
+    delete: operations["deleteEnvironment"];
   };
   "/fact-tables": {
     /** Get all fact tables */
@@ -385,6 +397,13 @@ export interface components {
       settings?: {
         statsEngine?: string;
       };
+    };
+    Environment: {
+      id: string;
+      description: string;
+      toggleOnList: boolean;
+      defaultState: boolean;
+      projects: (string)[];
     };
     Segment: {
       id: string;
@@ -2646,8 +2665,21 @@ export interface operations {
       };
     };
   };
-  getProject: {
-    /** Get a single project */
+  postProject: {
+    /** Create a single project */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          description?: string;
+          /** @description Project settings. */
+          settings?: {
+            /** @description Stats engine. */
+            statsEngine?: string;
+          };
+        };
+      };
+    };
     responses: {
       200: {
         content: {
@@ -2664,6 +2696,101 @@ export interface operations {
                 statsEngine?: string;
               };
             };
+          };
+        };
+      };
+    };
+  };
+  getProject: {
+    /** Get a single project */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            project: {
+              id: string;
+              name: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              description?: string;
+              settings?: {
+                statsEngine?: string;
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+  putProject: {
+    /** Edit a single project */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Project name. */
+          name?: string;
+          /** @description Project description. */
+          description?: string;
+          /** @description Project settings. */
+          settings?: {
+            /** @description Stats engine. */
+            statsEngine?: string;
+          };
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            project: {
+              id: string;
+              name: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              description?: string;
+              settings?: {
+                statsEngine?: string;
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteProject: {
+    /** Deletes a single project */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /**
+             * @description The ID of the deleted project 
+             * @example prj__123abc
+             */
+            deletedId?: string;
           };
         };
       };
@@ -2845,8 +2972,28 @@ export interface operations {
       };
     };
   };
-  getSdkConnection: {
-    /** Get a single sdk connection */
+  postSdkConnection: {
+    /** Create a single sdk connection */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          language: string;
+          sdkVersion?: string;
+          environment: string;
+          projects?: (string)[];
+          encryptPayload?: boolean;
+          includeVisualExperiments?: boolean;
+          includeDraftExperiments?: boolean;
+          includeExperimentNames?: boolean;
+          includeRedirectExperiments?: boolean;
+          proxyEnabled?: boolean;
+          proxyHost?: string;
+          hashSecureAttributes?: boolean;
+          remoteEvalEnabled?: boolean;
+        };
+      };
+    };
     responses: {
       200: {
         content: {
@@ -2879,6 +3026,134 @@ export interface operations {
               hashSecureAttributes?: boolean;
               remoteEvalEnabled?: boolean;
             };
+          };
+        };
+      };
+    };
+  };
+  getSdkConnection: {
+    /** Get a single sdk connection */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            sdkConnection: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              organization: string;
+              languages: (string)[];
+              sdkVersion?: string;
+              environment: string;
+              /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
+              project: string;
+              projects?: (string)[];
+              encryptPayload: boolean;
+              encryptionKey: string;
+              includeVisualExperiments?: boolean;
+              includeDraftExperiments?: boolean;
+              includeExperimentNames?: boolean;
+              includeRedirectExperiments?: boolean;
+              key: string;
+              proxyEnabled: boolean;
+              proxyHost: string;
+              proxySigningKey: string;
+              sseEnabled?: boolean;
+              hashSecureAttributes?: boolean;
+              remoteEvalEnabled?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  putSdkConnection: {
+    /** Update a single sdk connection */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          language?: string;
+          sdkVersion?: string;
+          environment?: string;
+          projects?: (string)[];
+          encryptPayload?: boolean;
+          includeVisualExperiments?: boolean;
+          includeDraftExperiments?: boolean;
+          includeExperimentNames?: boolean;
+          includeRedirectExperiments?: boolean;
+          proxyEnabled?: boolean;
+          proxyHost?: string;
+          hashSecureAttributes?: boolean;
+          remoteEvalEnabled?: boolean;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            sdkConnection: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              organization: string;
+              languages: (string)[];
+              sdkVersion?: string;
+              environment: string;
+              /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
+              project: string;
+              projects?: (string)[];
+              encryptPayload: boolean;
+              encryptionKey: string;
+              includeVisualExperiments?: boolean;
+              includeDraftExperiments?: boolean;
+              includeExperimentNames?: boolean;
+              includeRedirectExperiments?: boolean;
+              key: string;
+              proxyEnabled: boolean;
+              proxyHost: string;
+              proxySigningKey: string;
+              sseEnabled?: boolean;
+              hashSecureAttributes?: boolean;
+              remoteEvalEnabled?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteSdkConnection: {
+    /** Deletes a single SDK connection */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
           };
         };
       };
@@ -4994,6 +5269,112 @@ export interface operations {
       };
     };
   };
+  listEnvironments: {
+    /** Get the organization's environments */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            environments: ({
+                id: string;
+                description: string;
+                toggleOnList: boolean;
+                defaultState: boolean;
+                projects: (string)[];
+              })[];
+          };
+        };
+      };
+    };
+  };
+  postEnvironment: {
+    /** Create a new environment */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The ID of the new environment */
+          id: string;
+          /** @description The description of the new environment */
+          description?: string;
+          /** @description Show toggle on feature list */
+          toggleOnList?: any;
+          /** @description Default state for new features */
+          defaultState?: any;
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            environment: {
+              id: string;
+              description: string;
+              toggleOnList: boolean;
+              defaultState: boolean;
+              projects: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  putEnvironment: {
+    /** Update an environment */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The description of the new environment */
+          description?: string;
+          /** @description Show toggle on feature list */
+          toggleOnList?: boolean;
+          /** @description Default state for new features */
+          defaultState?: boolean;
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            environment: {
+              id: string;
+              description: string;
+              toggleOnList: boolean;
+              defaultState: boolean;
+              projects: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteEnvironment: {
+    /** Deletes a single environment */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
   listFactTables: {
     /** Get all fact tables */
     parameters: {
@@ -6218,6 +6599,7 @@ export type ApiPaginationFields = components["schemas"]["PaginationFields"];
 export type ApiDimension = components["schemas"]["Dimension"];
 export type ApiMetric = components["schemas"]["Metric"];
 export type ApiProject = components["schemas"]["Project"];
+export type ApiEnvironment = components["schemas"]["Environment"];
 export type ApiSegment = components["schemas"]["Segment"];
 export type ApiFeature = components["schemas"]["Feature"];
 export type ApiFeatureEnvironment = components["schemas"]["FeatureEnvironment"];
@@ -6249,13 +6631,19 @@ export type UpdateFeatureResponse = operations["updateFeature"]["responses"]["20
 export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
+export type PostProjectResponse = operations["postProject"]["responses"]["200"]["content"]["application/json"];
 export type GetProjectResponse = operations["getProject"]["responses"]["200"]["content"]["application/json"];
+export type PutProjectResponse = operations["putProject"]["responses"]["200"]["content"]["application/json"];
+export type DeleteProjectResponse = operations["deleteProject"]["responses"]["200"]["content"]["application/json"];
 export type ListDimensionsResponse = operations["listDimensions"]["responses"]["200"]["content"]["application/json"];
 export type GetDimensionResponse = operations["getDimension"]["responses"]["200"]["content"]["application/json"];
 export type ListSegmentsResponse = operations["listSegments"]["responses"]["200"]["content"]["application/json"];
 export type GetSegmentResponse = operations["getSegment"]["responses"]["200"]["content"]["application/json"];
 export type ListSdkConnectionsResponse = operations["listSdkConnections"]["responses"]["200"]["content"]["application/json"];
+export type PostSdkConnectionResponse = operations["postSdkConnection"]["responses"]["200"]["content"]["application/json"];
 export type GetSdkConnectionResponse = operations["getSdkConnection"]["responses"]["200"]["content"]["application/json"];
+export type PutSdkConnectionResponse = operations["putSdkConnection"]["responses"]["200"]["content"]["application/json"];
+export type DeleteSdkConnectionResponse = operations["deleteSdkConnection"]["responses"]["200"]["content"]["application/json"];
 export type ListDataSourcesResponse = operations["listDataSources"]["responses"]["200"]["content"]["application/json"];
 export type GetDataSourceResponse = operations["getDataSource"]["responses"]["200"]["content"]["application/json"];
 export type ListExperimentsResponse = operations["listExperiments"]["responses"]["200"]["content"]["application/json"];
@@ -6281,6 +6669,10 @@ export type DeleteSavedGroupResponse = operations["deleteSavedGroup"]["responses
 export type ListOrganizationsResponse = operations["listOrganizations"]["responses"]["200"]["content"]["application/json"];
 export type PostOrganizationResponse = operations["postOrganization"]["responses"]["200"]["content"]["application/json"];
 export type PutOrganizationResponse = operations["putOrganization"]["responses"]["200"]["content"]["application/json"];
+export type ListEnvironmentsResponse = operations["listEnvironments"]["responses"]["200"]["content"]["application/json"];
+export type PostEnvironmentResponse = operations["postEnvironment"]["responses"]["200"]["content"]["application/json"];
+export type PutEnvironmentResponse = operations["putEnvironment"]["responses"]["200"]["content"]["application/json"];
+export type DeleteEnvironmentResponse = operations["deleteEnvironment"]["responses"]["200"]["content"]["application/json"];
 export type ListFactTablesResponse = operations["listFactTables"]["responses"]["200"]["content"]["application/json"];
 export type PostFactTableResponse = operations["postFactTable"]["responses"]["200"]["content"]["application/json"];
 export type GetFactTableResponse = operations["getFactTable"]["responses"]["200"]["content"]["application/json"];

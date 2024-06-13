@@ -17,23 +17,25 @@ export function evalCondition(
   obj: TestedObj,
   condition: ConditionInterface
 ): boolean {
-  // Recursive condition
-  if ("$or" in condition) {
-    return evalOr(obj, condition["$or"] as ConditionInterface[]);
-  }
-  if ("$nor" in condition) {
-    return !evalOr(obj, condition["$nor"] as ConditionInterface[]);
-  }
-  if ("$and" in condition) {
-    return evalAnd(obj, condition["$and"] as ConditionInterface[]);
-  }
-  if ("$not" in condition) {
-    return !evalCondition(obj, condition["$not"] as ConditionInterface);
-  }
-
-  // Condition is an object, keys are object paths, values are the condition for that path
+  // Condition is an object, keys are either specific operators or object paths
+  // values are either arguments for operators or conditions for paths
   for (const [k, v] of Object.entries(condition)) {
-    if (!evalConditionValue(v, getPath(obj, k))) return false;
+    switch (k) {
+      case "$or":
+        if (!evalOr(obj, v as ConditionInterface[])) return false;
+        break;
+      case "$nor":
+        if (evalOr(obj, v as ConditionInterface[])) return false;
+        break;
+      case "$and":
+        if (!evalAnd(obj, v as ConditionInterface[])) return false;
+        break;
+      case "$not":
+        if (evalCondition(obj, v as ConditionInterface)) return false;
+        break;
+      default:
+        if (!evalConditionValue(v, getPath(obj, k))) return false;
+    }
   }
   return true;
 }

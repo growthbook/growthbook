@@ -74,7 +74,7 @@ export async function findAllLegacySdkWebhooks(
   return (
     await WebhookModel.find({
       organization: context.org.id,
-      useSdkMode: false,
+      useSdkMode: { $ne: true },
     })
   ).map((e) => toInterface(e));
 }

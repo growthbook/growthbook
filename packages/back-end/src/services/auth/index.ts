@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { SSO_CONFIG } from "enterprise";
+import { licenseInit, SSO_CONFIG } from "enterprise";
 import { logger } from "../../util/logger";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
@@ -21,7 +21,7 @@ import {
 } from "../../events/event-types";
 import { insertAudit } from "../../models/AuditModel";
 import { getTeamsForOrganization } from "../../models/TeamModel";
-import { initializeLicenseForOrg } from "../licenseData";
+import { getLicenseMetaData, getUserCodesForOrg } from "../licenseData";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
@@ -164,7 +164,11 @@ export async function processJWT(
         }
 
         // init license for org if it exists
-        await initializeLicenseForOrg(req.organization);
+        await licenseInit(
+          req.organization,
+          getUserCodesForOrg,
+          getLicenseMetaData
+        );
       } else {
         res.status(404).json({
           status: 404,
