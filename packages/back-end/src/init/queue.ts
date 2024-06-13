@@ -34,7 +34,7 @@ export async function queueInit() {
   updateLicenseJob(agenda);
 
   // Make sure we have index needed to delete efficiently
-  agenda._collection.createIndex({ lastFinishedAt: -1, nextRunAt: -1 });
+  agenda._collection.createIndex({ lastFinishedAt: 1, nextRunAt: 1 });
   deleteOldAgendaJobs(agenda);
 
   await agenda.start();
