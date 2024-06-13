@@ -4,8 +4,8 @@ import { getAgendaInstance } from "../services/queueing";
 import { logger } from "../util/logger";
 const JOB_NAME = "deleteOldAgendaJobs";
 
+// Delete old agenda jobs that finished over one week ago and are not going to be repeated
 const deleteOldAgendaJobs = trackJob(JOB_NAME, async () => {
-  // Delete old agenda jobs that finished over 24 hours ago and are not going to be repeated
   const agenda = getAgendaInstance();
 
   const startDate = Date.now();
