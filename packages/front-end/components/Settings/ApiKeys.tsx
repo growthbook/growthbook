@@ -26,11 +26,6 @@ const ApiKeys: FC = () => {
         </Link>{" "}
         for your user account
       </div>
-
-      <div className="alert alert-info">
-        Looking for SDK Endpoints? They have moved to the{" "}
-        <Link href="/sdks">SDK Connections</Link> page.
-      </div>
     </>
   );
 };

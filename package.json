@@ -65,7 +65,7 @@
     ]
   },
   "resolutions": {
-    "@growthbook/growthbook": "1.0.0"
+    "@growthbook/growthbook": "1.0.1"
   },
   "prettier": {
     "overrides": [

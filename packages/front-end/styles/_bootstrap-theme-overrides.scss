@@ -196,10 +196,13 @@ pre {
     color: var(--text-color-main);
     background-color: var(--surface-background-color-alt);
   }
+  > svg {
+    min-width: 20px;
+  }
 }
 
 .dropdown-divider {
-  border-color: var(--border-color-300);
+  border-color: var(--border-color-200);
 }
 
 // endregion Drop down

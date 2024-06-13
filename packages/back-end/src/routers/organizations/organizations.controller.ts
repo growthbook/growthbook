@@ -7,6 +7,7 @@ import {
   getEffectiveAccountPlan,
   getLicense,
   getLicenseError,
+  licenseInit,
 } from "enterprise";
 import { experimentHasLinkedChanges } from "shared/util";
 import {
@@ -32,9 +33,8 @@ import {
   addMemberToOrg,
   addPendingMemberToOrg,
   expandOrgMembers,
-  findVerifiedOrgForNewUser,
+  findVerifiedOrgsForNewUser,
   getContextFromReq,
-  getEnvironments,
   getInviteUrl,
   getNumberOfUniqueMembersAndInvites,
   importConfig,
@@ -50,7 +50,6 @@ import {
 import { updatePassword } from "../../services/users";
 import { getAllTags } from "../../models/TagModel";
 import {
-  Environment,
   Invite,
   MemberRoleWithProjects,
   NamespaceUsage,
@@ -93,8 +92,8 @@ import {
   addCustomRole,
   editCustomRole,
   removeCustomRole,
+  addGetStartedChecklistItem,
 } from "../../models/OrganizationModel";
-import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { ConfigFile } from "../../init/config";
 import { ExperimentRule, NamespaceValue } from "../../../types/feature";
 import { usingOpenId } from "../../services/auth";
@@ -114,7 +113,6 @@ import {
   getAllExperiments,
   getExperimentsForActivityFeed,
 } from "../../models/ExperimentModel";
-import { removeEnvironmentFromSlackIntegration } from "../../models/SlackIntegrationModel";
 import {
   findAllAuditsByEntityType,
   findAllAuditsByEntityTypeParent,
@@ -126,13 +124,11 @@ import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { TeamInterface } from "../../../types/team";
 import { fireSdkWebhook } from "../../jobs/sdkWebhooks";
-import { initializeLicenseForOrg } from "../../services/licenseData";
 import {
-  findSDKConnectionsByIds,
-  findSDKConnectionsByOrganization,
-} from "../../models/SdkConnectionModel";
-import { triggerSingleSDKWebhookJobs } from "../../jobs/updateAllJobs";
-import { SDKConnectionInterface } from "../../../types/sdk-connection";
+  getLicenseMetaData,
+  getUserCodesForOrg,
+} from "../../services/licenseData";
+import { findSDKConnectionsByIds } from "../../models/SdkConnectionModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -158,7 +154,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     findSegmentsByOrganization(orgId),
     getAllTags(orgId),
     getAllSavedGroups(orgId),
-    findAllProjectsByOrganization(context),
+    context.models.projects.getAll(),
     getAllFactTablesForOrganization(context),
     context.models.factMetrics.getAll(),
   ]);
@@ -398,9 +394,14 @@ export async function putMember(
     throw new Error("User is not verified");
   }
 
-  // ensure org matches calculated verified org
-  const organization = await findVerifiedOrgForNewUser(req.email);
-  if (!organization || organization.id !== orgId) {
+  // ensure org matches one of the calculated verified org
+  const organizations = await findVerifiedOrgsForNewUser(req.email);
+  if (!organizations) {
+    throw new Error("Invalid orgId");
+  }
+
+  const organization = organizations.find((o) => o.id === orgId);
+  if (!organization) {
     throw new Error("Invalid orgId");
   }
 
@@ -667,7 +668,11 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     license = getLicense(licenseKey || process.env.LICENSE_KEY);
     if (!license || (license.organizationId && license.organizationId !== id)) {
       try {
-        license = await initializeLicenseForOrg(org);
+        license = await licenseInit(
+          org,
+          getUserCodesForOrg,
+          getLicenseMetaData
+        );
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error("setting license failed", e);
@@ -743,6 +748,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       members: org.members,
       messages: messages || [],
       pendingMembers: org.pendingMembers,
+      getStartedChecklistItems: org.getStartedChecklistItems,
     },
     seatsInUse,
   });
@@ -1258,10 +1264,6 @@ export async function putOrganization(
   const { org } = context;
   const { name, settings, connections, externalId, licenseKey } = req.body;
 
-  const deletedEnvIds: string[] = [];
-  const envsWithModifiedProjects: Environment[] = [];
-  const existingEnvironments = getEnvironments(org);
-
   if (connections || name) {
     if (!context.permissions.canManageOrgSettings()) {
       context.permissions.throwPermissionError();
@@ -1270,53 +1272,9 @@ export async function putOrganization(
   if (settings) {
     Object.keys(settings).forEach((k: keyof OrganizationSettings) => {
       if (k === "environments") {
-        // Require permissions for any old environments that changed
-        const affectedEnvs: Set<Environment> = new Set();
-        existingEnvironments.forEach((env) => {
-          const oldHash = JSON.stringify(env);
-          const newHash = JSON.stringify(
-            settings[k]?.find((e) => e.id === env.id)
-          );
-          if (oldHash !== newHash) {
-            affectedEnvs.add(env);
-          }
-          if (!newHash && oldHash) {
-            deletedEnvIds.push(env.id);
-          }
-        });
-
-        // Require permissions for any new environments that have been added
-        const oldIds = new Set(existingEnvironments.map((env) => env.id) || []);
-        settings[k]?.forEach((env) => {
-          if (!oldIds.has(env.id)) {
-            affectedEnvs.add(env);
-          }
-        });
-
-        // Check if any environments' projects have been changed (may require webhook triggers)
-        existingEnvironments.forEach((env) => {
-          const oldProjects = env.projects || [];
-          const newProjects =
-            settings[k]?.find((e) => e.id === env.id)?.projects || [];
-          if (JSON.stringify(oldProjects) !== JSON.stringify(newProjects)) {
-            envsWithModifiedProjects.push({
-              ...env,
-              projects: newProjects,
-            });
-          }
-        });
-
-        affectedEnvs.forEach((env) => {
-          if (!context.permissions.canCreateOrUpdateEnvironment(env)) {
-            context.permissions.throwPermissionError();
-          }
-        });
-
-        envsWithModifiedProjects.forEach((env) => {
-          if (!context.permissions.canCreateOrUpdateEnvironment(env)) {
-            context.permissions.throwPermissionError();
-          }
-        });
+        throw new Error(
+          "Not supported: Updating organization environments not supported via this route."
+        );
       } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
         if (
           !context.permissions.canCreateSDKConnection({
@@ -1393,32 +1351,6 @@ export async function putOrganization(
       },
       details: auditDetailsUpdate(orig, updates),
     });
-
-    deletedEnvIds.forEach((envId) => {
-      removeEnvironmentFromSlackIntegration({ organizationId: org.id, envId });
-    });
-
-    // Trigger SDK webhooks to reflect project changes in environments
-    const affectedConnections = new Set<SDKConnectionInterface>();
-    if (envsWithModifiedProjects.length) {
-      const connections = await findSDKConnectionsByOrganization(context);
-      for (const env of envsWithModifiedProjects) {
-        const affected = connections.filter((c) => c.environment === env.id);
-        affected.forEach((c) => affectedConnections.add(c));
-      }
-    }
-    for (const connection of affectedConnections) {
-      const isUsingProxy = !!(
-        connection.proxy.enabled && connection.proxy.host
-      );
-      await triggerSingleSDKWebhookJobs(
-        context,
-        connection,
-        {},
-        connection.proxy,
-        isUsingProxy
-      );
-    }
 
     res.status(200).json({
       status: 200,
@@ -2014,7 +1946,7 @@ export async function setLicenseKey(
   }
 
   org.licenseKey = licenseKey;
-  await initializeLicenseForOrg(org, true);
+  await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 }
 
 export async function putLicenseKey(
@@ -2087,6 +2019,47 @@ export async function putDefaultRole(
       },
     },
   });
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function putGetStartedChecklistItem(
+  req: AuthRequest<{
+    checklistItem: string;
+    project: string;
+  }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { checklistItem, project } = req.body;
+
+  if (checklistItem !== "environments" && checklistItem !== "attributes") {
+    throw new Error("Unexpected Get Started checklist item.");
+  }
+
+  if (
+    checklistItem === "environments" &&
+    !context.permissions.canCreateOrUpdateEnvironment({
+      id: "",
+      projects: [project],
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (
+    checklistItem === "attributes" &&
+    !context.permissions.canCreateAttribute({
+      projects: [project],
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  addGetStartedChecklistItem(org.id, checklistItem);
 
   res.status(200).json({
     status: 200,

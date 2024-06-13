@@ -122,6 +122,7 @@ const organizationSchema = new mongoose.Schema({
     },
   },
   settings: {},
+  getStartedChecklistItems: [String],
   customRoles: {},
 });
 
@@ -201,6 +202,7 @@ export async function createOrganization({
         { property: "utmContent", datatype: "string" },
       ],
     },
+    getStartedChecklistItems: [],
   });
   return toInterface(doc);
 }
@@ -548,4 +550,15 @@ export async function removeCustomRole(
   }
 
   await updateOrganization(org.id, { customRoles: newCustomRoles });
+}
+
+export async function addGetStartedChecklistItem(id: string, item: string) {
+  await OrganizationModel.updateOne(
+    {
+      id,
+    },
+    {
+      $addToSet: { getStartedChecklistItems: item },
+    }
+  );
 }
