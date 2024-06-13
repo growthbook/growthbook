@@ -13,7 +13,7 @@ const deleteOldAgendaJobs = trackJob(JOB_NAME, async () => {
   const res = await agenda._collection
     .find(
       {
-        lastFinishedAt: { $lt: new Date(Date.now() - 0.0 * 24 * 3600 * 1000) },
+        lastFinishedAt: { $lt: new Date(Date.now() - 7 * 24 * 3600 * 1000) },
         nextRunAt: null,
       },
       {
