@@ -122,7 +122,45 @@ describe("src/license", () => {
     const org = { id: "org_id", licenseKey };
 
     describe("when there is no license", () => {
-      it("should not have an error if there is no license", () => {
+      it("should throw an error if SSO is enabled and IS_CLOUD is false", () => {
+        process.env.SSO_CONFIG = "true";
+
+        expect.assertions(1);
+
+        expect(() => {
+          getLicenseError(org);
+        }).toThrowError(
+          "You need an enterprise license for SSO functionality. Either upgrade to enterprise or remove SSO_CONFIG environment variable."
+        );
+      });
+
+      it("should not throw an error if SSO is enabled on cloud no matter what", () => {
+        process.env.SSO_CONFIG = "true";
+        process.env.IS_CLOUD = "true";
+
+        expect(getLicenseError(org)).toBe("");
+      });
+
+      it("should return multi org error if the env var is set", () => {
+        process.env.IS_MULTI_ORG = "true";
+
+        expect.assertions(1);
+
+        expect(() => {
+          getLicenseError(org);
+        }).toThrowError(
+          "You need an enterprise license for multi-org functionality. Either upgrade to enterprise or remove IS_MULTI_ORG environment variable."
+        );
+      });
+
+      it("should not throw an error if multi-org is enabled on cloud", () => {
+        process.env.IS_MULTI_ORG = "true";
+        process.env.IS_CLOUD = "true";
+
+        expect(getLicenseError(org)).toBe("");
+      });
+
+      it("should not have an error if there is no license and no enterprise env vars set", () => {
         expect(getLicenseError(org)).toBe("");
       });
     });
@@ -142,6 +180,44 @@ describe("src/license", () => {
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
         await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
+      });
+
+      it("should throw an error if SSO is enabled and IS_CLOUD is false", () => {
+        process.env.SSO_CONFIG = "true";
+
+        expect.assertions(1);
+
+        expect(() => {
+          getLicenseError(org);
+        }).toThrowError(
+          "You need an enterprise license for SSO functionality. Either upgrade to enterprise or remove SSO_CONFIG environment variable."
+        );
+      });
+
+      it("should not throw an error if SSO is enabled on cloud no matter what", () => {
+        process.env.SSO_CONFIG = "true";
+        process.env.IS_CLOUD = "true";
+
+        expect(getLicenseError(org)).toBe("");
+      });
+
+      it("should return multi org error if the env var is set", () => {
+        process.env.IS_MULTI_ORG = "true";
+
+        expect.assertions(1);
+
+        expect(() => {
+          getLicenseError(org);
+        }).toThrowError(
+          "You need an enterprise license for multi-org functionality. Either upgrade to enterprise or remove IS_MULTI_ORG environment variable."
+        );
+      });
+
+      it("should not throw an error if multi-org is enabled on cloud", () => {
+        process.env.IS_MULTI_ORG = "true";
+        process.env.IS_CLOUD = "true";
+
+        expect(getLicenseError(org)).toBe("");
       });
 
       it("should not have an error since no plan means it was an abandoned stripe checkout and not a full license", () => {
@@ -424,7 +500,7 @@ describe("src/license", () => {
         expect(() => {
           getLicenseError(org);
         }).toThrowError(
-          "Your license does not support SSO. Either upgrade to enterprise or remove SSO_CONFIG environment variable."
+          "You need an enterprise license for SSO functionality. Either upgrade to enterprise or remove SSO_CONFIG environment variable."
         );
       });
 
@@ -438,7 +514,13 @@ describe("src/license", () => {
       it("should return multi org error if the license does not support multi org", () => {
         process.env.IS_MULTI_ORG = "true";
 
-        expect(getLicenseError(org)).toBe("No support for multi-org");
+        expect.assertions(1);
+
+        expect(() => {
+          getLicenseError(org);
+        }).toThrowError(
+          "You need an enterprise license for multi-org functionality. Either upgrade to enterprise or remove IS_MULTI_ORG environment variable."
+        );
       });
 
       it("should not throw an error if multi-org is enabled on cloud even if the license does not support it", () => {
