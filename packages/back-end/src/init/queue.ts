@@ -13,6 +13,7 @@ import updateStaleInformationSchemaTable from "../jobs/updateStaleInformationSch
 import expireOldQueries from "../jobs/expireOldQueries";
 import addSdkWebhooksJob from "../jobs/sdkWebhooks";
 import updateLicenseJob, { queueUpdateLicense } from "../jobs/updateLicense";
+import deleteOldAgendaJobs from "../jobs/deleteOldAgendaJobs";
 
 export async function queueInit() {
   if (!CRON_ENABLED) return;
@@ -31,6 +32,7 @@ export async function queueInit() {
   refreshFactTableColumns(agenda);
   addSdkWebhooksJob(agenda);
   updateLicenseJob(agenda);
+  deleteOldAgendaJobs(agenda);
 
   await agenda.start();
 
