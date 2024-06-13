@@ -79,7 +79,7 @@ export function useFeatureIsOn<
   AppFeatures extends Record<string, any> = Record<string, any>
 >(id: string & keyof AppFeatures): boolean {
   const growthbook = useGrowthBook<AppFeatures>();
-  const [isOn, setIsOn] = React.useState(false);
+  const [isOn, setIsOn] = React.useState(growthbook.isOn(id));
 
   React.useEffect(() => {
     if (growthbook) {
