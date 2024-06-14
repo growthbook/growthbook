@@ -67,6 +67,8 @@ export type ExperimentResultsQueryParams = {
 
 export const TRAFFIC_QUERY_NAME = "traffic";
 
+export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
+
 export const MAX_METRICS_PER_QUERY = 20;
 
 export function getFactMetricGroup(metric: FactMetricInterface) {
@@ -223,7 +225,7 @@ export const startExperimentResultQueries = async (
   const unitsTableFullName =
     useUnitsTable && !!integration.generateTablePath
       ? integration.generateTablePath(
-          `growthbook_tmp_units_${queryParentId}`,
+          `${UNITS_TABLE_PREFIX}_${queryParentId}`,
           settings.pipelineSettings?.writeDataset,
           "",
           true
@@ -380,7 +382,7 @@ export const startExperimentResultQueries = async (
   if (useUnitsTable && dropUnitsTable) {
     const dropUnitsTableQuery = await startQuery({
       name: `drop_${queryParentId}`,
-      query: integration.getDropTableQuery({
+      query: integration.getDropUnitsTableQuery({
         tableName: unitsTableFullName,
       }),
       // unit query must succeed

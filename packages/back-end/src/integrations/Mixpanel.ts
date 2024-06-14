@@ -60,7 +60,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
       this.decryptionError = true;
     }
   }
-  getDropTableQuery(): string {
+  getDropUnitsTableQuery(): string {
     throw new Error("Method not implemented.");
   }
   runDropTableQuery(): Promise<DropTableQueryResponse> {

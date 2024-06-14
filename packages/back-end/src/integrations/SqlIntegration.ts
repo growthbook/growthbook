@@ -14,6 +14,7 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import { AUTOMATIC_DIMENSION_OTHER_NAME } from "shared/constants";
+import { UNITS_TABLE_PREFIX } from "@back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "../../types/organization";
 import { MetricInterface, MetricType } from "../../types/metric";
 import {
@@ -795,7 +796,14 @@ export default abstract class SqlIntegration
     return { results: results.rows, duration };
   }
 
-  getDropTableQuery(params: DropTableQueryParams): string {
+  getDropUnitsTableQuery(params: DropTableQueryParams): string {
+    // valdidate units table query follows expected name to help
+    // prevent dropping other tables
+    if (!params.tableName.includes(UNITS_TABLE_PREFIX)) {
+      throw new Error(
+        "Unable to drop table that is not temporary units table."
+      );
+    }
     return `DROP TABLE IF EXISTS ${params.tableName}`;
   }
   async runDropTableQuery(

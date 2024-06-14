@@ -435,7 +435,7 @@ export interface SourceIntegrationInterface {
     sql: string,
     timestampCols?: string[]
   ): Promise<TestQueryResult>;
-  getDropTableQuery(params: DropTableQueryParams): string;
+  getDropUnitsTableQuery(params: DropTableQueryParams): string;
   runDropTableQuery(
     query: string,
     setExternalId: ExternalIdCallback
