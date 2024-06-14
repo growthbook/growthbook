@@ -14,7 +14,7 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import { AUTOMATIC_DIMENSION_OTHER_NAME } from "shared/constants";
-import { UNITS_TABLE_PREFIX } from "@back-end/src/queryRunners/ExperimentResultsQueryRunner";
+import { UNITS_TABLE_PREFIX } from "../queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "../../types/organization";
 import { MetricInterface, MetricType } from "../../types/metric";
 import {
