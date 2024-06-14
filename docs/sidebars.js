@@ -368,6 +368,11 @@ const sidebars = {
               id: "statistics/power",
               label: "Power Analysis",
             },
+            {
+              type: "doc",
+              id: "statistics/bandits",
+              label: "Multi-Armed Bandits",
+            },
           ],
         },
       ],
