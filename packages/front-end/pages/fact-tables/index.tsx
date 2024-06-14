@@ -240,7 +240,7 @@ export default function FactTablesPage() {
                 !canCreate || !dataSourcesThatSupportAutoFactTables.length
               }
             >
-              <GBAddCircle /> <strong>Discover Fact Tables</strong>
+              <strong>Auto-generate Fact Tables...</strong>
             </button>
             <button
               className="btn btn-primary"

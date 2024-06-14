@@ -16,7 +16,6 @@ import Tooltip from "./Tooltip/Tooltip";
 import SelectField from "./Forms/SelectField";
 import LoadingOverlay from "./LoadingOverlay";
 import LoadingSpinner from "./LoadingSpinner";
-import Toggle from "./Forms/Toggle";
 import Button from "./Button";
 import SQLInputField from "./SQLInputField";
 
@@ -48,6 +47,7 @@ export default function AutoGenerateFactTableModal({
   }>({
     informationSchema: undefined,
   });
+  const [checkAll, setCheckAll] = useState(true);
 
   interface AutoFactTableToCreateForm extends AutoFactTableToCreate {
     showSqlPreview: boolean;
@@ -265,6 +265,23 @@ export default function AutoGenerateFactTableModal({
     }
   }, [apiCall, selectedDatasource?.id]);
 
+  useEffect(() => {
+    const eligibleFactTables = factTablesToCreate.filter(
+      (ft) => ft.alreadyExists === false
+    );
+
+    if (
+      checkAll &&
+      eligibleFactTables.every((ft) => ft.shouldCreate === false)
+    ) {
+      setCheckAll(false);
+    }
+
+    if (!checkAll && eligibleFactTables.every((ft) => ft.shouldCreate)) {
+      setCheckAll(true);
+    }
+  }, [checkAll, factTablesToCreate]);
+
   return (
     <Modal
       size="lg"
@@ -371,46 +388,42 @@ export default function AutoGenerateFactTableModal({
                 Click here to learn more about GrowthBook Fact Tables.
               </DocLink>
             </p>
-            <div className="d-flex justify-content-end">
-              <Button
-                color="link"
-                onClick={async () => {
-                  const updates = cloneDeep(factTablesToCreate);
-                  updates.forEach((table) => {
-                    if (!table.shouldCreate && !table.alreadyExists) {
-                      table.shouldCreate = true;
-                    }
-                  });
-                  form.setValue("factTablesToCreate", updates);
-                }}
-              >
-                Check All
-              </Button>
-              <Button
-                color="link"
-                onClick={async () => {
-                  const updates = cloneDeep(factTablesToCreate);
-                  updates.forEach((table) => {
-                    if (table.shouldCreate && !table.alreadyExists) {
-                      table.shouldCreate = false;
-                    }
-                  });
-                  form.setValue("factTablesToCreate", updates);
-                }}
-              >
-                Uncheck All
-              </Button>
-            </div>
+            <label className="font-weight-bold">
+              Here are the Fact Tables we can auto-generate for you
+            </label>
             <table className="appbox table experiment-table gbtable">
               <thead>
                 <tr>
-                  <th>Create</th>
+                  <th>
+                    <>
+                      <input
+                        type="checkbox"
+                        checked={checkAll}
+                        onChange={async (e) => {
+                          const updates = cloneDeep(factTablesToCreate);
+                          setCheckAll(e.target.checked);
+                          updates.forEach((table) => {
+                            if (!e.target.checked) {
+                              if (table.shouldCreate && !table.alreadyExists) {
+                                table.shouldCreate = false;
+                              }
+                            } else {
+                              if (!table.shouldCreate && !table.alreadyExists) {
+                                table.shouldCreate = true;
+                              }
+                            }
+                          });
+                          form.setValue("factTablesToCreate", updates);
+                        }}
+                      />
+                    </>
+                  </th>
                   <th>
                     <Tooltip body="By default, the table is named after the tracked event. You can change this after.">
                       Fact Table Name
                     </Tooltip>
                   </th>
-                  <th className="text-center">
+                  <th>
                     <Tooltip body="This is the SQL that will be used to define the Fact Table. It can be edited after the Fact Table is created.">
                       SQL
                     </Tooltip>
@@ -423,47 +436,56 @@ export default function AutoGenerateFactTableModal({
                     <>
                       <tr key={`${table}-${i}`}>
                         <td>
-                          <Toggle
-                            id={table.eventName}
-                            disabledMessage="This event has already been used to create a Fact Table"
-                            disabled={table.alreadyExists}
-                            value={table.shouldCreate}
-                            setValue={(value) => {
-                              const updatedFactTablesToCreate = cloneDeep(
-                                factTablesToCreate
-                              );
-                              updatedFactTablesToCreate[i].shouldCreate = value;
-                              form.setValue(
-                                "factTablesToCreate",
-                                updatedFactTablesToCreate
-                              );
-                            }}
-                          />
-                        </td>
-                        <td>{table.displayName}</td>
-                        <td>
-                          <div className="d-flex align-items-center justify-content-center flex-column">
-                            <Button
-                              color="link"
-                              onClick={async () => {
+                          <Tooltip
+                            body="This event has already been used to create a Fact Table"
+                            shouldDisplay={table.alreadyExists}
+                          >
+                            <input
+                              type="checkbox"
+                              id={table.eventName}
+                              disabled={table.alreadyExists}
+                              checked={table.shouldCreate}
+                              onChange={async (e) => {
                                 const updatedFactTablesToCreate = cloneDeep(
                                   factTablesToCreate
                                 );
-
-                                updatedFactTablesToCreate[
-                                  i
-                                ].showSqlPreview = !table.showSqlPreview;
+                                updatedFactTablesToCreate[i].shouldCreate =
+                                  e.target.checked;
                                 form.setValue(
                                   "factTablesToCreate",
                                   updatedFactTablesToCreate
                                 );
                               }}
-                            >
-                              {table.showSqlPreview
-                                ? "Hide SQL"
-                                : "Preview SQL"}
-                            </Button>
-                          </div>
+                            />
+                          </Tooltip>
+                        </td>
+                        <td>
+                          <span
+                            className={table.alreadyExists ? "text-muted" : ""}
+                          >
+                            {table.displayName}
+                          </span>
+                        </td>
+                        <td>
+                          <Button
+                            color="link"
+                            className="px-0"
+                            onClick={async () => {
+                              const updatedFactTablesToCreate = cloneDeep(
+                                factTablesToCreate
+                              );
+
+                              updatedFactTablesToCreate[
+                                i
+                              ].showSqlPreview = !table.showSqlPreview;
+                              form.setValue(
+                                "factTablesToCreate",
+                                updatedFactTablesToCreate
+                              );
+                            }}
+                          >
+                            {table.showSqlPreview ? "Hide SQL" : "Preview SQL"}
+                          </Button>
                         </td>
                       </tr>
                       {table.showSqlPreview && (
