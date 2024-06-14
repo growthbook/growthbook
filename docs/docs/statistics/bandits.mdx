@@ -1,0 +1,120 @@
+---
+title: Multi-Armed Bandits
+description: Multi-Armed Bandits
+sidebar_label: Multi-Armed Bandits
+slug: bandits
+---
+
+# Multi-Armed Bandits
+
+## What are multi-armed bandits?
+
+Multi-armed bandits (MABs) are an experimental design wherein the variation weights change during the experiment. This is in contrast to standard GrowthBook "fixed weight" experiments, wherein the percentages of traffic assigned to variations are constant during the experiment.
+
+## When should I run a multi-armed bandit experiment?
+
+Multi-armed bandits are helpful when: 1) you have 3 or more variations you want to test; or 2) you want to minimize costs during the experiment.
+
+## How do GrowthBook multi-armed bandits work?
+
+Suppose you have 10 variations in your experiment, and your key metric is revenue. In the first part of the experiment (which is brief), traffic is randomly assigned to variations with equal probability. After this exploratory phase, Growthbook estimates the probability that a given variation has the highest mean revenue for each variation. Variations with larger revenue receive larger percentages of user traffic. After collecting more data, we update the weights again. We repeat this cycle multiple times. You can specify the amount of time between updates (see [FAQ](#faq)).
+
+## Why should I run a multi-armed bandit experiment?
+
+First, MABs can reduce the cost of experimentation. By allocating larger percentages of traffic to higher revenue arms, you avoid wasting money on the lowest revenue variations.
+
+Second, you can potentially glean more information from a MAB compared to a fixed-weight experiment. If you have 10 variations, you may be able to quickly determine that several are result in low revenue. Sending traffic to the higher revenue variations both saves money and provides more statistical power for distinguishing the winner.
+
+## How do you determine how much traffic to send to each variation?
+
+GrowthBook employs Thompson sampling, which allocates traffic proportional to the probability that an arm is best.
+
+By sending some traffic to arms that are less likely to have the highest revenue, Thompson sampling _explores_ all variations when searching for a winner.
+
+Thompson sampling _exploits_ information about which arms are likely to be best. Sending more traffic to larger revenue arms saves money.
+
+Exploration vs exploitation is a fundamental tradeoff in adaptive experimentation. Proportional allocation in Thompson sampling nicely balances this tradeoff.
+
+## How do I run a bandits experiment?
+
+Details later
+
+## FAQ
+
+Frequently asked questions:
+
+1. Can I ran a MAB experiment using the frequentist engine? No. Currently bandits are available only under the Bayesian engine, where Thompson sampling is easy to employ.
+2. I usually use the frequentist engine, and I want to translate my frequentist p-value threshold into a success criteria for the Bayesian engine. What should I do? While the frequentist p-value and the Bayesian chance-to-win are very different concepts, they are often conceptualized similarly by their pracitioners. One simple approach is to adjust your settings so that your Bayesian chance to win (default is 95%) is equal to 1 minus your p-value threshold.
+3. How can I use power analysis for an MAB experiment? GrowthBook power results should be conservative for your MAB experiment. MAB power should be higher than fixed weight power, and MAB should have lower minimum detectable effects.
+4. What should I set for the variation weight update period? You can choose the tradeoff between cost and information. Longer periods are cheaper, as fewer queries are run, but less informative, because the weights adjust more slowly. One approach is to select the period length so that the weights are updated roughly 10 times during your experiment.
+
+## GrowthBook implementation
+
+Below we describe technical details of our implementation. Without loss of generality, we let revenue be our goal metric.
+
+We make the following assumptions:
+
+1. observations across users are independent and identically distributed; and
+2. all metrics have finite variance.
+
+We use the following notation.
+
+1. Define $K$ as the number of variations.
+2. For the $k^{\text{th}}$ arm across users define its mean revenue as $\mu_{k}$, $k=1,2,..., K$.
+3. For each arm define prior mean revenue as $\mu_{0}=0$ and prior variance as $\sigma_{0}^{2}=10000$.
+4. Define the current sample size as $n$.
+5. After collecting $n$ observations, for each arm define sample mean revenue as $\bar{\mu}_{k, n}$ and its estimated standard error as $\hat{s}_{k, n}$.
+
+As stated above, in the exploratory phase traffic is randomly assigned to each variation with equal probability. After this (usually short) phase, traffic is assigned to variation $k$ proportionally to the probability that the $k^{\text{th}}$ arm has the highest mean revenue.  
+After $n$ samples have been collected, our model is of the form
+
+$$
+\begin{align}
+\begin{split}
+\bar{\mu}_{k, n} | \mu_{k}&\stackrel{}{\sim} \mathcal{N}\left(\mu_{k}, s_{k, n}^{2}\right)
+\\\mu_{k} &\stackrel{\text{iid}}{\sim} \mathcal{N}\left(\mu_{0}, \sigma_{0}^{2}\right).
+\end{split}
+\end{align}
+$$
+
+This translates to a posterior of
+
+$$
+\begin{align}
+\begin{split}
+\mu_{k}|\bar{\mu}_{k, n}&\stackrel{}{\sim}\mathcal{N}\left(\mu_{posterior}, \sigma^2_{posterior}\right)
+\\\mu_{posterior} &= \frac{  \frac{\mu_{prior}}{\sigma_{prior}^{2}} + \frac{\bar{\mu}_{k, n}}{s_{k, n}^{2}}}{ \frac{1}{\sigma^2_{prior}} + \frac{1}{s_{k, n}^{2}}}
+\\\sigma^2_{posterior} &= \frac{1}{\frac{1}{\sigma^2_{prior}} + \frac{1}{s_{k, n}^{2}}}.
+\end{split}
+\end{align}
+$$
+
+We estimate the variation weights as follows. We use Equation (2) to generate a realization from the posterior for each arm, and store which realization was the largest. We repeat this 10,000 times. The average number of times the $k^{\text{th}}$ realization was the biggest is an empirical estimate for the probability we desire. We return these empirical estimates to our SDK, which uses them for multinomial random assignment.
+
+Note: top-two sampling math and perhaps other details will be in separate technical doc, as for Bayesian power.  
+We also permit top-two sampling, where we estimate variation weights that is equivalent to:
+
+1. sampling from the posterior mean for each variation; and 2) randomly assigning to treatment with equal probabiity from the two largest posterior mean realizations.
+
+WLOG we estimate the probability that variations 1 and 2 have the largest two samples. Suppose they have variation weights $p_{1}$ and $p_{2}$ respectively.  
+The probability that variation 1 has the largest posterior mean realization is $p1$.  
+The probability that variation 2 has the second largest posterior mean realization conditional upon variation 1 being the largest is $p2 / (1-p1)$.  
+Multiplying these together produces $p1 p2 / (1 - p1)$.  
+Similarly, the probability of variation 2 being the biggest, and then variation 1 being the second biggest, is $p2 p1 / (1 - p2)$.  
+Summing these two terms together gives the probability that variations 1 and 2 have the largest two samples.  
+For variation 1 we calculate this quantity for all other arms and then sum across arms.  
+Dividing by 2 to account for the second sampling stage produces the desired result.  
+Top-two sampling helps exploration.
+
+To estimate effects we use our standard Bayesian machinery, as described [here](/statistics/details#bayesian-engine).  
+The independent normal priors translate to
+
+$$
+\begin{align}
+\begin{split}
+\Delta & \stackrel{}{\sim} \mathcal{N}\left(0, 2\sigma_{prior}^{2} / \hat{\mu}_{0}^{2}\right),
+\end{split}
+\end{align}
+$$
+
+where $\hat{\mu}_{0}$ corresponds to the variation designated as control.
