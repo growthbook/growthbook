@@ -371,6 +371,36 @@ export default function AutoGenerateFactTableModal({
                 Click here to learn more about GrowthBook Fact Tables.
               </DocLink>
             </p>
+            <div className="d-flex justify-content-end">
+              <Button
+                color="link"
+                onClick={async () => {
+                  const updates = cloneDeep(factTablesToCreate);
+                  updates.forEach((table) => {
+                    if (!table.shouldCreate && !table.alreadyExists) {
+                      table.shouldCreate = true;
+                    }
+                  });
+                  form.setValue("factTablesToCreate", updates);
+                }}
+              >
+                Check All
+              </Button>
+              <Button
+                color="link"
+                onClick={async () => {
+                  const updates = cloneDeep(factTablesToCreate);
+                  updates.forEach((table) => {
+                    if (table.shouldCreate && !table.alreadyExists) {
+                      table.shouldCreate = false;
+                    }
+                  });
+                  form.setValue("factTablesToCreate", updates);
+                }}
+              >
+                Uncheck All
+              </Button>
+            </div>
             <table className="appbox table experiment-table gbtable">
               <thead>
                 <tr>
