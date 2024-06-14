@@ -53,7 +53,7 @@ export interface QueryInterface {
   rawResult?: Record<string, number | string | boolean | object>[];
   error?: string;
   dependencies?: string[]; // must succeed before running query
-  prerequisites?: string[]; // must succeed or fail before running query
+  runAtEnd?: boolean; // only run when all other queries in model finish
   cachedQueryUsed?: string;
   statistics?: QueryStatistics;
   externalId?: string;

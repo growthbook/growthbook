@@ -80,7 +80,7 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
           <label>{`Destination ${pathNames.schemaName}`} </label>
           <Field
             className="ml-2"
-            containerClassName="mb-2"
+            containerClassName="mb-4"
             type="text"
             required
             {...form.register("writeDataset")}
@@ -98,26 +98,28 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
                 />
               </div>
               {!form.watch("unitsTableDeletion") ? (
-                <div className="text-muted mt-1">
+                <div className="small text-muted mt-1">
                   Disabling this will require you to periodically remove
                   temporary tables from your Databricks Warehouse
                 </div>
               ) : null}
             </>
           ) : (
-            <Field
-              label="Retention of temporary units table (hours)"
-              helpText={
-                dataSource.type === "snowflake"
-                  ? "Rounded up to nearest day for Snowflake"
-                  : ""
-              }
-              className="ml-2"
-              containerClassName="mb-2"
-              type="number"
-              min={1}
-              {...form.register("unitsTableRetentionHours")}
-            />
+            <>
+              <Field
+                label="Retention of temporary units table (hours)"
+                className="ml-2"
+                containerClassName="mb-2"
+                type="number"
+                min={1}
+                {...form.register("unitsTableRetentionHours")}
+              />
+              {dataSource.type === "snowflake" ? (
+                <div className="small text-muted">
+                  Rounded up to nearest day for Snowflake
+                </div>
+              ) : null}
+            </>
           )}
         </div>
       ) : null}

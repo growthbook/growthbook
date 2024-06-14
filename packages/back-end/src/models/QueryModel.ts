@@ -41,7 +41,7 @@ const querySchema = new mongoose.Schema({
   error: String,
   statistics: {},
   dependencies: [String],
-  prerequisites: [String],
+  runAtEnd: Boolean,
   cachedQueryUsed: String,
 });
 
@@ -158,18 +158,18 @@ export async function createNewQuery({
   language,
   query,
   dependencies = [],
-  prerequisites = [],
   running = false,
   queryType = "",
+  runAtEnd = false,
 }: {
   organization: string;
   datasource: string;
   language: QueryLanguage;
   query: string;
   dependencies: string[];
-  prerequisites: string[];
   running: boolean;
   queryType: QueryType;
+  runAtEnd?: boolean;
 }): Promise<QueryInterface> {
   const data: QueryInterface = {
     createdAt: new Date(),
@@ -182,7 +182,7 @@ export async function createNewQuery({
     startedAt: running ? new Date() : undefined,
     status: running ? "running" : "queued",
     dependencies: dependencies,
-    prerequisites: prerequisites,
+    runAtEnd: runAtEnd,
     queryType,
   };
   const doc = await QueryModel.create(data);
@@ -192,11 +192,11 @@ export async function createNewQuery({
 export async function createNewQueryFromCached({
   existing,
   dependencies,
-  prerequisites,
+  runAtEnd,
 }: {
   existing: QueryInterface;
   dependencies: string[];
-  prerequisites: string[];
+  runAtEnd?: boolean;
 }): Promise<QueryInterface> {
   const data: QueryInterface = {
     createdAt: new Date(),
@@ -214,7 +214,7 @@ export async function createNewQueryFromCached({
     error: existing.error,
     statistics: existing.statistics,
     dependencies: dependencies,
-    prerequisites: prerequisites,
+    runAtEnd: runAtEnd,
     cachedQueryUsed: existing.id,
   };
   const doc = await QueryModel.create(data);

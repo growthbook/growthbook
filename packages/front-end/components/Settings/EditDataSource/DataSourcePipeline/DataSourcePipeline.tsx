@@ -80,10 +80,17 @@ export default function DataSourcePipeline({
                 <em className="text-muted">not specified</em>
               )}
             </div>
-            <div className={`mb-2 ma-5`}>
-              {"Retention of temporary units table (hours): "}
-              {pipelineSettings?.unitsTableRetentionHours ?? 24}
-            </div>
+            {dataSource.type === "databricks" ? (
+              <div className={`mb-2 ma-5`}>
+                {"Drop units table when analysis finishes (recommended): "}
+                {pipelineSettings?.unitsTableDeletion ? "Enabled" : "Disabled"}
+              </div>
+            ) : (
+              <div className={`mb-2 ma-5`}>
+                {"Retention of temporary units table (hours): "}
+                {pipelineSettings?.unitsTableRetentionHours ?? 24}
+              </div>
+            )}
           </>
         )}
       </div>

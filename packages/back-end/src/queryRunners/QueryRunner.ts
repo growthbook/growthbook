@@ -50,13 +50,13 @@ export type StartQueryParams<Rows, ProcessedRows> = {
   name: string;
   query: string;
   dependencies: string[];
-  prerequisites: string[];
   run: (
     query: string,
     setExternalId: ExternalIdCallback
   ) => Promise<QueryResponse<Rows>>;
   process: (rows: Rows) => ProcessedRows;
   queryType: QueryType;
+  runAtEnd?: boolean;
 };
 
 const FINISH_EVENT = "finish";
@@ -301,37 +301,24 @@ export abstract class QueryRunner<
           return;
         }
 
-        // check if all prerequisites are finished
-        const finishedPrerequisites: QueryPointer[] = [];
-        const pendingPrerequisites: QueryPointer[] = [];
-        const prerequisiteIds: string[] = query.prerequisites ?? [];
-        prerequisiteIds.forEach((prerequisiteId) => {
-          const prerequisiteQuery = this.model.queries.find(
-            (q) => q.query == prerequisiteId
+        // if `runAtEnd = true` run if all queries that are not marked
+        // `runAtEnd` are finished
+        if (query.runAtEnd) {
+          const pendingQueries = this.model.queries.filter(
+            (q) =>
+              !queryMap.get(q.name)?.runAtEnd &&
+              (q.status === "queued" || q.status === "running")
           );
-          if (prerequisiteQuery === undefined) {
-            throw new Error(`Dependency ${prerequisiteId} not found in model`);
-          } else if (
-            prerequisiteQuery.status === "succeeded" ||
-            prerequisiteQuery.status === "failed"
-          ) {
-            finishedPrerequisites.push(prerequisiteQuery);
-          } else {
-            pendingPrerequisites.push(prerequisiteQuery);
+          if (pendingQueries.length) {
+            logger.debug(
+              `${query.id}: "Run at end query" waiting for other queries to finish...`
+            );
+            return;
           }
-        });
-        if (pendingDependencies.length) {
-          logger.debug(`${query.id}: Prerequisites pending...`);
-          return;
         }
 
-        if (
-          succeededDependencies.length === dependencyIds.length &&
-          finishedPrerequisites.length === prerequisiteIds.length
-        ) {
-          logger.debug(
-            `${query.id}: Dependencies and prerequisites completed, running...`
-          );
+        if (succeededDependencies.length === dependencyIds.length) {
+          logger.debug(`${query.id}: Dependencies completed, running...`);
           const runCallbacks = this.runCallbacks[query.id];
           if (runCallbacks === undefined) {
             logger.debug(`${query.id}: Run callbacks not found..`);
@@ -541,7 +528,7 @@ export abstract class QueryRunner<
       name,
       query,
       dependencies,
-      prerequisites,
+      runAtEnd,
       run,
       process,
       queryType,
@@ -602,7 +589,7 @@ export abstract class QueryRunner<
           const copiedCachedDoc = await createNewQueryFromCached({
             existing: existing,
             dependencies: dependencies,
-            prerequisites: prerequisites,
+            runAtEnd: runAtEnd,
           });
           return {
             name,
@@ -617,7 +604,7 @@ export abstract class QueryRunner<
 
     // Create a new query in mongo
     logger.debug("Creating query for: " + name);
-    const readyToRun = dependencies.length + prerequisites.length === 0;
+    const readyToRun = dependencies.length === 0 && !runAtEnd;
     const doc = await createNewQuery({
       query,
       queryType,
@@ -625,8 +612,8 @@ export abstract class QueryRunner<
       organization: this.integration.context.org.id,
       language: this.integration.getSourceProperties().queryLanguage,
       dependencies: dependencies,
-      prerequisites: prerequisites,
       running: readyToRun,
+      runAtEnd: runAtEnd,
     });
 
     logger.debug("Created new query " + doc.id + " for " + name);

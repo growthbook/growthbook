@@ -266,7 +266,6 @@ export const startExperimentResultQueries = async (
       name: queryParentId,
       query: integration.getExperimentUnitsTableQuery(unitQueryParams),
       dependencies: [],
-      prerequisites: [],
       run: (query, setExternalId) =>
         integration.runExperimentUnitsQuery(query, setExternalId),
       process: (rows) => rows,
@@ -310,7 +309,6 @@ export const startExperimentResultQueries = async (
         name: m.id,
         query: integration.getExperimentMetricQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
-        prerequisites: [],
         run: (query, setExternalId) =>
           integration.runExperimentMetricQuery(query, setExternalId),
         process: (rows) => rows,
@@ -343,7 +341,6 @@ export const startExperimentResultQueries = async (
         name: `group_${i}`,
         query: integration.getExperimentFactMetricsQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
-        prerequisites: [],
         run: (query, setExternalId) =>
           (integration as SqlIntegration).runExperimentFactMetricsQuery(
             query,
@@ -367,7 +364,6 @@ export const startExperimentResultQueries = async (
         useUnitsTable: !!unitQuery,
       }),
       dependencies: unitQuery ? [unitQuery.query] : [],
-      prerequisites: [],
       run: (query, setExternalId) =>
         integration.runExperimentAggregateUnitsQuery(query, setExternalId),
       process: (rows) => rows,
@@ -386,11 +382,9 @@ export const startExperimentResultQueries = async (
         tableName: unitsTableFullName,
       }),
       // unit query must succeed
-      dependencies: unitQuery ? [unitQuery.query] : [],
+      dependencies: [],
       // all other queries must succeed or fail first
-      prerequisites: queries
-        .map((q) => q.query)
-        .filter((q) => q !== unitQuery?.query),
+      runAtEnd: true,
       run: (query, setExternalId) =>
         integration.runDropTableQuery(query, setExternalId),
       process: (rows) => rows,
@@ -559,7 +553,6 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         name: "results",
         query: query,
         dependencies: [],
-        prerequisites: [],
         run: async () => {
           const rows = (await this.integration.getExperimentResults(
             snapshotSettings,
