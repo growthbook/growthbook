@@ -34,11 +34,20 @@ export const putVisualChangeset = createApiRequestHandler(
       req.context.permissions.throwPermissionError();
     }
 
+    const visualChanges = req.body.visualChanges || [];
+
     const res = await updateVisualChangeset({
       visualChangeset,
       experiment,
       context: req.context,
-      updates: req.body,
+      updates: {
+        ...req.body,
+        visualChanges: visualChanges.map((vc) => ({
+          ...vc,
+          description: vc.description || "",
+          css: vc.css || "",
+        })),
+      },
     });
 
     const updatedVisualChangeset = await findVisualChangesetById(

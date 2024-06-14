@@ -1,0 +1,30 @@
+type: object
+properties:
+  description:
+    type: string
+  css:
+    type: string
+  js:
+    type: string
+  domMutations:
+    type: array
+    items:
+      type: object
+      required:
+        - selector
+        - action
+        - attribute
+      properties:
+        selector:
+          type: string
+        action:
+          type: string
+          enum: [append, set, remove]
+        attribute:
+          type: string
+        value:
+          type: string
+        parentSelector:
+          type: string
+        insertBeforeSelector:
+          type: string

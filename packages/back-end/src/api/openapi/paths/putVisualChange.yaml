@@ -12,6 +12,12 @@ put:
         curl -XPUT https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change/vch_abc123 \
           -d '{"variation": "v_123abc", "domMutations":"[]"}' \
           -u secret_abc123DEF456:
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: "../payload-schemas/PutVisualChangePayload.yaml"
   responses:
     "200":
       content:

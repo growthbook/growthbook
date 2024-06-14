@@ -7,6 +7,7 @@ import { ExperimentInterface, Variation } from "../../types/experiment";
 import { ApiVisualChangeset } from "../../types/openapi";
 import { ReqContext } from "../../types/organization";
 import {
+  UpdateVisualChangesetInterface,
   VisualChange,
   VisualChangesetInterface,
   VisualChangesetURLPattern,
@@ -173,7 +174,7 @@ export async function findVisualChangesets(
 export async function createVisualChange(
   id: string,
   organization: string,
-  visualChange: VisualChange
+  visualChange: Omit<VisualChange, "id">
 ): Promise<{ nModified: number }> {
   const visualChangeset = await VisualChangesetModel.findOne({
     id,
@@ -191,7 +192,13 @@ export async function createVisualChange(
     },
     {
       $set: {
-        visualChanges: [...visualChangeset.visualChanges, visualChange],
+        visualChanges: [
+          ...visualChangeset.visualChanges,
+          {
+            ...visualChange,
+            id: uniqid("vc_"),
+          },
+        ],
       },
     }
   );
@@ -296,7 +303,7 @@ export const createVisualChangeset = async ({
 
 // type guard
 const _isUpdatingVisualChanges = (
-  updates: Partial<VisualChangesetInterface>
+  updates: UpdateVisualChangesetInterface
 ): updates is {
   visualChanges: VisualChange[];
 } & Partial<VisualChangesetInterface> =>
@@ -312,7 +319,7 @@ export const updateVisualChangeset = async ({
   visualChangeset: VisualChangesetInterface;
   experiment: ExperimentInterface | null;
   context: ReqContext | ApiReqContext;
-  updates: Partial<VisualChangesetInterface>;
+  updates: UpdateVisualChangesetInterface;
   bypassWebhooks?: boolean;
 }) => {
   const isUpdatingVisualChanges = _isUpdatingVisualChanges(updates);
@@ -350,6 +357,7 @@ export const updateVisualChangeset = async ({
 
   await onVisualChangesetUpdate({
     oldVisualChangeset: visualChangeset,
+    // @ts-expect-error TS complains about undefined id yet visualChanges is ensured to have id
     newVisualChangeset: {
       ...visualChangeset,
       ...updates,

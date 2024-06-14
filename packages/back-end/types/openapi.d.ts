@@ -4896,6 +4896,34 @@ export interface operations {
         id: string;
       };
     };
+    requestBody: {
+      content: {
+        "application/json": {
+          urlPatterns?: ({
+              include: boolean;
+              /** @enum {string} */
+              type: "simple" | "regex";
+              pattern: string;
+            })[];
+          editorUrl?: string;
+          visualChanges?: ({
+              description?: string;
+              css?: string;
+              js?: string;
+              variation: string;
+              domMutations: ({
+                  selector: string;
+                  /** @enum {string} */
+                  action: "append" | "set" | "remove";
+                  attribute: string;
+                  value?: string;
+                  parentSelector?: string;
+                  insertBeforeSelector?: string;
+                })[];
+            })[];
+        };
+      };
+    };
     responses: {
       200: {
         content: {
@@ -4934,6 +4962,25 @@ export interface operations {
   };
   postVisualChange: {
     /** Create a visual change for a visual changeset */
+    requestBody: {
+      content: {
+        "application/json": {
+          description?: string;
+          css?: string;
+          js?: string;
+          variation: string;
+          domMutations: ({
+              selector: string;
+              /** @enum {string} */
+              action: "append" | "set" | "remove";
+              attribute: string;
+              value?: string;
+              parentSelector?: string;
+              insertBeforeSelector?: string;
+            })[];
+        };
+      };
+    };
     responses: {
       200: {
         content: {
@@ -4946,6 +4993,24 @@ export interface operations {
   };
   putVisualChange: {
     /** Update a visual change for a visual changeset */
+    requestBody: {
+      content: {
+        "application/json": {
+          description?: string;
+          css?: string;
+          js?: string;
+          domMutations?: ({
+              selector: string;
+              /** @enum {string} */
+              action: "append" | "set" | "remove";
+              attribute: string;
+              value?: string;
+              parentSelector?: string;
+              insertBeforeSelector?: string;
+            })[];
+        };
+      };
+    };
     responses: {
       200: {
         content: {
