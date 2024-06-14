@@ -264,6 +264,9 @@ export abstract class QueryRunner<
     await Promise.all(
       queuedQueries.map(async (query) => {
         // check if all dependencies are finished
+        // assumes all dependencies are within the model; if any are not, query will hang
+        // in queued state
+
         const failedDependencies: QueryPointer[] = [];
         const succeededDependencies: QueryPointer[] = [];
         const pendingDependencies: QueryPointer[] = [];

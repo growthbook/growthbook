@@ -133,7 +133,7 @@ export type ProcessedDimensions = {
 };
 
 export interface DropTableQueryParams {
-  tableName: string;
+  fullTablePath: string;
 }
 
 interface ExperimentBaseQueryParams {
@@ -439,7 +439,7 @@ export interface SourceIntegrationInterface {
   runDropTableQuery(
     query: string,
     setExternalId: ExternalIdCallback
-  ): Promise<DropTableQueryResponse>; // TODO query class that has no return
+  ): Promise<DropTableQueryResponse>;
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentFactMetricsQuery?(
     params: ExperimentFactMetricsQueryParams

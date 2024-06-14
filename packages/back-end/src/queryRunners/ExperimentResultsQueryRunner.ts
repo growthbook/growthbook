@@ -379,11 +379,10 @@ export const startExperimentResultQueries = async (
     const dropUnitsTableQuery = await startQuery({
       name: `drop_${queryParentId}`,
       query: integration.getDropUnitsTableQuery({
-        tableName: unitsTableFullName,
+        fullTablePath: unitsTableFullName,
       }),
-      // unit query must succeed
       dependencies: [],
-      // all other queries must succeed or fail first
+      // all other queries in model must succeed or fail first
       runAtEnd: true,
       run: (query, setExternalId) =>
         integration.runDropTableQuery(query, setExternalId),

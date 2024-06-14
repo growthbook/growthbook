@@ -799,12 +799,12 @@ export default abstract class SqlIntegration
   getDropUnitsTableQuery(params: DropTableQueryParams): string {
     // valdidate units table query follows expected name to help
     // prevent dropping other tables
-    if (!params.tableName.includes(UNITS_TABLE_PREFIX)) {
+    if (!params.fullTablePath.includes(UNITS_TABLE_PREFIX)) {
       throw new Error(
         "Unable to drop table that is not temporary units table."
       );
     }
-    return `DROP TABLE IF EXISTS ${params.tableName}`;
+    return `DROP TABLE IF EXISTS ${params.fullTablePath}`;
   }
   async runDropTableQuery(
     sql: string,
