@@ -1,9 +1,9 @@
 import express from "express";
+import { z } from "zod";
 import { wrapController } from "../wrapController";
 import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
 import { createMetricAnalysisPropsValidator } from "./metric-analysis.validators";
 import * as rawMetricAnalysisController from "./metric-analysis.controller";
-import { z } from "zod";
 
 const router = express.Router();
 
@@ -23,8 +23,7 @@ router.post(
     params: z.object({ id: z.string() }).strict(),
   }),
   metricAnalysisController.cancelMetricAnalysis
-)
-
+);
 
 router.get(
   "/metric-analysis/metric/:metricid/",
@@ -32,6 +31,6 @@ router.get(
     params: z.object({ metricid: z.string() }).strict(),
   }),
   metricAnalysisController.getLatestMetricAnalysis
-)
+);
 
 export { router as metricAnalysisRouter };

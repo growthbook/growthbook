@@ -3,6 +3,7 @@ import { isFactMetric } from "shared/experiments";
 import {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
+  MetricAnalysisSettings,
 } from "@back-end/types/metric-analysis";
 import { getMetricById } from "../../models/MetricModel";
 import { createMetricAnalysis } from "../../services/metric-analysis";
@@ -11,6 +12,7 @@ import { getExperimentMetricById } from "../../services/experiments";
 import { getIntegrationFromDatasourceId } from "../../services/datasource";
 import { getContextFromReq } from "../../services/organizations";
 import { AuthRequest } from "../../types/AuthRequest";
+import { getValidDate } from "shared/dates";
 
 export const postMetricAnalysis = async (
   req: AuthRequest<CreateMetricAnalysisProps>,
@@ -40,9 +42,15 @@ export const postMetricAnalysis = async (
   if (!context.permissions.canRunMetricQueries(integration.datasource)) {
     context.permissions.throwPermissionError();
   }
-
-  // pass down settings
-  const metricAnalysis = await createMetricAnalysis(context, metricObj);
+  const metricAnalysisSettings: MetricAnalysisSettings = {
+    dimensions: data.dimensions,
+    userIdType: data.userIdType,
+    startDate: getValidDate(data.startDate),
+    endDate: data.endDate ? getValidDate(data.endDate) : null,
+    populationType: data.populationType,
+    population: data.population ?? null,
+  }
+  const metricAnalysis = await createMetricAnalysis(context, metricObj, metricAnalysisSettings);
 
   const model = metricAnalysis.model;
   res.status(200).json({
@@ -155,7 +163,9 @@ export async function getLatestMetricAnalysis(
 ) {
   const context = getContextFromReq(req);
 
-  const metricAnalysis = await context.models.metricAnalysis.findLatestByMetric(req.params.metricid);
+  const metricAnalysis = await context.models.metricAnalysis.findLatestByMetric(
+    req.params.metricid
+  );
 
   if (!metricAnalysis) {
     throw new Error("Metric analysis not found");
@@ -165,5 +175,4 @@ export async function getLatestMetricAnalysis(
     status: 200,
     metricAnalysis,
   });
-
 }

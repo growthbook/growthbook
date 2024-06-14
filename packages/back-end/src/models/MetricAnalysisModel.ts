@@ -44,7 +44,10 @@ export class MetricAnalysisModel extends BaseClass {
   }
 
   public async findLatestByMetric(metric: string) {
-    const metricAnalyses = await this._find({ metric }, { sort: { dateCreated: -1 }, limit: 1 });
+    const metricAnalyses = await this._find(
+      { metric },
+      { sort: { dateCreated: -1 }, limit: 1 }
+    );
     return metricAnalyses[0] ? metricAnalyses[0] : null;
   }
 

@@ -189,15 +189,22 @@ export type MetricAnalysisParams = {
   factTableMap: FactTableMap;
 };
 
+export type MetricAnalysisHistogram = {
+  start: number;
+  end: number;
+  count: number;
+}[];
+
 export type MetricAnalysisResult = {
   count: number;
   stddev: number;
   mean: number;
   dates?: MetricValueResultDate[];
+  histogram?: MetricAnalysisHistogram;
 };
 
 export type MetricValueResultDate = {
-  date: string;
+  date: Date;
   count: number;
   mean: number;
   stddev: number;
@@ -266,11 +273,34 @@ export type MetricAnalysisQueryResponseRow = {
   main_sum: number;
   main_sum_squares: number;
 
-  value_p0: number;
-  value_p100: number;
-  value_p90?: number;
-  value_p95?: number;
-  value_p99?: number;
+  value_min: number;
+  value_max: number;
+  bin_width?: number;
+  count_bin_0?: number;
+  count_bin_1?: number;
+  count_bin_2?: number;
+  count_bin_3?: number;
+  count_bin_4?: number;
+  count_bin_5?: number;
+  count_bin_6?: number;
+  count_bin_7?: number;
+  count_bin_8?: number;
+  count_bin_9?: number;
+  count_bin_10?: number;
+  count_bin_11?: number;
+  count_bin_12?: number;
+  count_bin_13?: number;
+  count_bin_14?: number;
+  count_bin_15?: number;
+  count_bin_16?: number;
+  count_bin_17?: number;
+  count_bin_18?: number;
+  count_bin_19?: number;
+  count_bin_20?: number;
+  count_bin_21?: number;
+  count_bin_22?: number;
+  count_bin_23?: number;
+  count_bin_24?: number;
 };
 
 export type MetricAnalysisQueryResponseRows = MetricAnalysisQueryResponseRow[];

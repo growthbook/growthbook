@@ -572,7 +572,7 @@ export default abstract class SqlIntegration
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
       idTypeObjects,
       settings.startDate,
-      settings.endDate
+      settings.endDate ?? undefined
       // TODO default id type?
     );
     // Get rough date filter for metrics to improve performance
@@ -581,10 +581,11 @@ export default abstract class SqlIntegration
       this.getMetricMinDelay([params.metric]),
       0
     );
-    const metricEnd = this.getMetricEnd([params.metric], settings.endDate);
+    const metricEnd = this.getMetricEnd([params.metric], settings.endDate ?? undefined);
 
     const aggregate = this.getAggregateMetricColumn(params.metric);
 
+    const histogram_bin_number = 25;
     // TODO query is broken if segment has template variables
     return format(
       `-- ${metric.name} Metric Analysis
@@ -612,61 +613,92 @@ export default abstract class SqlIntegration
         , __userMetricDaily as (
           -- Get aggregated metric per user by day
           SELECT
-            ${this.dateTrunc("m.timestamp")} as date,
+            ${baseIdType},
+            ${this.dateTrunc("timestamp")} as date,
             -- TODO dimension
             ${aggregate} as value
           FROM
-            __distinctUsers
+            __filteredMetrics
           GROUP BY
-            ${this.dateTrunc("m.timestamp")},
-            m.${baseIdType}
+            ${this.dateTrunc("timestamp")},
+            ${baseIdType}
         )
         , __userMetricOverall as (
           -- Re-sum across all users (NOTE DOES NOT WORK FOR CERTAIN AGGREGATIONS!)
           SELECT
+            ${baseIdType},
             SUM(value) as value
           FROM
             __userMetricDaily
           GROUP BY
-            m.${baseIdType}
+            ${baseIdType}
         )
         , __statisticsDaily AS (
           SELECT
-            date,
-            MAX(${this.castToString("'date'")}) AS data_type,
-            COUNT(*) as count,
-            COALESCE(SUM(value), 0) as main_sum,
-            COALESCE(SUM(POWER(value, 2)), 0) as main_sum_squares,
-            MIN(value) as value_p0,
-            MAX(value) as value_p100,
-            NULL as value_p90,
-            NULL as value_p95,
-            NULL as value_p99
+            date
+            , MAX(${this.castToString("'date'")}) AS data_type
+            , COUNT(*) as count
+            , COALESCE(SUM(value), 0) as main_sum
+            , COALESCE(SUM(POWER(value, 2)), 0) as main_sum_squares
+            , MIN(value) as value_min
+            , MAX(value) as value_max
+            , ${this.ensureFloat("NULL")} AS bin_width
+            ${[...Array(histogram_bin_number).keys()]
+              .map((i) => `, ${this.ensureFloat("NULL")} AS count_bin_${i}`)
+              .join("\n")}
           FROM __userMetricDaily
           GROUP BY date
         )
         , __statisticsOverall AS (
           SELECT
-            NULL AS date,
+            ${this.castToDate("NULL")} AS date,
             MAX(${this.castToString("'overall'")}) AS data_type,
             COUNT(*) as count,
             COALESCE(SUM(value), 0) as main_sum,
             COALESCE(SUM(POWER(value, 2)), 0) as main_sum_squares,
-            MIN(value) as value_p0,
-            MAX(value) as value_p100,
-            ${this.approxQuantile("value", 0.9)} as value_p90,
-            ${this.approxQuantile("value", 0.95)} as value_p95,
-            ${this.approxQuantile("value", 0.99)} as value_p99
+            MIN(value) as value_min,
+            MAX(value) as value_max,
+            (MAX(value) - MIN(value)) / ${histogram_bin_number}.0 as bin_width
           FROM __userMetricOverall
+        )
+        , __histogram AS (
+          SELECT
+            SUM(${this.ifElse(
+              "m.value < (s.value_min + s.bin_width)",
+              "1",
+              "0"
+            )}) as count_bin_0
+            ${[...Array(histogram_bin_number - 2).keys()]
+              .map(
+                (i) =>
+                  `, SUM(${this.ifElse(
+                    `m.value >= (s.value_min + s.bin_width*${
+                      i + 1
+                    }.0) AND m.value < (s.value_min + s.bin_width*${i + 2}.0)`,
+                    "1",
+                    "0"
+                  )}) as count_bin_${i + 1}`
+              )
+              .join("\n")}
+            , SUM(${this.ifElse(
+              `m.value >= (s.value_min + s.bin_width*${histogram_bin_number - 1}.0)`,
+              "1",
+              "0"
+            )}) as count_bin_${histogram_bin_number - 1}
+          FROM
+            __userMetricOverall m
+          CROSS JOIN
+            __statisticsOverall s
         )
         -- TODO capped
         SELECT
             *
-        FROM __statisticsDaily
+        FROM __statisticsOverall
+        CROSS JOIN __histogram
         UNION ALL
         SELECT
             *
-        FROM __statisticsOverall
+        FROM __statisticsDaily
       `,
       this.getFormatDialect()
     );
@@ -677,7 +709,7 @@ export default abstract class SqlIntegration
     setExternalId: ExternalIdCallback
   ): Promise<MetricAnalysisQueryResponse> {
     const { rows, statistics } = await this.runQuery(query, setExternalId);
-
+    console.log(rows);
     return {
       rows: rows.map((row) => {
         const {
@@ -686,11 +718,8 @@ export default abstract class SqlIntegration
           count,
           main_sum,
           main_sum_squares,
-          value_p0,
-          value_p100,
-          value_p90,
-          value_p95,
-          value_p99,
+          value_min,
+          value_max,
         } = row;
 
         const ret: MetricAnalysisQueryResponseRow = {
@@ -700,11 +729,86 @@ export default abstract class SqlIntegration
           main_sum: parseFloat(main_sum) || 0,
           main_sum_squares: parseFloat(main_sum_squares) || 0,
 
-          value_p0: parseFloat(value_p0) || 0,
-          value_p100: parseFloat(value_p100) || 0,
-          ...(parseFloat(value_p90) && { value_p90: parseFloat(value_p90) }),
-          ...(parseFloat(value_p95) && { value_p90: parseFloat(value_p95) }),
-          ...(parseFloat(value_p99) && { value_p90: parseFloat(value_p99) }),
+          value_min: parseFloat(value_min) || 0,
+          value_max: parseFloat(value_max) || 0,
+          ...(parseFloat(row.bin_width) && {
+            bin_width: parseFloat(row.bin_width),
+          }),
+          ...(parseFloat(row.count_bin_0) && {
+            count_bin_0: parseFloat(row.count_bin_0),
+          }),
+          ...(parseFloat(row.count_bin_1) && {
+            count_bin_1: parseFloat(row.count_bin_1),
+          }),
+          ...(parseFloat(row.count_bin_2) && {
+            count_bin_2: parseFloat(row.count_bin_2),
+          }),
+          ...(parseFloat(row.count_bin_3) && {
+            count_bin_3: parseFloat(row.count_bin_3),
+          }),
+          ...(parseFloat(row.count_bin_4) && {
+            count_bin_4: parseFloat(row.count_bin_4),
+          }),
+          ...(parseFloat(row.count_bin_5) && {
+            count_bin_5: parseFloat(row.count_bin_5),
+          }),
+          ...(parseFloat(row.count_bin_6) && {
+            count_bin_6: parseFloat(row.count_bin_6),
+          }),
+          ...(parseFloat(row.count_bin_7) && {
+            count_bin_7: parseFloat(row.count_bin_7),
+          }),
+          ...(parseFloat(row.count_bin_8) && {
+            count_bin_8: parseFloat(row.count_bin_8),
+          }),
+          ...(parseFloat(row.count_bin_9) && {
+            count_bin_9: parseFloat(row.count_bin_9),
+          }),
+          ...(parseFloat(row.count_bin_10) && {
+            count_bin_10: parseFloat(row.count_bin_10),
+          }),
+          ...(parseFloat(row.count_bin_11) && {
+            count_bin_11: parseFloat(row.count_bin_11),
+          }),
+          ...(parseFloat(row.count_bin_12) && {
+            count_bin_12: parseFloat(row.count_bin_12),
+          }),
+          ...(parseFloat(row.count_bin_13) && {
+            count_bin_13: parseFloat(row.count_bin_13),
+          }),
+          ...(parseFloat(row.count_bin_14) && {
+            count_bin_14: parseFloat(row.count_bin_14),
+          }),
+          ...(parseFloat(row.count_bin_15) && {
+            count_bin_15: parseFloat(row.count_bin_15),
+          }),
+          ...(parseFloat(row.count_bin_16) && {
+            count_bin_16: parseFloat(row.count_bin_16),
+          }),
+          ...(parseFloat(row.count_bin_17) && {
+            count_bin_17: parseFloat(row.count_bin_17),
+          }),
+          ...(parseFloat(row.count_bin_18) && {
+            count_bin_18: parseFloat(row.count_bin_18),
+          }),
+          ...(parseFloat(row.count_bin_19) && {
+            count_bin_19: parseFloat(row.count_bin_19),
+          }),
+          ...(parseFloat(row.count_bin_20) && {
+            count_bin_20: parseFloat(row.count_bin_20),
+          }),
+          ...(parseFloat(row.count_bin_21) && {
+            count_bin_21: parseFloat(row.count_bin_21),
+          }),
+          ...(parseFloat(row.count_bin_22) && {
+            count_bin_22: parseFloat(row.count_bin_22),
+          }),
+          ...(parseFloat(row.count_bin_23) && {
+            count_bin_23: parseFloat(row.count_bin_23),
+          }),
+          ...(parseFloat(row.count_bin_24) && {
+            count_bin_24: parseFloat(row.count_bin_24),
+          }),
         };
         return ret;
       }),
@@ -3657,7 +3761,7 @@ AND event_name = '${eventName}'`,
       sql = metric.sql || "";
     }
 
-    // Add a rough date filter to improve query performance
+    // Add date filter
     if (startDate) {
       where.push(`${cols.timestamp} >= ${this.toTimestamp(startDate)}`);
     }
