@@ -48,7 +48,7 @@ export const postMetricAnalysis = async (
     startDate: getValidDate(data.startDate),
     endDate: data.endDate ? getValidDate(data.endDate) : null,
     populationType: data.populationType,
-    population: data.population ?? null,
+    populationId: data.populationId ?? null,
   }
   const metricAnalysis = await createMetricAnalysis(context, metricObj, metricAnalysisSettings);
 

@@ -258,7 +258,7 @@ export default function FactMetricPage() {
       startDate: todayMinus30,
       endDate: null,
       populationType: "metric",
-      population: null,
+      populationId: null,
     }
   });
 
@@ -844,7 +844,7 @@ export default function FactMetricPage() {
                 <PopulationChooser 
                   value={form.watch("populationType")}
                   setValue={(v) => form.setValue("populationType", v as MetricAnalysisPopulationType)}
-                  setPopulationValue={(v) => form.setValue("population", v)}
+                  setPopulationValue={(v) => form.setValue("populationId", v)}
                   userIdType={form.watch("userIdType")}
                   datasourceId={factMetric.datasource}
                 />
@@ -879,6 +879,7 @@ export default function FactMetricPage() {
                             startDate: datetime(form.watch("startDate")),
                             endDate: endDate ? datetime(endDate) : "",
                             populationType: form.watch("populationType"),
+                            populationId: form.watch("populationId") ?? undefined,
                           };
                           await apiCall(`/metric-analysis`, {
                             method: "POST",

@@ -23,14 +23,27 @@ export default function PopulationChooser({
   labelClassName,
 }: Props) {
 
-  const { getDatasourceById } = useDefinitions();
+  const { getDatasourceById, segments } = useDefinitions();
 
   // get matching exposure queries
-
   const datasource = getDatasourceById(datasourceId);
-  const exposureQueries = (datasource?.settings?.queries?.exposure || []).filter(
+  const availableExposureQueries = (datasource?.settings?.queries?.exposure || []).filter(
     (e) => e.userIdType === userIdType
-  );
+  ).map((e) => ({
+    label: `All ${userIdType} in Experiment Exposure Table "${e.name}"`,
+    value: `experiment_${e.id}`
+  }))
+
+  // get matching segments
+  const availableSegments = segments
+    .filter((s) => s.datasource === datasourceId && s.userIdType === userIdType)
+    .map((s) => {
+      return {
+        label: `All ${userIdType} in Segment ${s.name}`,
+        value: `segment_${s.id}`,
+      };
+    });
+    
   return (
     <div>
       <div className="uppercase-title text-muted">Population</div>
@@ -38,27 +51,20 @@ export default function PopulationChooser({
         labelClassName={labelClassName}
         containerClassName={"select-dropdown-underline"}
         options={[
-          ...(exposureQueries.length > 0 ? [{
+          ...((availableExposureQueries.length + availableSegments.length) > 0 ? [{
             label: "External",
             options: [
-                ...exposureQueries.map((e) => ({
-                  label: `All ${userIdType} in Experiment Exposure Table "${e.name}"`,
-                  value: `experiment_${e.id}`
-                })),
+                ...availableExposureQueries,
+                ...availableSegments
             ]
           }] : []),
           {
             label: "Fact Table",
             options: [
                 {
-                    label: `All ${userIdType} matching Metric Definition` ,
+                    label: `All ${userIdType} matching Metric Definition (default)` ,
                     value: "metric"
                 },
-
-                {
-                  label: `All ${userIdType} in Fact Table` ,
-                  value: "facttable"
-              },
             ],
           },
         ]}

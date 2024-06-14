@@ -20,7 +20,7 @@ export const metricAnalysisSettingsValidator = z
     endDate: z.date().nullable(),
 
     populationType: metricAnalysisPopulationTypeValidator,
-    population: z.string().nullable(),
+    populationId: z.string().nullable(),
   })
   .strict();
 
@@ -32,7 +32,7 @@ export const createMetricAnalysisPropsValidator = z
     startDate: z.string(),
     endDate: z.string(),
     populationType: metricAnalysisPopulationTypeValidator,
-    population: z.string().optional(),
+    populationId: z.string().optional(),
   })
   .strict();
 

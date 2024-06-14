@@ -81,6 +81,7 @@ import {
 } from "../../types/fact-table";
 import { applyMetricOverrides } from "../util/integration";
 import { ReqContextClass } from "../services/context";
+import { MetricAnalysisSettings } from "@back-end/types/metric-analysis";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
@@ -553,6 +554,49 @@ export default abstract class SqlIntegration
     );
   }
 
+  getMetricAnalysisPopulationCTEs(settings: MetricAnalysisSettings, idJoinMap: Record<string, string>): string {
+    // get population query
+    if (settings.populationType === "exposureQuery") {
+      const exposureQuery = this.getExposureQuery(settings.populationId || "");
+
+      return `
+      __rawExperiment AS (
+        ${compileSqlTemplate(exposureQuery.query, {
+          startDate: settings.startDate,
+          endDate: settings.endDate ?? undefined,
+        })}
+      ),
+      __population AS (
+        -- All recent users
+        SELECT DISTINCT
+          e.${settings.userIdType} as ${settings.userIdType}
+        FROM
+            __rawExperiment e
+        WHERE
+            e.timestamp >= ${this.toTimestamp(settings.startDate)}
+            ${
+              settings.endDate
+                ? `AND e.timestamp <= ${this.toTimestamp(settings.endDate)}`
+                : ""
+            }
+        )`;
+    }
+
+    if (settings.populationType === "segment") {
+      
+      // have to actually get segment interface in back-end before creating sql
+      return `
+      __segment as (${this.getSegmentCTE(
+          settings.populationId ?? "",
+          settings.userIdType,
+          idJoinMap
+        )}),
+      `
+
+    }
+    return "";
+  }
+
   getMetricAnalysisQuery(params: MetricAnalysisParams): string {
     const { metric, settings } = params;
     // TODO
@@ -572,9 +616,12 @@ export default abstract class SqlIntegration
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
       idTypeObjects,
       settings.startDate,
-      settings.endDate ?? undefined
+      settings.endDate ?? undefined,
+      settings.userIdType
       // TODO default id type?
     );
+
+    
     // Get rough date filter for metrics to improve performance
     const metricStart = this.getMetricStart(
       settings.startDate,
