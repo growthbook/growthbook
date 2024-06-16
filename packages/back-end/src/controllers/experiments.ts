@@ -5,7 +5,10 @@ import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getAffectedEnvsForExperiment, isDefined } from "shared/util";
-import { getAllMetricSettingsForSnapshot } from "shared/experiments";
+import {
+  getAllMetricSettingsForSnapshot,
+  getAllMetricIdsFromExperiment,
+} from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
@@ -16,7 +19,6 @@ import {
   createSnapshot,
   createSnapshotAnalysis,
   getAdditionalExperimentAnalysisSettings,
-  getAllMetricIdsFromExperiment,
   getDefaultExperimentAnalysisSettings,
   getLinkedFeatureInfo,
 } from "../services/experiments";

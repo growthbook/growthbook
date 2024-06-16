@@ -177,6 +177,11 @@ const Results: FC<{
 
   const datasource = getDatasourceById(experiment.datasource);
 
+  const hasMetrics =
+    experiment.goalMetrics.length > 0 ||
+    experiment.secondaryMetrics.length > 0 ||
+    experiment.guardrailMetrics.length > 0;
+
   return (
     <>
       {!draftMode ? (
@@ -208,7 +213,7 @@ const Results: FC<{
         />
       )}
 
-      {experiment.metrics.length === 0 && (
+      {hasMetrics && (
         <div className="alert alert-info m-3">
           Add at least 1 metric to view results.{" "}
           {editMetrics && (
@@ -229,7 +234,7 @@ const Results: FC<{
       {!hasData &&
         !snapshot?.unknownVariations?.length &&
         status !== "running" &&
-        experiment.metrics.length > 0 &&
+        hasMetrics &&
         !snapshotLoading && (
           <div className="alert alert-info m-3">
             No data yet.{" "}
@@ -304,8 +309,9 @@ const Results: FC<{
       )}
       {showDateResults ? (
         <DateResults
-          metrics={experiment.metrics}
-          guardrails={experiment.guardrails}
+          goalMetrics={experiment.goalMetrics}
+          secondaryMetrics={experiment.secondaryMetrics}
+          guardrailMetrics={experiment.guardrailMetrics}
           results={analysis?.results ?? []}
           seriestype={snapshot.dimension ?? ""}
           variations={variations}
@@ -320,9 +326,10 @@ const Results: FC<{
           variations={variations}
           variationFilter={variationFilter}
           baselineRow={baselineRow}
-          metrics={experiment.metrics}
+          goalMetrics={experiment.goalMetrics}
+          secondaryMetrics={experiment.secondaryMetrics}
+          guardrailMetrics={experiment.guardrailMetrics}
           metricOverrides={experiment.metricOverrides ?? []}
-          guardrails={experiment.guardrails}
           dimensionId={snapshot.dimension ?? ""}
           isLatestPhase={phase === experiment.phases.length - 1}
           startDate={phaseObj?.dateStarted ?? ""}
@@ -361,9 +368,10 @@ const Results: FC<{
             startDate={phaseObj?.dateStarted ?? ""}
             isLatestPhase={phase === experiment.phases.length - 1}
             status={experiment.status}
-            metrics={experiment.metrics}
+            goalMetrics={experiment.goalMetrics}
+            secondaryMetrics={experiment.secondaryMetrics}
+            guardrailMetrics={experiment.guardrailMetrics}
             metricOverrides={experiment.metricOverrides ?? []}
-            guardrails={experiment.guardrails}
             id={experiment.id}
             statsEngine={analysis.settings.statsEngine}
             pValueCorrection={pValueCorrection}

@@ -15,6 +15,7 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getSnapshotAnalysis } from "shared/util";
+import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Toggle from "@/components/Forms/Toggle";
@@ -290,10 +291,7 @@ export default function AnalysisSettingsBar({
                 queryError={snapshot?.error}
                 supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
                 hasData={hasData}
-                metrics={[
-                  ...experiment.metrics,
-                  ...(experiment.guardrails || []),
-                ]}
+                metrics={getAllMetricIdsFromExperiment(experiment, false)}
                 results={analysis?.results}
                 variations={variations}
                 trackingKey={experiment.trackingKey}
@@ -395,8 +393,8 @@ export function isOutdated(
   }
   if (
     isStringArrayMissingElements(
-      [...snapshotSettings.goalMetrics, ...snapshotSettings.guardrailMetrics],
-      [...experiment.metrics, ...(experiment?.guardrails || [])]
+      getAllMetricIdsFromExperiment(snapshotSettings, false),
+      getAllMetricIdsFromExperiment(experiment, false)
     )
   ) {
     reasons.push("Metrics changed");

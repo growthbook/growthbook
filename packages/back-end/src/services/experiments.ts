@@ -25,6 +25,7 @@ import {
 } from "shared/util";
 import {
   ExperimentMetricInterface,
+  getAllMetricIdsFromExperiment,
   getMetricSnapshotSettings,
   isFactMetric,
   isFactMetricId,
@@ -359,27 +360,6 @@ export function getAdditionalExperimentAnalysisSettings(
   // Skip all of these additional analyses until we fix the performance issues
   //return additionalAnalyses;
   return [];
-}
-
-export function getAllMetricIdsFromExperiment(
-  exp: Partial<
-    Pick<
-      ExperimentInterface,
-      | "goalMetrics"
-      | "secondaryMetrics"
-      | "guardrailMetrics"
-      | "activationMetric"
-    >
-  >
-) {
-  return Array.from(
-    new Set([
-      ...(exp.goalMetrics || []),
-      ...(exp.secondaryMetrics || []),
-      ...(exp.guardrailMetrics || []),
-      ...(exp.activationMetric ? [exp.activationMetric] : []),
-    ])
-  );
 }
 
 export function getSnapshotSettings({
