@@ -198,8 +198,7 @@ const Admin: FC = () => {
 
   const { orgId, setOrgId, setSpecialOrg, apiCall } = useAuth();
 
-  const { superAdmin } = useUser();
-
+  const { license, superAdmin } = useUser();
   const [orgs, setOrgs] = useState<OrganizationInterface[]>([]);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState("");
@@ -239,10 +238,10 @@ const Admin: FC = () => {
 
   const [orgModalOpen, setOrgModalOpen] = useState(false);
 
-  if (!superAdmin) {
+  if (license?.plan != "enterprise" || !superAdmin) {
     return (
       <div className="alert alert-danger">
-        Only super admins can view this page
+        Only super admins on an enterprise license can view this page
       </div>
     );
   }

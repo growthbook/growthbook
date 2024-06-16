@@ -7,6 +7,7 @@ import {
   getEffectiveAccountPlan,
   getLicense,
   getLicenseError,
+  licenseInit,
 } from "enterprise";
 import { experimentHasLinkedChanges } from "shared/util";
 import {
@@ -123,7 +124,10 @@ import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { TeamInterface } from "../../../types/team";
 import { fireSdkWebhook } from "../../jobs/sdkWebhooks";
-import { initializeLicenseForOrg } from "../../services/licenseData";
+import {
+  getLicenseMetaData,
+  getUserCodesForOrg,
+} from "../../services/licenseData";
 import { findSDKConnectionsByIds } from "../../models/SdkConnectionModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
@@ -664,7 +668,11 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     license = getLicense(licenseKey || process.env.LICENSE_KEY);
     if (!license || (license.organizationId && license.organizationId !== id)) {
       try {
-        license = await initializeLicenseForOrg(org);
+        license = await licenseInit(
+          org,
+          getUserCodesForOrg,
+          getLicenseMetaData
+        );
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error("setting license failed", e);
@@ -1188,13 +1196,9 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
   const { company, externalId } = req.body;
 
   const orgs = await hasOrganization();
-  if (!IS_MULTI_ORG) {
-    // there are odd edge cases where a user can exist, but not an org,
-    // so we want to allow org creation this way if there are no other orgs
-    // on a local install.
-    if (orgs && !req.superAdmin) {
-      throw new Error("An organization already exists");
-    }
+  // Only allow one organization per site unless IS_MULTI_ORG is true
+  if (!IS_MULTI_ORG && orgs) {
+    throw new Error("An organization already exists");
   }
 
   let verifiedDomain = "";
@@ -1938,7 +1942,7 @@ export async function setLicenseKey(
   }
 
   org.licenseKey = licenseKey;
-  await initializeLicenseForOrg(org, true);
+  await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 }
 
 export async function putLicenseKey(

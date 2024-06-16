@@ -84,7 +84,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     cdnHost: CDN_HOST || "",
     cloud: stringToBoolean(IS_CLOUD),
     isMultiOrg: stringToBoolean(IS_MULTI_ORG),
-    allowSelfOrgCreation: stringToBoolean(ALLOW_SELF_ORG_CREATION, true), // Default to true
+    allowSelfOrgCreation: stringToBoolean(ALLOW_SELF_ORG_CREATION),
     showMultiOrgSelfSelector: stringToBoolean(
       SHOW_MULTI_ORG_SELF_SELECTOR,
       true

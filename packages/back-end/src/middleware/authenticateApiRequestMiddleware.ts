@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { hasPermission } from "shared/permissions";
+import { licenseInit } from "enterprise";
 import { ApiRequestLocals } from "../../types/api";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import { getOrganizationById } from "../services/organizations";
@@ -15,7 +16,10 @@ import { ApiKeyInterface } from "../../types/apikey";
 import { getTeamsForOrganization } from "../models/TeamModel";
 import { TeamInterface } from "../../types/team";
 import { getUserById } from "../services/users";
-import { initializeLicenseForOrg } from "../services/licenseData";
+import {
+  getLicenseMetaData,
+  getUserCodesForOrg,
+} from "../services/licenseData";
 import { ReqContextClass } from "../services/context";
 
 export default function authenticateApiRequestMiddleware(
@@ -167,7 +171,7 @@ export default function authenticateApiRequestMiddleware(
       };
 
       // init license for org if it exists
-      await initializeLicenseForOrg(req.organization);
+      await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
 
       // Continue to the actual request handler
       next();

@@ -1,6 +1,6 @@
 import fetch, { RequestInit, Response } from "node-fetch";
 import { ProxyAgent } from "proxy-agent";
-import ssrfReqFilter from "ssrf-req-filter";
+//import ssrfReqFilter from "ssrf-req-filter";
 import { logger } from "./logger";
 import { IS_CLOUD, USE_PROXY } from "./secrets";
 
@@ -20,7 +20,9 @@ export function getHttpOptions(url?: string) {
     return { agent: new ProxyAgent() };
   }
   if (url && IS_CLOUD) {
-    return { agent: ssrfReqFilter(url) };
+    // Temporarily disable ssrf filter to see if it's the cause of Node internal errors
+    // return { agent: ssrfReqFilter(url) };
+    return {};
   }
   return {};
 }
