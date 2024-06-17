@@ -7,7 +7,11 @@ import {
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import { accountFeatures, getAccountPlan } from "enterprise";
-import { LegacyReportInterface, ReportInterface } from "@back-end/types/report";
+import {
+  ExperimentReportArgs,
+  LegacyReportInterface,
+  ReportInterface,
+} from "@back-end/types/report";
 import { SdkWebHookLogDocument } from "../models/SdkWebhookLogModel";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import {
@@ -597,15 +601,31 @@ export function upgradeExperimentDoc(
 export function migrateReport(orig: LegacyReportInterface): ReportInterface {
   const { args, ...report } = orig;
 
-  if ((args?.attributionModel as string) === "allExposures") {
-    args.attributionModel = "experimentDuration";
-  }
+  const {
+    attributionModel,
+    metricRegressionAdjustmentStatuses,
+    settingsForSnapshotMetrics,
+    metrics,
+    guardrails,
+    ...otherArgs
+  } = args || {};
+
+  const newArgs: ExperimentReportArgs = {
+    secondaryMetrics: [],
+    ...otherArgs,
+    attributionModel:
+      (attributionModel as string) === "allExposures"
+        ? "experimentDuration"
+        : attributionModel,
+    goalMetrics: otherArgs.goalMetrics || metrics || [],
+    guardrailMetrics: otherArgs.guardrailMetrics || guardrails || [],
+  };
 
   if (
-    args?.metricRegressionAdjustmentStatuses &&
-    args?.settingsForSnapshotMetrics === undefined
+    metricRegressionAdjustmentStatuses &&
+    settingsForSnapshotMetrics === undefined
   ) {
-    args.settingsForSnapshotMetrics = args.metricRegressionAdjustmentStatuses.map(
+    newArgs.settingsForSnapshotMetrics = metricRegressionAdjustmentStatuses.map(
       (m) => ({
         metric: m.metric,
         properPrior: false,
@@ -619,23 +639,9 @@ export function migrateReport(orig: LegacyReportInterface): ReportInterface {
     );
   }
 
-  delete args?.metricRegressionAdjustmentStatuses;
-
-  if (!args.goalMetrics) {
-    args.goalMetrics = args.metrics || [];
-  }
-  if (!args.guardrailMetrics) {
-    args.guardrailMetrics = args.guardrails || [];
-  }
-  if (!args.secondaryMetrics) {
-    args.secondaryMetrics = [];
-  }
-  delete args.guardrails;
-  delete args.metrics;
-
   return {
     ...report,
-    args,
+    args: newArgs,
   };
 }
 

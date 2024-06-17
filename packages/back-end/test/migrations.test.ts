@@ -1717,8 +1717,56 @@ describe("Report Migration", () => {
     expect(migrateReport(report)).toEqual({
       ...report,
       args: {
-        ...report.args,
+        ...omit(report.args, "metrics"),
         attributionModel: "experimentDuration",
+        goalMetrics: [],
+        secondaryMetrics: [],
+        guardrailMetrics: [],
+      },
+    });
+  });
+
+  it("migrates metrics and guardrails", () => {
+    const report = {
+      ...baseLegacyReport,
+      args: {
+        ...baseLegacyReport.args,
+        metrics: ["met_123"],
+        guardrails: ["met_456"],
+      },
+    };
+
+    expect(migrateReport(report)).toEqual({
+      ...report,
+      args: {
+        ...omit(report.args, "metrics", "guardrails"),
+        goalMetrics: ["met_123"],
+        guardrailMetrics: ["met_456"],
+        secondaryMetrics: [],
+      },
+    });
+  });
+
+  it("does not migrate metrics and guardrails if new fields present", () => {
+    const report = {
+      ...baseLegacyReport,
+      args: {
+        ...baseLegacyReport.args,
+        metrics: ["met_123"],
+        guardrails: ["met_456"],
+        goalMetrics: ["met_abc"],
+        secondaryMetrics: ["met_def"],
+        guardrailMetrics: [],
+      },
+    };
+
+    expect(migrateReport(report)).toEqual({
+      ...report,
+      args: {
+        ...omit(report.args, "metrics", "guardrails"),
+        goalMetrics: ["met_abc"],
+        secondaryMetrics: ["met_def"],
+        guardrailMetrics: [],
       },
     });
   });
@@ -1743,7 +1791,7 @@ describe("Report Migration", () => {
     expect(migrateReport(report)).toEqual({
       ...report,
       args: {
-        ...report.args,
+        ...omit(report.args, "metrics", "metricRegressionAdjustmentStatuses"),
         settingsForSnapshotMetrics: [
           {
             metric: "met_123",
@@ -1756,6 +1804,9 @@ describe("Report Migration", () => {
             properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
           },
         ],
+        goalMetrics: [],
+        secondaryMetrics: [],
+        guardrailMetrics: [],
       },
     });
   });
