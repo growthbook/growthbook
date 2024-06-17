@@ -238,10 +238,17 @@ const Admin: FC = () => {
 
   const [orgModalOpen, setOrgModalOpen] = useState(false);
 
-  if (license?.plan != "enterprise" || !superAdmin) {
+  if (!superAdmin) {
     return (
       <div className="alert alert-danger">
-        Only super admins on an enterprise license can view this page
+        Only super admins can view this page
+      </div>
+    );
+  }
+  if (!isCloud() && license?.plan != "enterprise") {
+    return (
+      <div className="alert alert-danger">
+        You must be on an enterprise license to view this page
       </div>
     );
   }
