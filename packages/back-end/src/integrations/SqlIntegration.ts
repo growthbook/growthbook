@@ -3017,7 +3017,8 @@ export default abstract class SqlIntegration
             `WHERE ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
  (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}')) 
 AND event_name = '${eventName}'`,
-          getFactTableWhereClause: () => "",
+          getFactTableWhereClause: (eventName: string) =>
+            `WHERE event_name = '${eventName}'`,
         };
       }
       case "rudderstack":
