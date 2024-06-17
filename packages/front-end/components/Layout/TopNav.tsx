@@ -1,10 +1,8 @@
 import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FaAngleRight, FaBars } from "react-icons/fa";
-import Link from "next/link";
-import Head from "next/head";
-import { DropdownMenu, Text } from "@radix-ui/themes";
+import { FaAngleRight, FaBars, FaBuilding } from "react-icons/fa";
 import {
+  PiPlusBold,
   PiCaretDownFill,
   PiCircleHalf,
   PiFiles,
@@ -12,11 +10,21 @@ import {
   PiListChecks,
   PiMoon,
   PiSunDim,
-  PiBuildingOffice,
 } from "react-icons/pi";
+import Link from "next/link";
+import Head from "next/head";
+import { DropdownMenu, Text } from "@radix-ui/themes";
 import router from "next/router";
+import clsx from "clsx";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
+import {
+  allowSelfOrgCreation,
+  isCloud,
+  isMultiOrg,
+  showMultiOrgSelfSelector,
+  usingSSO,
+} from "@/services/env";
 import { useCelebrationLocalStorage } from "@/hooks/useCelebration";
 import Modal from "@/components/Modal";
 import Avatar from "@/components/Avatar/Avatar";
@@ -28,6 +36,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
+import useGlobalMenu from "@/services/useGlobalMenu";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 
@@ -49,6 +58,8 @@ const TopNav: FC<{
 
   const { apiCall, logout, organizations, orgId, setOrgId } = useAuth();
   const { setTheme, preferredTheme } = useAppearanceUITheme();
+  const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
+  useGlobalMenu(".top-nav-org-menu", () => setOrgDropdownOpen(false));
 
   const form = useForm({
     defaultValues: { name: name || "", enableCelebrations },
@@ -239,48 +250,91 @@ const TopNav: FC<{
       </DropdownMenu.Sub>
     );
   };
-  const renderOrganizationSubDropDown = () => {
+  const renderOrganizationDropDown = () => {
     if (organizations && organizations.length === 1) {
       return (
-        <Text weight={"bold"} className="text-main">
-          <PiBuildingOffice /> {orgName}
-        </Text>
+        <div className="top-nav-org-menu mr-2">
+          <FaBuilding className="text-muted mr-1" />
+          <span className="d-none d-lg-inline">{orgName}</span>
+        </div>
       );
     }
-    if (organizations && organizations.length > 1)
-      return (
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger>
-            <Text weight={"bold"} className="text-main">
-              <PiBuildingOffice /> {orgName}
-            </Text>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content align="start">
-            {renderOrgItems(organizations)}
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
-      );
-  };
-  const renderOrgItems = (organizations): JSX.Element[] => {
-    return organizations.map((o) => (
-      <DropdownMenu.Item
-        key={o.id}
-        onSelect={() => {
-          if (setOrgId) {
-            setOrgId(o.id);
-          }
 
-          try {
-            localStorage.setItem("gb-last-picked-org", `"${o.id}"`);
-          } catch (e) {
-            console.warn("Cannot set gb-last-picked-org");
-          }
-        }}
-      >
-        {o.name}
-      </DropdownMenu.Item>
-    ));
+    if (organizations && organizations.length > 1) {
+      return (
+        <div className="dropdown top-nav-org-menu">
+          <div
+            className={`nav-link dropdown-toggle`}
+            onClick={(e) => {
+              e.preventDefault();
+              setOrgDropdownOpen(!orgDropdownOpen);
+            }}
+            style={{ cursor: "pointer" }}
+          >
+            <FaBuilding className="text-muted mr-1" />
+            <span className="d-none d-lg-inline">
+              <OverflowText maxWidth={200}>{orgName}</OverflowText>
+            </span>
+          </div>
+          <div
+            className={clsx("dropdown-menu dropdown-menu-right", {
+              show: orgDropdownOpen,
+            })}
+          >
+            <div className="dropdown-header">Organization</div>
+            {organizations.map((o) => (
+              <a
+                className={clsx("dropdown-item", {
+                  active: o.id === orgId,
+                })}
+                key={o.id}
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (setOrgId) {
+                    setOrgId(o.id);
+                  }
+
+                  try {
+                    localStorage.setItem("gb-last-picked-org", `"${o.id}"`);
+                  } catch (e) {
+                    console.warn("Cannot set gb-last-picked-org");
+                  }
+
+                  setOrgDropdownOpen(false);
+                }}
+              >
+                <span className="status"></span>
+                {o.name}
+              </a>
+            ))}
+            {!isCloud() &&
+              isMultiOrg() &&
+              (showMultiOrgSelfSelector() || allowSelfOrgCreation()) && (
+                <div className={styles["add-organization"]}>
+                  <hr />
+                  <div>
+                    <div>
+                      <PiPlusBold />
+                    </div>
+                    <Link
+                      href="/settings/organizations"
+                      className="dropdown-item"
+                      onClick={() => {
+                        setOrgDropdownOpen(false);
+                      }}
+                    >
+                      Add Organization
+                    </Link>
+                  </div>
+                </div>
+              )}
+          </div>
+        </div>
+      );
+    }
   };
+
   const renderBreadCrumb = () => {
     return breadcrumb?.map((b, i) => (
       <span
@@ -305,6 +359,21 @@ const TopNav: FC<{
       titleOrBreadCrumb = renderBreadCrumb();
     }
     return <div className={styles.pagetitle}>{titleOrBreadCrumb}</div>;
+  };
+  const renderChangePassword = () => {
+    if (!usingSSO()) {
+      return (
+        <DropdownMenu.Item
+          className="dropdown-item"
+          onSelect={(e) => {
+            e.preventDefault();
+            setChangePasswordOpen(true);
+          }}
+        >
+          Change Password
+        </DropdownMenu.Item>
+      );
+    }
   };
 
   return (
@@ -371,12 +440,12 @@ const TopNav: FC<{
           )}
           {renderTitleOrBreadCrumb()}
           {showNotices && (
-            <>
+            <div className="mr-2">
               <AccountPlanNotices />
               <AccountPlanBadge />
-            </>
+            </div>
           )}
-          {renderOrganizationSubDropDown()}
+          {renderOrganizationDropDown()}
           <DropdownMenu.Root>
             <DropdownMenu.Trigger>
               <div className="nav-link d-flex">
@@ -397,10 +466,6 @@ const TopNav: FC<{
               </div>
             </DropdownMenu.Trigger>
             <DropdownMenu.Content align="start">
-              {/* <DropdownMenu.Label>
-                <Text weight={"bold"}> {planCopy}</Text>
-              </DropdownMenu.Label>
-              {renderOrganizationSubDropDown()} */}
               {renderNameAndEmailDropdownLabel()}
               {renderEditProfileDropDown()}
               {renderThemeSubDropDown()}
@@ -408,6 +473,7 @@ const TopNav: FC<{
               {renderMyReportsDropDown()}
               {renderPersonalAccessTokensDropDown()}
               <DropdownMenu.Separator />
+              {renderChangePassword()}
               {renderLogoutDropDown()}
             </DropdownMenu.Content>
           </DropdownMenu.Root>

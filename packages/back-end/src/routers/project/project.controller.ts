@@ -115,7 +115,6 @@ export const putProject = async (
   await context.models.projects.updateById(id, {
     name,
     description,
-    dateUpdated: new Date(),
   });
 
   res.status(200).json({

@@ -67,6 +67,32 @@ $sidebarwidth: 240px;
   width: 100%;
 }
 
+.add-organization {
+  hr {
+    margin: 0.25em 0.75rem;
+  }
+
+  div {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    div {
+      width: 1.5rem;
+      display: flex;
+      justify-content: center;
+    }
+  }
+
+  img {
+    height: 1em;
+  }
+
+  a {
+    padding: 0.25rem 1.5rem 0.25rem 0rem;
+  }
+}
+
 @media (max-width: 1180px) {
   .pagetitle {
     padding-left: 10px;

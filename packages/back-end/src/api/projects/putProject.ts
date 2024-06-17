@@ -12,7 +12,7 @@ export const putProject = createApiRequestHandler(putProjectValidator)(
 
     const newProject = await req.context.models.projects.update(
       project,
-      req.body
+      req.context.models.projects.updateValidator.parse(req.body)
     );
 
     await req.audit({
