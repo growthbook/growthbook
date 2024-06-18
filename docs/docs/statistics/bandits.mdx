@@ -39,6 +39,16 @@ Exploration vs exploitation is a fundamental tradeoff in adaptive experimentatio
 
 Details later
 
+## What should my update cadence be?
+
+Your update cadence defines the period of time between variation weight updates.
+
+You should pick the cadence that satisfies your logistical constraints while balancing: 1) the amount of information gleaned from the experiment; and 2) cost of experimentation.
+
+The minimum update cadence at GrowthBook is 15 minutes. If running your query takes 15+ minutes, then an update cadence of 1 hour may be appropriate. This allows tracking data to reach your data warehouse and your queries to run. Shorter update cadences result in information being quickly gleaned from the experiment.
+
+Longer update cadences can reduce cost, as fewer queries are run. However, if you have to run your experiment for longer because the updates are slow, this can increase the cost of experimentation, because more users are being assigned to less profitable arms.
+
 ## FAQ
 
 Frequently asked questions:

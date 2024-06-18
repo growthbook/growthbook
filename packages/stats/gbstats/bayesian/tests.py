@@ -17,6 +17,7 @@ from gbstats.models.statistics import (
     TestStatistic,
     SampleMeanStatistic,
     ProportionStatistic,
+    RatioStatistic,
 )
 from gbstats.frequentist.tests import frequentist_diff, frequentist_variance
 from gbstats.utils import truncated_normal_mean
@@ -49,6 +50,14 @@ RiskType = Literal["absolute", "relative"]
 @dataclass
 class BayesianTestResult(TestResult):
     chance_to_win: float
+    risk: List[float]
+    risk_type: RiskType
+    error_message: Optional[str] = None
+
+
+@dataclass
+class BanditResults:
+    variation_weights: float
     risk: List[float]
     risk_type: RiskType
     error_message: Optional[str] = None
@@ -231,8 +240,6 @@ class EffectBayesianABTest(BayesianABTest):
 
 @dataclass
 class BanditConfig(BayesianConfig):
-    burn: int = 0
-    iteration: int = 0
     top_two: bool = True
     prior_distribution: GaussianPrior = field(default_factory=GaussianPrior)
 
@@ -240,27 +247,29 @@ class BanditConfig(BayesianConfig):
 class Bandits(object):
     def __init__(
         self,
-        stat: Sequence[Union[ProportionStatistic, SampleMeanStatistic]],
+        stats: Sequence[
+            Union[ProportionStatistic, SampleMeanStatistic, RatioStatistic]
+        ],
         config: BanditConfig,
     ):
-        self.stat = stat
+        self.stats = stats
         self.config = config
-        self.n_variations = len(stat)
+        self.n_variations = len(stats)
 
     @property
-    def variation_means(self):
-        return np.array([arm.mean for arm in self.stat])
+    def variation_means(self) -> np.ndarray:
+        return np.array([arm.mean for arm in self.stats])
 
     @property
-    def variation_variances(self):
-        return np.array([arm.variance for arm in self.stat])
+    def variation_variances(self) -> np.ndarray:
+        return np.array([arm.variance for arm in self.stats])
 
     @property
-    def variation_counts(self):
-        return np.array([arm.n for arm in self.stat])
+    def variation_counts(self) -> np.ndarray:
+        return np.array([arm.n for arm in self.stats])
 
     @property
-    def prior_precision(self):
+    def prior_precision(self) -> np.ndarray:
         return np.full(
             (self.n_variations,),
             int(self.config.prior_distribution.proper)
@@ -268,7 +277,7 @@ class Bandits(object):
         )
 
     @property
-    def data_precision(self):
+    def data_precision(self) -> np.ndarray:
         return np.array(
             [
                 float(n) / v if v > 0 else 0
@@ -277,19 +286,19 @@ class Bandits(object):
         )
 
     @property
-    def posterior_precision(self):
+    def posterior_precision(self) -> np.ndarray:
         return self.prior_precision + self.data_precision
 
     @property
-    def posterior_variance(self):
+    def posterior_variance(self) -> np.ndarray:
         return 1 / self.posterior_precision
 
     @property
-    def prior_mean(self):
+    def prior_mean(self) -> np.ndarray:
         return np.full((self.n_variations,), self.config.prior_distribution.mean)
 
     @property
-    def posterior_mean(self):
+    def posterior_mean(self) -> np.ndarray:
         return self.posterior_variance * (
             self.prior_precision * self.prior_mean
             + self.data_precision * self.variation_means
@@ -301,9 +310,7 @@ class Bandits(object):
         return int(1e4)
 
     # function that computes thompson sampling variation weights
-    def compute_variation_weights(self):
-        if self.config.iteration < self.config.burn:
-            return np.full((self.n_variations,), 1 / self.n_variations)
+    def compute_variation_weights(self) -> np.ndarray:
         y = np.random.multivariate_normal(
             mean=self.posterior_mean,
             cov=np.diag(self.posterior_variance),
@@ -317,7 +324,7 @@ class Bandits(object):
 
     # function that takes weights for largest realization and turns into top two weights
     @staticmethod
-    def top_two_weights(p):
+    def top_two_weights(p) -> np.ndarray:
         # normalize weights to be no smaller than 1e-5
         p_star = np.array([max(x, 1e-5) for x in p])
         p_star /= sum(p_star)
@@ -329,7 +336,7 @@ class Bandits(object):
         return 0.5 * np.sum(probs, axis=1)
 
     # create config for AB testing from Thompson sampling prior
-    def compute_delta_config(self):
+    def compute_delta_config(self) -> EffectBayesianConfig:
         prior_effect = GaussianPrior(
             mean=0, variance=2 * self.config.prior_distribution.variance, proper=True
         )
