@@ -16,6 +16,7 @@ import {
 } from "../util/organization.util";
 import { TeamInterface } from "../../types/team";
 import { FactMetricModel } from "../models/FactMetricModel";
+import { FactSegmentModel } from "../models/FactSegmentModel";
 import { ProjectModel } from "../models/ProjectModel";
 import { ProjectInterface } from "../../types/project";
 import { addTags, getAllTags } from "../models/TagModel";
@@ -37,12 +38,14 @@ export class ReqContextClass {
   // Models
   public models!: {
     factMetrics: FactMetricModel;
+    factSegments: FactSegmentModel;
     projects: ProjectModel;
     urlRedirects: UrlRedirectModel;
   };
   private initModels() {
     this.models = {
       factMetrics: new FactMetricModel(this),
+      factSegments: new FactSegmentModel(this),
       projects: new ProjectModel(this),
       urlRedirects: new UrlRedirectModel(this),
     };

@@ -111,6 +111,22 @@ export const metricTypeValidator = z.enum([
   "quantile",
 ]);
 
+export const factSegmentValidator = z
+  .object({
+    id: z.string(),
+    organization: z.string(),
+    owner: z.string().default(""),
+    datasource: z.string(),
+    dateCreated: z.date(),
+    dateUpdated: z.date(),
+    name: z.string(),
+    description: z.string(),
+    tags: z.array(z.string()).default([]),
+    projects: z.array(z.string()),
+    numerator: columnRefValidator,
+  })
+  .strict();
+
 export const factMetricValidator = z
   .object({
     id: z.string(),

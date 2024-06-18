@@ -23,6 +23,7 @@ export const entityEvents = {
   ],
   project: ["create", "update", "delete"],
   environment: ["create", "update", "delete"],
+  segment: ["create", "update", "delete"],
   feature: [
     "create",
     "publish",
