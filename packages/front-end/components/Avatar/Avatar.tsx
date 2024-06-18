@@ -10,6 +10,8 @@ const Avatar: FC<{
 }> = ({ email, size = 40, className, name }) => {
   const firstNameLetter = name?.charAt(0) || email.charAt(0);
   const lastNameLetter = name?.split(" ")[1]?.charAt(0);
+  const title = name ? `${name} <${email}>` : email;
+
   return (
     //round avatar with initals in the middle
     <div
@@ -17,6 +19,7 @@ const Avatar: FC<{
         "align-items-center justify-content-center border rounded-circle d-flex",
         className
       )}
+      title={title}
       style={{
         height: size,
         width: size,
@@ -27,7 +30,7 @@ const Avatar: FC<{
       }}
     >
       {firstNameLetter.toUpperCase()}
-      {lastNameLetter?.toLocaleUpperCase()}
+      {lastNameLetter?.toUpperCase()}
     </div>
   );
 };

@@ -4,7 +4,6 @@ import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 
 export const RadixTheme: FC<PropsWithChildren> = ({ children }) => {
   const { theme } = useAppearanceUITheme();
-  console.log(theme);
 
   return (
     <Theme accentColor="violet" panelBackground="solid" appearance={theme}>
