@@ -6,6 +6,7 @@ import {
   CreateFactFilterProps,
   CreateFactTableProps,
   FactMetricInterface,
+  FactSegmentInterface,
   FactTableInterface,
   UpdateFactFilterProps,
   UpdateColumnProps,
@@ -344,6 +345,21 @@ export const postFactMetric = async (
   res.status(200).json({
     status: 200,
     factMetric,
+  });
+};
+
+export const postFactSegment = async (
+  req: AuthRequest<unknown>,
+  res: Response<{ status: 200; factSegment: FactSegmentInterface }>
+) => {
+  const context = getContextFromReq(req);
+  const data = context.models.factSegments.createValidator.parse(req.body);
+
+  const factSegment = await context.models.factSegments.create(data);
+
+  res.status(200).json({
+    status: 200,
+    factSegment,
   });
 };
 

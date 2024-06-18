@@ -123,7 +123,9 @@ export const factSegmentValidator = z
     description: z.string(),
     tags: z.array(z.string()).default([]),
     projects: z.array(z.string()),
-    numerator: columnRefValidator,
+    factTableId: z.string(),
+    filters: z.array(z.string()),
+    userIdType: z.string(),
   })
   .strict();
 

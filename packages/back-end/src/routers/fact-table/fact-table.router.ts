@@ -93,6 +93,8 @@ router.delete(
 
 router.post("/fact-metrics", factTableController.postFactMetric);
 
+router.post("/fact-segments", factTableController.postFactSegment);
+
 router.put("/fact-metrics/:id", factTableController.putFactMetric);
 
 router.delete("/fact-metrics/:id", factTableController.deleteFactMetric);

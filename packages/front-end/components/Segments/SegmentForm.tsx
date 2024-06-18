@@ -1,7 +1,7 @@
 import { FC, useMemo, useState } from "react";
 import { SegmentInterface } from "back-end/types/segment";
 import { useForm } from "react-hook-form";
-import { FaExternalLinkAlt } from "react-icons/fa";
+import { FaArrowRight, FaExternalLinkAlt } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -12,6 +12,7 @@ import useMembers from "@/hooks/useMembers";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
+import FactSegmentForm from "./FactSegmentForm";
 
 export type CursorData = {
   row: number;
@@ -30,6 +31,7 @@ const SegmentForm: FC<{
     getDatasourceById,
     mutateDefinitions,
     project,
+    factTables,
   } = useDefinitions();
   const filteredDatasources = datasources
     .filter((d) => d.properties?.segments)
@@ -50,6 +52,7 @@ const SegmentForm: FC<{
     },
   });
   const [sqlOpen, setSqlOpen] = useState(false);
+  const [createFactSegment, setCreateFactSegment] = useState(false);
 
   const userIdType = form.watch("userIdType");
 
@@ -63,6 +66,15 @@ const SegmentForm: FC<{
   const requiredColumns = useMemo(() => {
     return new Set([userIdType, "date"]);
   }, [userIdType]);
+
+  if (createFactSegment)
+    return (
+      <FactSegmentForm
+        goBack={() => setCreateFactSegment(false)}
+        current={current}
+        filteredDatasources={filteredDatasources}
+      />
+    );
 
   return (
     <>
@@ -93,6 +105,21 @@ const SegmentForm: FC<{
           mutateDefinitions({});
         })}
       >
+        {factTables.length > 0 ? (
+          <div className="alert border badge-purple text-center d-flex align-items-center">
+            Want to use Fact Tables to create your segments instead?{" "}
+            <a
+              href="#"
+              className="ml-2 btn btn-primary btn-sm"
+              onClick={(e) => {
+                e.preventDefault();
+                setCreateFactSegment(true);
+              }}
+            >
+              Use Fact Tables <FaArrowRight />
+            </a>
+          </div>
+        ) : null}
         <Field label="Name" required {...form.register("name")} />
         <Field
           label="Owner"
