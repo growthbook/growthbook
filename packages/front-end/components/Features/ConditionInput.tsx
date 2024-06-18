@@ -8,6 +8,7 @@ import {
   FaPlusCircle,
 } from "react-icons/fa";
 import { RxLoop } from "react-icons/rx";
+import { format } from "date-fns";
 import {
   condToJson,
   jsonToConds,
@@ -30,6 +31,10 @@ interface Props {
   emptyText?: string;
   title?: string;
   require?: boolean;
+}
+
+function dateIsValid(date: Date) {
+  return date instanceof Date && !isNaN(date.valueOf());
 }
 
 export default function ConditionInput(props: Props) {
@@ -321,6 +326,9 @@ export default function ConditionInput(props: Props) {
                           );
                           newConds[i]["value"] = newConds[i]["value"] || "";
                         }
+                        if (newAttribute?.format === "date") {
+                          newConds[i]["value"] = "";
+                        }
                         setConds(newConds);
                       }}
                     />
@@ -424,6 +432,15 @@ export default function ConditionInput(props: Props) {
                       className={styles.matchingInput}
                       containerClassName="col-sm-12 col-md mb-2"
                       required
+                    />
+                  ) : // TODO: Exclude regex operator from using the date field
+                  ["string", "secureString"].includes(attribute.datatype) &&
+                    attribute.format === "date" ? (
+                    <Field
+                      type="datetime-local"
+                      value={format(new Date(value), "yyyy-MM-dd'T'HH:mm")}
+                      onChange={handleFieldChange}
+                      name="timestamp"
                     />
                   ) : ["string", "secureString"].includes(
                       attribute.datatype
