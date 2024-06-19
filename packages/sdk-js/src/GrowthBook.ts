@@ -904,14 +904,18 @@ export class GrowthBook<
   public evalFeature<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string
-  >(id: K): FeatureResult<V | null> {
-    return this._evalFeature(id);
+  >(id: K, attributes?: Attributes): FeatureResult<V | null> {
+    return this._evalFeature(id, attributes);
   }
 
   private _evalFeature<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string
-  >(id: K, evalCtx?: FeatureEvalContext): FeatureResult<V | null> {
+  >(
+    id: K,
+    attributes?: Attributes,
+    evalCtx?: FeatureEvalContext
+  ): FeatureResult<V | null> {
     evalCtx = evalCtx || { evaluatedFeatures: new Set() };
 
     if (evalCtx.evaluatedFeatures.has(id)) {
@@ -955,7 +959,11 @@ export class GrowthBook<
         // If there are prerequisite flag(s), evaluate them
         if (rule.parentConditions) {
           for (const parentCondition of rule.parentConditions) {
-            const parentResult = this._evalFeature(parentCondition.id, evalCtx);
+            const parentResult = this._evalFeature(
+              parentCondition.id,
+              attributes,
+              evalCtx
+            );
             // break out for cyclic prerequisites
             if (parentResult.source === "cyclicPrerequisite") {
               return this._getFeatureResult(id, null, "cyclicPrerequisite");
@@ -985,7 +993,7 @@ export class GrowthBook<
         }
 
         // If there are filters for who is included (e.g. namespaces)
-        if (rule.filters && this._isFilteredOut(rule.filters)) {
+        if (rule.filters && this._isFilteredOut(rule.filters, attributes)) {
           process.env.NODE_ENV !== "production" &&
             this.log("Skip rule because of filters", {
               id,
@@ -997,7 +1005,10 @@ export class GrowthBook<
         // Feature value is being forced
         if ("force" in rule) {
           // If it's a conditional rule, skip if the condition doesn't pass
-          if (rule.condition && !this._conditionPasses(rule.condition)) {
+          if (
+            rule.condition &&
+            !this._conditionPasses(rule.condition, attributes)
+          ) {
             process.env.NODE_ENV !== "production" &&
               this.log("Skip rule because of condition ff", {
                 id,
@@ -1016,7 +1027,8 @@ export class GrowthBook<
                 : undefined,
               rule.range,
               rule.coverage,
-              rule.hashVersion
+              rule.hashVersion,
+              attributes
             )
           ) {
             process.env.NODE_ENV !== "production" &&
@@ -1079,7 +1091,7 @@ export class GrowthBook<
         if (rule.condition) exp.condition = rule.condition;
 
         // Only return a value if the user is part of the experiment
-        const res = this._run(exp, id);
+        const res = this._run(exp, id, attributes);
         this._fireSubscriptions(exp, res);
         if (res.inExperiment && !res.passthrough) {
           return this._getFeatureResult(
@@ -1114,7 +1126,8 @@ export class GrowthBook<
     fallbackAttribute: string | undefined,
     range: VariationRange | undefined,
     coverage: number | undefined,
-    hashVersion: number | undefined
+    hashVersion: number | undefined,
+    attributes?: Attributes
   ): boolean {
     if (!range && coverage === undefined) return true;
 
@@ -1122,7 +1135,8 @@ export class GrowthBook<
 
     const { hashValue } = this._getHashAttribute(
       hashAttribute,
-      fallbackAttribute
+      fallbackAttribute,
+      attributes
     );
     if (!hashValue) {
       return false;
@@ -1138,13 +1152,20 @@ export class GrowthBook<
       : true;
   }
 
-  private _conditionPasses(condition: ConditionInterface): boolean {
-    return evalCondition(this.getAttributes(), condition);
+  private _conditionPasses(
+    condition: ConditionInterface,
+    attributes?: Attributes
+  ): boolean {
+    return evalCondition(attributes ?? this.getAttributes(), condition);
   }
 
-  private _isFilteredOut(filters: Filter[]): boolean {
+  private _isFilteredOut(filters: Filter[], attributes?: Attributes): boolean {
     return filters.some((filter) => {
-      const { hashValue } = this._getHashAttribute(filter.attribute);
+      const { hashValue } = this._getHashAttribute(
+        filter.attribute,
+        undefined,
+        attributes
+      );
       if (!hashValue) return true;
       const n = hash(filter.seed, hashValue, filter.hashVersion || 2);
       if (n === null) return true;
@@ -1154,7 +1175,8 @@ export class GrowthBook<
 
   private _run<T>(
     experiment: Experiment<T>,
-    featureId: string | null
+    featureId: string | null,
+    attributes?: Attributes
   ): Result<T> {
     const key = experiment.key;
     const numVariations = experiment.variations.length;
@@ -1163,14 +1185,30 @@ export class GrowthBook<
     if (numVariations < 2) {
       process.env.NODE_ENV !== "production" &&
         this.log("Invalid experiment", { id: key });
-      return this._getResult(experiment, -1, false, featureId);
+      return this._getResult(
+        experiment,
+        -1,
+        false,
+        featureId,
+        undefined,
+        undefined,
+        attributes
+      );
     }
 
     // 2. If the context is disabled, return immediately
     if (this._ctx.enabled === false) {
       process.env.NODE_ENV !== "production" &&
         this.log("Context disabled", { id: key });
-      return this._getResult(experiment, -1, false, featureId);
+      return this._getResult(
+        experiment,
+        -1,
+        false,
+        featureId,
+        undefined,
+        undefined,
+        attributes
+      );
     }
 
     // 2.5. Merge in experiment overrides from the context
@@ -1185,7 +1223,15 @@ export class GrowthBook<
         this.log("Skip because of url targeting", {
           id: key,
         });
-      return this._getResult(experiment, -1, false, featureId);
+      return this._getResult(
+        experiment,
+        -1,
+        false,
+        featureId,
+        undefined,
+        undefined,
+        attributes
+      );
     }
 
     // 3. If a variation is forced from a querystring, return the forced variation
@@ -1200,7 +1246,15 @@ export class GrowthBook<
           id: key,
           variation: qsOverride,
         });
-      return this._getResult(experiment, qsOverride, false, featureId);
+      return this._getResult(
+        experiment,
+        qsOverride,
+        false,
+        featureId,
+        undefined,
+        undefined,
+        attributes
+      );
     }
 
     // 4. If a variation is forced in the context, return the forced variation
@@ -1211,7 +1265,15 @@ export class GrowthBook<
           id: key,
           variation,
         });
-      return this._getResult(experiment, variation, false, featureId);
+      return this._getResult(
+        experiment,
+        variation,
+        false,
+        featureId,
+        undefined,
+        undefined,
+        attributes
+      );
     }
 
     // 5. Exclude if a draft experiment or not active
@@ -1220,7 +1282,15 @@ export class GrowthBook<
         this.log("Skip because inactive", {
           id: key,
         });
-      return this._getResult(experiment, -1, false, featureId);
+      return this._getResult(
+        experiment,
+        -1,
+        false,
+        featureId,
+        undefined,
+        undefined,
+        attributes
+      );
     }
 
     // 6. Get the hash attribute and return if empty
@@ -1228,21 +1298,34 @@ export class GrowthBook<
       experiment.hashAttribute,
       this._ctx.stickyBucketService && !experiment.disableStickyBucketing
         ? experiment.fallbackAttribute
-        : undefined
+        : undefined,
+      attributes
     );
     if (!hashValue) {
       process.env.NODE_ENV !== "production" &&
         this.log("Skip because missing hashAttribute", {
           id: key,
         });
-      return this._getResult(experiment, -1, false, featureId);
+      return this._getResult(
+        experiment,
+        -1,
+        false,
+        featureId,
+        undefined,
+        undefined,
+        attributes
+      );
     }
 
     let assigned = -1;
 
     let foundStickyBucket = false;
     let stickyBucketVersionIsBlocked = false;
-    if (this._ctx.stickyBucketService && !experiment.disableStickyBucketing) {
+    if (
+      this._ctx.stickyBucketService &&
+      !experiment.disableStickyBucketing &&
+      !attributes
+    ) {
       const { variation, versionIsBlocked } = this._getStickyBucketVariation({
         expKey: experiment.key,
         expBucketVersion: experiment.bucketVersion,
@@ -1338,7 +1421,15 @@ export class GrowthBook<
         this.log("Skip because of url", {
           id: key,
         });
-      return this._getResult(experiment, -1, false, featureId);
+      return this._getResult(
+        experiment,
+        -1,
+        false,
+        featureId,
+        undefined,
+        undefined,
+        attributes
+      );
     }
 
     // 9. Get the variation from the sticky bucket or get bucket ranges and choose variation
@@ -1352,7 +1443,15 @@ export class GrowthBook<
         this.log("Skip because of invalid hash version", {
           id: key,
         });
-      return this._getResult(experiment, -1, false, featureId);
+      return this._getResult(
+        experiment,
+        -1,
+        false,
+        featureId,
+        undefined,
+        undefined,
+        attributes
+      );
     }
 
     if (!foundStickyBucket) {
@@ -1372,7 +1471,15 @@ export class GrowthBook<
         this.log("Skip because sticky bucket version is blocked", {
           id: key,
         });
-      return this._getResult(experiment, -1, false, featureId, undefined, true);
+      return this._getResult(
+        experiment,
+        -1,
+        false,
+        featureId,
+        undefined,
+        true,
+        attributes
+      );
     }
 
     // 10. Return if not in experiment
@@ -1381,7 +1488,15 @@ export class GrowthBook<
         this.log("Skip because of coverage", {
           id: key,
         });
-      return this._getResult(experiment, -1, false, featureId);
+      return this._getResult(
+        experiment,
+        -1,
+        false,
+        featureId,
+        undefined,
+        undefined,
+        attributes
+      );
     }
 
     // 11. Experiment has a forced variation
@@ -1395,7 +1510,10 @@ export class GrowthBook<
         experiment,
         experiment.force === undefined ? -1 : experiment.force,
         false,
-        featureId
+        featureId,
+        undefined,
+        undefined,
+        attributes
       );
     }
 
@@ -1405,7 +1523,15 @@ export class GrowthBook<
         this.log("Skip because QA mode", {
           id: key,
         });
-      return this._getResult(experiment, -1, false, featureId);
+      return this._getResult(
+        experiment,
+        -1,
+        false,
+        featureId,
+        undefined,
+        undefined,
+        attributes
+      );
     }
 
     // 12.5. Exclude if experiment is stopped
@@ -1414,7 +1540,15 @@ export class GrowthBook<
         this.log("Skip because stopped", {
           id: key,
         });
-      return this._getResult(experiment, -1, false, featureId);
+      return this._getResult(
+        experiment,
+        -1,
+        false,
+        featureId,
+        undefined,
+        undefined,
+        attributes
+      );
     }
 
     // 13. Build the result object
@@ -1424,11 +1558,16 @@ export class GrowthBook<
       true,
       featureId,
       n,
-      foundStickyBucket
+      foundStickyBucket,
+      attributes
     );
 
     // 13.5. Persist sticky bucket
-    if (this._ctx.stickyBucketService && !experiment.disableStickyBucketing) {
+    if (
+      this._ctx.stickyBucketService &&
+      !experiment.disableStickyBucketing &&
+      !attributes
+    ) {
       const {
         changed,
         key: attrKey,
@@ -1559,12 +1698,18 @@ export class GrowthBook<
     return experiment;
   }
 
-  private _getHashAttribute(attr?: string, fallback?: string) {
+  private _getHashAttribute(
+    attr?: string,
+    fallback?: string,
+    attributes?: Attributes
+  ) {
     let hashAttribute = attr || "id";
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let hashValue: any = "";
 
-    if (this._attributeOverrides[hashAttribute]) {
+    if (attributes?.[hashAttribute]) {
+      hashValue = attributes[hashAttribute];
+    } else if (this._attributeOverrides[hashAttribute]) {
       hashValue = this._attributeOverrides[hashAttribute];
     } else if (this._ctx.attributes) {
       hashValue = this._ctx.attributes[hashAttribute] || "";
@@ -1574,7 +1719,9 @@ export class GrowthBook<
 
     // if no match, try fallback
     if (!hashValue && fallback) {
-      if (this._attributeOverrides[fallback]) {
+      if (attributes?.[fallback]) {
+        hashValue = attributes[fallback];
+      } else if (this._attributeOverrides[fallback]) {
         hashValue = this._attributeOverrides[fallback];
       } else if (this._ctx.attributes) {
         hashValue = this._ctx.attributes[fallback] || "";
@@ -1595,7 +1742,8 @@ export class GrowthBook<
     hashUsed: boolean,
     featureId: string | null,
     bucket?: number,
-    stickyBucketUsed?: boolean
+    stickyBucketUsed?: boolean,
+    attributes?: Attributes
   ): Result<T> {
     let inExperiment = true;
     // If assigned variation is not valid, use the baseline and mark the user as not in the experiment
@@ -1608,7 +1756,8 @@ export class GrowthBook<
       experiment.hashAttribute,
       this._ctx.stickyBucketService && !experiment.disableStickyBucketing
         ? experiment.fallbackAttribute
-        : undefined
+        : undefined,
+      attributes
     );
 
     const meta: Partial<VariationMeta> = experiment.meta
