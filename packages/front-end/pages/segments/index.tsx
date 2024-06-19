@@ -19,15 +19,75 @@ import { DocLink } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
+export interface SegmentTableItem {
+  id: string;
+  organization: string;
+  name: string;
+  type: "segment" | "factSegment";
+  description: string;
+  projects: string[];
+  owner: string;
+  datasource: string;
+  dateUpdated: Date | null;
+  dateCreated: Date | null;
+  userIdType: string;
+  sql: string;
+  factTableId: string;
+  filters: string[];
+}
+
 const SegmentPage: FC = () => {
   const {
     segments,
+    factSegments,
     ready,
     getDatasourceById,
     datasources,
     error: segmentsError,
     mutateDefinitions: mutate,
+    getFactTableById,
   } = useDefinitions();
+
+  const combinedSegments = [
+    ...segments.map((segment) => {
+      const item: SegmentTableItem = {
+        id: segment.id,
+        organization: segment.organization,
+        description: segment.description || "",
+        name: segment.name,
+        datasource: segment.datasource,
+        projects: [],
+        owner: segment.owner,
+        dateUpdated: segment.dateUpdated,
+        dateCreated: segment.dateCreated,
+        userIdType: segment.userIdType,
+        sql: segment.sql,
+        type: "segment",
+        factTableId: "",
+        filters: [],
+      };
+      return item;
+    }),
+    ...factSegments.map((factSegment) => {
+      const item: SegmentTableItem = {
+        id: factSegment.id,
+        name: factSegment.name,
+        organization: factSegment.organization,
+        description: factSegment.description,
+        datasource: factSegment.datasource,
+        projects: [],
+        owner: factSegment.owner,
+        dateUpdated: factSegment.dateUpdated,
+        dateCreated: factSegment.dateCreated,
+        userIdType: factSegment.userIdType,
+        sql: "",
+        type: "factSegment",
+        factTableId: factSegment.factTableId,
+        filters: factSegment.filters,
+      };
+      return item;
+    }),
+  ];
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -38,10 +98,9 @@ const SegmentPage: FC = () => {
     canStoreSegmentsInMongo = true;
   }
 
-  const [
-    segmentForm,
-    setSegmentForm,
-  ] = useState<null | Partial<SegmentInterface>>(null);
+  const [current, setCurrent] = useState<Partial<SegmentTableItem> | null>(
+    null
+  );
 
   const { apiCall } = useAuth();
 
@@ -200,8 +259,8 @@ const SegmentPage: FC = () => {
 
   return (
     <div className="p-3 container-fluid pagecontents">
-      {segmentForm && (
-        <SegmentForm close={() => setSegmentForm(null)} current={segmentForm} />
+      {current && (
+        <SegmentForm close={() => setCurrent(null)} current={current} />
       )}
       <div className="row mb-3">
         <div className="col-auto d-flex">
@@ -213,7 +272,7 @@ const SegmentPage: FC = () => {
             <Button
               color="primary"
               onClick={async () => {
-                setSegmentForm({});
+                setCurrent({});
               }}
             >
               <span className="h4 pr-2 m-0 d-inline-block align-top">
@@ -229,7 +288,7 @@ const SegmentPage: FC = () => {
           There was an error loading the list of segments
         </div>
       )}
-      {segments.length > 0 && (
+      {combinedSegments.length > 0 && (
         <div className="row mb-4">
           <div className="col-12">
             <p>
@@ -254,10 +313,11 @@ const SegmentPage: FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {segments.map((s) => {
+                {combinedSegments.map((s) => {
                   const datasource = getDatasourceById(s.datasource);
                   const language: Language =
                     datasource?.properties?.queryLanguage || "sql";
+                  const factTable = getFactTableById(s.factTableId);
                   return (
                     <tr key={s.id}>
                       <td>
@@ -290,11 +350,28 @@ const SegmentPage: FC = () => {
                         className="d-none d-lg-table-cell"
                         style={{ maxWidth: "30em" }}
                       >
-                        <Code
-                          code={s.sql}
-                          language={language}
-                          expandable={true}
-                        />
+                        {s.sql ? (
+                          <Code
+                            code={s.sql}
+                            language={language}
+                            expandable={true}
+                          />
+                        ) : (
+                          <div className="appbox px-3 pt-3 bg-light">
+                            <div className="row align-items-center">
+                              <div className="col-auto">
+                                {factTable?.name || ""}
+                              </div>
+                              {s.filters.length > 0 ? (
+                                <div className="col-auto">
+                                  {s.filters.map((filter) => (
+                                    <code key={filter}>{filter}</code>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        )}
                       </td>
                       <td>{s.dateUpdated ? ago(s.dateUpdated) : ""}</td>
                       <td>
@@ -306,7 +383,7 @@ const SegmentPage: FC = () => {
                             title="Edit this segment"
                             onClick={(e) => {
                               e.preventDefault();
-                              setSegmentForm(s);
+                              setCurrent(s);
                             }}
                           >
                             <FaPencilAlt />

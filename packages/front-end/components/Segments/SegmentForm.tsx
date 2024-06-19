@@ -1,5 +1,4 @@
 import { FC, useMemo, useState } from "react";
-import { SegmentInterface } from "back-end/types/segment";
 import { useForm } from "react-hook-form";
 import { FaArrowRight, FaExternalLinkAlt } from "react-icons/fa";
 import { isProjectListValidForProject } from "shared/util";
@@ -12,6 +11,7 @@ import useMembers from "@/hooks/useMembers";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
+import { SegmentTableItem } from "@/pages/segments";
 import FactSegmentForm from "./FactSegmentForm";
 
 export type CursorData = {
@@ -22,7 +22,7 @@ export type CursorData = {
 
 const SegmentForm: FC<{
   close: () => void;
-  current: Partial<SegmentInterface>;
+  current: Partial<SegmentTableItem>;
 }> = ({ close, current }) => {
   const { apiCall } = useAuth();
   const { memberUsernameOptions } = useMembers();
@@ -52,7 +52,9 @@ const SegmentForm: FC<{
     },
   });
   const [sqlOpen, setSqlOpen] = useState(false);
-  const [createFactSegment, setCreateFactSegment] = useState(false);
+  const [createFactSegment, setCreateFactSegment] = useState(
+    () => current?.type === "factSegment"
+  );
 
   const userIdType = form.watch("userIdType");
 
@@ -67,14 +69,16 @@ const SegmentForm: FC<{
     return new Set([userIdType, "date"]);
   }, [userIdType]);
 
-  if (createFactSegment)
+  if (createFactSegment) {
     return (
       <FactSegmentForm
         goBack={() => setCreateFactSegment(false)}
         current={current}
         filteredDatasources={filteredDatasources}
+        close={close}
       />
     );
+  }
 
   return (
     <>
@@ -92,6 +96,7 @@ const SegmentForm: FC<{
         close={close}
         open={true}
         size={"md"}
+        cta={current.id ? "Update Segment" : "Create Segment"}
         header={current.id ? "Edit Segment" : "New Segment"}
         submit={form.handleSubmit(async (value) => {
           if (supportsSQL) {
@@ -105,7 +110,7 @@ const SegmentForm: FC<{
           mutateDefinitions({});
         })}
       >
-        {factTables.length > 0 ? (
+        {!current.id && factTables.length > 0 ? (
           <div className="alert border badge-purple text-center d-flex align-items-center">
             Want to use Fact Tables to create your segments instead?{" "}
             <a

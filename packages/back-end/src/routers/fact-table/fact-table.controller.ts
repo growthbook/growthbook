@@ -363,6 +363,20 @@ export const postFactSegment = async (
   });
 };
 
+export const putFactSegment = async (
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<{ status: 200 }>
+) => {
+  const context = getContextFromReq(req);
+  const data = context.models.factSegments.updateValidator.parse(req.body);
+
+  await context.models.factSegments.updateById(req.params.id, data);
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
 export const putFactMetric = async (
   req: AuthRequest<unknown, { id: string }>,
   res: Response<{ status: 200 }>

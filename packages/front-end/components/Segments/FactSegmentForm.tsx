@@ -1,5 +1,4 @@
 import { useForm } from "react-hook-form";
-import { SegmentInterface } from "@back-end/types/segment";
 import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
 import { GBArrowLeft } from "@/components/Icons";
 import Modal from "@/components/Modal";
@@ -11,17 +10,20 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
+import { SegmentTableItem } from "@/pages/segments";
 
 type Props = {
-  goBack?: () => void;
-  current: Partial<SegmentInterface>;
+  goBack: () => void;
+  current: Partial<SegmentTableItem> | null;
   filteredDatasources: DataSourceInterfaceWithParams[];
+  close: () => void;
 };
 
 export default function FactSegmentForm({
   goBack,
   current,
   filteredDatasources,
+  close,
 }: Props) {
   const { apiCall } = useAuth();
   const { memberUsernameOptions } = useMembers();
@@ -33,35 +35,44 @@ export default function FactSegmentForm({
   } = useDefinitions();
   const form = useForm({
     defaultValues: {
-      name: current.name || "",
+      name: current?.name || "",
       datasource:
-        (current.id ? current.datasource : filteredDatasources[0]?.id) || "",
-      userIdType: current.userIdType || "user_id",
-      owner: current.owner || "",
-      description: current.description || "",
-      factTableId: "",
-      filters: [""],
+        (current?.id ? current?.datasource : filteredDatasources[0]?.id) || "",
+      userIdType: current?.userIdType || "user_id",
+      owner: current?.owner || "",
+      description: current?.description || "",
+      factTableId: current?.factTableId || "",
+      filters: current?.filters || [],
       projects: [],
     },
   });
   const datasource = getDatasourceById(form.watch("datasource"));
   const factTable = getFactTableById(form.watch("factTableId"));
+
   return (
     <Modal
       close={close}
       open={true}
       size={"md"}
-      header={current ? "Edit Fact Segment" : "Create Fact Segment"}
+      cta={current ? "Update Segment" : "Create Segment"}
+      header={current ? "Edit Segment" : "Create Segment"}
       submit={form.handleSubmit(async (value) => {
-        await apiCall(`/fact-segments`, {
-          method: "POST",
-          body: JSON.stringify(value),
-        });
+        if (current?.id) {
+          await apiCall(`/fact-segments/${current.id}`, {
+            method: "PUT",
+            body: JSON.stringify(value),
+          });
+        } else {
+          await apiCall(`/fact-segments`, {
+            method: "POST",
+            body: JSON.stringify(value),
+          });
+        }
         mutateDefinitions();
       })}
     >
       <>
-        {goBack ? (
+        {!current?.id ? (
           <div className="mb-3">
             <a
               href="#"
