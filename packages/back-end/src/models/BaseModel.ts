@@ -21,6 +21,7 @@ import {
   ForeignRefs,
   ForeignRefsCacheKeys,
 } from "../services/context";
+import { getConfigSegments } from "../init/config";
 
 export type Context = ApiReqContext | ReqContext;
 
@@ -121,6 +122,14 @@ export interface ModelConfig<T extends BaseSchema, Entity extends EntityType> {
   }[];
 }
 
+// Self-hosted orgs can define some resources via a config.yml file
+const resourcesEligibleForConfigDefinition = [
+  "segments",
+  "dimensions",
+  "datasources",
+  "metrics",
+];
+
 // Global set to track which collections we've added indexes to already
 // We only need to add indexes once at server start-up
 const indexesAdded: Set<string> = new Set();
@@ -164,6 +173,12 @@ export abstract class BaseModel<
   /***************
    * Optional methods that can be overridden by subclasses as needed
    ***************/
+  protected useConfigFile(): boolean {
+    return false;
+  }
+  protected getConfigDocuments(): z.infer<T>[] {
+    return [];
+  }
   protected async filterByReadPermissions(
     docs: z.infer<T>[]
   ): Promise<z.infer<T>[]> {
@@ -258,6 +273,16 @@ export abstract class BaseModel<
     }
     if (!id) return Promise.resolve(null);
 
+    if (this.useConfigFile()) {
+      const resources = this.getConfigDocuments();
+
+      if (!resources) return Promise.resolve(null);
+
+      const resource = resources.find((resource) => resource.id === "id");
+
+      return resource || Promise.resolve(null);
+    }
+
     return this._findOne({ id });
   }
   public getByIds(ids: string[]) {
@@ -267,9 +292,22 @@ export abstract class BaseModel<
     }
     if (!ids.length) return Promise.resolve([]);
 
+    if (this.useConfigFile()) {
+      const resources = this.getConfigDocuments();
+
+      if (!resources) return Promise.resolve(null);
+
+      return resources.filter((resource) => ids.includes(resource.id));
+    }
+
     return this._find({ id: { $in: ids } });
   }
   public getAll() {
+    if (this.useConfigFile()) {
+      const resources = this.getConfigDocuments();
+
+      return resources;
+    }
     return this._find();
   }
   public create(
@@ -319,6 +357,16 @@ export abstract class BaseModel<
   /***************
    * Internal methods that can be used by subclasses
    ***************/
+  protected _getConfigDefinedResources() {
+    switch (this.config.collectionName) {
+      case "segments": {
+        return getConfigSegments(this.context.org.id);
+      }
+      //TODO: Add cases for dimensions, metrics, and datasources
+      default:
+        break;
+    }
+  }
   protected _generateId() {
     return uniqid(this.config.idPrefix);
   }

@@ -835,7 +835,6 @@ export async function importConfig(
             await context.models.segments.create({
               ...s,
               id: k,
-              description: "",
             });
           }
         } catch (e) {

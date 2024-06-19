@@ -1,4 +1,7 @@
+import { SegmentInterface } from "@back-end/types/segment";
+import { getConfigSegments, usingFileConfig } from "../init/config";
 import { segmentValidator } from "../routers/segment/segment.validators";
+import { STORE_SEGMENTS_IN_MONGO } from "../util/secrets";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -28,5 +31,23 @@ export class SegmentModel extends BaseClass {
   }
   protected canDelete(): boolean {
     return this.context.permissions.canDeleteSegment();
+  }
+  protected useConfigFile(): boolean {
+    if (usingFileConfig() && !STORE_SEGMENTS_IN_MONGO) {
+      return true;
+    }
+    return false;
+  }
+  protected getConfigDocuments() {
+    if (!this.useConfigFile) return [];
+
+    return getConfigSegments(this.context.org.id);
+  }
+  public async getByDataSource(
+    datasourceId: string
+  ): Promise<SegmentInterface[]> {
+    const allSegments = await this.getAll();
+
+    return allSegments.filter((segment) => segment.datasource === datasourceId);
   }
 }
