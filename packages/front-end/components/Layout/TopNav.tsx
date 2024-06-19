@@ -440,10 +440,14 @@ const TopNav: FC<{
           )}
           {renderTitleOrBreadCrumb()}
           {showNotices && (
-            <div className="mr-2">
-              <AccountPlanNotices />
-              <AccountPlanBadge />
-            </div>
+            <>
+              <div className="nav-link">
+                <AccountPlanNotices />
+              </div>
+              <div className="nav-link">
+                <AccountPlanBadge />
+              </div>
+            </>
           )}
           {renderOrganizationDropDown()}
           <DropdownMenu.Root>
