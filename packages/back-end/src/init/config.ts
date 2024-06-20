@@ -11,7 +11,6 @@ import {
   EMAIL_HOST_PASSWORD,
   EMAIL_HOST_USER,
   EMAIL_PORT,
-  STORE_SEGMENTS_IN_MONGO,
 } from "../util/secrets";
 import {
   DataSourceInterface,
