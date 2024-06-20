@@ -19,7 +19,6 @@ const BaseClass = MakeModelClass({
 });
 
 export class SegmentModel extends BaseClass {
-  //MKTODO: Update the permission checks to use resource's projects
   protected canRead(): boolean {
     return this.context.hasPermission("readData", []);
   }

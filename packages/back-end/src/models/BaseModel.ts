@@ -21,7 +21,6 @@ import {
   ForeignRefs,
   ForeignRefsCacheKeys,
 } from "../services/context";
-import { getConfigSegments } from "../init/config";
 
 export type Context = ApiReqContext | ReqContext;
 
@@ -357,16 +356,6 @@ export abstract class BaseModel<
   /***************
    * Internal methods that can be used by subclasses
    ***************/
-  protected _getConfigDefinedResources() {
-    switch (this.config.collectionName) {
-      case "segments": {
-        return getConfigSegments(this.context.org.id);
-      }
-      //TODO: Add cases for dimensions, metrics, and datasources
-      default:
-        break;
-    }
-  }
   protected _generateId() {
     return uniqid(this.config.idPrefix);
   }
