@@ -121,14 +121,6 @@ export interface ModelConfig<T extends BaseSchema, Entity extends EntityType> {
   }[];
 }
 
-// Self-hosted orgs can define some resources via a config.yml file
-const resourcesEligibleForConfigDefinition = [
-  "segments",
-  "dimensions",
-  "datasources",
-  "metrics",
-];
-
 // Global set to track which collections we've added indexes to already
 // We only need to add indexes once at server start-up
 const indexesAdded: Set<string> = new Set();
