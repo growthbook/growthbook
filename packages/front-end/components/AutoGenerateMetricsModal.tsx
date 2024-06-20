@@ -186,6 +186,7 @@ export default function AutoGenerateMetricsModal({
       name: string;
       sql: string;
       type: MetricType;
+      userIdTypes: string[];
     }[] = [];
     trackedEvents.forEach((event: TrackedEventData) => {
       event.metricsToCreate.forEach((metric) => {
@@ -194,6 +195,7 @@ export default function AutoGenerateMetricsModal({
             name: metric.name,
             type: metric.type,
             sql: metric.sql,
+            userIdTypes: metric.userIdTypes,
           });
         }
       });
