@@ -852,7 +852,35 @@ export function getLicenseError(org: MinimalOrganization): string {
   const key = org.licenseKey || process.env.LICENSE_KEY;
   const licenseData = getLicense(key);
 
-  // If there is no license it can't have an error
+  if (
+    !stringToBoolean(process.env.IS_CLOUD) &&
+    process.env.SSO_CONFIG &&
+    (!licenseData ||
+      !licenseData.plan ||
+      !planHasPremiumFeature(licenseData.plan, "sso"))
+  ) {
+    // Trying to use SSO, but the plan doesn't support it
+    // We throw the error here, otherwise they would still be able to use SSO on free plans with only a warning.
+    throw new Error(
+      "You need an enterprise license for SSO functionality. Either upgrade to enterprise or remove SSO_CONFIG environment variable."
+    );
+  }
+
+  if (
+    !stringToBoolean(process.env.IS_CLOUD) &&
+    stringToBoolean(process.env.IS_MULTI_ORG) &&
+    (!licenseData ||
+      !licenseData.plan ||
+      !planHasPremiumFeature(licenseData.plan, "multi-org"))
+  ) {
+    // Trying to use IS_MULTI_ORG, but the plan doesn't support it
+    // We throw error here, otherwise they would still be able to use IS_MULTI_ORG on free plans.
+    throw new Error(
+      "You need an enterprise license for multi-org functionality. Either upgrade to enterprise or remove IS_MULTI_ORG environment variable."
+    );
+  }
+
+  // If there is no license it can't have a different license error
   // Licenses might not have a plan if sign up for pro, but abandon checkout, in which case we don't want to show an error
   // Or it might not have a plan if the license is set in the env var but the license server wasn't whitelisted, in which case we do want to show the error
   if (!licenseData || !licenseData.plan) {
@@ -890,27 +918,6 @@ export function getLicenseError(org: MinimalOrganization): string {
         return "License server erroring for too long";
       }
     }
-  }
-
-  if (
-    !stringToBoolean(process.env.IS_CLOUD) &&
-    process.env.SSO_CONFIG &&
-    !planHasPremiumFeature(licenseData.plan, "sso")
-  ) {
-    // Trying to use SSO, but the plan doesn't support it
-    // We throw the error here, otherwise they would still be able to use SSO on free plans with only a warning.
-    throw new Error(
-      "Your license does not support SSO. Either upgrade to enterprise or remove SSO_CONFIG environment variable."
-    );
-  }
-
-  if (
-    !stringToBoolean(process.env.IS_CLOUD) &&
-    stringToBoolean(process.env.IS_MULTI_ORG) &&
-    !planHasPremiumFeature(licenseData.plan, "multi-org")
-  ) {
-    // Trying to use IS_MULTI_ORG, but the plan doesn't support it
-    return "No support for multi-org";
   }
 
   if (shouldLimitAccessDueToExpiredLicense(licenseData)) {
