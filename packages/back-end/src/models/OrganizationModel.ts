@@ -124,6 +124,7 @@ const organizationSchema = new mongoose.Schema({
   settings: {},
   getStartedChecklistItems: [String],
   customRoles: {},
+  deactivatedRoles: [],
 });
 
 organizationSchema.index({ "members.id": 1 });
@@ -549,7 +550,46 @@ export async function removeCustomRole(
     throw new Error("Role not found");
   }
 
-  await updateOrganization(org.id, { customRoles: newCustomRoles });
+  const updates: Partial<OrganizationInterface> = {
+    customRoles: newCustomRoles,
+  };
+
+  if (org.deactivatedRoles?.includes(id)) {
+    updates.deactivatedRoles = org.deactivatedRoles.filter((r) => r !== id);
+  }
+
+  await updateOrganization(org.id, updates);
+}
+
+export async function deactivateRoleById(
+  org: OrganizationInterface,
+  id: string
+) {
+  if (
+    !RESERVED_ROLE_IDS.includes(id) &&
+    !org.customRoles?.some((role) => role.id === id)
+  ) {
+    throw new Error(`Unable to find role id ${id}`);
+  }
+
+  const deactivatedRoles = new Set<string>(org.deactivatedRoles);
+  deactivatedRoles.add(id);
+
+  await updateOrganization(org.id, {
+    deactivatedRoles: Array.from(deactivatedRoles),
+  });
+}
+
+export async function activateRoleById(org: OrganizationInterface, id: string) {
+  if (!org.deactivatedRoles || !org.deactivatedRoles?.includes(id)) {
+    throw new Error("Cannot activate a role that isn't deactivated");
+  }
+
+  const newDeactivatedRoles = org.deactivatedRoles.filter(
+    (role) => role !== id
+  );
+
+  await updateOrganization(org.id, { deactivatedRoles: newDeactivatedRoles });
 }
 
 export async function addGetStartedChecklistItem(id: string, item: string) {
