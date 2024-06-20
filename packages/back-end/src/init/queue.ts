@@ -14,6 +14,7 @@ import expireOldQueries from "../jobs/expireOldQueries";
 import addSdkWebhooksJob from "../jobs/sdkWebhooks";
 import updateLicenseJob, { queueUpdateLicense } from "../jobs/updateLicense";
 import deleteOldAgendaJobs from "../jobs/deleteOldAgendaJobs";
+import { logger } from "../util/logger";
 
 export async function queueInit() {
   if (!CRON_ENABLED) return;
@@ -34,7 +35,11 @@ export async function queueInit() {
   updateLicenseJob(agenda);
 
   // Make sure we have index needed to delete efficiently
-  agenda._collection.createIndex({ lastFinishedAt: 1, nextRunAt: 1 });
+  agenda._collection
+    .createIndex({ lastFinishedAt: 1, nextRunAt: 1 })
+    .catch((e) => {
+      logger.error("Error creating index needed for deleteOldAgendaJobs: " + e);
+    });
   deleteOldAgendaJobs(agenda);
 
   await agenda.start();
