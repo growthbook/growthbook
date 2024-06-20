@@ -39,6 +39,7 @@ export async function runDatabricksQuery<T>(
           host: conn.host,
           port: conn.port || 443,
           path: conn.path,
+          clientId: conn.clientId || "GrowthBook",
         })
         .then(async () => {
           const session = await client.openSession();

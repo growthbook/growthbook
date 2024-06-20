@@ -6,7 +6,7 @@ import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Toggle from "@/components/Forms/Toggle";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, { GroupedValue } from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
 export default function SingleRoleSelector({
@@ -25,6 +25,7 @@ export default function SingleRoleSelector({
   const { roles, hasCommercialFeature, organization } = useUser();
   const hasFeature = hasCommercialFeature("advanced-permissions");
   const hasCustomRolesFeature = hasCommercialFeature("custom-roles");
+  const deactivatedRoles = organization.deactivatedRoles || [];
 
   const isNoAccessRoleEnabled = hasCommercialFeature("no-access-role");
 
@@ -36,6 +37,11 @@ export default function SingleRoleSelector({
 
   if (!includeAdminRole) {
     roleOptions = roleOptions.filter((r) => r.id !== "admin");
+  }
+
+  // if the org has custom-roles feature and has deactivated roles, remove those from the roleOptions
+  if (hasCustomRolesFeature && deactivatedRoles.length) {
+    roleOptions = roleOptions.filter((r) => !deactivatedRoles.includes(r.id));
   }
 
   const standardOptions: { label: string; value: string }[] = [];
@@ -51,24 +57,30 @@ export default function SingleRoleSelector({
     }
   });
 
-  const groupedOptions = [
-    {
-      label: "Standard",
-      options: standardOptions,
-    },
-    {
-      label: "Custom",
-      options: customOptions,
-    },
-  ];
+  const groupedOptions: GroupedValue[] = [];
+
+  if (standardOptions.length) {
+    groupedOptions.push({ label: "Standard", options: standardOptions });
+  }
+
+  if (customOptions.length) {
+    groupedOptions.push({ label: "Custom", options: customOptions });
+  }
 
   const availableEnvs = useEnvironments();
 
   const id = useMemo(() => uniqid(), []);
 
-  const formatGroupLabel = (data) => (
-    <div className={data.label === "Custom" ? "border-bottom my-3" : ""}></div>
-  );
+  const formatGroupLabel = (data) => {
+    // if we don't have both Standard & Custom options, don't return anything
+    if (groupedOptions.length < 2) {
+      return;
+    }
+
+    return (
+      <div className={data.label === "Custom" ? "border-top my-1" : ""}></div>
+    );
+  };
 
   return (
     <div>
