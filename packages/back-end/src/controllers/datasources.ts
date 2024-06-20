@@ -228,7 +228,12 @@ export async function putDataSource(
       params?: DataSourceParams;
       settings: DataSourceSettings;
       projects?: string[];
-      metricsToCreate?: { name: string; type: MetricType; sql: string }[];
+      metricsToCreate?: {
+        name: string;
+        type: MetricType;
+        sql: string;
+        userIdTypes: string[];
+      }[];
     },
     { id: string }
   >,
