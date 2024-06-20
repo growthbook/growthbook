@@ -33,10 +33,6 @@ interface Props {
   require?: boolean;
 }
 
-function dateIsValid(date: Date) {
-  return date instanceof Date && !isNaN(date.valueOf());
-}
-
 export default function ConditionInput(props: Props) {
   const { savedGroups } = useDefinitions();
 
@@ -237,19 +233,31 @@ export default function ConditionInput(props: Props) {
                     { label: "matches regex", value: "$regex" },
                     { label: "does not match regex", value: "$notRegex" },
                     {
-                      label: "is greater than",
+                      label:
+                        attribute.format === "date"
+                          ? "is after"
+                          : "is greater than",
                       value: attribute.format === "version" ? "$vgt" : "$gt",
                     },
                     {
-                      label: "is greater than or equal to",
+                      label:
+                        attribute.format === "date"
+                          ? "is after or on"
+                          : "is greater than or equal to",
                       value: attribute.format === "version" ? "$vgte" : "$gte",
                     },
                     {
-                      label: "is less than",
+                      label:
+                        attribute.format === "date"
+                          ? "is before"
+                          : "is less than",
                       value: attribute.format === "version" ? "$vlt" : "$lt",
                     },
                     {
-                      label: "is less than or equal to",
+                      label:
+                        attribute.format === "date"
+                          ? "is before or on"
+                          : "is less than or equal to",
                       value: attribute.format === "version" ? "$vlte" : "$lte",
                     },
                     { label: "is in the list", value: "$in" },
@@ -327,7 +335,10 @@ export default function ConditionInput(props: Props) {
                           newConds[i]["value"] = newConds[i]["value"] || "";
                         }
                         if (newAttribute?.format === "date") {
-                          newConds[i]["value"] = "";
+                          newConds[i]["value"] = format(
+                            new Date(),
+                            "yyyy-MM-dd'T'HH:mm"
+                          );
                         }
                         setConds(newConds);
                       }}
@@ -433,14 +444,17 @@ export default function ConditionInput(props: Props) {
                       containerClassName="col-sm-12 col-md mb-2"
                       required
                     />
-                  ) : // TODO: Exclude regex operator from using the date field
-                  ["string", "secureString"].includes(attribute.datatype) &&
-                    attribute.format === "date" ? (
+                  ) : ["string", "secureString"].includes(attribute.datatype) &&
+                    attribute.format === "date" &&
+                    !["$regex", "$notRegex"].includes(operator) ? (
                     <Field
                       type="datetime-local"
                       value={format(new Date(value), "yyyy-MM-dd'T'HH:mm")}
                       onChange={handleFieldChange}
-                      name="timestamp"
+                      name="value"
+                      className={styles.matchingInput}
+                      containerClassName="col-sm-12 col-md mb-2"
+                      required
                     />
                   ) : ["string", "secureString"].includes(
                       attribute.datatype
