@@ -19,7 +19,7 @@ export default function NamespaceModal({
   const existingNamespace = existing?.namespace;
   const form = useForm<Partial<Namespaces>>({
     defaultValues: {
-      name: existingNamespace?.name || "",
+      label: existingNamespace?.label || existingNamespace?.name || "",
       description: existingNamespace?.description || "",
       status: existingNamespace?.status || "active",
     },
@@ -52,7 +52,7 @@ export default function NamespaceModal({
         maxLength={60}
         disabled={!!existing?.experiments}
         required
-        {...form.register("name")}
+        {...form.register("label")}
       />
       <Field label="Description" textarea {...form.register("description")} />
     </Modal>
