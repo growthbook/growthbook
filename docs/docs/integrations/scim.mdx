@@ -37,37 +37,36 @@ We are actively working on adding support for additional identity providers.
 
 ### Okta Setup
 
-##### 1. Verify that your GrowthBook organization is on an enterprise plan with SSO enabled.
+1. Verify that your GrowthBook organization is on an enterprise plan with SSO enabled.
 
-##### 2. Log in to your Okta account and go to the Applications page. Select "Browse App Catalog," then search for "SCIM 2.0 Test App (OAuth Bearer Token)." Click "Add Integration" to add the app to your Okta account.
+2. Log in to your Okta account and go to the Applications page. Select "Browse App Catalog," then search for "SCIM 2.0 Test App (OAuth Bearer Token)." Click "Add Integration" to add the app to your Okta account.
 
 ![](../../static/images/integrations/scim/GrowthBook-SCIM-Add-Okta-Integration.png)
 
-##### 3. Once the app is added, you can change its name, for example, to "GrowthBook SCIM." Click "Next."
+3. Once the app is added, you can change its name, for example, to "GrowthBook SCIM." Click "Next."
 
 ![](../../static/images/integrations/scim/GrowthBook-SCIM-Add-Name.png)
 
-##### 4. On the next page, you don't need to modify any settings. Simply click "Done."
+4. On the next page, you don't need to modify any settings. Simply click "Done."
 
-##### 5. With the application created, click on the "Provisioning" tab and select "Configure API Integration."
+5. With the application created, click on the "Provisioning" tab and select "Configure API Integration."
 
 ![](../../static/images/integrations/scim/GrowthBook-SCIM-Enable-API-Integration.png)
 
-##### 6. Now you can enter the Base URL and your OAUTH Bearer Token.
+6. Now you can enter the Base URL and your OAUTH Bearer Token.
 
-For GrowthBook Cloud users, the Base URL is `https://api.growthbook.io/scim/v2`. If you're self-hosting GrowthBook, the Base URL will be `{YOUR_API_HOST}/scim/v2`.
+- For GrowthBook Cloud users, the Base URL is `https://api.growthbook.io/scim/v2`. If you're self-hosting GrowthBook, the Base URL will be `{YOUR_API_HOST}/scim/v2`.
+- You can obtain your OAuth Bearer Token by creating a new Secret API Key with an `Admin` role. To do this, go to your GrowthBook account, and in the left navigation, select "Settings → API Keys." We recommend creating a dedicated API key exclusively for your SCIM integration.
 
-You can obtain your OAuth Bearer Token by creating a new Secret API Key with an `Admin` role. To do this, go to your GrowthBook account, and in the left navigation, select "Settings → API Keys." We recommend creating a dedicated API key exclusively for your SCIM integration.
-
-##### 7. After adding your credentials, click "Test API Credentials" to ensure they are valid. If they pass the test, click "Save."
+7. After adding your credentials, click "Test API Credentials" to ensure they are valid. If they pass the test, click "Save."
 
 ![](../../static/images/integrations/scim/GrowthBook-SCIM-Add-Credentials.png)
 
-##### 8. Next, click on the "To App" tab and select "Edit" to enable "Create Users" and "Deactivate Users." Once enabled, click "Save."
+8. Next, click on the "To App" tab and select "Edit" to enable "Create Users" and "Deactivate Users." Once enabled, click "Save."
 
 ![](../../static/images/integrations/scim/GrowthBook-SCIM-Configure-Options.png)
 
-##### 9. Congratulations! Your application is now set up. You can navigate to the "Assignments" tab and assign people to GrowthBook and to the "Push Groups" tab to sync groups with GrowthBook Teams.
+9. Congratulations! Your application is now set up. You can navigate to the "Assignments" tab and assign people to GrowthBook and to the "Push Groups" tab to sync groups with GrowthBook Teams.
 
 ### How to define user role when provisioning
 
