@@ -12,7 +12,7 @@ const Avatar: FC<{
   const lastNameLetter = name?.split(" ")[1]?.charAt(0);
   const title = name ? `${name} <${email}>` : email;
   const copy =
-    name === "api"
+    name.toLowerCase() === "api"
       ? name.toUpperCase()
       : `${firstNameLetter.toUpperCase()}${lastNameLetter?.toUpperCase()}`;
   return (
