@@ -393,9 +393,6 @@ export abstract class BaseModel<
   ) {
     const props = this.createValidator.parse(rawData);
 
-    if (this.config.globallyUniqueIds && "id" in props) {
-      throw new Error("Cannot set a custom id for this model");
-    }
     if ("organization" in props) {
       throw new Error("Cannot set organization field");
     }
