@@ -1,11 +1,14 @@
 import { AppProps } from "next/app";
 import "@/styles/global.scss";
+import "@radix-ui/themes/styles.css";
+import "@/styles/theme-config.css";
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
 import { PageHeadProvider } from "@/components/Layout/PageHead";
+import { RadixTheme } from "@/services/RadixTheme";
 import { AuthProvider } from "@/services/auth";
 import ProtectedPage from "@/components/ProtectedPage";
 import { DefinitionsProvider } from "@/services/DefinitionsContext";
@@ -97,28 +100,30 @@ function App({
             <AuthProvider>
               <AppearanceUIThemeProvider>
                 <GrowthBookProvider growthbook={growthbook}>
-                  <ProtectedPage organizationRequired={organizationRequired}>
-                    {organizationRequired ? (
-                      <GetStartedProvider>
-                        <DefinitionsProvider>
-                          {!liteLayout && <Layout />}
-                          <main className={`main ${parts[0]}`}>
-                            <GuidedGetStartedBar />
-                            <OrganizationMessagesContainer />
-                            <DemoDataSourceGlobalBannerContainer />
+                  <RadixTheme>
+                    <ProtectedPage organizationRequired={organizationRequired}>
+                      {organizationRequired ? (
+                        <GetStartedProvider>
+                          <DefinitionsProvider>
+                            {!liteLayout && <Layout />}
+                            <main className={`main ${parts[0]}`}>
+                              <GuidedGetStartedBar />
+                              <OrganizationMessagesContainer />
+                              <DemoDataSourceGlobalBannerContainer />
+                              <Component {...pageProps} />
+                            </main>
+                          </DefinitionsProvider>
+                        </GetStartedProvider>
+                      ) : (
+                        <div>
+                          <TopNavLite />
+                          <main className="container mt-5">
                             <Component {...pageProps} />
                           </main>
-                        </DefinitionsProvider>
-                      </GetStartedProvider>
-                    ) : (
-                      <div>
-                        <TopNavLite />
-                        <main className="container mt-5">
-                          <Component {...pageProps} />
-                        </main>
-                      </div>
-                    )}
-                  </ProtectedPage>
+                        </div>
+                      )}
+                    </ProtectedPage>
+                  </RadixTheme>
                 </GrowthBookProvider>
               </AppearanceUIThemeProvider>
             </AuthProvider>

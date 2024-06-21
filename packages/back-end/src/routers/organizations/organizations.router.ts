@@ -97,4 +97,8 @@ router.post("/custom-roles", organizationsController.postCustomRole);
 router.put("/custom-roles/:id", organizationsController.putCustomRole);
 router.delete("/custom-roles/:id", organizationsController.deleteCustomRole);
 
+// Standard Roles
+router.post("/role/:id/deactivate", organizationsController.deactivateRole);
+router.post("/role/:id/activate", organizationsController.activateRole);
+
 export { router as organizationsRouter };

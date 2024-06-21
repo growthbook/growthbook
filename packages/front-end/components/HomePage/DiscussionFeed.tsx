@@ -45,7 +45,12 @@ const DiscussionFeed: FC<{
 
           return (
             <li className="mb-3" key={i}>
-              <Avatar email={email} className="mr-2 float-left" size={24} />
+              <Avatar
+                email={email}
+                className="mr-2 float-left"
+                size={24}
+                name={name}
+              />
               <div
                 className="card cursor-pointer border-0"
                 onClick={(e) => {
