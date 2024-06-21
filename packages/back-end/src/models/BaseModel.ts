@@ -6,6 +6,7 @@ import { Collection } from "mongodb";
 import omit from "lodash/omit";
 import { z } from "zod";
 import { isEqual, pick } from "lodash";
+import { evalCondition } from "@growthbook/growthbook";
 import { ApiReqContext } from "../../types/api";
 import { ReqContext } from "../../types/organization";
 import { logger } from "../util/logger";
@@ -264,16 +265,6 @@ export abstract class BaseModel<
     }
     if (!id) return Promise.resolve(null);
 
-    if (this.useConfigFile()) {
-      const resources = this.getConfigDocuments();
-
-      if (!resources) return Promise.resolve(null);
-
-      const resource = resources.find((resource) => resource.id === "id");
-
-      return resource || Promise.resolve(null);
-    }
-
     return this._findOne({ id });
   }
   public getByIds(ids: string[]) {
@@ -283,22 +274,9 @@ export abstract class BaseModel<
     }
     if (!ids.length) return Promise.resolve([]);
 
-    if (this.useConfigFile()) {
-      const resources = this.getConfigDocuments();
-
-      if (!resources) return Promise.resolve(null);
-
-      return resources.filter((resource) => ids.includes(resource.id));
-    }
-
     return this._find({ id: { $in: ids } });
   }
   public getAll() {
-    if (this.useConfigFile()) {
-      const resources = this.getConfigDocuments();
-
-      return resources;
-    }
     return this._find();
   }
   public create(
@@ -373,6 +351,24 @@ export abstract class BaseModel<
       ...query,
       organization: this.context.org.id,
     };
+
+    if (this.useConfigFile()) {
+      const docs = this.getConfigDocuments();
+      const filtered = docs.filter((doc) => evalCondition(doc, queryWithOrg));
+
+      if (!filtered) return [];
+
+      if (!bypassReadPermissionChecks) {
+        filtered.filter((doc) => this.canRead(doc));
+      }
+
+      //TODO: Handle sorting
+
+      if (!skip && !limit) return filtered;
+
+      return filtered.slice(skip || 0, limit ? (skip || 0) + limit : undefined);
+    }
+
     const cursor = this._dangerousGetCollection().find(queryWithOrg);
 
     sort &&
@@ -400,6 +396,23 @@ export abstract class BaseModel<
   protected async _findOne(
     query: FilterQuery<Omit<z.infer<T>, "organization">>
   ) {
+    if (this.useConfigFile()) {
+      const docs = this.getConfigDocuments();
+
+      const doc = docs.find((doc) =>
+        evalCondition(doc, {
+          ...query,
+          organization: this.context.org.id,
+        })
+      );
+
+      if (!doc) return null;
+
+      await this.populateForeignRefs([doc]);
+
+      return this.canRead(doc) ? doc : null;
+    }
+
     const doc = await this._dangerousGetCollection().findOne({
       ...query,
       organization: this.context.org.id,
