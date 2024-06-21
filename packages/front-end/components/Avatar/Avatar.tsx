@@ -11,7 +11,10 @@ const Avatar: FC<{
   const firstNameLetter = name?.charAt(0) || email.charAt(0);
   const lastNameLetter = name?.split(" ")[1]?.charAt(0);
   const title = name ? `${name} <${email}>` : email;
-
+  const copy =
+    name === "api"
+      ? name.toUpperCase()
+      : `${firstNameLetter.toUpperCase()}${lastNameLetter?.toUpperCase()}`;
   return (
     //round avatar with initals in the middle
     <div
@@ -29,9 +32,7 @@ const Avatar: FC<{
         fontWeight: 600,
       }}
     >
-      {firstNameLetter.toUpperCase()}
-      {lastNameLetter?.toUpperCase()}
-
+      {copy}
     </div>
   );
 };
