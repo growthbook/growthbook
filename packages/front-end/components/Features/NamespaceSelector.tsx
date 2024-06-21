@@ -89,10 +89,7 @@ export default function NamespaceSelector({
                 .filter((n) => {
                   return n?.status !== "inactive";
                 })
-                .map((n) => {
-                  console.log(n);
-                  return { value: n.name, label: n.label };
-                })}
+                .map((n) => ({ value: n.name, label: n.label }))}
             />
             {namespace &&
               namespaces.filter((n) => n.name === namespace).length > 0 && (

@@ -902,7 +902,6 @@ export async function putNamespaces(
   req: AuthRequest<
     {
       label: string;
-      name?: string;
       description: string;
       status: "active" | "inactive";
     },
@@ -910,7 +909,8 @@ export async function putNamespaces(
   >,
   res: Response
 ) {
-  const { label, name, description, status } = req.body;
+  const { label, description, status } = req.body;
+  const { name } = req.params;
 
   const context = getContextFromReq(req);
 

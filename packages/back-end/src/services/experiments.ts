@@ -822,7 +822,7 @@ export async function toExperimentApiInterface(
       })),
       namespace: p.namespace?.enabled
         ? {
-            namespaceId: p.namespace?.name,
+            namespaceId: p.namespace.name,
             range: p.namespace.range,
           }
         : undefined,
