@@ -456,7 +456,7 @@ const TopNav: FC<{
                 <Avatar
                   email={email || ""}
                   size={26}
-                  name={name}
+                  name={name || ""}
                   className="mr-2"
                 />{" "}
                 <span className="d-none d-lg-inline">
