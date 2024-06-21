@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { ReactElement } from "react";
 import { includeExperimentInPayload } from "shared/util";
+import { FaExclamationTriangle } from "react-icons/fa";
 import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -194,7 +195,7 @@ export default function ExperimentRefSummary({
                       className="italic text-danger"
                       title="this namespace is not found"
                     >
-                      phase.namespace.name
+                      <FaExclamationTriangle /> {phase.namespace.name}
                     </span>
                   )}
                 </span>

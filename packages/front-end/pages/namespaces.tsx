@@ -113,9 +113,12 @@ const NamespacesPage: FC = () => {
                     setModalOpen(true);
                   }}
                   onDelete={async () => {
-                    await apiCall(`/organization/namespaces/${ns.name}`, {
-                      method: "DELETE",
-                    });
+                    await apiCall(
+                      `/organization/namespaces/${encodeURIComponent(ns.name)}`,
+                      {
+                        method: "DELETE",
+                      }
+                    );
                     await refreshOrganization();
                   }}
                   onArchive={async () => {
@@ -124,10 +127,13 @@ const NamespacesPage: FC = () => {
                       description: ns.description,
                       status: ns?.status === "inactive" ? "active" : "inactive",
                     };
-                    await apiCall(`/organization/namespaces/${ns.name}`, {
-                      method: "PUT",
-                      body: JSON.stringify(newNamespace),
-                    });
+                    await apiCall(
+                      `/organization/namespaces/${encodeURIComponent(ns.name)}`,
+                      {
+                        method: "PUT",
+                        body: JSON.stringify(newNamespace),
+                      }
+                    );
                     await refreshOrganization();
                   }}
                 />
