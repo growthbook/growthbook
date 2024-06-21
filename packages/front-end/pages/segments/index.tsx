@@ -249,7 +249,7 @@ const SegmentPage: FC = () => {
                   <th className="d-none d-sm-table-cell">Data Source</th>
                   <th className="d-none d-md-table-cell">Identifier Type</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
-                  <th>Date Updated</th>
+                  {canStoreSegmentsInMongo ? <th>Date Updated</th> : null}
                   <th></th>
                 </tr>
               </thead>
@@ -296,7 +296,9 @@ const SegmentPage: FC = () => {
                           expandable={true}
                         />
                       </td>
-                      <td>{s.dateUpdated ? ago(s.dateUpdated) : ""}</td>
+                      {canStoreSegmentsInMongo ? (
+                        <td>{s.dateUpdated ? ago(s.dateUpdated) : ""}</td>
+                      ) : null}
                       <td>
                         {permissionsUtil.canUpdateSegment() &&
                         canStoreSegmentsInMongo ? (

@@ -231,10 +231,8 @@ export function getConfigSegments(organization: string): SegmentInterface[] {
       id,
       ...d,
       organization,
-      dateCreated: new Date(), //temporary
-      dateUpdated: new Date(), //temporary
-      // dateCreated: null,
-      // dateUpdated: null,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
     };
   });
 }
