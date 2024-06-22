@@ -49,6 +49,7 @@ class MetricSettingsForStatsEngine:
     denominator_metric_type: Optional[MetricType] = None
     covariate_metric_type: Optional[MetricType] = None
     quantile_value: Optional[float] = None
+    decision_metric: bool = False
 
 
 @dataclass

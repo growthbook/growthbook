@@ -25,6 +25,8 @@ First, MABs can reduce the cost of experimentation. By allocating larger percent
 
 Second, you can potentially glean more information from a MAB compared to a fixed-weight experiment. If you have 10 variations, you may be able to quickly determine that several are result in low revenue. Sending traffic to the higher revenue variations both saves money and provides more statistical power for distinguishing the winner.
 
+However, bandit results can be biased, please see [here](#bias). This bias does attenuate as we collect more data. If your goal is unbiased estimation, standard experiments with a fixed runtime are the gold standard. You will have to balance the potential benefits of a bandit (i.e., likelier to identify the best arm, reducing the cost of experimentation, sometimes better accuracy), against the risk of biasing your results.
+
 ## How do you determine how much traffic to send to each variation?
 
 GrowthBook employs Thompson sampling, which allocates traffic proportional to the probability that an arm is best.
@@ -48,6 +50,16 @@ You should pick the cadence that satisfies your logistical constraints while bal
 The minimum update cadence at GrowthBook is 15 minutes. If running your query takes 15+ minutes, then an update cadence of 1 hour may be appropriate. This allows tracking data to reach your data warehouse and your queries to run. Shorter update cadences result in information being quickly gleaned from the experiment.
 
 Longer update cadences can reduce cost, as fewer queries are run. However, if you have to run your experiment for longer because the updates are slow, this can increase the cost of experimentation, because more users are being assigned to less profitable arms.
+
+## Bias
+
+Bandit results can be biased, and the potential direction of bias is unknown.  
+First, variation means can be biased low, because bandits allocate more traffic to the most profitable variations.  
+A variation that is "unlucky" at the beginning of an experiment (i.e., biased low) receive less traffic going forward, and has fewer chances to have have its luck even out and become unbiased.
+A variation that is "lucky" at the beginning of an experiment receive more traffic going forward, and its sample mean is likely to regress towards its population mean. Note that all variation means being biased low is better for inference than only 1 being biased low, because when we take the difference in sample means, some of this bias cancels.  
+Second, if you terminate your experiment early because of the success of one specific mean, then this variation mean may be biased high due to luck at the beginning of the experiment. Terminating the experiment precludes future data from mitigating this bias.
+
+In summary, bandit experiments can exhibit bias. The magnitude of this bias decreases as the experiment continues, so large sample sizes help. Further, compared to fixed weight experiments, bandits can better identify the best arm, can save money, and produce more accurate results in some cases.
 
 ## FAQ
 

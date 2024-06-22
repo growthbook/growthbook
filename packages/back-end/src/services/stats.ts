@@ -76,6 +76,7 @@ export interface MetricSettingsForStatsEngine {
   prior_proper?: boolean;
   prior_mean?: number;
   prior_stddev?: number;
+  decision_metric?: boolean; 
 }
 
 export interface QueryResultsForStatsEngine {

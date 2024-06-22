@@ -2,7 +2,7 @@ from typing import List, Optional, Tuple, Union
 
 from pydantic.dataclasses import dataclass
 
-from gbstats.bayesian.tests import RiskType
+from gbstats.bayesian.tests import RiskType, BanditWeights
 from gbstats.models.tests import Uplift
 
 
@@ -54,6 +54,7 @@ class DimensionResponse:
     dimension: str
     srm: float
     variations: List[VariationResponse]
+    bandit_weights: BanditWeights
 
 
 @dataclass
