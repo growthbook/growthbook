@@ -3,6 +3,7 @@ import re
 from typing import Any, Dict, Hashable, List, Optional, Set, Tuple, Union
 
 import pandas as pd
+import numpy as np
 
 from gbstats.bayesian.tests import (
     BayesianTestResult,
@@ -336,14 +337,28 @@ def analyze_metric_df(
 # Convert final experiment results to a structure that can be easily
 # serialized and used to display results in the GrowthBook front-end
 def format_results(
-    df: pd.DataFrame, baseline_index: int = 0
+    df: pd.DataFrame, df_weights: pd.DataFrame, baseline_index: int = 0
 ) -> List[DimensionResponse]:
     num_variations = df.at[0, "variations"]
     results: List[DimensionResponse] = []
+    includes_bandit_weights = df_weights.shape[0] > 0
+    if includes_bandit_weights:
+        df = df.merge(df_weights, on="dimension")
     rows = df.to_dict("records")
     for row in rows:
+        if includes_bandit_weights:
+            weights = row["weights"]
+            update_message = row["update_message"]
+        else:
+            weights = np.full((num_variations,), 1 / num_variations).tolist()
+            update_message = "weights did not update"
         dim = DimensionResponse(
-            dimension=row["dimension"], srm=row["srm_p"], variations=[]
+            dimension=row["dimension"],
+            srm=row["srm_p"],
+            variations=[],
+            bandit_weights=BanditWeights(
+                update_message=update_message, weights=weights
+            ),
         )
         baseline_data = format_variation_result(row, 0)
         variation_data = [
@@ -486,7 +501,7 @@ def base_statistic_from_metric_row(
 
 
 # Run a specific analysis given data and configuration settings
-def process_analysis(
+def preprocess_analysis(
     rows: pd.DataFrame,
     var_id_map: VarIdMap,
     metric: MetricSettingsForStatsEngine,
@@ -564,6 +579,15 @@ def process_single_metric(
                 metric=metric,
                 analysis=a,
             ),
+            # calculate weights only if this is the decision metric
+            get_bandit_weights(
+                rows=pdrows,
+                var_id_map=get_var_id_map(a.var_ids),
+                metric=metric,
+                analysis=a,
+            )
+            if metric.decision_metric
+            else pd.DataFrame(),
             baseline_index=a.baseline_index,
         )
         for a in analyses

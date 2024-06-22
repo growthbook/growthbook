@@ -68,14 +68,6 @@ class BayesianTestResult(TestResult):
     error_message: Optional[str] = None
 
 
-@dataclass
-class BanditResults:
-    variation_weights: float
-    risk: List[float]
-    risk_type: RiskType
-    error_message: Optional[str] = None
-
-
 class BayesianABTest(BaseABTest):
     def __init__(
         self,
