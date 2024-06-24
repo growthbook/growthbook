@@ -5,6 +5,7 @@ import {
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { getFactTableMap } from "../models/FactTableModel";
 import { Context } from "../models/BaseModel";
+import { findSegmentById } from "../models/SegmentModel";
 import { SegmentInterface } from "../../types/segment";
 import { getIntegrationFromDatasourceId } from "./datasource";
 
@@ -22,7 +23,13 @@ export async function createMetricAnalysis(
 
     const factTableMap = await getFactTableMap(context);
 
-    const segment: SegmentInterface | undefined = undefined;
+    let segment: SegmentInterface | null = null;
+    if (metricAnalysisSettings.populationType === "segment" && metricAnalysisSettings.populationId) {
+      segment = await findSegmentById(metricAnalysisSettings.populationId, context.org.id);
+      if (!segment) {
+        throw new Error("Segment not found");
+      }
+    }
     // TODO settings and snapshot
 
     const model = await context.models.metricAnalysis.create({
@@ -44,6 +51,7 @@ export async function createMetricAnalysis(
       settings: metricAnalysisSettings,
       metric: metric,
       factTableMap: factTableMap,
+      segment: segment
     });
     return queryRunner;
   } else {

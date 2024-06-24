@@ -30,7 +30,7 @@ export default function PopulationChooser({
   const availableExposureQueries = (datasource?.settings?.queries?.exposure || []).filter(
     (e) => e.userIdType === userIdType
   ).map((e) => ({
-    label: `All ${userIdType} in Experiment Exposure Table "${e.name}"`,
+    label: `Experiment Assignment Table: ${e.name}`,
     value: `experiment_${e.id}`
   }))
 
@@ -39,7 +39,7 @@ export default function PopulationChooser({
     .filter((s) => s.datasource === datasourceId && s.userIdType === userIdType)
     .map((s) => {
       return {
-        label: `All ${userIdType} in Segment ${s.name}`,
+        label: `Segment: ${s.name}`,
         value: `segment_${s.id}`,
       };
     });
@@ -51,13 +51,6 @@ export default function PopulationChooser({
         labelClassName={labelClassName}
         containerClassName={"select-dropdown-underline"}
         options={[
-          ...((availableExposureQueries.length + availableSegments.length) > 0 ? [{
-            label: "External",
-            options: [
-                ...availableExposureQueries,
-                ...availableSegments
-            ]
-          }] : []),
           {
             label: "Fact Table",
             options: [
@@ -67,14 +60,26 @@ export default function PopulationChooser({
                 },
             ],
           },
+          ...(availableSegments.length > 0 ? [{
+            label: `All ${userIdType} in...`,
+            options: [
+              ...availableSegments,
+              ...availableExposureQueries,
+            ]
+          }] : []),
         ]}
+        sort={false}
         value={value}
         onChange={(v) => {
           if (v === value) return;
-          if(v.startsWith("experiment")) {
+          if (v.startsWith("experiment")) {
             setValue("exposureQuery");
             const exposureQueryId = v.match(/experiment_(.*)/)?.[1];
             setPopulationValue(exposureQueryId ?? null);
+          } else if (v.startsWith("segment")) {
+            setValue("segment");
+            const segmentId = v.match(/segment_(.*)/)?.[1];
+            setPopulationValue(segmentId ?? null);
           } else {
             setValue(v as MetricAnalysisPopulationType);
             setPopulationValue(null);

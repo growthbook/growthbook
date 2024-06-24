@@ -114,7 +114,8 @@ export const getMetricAnalysis = async (
   if (!metricAnalysis) {
     throw new Error("Metric analysis not found");
   }
-
+  console.log(metricAnalysis.settings)
+  console.log(typeof metricAnalysis.settings.startDate)
   res.status(200).json({
     status: 200,
     metricAnalysis,

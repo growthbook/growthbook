@@ -187,6 +187,7 @@ export type MetricAnalysisParams = {
   settings: MetricAnalysisSettings;
   metric: FactMetricInterface;
   factTableMap: FactTableMap;
+  segment: SegmentInterface | null;
 };
 
 export type MetricAnalysisHistogram = {

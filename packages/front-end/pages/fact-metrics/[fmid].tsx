@@ -19,7 +19,7 @@ import {
   MetricAnalysisPopulationType,
   MetricAnalysisSettings,
 } from "@back-end/types/metric-analysis";
-import { datetime } from "shared/dates";
+import { datetime, getValidDate } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCuped, GBEdit } from "@/components/Icons";
@@ -196,6 +196,11 @@ function ColumnRefSQL({
   );
 }
 
+type MetricAnalysisSettingsWithStringDates = Omit<MetricAnalysisSettings, "startDate" | "endDate"> & {
+  startDate: string,
+  endDate: string | null,
+}
+
 export default function FactMetricPage() {
   const router = useRouter();
   const { fmid } = router.query;
@@ -251,11 +256,17 @@ export default function FactMetricPage() {
 
   const todayMinus30 = new Date();
   todayMinus30.setDate(todayMinus30.getDate() - 30);
-  const form = useForm<MetricAnalysisSettings>({
-    defaultValues: data?.metricAnalysis?.settings || {
+  console.log(data?.metricAnalysis?.settings);
+  console.log(typeof data?.metricAnalysis?.settings.startDate);
+  const form = useForm<MetricAnalysisSettingsWithStringDates>({
+    defaultValues: data?.metricAnalysis?.settings ? {
+      ...data.metricAnalysis.settings,
+      startDate: getValidDate(data.metricAnalysis.settings.startDate).toISOString().substring(0, 16),
+      endDate: data.metricAnalysis.settings.endDate ? getValidDate(data.metricAnalysis.settings.endDate).toISOString().substring(0, 16) : null,
+    } : {
       userIdType: "",
       dimensions: [],
-      startDate: todayMinus30,
+      startDate: todayMinus30.toISOString().substring(0, 16),
       endDate: null,
       populationType: "metric",
       populationId: null,
@@ -698,7 +709,7 @@ export default function FactMetricPage() {
                         DEFAULT_WIN_RISK_THRESHOLD * 100}
                       %
                     </span>
-                  </li>
+              </li>
                   <li className="mb-2">
                     <span className="text-gray">Unacceptable risk &gt;</span>{" "}
                     <span className="font-weight-bold">
@@ -807,11 +818,11 @@ export default function FactMetricPage() {
     <div>
       <div className="uppercase-title text-muted">Date Range</div>
           <div className="d-flex align-items-start">
-            <Field type="date" containerClassName="select-dropdown-underline" {...form.register("startDate")} />
+            <Field type="datetime-local" containerClassName="select-dropdown-underline" {...form.register("startDate")} />
             <div className="m-2">{" to "}</div>
             <div>
             <Field
-              type="date"
+              type="datetime-local"
               {...form.register("endDate")}
             />
 
@@ -876,8 +887,8 @@ export default function FactMetricPage() {
                             id: factMetric.id,
                             userIdType: form.watch("userIdType"),
                             dimensions: [],
-                            startDate: datetime(form.watch("startDate")),
-                            endDate: endDate ? datetime(endDate) : "",
+                            startDate: form.watch("startDate"),
+                            endDate: endDate ? endDate : "",
                             populationType: form.watch("populationType"),
                             populationId: form.watch("populationId") ?? undefined,
                           };

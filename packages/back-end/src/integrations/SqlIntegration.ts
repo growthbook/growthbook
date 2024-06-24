@@ -61,7 +61,7 @@ import {
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
-import { SegmentInterface } from "../../types/segment";
+import { SegmentInterface, SegmentInterface } from "../../types/segment";
 import {
   getBaseIdTypeAndJoins,
   compileSqlTemplate,
@@ -554,7 +554,11 @@ export default abstract class SqlIntegration
     );
   }
 
-  getMetricAnalysisPopulationCTEs(settings: MetricAnalysisSettings, idJoinMap: Record<string, string>): string {
+  getMetricAnalysisPopulationCTEs(
+    settings: MetricAnalysisSettings, 
+    idJoinMap: Record<string, string>,
+    segment: SegmentInterface | null
+  ): string {
     // get population query
     if (settings.populationType === "exposureQuery") {
       const exposureQuery = this.getExposureQuery(settings.populationId || "");
@@ -582,12 +586,11 @@ export default abstract class SqlIntegration
         )`;
     }
 
-    if (settings.populationType === "segment") {
-      
-      // have to actually get segment interface in back-end before creating sql
+    if (settings.populationType === "segment" && segment) {
+      // TODO segment missing
       return `
       __segment as (${this.getSegmentCTE(
-          settings.populationId ?? "",
+          segment,
           settings.userIdType,
           idJoinMap
         )}),
