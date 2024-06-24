@@ -431,7 +431,7 @@ export default function ReportPage() {
                   <strong>Error refreshing data: </strong> {refreshError}
                 </div>
               )}
-              {hasMetrics && (
+              {!hasMetrics && (
                 <div className="alert alert-info">
                   Add at least 1 metric to view results.
                 </div>
