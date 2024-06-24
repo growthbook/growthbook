@@ -162,6 +162,15 @@ const ExpandableQuery: FC<{
                   )}
                 </strong>
               </div>
+              <div className="col-auto mb-2">
+                <em>Time queued</em>:{" "}
+                <strong>
+                  {formatDistanceStrict(
+                    getValidDate(query.createdAt),
+                    getValidDate(query.startedAt)
+                  )}
+                </strong>
+              </div>
             </div>
           )}
         </div>

@@ -74,6 +74,17 @@ export async function getQueriesByDatasource(
   return docs.map((doc) => toInterface(doc));
 }
 
+export async function countRunningQueries(
+  organization: string,
+  datasource: string
+) {
+  return await QueryModel.find({
+    organization,
+    datasource,
+    status: "running",
+  }).count();
+}
+
 export async function updateQuery(
   query: QueryInterface,
   changes: Partial<QueryInterface>

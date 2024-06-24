@@ -7,6 +7,7 @@ import {
   QueryType,
 } from "../../types/query";
 import {
+  countRunningQueries,
   createNewQuery,
   createNewQueryFromCached,
   getQueriesByIds,
@@ -103,6 +104,7 @@ export abstract class QueryRunner<
     };
   } = {};
   private useCache: boolean;
+  private queuedQueryTimers: Record<string, NodeJS.Timeout> = {};
 
   public constructor(
     context: ReqContext | ApiReqContext,
@@ -260,59 +262,71 @@ export abstract class QueryRunner<
         this.model.id
       } runner that are ready: ${queuedQueries.map((q) => q.id)}`
     );
-    await Promise.all(
-      queuedQueries.map(async (query) => {
-        // check if all dependencies are finished
-        // assumes all dependencies are within the model; if any are not, query will hang
-        // in queued state
+    for (const query of queuedQueries) {
+      // If the query already has a timeout set, we don't need to queue it up again.
+      if (this.queuedQueryTimers[query.id]) {
+        return;
+      }
+      // check if all dependencies are finished
+      // assumes all dependencies are within the model; if any are not, query will hang
+      // in queued state
 
-        const failedDependencies: QueryPointer[] = [];
-        const succeededDependencies: QueryPointer[] = [];
-        const pendingDependencies: QueryPointer[] = [];
+      const failedDependencies: QueryPointer[] = [];
+      const succeededDependencies: QueryPointer[] = [];
+      const pendingDependencies: QueryPointer[] = [];
 
-        const dependencyIds: string[] = query.dependencies ?? [];
-        dependencyIds.forEach((dependencyId) => {
-          const dependencyQuery = this.model.queries.find(
-            (q) => q.query == dependencyId
-          );
-          if (dependencyQuery === undefined) {
-            throw new Error(`Dependency ${dependencyId} not found in model`);
-          } else if (dependencyQuery.status === "succeeded") {
-            succeededDependencies.push(dependencyQuery);
-          } else if (dependencyQuery.status === "failed") {
-            failedDependencies.push(dependencyQuery);
-          } else {
-            pendingDependencies.push(dependencyQuery);
-          }
+      const dependencyIds: string[] = query.dependencies ?? [];
+      dependencyIds.forEach((dependencyId) => {
+        const dependencyQuery = this.model.queries.find(
+          (q) => q.query == dependencyId
+        );
+        if (dependencyQuery === undefined) {
+          throw new Error(`Dependency ${dependencyId} not found in model`);
+        } else if (dependencyQuery.status === "succeeded") {
+          succeededDependencies.push(dependencyQuery);
+        } else if (dependencyQuery.status === "failed") {
+          failedDependencies.push(dependencyQuery);
+        } else {
+          pendingDependencies.push(dependencyQuery);
+        }
+      });
+
+      if (failedDependencies.length) {
+        logger.debug(`${query.id}: Dependency failed...`);
+        await updateQuery(query, {
+          finishedAt: new Date(),
+          status: "failed",
+          error: `Dependencies failed: ${failedDependencies.map(
+            (q) => q.query
+          )}`,
         });
-
-        if (failedDependencies.length) {
-          logger.debug(`${query.id}: Dependency failed...`);
+        this.onQueryFinish();
+        return;
+      }
+      if (pendingDependencies.length) {
+        logger.debug(`${query.id}: Dependencies pending...`);
+        return;
+      }
+      if (succeededDependencies.length === dependencyIds.length) {
+        logger.debug(`${query.id}: Dependencies completed, running...`);
+        const runCallbacks = this.runCallbacks[query.id];
+        if (runCallbacks === undefined) {
+          logger.debug(`${query.id}: Run callbacks not found..`);
           await updateQuery(query, {
             finishedAt: new Date(),
             status: "failed",
-            error: `Dependencies failed: ${failedDependencies.map(
-              (q) => q.query
-            )}`,
+            error: `Run callbacks not found`,
           });
           this.onQueryFinish();
-          return;
-        }
-        if (pendingDependencies.length) {
-          logger.debug(`${query.id}: Dependencies pending...`);
-          return;
-        }
-        if (succeededDependencies.length === dependencyIds.length) {
-          logger.debug(`${query.id}: Dependencies completed, running...`);
-          const runCallbacks = this.runCallbacks[query.id];
-          if (runCallbacks === undefined) {
-            logger.debug(`${query.id}: Run callbacks not found..`);
-            await updateQuery(query, {
-              finishedAt: new Date(),
-              status: "failed",
-              error: `Run callbacks not found`,
-            });
-            this.onQueryFinish();
+        } else {
+          if (await this.concurrencyLimitReached()) {
+            this.queuedQueryTimers[query.id] = setTimeout(() => {
+              this.executeQueryWhenReady(
+                query,
+                runCallbacks.run,
+                runCallbacks.process
+              );
+            }, 250);
           } else {
             await this.executeQuery(
               query,
@@ -321,8 +335,8 @@ export abstract class QueryRunner<
             );
           }
         }
-      })
-    );
+      }
+    }
   }
 
   public async refreshQueryStatuses(): Promise<QueryMap> {
@@ -441,6 +455,35 @@ export abstract class QueryRunner<
 
       this.setStatus("finished", "Queries cancelled by user");
     }
+  }
+
+  public async executeQueryWhenReady<
+    Rows extends RowsType,
+    ProcessedRows extends ProcessedRowsType
+  >(
+    doc: QueryInterface,
+    run: (
+      query: string,
+      setExternalId: ExternalIdCallback
+    ) => Promise<QueryResponse<Rows>>,
+    process: (rows: Rows) => ProcessedRows,
+    currentTimeout: number = 250
+  ): Promise<void> {
+    // If too many queries are running against the datastore, use capped exponential backoff to wait until they've finished
+    const concurrencyLimitReached = await this.concurrencyLimitReached();
+    if (concurrencyLimitReached) {
+      logger.debug(
+        `${doc.id}: Query concurrency limit reached, waiting ${currentTimeout} before retrying`
+      );
+      this.runCallbacks[doc.id] = { run, process };
+      const nextTimeout = Math.min(currentTimeout * 2, 4000);
+      this.queuedQueryTimers[doc.id] = setTimeout(() => {
+        this.executeQueryWhenReady(doc, run, process, nextTimeout);
+      }, currentTimeout);
+      return;
+    }
+    delete this.queuedQueryTimers[doc.id];
+    return this.executeQuery(doc, run, process);
   }
 
   public async executeQuery<
@@ -580,7 +623,8 @@ export abstract class QueryRunner<
 
     // Create a new query in mongo
     logger.debug("Creating query for: " + name);
-    const readyToRun = dependencies.length === 0;
+    const concurrencyLimitReached = await this.concurrencyLimitReached();
+    const dependenciesComplete = dependencies.length === 0;
     const doc = await createNewQuery({
       query,
       queryType,
@@ -588,12 +632,16 @@ export abstract class QueryRunner<
       organization: this.integration.context.org.id,
       language: this.integration.getSourceProperties().queryLanguage,
       dependencies: dependencies,
-      running: readyToRun,
+      running: dependenciesComplete && !concurrencyLimitReached,
     });
 
     logger.debug("Created new query " + doc.id + " for " + name);
-    if (readyToRun) {
+    if (dependenciesComplete && !concurrencyLimitReached) {
       this.executeQuery(doc, run, process);
+    } else if (dependenciesComplete) {
+      this.queuedQueryTimers[doc.id] = setTimeout(() => {
+        this.executeQueryWhenReady(doc, run, process);
+      }, 250);
     } else {
       // save callback methods for execution later
       this.runCallbacks[doc.id] = { run, process };
@@ -604,6 +652,22 @@ export abstract class QueryRunner<
       query: doc.id,
       status: doc.status,
     };
+  }
+
+  // Limit number of currently running queries
+  private async concurrencyLimitReached(): Promise<boolean> {
+    if (this.integration.datasource.settings.maxConcurrentQueries) {
+      const numRunningQueries = await countRunningQueries(
+        this.integration.context.org.id,
+        this.integration.datasource.id
+      );
+      return (
+        numRunningQueries >=
+        this.integration.datasource.settings.maxConcurrentQueries
+      );
+    } else {
+      return new Promise<boolean>((resolve) => resolve(false));
+    }
   }
 
   private getOverallQueryStatus(): QueryStatus {
