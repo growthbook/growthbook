@@ -213,7 +213,7 @@ const Results: FC<{
         />
       )}
 
-      {hasMetrics && (
+      {!hasMetrics && (
         <div className="alert alert-info m-3">
           Add at least 1 metric to view results.{" "}
           {editMetrics && (
