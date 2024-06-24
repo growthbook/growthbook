@@ -118,19 +118,16 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
       );
 
       setPreferredTheme(updated);
-      if (updated === "system") {
-        localStorage.removeItem(STORAGE_KEY_THEME);
-        return;
-      }
-
       try {
-        document.documentElement.classList.add(
-          `theme--${updated}`,
-          `${updated}-theme` // This is for the Radix UI theme
-        );
-        setSystemTheme(updated);
-
-        localStorage.setItem(STORAGE_KEY_THEME, updated);
+        if (updated === "system") {
+          localStorage.removeItem(STORAGE_KEY_THEME);
+        } else {
+          document.documentElement.classList.add(
+            `theme--${updated}`,
+            `${updated}-theme` // This is for the Radix UI theme
+          );
+          localStorage.setItem(STORAGE_KEY_THEME, updated);
+        }
       } catch (e) {
         // We are unable to persist the theme changes due to the browser's privacy settings
       }
