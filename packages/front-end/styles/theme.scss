@@ -219,16 +219,18 @@
   --callout-grey: #2a2a2a;
 }
 
-.theme--light {
+.theme--light,
+.light-theme {
   @include light-theme();
 }
 
-.theme--dark {
+.theme--dark,
+.dark-theme {
   @include dark-theme();
 }
 
 // OS default
-:root:not(.theme--light):not(.theme--dark) {
+:root:not(.theme--light):not(.theme--dark):not(.dark-theme):not(.light-theme) {
   @include light-theme();
 
   @media (prefers-color-scheme: light) {

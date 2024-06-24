@@ -77,7 +77,7 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
     } catch (e) {
       setSystemTheme(actualTheme);
     }
-  }, []);
+  }, [preferredTheme]);
 
   useEffect(function attachSystemListener() {
     const listener = (e) => {
@@ -118,24 +118,25 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
       );
 
       setPreferredTheme(updated);
+      if (updated === "system") {
+        localStorage.removeItem(STORAGE_KEY_THEME);
+        return;
+      }
 
       try {
-        if (updated === "system") {
-          localStorage.removeItem(STORAGE_KEY_THEME);
-        } else {
-          document.documentElement.classList.add(
-            `theme--${updated}`,
-            `${updated}-theme` // This is for the Radix UI theme
-          );
-          localStorage.setItem(STORAGE_KEY_THEME, updated);
-        }
+        document.documentElement.classList.add(
+          `theme--${updated}`,
+          `${updated}-theme` // This is for the Radix UI theme
+        );
+        setSystemTheme(updated);
+
+        localStorage.setItem(STORAGE_KEY_THEME, updated);
       } catch (e) {
         // We are unable to persist the theme changes due to the browser's privacy settings
       }
     },
     []
   );
-
   const theme: AppearanceUITheme = useMemo(
     () => (preferredTheme === "system" ? systemTheme : preferredTheme),
     [systemTheme, preferredTheme]
