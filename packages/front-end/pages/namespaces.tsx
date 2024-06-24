@@ -9,6 +9,7 @@ import { useUser } from "@/services/UserContext";
 import NamespaceTableRow from "@/components/Settings/NamespaceTableRow";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export type NamespaceApiResponse = {
   namespaces: NamespaceUsage;
@@ -85,6 +86,10 @@ const NamespacesPage: FC = () => {
           <thead>
             <tr>
               <th>Namespace</th>
+              <th>
+                Namespace ID{" "}
+                <Tooltip body="This id is used as the namespace hash key and cannot be changed" />
+              </th>
               <th>Description</th>
               <th>Active experiments</th>
               <th>Percent available</th>
@@ -108,9 +113,12 @@ const NamespacesPage: FC = () => {
                     setModalOpen(true);
                   }}
                   onDelete={async () => {
-                    await apiCall(`/organization/namespaces/${ns.name}`, {
-                      method: "DELETE",
-                    });
+                    await apiCall(
+                      `/organization/namespaces/${encodeURIComponent(ns.name)}`,
+                      {
+                        method: "DELETE",
+                      }
+                    );
                     await refreshOrganization();
                   }}
                   onArchive={async () => {
@@ -119,10 +127,13 @@ const NamespacesPage: FC = () => {
                       description: ns.description,
                       status: ns?.status === "inactive" ? "active" : "inactive",
                     };
-                    await apiCall(`/organization/namespaces/${ns.name}`, {
-                      method: "PUT",
-                      body: JSON.stringify(newNamespace),
-                    });
+                    await apiCall(
+                      `/organization/namespaces/${encodeURIComponent(ns.name)}`,
+                      {
+                        method: "PUT",
+                        body: JSON.stringify(newNamespace),
+                      }
+                    );
                     await refreshOrganization();
                   }}
                 />

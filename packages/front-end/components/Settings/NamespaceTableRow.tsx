@@ -50,7 +50,7 @@ export default function NamespaceTableRow({
         style={{ cursor: "pointer" }}
       >
         <td onClick={expandRow}>
-          {namespace.name}
+          {namespace.label}
           {status === "inactive" && (
             <div
               className={`badge badge-secondary ml-2`}
@@ -60,6 +60,9 @@ export default function NamespaceTableRow({
               Disabled
             </div>
           )}
+        </td>
+        <td onClick={expandRow} className="text-muted small">
+          {namespace.name}
         </td>
         <td onClick={expandRow}>{namespace.description}</td>
         <td onClick={expandRow}>{experiments.length}</td>
@@ -117,7 +120,7 @@ export default function NamespaceTableRow({
         }}
       >
         <td
-          colSpan={5}
+          colSpan={6}
           className="px-4 bg-light"
           style={{
             boxShadow: "rgba(0, 0, 0, 0.06) 0px 2px 4px 0px inset",

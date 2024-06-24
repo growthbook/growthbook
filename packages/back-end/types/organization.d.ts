@@ -122,6 +122,7 @@ export interface MetricDefaults {
 
 export interface Namespaces {
   name: string;
+  label: string;
   description: string;
   status: "active" | "inactive";
 }
@@ -281,6 +282,7 @@ export interface OrganizationInterface {
   messages?: OrganizationMessage[];
   getStartedChecklistItems?: string[];
   customRoles?: Role[];
+  deactivatedRoles?: string[];
 }
 
 export type NamespaceUsage = Record<

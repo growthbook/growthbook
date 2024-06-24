@@ -482,6 +482,14 @@ export function upgradeOrganizationDoc(
     }
   });
 
+  // Make sure namespaces have labels- if it's missing, use the name
+  if (org?.settings?.namespaces?.length) {
+    org.settings.namespaces = org.settings.namespaces.map((ns) => ({
+      ...ns,
+      label: ns.label || ns.name,
+    }));
+  }
+
   return org;
 }
 

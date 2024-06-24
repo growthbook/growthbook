@@ -157,10 +157,10 @@ We have a walkthrough tutorial on how to configure this in our [GTM Guide](/guid
 
 ### Mixpanel
 
-To work with Mixpanel, we have to set the ID as an attribute for GrowthBook, and also add the custom event tracking callback. 
+To work with Mixpanel, we have to set the ID as an attribute for GrowthBook, and also add the custom event tracking callback.
 Below is an example of how to set up GrowthBook with Mixpanel. The script initializes Mixpanel (which you probably already have)
-and then sets the Mixpanel distinct ID to a GrowthBook `id` attribute once it has loaded. Then the script defines a trackingCallback 
-to log the experiment exposure event to Mixpanel. 
+and then sets the Mixpanel distinct ID to a GrowthBook `id` attribute once it has loaded. Then the script defines a trackingCallback
+to log the experiment exposure event to Mixpanel.
 
 ```html
 <script>
@@ -193,7 +193,7 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
 
 ### Others
 
-For any other event tracking system (or if the built-in ones above do not meet your requirements), you can define your own custom tracking callback function. This must be defined *BEFORE* loading the main GrowthBook snippet on the page.
+For any other event tracking system (or if the built-in ones above do not meet your requirements), you can define your own custom tracking callback function. This must be defined _BEFORE_ loading the main GrowthBook snippet on the page.
 
 ```html
 <script>

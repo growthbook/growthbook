@@ -391,18 +391,23 @@ export async function updateExperiment({
   changes: Changeset;
   bypassWebhooks?: boolean;
 }): Promise<ExperimentInterface> {
+  // TODO: are there some changes where we don't want to update the dateUpdated?
+  const allChanges = { ...changes };
+  allChanges.dateUpdated = new Date();
+
   await ExperimentModel.updateOne(
     {
       id: experiment.id,
       organization: context.org.id,
     },
     {
-      $set: changes,
+      $set: allChanges,
     }
   );
 
-  const updated = { ...experiment, ...changes };
+  const updated = { ...experiment, ...allChanges };
 
+  // TODO: are there some changes where we want to skip calling this?
   await onExperimentUpdate({
     context,
     oldExperiment: experiment,
