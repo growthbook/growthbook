@@ -7,7 +7,7 @@ const Avatar: FC<{
   name: string;
   size?: number;
   className?: string;
-}> = ({ email, size = 50, className, name }) => {
+}> = ({ email, size = 40, className, name }) => {
   const firstNameLetter = name?.charAt(0) || email.charAt(0);
   const lastNameLetter = name?.split(" ")[1]?.charAt(0) || "";
   const title = name ? `${name} <${email}>` : email;
@@ -20,10 +20,8 @@ const Avatar: FC<{
     const copyLength = copy.length;
     switch (copyLength) {
       case 1:
-        console.log(1);
         return 0.5 * size;
       case 2:
-        console.log(1);
         return 0.4 * size;
       case 3:
         return 0.4 * size;

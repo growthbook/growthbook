@@ -3,13 +3,9 @@ import { FC, PropsWithChildren } from "react";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 
 export const RadixTheme: FC<PropsWithChildren> = ({ children }) => {
-  const { preferredTheme } = useAppearanceUITheme();
+  const { theme } = useAppearanceUITheme();
   return (
-    <Theme
-      accentColor="violet"
-      panelBackground="solid"
-      appearance={preferredTheme}
-    >
+    <Theme accentColor="violet" panelBackground="solid" appearance={theme}>
       {children}
     </Theme>
   );
