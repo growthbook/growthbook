@@ -71,7 +71,6 @@ import { ArchetypeAttributeValues } from "../../types/archetype";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { triggerWebhookJobs } from "../jobs/updateAllJobs";
 import { URLRedirectInterface } from "../../types/url-redirect";
-import { getRevision } from "../models/FeatureRevisionModel";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
@@ -932,17 +931,19 @@ export async function encrypt(
   return bufToBase64(iv) + "." + bufToBase64(encryptedBuffer);
 }
 
-export async function getApiFeatureObj({
+export function getApiFeatureObj({
   feature,
   organization,
   groupMap,
   experimentMap,
+  revision,
 }: {
   feature: FeatureInterface;
   organization: OrganizationInterface;
   groupMap: GroupMap;
   experimentMap: Map<string, ExperimentInterface>;
-}): Promise<ApiFeature> {
+  revision: FeatureRevisionInterface | null;
+}): ApiFeature {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
   const environments = getEnvironmentIdsFromOrg(organization);
@@ -978,11 +979,6 @@ export async function getApiFeatureObj({
       featureEnvironments[env].definition = JSON.stringify(definition);
     }
   });
-  const revision = await getRevision(
-    feature.organization,
-    feature.id,
-    feature.version
-  );
   const publishedBy =
     revision?.publishedBy?.type === "api_key"
       ? "API"

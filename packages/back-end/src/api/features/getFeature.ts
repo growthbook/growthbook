@@ -1,3 +1,4 @@
+import { getRevision } from "../../models/FeatureRevisionModel";
 import { GetFeatureResponse } from "../../../types/openapi";
 import { getExperimentMapForFeature } from "../../models/ExperimentModel";
 import { getFeature as getFeatureDB } from "../../models/FeatureModel";
@@ -17,12 +18,18 @@ export const getFeature = createApiRequestHandler(getFeatureValidator)(
       req.context,
       feature.id
     );
+    const revision = await getRevision(
+      feature.organization,
+      feature.id,
+      feature.version
+    );
     return {
-      feature: await getApiFeatureObj({
+      feature: getApiFeatureObj({
         feature,
         organization: req.organization,
         groupMap,
         experimentMap,
+        revision,
       }),
     };
   }

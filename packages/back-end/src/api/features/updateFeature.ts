@@ -18,7 +18,7 @@ import { FeatureInterface } from "../../../types/feature";
 import { getEnabledEnvironments } from "../../util/features";
 import { addTagsDiff } from "../../models/TagModel";
 import { auditDetailsUpdate } from "../../services/audit";
-import { createRevision } from "../../models/FeatureRevisionModel";
+import { createRevision, getRevision } from "../../models/FeatureRevisionModel";
 import { FeatureRevisionInterface } from "../../../types/feature-revision";
 import { getEnvironmentIdsFromOrg } from "../../services/organizations";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
@@ -203,13 +203,14 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       req.context,
       feature.id
     );
-
+    const revision = await getRevision(updatedFeature.organization, updatedFeature.id, updatedFeature.version);
     return {
-      feature: await getApiFeatureObj({
+      feature: getApiFeatureObj({
         feature: updatedFeature,
         organization: req.organization,
         groupMap,
         experimentMap,
+        revision,
       }),
     };
   }

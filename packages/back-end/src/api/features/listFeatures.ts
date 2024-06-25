@@ -1,3 +1,4 @@
+import { getFeatureRevisionsByFeaturesCurrentVersion } from "../../models/FeatureRevisionModel";
 import { ListFeaturesResponse } from "../../../types/openapi";
 import { getAllPayloadExperiments } from "../../models/ExperimentModel";
 import { getAllFeatures } from "../../models/FeatureModel";
@@ -21,18 +22,25 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
       ),
       req.query
     );
+    //get all feature ids and there version
+    const revisions = await getFeatureRevisionsByFeaturesCurrentVersion(
+      filtered
+    );
+
     return {
-      features: await Promise.all(
-        filtered.map(
-          async (feature) =>
-            await getApiFeatureObj({
-              feature,
-              organization: req.organization,
-              groupMap,
-              experimentMap,
-            })
-        )
-      ),
+      features: filtered.map((feature) => {
+        const revision =
+          revisions?.find(
+            (r) => r.featureId === feature.id && r.version === feature.version
+          ) || null;
+        return getApiFeatureObj({
+          feature,
+          organization: req.organization,
+          groupMap,
+          experimentMap,
+          revision,
+        });
+      }),
       ...returnFields,
     };
   }

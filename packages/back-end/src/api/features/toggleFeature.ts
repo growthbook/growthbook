@@ -1,3 +1,4 @@
+import { getRevision } from "../../models/FeatureRevisionModel";
 import { ToggleFeatureResponse } from "../../../types/openapi";
 import { getExperimentMapForFeature } from "../../models/ExperimentModel";
 import {
@@ -62,12 +63,14 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       req.context,
       updatedFeature.id
     );
+    const revision = await getRevision(updatedFeature.organization, updatedFeature.id, updatedFeature.version);
     return {
-      feature: await getApiFeatureObj({
+      feature: getApiFeatureObj({
         feature: updatedFeature,
         organization: req.organization,
         groupMap,
         experimentMap,
+        revision
       }),
     };
   }
