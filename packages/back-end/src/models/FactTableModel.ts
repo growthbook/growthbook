@@ -157,13 +157,20 @@ export async function createFactTable(
 }
 
 export async function createFactTables(
-  factTables: Omit<FactTableInterface, "id" | "dateCreated" | "dateUpdated">[]
-) {
+  context: ReqContext,
+  factTables: Omit<
+    FactTableInterface,
+    "id" | "dateCreated" | "dateUpdated" | "organization" | "datasource"
+  >[],
+  datasource: string
+): Promise<FactTableInterface[]> {
   const factTablesToCreate: FactTableInterface[] = factTables.map(
     (factTable) => {
       return {
         ...factTable,
         id: uniqid("ftb_"),
+        datasource,
+        organization: context.org.id,
         dateCreated: new Date(),
         dateUpdated: new Date(),
       };

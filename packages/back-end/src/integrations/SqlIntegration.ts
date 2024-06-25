@@ -22,7 +22,7 @@ import {
   ExposureQuery,
   SchemaFormatConfig,
   DataSourceInterface,
-  SchemasThatSupportAutoFactTablesAndMetrics,
+  AutoFactTableSchemas,
 } from "../../types/datasource";
 import {
   MetricValueParams,
@@ -165,10 +165,7 @@ export default abstract class SqlIntegration
   }
 
   isAutoGeneratingMetricsSupported(): boolean {
-    const supportedEventTrackers: Record<
-      SchemasThatSupportAutoFactTablesAndMetrics,
-      true
-    > = {
+    const supportedEventTrackers: Record<AutoFactTableSchemas, true> = {
       segment: true,
       rudderstack: true,
       ga4: true,
@@ -178,8 +175,7 @@ export default abstract class SqlIntegration
     if (
       this.datasource.settings.schemaFormat &&
       supportedEventTrackers[
-        this.datasource.settings
-          .schemaFormat as SchemasThatSupportAutoFactTablesAndMetrics
+        this.datasource.settings.schemaFormat as AutoFactTableSchemas
       ]
     ) {
       return true;
@@ -188,10 +184,7 @@ export default abstract class SqlIntegration
   }
 
   isAutoGeneratingFactTablesSupported(): boolean {
-    const supportedEventTrackers: Record<
-      SchemasThatSupportAutoFactTablesAndMetrics,
-      true
-    > = {
+    const supportedEventTrackers: Record<AutoFactTableSchemas, true> = {
       segment: true,
       rudderstack: true,
       ga4: true,
@@ -201,8 +194,7 @@ export default abstract class SqlIntegration
     if (
       this.datasource.settings.schemaFormat &&
       supportedEventTrackers[
-        this.datasource.settings
-          .schemaFormat as SchemasThatSupportAutoFactTablesAndMetrics
+        this.datasource.settings.schemaFormat as AutoFactTableSchemas
       ]
     ) {
       return true;
@@ -2948,8 +2940,22 @@ export default abstract class SqlIntegration
     return { tableData: results.rows };
   }
   getSchemaFormatConfig(
-    schemaFormat: SchemasThatSupportAutoFactTablesAndMetrics
+    schemaFormat: AutoFactTableSchemas
   ): SchemaFormatConfig {
+    const rudderstackFilterColumns = `
+    (CASE
+      WHEN context_user_agent LIKE '%Mobile%' THEN 'Mobile'
+      ELSE 'Tablet/Desktop' END
+    ) as device,
+    (CASE 
+      WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
+      WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
+      WHEN context_user_agent LIKE '% Edg%' THEN ' Edge' 
+      WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
+      WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
+      ELSE 'Other' END
+    ) as browser`;
+
     switch (schemaFormat) {
       case "amplitude": {
         return {
@@ -2959,10 +2965,7 @@ export default abstract class SqlIntegration
           eventColumn: "event_type",
           timestampColumn: "event_time",
           userIdColumn: "user_id",
-          filterColumns: `event_time as timestamp,
-          event_properties:experiment_id as experiment_id,
-          event_properties:variation_id as variation_id,
-          device_family as device,
+          filterColumns: `device_family as device,
           os_name as os,
           country,
           paying`,
@@ -2980,9 +2983,7 @@ export default abstract class SqlIntegration
               "yyyy-MM-dd"
             )}' AND'${formatDate(end, "yyyy-MM-dd")}'`,
           getAdditionalEvents: () => [],
-          getMetricWhereClause: (eventName: string) =>
-            `WHERE event_name = '${eventName}'`,
-          getFactTableWhereClause: (eventName: string) =>
+          getEventFilterWhereClause: (eventName: string) =>
             `WHERE event_name = '${eventName}'`,
         };
       }
@@ -2992,8 +2993,7 @@ export default abstract class SqlIntegration
           eventColumn: "event_name",
           timestampColumn: "TIMESTAMP_MICROS(event_timestamp)",
           userIdColumn: "user_id",
-          filterColumns: `event_name,
-          geo.country as country,
+          filterColumns: `geo.country as country,
           traffic_source.source as source,
           traffic_source.medium as medium,
           device.category as device,
@@ -3014,11 +3014,8 @@ export default abstract class SqlIntegration
               "yyyyMMdd"
             )}' AND 'intraday_${formatDate(end, "yyyyMMdd")}'))`,
           getAdditionalEvents: () => [],
-          getMetricWhereClause: (eventName: string) =>
-            `WHERE ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
- (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}')) 
-AND event_name = '${eventName}'`,
-          getFactTableWhereClause: () => "",
+          getEventFilterWhereClause: (eventName: string) =>
+            `WHERE event_name = '${eventName}'`,
         };
       }
       case "rudderstack":
@@ -3028,19 +3025,12 @@ AND event_name = '${eventName}'`,
           eventColumn: "event",
           timestampColumn: "received_at",
           userIdColumn: "user_id",
-          filterColumns: `
-          (CASE
-            WHEN context_user_agent LIKE '%Mobile%' THEN 'Mobile'
-            ELSE 'Tablet/Desktop' END
-          ) as device,
-          (CASE 
-            WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
-            WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
-            WHEN context_user_agent LIKE '% Edg%' THEN ' Edge' 
-            WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
-            WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
-            ELSE 'Other' END
-          ) as browser`,
+          filterColumns:
+            //MKTODO: I need to test this
+            schemaFormat === "rudderstack"
+              ? rudderstackFilterColumns
+              : `context_campaign_source as source,
+              context_campaign_medium as medium, ${rudderstackFilterColumns}`,
           anonymousIdColumn: "anonymous_id",
           displayNameColumn: "event_text",
           getTrackedEventTablePath: ({ eventName, schema }) =>
@@ -3062,8 +3052,7 @@ AND event_name = '${eventName}'`,
               groupBy: "event",
             },
           ],
-          getMetricWhereClause: () => "",
-          getFactTableWhereClause: () => "",
+          getEventFilterWhereClause: () => "",
         };
     }
   }
@@ -3071,7 +3060,7 @@ AND event_name = '${eventName}'`,
   getAutoGeneratedMetricSqlQuery(
     eventName: string,
     hasUserId: boolean,
-    schemaFormat: SchemasThatSupportAutoFactTablesAndMetrics,
+    schemaFormat: AutoFactTableSchemas,
     type: MetricType,
     schema?: string
   ): string {
@@ -3080,7 +3069,7 @@ AND event_name = '${eventName}'`,
       userIdColumn,
       anonymousIdColumn,
       getTrackedEventTablePath,
-      getMetricWhereClause,
+      getEventFilterWhereClause,
     } = this.getSchemaFormatConfig(schemaFormat);
 
     const sqlQuery = `
@@ -3090,7 +3079,7 @@ AND event_name = '${eventName}'`,
         ${timestampColumn} as timestamp
         ${type === "count" ? `, 1 as value` : ""}
         FROM ${getTrackedEventTablePath({ eventName, schema })}
-      ${getMetricWhereClause(eventName)}
+      ${getEventFilterWhereClause(eventName)}
 `;
     return format(sqlQuery, this.getFormatDialect());
   }
@@ -3106,7 +3095,7 @@ AND event_name = '${eventName}'`,
   }
   getAutoGeneratedFactTableSqlQuery(
     eventName: string,
-    schemaFormat: SchemasThatSupportAutoFactTablesAndMetrics,
+    schemaFormat: AutoFactTableSchemas,
     schema?: string
   ): string {
     const {
@@ -3114,7 +3103,7 @@ AND event_name = '${eventName}'`,
       userIdColumn,
       anonymousIdColumn,
       getTrackedEventTablePath,
-      getFactTableWhereClause,
+      getEventFilterWhereClause,
       filterColumns,
     } = this.getSchemaFormatConfig(schemaFormat);
 
@@ -3125,13 +3114,13 @@ AND event_name = '${eventName}'`,
         ${timestampColumn} as timestamp,
         ${filterColumns}
         FROM ${getTrackedEventTablePath({ eventName, schema })}
-      ${getFactTableWhereClause(eventName)}
+      ${getEventFilterWhereClause(eventName)}
 `;
     return format(sqlQuery, this.getFormatDialect());
   }
   getMetricsToCreate(
     result: TrackedEventData,
-    schemaFormat: SchemasThatSupportAutoFactTablesAndMetrics,
+    schemaFormat: AutoFactTableSchemas,
     existingMetrics: MetricInterface[],
     schema?: string
   ): AutoMetricToCreate[] {
@@ -3219,7 +3208,7 @@ AND event_name = '${eventName}'`,
   }
 
   async getAutoFactTablesToCreate(
-    schemaFormat: SchemasThatSupportAutoFactTablesAndMetrics,
+    schemaFormat: AutoFactTableSchemas,
     existingFactTables: FactTableInterface[],
     datasourceId: string,
     schema?: string
@@ -3256,7 +3245,7 @@ AND event_name = '${eventName}'`,
   }
 
   async getAutoMetricsToCreate(
-    schemaFormat: SchemasThatSupportAutoFactTablesAndMetrics,
+    schemaFormat: AutoFactTableSchemas,
     existingMetrics: MetricInterface[],
     schema?: string
   ): Promise<AutoMetricTrackedEvent[]> {
@@ -3285,7 +3274,7 @@ AND event_name = '${eventName}'`,
   }
 
   async getEventsTrackedByDatasource(
-    schemaFormat: SchemasThatSupportAutoFactTablesAndMetrics,
+    schemaFormat: AutoFactTableSchemas,
     schema?: string
   ): Promise<TrackedEventData[]> {
     const {

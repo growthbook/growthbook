@@ -53,7 +53,10 @@ We are actively working on adding support for additional identity providers.
 
 ![](../../static/images/integrations/scim/GrowthBook-SCIM-Enable-API-Integration.png)
 
-6. Choose to enable API Integration, and input your credentials. Contact your account representative to obtain the SCIM 2.0 Base URL. You can acquire your OAuth Bearer Token by creating a new Secret API Key with an `Admin` role. To do this, go to your GrowthBook account, and in the left navigation, select "Settings → API Keys." We recommend creating a dedicated API key exclusively for your SCIM integration.
+6. Now you can enter the Base URL and your OAUTH Bearer Token.
+
+- For GrowthBook Cloud users, the Base URL is `https://api.growthbook.io/scim/v2`. If you're self-hosting GrowthBook, the Base URL will be `{YOUR_API_HOST}/scim/v2`.
+- You can obtain your OAuth Bearer Token by creating a new Secret API Key with an `Admin` role. To do this, go to your GrowthBook account, and in the left navigation, select "Settings → API Keys." We recommend creating a dedicated API key exclusively for your SCIM integration.
 
 7. After adding your credentials, click "Test API Credentials" to ensure they are valid. If they pass the test, click "Save."
 
