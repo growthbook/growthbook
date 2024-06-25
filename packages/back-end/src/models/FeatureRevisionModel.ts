@@ -349,7 +349,7 @@ export async function markRevisionAsPublished(
     user,
     value: JSON.stringify(comment ? { comment } : {}),
   };
-
+  const revisionComment = revision.comment ? revision.comment : comment;
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -362,6 +362,7 @@ export async function markRevisionAsPublished(
         publishedBy: user,
         datePublished: new Date(),
         dateUpdated: new Date(),
+        comment: revisionComment,
       },
       $push: {
         log,

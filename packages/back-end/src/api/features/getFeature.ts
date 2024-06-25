@@ -18,7 +18,7 @@ export const getFeature = createApiRequestHandler(getFeatureValidator)(
       feature.id
     );
     return {
-      feature: getApiFeatureObj({
+      feature: await getApiFeatureObj({
         feature,
         organization: req.organization,
         groupMap,
