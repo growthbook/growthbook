@@ -1,3 +1,4 @@
+import { UnionToTuple } from "../util/types";
 import { EventAuditUser } from "./event-types";
 
 export const notificationEvents = {
@@ -7,10 +8,15 @@ export const notificationEvents = {
   webhook: ["test"],
 } as const;
 
-export type NotificationEvents = typeof notificationEvents;
+type NotificationEvents = typeof notificationEvents;
+
+/**
+ * Supported resources for event notifications
+ */
 export const notificationEventResources = Object.keys(notificationEvents) as [
   keyof NotificationEvents
 ];
+
 export type NotificationEventResource = typeof notificationEventResources[number];
 
 export type NotificationEventNames<K> = K extends NotificationEventResource
@@ -31,9 +37,7 @@ export const notificationEventNames = (Object.keys(notificationEvents) as [
   [] as NotificationEventName[]
 );
 
-export type OptionalNotificationEventNames<
-  R
-> = R extends NotificationEventResource
+type OptionalNotificationEventNames<R> = R extends NotificationEventResource
   ? NotificationEventNames<R>
   : NotificationEventName;
 
@@ -41,7 +45,7 @@ export type OptionalNotificationEventNames<
  * Event Notification payload
  */
 export type NotificationEventPayload<
-  ResourceType extends NotificationEventName | unknown,
+  ResourceType extends NotificationEventResource | undefined,
   EventName extends OptionalNotificationEventNames<ResourceType> = OptionalNotificationEventNames<ResourceType>,
   DataType = unknown
 > = {
@@ -55,27 +59,5 @@ export type NotificationEventPayload<
   containsSecrets: boolean;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
-  k: infer I
-) => void
-  ? I
-  : never;
-
-type LastOf<T> =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  UnionToIntersection<T extends any ? () => T : never> extends () => infer R
-    ? R
-    : never;
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Push<T extends any[], V> = [...T, V];
-
-type TuplifyUnion<
-  T,
-  L = LastOf<T>,
-  N = [T] extends [never] ? true : false
-> = true extends N ? [] : Push<TuplifyUnion<Exclude<T, L>>, L>;
-
 // Only use this for zod validations!
-export const zodNotificationEventNamesEnum = notificationEventNames as TuplifyUnion<NotificationEventName>;
+export const zodNotificationEventNamesEnum = notificationEventNames as UnionToTuple<NotificationEventName>;
