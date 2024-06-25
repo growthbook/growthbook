@@ -1,47 +1,53 @@
+import { UnionToTuple } from "../util/types";
 import { EventAuditUser } from "./event-types";
 
-/**
- * Supported events for event notifications
- */
-export const notificationEventNames = [
-  // Features
-  "feature.created",
-  "feature.updated",
-  "feature.deleted",
-  // Experiments
-  "experiment.created",
-  "experiment.updated",
-  "experiment.deleted",
-  "experiment.warning",
-  "experiment.info",
-  // User
-  "user.login",
-  // Test
-  "webhook.test",
-] as const;
+export const notificationEvents = {
+  feature: ["created", "updated", "deleted"],
+  experiment: ["created", "updated", "deleted", "warning", "info"],
+  user: ["login"],
+  webhook: ["test"],
+} as const;
 
-export type NotificationEventName = typeof notificationEventNames[number];
+type NotificationEvents = typeof notificationEvents;
 
 /**
  * Supported resources for event notifications
  */
-export const notificationEventResources = [
-  "feature",
-  "experiment",
-  "user",
-  "webhook",
-] as const;
+export const notificationEventResources = Object.keys(notificationEvents) as [
+  keyof NotificationEvents
+];
 
 export type NotificationEventResource = typeof notificationEventResources[number];
+
+export type NotificationEventNames<K> = K extends NotificationEventResource
+  ? `${K}.${NotificationEvents[K][number]}`
+  : never;
+
+export type NotificationEventName = NotificationEventNames<NotificationEventResource>;
+
+export const notificationEventNames = (Object.keys(notificationEvents) as [
+  NotificationEventResource
+]).reduce<NotificationEventName[]>(
+  (names, key) => [
+    ...names,
+    ...notificationEvents[key].map(
+      (n) => `${key}.${n}` as NotificationEventName
+    ),
+  ],
+  [] as NotificationEventName[]
+);
+
+type OptionalNotificationEventNames<R> = R extends NotificationEventResource
+  ? NotificationEventNames<R>
+  : NotificationEventName;
 
 /**
  * Event Notification payload
  */
 export type NotificationEventPayload<
-  EventName extends NotificationEventName &
-    (ResourceType extends string ? `${ResourceType}.${string}` : unknown),
-  ResourceType extends NotificationEventResource | unknown,
-  DataType
+  ResourceType extends NotificationEventResource | undefined,
+  EventName extends OptionalNotificationEventNames<ResourceType> = OptionalNotificationEventNames<ResourceType>,
+  DataType = unknown
 > = {
   event: EventName;
   object: ResourceType;
@@ -52,3 +58,6 @@ export type NotificationEventPayload<
   environments: string[];
   containsSecrets: boolean;
 };
+
+// Only use this for zod validations!
+export const zodNotificationEventNamesEnum = notificationEventNames as UnionToTuple<NotificationEventName>;
