@@ -352,8 +352,16 @@ async function logFeatureUpdatedEvent(
 ): Promise<string | undefined> {
   const groupMap = await getSavedGroupMap(context.org);
   const experimentMap = await getExperimentMapForFeature(context, current.id);
-  const currentRevision = await getRevision(current.organization, current.id, current.version);
-  const previousRevision = await getRevision(previous.organization, previous.id, previous.version);
+  const currentRevision = await getRevision(
+    current.organization,
+    current.id,
+    current.version
+  );
+  const previousRevision = await getRevision(
+    previous.organization,
+    previous.id,
+    previous.version
+  );
   const currentApiFeature = await getApiFeatureObj({
     feature: current,
     organization: context.org,
@@ -408,13 +416,17 @@ async function logFeatureCreatedEvent(
 ): Promise<string | undefined> {
   const groupMap = await getSavedGroupMap(context.org);
   const experimentMap = await getExperimentMapForFeature(context, feature.id);
-  const revision = await getRevision(feature.organization, feature.id, feature.version);
+  const revision = await getRevision(
+    feature.organization,
+    feature.id,
+    feature.version
+  );
   const apiFeature = getApiFeatureObj({
     feature,
     organization: context.org,
     groupMap,
     experimentMap,
-    revision
+    revision,
   });
 
   const payload: FeatureCreatedNotificationEvent = {
@@ -450,12 +462,17 @@ async function logFeatureDeletedEvent(
     context,
     previousFeature.id
   );
-
-  const apiFeature = await getApiFeatureObj({
+  const revision = await getRevision(
+    previousFeature.organization,
+    previousFeature.id,
+    previousFeature.version
+  );
+  const apiFeature = getApiFeatureObj({
     feature: previousFeature,
     organization: context.org,
     groupMap,
     experimentMap,
+    revision,
   });
 
   const payload: FeatureDeletedNotificationEvent = {
