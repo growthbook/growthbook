@@ -94,7 +94,7 @@ export default function AutoGenerateFactTableModal({
     }
 
     try {
-      await apiCall(`/fact-tables/auto-tables`, {
+      await apiCall(`/datasource/${selectedDatasource.id}/auto-tables`, {
         method: "POST",
         body: JSON.stringify({
           datasourceId: selectedDatasource.id,
@@ -146,7 +146,7 @@ export default function AutoGenerateFactTableModal({
         const res = await apiCall<{
           autoFactTablesToCreate: AutoFactTableToCreate[];
           message?: string;
-        }>(`/fact-tables/tracked-events/${datasourceObj.id}`, {
+        }>(`/datasource/${datasourceObj.id}/tracked-events`, {
           method: "POST",
           body: JSON.stringify({ schema: selectedSchema }),
         });
