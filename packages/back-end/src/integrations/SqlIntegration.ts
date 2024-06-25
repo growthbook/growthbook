@@ -3395,26 +3395,29 @@ AND event_name = '${eventName}'`,
       }
     });
 
-    return `-- Fact Table (${factTable.name})
+    return compileSqlTemplate(
+      `-- Fact Table (${factTable.name})
       SELECT
         ${userIdCol} as ${baseIdType},
         ${timestampDateTimeColumn} as timestamp,
         ${metricCols.join(",\n")}
       FROM(
-          ${compileSqlTemplate(sql, {
-            startDate,
-            endDate: endDate || undefined,
-            experimentId,
-            templateVariables: getMetricTemplateVariables(
-              metrics[0],
-              factTableMap,
-              false
-            ),
-          })}
+          ${sql}
         ) m
         ${join}
         ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-    `;
+    `,
+      {
+        startDate,
+        endDate: endDate || undefined,
+        experimentId,
+        templateVariables: getMetricTemplateVariables(
+          metrics[0],
+          factTableMap,
+          false
+        ),
+      }
+    );
   }
 
   private getMetricCTE({
