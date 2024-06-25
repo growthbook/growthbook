@@ -6,20 +6,12 @@ import {
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
   FeatureUpdatedNotificationEvent,
-  NotificationEventName,
-  NotificationEventPayload,
-  NotificationEventResource,
   UserLoginNotificationEvent,
 } from "back-end/types/event";
+import { NotificationEvent } from "back-end/src/events/notification-events";
 
 export const getEventText = (
-  event: EventInterface<
-    NotificationEventPayload<
-      NotificationEventName,
-      NotificationEventResource,
-      unknown
-    >
-  >
+  event: EventInterface<NotificationEvent>
 ): string => {
   switch (event.data.event) {
     case "user.login":
