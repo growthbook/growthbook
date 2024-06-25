@@ -30,6 +30,8 @@ import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import { FeatureTab } from "@/pages/features/[fid]";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { Em, Text } from "@radix-ui/themes";
+import Avatar from "@/components/Avatar/Avatar";
 
 export default function FeaturesHeader({
   feature,
@@ -98,6 +100,8 @@ export default function FeaturesHeader({
       <div className="container-fluid">
         <div className="features-header bg-white pt-3 px-4 border-bottom">
           <div className="pagecontents mx-auto px-3">
+            <div className="d-flex align-items-center justify-content-between">
+              <div>
             {projectId ===
               getDemoDatasourceProjectIdForOrganization(organization.id) && (
               <div className="alert alert-info mb-3 d-flex align-items-center">
@@ -128,6 +132,111 @@ export default function FeaturesHeader({
                 )}
               </div>
               <div style={{ flex: 1 }} />
+            </div>
+            <div className="mb-2 row">
+              {(projects.length > 0 || projectIsDeReferenced) && (
+                <div className="col-auto">
+                  Project:{" "}
+                  {projectIsDeReferenced ? (
+                    <Tooltip
+                      body={
+                        <>
+                          Project <code>{projectId}</code> not found
+                        </>
+                      }
+                    >
+                      <span className="text-danger">
+                        <FaExclamationTriangle /> Invalid project
+                      </span>
+                    </Tooltip>
+                  ) : currentProject && currentProject !== feature.project ? (
+                    <Tooltip
+                      body={<>This feature is not in your current project.</>}
+                    >
+                      {projectId ? (
+                        <Text>{projectName}</Text>
+                      ) : (
+                        <Em>None</Em>
+                      )}{" "}
+                      <FaExclamationTriangle className="text-warning" />
+                    </Tooltip>
+                  ) : projectId ? (
+                    <Em>{projectName}</Em>
+                  ) : (
+                    <Em>None</Em>
+                  )}
+                  {canEdit && canPublish && (
+                    <Tooltip
+                      shouldDisplay={dependents > 0}
+                      body={
+                        <>
+                          <ImBlocked className="text-danger" /> This feature has{" "}
+                          <strong>
+                            {dependents} dependent{dependents !== 1 && "s"}
+                          </strong>
+                          . The project cannot be changed until{" "}
+                          {dependents === 1 ? "it has" : "they have"} been
+                          removed.
+                        </>
+                      }
+                    >
+                      <a
+                        className="ml-2 cursor-pointer"
+                        onClick={() => {
+                          dependents === 0 && setEditProjectModal(true);
+                        }}
+                      >
+                        <GBEdit />
+                      </a>
+                    </Tooltip>
+                  )}
+                </div>
+              )}
+              <div className="col-auto d-inline-flex align-items-center">
+                <Text className="mr-1">Owner:</Text>
+                 {feature.owner ? <div className="d-inline-flex align-items-center"><Avatar className="mr-2" name={feature.owner} size={20} /><Text color="violet">{feature.owner}</Text></div> : "None"}
+                {canEdit && (
+                  <a
+                    className="ml-1 cursor-pointer"
+                    onClick={() => setEditOwnerModal(true)}
+                  >
+                    <GBEdit />
+                  </a>
+                )}
+              </div>
+
+              <div className="col-auto">
+                Type: {feature.valueType || "unknown"}
+              </div>
+
+
+              <div className="col-auto">
+                Tags: <SortedTags tags={feature.tags || []} />
+                {canEdit && (
+                  <a
+                    className="ml-1 cursor-pointer"
+                    onClick={() => setEditTagsModal(true)}
+                  >
+                    <GBEdit />
+                  </a>
+                )}
+              </div>
+              {/* <div className="col-auto ml-auto">
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setAuditModal(true);
+                  }}
+                >
+                  View Audit Log
+                </a>
+              </div> */}
+              {/* <div className="col-auto">
+                <WatchButton item={feature.id} itemType="feature" type="link" />
+              </div> */}
+            </div>
+            </div>
               <div className="col-auto">
                 <MoreMenu>
                   <a
@@ -255,109 +364,6 @@ export default function FeaturesHeader({
                 </MoreMenu>
               </div>
             </div>
-            <div className="mb-2 row">
-              {(projects.length > 0 || projectIsDeReferenced) && (
-                <div className="col-auto">
-                  Project:{" "}
-                  {projectIsDeReferenced ? (
-                    <Tooltip
-                      body={
-                        <>
-                          Project <code>{projectId}</code> not found
-                        </>
-                      }
-                    >
-                      <span className="text-danger">
-                        <FaExclamationTriangle /> Invalid project
-                      </span>
-                    </Tooltip>
-                  ) : currentProject && currentProject !== feature.project ? (
-                    <Tooltip
-                      body={<>This feature is not in your current project.</>}
-                    >
-                      {projectId ? (
-                        <strong>{projectName}</strong>
-                      ) : (
-                        <em className="text-muted">None</em>
-                      )}{" "}
-                      <FaExclamationTriangle className="text-warning" />
-                    </Tooltip>
-                  ) : projectId ? (
-                    <strong>{projectName}</strong>
-                  ) : (
-                    <em className="text-muted">None</em>
-                  )}
-                  {canEdit && canPublish && (
-                    <Tooltip
-                      shouldDisplay={dependents > 0}
-                      body={
-                        <>
-                          <ImBlocked className="text-danger" /> This feature has{" "}
-                          <strong>
-                            {dependents} dependent{dependents !== 1 && "s"}
-                          </strong>
-                          . The project cannot be changed until{" "}
-                          {dependents === 1 ? "it has" : "they have"} been
-                          removed.
-                        </>
-                      }
-                    >
-                      <a
-                        className="ml-2 cursor-pointer"
-                        onClick={() => {
-                          dependents === 0 && setEditProjectModal(true);
-                        }}
-                      >
-                        <GBEdit />
-                      </a>
-                    </Tooltip>
-                  )}
-                </div>
-              )}
-
-              <div className="col-auto">
-                Tags: <SortedTags tags={feature.tags || []} />
-                {canEdit && (
-                  <a
-                    className="ml-1 cursor-pointer"
-                    onClick={() => setEditTagsModal(true)}
-                  >
-                    <GBEdit />
-                  </a>
-                )}
-              </div>
-
-              <div className="col-auto">
-                Type: {feature.valueType || "unknown"}
-              </div>
-
-              <div className="col-auto">
-                Owner: {feature.owner ? feature.owner : "None"}
-                {canEdit && (
-                  <a
-                    className="ml-1 cursor-pointer"
-                    onClick={() => setEditOwnerModal(true)}
-                  >
-                    <GBEdit />
-                  </a>
-                )}
-              </div>
-
-              <div className="col-auto ml-auto">
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setAuditModal(true);
-                  }}
-                >
-                  View Audit Log
-                </a>
-              </div>
-              <div className="col-auto">
-                <WatchButton item={feature.id} itemType="feature" type="link" />
-              </div>
-            </div>
             <div>
               {isArchived && (
                 <div className="alert alert-secondary mb-2">
@@ -365,26 +371,6 @@ export default function FeaturesHeader({
                   included in SDK Endpoints or Webhook payloads.
                 </div>
               )}
-            </div>
-
-            <div className="mb-3">
-              <div className={feature.description ? "appbox mb-4 p-3" : ""}>
-                <MarkdownInlineEdit
-                  value={feature.description || ""}
-                  canEdit={canEdit}
-                  canCreate={canEdit}
-                  save={async (description) => {
-                    await apiCall(`/feature/${feature.id}`, {
-                      method: "PUT",
-                      body: JSON.stringify({
-                        description,
-                      }),
-                    });
-                    track("Update Feature Description");
-                    mutate();
-                  }}
-                />
-              </div>
             </div>
             <div id="feature-page-tabs">
               <TabButtons className="mb-0 pb-0">
