@@ -74,6 +74,7 @@ const SDKConnectionModel = mongoose.model<SDKConnectionInterface>(
 );
 
 function addEnvProxySettings(proxy: ProxyConnection): ProxyConnection {
+  // TOOD: remove when done testing!!!
   return proxy;
   if (IS_CLOUD) return proxy;
 
