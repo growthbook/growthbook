@@ -167,8 +167,8 @@ export type DataSourceEvents = {
 
 export type DataSourcePipelineSettings = {
   allowWriting?: boolean;
-  writeDatabase?: string;
-  writeDataset?: string;
+  writeDatabase?: string; // the top level directory
+  writeDataset?: string; // the mid level name (aka schema)
   unitsTableRetentionHours?: number;
   unitsTableDeletion?: boolean;
 };

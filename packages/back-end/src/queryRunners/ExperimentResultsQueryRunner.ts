@@ -227,7 +227,7 @@ export const startExperimentResultQueries = async (
       ? integration.generateTablePath(
           `${UNITS_TABLE_PREFIX}_${queryParentId}`,
           settings.pipelineSettings?.writeDataset,
-          "",
+          settings.pipelineSettings?.writeDatabase,
           true
         )
       : "";

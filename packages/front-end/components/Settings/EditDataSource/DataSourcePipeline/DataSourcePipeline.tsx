@@ -16,6 +16,9 @@ export function dataSourcePathNames(
     databaseName = "project";
     schemaName = "dataset";
   }
+  if (dataSourceType === "databricks") {
+    databaseName = "catalog";
+  }
   return { databaseName, schemaName };
 }
 
