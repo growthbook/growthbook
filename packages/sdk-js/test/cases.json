@@ -2828,6 +2828,60 @@
         "empty": 1
       },
       true
+    ],
+    [
+      "$inGroup passes for member of known group id",
+      {
+        "id": { "$inGroup": "group_id" }
+      },
+      { "id": 1 },
+      true,
+      { "group_id": [1, 2, 3] }
+    ],
+    [
+      "$inGroup fails for non-member of known group id",
+      {
+        "id": { "$inGroup": "group_id" }
+      },
+      { "id": 5 },
+      false,
+      { "group_id": [1, 2, 3] }
+    ],
+    [
+      "$inGroup fails for unknown group id",
+      {
+        "id": { "$inGroup": "unknowngroup_id" }
+      },
+      { "id": 1 },
+      false,
+      { "group_id": [1, 2, 3] }
+    ],
+    [
+      "$notInGroup fails for member of known group id",
+      {
+        "id": { "$notInGroup": "group_id" }
+      },
+      { "id": 1 },
+      false,
+      { "group_id": [1, 2, 3] }
+    ],
+    [
+      "$notInGroup passes for non-member of known group id",
+      {
+        "id": { "$notInGroup": "group_id" }
+      },
+      { "id": 5 },
+      true,
+      { "group_id": [1, 2, 3] }
+    ],
+    [
+      "$notInGroup passes for unknown group id",
+      {
+        "id": { "$notInGroup": "unknowngroup_id" }
+      },
+      { "id": 1 },
+      true,
+      { "group_id": [1, 2, 3] }
     ]
   ],
   "hash": [

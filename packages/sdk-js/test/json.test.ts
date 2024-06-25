@@ -99,11 +99,11 @@ describe("json test suite", () => {
 
   it.each((cases as Cases).evalCondition)(
     "evalCondition[%#] %s",
-    (name, condition, value, expected) => {
+    (name, condition, value, expected, idLists = {}) => {
       const consoleErrorMock = jest
         .spyOn(console, "error")
         .mockImplementation();
-      expect(evalCondition(value, condition)).toEqual(expected);
+      expect(evalCondition(value, condition, idLists)).toEqual(expected);
       consoleErrorMock.mockRestore();
     }
   );
