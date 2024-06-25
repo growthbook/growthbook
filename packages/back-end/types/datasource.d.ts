@@ -58,7 +58,7 @@ export type SchemaFormat =
   | "clevertap"
   | "custom";
 
-export type SchemasThatSupportAutoFactTablesAndMetrics =
+export type AutoFactTableSchemas =
   | "segment"
   | "rudderstack"
   | "amplitude"
@@ -103,8 +103,7 @@ export interface SchemaFormatConfig {
     eventName: string;
     schema?: string;
   }) => string;
-  getMetricWhereClause: (metricName?: string) => string;
-  getFactTableWhereClause: (metricName?: string) => string;
+  getEventFilterWhereClause: (metricName?: string) => string;
   getDateLimitClause: (start: Date, end: Date) => string;
   displayNameColumn?: string;
 }
