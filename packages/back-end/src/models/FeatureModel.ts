@@ -352,13 +352,13 @@ async function logFeatureUpdatedEvent(
   const groupMap = await getSavedGroupMap(context.org);
   const experimentMap = await getExperimentMapForFeature(context, current.id);
 
-  const currentApiFeature = getApiFeatureObj({
+  const currentApiFeature = await getApiFeatureObj({
     feature: current,
     organization: context.org,
     groupMap,
     experimentMap,
   });
-  const previousApiFeature = getApiFeatureObj({
+  const previousApiFeature = await getApiFeatureObj({
     feature: previous,
     organization: context.org,
     groupMap,
@@ -405,7 +405,7 @@ async function logFeatureCreatedEvent(
   const groupMap = await getSavedGroupMap(context.org);
   const experimentMap = await getExperimentMapForFeature(context, feature.id);
 
-  const apiFeature = getApiFeatureObj({
+  const apiFeature = await getApiFeatureObj({
     feature,
     organization: context.org,
     groupMap,
@@ -446,7 +446,7 @@ async function logFeatureDeletedEvent(
     previousFeature.id
   );
 
-  const apiFeature = getApiFeatureObj({
+  const apiFeature = await getApiFeatureObj({
     feature: previousFeature,
     organization: context.org,
     groupMap,

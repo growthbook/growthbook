@@ -205,7 +205,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     );
 
     return {
-      feature: getApiFeatureObj({
+      feature: await getApiFeatureObj({
         feature: updatedFeature,
         organization: req.organization,
         groupMap,

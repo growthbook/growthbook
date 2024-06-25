@@ -21,15 +21,17 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
       ),
       req.query
     );
-
     return {
-      features: filtered.map((feature) =>
-        getApiFeatureObj({
-          feature,
-          organization: req.organization,
-          groupMap,
-          experimentMap,
-        })
+      features: await Promise.all(
+        filtered.map(
+          async (feature) =>
+            await getApiFeatureObj({
+              feature,
+              organization: req.organization,
+              groupMap,
+              experimentMap,
+            })
+        )
       ),
       ...returnFields,
     };

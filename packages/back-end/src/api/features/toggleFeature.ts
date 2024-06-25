@@ -63,7 +63,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       updatedFeature.id
     );
     return {
-      feature: getApiFeatureObj({
+      feature: await getApiFeatureObj({
         feature: updatedFeature,
         organization: req.organization,
         groupMap,
