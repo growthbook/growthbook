@@ -3395,26 +3395,29 @@ AND event_name = '${eventName}'`,
       }
     });
 
-    return `-- Fact Table (${factTable.name})
+    return compileSqlTemplate(
+      `-- Fact Table (${factTable.name})
       SELECT
         ${userIdCol} as ${baseIdType},
         ${timestampDateTimeColumn} as timestamp,
         ${metricCols.join(",\n")}
       FROM(
-          ${compileSqlTemplate(sql, {
-            startDate,
-            endDate: endDate || undefined,
-            experimentId,
-            templateVariables: getMetricTemplateVariables(
-              metrics[0],
-              factTableMap,
-              false
-            ),
-          })}
+          ${sql}
         ) m
         ${join}
         ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-    `;
+    `,
+      {
+        startDate,
+        endDate: endDate || undefined,
+        experimentId,
+        templateVariables: getMetricTemplateVariables(
+          metrics[0],
+          factTableMap,
+          false
+        ),
+      }
+    );
   }
 
   private getMetricCTE({
@@ -3529,7 +3532,8 @@ AND event_name = '${eventName}'`,
       where.push(`${cols.timestamp} <= ${this.toTimestamp(endDate)}`);
     }
 
-    return `-- Metric (${metric.name})
+    return compileSqlTemplate(
+      `-- Metric (${metric.name})
       SELECT
         ${userIdCol} as ${baseIdType},
         ${cols.value} as value,
@@ -3538,16 +3542,7 @@ AND event_name = '${eventName}'`,
         ${
           queryFormat === "sql" || queryFormat === "fact"
             ? `(
-              ${compileSqlTemplate(sql, {
-                startDate,
-                endDate: endDate || undefined,
-                experimentId,
-                templateVariables: getMetricTemplateVariables(
-                  metric,
-                  factTableMap,
-                  useDenominator
-                ),
-              })}
+              ${sql}
             )`
             : !isFact
             ? (schema && !metric.table?.match(/\./) ? schema + "." : "") +
@@ -3556,7 +3551,18 @@ AND event_name = '${eventName}'`,
         } m
         ${join}
         ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-    `;
+    `,
+      {
+        startDate,
+        endDate: endDate || undefined,
+        experimentId,
+        templateVariables: getMetricTemplateVariables(
+          metric,
+          factTableMap,
+          useDenominator
+        ),
+      }
+    );
   }
 
   // Only include users who entered the experiment before this timestamp
