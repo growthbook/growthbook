@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.6.0",
+  "specVersion": "0.7.0",
   "evalCondition": [
     [
       "$not - pass",
@@ -2882,6 +2882,24 @@
       { "id": 1 },
       true,
       { "group_id": [1, 2, 3] }
+    ],
+    [
+      "$inGroup passes for properly typed data",
+      {
+        "id": { "$inGroup": "group_id" }
+      },
+      { "id": "2" },
+      true,
+      { "group_id": [1, "2", 3] }
+    ],
+    [
+      "$inGroup fails for improperly typed data",
+      {
+        "id": { "$inGroup": "group_id" }
+      },
+      { "id": "3" },
+      false,
+      { "group_id": [1, "2", 3] }
     ]
   ],
   "hash": [
@@ -4472,6 +4490,87 @@
         "off": true,
         "source": "cyclicPrerequisite"
       }
+    ],
+    [
+      "IDLists correctly pulled from context for force rule",
+      {
+        "attributes": {
+          "id": 123
+        },
+        "features": {
+          "inGroup_force_rule": {
+            "defaultValue": false,
+            "rules": [
+              {
+                "force": true,
+                "condition": { "id": { "$inGroup": "group_id" } }
+              }
+            ]
+          }
+        },
+        "idLists": {
+          "group_id": [123, 456]
+        }
+      },
+      "inGroup_force_rule",
+      { "value": true, "on": true, "off": false, "source": "force" }
+    ],
+    [
+      "IDLists correctly pulled from context for experiment rule",
+      {
+        "attributes": {
+          "id": 123
+        },
+        "features": {
+          "inGroup_experiment_rule": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "key": "experiment",
+                "condition": { "id": { "$inGroup": "group_id" } },
+                "hashVersion": 2,
+                "variations": [1, 2],
+                "ranges": [
+                  [0, 0.5],
+                  [0.5, 1.0]
+                ]
+              }
+            ]
+          }
+        },
+        "idLists": {
+          "group_id": [123, 456]
+        }
+      },
+      "inGroup_experiment_rule",
+      {
+        "value": 1,
+        "on": true,
+        "off": false,
+        "source": "experiment",
+        "experiment": {
+          "hashVersion": 2,
+          "condition": { "id": { "$inGroup": "group_id" } },
+          "variations": [1, 2],
+          "ranges": [
+            [0, 0.5],
+            [0.5, 1.0]
+          ],
+          "key": "experiment"
+        },
+        "experimentResult": {
+          "featureId": "inGroup_experiment_rule",
+          "hashAttribute": "id",
+          "hashUsed": true,
+          "hashValue": 123,
+          "inExperiment": true,
+          "key": "0",
+          "value": 1,
+          "variationId": 0,
+          "bucket": 0.1736,
+          "stickyBucketUsed": false
+        }
+      }
     ]
   ],
   "run": [
@@ -5354,6 +5453,23 @@
       0,
       false,
       false
+    ],
+    [
+      "IDLists correctly pulled from context for experiment",
+      {
+        "attributes": { "id": "4" },
+        "idLists": { "group_id": ["4", "5", "6"] }
+      },
+      {
+        "key": "group-filtered-test",
+        "condition": {
+          "id": { "$inGroup": "group_id" }
+        },
+        "variations": [0, 1, 2]
+      },
+      0,
+      true,
+      true
     ]
   ],
   "chooseVariation": [

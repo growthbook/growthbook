@@ -19,6 +19,7 @@ export function evalCondition(
   condition: ConditionInterface,
   idLists: IdLists
 ): boolean {
+  idLists = idLists || {};
   // Condition is an object, keys are either specific operators or object paths
   // values are either arguments for operators or conditions for paths
   for (const [k, v] of Object.entries(condition)) {

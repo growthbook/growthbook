@@ -11,6 +11,7 @@ import {
 } from "../src";
 import { evalCondition } from "../src/mongrule";
 import {
+  IdLists,
   StickyAssignmentsDocument,
   StickyAttributeKey,
   VariationRange,
@@ -35,7 +36,7 @@ type Cases = {
   // name, context, feature key, result
   feature: [string, Context, string, Omit<FeatureResult, "ruleId">][];
   // name, condition, attribute, result
-  evalCondition: [string, any, any, boolean][];
+  evalCondition: [string, any, any, boolean, IdLists][];
   // name, args ([numVariations, coverage, weights]), result
   getBucketRange: [
     string,

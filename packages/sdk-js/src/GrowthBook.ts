@@ -977,7 +977,7 @@ export class GrowthBook<
             const evaled = evalCondition(
               evalObj,
               parentCondition.condition || {},
-              this._ctx.idLists || {}
+              {}
             );
             if (!evaled) {
               // blocking prerequisite eval failed: feature evaluation fails
@@ -1326,13 +1326,7 @@ export class GrowthBook<
           }
 
           const evalObj = { value: parentResult.value };
-          if (
-            !evalCondition(
-              evalObj,
-              parentCondition.condition || {},
-              this._ctx.idLists || {}
-            )
-          ) {
+          if (!evalCondition(evalObj, parentCondition.condition || {}, {})) {
             process.env.NODE_ENV !== "production" &&
               this.log("Skip because prerequisite evaluation fails", {
                 id: key,
