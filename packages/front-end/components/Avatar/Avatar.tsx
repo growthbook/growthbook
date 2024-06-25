@@ -3,14 +3,14 @@ import clsx from "clsx";
 import { violet } from "@radix-ui/colors";
 
 const Avatar: FC<{
-  email?: string;
+  email: string;
   name: string;
   size?: number;
   className?: string;
 }> = ({ email, size = 40, className, name }) => {
   const firstNameLetter = name?.charAt(0) || email.charAt(0);
   const lastNameLetter = name?.split(" ")[1]?.charAt(0) || "";
-  const title = name ? `${name} <${email}|| "">` : email;
+  const title = name ? `${name} <${email}>` : email;
   const copy =
     name.toLowerCase() === "api"
       ? name.toUpperCase()
