@@ -1032,7 +1032,6 @@ export default function SDKConnectionForm({
           <div className="mt-5">
             <label className="mb-1">GrowthBook Proxy</label>
             <div className="mt-2">
-              {/*<div className="bg-highlight rounded pt-3 pb-3 px-4 mb-4">*/}
               <div className="d-flex align-items-center">
                 <Toggle
                   id="sdk-connection-proxy-toggle"

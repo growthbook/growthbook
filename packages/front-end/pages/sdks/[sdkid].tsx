@@ -400,15 +400,17 @@ export default function SDKConnectionPage() {
           connected={connection.connected}
           canRefresh={canUpdate && !connection.connected}
           refresh={
-            <Button
-              color="link"
-              className="btn-sm"
-              onClick={async () => {
-                await mutate();
-              }}
-            >
-              <BsArrowRepeat /> re-check
-            </Button>
+            connection.proxy.host ? (
+              <Button
+                color="link"
+                className="btn-sm"
+                onClick={async () => {
+                  await mutate();
+                }}
+              >
+                <BsArrowRepeat /> re-check
+              </Button>
+            ) : undefined
           }
         />
         {hasProxy && (
@@ -421,7 +423,9 @@ export default function SDKConnectionPage() {
               }
             >
               <code className="text-muted">
-                {connection.proxy.host || connection.proxy.hostExternal || "Unknown host"}
+                {connection.proxy.host ||
+                  connection.proxy.hostExternal ||
+                  "https://proxy.yoursite.io"}
               </code>
             </ConnectionNode>
 
@@ -431,12 +435,14 @@ export default function SDKConnectionPage() {
               error={!connection.proxy.connected}
               errorTxt={connection.proxy.error}
               refresh={
-                <ProxyTestButton
-                  host={connection.proxy.host}
-                  id={connection.id}
-                  mutate={mutate}
-                  showButton={true}
-                />
+                connection.proxy.host ? (
+                  <ProxyTestButton
+                    host={connection.proxy.host}
+                    id={connection.id}
+                    mutate={mutate}
+                    showButton={true}
+                  />
+                ) : undefined
               }
             />
           </>

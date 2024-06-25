@@ -74,8 +74,6 @@ const SDKConnectionModel = mongoose.model<SDKConnectionInterface>(
 );
 
 function addEnvProxySettings(proxy: ProxyConnection): ProxyConnection {
-  // TOOD: remove when done testing!!!
-  return proxy;
   if (IS_CLOUD) return proxy;
 
   return {
@@ -214,8 +212,10 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
   if (connection.proxy.enabled) {
     if (connection.proxy.host) {
       const res = await testProxyConnection(connection, false);
-      connection.proxy.connected = !res.error;
-      connection.proxy.version = res.version || "";
+      if (res) {
+        connection.proxy.connected = !res.error;
+        connection.proxy.version = res.version || "";
+      }
     } else {
       connection.proxy.connected = true;
     }
@@ -279,8 +279,10 @@ export async function editSDKConnection(
         },
         false
       );
-      newProxy.connected = !res.error;
-      newProxy.version = res.version;
+      if (res) {
+        newProxy.connected = !res.error;
+        newProxy.version = res.version;
+      }
     } else {
       newProxy.connected = true;
     }
@@ -399,9 +401,9 @@ export async function clearProxyError(connection: SDKConnectionInterface) {
 export async function testProxyConnection(
   connection: SDKConnectionInterface,
   updateDB: boolean = true
-): Promise<ProxyTestResult> {
+): Promise<ProxyTestResult | undefined> {
   const proxy = connection.proxy;
-  if (!proxy || !proxy.enabled || !proxy.host) {
+  if (!proxy || !proxy.enabled) {
     return {
       status: 0,
       body: "",
@@ -409,6 +411,10 @@ export async function testProxyConnection(
       version: "",
       url: "",
     };
+  }
+
+  if (!proxy.host) {
+    return;
   }
 
   const url = proxy.host.replace(/\/*$/, "") + "/healthcheck";
@@ -474,7 +480,10 @@ export async function testProxyConnection(
     return {
       status: statusCode || 0,
       body: body || "",
-      error: e.message || "Failed to connect to Proxy server",
+      error:
+        e?.code === "ECONNREFUSED"
+          ? "Failed to connect to proxy server (ECONNREFUSED)"
+          : e.message,
       version: "",
       url,
     };
