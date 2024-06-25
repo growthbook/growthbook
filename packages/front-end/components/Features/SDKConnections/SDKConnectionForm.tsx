@@ -1031,10 +1031,8 @@ export default function SDKConnectionForm({
         {isCloud() && (
           <div className="mt-5">
             <label className="mb-1">GrowthBook Proxy</label>
-            <div
-              className="d-flex align-items-top mt-2"
-              style={{ justifyContent: "space-between" }}
-            >
+            <div className="mt-2">
+              {/*<div className="bg-highlight rounded pt-3 pb-3 px-4 mb-4">*/}
               <div className="d-flex align-items-center">
                 <Toggle
                   id="sdk-connection-proxy-toggle"
@@ -1048,24 +1046,39 @@ export default function SDKConnectionForm({
                   Use GrowthBook Proxy
                 </label>
               </div>
-
               {form.watch("proxyEnabled") && (
-                <div className="d-flex align-items-center">
-                  <label
-                    className="mr-2 mb-0"
-                    htmlFor="sdk-connection-proxyHost"
-                  >
-                    Proxy Host URL
-                  </label>
-                  <Field
-                    id="sdk-connection-proxyHost"
-                    required
-                    placeholder="https://"
-                    type="url"
-                    style={{ width: 350 }}
-                    {...form.register("proxyHost")}
-                  />
-                </div>
+                <Field
+                  id="sdk-connection-proxyHost"
+                  containerClassName="mt-3"
+                  label={
+                    <>
+                      Proxy Host URL <small>(optional)</small>
+                      <Tooltip
+                        className="ml-1"
+                        body={
+                          <>
+                            <p>
+                              Optionally add your proxy&apos;s public URL to
+                              enable faster rollouts. Providing your proxy host
+                              will allow GrowthBook to push updates to your
+                              proxy whenever feature definitions change.
+                            </p>
+                            <p className="mb-0">
+                              Without GrowthBook&apos;s push updates, the proxy
+                              will fall back to a stale-while-revalidate caching
+                              strategy.
+                            </p>
+                          </>
+                        }
+                      >
+                        <FaInfoCircle />
+                      </Tooltip>
+                    </>
+                  }
+                  placeholder="https://"
+                  type="url"
+                  {...form.register("proxyHost")}
+                />
               )}
             </div>
           </div>

@@ -188,7 +188,7 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     docLabel: "Fastly Compute",
     docs: "edge",
     type: "edge",
-    filters: ["edge"],
+    filters: ["edge", "popular"],
     extra: (
       <span
         className="badge badge-purple text-uppercase position-absolute"

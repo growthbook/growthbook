@@ -74,6 +74,7 @@ const SDKConnectionModel = mongoose.model<SDKConnectionInterface>(
 );
 
 function addEnvProxySettings(proxy: ProxyConnection): ProxyConnection {
+  return proxy;
   if (IS_CLOUD) return proxy;
 
   return {
@@ -209,10 +210,14 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
     }),
   };
 
-  if (connection.proxy.enabled && connection.proxy.host) {
-    const res = await testProxyConnection(connection, false);
-    connection.proxy.connected = !res.error;
-    connection.proxy.version = res.version || "";
+  if (connection.proxy.enabled) {
+    if (connection.proxy.host) {
+      const res = await testProxyConnection(connection, false);
+      connection.proxy.connected = !res.error;
+      connection.proxy.version = res.version || "";
+    } else {
+      connection.proxy.connected = true;
+    }
   }
 
   const doc = await SDKConnectionModel.create(connection);
@@ -265,15 +270,19 @@ export async function editSDKConnection(
   if (proxyHost !== undefined && proxyHost !== connection.proxy.host) {
     newProxy.host = proxyHost;
 
-    const res = await testProxyConnection(
-      {
-        ...connection,
-        proxy: addEnvProxySettings(newProxy),
-      },
-      false
-    );
-    newProxy.connected = !res.error;
-    newProxy.version = res.version;
+    if (addEnvProxySettings(newProxy).host) {
+      const res = await testProxyConnection(
+        {
+          ...connection,
+          proxy: addEnvProxySettings(newProxy),
+        },
+        false
+      );
+      newProxy.connected = !res.error;
+      newProxy.version = res.version;
+    } else {
+      newProxy.connected = true;
+    }
   }
   newProxy = addEnvProxySettings(newProxy);
 
