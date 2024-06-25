@@ -744,7 +744,7 @@ export function evalDeterministicPrereqValue(
   const parsedCondition = getParsedPrereqCondition(condition);
   if (!parsedCondition) return "fail";
   const evalObj = { value: value };
-  const pass = evalCondition(evalObj, parsedCondition);
+  const pass = evalCondition(evalObj, parsedCondition, {});
   return pass ? "pass" : "fail";
 }
 
