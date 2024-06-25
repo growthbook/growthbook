@@ -132,7 +132,17 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     project: project ?? undefined,
   });
 
-  if (organization?.settings?.updateSchedule?.type === "never") return;
+  if (organization?.settings?.updateSchedule?.type === "never") {
+    // Disable auto snapshots for the experiment so it doesn't keep trying to update
+    await updateExperiment({
+      context,
+      experiment,
+      changes: {
+        autoSnapshots: false,
+      },
+    });
+    return;
+  }
 
   try {
     logger.info("Start Refreshing Results for experiment " + experimentId);
