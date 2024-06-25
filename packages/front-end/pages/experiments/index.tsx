@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { RxDesktop } from "react-icons/rx";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { datetime, ago } from "shared/dates";
+import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
@@ -502,7 +502,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             : e.tab === "archived"
                             ? "updated"
                             : ""}{" "}
-                          {ago(e.date)}
+                          {date(e.date)}
                         </td>
                         <td className="nowrap" data-title="Summary:">
                           {e.archived ? (
