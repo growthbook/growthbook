@@ -16,6 +16,7 @@ import {
   isRoleValid,
   getDefaultRole,
 } from "shared/permissions";
+import uniqid from "uniqid";
 import {
   UpdateSdkWebhookProps,
   deleteLegacySdkWebhookById,
@@ -842,13 +843,13 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
 
 export async function postNamespaces(
   req: AuthRequest<{
-    name: string;
+    label: string;
     description: string;
     status: "active" | "inactive";
   }>,
   res: Response
 ) {
-  const { name, description, status } = req.body;
+  const { label, description, status } = req.body;
   const context = getContextFromReq(req);
 
   if (!context.permissions.canCreateNamespace()) {
@@ -860,14 +861,18 @@ export async function postNamespaces(
   const namespaces = org.settings?.namespaces || [];
 
   // Namespace with the same name already exists
-  if (namespaces.filter((n) => n.name === name).length > 0) {
-    throw new Error("Namespace names must be unique.");
+  if (namespaces.filter((n) => n.label === label).length > 0) {
+    throw new Error("A namespace with this name already exists.");
   }
 
+  // Create a unique id for this new namespace - We might want to clean this
+  // up later, but for now, 'name' is the unique identifier, and 'label' is
+  // the display name.
+  const name = uniqid("ns-");
   await updateOrganization(org.id, {
     settings: {
       ...org.settings,
-      namespaces: [...namespaces, { name, description, status }],
+      namespaces: [...namespaces, { name, label, description, status }],
     },
   });
 
@@ -895,7 +900,7 @@ export async function postNamespaces(
 export async function putNamespaces(
   req: AuthRequest<
     {
-      name: string;
+      label: string;
       description: string;
       status: "active" | "inactive";
     },
@@ -903,8 +908,9 @@ export async function putNamespaces(
   >,
   res: Response
 ) {
-  const { name, description, status } = req.body;
-  const originalName = req.params.name;
+  const { label, description, status } = req.body;
+  const { name } = req.params;
+
   const context = getContextFromReq(req);
 
   if (!context.permissions.canUpdateNamespace()) {
@@ -915,13 +921,15 @@ export async function putNamespaces(
 
   const namespaces = org.settings?.namespaces || [];
 
-  // Namespace with the same name already exists
-  if (namespaces.filter((n) => n.name === originalName).length === 0) {
+  // Make sure this namespace exists
+  if (namespaces.filter((n) => n.name === name).length === 0) {
     throw new Error("Namespace not found.");
   }
+
   const updatedNamespaces = namespaces.map((n) => {
-    if (n.name === originalName) {
-      return { name, description, status };
+    if (n.name === name) {
+      // cannot update the 'name' (id) of a namespace
+      return { label, name: n.name, description, status };
     }
     return n;
   });

@@ -122,6 +122,7 @@ export interface MetricDefaults {
 
 export interface Namespaces {
   name: string;
+  label: string;
   description: string;
   status: "active" | "inactive";
 }
