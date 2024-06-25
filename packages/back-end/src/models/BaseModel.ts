@@ -351,34 +351,24 @@ export abstract class BaseModel<
       ...query,
       organization: this.context.org.id,
     };
+    let rawDocs = [];
 
     if (this.useConfigFile()) {
-      const docs = this.getConfigDocuments();
-      const filtered = docs.filter((doc) => evalCondition(doc, queryWithOrg));
-
-      if (!filtered) return [];
-
-      if (!bypassReadPermissionChecks) {
-        filtered.filter((doc) => this.canRead(doc));
-      }
-
-      //TODO: Handle sorting
-
-      if (!skip && !limit) return filtered;
-
-      return filtered.slice(skip || 0, limit ? (skip || 0) + limit : undefined);
+      //MKTODO: This is not sorted
+      rawDocs = this.getConfigDocuments().filter((doc) =>
+        evalCondition(doc, queryWithOrg)
+      );
+    } else {
+      const cursor = this._dangerousGetCollection().find(queryWithOrg);
+      sort &&
+        cursor.sort(
+          sort as {
+            [key: string]: 1 | -1;
+          }
+        );
+      rawDocs = await cursor.toArray();
     }
 
-    const cursor = this._dangerousGetCollection().find(queryWithOrg);
-
-    sort &&
-      cursor.sort(
-        sort as {
-          [key: string]: 1 | -1;
-        }
-      );
-
-    const rawDocs = await cursor.toArray();
     if (!rawDocs.length) return [];
 
     const migrated = rawDocs.map((d) =>
@@ -396,27 +386,14 @@ export abstract class BaseModel<
   protected async _findOne(
     query: FilterQuery<Omit<z.infer<T>, "organization">>
   ) {
-    if (this.useConfigFile()) {
-      const docs = this.getConfigDocuments();
-
-      const doc = docs.find((doc) =>
-        evalCondition(doc, {
+    const doc = this.useConfigFile()
+      ? this.getConfigDocuments().find((doc) =>
+          evalCondition(doc, { ...query, organization: this.context.org.id })
+        )
+      : await this._dangerousGetCollection().findOne({
           ...query,
           organization: this.context.org.id,
-        })
-      );
-
-      if (!doc) return null;
-
-      await this.populateForeignRefs([doc]);
-
-      return this.canRead(doc) ? doc : null;
-    }
-
-    const doc = await this._dangerousGetCollection().findOne({
-      ...query,
-      organization: this.context.org.id,
-    });
+        });
     if (!doc) return null;
 
     const migrated = this.migrate(this._removeMongooseFields(doc));
