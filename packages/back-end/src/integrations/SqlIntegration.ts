@@ -61,7 +61,7 @@ import {
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
-import { SegmentInterface, SegmentInterface } from "../../types/segment";
+import { SegmentInterface } from "../../types/segment";
 import {
   getBaseIdTypeAndJoins,
   compileSqlTemplate,
@@ -624,16 +624,23 @@ export default abstract class SqlIntegration
       // TODO default id type?
     );
 
+    const metricData = this.getMetricData(metric, {
+      attributionModel: "experimentDuration",
+      regressionAdjustmentEnabled: false,
+      startDate: settings.startDate,
+      endDate: settings.endDate ?? undefined,
+    }, null, "m")
+
     
     // Get rough date filter for metrics to improve performance
-    const metricStart = this.getMetricStart(
-      settings.startDate,
-      this.getMetricMinDelay([params.metric]),
-      0
-    );
-    const metricEnd = this.getMetricEnd([params.metric], settings.endDate ?? undefined);
+    // const metricStart = this.getMetricStart(
+    //   settings.startDate,
+    //   this.getMetricMinDelay([params.metric]),
+    //   0
+    // );
 
     const aggregate = this.getAggregateMetricColumn(params.metric);
+    const denominatorAggregate = metricData.ratioMetric ? this.getAggregateMetricColumn(params.metric, true) : null;
 
     const histogram_bin_number = 25;
     // TODO query is broken if segment has template variables
@@ -641,34 +648,39 @@ export default abstract class SqlIntegration
       `-- ${metric.name} Metric Analysis
       WITH
         ${idJoinSQL}
-        __metric as (${this.getMetricCTE({
-          metric: params.metric,
-          baseIdType,
-          idJoinMap,
-          startDate: metricStart,
-          endDate: metricEnd,
-          // Facts tables are not supported for this query yet
-          factTableMap: params.factTableMap,
-        })})
-        , __filteredMetrics as (
-          -- 
-          SELECT
-            m.${baseIdType} as ${baseIdType},
-            m.value as value,
-            m.timestamp as timestamp
-            -- DIMENSION
-          FROM
-            __metric m
-        )
+      , __factTable as (${this.getFactTableCTE({
+        baseIdType,
+        idJoinMap,
+        metrics: [metric],
+        endDate: metricData.metricEnd,
+        startDate: metricData.metricStart,
+        factTableMap: params.factTableMap,
+      })}),
         , __userMetricDaily as (
           -- Get aggregated metric per user by day
           SELECT
             ${baseIdType},
             ${this.dateTrunc("timestamp")} as date,
             -- TODO dimension
-            ${aggregate} as value
+            ${this.getAggregateMetricColumn(
+              metricData.metric,
+                    false,
+                    `${metricData.alias}_value`,
+                    `${metricData.alias}_quantile`
+                  )} AS ${metricData.alias}_value
+                  ${
+                    metricData.ratioMetric
+                      ? `, ${this.getAggregateMetricColumn(
+                          metricData.metric,
+                          true,
+                          `${metricData.alias}_denominator`,
+                          `${metricData.alias}_quantile`
+                        )} AS ${metricData.alias}_denominator`
+                      : ""
+                  }
+              )
           FROM
-            __filteredMetrics
+            __factTable
           GROUP BY
             ${this.dateTrunc("timestamp")},
             ${baseIdType}
@@ -1860,7 +1872,7 @@ export default abstract class SqlIntegration
 
   private getMetricData(
     metric: ExperimentMetricInterface,
-    settings: ExperimentSnapshotSettings,
+    settings: Pick<ExperimentSnapshotSettings, "attributionModel" | "regressionAdjustmentEnabled" | "startDate"> & {endDate?: Date},
     activationMetric: ExperimentMetricInterface | null,
     alias: string
   ): FactMetricData {
