@@ -742,7 +742,7 @@ export abstract class BaseModel<
     // Resources with a single project
     if ("project" in obj && obj.project && typeof obj.project === "string") {
       const projects = await this.context.getProjects();
-      if (!projects.some((p) => p.id === obj.project)) {
+      if (!projects || !projects.some((p) => p.id === obj.project)) {
         throw new Error("Invalid project");
       }
     }
@@ -750,6 +750,7 @@ export abstract class BaseModel<
     else if ("projects" in obj && obj.projects && Array.isArray(obj.projects)) {
       const projects = await this.context.getProjects();
       if (
+        !projects ||
         !obj.projects.every((p: string) =>
           projects.some((proj) => proj.id === p)
         )
