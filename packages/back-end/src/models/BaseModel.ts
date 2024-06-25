@@ -351,13 +351,14 @@ export abstract class BaseModel<
       ...query,
       organization: this.context.org.id,
     };
-    let rawDocs = [];
+    let rawDocs;
 
     if (this.useConfigFile()) {
       //MKTODO: This is not sorted
-      rawDocs = this.getConfigDocuments().filter((doc) =>
-        evalCondition(doc, queryWithOrg)
-      );
+      rawDocs =
+        this.getConfigDocuments().filter((doc) =>
+          evalCondition(doc, queryWithOrg)
+        ) || [];
     } else {
       const cursor = this._dangerousGetCollection().find(queryWithOrg);
       sort &&
