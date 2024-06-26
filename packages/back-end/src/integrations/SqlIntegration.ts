@@ -2968,20 +2968,6 @@ export default abstract class SqlIntegration
   getSchemaFormatConfig(
     schemaFormat: AutoFactTableSchemas
   ): SchemaFormatConfig {
-    const rudderstackFilterColumns = `
-    (CASE
-      WHEN context_user_agent LIKE '%Mobile%' THEN 'Mobile'
-      ELSE 'Tablet/Desktop' END
-    ) as device,
-    (CASE 
-      WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
-      WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
-      WHEN context_user_agent LIKE '% Edg%' THEN ' Edge' 
-      WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
-      WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
-      ELSE 'Other' END
-    ) as browser`;
-
     switch (schemaFormat) {
       case "amplitude": {
         return {
@@ -3045,18 +3031,68 @@ export default abstract class SqlIntegration
         };
       }
       case "rudderstack":
+        return {
+          trackedEventTableName: "tracks",
+          eventColumn: "event",
+          timestampColumn: "received_at",
+          userIdColumn: "user_id",
+          filterColumns: `
+          (CASE
+            WHEN context_user_agent LIKE '%Mobile%' THEN 'Mobile'
+            ELSE 'Tablet/Desktop' END
+          ) as device,
+          (CASE 
+            WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
+            WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
+            WHEN context_user_agent LIKE '% Edg%' THEN ' Edge' 
+            WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
+            WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
+            ELSE 'Other' END
+          ) as browser`,
+          anonymousIdColumn: "anonymous_id",
+          displayNameColumn: "event_text",
+          getTrackedEventTablePath: ({ eventName, schema }) =>
+            this.generateTablePath(eventName, schema),
+          getDateLimitClause: (start: Date, end: Date) =>
+            `received_at BETWEEN '${formatDate(
+              start,
+              "yyyy-MM-dd"
+            )}' AND'${formatDate(end, "yyyy-MM-dd")}'`,
+          getAdditionalEvents: () => [
+            {
+              eventName: "pages",
+              displayName: "Page Viewed",
+              groupBy: "event",
+            },
+            {
+              eventName: "screens",
+              displayName: "Screen Viewed",
+              groupBy: "event",
+            },
+          ],
+          getEventFilterWhereClause: () => "",
+        };
       case "segment":
         return {
           trackedEventTableName: "tracks",
           eventColumn: "event",
           timestampColumn: "received_at",
           userIdColumn: "user_id",
-          filterColumns:
-            //MKTODO: I need to test this
-            schemaFormat === "rudderstack"
-              ? rudderstackFilterColumns
-              : `context_campaign_source as source,
-              context_campaign_medium as medium, ${rudderstackFilterColumns}`,
+          filterColumns: `
+          context_campaign_source as source,
+          context_campaign_medium as medium,
+          (CASE
+            WHEN context_user_agent LIKE '%Mobile%' THEN 'Mobile'
+            ELSE 'Tablet/Desktop' END
+          ) as device,
+          (CASE 
+            WHEN context_user_agent LIKE '% Firefox%' THEN 'Firefox'
+            WHEN context_user_agent LIKE '% OPR%' THEN 'Opera'
+            WHEN context_user_agent LIKE '% Edg%' THEN ' Edge' 
+            WHEN context_user_agent LIKE '% Chrome%' THEN 'Chrome'
+            WHEN context_user_agent LIKE '% Safari%' THEN 'Safari'
+            ELSE 'Other' END
+          ) as browser`,
           anonymousIdColumn: "anonymous_id",
           displayNameColumn: "event_text",
           getTrackedEventTablePath: ({ eventName, schema }) =>
