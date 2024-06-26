@@ -203,7 +203,11 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       req.context,
       feature.id
     );
-    const revision = await getRevision(updatedFeature.organization, updatedFeature.id, updatedFeature.version);
+    const revision = await getRevision(
+      updatedFeature.organization,
+      updatedFeature.id,
+      updatedFeature.version
+    );
     return {
       feature: getApiFeatureObj({
         feature: updatedFeature,
