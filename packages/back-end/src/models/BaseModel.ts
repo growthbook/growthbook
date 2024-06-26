@@ -5,7 +5,7 @@ import mongoose, { FilterQuery } from "mongoose";
 import { Collection } from "mongodb";
 import omit from "lodash/omit";
 import { z } from "zod";
-import { isEqual, pick } from "lodash";
+import { isEqual, orderBy, pick } from "lodash";
 import { evalCondition } from "@growthbook/growthbook";
 import { ApiReqContext } from "../../types/api";
 import { ReqContext } from "../../types/organization";
@@ -354,11 +354,21 @@ export abstract class BaseModel<
     let rawDocs;
 
     if (this.useConfigFile()) {
-      //MKTODO: This is not sorted
-      rawDocs =
+      const docs =
         this.getConfigDocuments().filter((doc) =>
           evalCondition(doc, queryWithOrg)
         ) || [];
+
+      sort &&
+        docs.sort((a, b) => {
+          for (const key in sort) {
+            if (a[key] < b[key]) return -1 * sort[key];
+            if (a[key] > b[key]) return sort[key];
+          }
+          return 0;
+        });
+
+      rawDocs = docs;
     } else {
       const cursor = this._dangerousGetCollection().find(queryWithOrg);
       sort &&
