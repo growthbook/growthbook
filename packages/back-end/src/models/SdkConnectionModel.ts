@@ -483,7 +483,7 @@ export async function testProxyConnection(
       error:
         e?.code === "ECONNREFUSED"
           ? "Failed to connect to proxy server (ECONNREFUSED)"
-          : e.message,
+          : e.message || "Failed to connect to proxy server",
       version: "",
       url,
     };
