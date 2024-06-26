@@ -26,8 +26,9 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Toggle from "@/components/Forms/Toggle";
+import { ExperimentImpactTab } from "@/components/HomePage/ExperimentImpact/ExperimentImpactTab";
 
-function NoExperimentsForImpactBanner() {
+export function NoExperimentsForImpactBanner() {
   return (
     <div className={`mt-2 alert alert-warning`}>
       <span style={{ fontSize: "1.2em" }}>
@@ -38,17 +39,24 @@ function NoExperimentsForImpactBanner() {
   );
 }
 
-function jamesSteinAdjustment(
-  effects: number[],
-  se: number,
-  useMean: boolean = false
+export function formatImpact(
+  impact: number,
+  formatter: (
+    value: number,
+    options?: Intl.NumberFormatOptions | undefined
+  ) => string,
+  formatterOptions: Intl.NumberFormatOptions
 ) {
-  const Ne = effects.length;
-  const priorMean = useMean ? effects.reduce((a, b) => a + b, 0) / Ne : 0;
-  const Z = effects.reduce((a, b) => a + Math.pow(b - priorMean, 2), 0);
-  const adj = ((Ne - 2) * Math.pow(se, 2)) / Z;
-  const variance = 1 + 1 / Z;
-  return { mean: priorMean, adjustment: adj, variance: variance };
+  return (
+    <>
+      <span className="expectedArrows">
+        {impact > 0 ? <FaArrowUp /> : impact < 0 ? <FaArrowDown /> : null}
+      </span>{" "}
+      <span className="expected font-weight-bold">
+        {formatter(impact, { ...formatterOptions, signDisplay: "never" })}
+      </span>
+    </>
+  );
 }
 
 type ExperimentImpactFilters = {
@@ -77,10 +85,10 @@ type ExperimentWithImpact = {
   error?: string;
 };
 
-type ExperimentImpactType = "winner" | "loser" | "other";
-type ExperimentImpactTab = ExperimentImpactType | "summary";
+export type ExperimentImpactType = "winner" | "loser" | "other";
+export type ExperimentImpactTab = ExperimentImpactType | "summary";
 
-type ExperimentImpactData = {
+export type ExperimentImpactData = {
   totalAdjustedImpact: number;
   totalAdjustedImpactVariance: number;
   experiments: ExperimentWithImpact[];
@@ -723,7 +731,7 @@ export default function ExperimentImpact({
               count={summaryObj.winners.experiments.length}
               padding={false}
             >
-              <ImpactTab
+              <ExperimentImpactTab
                 experimentImpactData={summaryObj.winners}
                 experimentImpactType={"winner"}
                 formatter={formatter}
@@ -738,7 +746,7 @@ export default function ExperimentImpact({
               count={summaryObj.losers.experiments.length}
               padding={false}
             >
-              <ImpactTab
+              <ExperimentImpactTab
                 experimentImpactData={summaryObj.losers}
                 experimentImpactType={"loser"}
                 formatter={formatter}
@@ -753,7 +761,7 @@ export default function ExperimentImpact({
               count={summaryObj.others.experiments.length}
               padding={false}
             >
-              <ImpactTab
+              <ExperimentImpactTab
                 experimentImpactData={summaryObj.others}
                 experimentImpactType={"other"}
                 formatter={formatter}
@@ -763,283 +771,6 @@ export default function ExperimentImpact({
           </ControlledTabs>
         </>
       ) : null}
-    </div>
-  );
-}
-
-function formatImpact(
-  impact: number,
-  formatter: (
-    value: number,
-    options?: Intl.NumberFormatOptions | undefined
-  ) => string,
-  formatterOptions: Intl.NumberFormatOptions
-) {
-  return (
-    <>
-      <span className="expectedArrows">
-        {impact > 0 ? <FaArrowUp /> : impact < 0 ? <FaArrowDown /> : null}
-      </span>{" "}
-      <span className="expected font-weight-bold">
-        {formatter(impact, { ...formatterOptions, signDisplay: "never" })}
-      </span>
-    </>
-  );
-}
-
-function ImpactTab({
-  experimentImpactData,
-  experimentImpactType,
-  formatter,
-  formatterOptions,
-}: {
-  experimentImpactData: ExperimentImpactData;
-  experimentImpactType: ExperimentImpactType;
-  formatter: (
-    value: number,
-    options?: Intl.NumberFormatOptions | undefined
-  ) => string;
-  formatterOptions: Intl.NumberFormatOptions;
-}) {
-  const expRows: ReactElement[] = [];
-  let anyNullImpact = false;
-  experimentImpactData.experiments.forEach((e) => {
-    const variations: JSX.Element[] = [];
-    const impactsScaled: JSX.Element[] = [];
-    const impactsTotal: JSX.Element[] = [];
-    if (!e.error) {
-      e.experiment.variations.forEach((v, i) => {
-        if (i === 0) return;
-        if (experimentImpactType !== "other" && i !== e.keyVariationId) return;
-        const impact = e.impact?.variations?.[i - 1];
-        if (!impact) {
-          anyNullImpact = true;
-        }
-        variations.push(
-          <div
-            className={`variation variation${i} with-variation-label d-flex my-1`}
-          >
-            <span className="label" style={{ width: 20, height: 20 }}>
-              {i}
-            </span>
-            <span
-              className="d-inline-block text-ellipsis hover"
-              style={{
-                maxWidth: 200,
-              }}
-            >
-              {v.name}
-            </span>
-          </div>
-        );
-        impactsScaled.push(
-          <div
-            className={clsx("my-1", { won: experimentImpactType === "winner" })}
-          >
-            {impact ? (
-              formatImpact(
-                impact?.scaledImpact ?? 0,
-                formatter,
-                formatterOptions
-              )
-            ) : (
-              <span className="text-muted">N/A</span>
-            )}
-            {!!impact && (
-              <span className="small text-muted">
-                {" "}
-                X{" "}
-                {Intl.NumberFormat(undefined, {
-                  maximumFractionDigits: 3,
-                }).format(
-                  (impact.scaledImpactAdjusted ?? 0) /
-                    (impact.scaledImpact ?? 0)
-                )}{" "}
-                X 365{" "}
-              </span>
-            )}
-          </div>
-        );
-        impactsTotal.push(
-          <div
-            className={clsx("my-1", { won: experimentImpactType === "winner" })}
-          >
-            {impact ? (
-              formatImpact(
-                (impact?.scaledImpactAdjusted ?? 0) * 365,
-                formatter,
-                formatterOptions
-              )
-            ) : (
-              <span className="text-muted">N/A</span>
-            )}
-            {!!impact && impact.se && (
-              <span className="plusminus ml-1">
-                ± {formatter(impact.se * 1.96 * 365, formatterOptions)}
-              </span>
-            )}
-          </div>
-        );
-      });
-    }
-    expRows.push(
-      <tr key={e.experiment.id} className="hover-highlight">
-        <td>
-          <div className="my-1">
-            <Link
-              className="font-weight-bold"
-              href={`/experiment/${e.experiment.id}`}
-            >
-              {e.experiment.name}
-            </Link>
-          </div>
-        </td>
-        <td>
-          <div className="my-1">
-            {e.experiment.status === "stopped" ? (
-              date(
-                e.experiment.phases?.[e.experiment.phases.length - 1]
-                  ?.dateEnded ?? ""
-              )
-            ) : (
-              <span className="text-muted">N/A</span>
-            )}
-          </div>
-        </td>
-        <td>
-          <div className="d-flex">
-            {e.experiment.results && e.experiment.status === "stopped" ? (
-              <div
-                className="experiment-status-widget d-inline-block position-relative"
-                style={{ height: 25, lineHeight: "25px", top: 2 }}
-              >
-                <ResultsIndicator results={e.experiment.results} />
-              </div>
-            ) : (
-              <div className="my-1">
-                <ExperimentStatusIndicator status={e.experiment.status} />
-              </div>
-            )}
-          </div>
-        </td>
-        {e.error ? (
-          <td colSpan={3}>
-            <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
-              <FaExclamationTriangle className="mr-1" />
-              No results available. Check experiment results for errors.
-            </div>
-          </td>
-        ) : (
-          <>
-            <td>{variations}</td>
-            <td className="impact-results">{impactsScaled}</td>
-            <td className="impact-results">{impactsTotal}</td>
-          </>
-        )}
-      </tr>
-    );
-  });
-  return (
-    <div className="px-3 pt-3">
-      {experimentImpactData.experiments.length === 0 ? (
-        <NoExperimentsForImpactBanner />
-      ) : (
-        <>
-          {experimentImpactType !== "other" ? (
-            <div
-              className={`mt-2 alert alert-${
-                experimentImpactType === "winner" ? "success" : "info"
-              }`}
-            >
-              <span style={{ fontSize: "1.2em" }}>
-                {formatImpact(
-                  experimentImpactData.totalAdjustedImpact * 365,
-                  formatter,
-                  formatterOptions
-                )}
-                {` per year is the summed impact ${
-                  experimentImpactType === "winner"
-                    ? "of the winning variations."
-                    : "of not shipping the worst variation."
-                } `}
-              </span>
-            </div>
-          ) : null}
-
-          <div className="mt-4" style={{ maxHeight: 500, overflowY: "auto" }}>
-            <table className="table bg-white border">
-              <thead className="bg-light">
-                <tr>
-                  <th>Experiment</th>
-                  <th>Date Ended</th>
-                  <th>Status</th>
-                  <th>
-                    {experimentImpactType === "winner"
-                      ? "Winning Variation"
-                      : experimentImpactType === "loser"
-                      ? "Worst Variation"
-                      : "Variation"}
-                  </th>
-                  <th>
-                    Scaled Impact{" "}
-                    <span className="small text-muted">X adj X 365</span>
-                    <Tooltip
-                      body={
-                        <>
-                          <div
-                            className={anyNullImpact ? "mb-2" : ""}
-                          >{`This Daily Scaled Impact, available in your Experiment Results under the "Scaled Impact" Difference Type, is adjusted if de-biasing is set to true and multiplied by 365 to yield the Annual Adjusted Scaled Impact.`}</div>
-                          {anyNullImpact ? (
-                            <div>
-                              {
-                                "N/A values occur if we were unable to compute scaled impact for that experiment, perhaps due to stale experiment data."
-                              }
-                            </div>
-                          ) : null}
-                        </>
-                      }
-                    />
-                  </th>
-                  <th>Annual Adj. Scaled Impact</th>
-                </tr>
-              </thead>
-              <tbody>{expRows}</tbody>
-              <tbody className="bg-light font-weight-bold">
-                <tr>
-                  <td>Total Impact</td>
-                  <td colSpan={4} />
-                  <td>
-                    {experimentImpactType !== "other" ? (
-                      <>
-                        {formatImpact(
-                          experimentImpactData.totalAdjustedImpact * 365,
-                          formatter,
-                          formatterOptions
-                        )}
-                        {experimentImpactData.totalAdjustedImpactVariance ? (
-                          <span className="plusminus ml-1">
-                            ±{" "}
-                            {formatter(
-                              Math.sqrt(
-                                experimentImpactData.totalAdjustedImpactVariance
-                              ) *
-                                1.96 *
-                                365,
-                              formatterOptions
-                            )}
-                          </span>
-                        ) : null}
-                      </>
-                    ) : (
-                      <span>N/A</span>
-                    )}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
     </div>
   );
 }
