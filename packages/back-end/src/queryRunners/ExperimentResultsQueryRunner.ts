@@ -66,6 +66,8 @@ export type ExperimentResultsQueryParams = {
 
 export const TRAFFIC_QUERY_NAME = "traffic";
 
+export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
+
 export const MAX_METRICS_PER_QUERY = 20;
 
 export function getFactMetricGroup(metric: FactMetricInterface) {
@@ -221,9 +223,9 @@ export const startExperimentResultQueries = async (
   const unitsTableFullName =
     useUnitsTable && !!integration.generateTablePath
       ? integration.generateTablePath(
-          `growthbook_tmp_units_${queryParentId}`,
+          `${UNITS_TABLE_PREFIX}_${queryParentId}`,
           settings.pipelineSettings?.writeDataset,
-          "",
+          settings.pipelineSettings?.writeDatabase,
           true
         )
       : "";
@@ -350,8 +352,9 @@ export const startExperimentResultQueries = async (
 
   await Promise.all([...singlePromises, ...groupPromises]);
 
+  let trafficQuery: QueryPointer | null = null;
   if (runTrafficQuery) {
-    const trafficQuery = await startQuery({
+    trafficQuery = await startQuery({
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
@@ -365,6 +368,26 @@ export const startExperimentResultQueries = async (
       queryType: "experimentTraffic",
     });
     queries.push(trafficQuery);
+  }
+
+  const dropUnitsTable =
+    integration.getSourceProperties().dropUnitsTable &&
+    settings.pipelineSettings?.unitsTableDeletion;
+  if (useUnitsTable && dropUnitsTable) {
+    const dropUnitsTableQuery = await startQuery({
+      name: `drop_${queryParentId}`,
+      query: integration.getDropUnitsTableQuery({
+        fullTablePath: unitsTableFullName,
+      }),
+      dependencies: [],
+      // all other queries in model must succeed or fail first
+      runAtEnd: true,
+      run: (query, setExternalId) =>
+        integration.runDropTableQuery(query, setExternalId),
+      process: (rows) => rows,
+      queryType: "experimentDropUnitsTable",
+    });
+    queries.push(dropUnitsTableQuery);
   }
 
   return queries;
