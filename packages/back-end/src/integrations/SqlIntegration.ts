@@ -3093,6 +3093,10 @@ export default abstract class SqlIntegration
       getEventFilterWhereClause,
     } = this.getSchemaFormatConfig(schemaFormat);
 
+    const whereClause = getEventFilterWhereClause(eventName).length
+      ? `WHERE ${getEventFilterWhereClause(eventName)}`
+      : "";
+
     const sqlQuery = `
       SELECT
         ${hasUserId ? `${userIdColumn}, ` : ""}
@@ -3100,7 +3104,7 @@ export default abstract class SqlIntegration
         ${timestampColumn} as timestamp
         ${type === "count" ? `, 1 as value` : ""}
         FROM ${getTrackedEventTablePath({ eventName, schema })}
-      WHERE ${getEventFilterWhereClause(eventName)}
+        ${whereClause}
 `;
     return format(sqlQuery, this.getFormatDialect());
   }
