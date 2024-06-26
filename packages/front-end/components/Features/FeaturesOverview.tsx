@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import {FeatureInterface, FeatureRule} from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -71,6 +71,9 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import CopyRuleModal from "@/components/Features/CopyRuleModal";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import Button from "@/components/Button";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -78,9 +81,6 @@ import { PrerequisiteAlerts } from "./PrerequisiteTargetingField";
 import PrerequisiteModal from "./PrerequisiteModal";
 import RequestReviewModal from "./RequestReviewModal";
 import JSONSchemaDescription from "./JSONSchemaDescription";
-import CopyRuleModal from "@/components/Features/CopyRuleModal";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import Button from "@/components/Button";
 
 export default function FeaturesOverview({
   baseFeature,
@@ -1054,10 +1054,14 @@ export default function FeaturesOverview({
                                 color=""
                                 className="dropdown-item"
                                 onClick={() => {
-                                  setCopyRuleModal({ environment: env, rules: getRules(feature, env) });
+                                  setCopyRuleModal({
+                                    environment: env,
+                                    rules: getRules(feature, env),
+                                  });
                                 }}
                               >
-                                Copy <strong>all</strong> rules to environment(s)
+                                Copy <strong>all</strong> rules to
+                                environment(s)
                               </Button>
                             </MoreMenu>
                           </span>
