@@ -72,8 +72,6 @@ import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CopyRuleModal from "@/components/Features/CopyRuleModal";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import Button from "@/components/Button";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -1044,28 +1042,6 @@ export default function FeaturesOverview({
                         display={e.id}
                         count={rules.length}
                         padding={false}
-                        action={
-                          <span
-                            className="position-relative d-inline-block"
-                            style={{ fontSize: 11, right: -8 }}
-                          >
-                            <MoreMenu>
-                              <Button
-                                color=""
-                                className="dropdown-item"
-                                onClick={() => {
-                                  setCopyRuleModal({
-                                    environment: env,
-                                    rules: getRules(feature, env),
-                                  });
-                                }}
-                              >
-                                Copy <strong>all</strong> rules to
-                                environment(s)
-                              </Button>
-                            </MoreMenu>
-                          </span>
-                        }
                       >
                         <div className="border mb-4 border-top-0">
                           {rules.length > 0 ? (
