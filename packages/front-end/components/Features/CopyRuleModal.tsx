@@ -65,7 +65,7 @@ export default function CopyRuleModal({
 
   return (
     <Modal
-      header={`Copy ${ruleTxt} to environment`}
+      header={`Copy ${ruleTxt} to environment(s)`}
       open={true}
       close={cancel}
       submit={submit}
