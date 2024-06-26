@@ -3171,6 +3171,10 @@ export default abstract class SqlIntegration
       filterColumns,
     } = this.getSchemaFormatConfig(schemaFormat);
 
+    const whereClause = getEventFilterWhereClause(eventName).length
+      ? `WHERE ${getEventFilterWhereClause(eventName)}`
+      : "";
+
     const sqlQuery = `
       SELECT
         ${userIdColumn} as user_id,
@@ -3178,7 +3182,7 @@ export default abstract class SqlIntegration
         ${timestampColumn} as timestamp,
         ${filterColumns}
         FROM ${getTrackedEventTablePath({ eventName, schema })}
-      WHERE ${getEventFilterWhereClause(eventName)}
+        ${whereClause}
 `;
     return format(sqlQuery, this.getFormatDialect());
   }
