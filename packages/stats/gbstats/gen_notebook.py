@@ -44,7 +44,7 @@ def create_notebook(data: DataForStatsEngine, params: NotebookParams):
     # parse settings
     analysis = data.analyses[0]  # only one analysis for notebooks
     var_id_map = get_var_id_map(analysis.var_ids)
-    gbstats_version: str = "0.7.0"
+    gbstats_version: str = "0.8.0"
 
     summary_cols = [
         "dimension",

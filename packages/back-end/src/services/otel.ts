@@ -17,7 +17,13 @@ const getHistogram = (name: string) => {
   return getMeter(name).createHistogram(name);
 };
 
-const normalizeJobName = (jobName: string) => jobName.replace(/\s/g, "_");
+// Datadog downcases tag values, so it is best to use snake case
+const normalizeJobName = (jobName: string) => {
+  return jobName
+    .replace(/\s/g, "_")
+    .replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, "$1_$2")
+    .toLowerCase();
+};
 
 export const trackJob = (
   jobNameRaw: string,
@@ -29,18 +35,21 @@ export const trackJob = (
 
   const jobName = normalizeJobName(jobNameRaw);
 
+  // DataDog downcases tag names, so converting to snakecase here
+  const attributes = { job_name: jobName };
+
   const startTime = new Date().getTime();
 
   // init metrics
   try {
-    counter = getUpDownCounter(`jobs.${jobName}.running_count`);
-    counter.add(1);
+    counter = getUpDownCounter(`jobs.running_count`);
+    counter.add(1, attributes);
     hasMetricsStarted = true;
   } catch (e) {
     logger.error(`error init'ing counter for job: ${jobName}: ${e}`);
   }
   try {
-    histogram = getHistogram(`jobs.${jobName}.duration`);
+    histogram = getHistogram(`jobs.duration`);
   } catch (e) {
     logger.error(`error init'ing histogram for job: ${jobName}: ${e}`);
   }
@@ -48,13 +57,13 @@ export const trackJob = (
   // wrap up metrics function, to be called at the end of the job
   const wrapUpMetrics = () => {
     try {
-      histogram?.record(new Date().getTime() - startTime);
+      histogram?.record(new Date().getTime() - startTime, attributes);
     } catch (e) {
       logger.error(`error recording duration metric for job: ${jobName}: ${e}`);
     }
     if (!hasMetricsStarted) return;
     try {
-      counter.add(-1);
+      counter.add(-1, attributes);
     } catch (e) {
       logger.error(`error decrementing count metric for job: ${jobName}: ${e}`);
     }
@@ -68,7 +77,7 @@ export const trackJob = (
     logger.error(`error running job: ${jobName}: ${e}`);
     try {
       wrapUpMetrics();
-      getCounter(`jobs.${jobName}.errors`).add(1);
+      getCounter(`jobs.errors`).add(1, attributes);
     } catch (e) {
       logger.error(`error wrapping up metrics: ${jobName}: ${e}`);
     }
@@ -78,7 +87,7 @@ export const trackJob = (
   // on successful job
   try {
     wrapUpMetrics();
-    getCounter(`jobs.${jobName}.successes`).add(1);
+    getCounter(`jobs.successes`).add(1, attributes);
   } catch (e) {
     logger.error(`error wrapping up metrics: ${jobName}: ${e}`);
   }

@@ -3,8 +3,10 @@ import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { ReactElement } from "react";
 import { includeExperimentInPayload } from "shared/util";
+import { FaExclamationTriangle } from "react-icons/fa";
 import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import ConditionDisplay from "./ConditionDisplay";
@@ -65,6 +67,8 @@ export default function ExperimentRefSummary({
 }) {
   const { variations } = rule;
   const type = feature.valueType;
+
+  const { namespaces } = useOrgSettings();
 
   if (!experiment) {
     return (
@@ -183,9 +187,19 @@ export default function ExperimentRefSummary({
             <>
               {" "}
               <span>in the namespace </span>
-              <span className="mr-1 border px-2 py-1 bg-light rounded">
-                {phase.namespace.name}
-              </span>
+              <Link href={`/namespaces`}>
+                <span className="mr-1 border px-2 py-1 bg-light rounded">
+                  {namespaces?.find((n) => n.name === phase.namespace.name)
+                    ?.label || (
+                    <span
+                      className="italic text-danger"
+                      title="this namespace is not found"
+                    >
+                      <FaExclamationTriangle /> {phase.namespace.name}
+                    </span>
+                  )}
+                </span>
+              </Link>
             </>
           )}
         </div>

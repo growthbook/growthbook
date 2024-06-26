@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { ago, datetime } from "shared/dates";
+import { date, datetime } from "shared/dates";
 import {
   featureHasEnvironment,
   filterEnvironmentsByFeature,
@@ -346,7 +346,7 @@ export default function FeaturesPage() {
                       ) : null}
                     </td>
                     <td title={datetime(feature.dateUpdated)}>
-                      {ago(feature.dateUpdated)}
+                      {date(feature.dateUpdated)}
                     </td>
                     {showGraphs && (
                       <td style={{ width: 170 }}>

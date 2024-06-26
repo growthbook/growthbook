@@ -1,21 +1,11 @@
 import React, { FC } from "react";
-import {
-  EventInterface,
-  NotificationEventName,
-  NotificationEventPayload,
-  NotificationEventResource,
-} from "back-end/types/event";
+import { EventInterface } from "back-end/types/event";
+import { NotificationEvent } from "back-end/src/events/notification-events";
 import { datetime } from "shared/dates";
 import { getEventText } from "./utils";
 
 type EventsTableRowProps = {
-  event: EventInterface<
-    NotificationEventPayload<
-      NotificationEventName,
-      NotificationEventResource,
-      unknown
-    >
-  >;
+  event: EventInterface<NotificationEvent>;
 };
 
 export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {

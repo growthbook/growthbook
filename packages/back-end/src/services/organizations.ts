@@ -993,7 +993,7 @@ export async function addMemberFromSSOConnection(
   return organization;
 }
 
-export async function findVerifiedOrgForNewUser(email: string) {
+export async function findVerifiedOrgsForNewUser(email: string) {
   const domain = email.toLowerCase().split("@")[1];
   const isFreeDomain = freeEmailDomains.includes(domain);
   if (isFreeDomain) {
@@ -1005,10 +1005,17 @@ export async function findVerifiedOrgForNewUser(email: string) {
     return null;
   }
 
-  // get the org with the most members
-  return organizations.reduce((prev, current) => {
-    return prev.members.length > current.members.length ? prev : current;
-  });
+  if (IS_CLOUD) {
+    // On cloud, return an array with only the single org with the most members, as the others are probably just "test" accounts.
+    return [
+      organizations.reduce((prev, current) => {
+        return prev.members.length > current.members.length ? prev : current;
+      }),
+    ];
+  } else {
+    // On multi-org self hosted sites, all orgs with the domain should be available to users to join not just the one with the most members
+    return organizations;
+  }
 }
 
 export async function expandOrgMembers(

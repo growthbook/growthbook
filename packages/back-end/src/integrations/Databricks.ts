@@ -1,3 +1,4 @@
+import { databricksCreateTableOptions } from "enterprise";
 import { DatabricksConnectionParams } from "../../types/integrations/databricks";
 import { runDatabricksQuery } from "../services/databricks";
 import { decryptDataSourceParams } from "../services/datasource";
@@ -12,6 +13,17 @@ export default class Databricks extends SqlIntegration {
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<DatabricksConnectionParams>(
       encryptedParams
+    );
+  }
+  isWritingTablesSupported(): boolean {
+    return true;
+  }
+  dropUnitsTable(): boolean {
+    return true;
+  }
+  createUnitsTableOptions() {
+    return databricksCreateTableOptions(
+      this.datasource.settings.pipelineSettings ?? {}
     );
   }
   getFormatDialect(): FormatDialect {

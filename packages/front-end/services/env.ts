@@ -5,7 +5,8 @@ const env: EnvironmentInitValue = {
   telemetry: "enable",
   cloud: false,
   isMultiOrg: false,
-  allowSelfOrgCreation: true,
+  allowSelfOrgCreation: false,
+  showMultiOrgSelfSelector: true,
   appOrigin: "",
   apiHost: "",
   s3domain: "",
@@ -56,6 +57,9 @@ export function isMultiOrg(): boolean {
 }
 export function allowSelfOrgCreation(): boolean {
   return env.allowSelfOrgCreation;
+}
+export function showMultiOrgSelfSelector(): boolean {
+  return env.showMultiOrgSelfSelector;
 }
 export function isTelemetryEnabled(): boolean {
   return env.telemetry === "enable";

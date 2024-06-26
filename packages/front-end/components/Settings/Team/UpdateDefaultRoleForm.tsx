@@ -2,16 +2,22 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import Button from "@/components/Button";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, { GroupedValue } from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 
 export default function UpdateDefaultRoleForm() {
   const { refreshOrganization, organization, roles } = useUser();
   const [defaultRoleError, setDefaultRoleError] = useState<string | null>(null);
+  const deactivatedRoles = organization.deactivatedRoles || [];
 
   const { apiCall } = useAuth();
-  const roleOptions = [...roles];
+  let roleOptions = [...roles];
+
+  // if the org has custom-roles feature and has deactivated roles, remove those from the roleOptions
+  if (deactivatedRoles.length) {
+    roleOptions = roleOptions.filter((r) => !deactivatedRoles.includes(r.id));
+  }
 
   const standardOptions: { label: string; value: string }[] = [];
   const customOptions: { label: string; value: string }[] = [];
@@ -24,16 +30,15 @@ export default function UpdateDefaultRoleForm() {
     }
   });
 
-  const groupedOptions = [
-    {
-      label: "Standard",
-      options: standardOptions,
-    },
-    {
-      label: "Custom",
-      options: customOptions,
-    },
-  ];
+  const groupedOptions: GroupedValue[] = [];
+
+  if (standardOptions.length) {
+    groupedOptions.push({ label: "Standard", options: standardOptions });
+  }
+
+  if (customOptions.length) {
+    groupedOptions.push({ label: "Custom", options: customOptions });
+  }
 
   const form = useForm({
     defaultValues: {
@@ -60,9 +65,16 @@ export default function UpdateDefaultRoleForm() {
     }
   });
 
-  const formatGroupLabel = (data) => (
-    <div className={data.label === "Custom" ? "border-bottom my-3" : ""}></div>
-  );
+  const formatGroupLabel = (data) => {
+    // if we don't have both Standard & Custom options, don't return anything
+    if (groupedOptions.length < 2) {
+      return;
+    }
+
+    return (
+      <div className={data.label === "Custom" ? "border-top my-1" : ""}></div>
+    );
+  };
 
   return (
     <div className="bg-white p-3 border mt-5 mb-5">
