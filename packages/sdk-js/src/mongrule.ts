@@ -139,12 +139,25 @@ function elemMatch(actual: any, expected: any, idLists: IdLists) {
   return false;
 }
 
-function isIn(actual: any, expected: Array<any>): boolean {
-  // Do an intersection is attribute is an array
-  if (Array.isArray(actual)) {
-    return actual.some((el) => expected.includes(el));
+function setOrArrayContains(
+  value: any,
+  collection: Array<any> | Set<any>
+): boolean {
+  if (collection instanceof Set) {
+    return collection.has(value);
   }
-  return expected.includes(actual);
+  if (Array.isArray(collection)) {
+    return collection.includes(value);
+  }
+  return false;
+}
+
+function isIn(actual: any, expected: Array<any> | Set<any>): boolean {
+  // Do an intersection if attribute is an array
+  if (Array.isArray(actual)) {
+    return actual.some((el) => setOrArrayContains(el, expected));
+  }
+  return setOrArrayContains(actual, expected);
 }
 
 // Evaluate a single operator condition
@@ -186,9 +199,9 @@ function evalOperatorCondition(
       if (!Array.isArray(expected)) return false;
       return isIn(actual, expected);
     case "$inGroup":
-      return isIn(actual, idLists[expected] || []);
+      return isIn(actual, idLists[expected] || new Set());
     case "$notInGroup":
-      return !isIn(actual, idLists[expected] || []);
+      return !isIn(actual, idLists[expected] || new Set());
     case "$nin":
       if (!Array.isArray(expected)) return false;
       return !isIn(actual, expected);

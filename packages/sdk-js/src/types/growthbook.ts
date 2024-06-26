@@ -437,4 +437,5 @@ export interface StickyAssignmentsDocument {
   assignments: StickyAssignments;
 }
 
-export type IdLists = Record<string, (string | number)[]>;
+type IdCollection = (string | number)[] | Set<string | number>;
+export type IdLists = Record<string, IdCollection>;

@@ -205,7 +205,10 @@ export class GrowthBook<
       this._updateAllAutoExperiments();
     }
     if (data.idLists) {
-      this._ctx.idLists = data.idLists;
+      this._ctx.idLists = {};
+      Object.entries(data.idLists).forEach(([key, valueList]) => {
+        this._ctx.idLists![key] = new Set(valueList);
+      });
     }
     this.ready = true;
     this._render();
