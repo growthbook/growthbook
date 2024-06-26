@@ -429,7 +429,7 @@ export default function SDKConnectionPage() {
 
             <ConnectionStatus
               connected={connection.proxy.connected}
-              canRefresh={canUpdate && connection.proxy.host}
+              canRefresh={canUpdate && !!connection.proxy.host}
               error={!connection.proxy.connected}
               errorTxt={connection.proxy.error}
               refresh={
