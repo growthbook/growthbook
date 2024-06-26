@@ -2,11 +2,11 @@ import { ApiExperiment, ApiFeature } from "../../types/openapi";
 import { ExperimentWarningNotificationPayload } from "../types/ExperimentNotification";
 import {
   NotificationEventPayload,
-  OptionalNotificationEventNames,
-  AuditEvents,
-  AuditEventResource,
+  OptionalNotificationEventNameTemplate,
+  NotificationEventNameTemplate,
 } from "./base-types";
 import { UserLoginAuditableProperties } from "./event-types";
+import { AuditEventResource } from "../util/legacyAuditBase";
 
 // region User
 
@@ -114,19 +114,23 @@ type DefinedEventTemplate<R> = R extends DefinedNotificationEvent
   ? R["event"]
   : never;
 
-type DefinedEvent = DefinedEventTemplate<DefinedNotificationEvent>;
+export type DefinedEvent = DefinedEventTemplate<DefinedNotificationEvent>;
 
 type AuditResourceEventTemplate<R, E> = R extends AuditEventResource
-  ? E extends OptionalNotificationEventNames<R>
-    ? // Here we exluded events already defined.
-      E extends DefinedEvent
-      ? never
-      : NotificationEventPayload<R, E, undefined>
+  ? E extends OptionalNotificationEventNameTemplate<R>
+    ? NotificationEventPayload<R, E, undefined>
     : never
   : never;
 
+type UndefinedEventTemplate<E> = E extends DefinedEvent ? never : E;
+
+type UndefinedResourceEventTemplate<R extends AuditEventResource> =
+  UndefinedEventTemplate<NotificationEventNameTemplate<R>>;
+
+type UndefinedEvents = UndefinedResourceEventTemplate<AuditEventResource>;
+
 type AuditEventTemplate<R> = R extends AuditEventResource
-  ? AuditResourceEventTemplate<R, AuditEvents[R][number]>
+  ? AuditResourceEventTemplate<R, UndefinedResourceEventTemplate<R>>
   : never;
 
 export type AuditNotificationEvent = AuditEventTemplate<AuditEventResource>;
@@ -134,6 +138,4 @@ export type AuditNotificationEvent = AuditEventTemplate<AuditEventResource>;
 /**
  * All supported event types in the database
  */
-type NotificationEvent =
-  | DefinedNotificationEvent
-  | AuditNotificationEvent
+type NotificationEvent = DefinedNotificationEvent | AuditNotificationEvent;

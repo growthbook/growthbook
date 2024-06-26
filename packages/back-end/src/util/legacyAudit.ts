@@ -1,7 +1,19 @@
-import { AuditInterface } from "../../types/audit";
-import { AuditNotificationEvent } from "../events/notification-events";
+import {
+  AuditUserLoggedIn,
+  AuditUserApiKey,
+  AuditInterface,
+} from "../../types/audit";
 import { createEvent } from "../models/EventModel";
-import { toAuditEventMappings } from "../events/base-types";
+import { EventAuditUser } from "../events/event-types";
+import { toAuditEventMappings } from "./legacyAuditBase";
+
+const wrapUser = (
+  user: AuditUserLoggedIn | AuditUserApiKey
+): EventAuditUser => {
+  if ("name" in user) return { type: "dashboard", ...user };
+
+  return { type: "api_key", ...user };
+};
 
 export async function insertAudit(
   data: Omit<AuditInterface, "id">
@@ -12,15 +24,23 @@ export async function insertAudit(
     details,
     organization: organizationId,
     event,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    entity,
+    user,
     ...payload
   } = data;
-  const auditData = { reason, parent, details };
 
   const savedObject = await createEvent(organizationId, {
     ...toAuditEventMappings[event],
     ...payload,
-    auditData,
-  } as AuditNotificationEvent);
+    data: undefined,
+    projects: [] as string[],
+    tags: [] as string[],
+    environments: [] as string[],
+    containsSecrets: false,
+    user: wrapUser(user),
+    auditData: { reason, parent, details },
+  });
 
   if (!savedObject) throw new Error("Error while saving audit!");
 

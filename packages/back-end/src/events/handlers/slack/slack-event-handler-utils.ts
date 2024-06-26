@@ -31,8 +31,6 @@ export const getSlackMessageForNotificationEvent = async (
   event: NotificationEvent,
   eventId: string
 ): Promise<SlackMessage | null> => {
-  let invalidEvent: never;
-
   switch (event.event) {
     case "user.login":
       return null;
@@ -65,8 +63,7 @@ export const getSlackMessageForNotificationEvent = async (
       return buildSlackMessageForWebhookTestEvent(event.data.webhookId);
 
     default:
-      invalidEvent = event;
-      throw `Invalid event: ${invalidEvent}`;
+      throw `Unsupported event: ${event}`;
   }
 };
 

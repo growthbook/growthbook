@@ -39,17 +39,18 @@ export const entityEvents = {
   "sdk-connection": ["create", "update", "delete"],
   user: ["create", "update", "delete", "invite"],
   organization: ["create", "update", "delete"],
-  savedGroup: ["create", "delete", "update"],
-  archetype: ["create", "delete", "update"],
+  savedGroup: ["created", "deleted", "updated"],
+  archetype: ["created", "deleted", "updated"],
   team: ["create", "delete", "update"],
 } as const;
 
 export type EntityEvents = typeof entityEvents;
 export const EntityType = Object.keys(entityEvents) as [keyof EntityEvents];
 export type EntityType = typeof EntityType[number];
+export type EntityEventTemplate<E> = E extends EntityType ? EntityEvents[E][number] : never; 
 
 export type EventTypes<K> = K extends EntityType
-  ? `${K}.${EntityEvents[K][number]}`
+  ? `${K}.${EntityEventTemplate<K>}`
   : never;
 
 export type EventType = EventTypes<EntityType>;

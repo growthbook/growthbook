@@ -1,5 +1,6 @@
-import { EntityType, EntityEvents } from "../src/types/Audit";
+import { EntityType, EventTypes } from "../src/types/Audit";
 export { EventType } from "../src/types/Audit";
+import { LegacyAuditInterfaceTemplate } from "../src/util/legacyAuditBase";
 
 export interface AuditUserLoggedIn {
   id: string;
@@ -11,25 +12,30 @@ export interface AuditUserApiKey {
   apiKey: string;
 }
 
-export type AuditInterfaceTemplate<Entity> = Entity extends EntityType
-  ? {
-      id: string;
-      organization: string;
-      user: AuditUserLoggedIn | AuditUserApiKey;
-      event: `${Entity}.${EntityEvents[Entity][number]}`;
-      entity: {
-        object: Entity;
+export type AuditInterfaceTemplate<
+  Entity,
+  Event = EventTypes<Entity>,
+> = Entity extends EntityType
+  ? Event extends EventTypes<Entity>
+    ? LegacyAuditInterfaceTemplate<{
         id: string;
-        name?: string;
-      };
-      parent?: {
-        object: Entity;
-        id: string;
-      };
-      reason?: string;
-      details?: string;
-      dateCreated: Date;
-    }
+        organization: string;
+        user: AuditUserLoggedIn | AuditUserApiKey;
+        event: Event;
+        entity: {
+          object: Entity;
+          id: string;
+          name?: string;
+        };
+        parent?: {
+          object: Entity;
+          id: string;
+        };
+        reason?: string;
+        details?: string;
+        dateCreated: Date;
+      }>
+    : never
   : never;
 
 export type AuditInterface = AuditInterfaceTemplate<EntityType>;

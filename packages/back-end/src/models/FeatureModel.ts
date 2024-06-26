@@ -18,6 +18,7 @@ import {
   getSavedGroupMap,
   refreshSDKPayloadCache,
 } from "../services/features";
+import { auditDetailsCreate } from "../services/audit";
 import { upgradeFeatureInterface } from "../util/migrations";
 import { ReqContext } from "../../types/organization";
 import {
@@ -418,6 +419,9 @@ async function logFeatureCreatedEvent(
     user: context.auditUser,
     data: {
       current: apiFeature,
+    },
+    auditData: {
+      details: auditDetailsCreate(feature),
     },
     projects: [apiFeature.project],
     tags: apiFeature.tags,

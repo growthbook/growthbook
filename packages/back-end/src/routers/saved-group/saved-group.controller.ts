@@ -77,7 +77,7 @@ export const postSavedGroup = async (
   });
 
   await req.audit({
-    event: "savedGroup.create",
+    event: "savedGroup.created",
     entity: {
       object: "savedGroup",
       id: savedGroup.id,
@@ -175,7 +175,7 @@ export const putSavedGroup = async (
   const updatedSavedGroup = { ...savedGroup, ...changes };
 
   await req.audit({
-    event: "savedGroup.update",
+    event: "savedGroup.updated",
     entity: {
       object: "savedGroup",
       id: updatedSavedGroup.id,
@@ -255,7 +255,7 @@ export const deleteSavedGroup = async (
   await deleteSavedGroupById(id, org.id);
 
   await req.audit({
-    event: "savedGroup.delete",
+    event: "savedGroup.deleted",
     entity: {
       object: "savedGroup",
       id: id,
