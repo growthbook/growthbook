@@ -9,7 +9,10 @@ const teamSchema = new mongoose.Schema({
     unique: true,
   },
   name: String,
-  organization: String,
+  organization: {
+    type: String,
+    index: true,
+  },
   dateCreated: Date,
   dateUpdated: Date,
   createdBy: String,

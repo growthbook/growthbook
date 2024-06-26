@@ -473,10 +473,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         setSpecialOrg,
       }}
     >
-      <>
-        {children}
-        {authComponent}
-      </>
+      <>{authComponent ? authComponent : children}</>
     </AuthContext.Provider>
   );
 };

@@ -28,6 +28,7 @@ import {
   getExperimentById,
   getExperimentByTrackingKey,
   getPastExperimentsByDatasource,
+  hasArchivedExperiments,
   updateExperiment,
 } from "../models/ExperimentModel";
 import {
@@ -100,6 +101,7 @@ export async function getExperiments(
     unknown,
     {
       project?: string;
+      includeArchived?: boolean;
     }
   >,
   res: Response
@@ -110,11 +112,21 @@ export async function getExperiments(
     project = req.query.project;
   }
 
-  const experiments = await getAllExperiments(context, project);
+  const includeArchived = !!req.query?.includeArchived;
+
+  const experiments = await getAllExperiments(context, {
+    project,
+    includeArchived,
+  });
+
+  const hasArchived = includeArchived
+    ? experiments.some((e) => e.archived)
+    : await hasArchivedExperiments(context, project);
 
   res.status(200).json({
     status: 200,
     experiments,
+    hasArchived,
   });
 }
 
@@ -130,7 +142,10 @@ export async function getExperimentsFrequencyMonth(
 
   const allProjects = await context.models.projects.getAll();
   const { num } = req.params;
-  const experiments = await getAllExperiments(context, project);
+  const experiments = await getAllExperiments(context, {
+    project,
+    includeArchived: true,
+  });
 
   const allData: { date: string; numExp: number }[] = [];
 

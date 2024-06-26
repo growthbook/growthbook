@@ -163,14 +163,23 @@ export function findGaps(
   return gaps;
 }
 
-export function useFeaturesList(withProject = true) {
+export function useFeaturesList(withProject = true, includeArchived = false) {
   const { project } = useDefinitions();
 
-  const url = withProject ? `/feature?project=${project || ""}` : "/feature";
+  const qs = new URLSearchParams();
+  if (withProject) {
+    qs.set("project", project);
+  }
+  if (includeArchived) {
+    qs.set("includeArchived", "true");
+  }
+
+  const url = `/feature?${qs.toString()}`;
 
   const { data, error, mutate } = useApi<{
     features: FeatureInterface[];
     linkedExperiments: ExperimentInterfaceStringDates[];
+    hasArchived: boolean;
   }>(url);
 
   return {
@@ -179,6 +188,7 @@ export function useFeaturesList(withProject = true) {
     loading: !data,
     error,
     mutate,
+    hasArchived: data?.hasArchived || false,
   };
 }
 

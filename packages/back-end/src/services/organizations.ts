@@ -862,7 +862,7 @@ export async function getExperimentOverrides(
   context: ReqContext | ApiReqContext,
   project?: string
 ) {
-  const experiments = await getAllExperiments(context, project);
+  const experiments = await getAllExperiments(context, { project });
   const overrides: Record<string, ExperimentOverride> = {};
   const expIdMapping: Record<string, { trackingKey: string }> = {};
 
