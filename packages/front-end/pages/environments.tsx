@@ -41,10 +41,7 @@ const EnvironmentsPage: FC = () => {
   const [showConnections, setShowConnections] = useState<number | null>(null);
 
   const { refreshOrganization } = useUser();
-  // const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
-  // See if the user has access to a random environment name that doesn't exist yet
-  // If yes, then they can create new environments
   const canCreate = permissionsUtil.canCreateOrUpdateEnvironment({
     id: "",
     projects: [project],

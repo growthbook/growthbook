@@ -5,7 +5,6 @@ import MemberList from "@/components/Settings/Team/MemberList";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
 import SSOSettings from "@/components/Settings/SSOSettings";
 import { useUser } from "@/services/UserContext";
-import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
@@ -17,6 +16,7 @@ import VerifyingEmailModal from "@/components/Settings/UpgradeModal/VerifyingEma
 import PleaseVerifyEmailModal from "@/components/Settings/UpgradeModal/PleaseVerifyEmailModal";
 import LicenseSuccessModal from "@/components/Settings/UpgradeModal/LicenseSuccessModal";
 import track from "@/services/track";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export const MembersTabView: FC = () => {
   const {
@@ -30,8 +30,7 @@ export const MembersTabView: FC = () => {
 
   const [currentProject, setCurrentProject] = useState(project || "");
   const [error, setError] = useState("");
-
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const router = useRouter();
   const { apiCall } = useAuth();
@@ -65,7 +64,7 @@ export const MembersTabView: FC = () => {
 
   const ssoConnection = enterpriseSSO;
 
-  if (!permissions.manageTeam) {
+  if (!permissionsUtil.canManageTeam()) {
     return (
       <div className="container pagecontents">
         <div className="alert alert-danger">

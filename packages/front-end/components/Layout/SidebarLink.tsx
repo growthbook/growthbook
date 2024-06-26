@@ -5,13 +5,12 @@ import { useRouter } from "next/router";
 import clsx from "clsx";
 import { FiChevronRight } from "react-icons/fi";
 import { GrowthBook, useGrowthBook } from "@growthbook/growthbook-react";
-import { GlobalPermission } from "@back-end/types/organization";
 import { Permissions } from "shared/permissions";
 import { AppFeatures } from "@/types/app-features";
 import { isCloud, isMultiOrg } from "@/services/env";
-import { PermissionFunctions, useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
 import styles from "./SidebarLink.module.scss";
 
 export type SidebarLinkProps = {
@@ -26,7 +25,6 @@ export type SidebarLinkProps = {
   autoClose?: boolean;
   filter?: (props: {
     permissionsUtils: Permissions;
-    permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
     superAdmin: boolean;
     isCloud: boolean;
     isMultiOrg: boolean;
@@ -38,7 +36,7 @@ export type SidebarLinkProps = {
 };
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
-  const { permissions, superAdmin } = useUser();
+  const { superAdmin } = useUser();
   const { project } = useDefinitions();
   const router = useRouter();
 
@@ -60,7 +58,6 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
 
   const filterProps = {
     permissionsUtils,
-    permissions,
     superAdmin: !!superAdmin,
     isCloud: isCloud(),
     isMultiOrg: isMultiOrg(),

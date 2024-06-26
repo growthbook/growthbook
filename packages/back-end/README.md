@@ -13,37 +13,59 @@ More coming soon!
 
 Users in GrowthBook have roles which grant them permissions to do various actions. Any endpoint which creates, edits, or deletes should check permissions as part of request handler.
 
+A role is a collection of policies, where the policies contain an array of permissions.
+
 Permissions have one of 3 "scopes":
 
 - Environment (e.g. `publishFeatures`)
 - Project (e.g. `createIdea`)
 - Global (e.g. `manageTeam`)
 
-There is a `req.checkPermissions` function you can use in your request handlers. It will throw an Exception if the current user does not have access.
+We have created a `PermissionsClass` within the shared folder that is instantiated on each request within the `context` object. This class contains simple helper methods to determine if the user has permission to perform a certain action. Examples of the three different scopes are below:
 
 ```ts
 // Global-scoped permission
-req.checkPermissions("manageTeam");
+context.permissions.canManageTeam();
 
 // Project-scoped permission
-req.checkPermissions("createIdea", "my-project");
+context.permissions.canCreateIdea({ project: "my-project" });
 
 // Environment-scoped permission
-req.checkPermissions("publishFeatures", "my-project", ["dev"]);
+context.permissions.canPublishFeature(feature, ["dev"]);
 ```
 
-Typescript will warn you if you use the wrong arguments for a permission (e.g. `req.checkPermissions("publishFeatures")` will be an error since you forgot to pass in project and environments).
+These helper methods return a boolean, but do not automatically throw an error, as we use these same methods on both the front end and back end. If you need to throw an error, the `PermissionsClass` has a helper for that.
 
-For more complex actions that do multiple things, you may need to call `req.checkPermissions` multiple times.
+```ts
+// Check permission and throw error
+if (!context.permissions.canManageTeam()) {
+  context.permissions.throwPermissionError();
+}
+```
+
+Typescript will warn you if you use the wrong arguments for a permission (e.g. `context.permissions.canPublishFeature()` will be an error since you forgot to pass in project and environments).
+
+For more complex actions that do multiple things, you may need to call multiple helper methods.
 
 ### Adding new permissions
 
-If you need to add new permissions, you'll need to update the `src/util/organization.util.ts` file in a couple places:
+If you need to add a new permission, you'll first need to update the `shared/src/permissions/permissions.constants.ts` file in a couple of places:
 
 - Add your permission to either the `GLOBAL_PERMISSIONS`, `PROJECT_SCOPED_PERMISSIONS`, or `ENV_SCOPED_PERMISSIONS` constant
-- In the `getRoles` function, add the permission to all roles that should have access to it
 
-You'll also need to update the front-end `services/UserContext.tsx` and add it to the `DEFAULT_PERMISSIONS` constant.
+- You'll then need to determine if this new permission needs to be added to any existing policies. If so, you'll need to add the permission to any policies in the `POLICY_PERMISSION_MAP`, and also update the `POLICY_METADATA_MAP`. This metadata map is used on the front-end so organizations know what a policy will enable a user to do.
+
+- If this new permission makes sense to be an entirely new policy, you'll first need to add a policy to the `POLICIES` array before also adding records to the `POLICY_PERMISSION_MAP` and `POLICY_METADATA_MAP`. You'll also need to add the policy to an existing `POLICY_DISPLAY_GROUPS` record, or add an entirely new group.
+
+- And finally, you'll need to determine if this new permission is a `READ_ONLY_TYPE`. These permissions grant the user permission if they have it globally, or if they have it in atleast 1 project role.
+
+- If you created a new policy, take a look through our `DEFAULT_ROLES` and add the policy to any role where it makes sense.
+
+Once you've done that, you'll want to create helpers within `shared/src/permissions`. For most permissions, you'll want to create 3 helpers, `canCreate`, `canUpdate`, and `canDelete`.
+
+In the `permissionClass`, you'll see some base methods that you can use that contain all of the business logic (e.g `checkGlobalPermission`, `checkProjectFilterPermission`, and `checkEnvFilterPermission`). These can be used depending on the scope of the permission.
+
+Certain `update` calls require using a different base method that explores if the user has permission to update both the existing resource, and any changes made to the resource.
 
 ## Free vs Commercial Features
 

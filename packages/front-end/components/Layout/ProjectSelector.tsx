@@ -6,9 +6,9 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import { useSearch } from "@/services/search";
-import usePermissions from "@/hooks/usePermissions";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import DropdownLink from "@/components/Dropdown/DropdownLink";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LetterAvatar from "./LetterAvatar";
 
 const demoBadge = {
@@ -87,7 +87,11 @@ export default function ProjectSelector() {
   const { projects, project, getProjectById, setProject } = useDefinitions();
   const { orgId } = useAuth();
   const current = getProjectById(project);
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
+
+  const hasGlobalReadPermission = permissionsUtil.canReadSingleProjectResource(
+    ""
+  );
 
   const currentProjectIsDemoProject = isDemoDatasourceProject({
     projectId: current?.id || "",
@@ -102,15 +106,15 @@ export default function ProjectSelector() {
   });
 
   useEffect(() => {
-    if (projects?.length === 1 && !permissions.check("readData", "")) {
+    if (projects?.length === 1 && !hasGlobalReadPermission) {
       setProject(projects[0].id);
     }
-  }, [projects, permissions, setProject]);
+  }, [projects, setProject, hasGlobalReadPermission]);
 
   if (!projects.length) return null;
 
   // If globalRole doesn't give readAccess & user can only access 1 project, don't show dropdown
-  if (projects.length === 1 && !permissions.check("readData", "")) {
+  if (projects.length === 1 && !hasGlobalReadPermission) {
     return (
       <li
         style={{

@@ -1,6 +1,4 @@
 import {
-  Permission,
-  UserPermissions,
   PermissionsObject,
   OrganizationInterface,
   Role,
@@ -12,7 +10,6 @@ import {
   ENV_SCOPED_PERMISSIONS,
   POLICY_PERMISSION_MAP,
   Policy,
-  READ_ONLY_PERMISSIONS,
   RESERVED_ROLE_IDS,
 } from "./permissions.constants";
 
@@ -104,69 +101,6 @@ export function getDefaultRole(
     limitAccessByEnvironment: false,
   };
 }
-
-export function hasPermission(
-  userPermissions: UserPermissions | undefined,
-  permissionToCheck: Permission,
-  project?: string | undefined,
-  envs?: string[]
-): boolean {
-  const usersPermissionsToCheck =
-    (project && userPermissions?.projects[project]) || userPermissions?.global;
-
-  if (
-    !usersPermissionsToCheck ||
-    !usersPermissionsToCheck.permissions[permissionToCheck]
-  ) {
-    return false;
-  }
-
-  if (!envs || !usersPermissionsToCheck.limitAccessByEnvironment) {
-    return true;
-  }
-  return envs.every((env) =>
-    usersPermissionsToCheck.environments.includes(env)
-  );
-}
-
-export const userHasPermission = (
-  superAdmin: boolean,
-  userPermissions: UserPermissions,
-  permission: Permission,
-  project?: string | (string | undefined)[] | undefined,
-  envs?: string[]
-): boolean => {
-  if (superAdmin) {
-    return true;
-  }
-
-  let checkProjects: (string | undefined)[];
-  if (Array.isArray(project)) {
-    checkProjects = project.length > 0 ? project : [undefined];
-  } else {
-    checkProjects = [project];
-  }
-
-  if (READ_ONLY_PERMISSIONS.includes(permission)) {
-    if (
-      checkProjects.length === 1 &&
-      checkProjects[0] === undefined &&
-      Object.keys(userPermissions.projects).length
-    ) {
-      // add all of the projects the user has project-level roles for
-      checkProjects.push(...Object.keys(userPermissions.projects));
-    }
-    // Read only type permissions grant permission if the user has the permission globally or in atleast 1 project
-    return checkProjects.some((p) =>
-      hasPermission(userPermissions, permission, p, envs)
-    );
-  } else {
-    // All other permissions require the user to have the permission globally or the user must have the permission in every project they have specific permissions for
-    return checkProjects.every((p) =>
-      hasPermission(userPermissions, permission, p, envs)
-    );
-  }
-};
 
 export function roleSupportsEnvLimit(
   roleId: string,
