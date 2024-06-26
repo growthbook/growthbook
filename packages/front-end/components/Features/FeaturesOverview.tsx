@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
-import { FeatureInterface } from "back-end/types/feature";
+import {FeatureInterface, FeatureRule} from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   FaDraftingCompass,
   FaExchangeAlt,
@@ -78,6 +78,9 @@ import { PrerequisiteAlerts } from "./PrerequisiteTargetingField";
 import PrerequisiteModal from "./PrerequisiteModal";
 import RequestReviewModal from "./RequestReviewModal";
 import JSONSchemaDescription from "./JSONSchemaDescription";
+import CopyRuleModal from "@/components/Features/CopyRuleModal";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import Button from "@/components/Button";
 
 export default function FeaturesOverview({
   baseFeature,
@@ -142,6 +145,10 @@ export default function FeaturesOverview({
     i: number;
     environment: string;
     defaultType?: string;
+  } | null>(null);
+  const [copyRuleModal, setCopyRuleModal] = useState<{
+    environment: string;
+    rules: FeatureRule[];
   } | null>(null);
   const [editCommentModel, setEditCommentModal] = useState(false);
 
@@ -1037,6 +1044,24 @@ export default function FeaturesOverview({
                         display={e.id}
                         count={rules.length}
                         padding={false}
+                        action={
+                          <span
+                            className="position-relative d-inline-block"
+                            style={{ fontSize: 11, right: -8 }}
+                          >
+                            <MoreMenu>
+                              <Button
+                                color=""
+                                className="dropdown-item"
+                                onClick={() => {
+                                  setCopyRuleModal({ environment: env, rules: getRules(feature, env) });
+                                }}
+                              >
+                                Copy <strong>all</strong> rules to environment(s)
+                              </Button>
+                            </MoreMenu>
+                          </span>
+                        }
                       >
                         <div className="border mb-4 border-top-0">
                           {rules.length > 0 ? (
@@ -1045,6 +1070,7 @@ export default function FeaturesOverview({
                               feature={feature}
                               mutate={mutate}
                               setRuleModal={setRuleModal}
+                              setCopyRuleModal={setCopyRuleModal}
                               version={currentVersion}
                               setVersion={setVersion}
                               locked={isLocked}
@@ -1234,6 +1260,17 @@ export default function FeaturesOverview({
             version={currentVersion}
             setVersion={setVersion}
             revisions={revisions}
+          />
+        )}
+        {copyRuleModal !== null && (
+          <CopyRuleModal
+            feature={feature}
+            environment={copyRuleModal.environment}
+            version={currentVersion}
+            setVersion={setVersion}
+            rules={copyRuleModal.rules}
+            cancel={() => setCopyRuleModal(null)}
+            mutate={mutate}
           />
         )}
         {editProjectModal && (

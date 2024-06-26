@@ -11,7 +11,7 @@ import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import { getRules, useEnvironments } from "@/services/features";
+import { getRules } from "@/services/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Button";
@@ -34,6 +34,10 @@ interface SortableProps {
   environment: string;
   mutate: () => void;
   setRuleModal: (args: { environment: string; i: number }) => void;
+  setCopyRuleModal: (args: {
+    environment: string;
+    rules: FeatureRule[];
+  }) => void;
   unreachable?: boolean;
   version: number;
   setVersion: (version: number) => void;
@@ -55,6 +59,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       feature,
       environment,
       setRuleModal,
+      setCopyRuleModal,
       mutate,
       handle,
       unreachable,
@@ -75,7 +80,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rule.type === "experiment-ref" && experimentsMap.get(rule.experimentId);
 
     const rules = getRules(feature, environment);
-    const environments = useEnvironments();
     const permissionsUtil = usePermissionsUtil();
 
     const canEdit =
@@ -214,36 +218,15 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 >
                   {rule.enabled ? "Disable" : "Enable"}
                 </Button>
-                {environments
-                  .filter((e) => e.id !== environment)
-                  .map((en) => (
-                    <Button
-                      key={en.id}
-                      color=""
-                      className="dropdown-item"
-                      onClick={async () => {
-                        const res = await apiCall<{ version: number }>(
-                          `/feature/${feature.id}/${version}/rule`,
-                          {
-                            method: "POST",
-                            body: JSON.stringify({
-                              environment: en.id,
-                              rule: { ...rule, id: "" },
-                            }),
-                          }
-                        );
-                        track("Clone Feature Rule", {
-                          ruleIndex: i,
-                          environment,
-                          type: rule.type,
-                        });
-                        await mutate();
-                        res.version && setVersion(res.version);
-                      }}
-                    >
-                      Copy to {en.id}
-                    </Button>
-                  ))}
+                <Button
+                  color=""
+                  className="dropdown-item"
+                  onClick={() => {
+                    setCopyRuleModal({ environment, rules: [rule] });
+                  }}
+                >
+                  Copy rule to environment(s)
+                </Button>
                 <DeleteButton
                   className="dropdown-item"
                   displayName="Rule"
