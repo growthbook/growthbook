@@ -2996,7 +2996,7 @@ export default abstract class SqlIntegration
             )}' AND'${formatDate(end, "yyyy-MM-dd")}'`,
           getAdditionalEvents: () => [],
           getEventFilterWhereClause: (eventName: string) =>
-            `WHERE event_name = '${eventName}'`,
+            `event_name = '${eventName}'`,
         };
       }
       case "ga4": {
@@ -3027,10 +3027,13 @@ export default abstract class SqlIntegration
             )}' AND 'intraday_${formatDate(end, "yyyyMMdd")}'))`,
           getAdditionalEvents: () => [],
           getEventFilterWhereClause: (eventName: string) =>
-            `WHERE event_name = '${eventName}'`,
+            `((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
+            (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}')) 
+            AND event_name = '${eventName}'`,
         };
       }
       case "rudderstack":
+      case "segment":
         return {
           trackedEventTableName: "tracks",
           eventColumn: "event",
@@ -3072,7 +3075,6 @@ export default abstract class SqlIntegration
           ],
           getEventFilterWhereClause: () => "",
         };
-      case "segment":
         return {
           trackedEventTableName: "tracks",
           eventColumn: "event",
@@ -3141,7 +3143,7 @@ export default abstract class SqlIntegration
         ${timestampColumn} as timestamp
         ${type === "count" ? `, 1 as value` : ""}
         FROM ${getTrackedEventTablePath({ eventName, schema })}
-      ${getEventFilterWhereClause(eventName)}
+      WHERE ${getEventFilterWhereClause(eventName)}
 `;
     return format(sqlQuery, this.getFormatDialect());
   }
@@ -3176,7 +3178,7 @@ export default abstract class SqlIntegration
         ${timestampColumn} as timestamp,
         ${filterColumns}
         FROM ${getTrackedEventTablePath({ eventName, schema })}
-      ${getEventFilterWhereClause(eventName)}
+      WHERE ${getEventFilterWhereClause(eventName)}
 `;
     return format(sqlQuery, this.getFormatDialect());
   }
