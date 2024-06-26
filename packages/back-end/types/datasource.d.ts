@@ -104,7 +104,7 @@ export interface SchemaFormatConfig {
     schema?: string;
   }) => string;
   getEventFilterWhereClause: (metricName?: string) => string;
-  getDateLimitClause: (start: Date, end: Date) => string;
+  getDateLimitClause: (dates?: { start: Date; end: Date }) => string;
   displayNameColumn?: string;
 }
 

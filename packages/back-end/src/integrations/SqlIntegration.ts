@@ -2989,11 +2989,17 @@ export default abstract class SqlIntegration
               }`,
               schema
             ),
-          getDateLimitClause: (start: Date, end: Date) =>
-            `event_time BETWEEN '${formatDate(
-              start,
-              "yyyy-MM-dd"
-            )}' AND'${formatDate(end, "yyyy-MM-dd")}'`,
+          // If dates are provided, format them, otherwise use Sql template variables
+          getDateLimitClause: (dates?: { start: Date; end: Date }) => {
+            const start = dates
+              ? `${formatDate(dates.start, "yyyy-MM-dd")}`
+              : `{{date startDateISO "yyyy-MM-dd"}}`;
+            const end = dates
+              ? `${formatDate(dates.end, "yyyy-MM-dd")}`
+              : `{{date endDateISO "yyyy-MM-dd"}}`;
+
+            return `event_time BETWEEN '${start}' AND'${end}'`;
+          },
           getAdditionalEvents: () => [],
           getEventFilterWhereClause: (eventName: string) =>
             `event_name = '${eventName}'`,
@@ -3014,22 +3020,21 @@ export default abstract class SqlIntegration
           anonymousIdColumn: "user_pseudo_id",
           getTrackedEventTablePath: ({ schema }) =>
             this.generateTablePath("events_*", schema),
-          getDateLimitClause: (start: Date, end: Date) =>
-            `((_TABLE_SUFFIX BETWEEN '${formatDate(
-              start,
-              "yyyyMMdd"
-            )}' AND '${formatDate(
-              end,
-              "yyyyMMdd"
-            )}') OR (_TABLE_SUFFIX BETWEEN 'intraday_${formatDate(
-              start,
-              "yyyyMMdd"
-            )}' AND 'intraday_${formatDate(end, "yyyyMMdd")}'))`,
+          // If dates are provided, format them, otherwise use Sql template variables
+          getDateLimitClause: (dates?: { start: Date; end: Date }) => {
+            const start = dates
+              ? `${formatDate(dates.start, "yyyyMMdd")}`
+              : `{{date startDateISO "yyyyMMdd"}}`;
+
+            const end = dates
+              ? `${formatDate(dates.end, "yyyyMMdd")}`
+              : `{{date endDateISO "yyyyMMdd"}}`;
+
+            return `((_TABLE_SUFFIX BETWEEN '${start}' AND '${end}') OR (_TABLE_SUFFIX BETWEEN 'intraday_${start}' AND 'intraday_${end}'))`;
+          },
           getAdditionalEvents: () => [],
           getEventFilterWhereClause: (eventName: string) =>
-            `((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
-            (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}')) 
-            AND event_name = '${eventName}'`,
+            `event_name = '${eventName}'`,
         };
       }
       case "rudderstack":
@@ -3056,11 +3061,16 @@ export default abstract class SqlIntegration
           displayNameColumn: "event_text",
           getTrackedEventTablePath: ({ eventName, schema }) =>
             this.generateTablePath(eventName, schema),
-          getDateLimitClause: (start: Date, end: Date) =>
-            `received_at BETWEEN '${formatDate(
-              start,
-              "yyyy-MM-dd"
-            )}' AND'${formatDate(end, "yyyy-MM-dd")}'`,
+          getDateLimitClause: (dates?: { start: Date; end: Date }) => {
+            // If dates are provided, format them, otherwise use Sql template variables
+            const start = dates
+              ? `${formatDate(dates.start, "yyyy-MM-dd")}`
+              : `{{date startDateISO "yyyy-MM-dd"}}`;
+            const end = dates
+              ? `${formatDate(dates.end, "yyyy-MM-dd")}`
+              : `{{date endDateISO "yyyy-MM-dd"}}`;
+            return `received_at BETWEEN '${start}' AND'${end}'`;
+          },
           getAdditionalEvents: () => [
             {
               eventName: "pages",
@@ -3091,6 +3101,7 @@ export default abstract class SqlIntegration
       anonymousIdColumn,
       getTrackedEventTablePath,
       getEventFilterWhereClause,
+      getDateLimitClause,
     } = this.getSchemaFormatConfig(schemaFormat);
 
     const sqlQuery = `
@@ -3100,7 +3111,11 @@ export default abstract class SqlIntegration
         ${timestampColumn} as timestamp
         ${type === "count" ? `, 1 as value` : ""}
         FROM ${getTrackedEventTablePath({ eventName, schema })}
-      WHERE ${getEventFilterWhereClause(eventName)}
+        WHERE ${getDateLimitClause()} ${
+      getEventFilterWhereClause(eventName).length
+        ? ` AND ${getEventFilterWhereClause(eventName)}`
+        : ""
+    }
 `;
     return format(sqlQuery, this.getFormatDialect());
   }
@@ -3126,11 +3141,8 @@ export default abstract class SqlIntegration
       getTrackedEventTablePath,
       getEventFilterWhereClause,
       filterColumns,
+      getDateLimitClause,
     } = this.getSchemaFormatConfig(schemaFormat);
-
-    const whereClause = getEventFilterWhereClause(eventName).length
-      ? `WHERE ${getEventFilterWhereClause(eventName)}`
-      : "";
 
     const sqlQuery = `
       SELECT
@@ -3139,7 +3151,11 @@ export default abstract class SqlIntegration
         ${timestampColumn} as timestamp,
         ${filterColumns}
         FROM ${getTrackedEventTablePath({ eventName, schema })}
-        ${whereClause}
+        WHERE ${getDateLimitClause()} ${
+      getEventFilterWhereClause(eventName).length
+        ? ` AND ${getEventFilterWhereClause(eventName)}`
+        : ""
+    }
 `;
     return format(sqlQuery, this.getFormatDialect());
   }
@@ -3205,7 +3221,7 @@ export default abstract class SqlIntegration
     userIdColumn: string,
     timestampColumn: string,
     trackedEventTableName: string,
-    getDateLimitClause: (start: Date, end: Date) => string,
+    getDateLimitClause: (dates?: { start: Date; end: Date }) => string,
     schema: string,
     groupByColumn?: string
   ) {
@@ -3226,7 +3242,7 @@ export default abstract class SqlIntegration
           undefined,
           !!schema
         )}
-      WHERE ${getDateLimitClause(start, end)}
+      WHERE ${getDateLimitClause({ start, end })}
       AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
       GROUP BY ${groupByColumn || eventColumn}
     `;
