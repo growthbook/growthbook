@@ -2049,7 +2049,7 @@ export async function putGetStartedChecklistItem(
 
   if (
     checklistItem === "environments" &&
-    !context.permissions.canCreateOrUpdateEnvironment({
+    !context.permissions.canCreateEnvironment({
       id: "",
       projects: [project],
     })

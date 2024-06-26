@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import z from "zod";
 import { isEqual } from "lodash";
 import { findSDKConnectionsByOrganization } from "../../models/SdkConnectionModel";
 import { triggerSingleSDKWebhookJobs } from "../../jobs/updateAllJobs";
@@ -18,19 +19,30 @@ import { EventAuditUserForResponseLocals } from "../../events/event-types";
 import { Environment } from "../../../types/organization";
 import { addEnvironmentToOrganizationEnvironments } from "../../util/environments";
 import { updateOrganization } from "../../models/OrganizationModel";
+import {
+  createEnvValidator,
+  deleteEnvValidator,
+  updateEnvOrderValidator,
+  updateEnvValidator,
+  updateEnvsValidator,
+} from "./environment.validators";
 
-type CreateEnvironmentRequest = AuthRequest<{
-  environment: Environment;
-}>;
+type UpdateEnvOrderProps = z.infer<typeof updateEnvOrderValidator>;
+
+type UpdateEnvironmentProps = z.infer<typeof updateEnvValidator>;
+
+type CreateEnvironmentProps = z.infer<typeof createEnvValidator>;
+
+type UpdateEnvironmentsProps = z.infer<typeof updateEnvsValidator>;
+
+type DeleteEnvironmentProps = z.infer<typeof deleteEnvValidator>;
 
 type CreateEnvironmentResponse = {
   environment: Environment;
 };
 
 export const putEnvironmentOrder = async (
-  req: AuthRequest<{
-    environments: string[];
-  }>,
+  req: AuthRequest<UpdateEnvOrderProps>,
   res: Response
 ) => {
   const context = getContextFromReq(req);
@@ -49,7 +61,7 @@ export const putEnvironmentOrder = async (
   // If the user doesn't have permission to update any envs, don't allow this action
   if (
     existingEnvs.every(
-      (env) => !context.permissions.canCreateOrUpdateEnvironment(env)
+      (env) => !context.permissions.canUpdateEnvironment(env, {})
     )
   ) {
     context.permissions.throwPermissionError();
@@ -98,9 +110,7 @@ export const putEnvironmentOrder = async (
 };
 
 export const putEnvironments = async (
-  req: AuthRequest<{
-    environments: Environment[];
-  }>,
+  req: AuthRequest<UpdateEnvironmentsProps>,
   res: Response
 ) => {
   const context = getContextFromReq(req);
@@ -108,16 +118,14 @@ export const putEnvironments = async (
   const environments = req.body.environments;
   const existingEnvs = org.settings?.environments || [];
 
-  //TODO: When I break this out, I need to check if it exists, if so, check update, otherwise check canCreate logic
-  environments.forEach((environment) => {
-    if (!context.permissions.canCreateOrUpdateEnvironment(environment)) {
-      context.permissions.throwPermissionError();
-    }
-  });
-
   // Add each environment to the list if it doesn't exist yet
   const updatedEnvironments = environments.reduce((acc, environment) => {
-    return addEnvironmentToOrganizationEnvironments(environment, acc, false);
+    return addEnvironmentToOrganizationEnvironments(
+      context,
+      environment,
+      acc,
+      false
+    );
   }, getEnvironments(org));
 
   try {
@@ -147,38 +155,36 @@ export const putEnvironments = async (
 };
 
 export const putEnvironment = async (
-  req: AuthRequest<
-    {
-      environment: Environment;
-    },
-    { id: string }
-  >,
+  req: AuthRequest<UpdateEnvironmentProps, { id: string }>,
   res: Response
 ) => {
   const { environment } = req.body;
+  const { id } = req.params;
   const context = getContextFromReq(req);
   const { org } = context;
 
   const envsArr = org.settings?.environments || [];
 
-  const existingEnvIndex = envsArr.findIndex(
-    (env) => env.id === environment.id
-  );
+  const existingEnvIndex = envsArr.findIndex((env) => env.id === id);
 
   if (existingEnvIndex < 0) {
     return res.status(400).json({
       status: 400,
-      message: `Could not find environment: ${environment.id}`,
+      message: `Could not find environment: ${id}`,
     });
   }
 
-  //TODO: Update this to canUpdate when I break canCreateOrUpdateEnvironment out into two methods
-  if (!context.permissions.canCreateOrUpdateEnvironment(environment)) {
+  if (
+    !context.permissions.canUpdateEnvironment(
+      envsArr[existingEnvIndex],
+      environment
+    )
+  ) {
     context.permissions.throwPermissionError();
   }
 
   const updatedEnvs = [...envsArr];
-  updatedEnvs[existingEnvIndex] = environment;
+  updatedEnvs[existingEnvIndex] = { ...environment, id };
 
   try {
     await updateOrganization(org.id, {
@@ -195,7 +201,7 @@ export const putEnvironment = async (
       if (!isEqual(existingProjects, newProjects)) {
         const connections = await findSDKConnectionsByOrganization(context);
         const affectedConnections = connections.filter(
-          (c) => c.environment === environment.id
+          (c) => c.environment === id
         );
 
         for (const connection of affectedConnections) {
@@ -217,9 +223,12 @@ export const putEnvironment = async (
       event: "environment.update",
       entity: {
         object: "environment",
-        id: environment.id,
+        id,
       },
-      details: auditDetailsUpdate(envsArr[existingEnvIndex], environment),
+      details: auditDetailsUpdate(envsArr[existingEnvIndex], {
+        ...environment,
+        id,
+      }),
     });
 
     res.status(200).json({
@@ -243,7 +252,7 @@ export const putEnvironment = async (
  * @param res
  */
 export const postEnvironment = async (
-  req: CreateEnvironmentRequest,
+  req: AuthRequest<CreateEnvironmentProps>,
   res: Response<
     CreateEnvironmentResponse | PrivateApiErrorResponse,
     EventAuditUserForResponseLocals
@@ -254,11 +263,6 @@ export const postEnvironment = async (
   const context = getContextFromReq(req);
   const { org, environments } = context;
 
-  //TODO: Update this to canCreateEnvironment
-  if (!context.permissions.canCreateOrUpdateEnvironment(environment)) {
-    context.permissions.throwPermissionError();
-  }
-
   if (environments.includes(environment.id)) {
     return res.status(400).json({
       status: 400,
@@ -267,6 +271,7 @@ export const postEnvironment = async (
   }
 
   const updatedEnvironments = addEnvironmentToOrganizationEnvironments(
+    context,
     environment,
     getEnvironments(org),
     false
@@ -304,7 +309,7 @@ export const postEnvironment = async (
 // endregion POST /environment
 
 export const deleteEnvironment = async (
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<null, DeleteEnvironmentProps>,
   res: Response
 ) => {
   const id = req.params.id;

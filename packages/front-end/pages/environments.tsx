@@ -45,7 +45,7 @@ const EnvironmentsPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
   // See if the user has access to a random environment name that doesn't exist yet
   // If yes, then they can create new environments
-  const canCreate = permissionsUtil.canCreateOrUpdateEnvironment({
+  const canCreate = permissionsUtil.canCreateEnvironment({
     id: "",
     projects: [project],
   });
@@ -102,7 +102,7 @@ const EnvironmentsPage: FC = () => {
           </thead>
           <tbody>
             {filteredEnvironments.map((e, i) => {
-              const canEdit = permissionsUtil.canCreateOrUpdateEnvironment(e);
+              const canEdit = permissionsUtil.canUpdateEnvironment(e, {});
               const canDelete = permissionsUtil.canDeleteEnvironment(e);
               const sdkConnectionIds = sdkConnectionsMap?.[e.id] || [];
               const sdkConnections = (

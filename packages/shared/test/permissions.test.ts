@@ -138,7 +138,8 @@ describe("Role permissions", () => {
     expect(p.canViewReportModal()).toBe(false);
     expect(p.canCreateAndUpdateFactFilter(projectsResource)).toBe(false);
     expect(p.canDeleteFactFilter(projectsResource)).toBe(false);
-    expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(false);
+    expect(p.canCreateEnvironment(environmentsResource)).toBe(false);
+    expect(p.canUpdateEnvironment(environmentsResource, updates)).toBe(false);
     expect(p.canDeleteEnvironment(environmentsResource)).toBe(false);
     expect(p.canViewCreateSDKConnectionModal(project)).toBe(false);
     expect(p.canCreateSDKConnection(sdkConnection)).toBe(false);
@@ -246,7 +247,8 @@ describe("Role permissions", () => {
     expect(p.canViewReportModal()).toBe(false);
     expect(p.canCreateAndUpdateFactFilter(projectsResource)).toBe(false);
     expect(p.canDeleteFactFilter(projectsResource)).toBe(false);
-    expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(false);
+    expect(p.canCreateEnvironment(environmentsResource)).toBe(false);
+    expect(p.canUpdateEnvironment(environmentsResource, updates)).toBe(false);
     expect(p.canDeleteEnvironment(environmentsResource)).toBe(false);
     expect(p.canViewCreateSDKConnectionModal(project)).toBe(false);
     expect(p.canCreateSDKConnection(sdkConnection)).toBe(false);
@@ -354,7 +356,8 @@ describe("Role permissions", () => {
     expect(p.canViewReportModal()).toBe(false);
     expect(p.canCreateAndUpdateFactFilter(projectsResource)).toBe(false);
     expect(p.canDeleteFactFilter(projectsResource)).toBe(false);
-    expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(false);
+    expect(p.canCreateEnvironment(environmentsResource)).toBe(false);
+    expect(p.canUpdateEnvironment(environmentsResource, updates)).toBe(false);
     expect(p.canDeleteEnvironment(environmentsResource)).toBe(false);
     expect(p.canViewCreateSDKConnectionModal(project)).toBe(false);
     expect(p.canCreateSDKConnection(sdkConnection)).toBe(false);
@@ -462,7 +465,8 @@ describe("Role permissions", () => {
     expect(p.canViewReportModal()).toBe(false);
     expect(p.canCreateAndUpdateFactFilter(projectsResource)).toBe(false);
     expect(p.canDeleteFactFilter(projectsResource)).toBe(false);
-    expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(false);
+    expect(p.canCreateEnvironment(environmentsResource)).toBe(false);
+    expect(p.canUpdateEnvironment(environmentsResource, updates)).toBe(false);
     expect(p.canDeleteEnvironment(environmentsResource)).toBe(false);
     expect(p.canViewCreateSDKConnectionModal(project)).toBe(false);
     expect(p.canCreateSDKConnection(sdkConnection)).toBe(false);
@@ -570,7 +574,8 @@ describe("Role permissions", () => {
     expect(p.canViewReportModal()).toBe(false);
     expect(p.canCreateAndUpdateFactFilter(projectsResource)).toBe(false);
     expect(p.canDeleteFactFilter(projectsResource)).toBe(false);
-    expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(true);
+    expect(p.canCreateEnvironment(environmentsResource)).toBe(true);
+    expect(p.canUpdateEnvironment(environmentsResource, updates)).toBe(true);
     expect(p.canDeleteEnvironment(environmentsResource)).toBe(true);
     expect(p.canViewCreateSDKConnectionModal(project)).toBe(true);
     expect(p.canCreateSDKConnection(sdkConnection)).toBe(true);
@@ -678,7 +683,8 @@ describe("Role permissions", () => {
     expect(p.canViewReportModal()).toBe(true);
     expect(p.canCreateAndUpdateFactFilter(projectsResource)).toBe(true);
     expect(p.canDeleteFactFilter(projectsResource)).toBe(true);
-    expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(false);
+    expect(p.canCreateEnvironment(environmentsResource)).toBe(false);
+    expect(p.canUpdateEnvironment(environmentsResource, updates)).toBe(false);
     expect(p.canDeleteEnvironment(environmentsResource)).toBe(false);
     expect(p.canViewCreateSDKConnectionModal(project)).toBe(false);
     expect(p.canCreateSDKConnection(sdkConnection)).toBe(false);
@@ -786,7 +792,8 @@ describe("Role permissions", () => {
     expect(p.canViewReportModal()).toBe(true);
     expect(p.canCreateAndUpdateFactFilter(projectsResource)).toBe(true);
     expect(p.canDeleteFactFilter(projectsResource)).toBe(true);
-    expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(true);
+    expect(p.canCreateEnvironment(environmentsResource)).toBe(true);
+    expect(p.canUpdateEnvironment(environmentsResource, updates)).toBe(true);
     expect(p.canDeleteEnvironment(environmentsResource)).toBe(true);
     expect(p.canViewCreateSDKConnectionModal(project)).toBe(true);
     expect(p.canCreateSDKConnection(sdkConnection)).toBe(true);
@@ -894,7 +901,8 @@ describe("Role permissions", () => {
     expect(p.canViewReportModal()).toBe(true);
     expect(p.canCreateAndUpdateFactFilter(projectsResource)).toBe(true);
     expect(p.canDeleteFactFilter(projectsResource)).toBe(true);
-    expect(p.canCreateOrUpdateEnvironment(environmentsResource)).toBe(true);
+    expect(p.canCreateEnvironment(environmentsResource)).toBe(true);
+    expect(p.canUpdateEnvironment(environmentsResource, updates)).toBe(true);
     expect(p.canDeleteEnvironment(environmentsResource)).toBe(true);
     expect(p.canViewCreateSDKConnectionModal(project)).toBe(true);
     expect(p.canCreateSDKConnection(sdkConnection)).toBe(true);
