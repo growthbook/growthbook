@@ -204,10 +204,10 @@ export class GrowthBook<
       this._ctx.experiments = data.experiments;
       this._updateAllAutoExperiments();
     }
-    if (data.idLists) {
-      this._ctx.idLists = {};
-      Object.entries(data.idLists).forEach(([key, valueList]) => {
-        this._ctx.idLists![key] = new Set(valueList);
+    if (data.savedGroups) {
+      this._ctx.savedGroups = {};
+      Object.entries(data.savedGroups).forEach(([key, valueList]) => {
+        this._ctx.savedGroups![key] = new Set(valueList);
       });
     }
     this.ready = true;
@@ -464,10 +464,10 @@ export class GrowthBook<
       );
       delete data.encryptedExperiments;
     }
-    if (data.encryptedIdLists) {
-      data.idLists = JSON.parse(
+    if (data.encryptedSavedGroups) {
+      data.savedGroups = JSON.parse(
         await decrypt(
-          data.encryptedIdLists,
+          data.encryptedSavedGroups,
           decryptionKey || this._ctx.decryptionKey,
           subtle
         )
@@ -1158,7 +1158,7 @@ export class GrowthBook<
     return evalCondition(
       this.getAttributes(),
       condition,
-      this._ctx.idLists || {}
+      this._ctx.savedGroups || {}
     );
   }
 

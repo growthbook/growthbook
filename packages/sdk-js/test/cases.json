@@ -4492,7 +4492,7 @@
       }
     ],
     [
-      "IDLists correctly pulled from context for force rule",
+      "SavedGroups correctly pulled from context for force rule",
       {
         "attributes": {
           "id": 123
@@ -4508,7 +4508,7 @@
             ]
           }
         },
-        "idLists": {
+        "savedGroups": {
           "group_id": [123, 456]
         }
       },
@@ -4516,7 +4516,7 @@
       { "value": true, "on": true, "off": false, "source": "force" }
     ],
     [
-      "IDLists correctly pulled from context for experiment rule",
+      "SavedGroups correctly pulled from context for experiment rule",
       {
         "attributes": {
           "id": 123
@@ -4538,7 +4538,7 @@
             ]
           }
         },
-        "idLists": {
+        "savedGroups": {
           "group_id": [123, 456]
         }
       },
@@ -5455,10 +5455,10 @@
       false
     ],
     [
-      "IDLists correctly pulled from context for experiment",
+      "SavedGroups correctly pulled from context for experiment",
       {
         "attributes": { "id": "4" },
-        "idLists": { "group_id": ["4", "5", "6"] }
+        "savedGroups": { "group_id": ["4", "5", "6"] }
       },
       {
         "key": "group-filtered-test",

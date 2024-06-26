@@ -11,7 +11,7 @@ import {
 } from "../src";
 import { evalCondition } from "../src/mongrule";
 import {
-  IdLists,
+  SavedGroups,
   StickyAssignmentsDocument,
   StickyAttributeKey,
   VariationRange,
@@ -36,7 +36,7 @@ type Cases = {
   // name, context, feature key, result
   feature: [string, Context, string, Omit<FeatureResult, "ruleId">][];
   // name, condition, attribute, result
-  evalCondition: [string, any, any, boolean, IdLists][];
+  evalCondition: [string, any, any, boolean, SavedGroups][];
   // name, args ([numVariations, coverage, weights]), result
   getBucketRange: [
     string,
@@ -100,11 +100,11 @@ describe("json test suite", () => {
 
   it.each((cases as Cases).evalCondition)(
     "evalCondition[%#] %s",
-    (name, condition, value, expected, idLists = {}) => {
+    (name, condition, value, expected, savedGroups = {}) => {
       const consoleErrorMock = jest
         .spyOn(console, "error")
         .mockImplementation();
-      expect(evalCondition(value, condition, idLists)).toEqual(expected);
+      expect(evalCondition(value, condition, savedGroups)).toEqual(expected);
       consoleErrorMock.mockRestore();
     }
   );

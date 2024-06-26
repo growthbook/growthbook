@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { IdLists } from "./types/growthbook";
+import { SavedGroups } from "./types/growthbook";
 import {
   ConditionInterface,
   TestedObj,
@@ -17,27 +17,28 @@ const _regexCache: { [key: string]: RegExp } = {};
 export function evalCondition(
   obj: TestedObj,
   condition: ConditionInterface,
-  idLists: IdLists
+  savedGroups: SavedGroups
 ): boolean {
-  idLists = idLists || {};
+  savedGroups = savedGroups || {};
   // Condition is an object, keys are either specific operators or object paths
   // values are either arguments for operators or conditions for paths
   for (const [k, v] of Object.entries(condition)) {
     switch (k) {
       case "$or":
-        if (!evalOr(obj, v as ConditionInterface[], idLists)) return false;
+        if (!evalOr(obj, v as ConditionInterface[], savedGroups)) return false;
         break;
       case "$nor":
-        if (evalOr(obj, v as ConditionInterface[], idLists)) return false;
+        if (evalOr(obj, v as ConditionInterface[], savedGroups)) return false;
         break;
       case "$and":
-        if (!evalAnd(obj, v as ConditionInterface[], idLists)) return false;
+        if (!evalAnd(obj, v as ConditionInterface[], savedGroups)) return false;
         break;
       case "$not":
-        if (evalCondition(obj, v as ConditionInterface, idLists)) return false;
+        if (evalCondition(obj, v as ConditionInterface, savedGroups))
+          return false;
         break;
       default:
-        if (!evalConditionValue(v, getPath(obj, k), idLists)) return false;
+        if (!evalConditionValue(v, getPath(obj, k), savedGroups)) return false;
     }
   }
   return true;
@@ -69,7 +70,7 @@ function getRegex(regex: string): RegExp {
 function evalConditionValue(
   condition: ConditionValue,
   value: any,
-  idLists: IdLists
+  savedGroups: SavedGroups
 ) {
   // Simple equality comparisons
   if (typeof condition === "string") {
@@ -97,7 +98,7 @@ function evalConditionValue(
         op as Operator,
         value,
         condition[op as keyof OperatorConditionValue],
-        idLists
+        savedGroups
       )
     ) {
       return false;
@@ -126,11 +127,11 @@ function getType(v: any): VarType | "unknown" {
 }
 
 // At least one element of actual must match the expected condition/value
-function elemMatch(actual: any, expected: any, idLists: IdLists) {
+function elemMatch(actual: any, expected: any, savedGroups: SavedGroups) {
   if (!Array.isArray(actual)) return false;
   const check = isOperatorObject(expected)
-    ? (v: any) => evalConditionValue(expected, v, idLists)
-    : (v: any) => evalCondition(v, expected, idLists);
+    ? (v: any) => evalConditionValue(expected, v, savedGroups)
+    : (v: any) => evalCondition(v, expected, savedGroups);
   for (let i = 0; i < actual.length; i++) {
     if (actual[i] && check(actual[i])) {
       return true;
@@ -165,7 +166,7 @@ function evalOperatorCondition(
   operator: Operator,
   actual: any,
   expected: any,
-  idLists: IdLists
+  savedGroups: SavedGroups
 ): boolean {
   switch (operator) {
     case "$veq":
@@ -199,25 +200,25 @@ function evalOperatorCondition(
       if (!Array.isArray(expected)) return false;
       return isIn(actual, expected);
     case "$inGroup":
-      return isIn(actual, idLists[expected] || new Set());
+      return isIn(actual, savedGroups[expected] || new Set());
     case "$notInGroup":
-      return !isIn(actual, idLists[expected] || new Set());
+      return !isIn(actual, savedGroups[expected] || new Set());
     case "$nin":
       if (!Array.isArray(expected)) return false;
       return !isIn(actual, expected);
     case "$not":
-      return !evalConditionValue(expected, actual, idLists);
+      return !evalConditionValue(expected, actual, savedGroups);
     case "$size":
       if (!Array.isArray(actual)) return false;
-      return evalConditionValue(expected, actual.length, idLists);
+      return evalConditionValue(expected, actual.length, savedGroups);
     case "$elemMatch":
-      return elemMatch(actual, expected, idLists);
+      return elemMatch(actual, expected, savedGroups);
     case "$all":
       if (!Array.isArray(actual)) return false;
       for (let i = 0; i < expected.length; i++) {
         let passed = false;
         for (let j = 0; j < actual.length; j++) {
-          if (evalConditionValue(expected[i], actual[j], idLists)) {
+          if (evalConditionValue(expected[i], actual[j], savedGroups)) {
             passed = true;
             break;
           }
@@ -243,11 +244,11 @@ function evalOperatorCondition(
 function evalOr(
   obj: TestedObj,
   conditions: ConditionInterface[],
-  idLists: IdLists
+  savedGroups: SavedGroups
 ): boolean {
   if (!conditions.length) return true;
   for (let i = 0; i < conditions.length; i++) {
-    if (evalCondition(obj, conditions[i], idLists)) {
+    if (evalCondition(obj, conditions[i], savedGroups)) {
       return true;
     }
   }
@@ -258,10 +259,10 @@ function evalOr(
 function evalAnd(
   obj: TestedObj,
   conditions: ConditionInterface[],
-  idLists: IdLists
+  savedGroups: SavedGroups
 ): boolean {
   for (let i = 0; i < conditions.length; i++) {
-    if (!evalCondition(obj, conditions[i], idLists)) {
+    if (!evalCondition(obj, conditions[i], savedGroups)) {
       return false;
     }
   }
