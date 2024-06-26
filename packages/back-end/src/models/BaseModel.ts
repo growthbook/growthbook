@@ -362,8 +362,11 @@ export abstract class BaseModel<
       sort &&
         docs.sort((a, b) => {
           for (const key in sort) {
-            if (a[key] < b[key]) return -1 * sort[key];
-            if (a[key] > b[key]) return sort[key];
+            const typedKey = key as keyof z.infer<T>;
+            const sortDir = sort[typedKey] as 1 | -1;
+
+            if (a[typedKey] < b[typedKey]) return -1 * sortDir;
+            if (a[typedKey] > b[typedKey]) return 1 * sortDir;
           }
           return 0;
         });
