@@ -1,4 +1,4 @@
-import mongoose, { FilterQuery } from "mongoose";
+import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
 import {
   ExperimentSnapshotAnalysis,
@@ -329,6 +329,60 @@ export async function getLatestSnapshot(
   }).exec();
 
   return all[0] ? toInterface(all[0]) : null;
+}
+
+// Gets latest snapshots per experiment-phase pair
+export async function getLatestSnapshotMultipleExperiments(
+  experimentPhaseMap: Map<string, number>,
+  dimension?: string,
+  withResults: boolean = true
+): Promise<ExperimentSnapshotInterface[]> {
+  const experimentPhasesToGet = new Map(experimentPhaseMap);
+  const query: FilterQuery<ExperimentSnapshotDocument> = {
+    experiment: { $in: experimentPhasesToGet.keys() },
+    dimension: dimension || null,
+    ...(withResults
+      ? {
+          $or: [
+            { status: "success" },
+            // get old snapshots if status field is missing
+            { results: { $exists: true, $type: "array", $ne: [] } },
+          ],
+        }
+      : {}),
+  };
+
+  const aggregatePipeline: PipelineStage[] = [
+    { $match: query },
+    { $sort: { dateCreated: -1 } },
+    {
+      $group: {
+        _id: { experiment: "$id", phase: "$phase" },
+        latestSnapshot: { $first: "$$ROOT" },
+      },
+    },
+    {
+      $replaceRoot: { newRoot: "$latestSnapshot" },
+    },
+  ];
+
+  // First try getting new snapshots that have a `status` field
+  const all = await ExperimentSnapshotModel.aggregate(aggregatePipeline).exec();
+
+  const snapshots: ExperimentSnapshotInterface[] = [];
+  if (all[0]) {
+    // get interfaces matching the right phase
+    all.forEach((doc) => {
+      const snapshot = toInterface(doc);
+      const desiredPhase = experimentPhaseMap.get(snapshot.experiment);
+      if (desiredPhase !== undefined && snapshot.phase === desiredPhase) {
+        snapshots.push(snapshot);
+        experimentPhasesToGet.delete(snapshot.experiment);
+      }
+    });
+  }
+
+  return snapshots;
 }
 
 export async function createExperimentSnapshotModel({

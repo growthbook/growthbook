@@ -33,6 +33,7 @@ import {
   getAllExperiments,
   getExperimentById,
   getExperimentByTrackingKey,
+  getExperimentsByIds,
   getPastExperimentsByDatasource,
   updateExperiment,
 } from "../models/ExperimentModel";
@@ -48,6 +49,7 @@ import {
   deleteSnapshotById,
   findSnapshotById,
   getLatestSnapshot,
+  getLatestSnapshotMultipleExperiments,
   updateSnapshot,
   updateSnapshotsOnPhaseDelete,
 } from "../models/ExperimentSnapshotModel";
@@ -337,6 +339,30 @@ async function _getSnapshot(
   );
 }
 
+async function _getSnapshots(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+  dimension?: string,
+  withResults: boolean = true
+): Promise<ExperimentSnapshotInterface[]> {
+  const experimentPhaseMap: Map<string, number> = new Map();
+  const experiments = await getExperimentsByIds(context, ids);
+  experiments.forEach((e) => {
+    if (e.organization !== context.org.id) {
+      throw new Error("You do not have access to view this experiment");
+    }
+    // get the latest phase:
+    const phase = String(e.phases.length - 1);
+    experimentPhaseMap.set(e.id, parseInt(phase));
+  });
+
+  return await getLatestSnapshotMultipleExperiments(
+    experimentPhaseMap,
+    dimension,
+    withResults
+  );
+}
+
 export async function getSnapshotWithDimension(
   req: AuthRequest<null, { id: string; phase: string; dimension: string }>,
   res: Response
@@ -401,15 +427,11 @@ export async function getSnapshots(
 
   const ids = idsString.split(",");
 
-  let snapshotsPromises: Promise<ExperimentSnapshotInterface | null>[] = [];
-  snapshotsPromises = ids.map(async (i) => {
-    return await _getSnapshot(context, i);
-  });
-  const snapshots = await Promise.all(snapshotsPromises);
+  const snapshots = await _getSnapshots(context, ids);
 
   res.status(200).json({
     status: 200,
-    snapshots: snapshots.filter((s) => !!s),
+    snapshots: snapshots,
   });
   return;
 }
@@ -2097,7 +2119,7 @@ function addCoverageToSnapshotIfMissing(
   if (snapshot.settings.coverage === undefined) {
     const latestPhase = experiment.phases.length - 1;
     snapshot.settings.coverage =
-      experiment.phases[phase ?? latestPhase].coverage;
+      experiment.phases[phase ?? latestPhase]?.coverage ?? 1;
   }
   return snapshot;
 }
@@ -2120,15 +2142,12 @@ export async function postSnapshotsWithScaledImpactAnalysis(
   const metricMap = await getMetricMap(context);
 
   // get latest snapshot for latest phase without dimensions but with results
-  let snapshotsPromises: Promise<ExperimentSnapshotInterface | null>[] = [];
-  snapshotsPromises = ids.map(async (i) => {
-    return await _getSnapshot(context, i, undefined, undefined, true);
-  });
-  const snapshots = await Promise.all(snapshotsPromises);
+  const snapshots = await _getSnapshots(context, ids);
 
+  // Add snapshots missing scaled analysis to list to fetch
+  const experiments = await getExperimentsByIds(context, ids);
   const snapshotAnalysesToCreate: SnapshotAnalysisParams[] = [];
-  await snapshots.forEach(async (s) => {
-    if (!s) return;
+  snapshots.forEach((s) => {
     const defaultAnalysis = getSnapshotAnalysis(s);
     if (!defaultAnalysis) return;
 
@@ -2140,7 +2159,7 @@ export async function postSnapshotsWithScaledImpactAnalysis(
       return;
     }
 
-    const experiment = await getExperimentById(context, s.experiment);
+    const experiment = experiments.find((e) => e.id === s.experiment);
     if (!experiment) return;
 
     addCoverageToSnapshotIfMissing(s, experiment);
