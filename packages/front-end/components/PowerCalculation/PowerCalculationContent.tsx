@@ -8,9 +8,14 @@ import {
   PowerCalculationParams,
   PowerCalculationResults,
   PowerCalculationSuccessResults,
-  StatsEngine,
+  StatsEngineSettings,
 } from "./types";
-import PowerCalculationStatsEngineModal from "./PowerCalculationStatsEngineModal";
+import PowerCalculationStatsEngineSettingsModal from "./PowerCalculationStatsEngineSettingsModal";
+
+const engineType = {
+  frequentist: "Frequentist",
+  bayesian: "Bayesian",
+} as const;
 
 const percentFormatter = (
   v: number,
@@ -21,6 +26,8 @@ const percentFormatter = (
     : new Intl.NumberFormat(undefined, {
         style: "percent",
         maximumFractionDigits: digits,
+        // @ts-expect-error TS is outdated: https://caniuse.com/mdn-javascript_builtins_intl_numberformat_numberformat_options_parameter_options_roundingmode_parameter
+        roundingMode: "floor",
       }).format(v);
 
 const numberFormatter = (() => {
@@ -40,18 +47,21 @@ const AnalysisSettings = ({
   params,
   results,
   updateVariations,
-  updateStatsEngine,
+  updateStatsEngineSettings,
 }: {
   params: PowerCalculationParams;
   results: PowerCalculationResults;
   updateVariations: (_: number) => void;
-  updateStatsEngine: (_: StatsEngine) => void;
+  updateStatsEngineSettings: (_: StatsEngineSettings) => void;
 }) => {
   const [currentVariations, setCurrentVariations] = useState<
     number | undefined
   >(params.nVariations);
 
-  const [showStatsEngineModal, setShowStatsEngineModal] = useState(false);
+  const [
+    showStatsEngineSettingsModal,
+    setShowStatsEngineSettingsModal,
+  ] = useState(false);
 
   const isValidCurrentVariations =
     currentVariations &&
@@ -60,13 +70,13 @@ const AnalysisSettings = ({
 
   return (
     <>
-      {showStatsEngineModal && (
-        <PowerCalculationStatsEngineModal
-          close={() => setShowStatsEngineModal(false)}
-          params={params.statsEngine}
+      {showStatsEngineSettingsModal && (
+        <PowerCalculationStatsEngineSettingsModal
+          close={() => setShowStatsEngineSettingsModal(false)}
+          params={params.statsEngineSettings}
           onSubmit={(v) => {
-            updateStatsEngine(v);
-            setShowStatsEngineModal(false);
+            updateStatsEngineSettings(v);
+            setShowStatsEngineSettingsModal(false);
           }}
         />
       )}
@@ -75,9 +85,16 @@ const AnalysisSettings = ({
           <div className="col-7">
             <h2>Analysis Settings</h2>
             <p>
-              {params.nVariations} Variations · Frequentist (Sequential Testing{" "}
-              {params.statsEngine.sequentialTesting ? "enabled" : "disabled"}) ·{" "}
-              <Link href="#" onClick={() => setShowStatsEngineModal(true)}>
+              {params.nVariations} Variations ·{" "}
+              {engineType[params.statsEngineSettings.type]} (Sequential Testing{" "}
+              {params.statsEngineSettings.sequentialTesting
+                ? "enabled"
+                : "disabled"}
+              ) ·{" "}
+              <Link
+                href="#"
+                onClick={() => setShowStatsEngineSettingsModal(true)}
+              >
                 Edit
               </Link>
             </p>
@@ -259,7 +276,7 @@ const SampleSizeAndRuntime = ({
                           nWeeks: params.nWeeks,
                         })}
                       </span>{" "}
-                      (roughly collecting{" "}
+                      (collecting roughly{" "}
                       <span className="font-weight-bold">
                         {numberFormatter(selectedTarget.users)} users
                       </span>
@@ -546,14 +563,14 @@ export default function PowerCalculationContent({
   results,
   params,
   updateVariations,
-  updateStatsEngine,
+  updateStatsEngineSettings,
   edit,
   newCalculation,
 }: {
   results: PowerCalculationResults;
   params: PowerCalculationParams;
   updateVariations: (_: number) => void;
-  updateStatsEngine: (_: StatsEngine) => void;
+  updateStatsEngineSettings: (_: StatsEngineSettings) => void;
   edit: () => void;
   newCalculation: () => void;
 }) {
@@ -600,7 +617,7 @@ export default function PowerCalculationContent({
         params={params}
         results={results}
         updateVariations={updateVariations}
-        updateStatsEngine={updateStatsEngine}
+        updateStatsEngineSettings={updateStatsEngineSettings}
       />
       {results.type !== "error" && (
         <>

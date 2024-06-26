@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, UseFormReturn } from "react-hook-form";
 import clsx from "clsx";
 import {
@@ -8,10 +8,14 @@ import {
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
+import { OrganizationSettings } from "@back-end/types/organization";
+import { MetricPriorSettings } from "@back-end/types/fact-table";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Field from "@/components/Forms/Field";
 import PercentField from "@/components/Forms/PercentField";
+import Toggle from "@/components/Forms/Toggle";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ensureAndReturn } from "@/types/utils";
@@ -22,15 +26,44 @@ import {
   MetricParams,
   FullModalPowerCalculationParams,
   PartialPowerCalculationParams,
+  StatsEngineSettings,
 } from "./types";
 
 export type Props = {
   close?: () => void;
   onSuccess: (_: FullModalPowerCalculationParams) => void;
   params: PartialPowerCalculationParams;
+  statsEngineSettings: StatsEngineSettings;
 };
 
 type Form = UseFormReturn<PartialPowerCalculationParams>;
+
+type Config =
+  | {
+      defaultSettingsValue?: (
+        priorSettings: MetricPriorSettings | undefined,
+        orgSettings: OrganizationSettings
+      ) => number | undefined;
+      defaultValue?: number;
+    }
+  | {
+      defaultSettingsValue?: (
+        priorSettings: MetricPriorSettings | undefined,
+        orgSettings: OrganizationSettings
+      ) => boolean | undefined;
+      defaultValue?: boolean;
+    };
+
+const defaultValue = (
+  { defaultSettingsValue, defaultValue }: Config,
+  priorSettings: MetricPriorSettings | undefined,
+  settings: OrganizationSettings
+) => {
+  const settingsDefault = defaultSettingsValue?.(priorSettings, settings);
+  if (settingsDefault !== undefined) return settingsDefault;
+
+  return defaultValue;
+};
 
 const SelectStep = ({
   form,
@@ -46,6 +79,9 @@ const SelectStep = ({
     factMetrics: appFactMetrics,
     getExperimentMetricById,
   } = useDefinitions();
+
+  const settings = useOrgSettings();
+
   // combine both metrics and remove ratio and quntile metrics
   const allAppMetrics: ExperimentMetricInterface[] = [
     ...appMetrics,
@@ -70,8 +106,11 @@ const SelectStep = ({
     isNaN(usersPerWeek) ||
     isUsersPerDayInvalid;
 
-  const field = (key: keyof typeof config) => ({
-    [key]: config[key].defaultValue,
+  const field = (
+    key: keyof typeof config,
+    metric: ExperimentMetricInterface
+  ) => ({
+    [key]: defaultValue(config[key], metric.priorSettings, settings),
   });
 
   return (
@@ -99,7 +138,7 @@ const SelectStep = ({
             <span className="mr-auto font-weight-bold">
               Select Metrics{" "}
               <Tooltip
-                body={"Ratio and quantile metrics can not be selected."}
+                body={"Ratio and quantile metrics cannot be selected."}
               />
             </span>{" "}
             Limit 5
@@ -124,15 +163,18 @@ const SelectStep = ({
                 ...result,
                 [id]: metrics[id] || {
                   name: metric.name,
-                  ...field("effectSize"),
+                  ...field("effectSize", metric),
                   ...(isBinomialMetric(metric)
-                    ? { type: "binomial", ...field("conversionRate") }
+                    ? { type: "binomial", ...field("conversionRate", metric) }
                     : {
                         type: "mean",
-                        ...field("mean"),
-                        ...field("standardDeviation"),
+                        ...field("mean", metric),
+                        ...field("standardDeviation", metric),
                         standardDeviation: undefined,
                       }),
+                  ...field("priorLiftMean", metric),
+                  ...field("priorLiftStandardDeviation", metric),
+                  ...field("proper", metric),
                 },
               };
             }, {})
@@ -148,7 +190,7 @@ const SelectStep = ({
             </span>
             <Tooltip
               popperClassName="text-left"
-              body="Total users accross all variations"
+              body="Total users across all variations"
               tipPosition="right"
             />
           </div>
@@ -168,6 +210,12 @@ const SelectStep = ({
   );
 };
 
+const bayesianParams = [
+  "priorLiftMean",
+  "priorLiftStandardDeviation",
+  "proper",
+] as const;
+
 const InputField = ({
   entry,
   form,
@@ -180,18 +228,21 @@ const InputField = ({
   const metrics = form.watch("metrics");
   const params = ensureAndReturn(metrics[metricId]);
   const entryValue = params[entry];
-  const { title, isPercent, tooltip, maxValue, minValue } = config[entry];
+  const { title, tooltip, ...c } = config[entry];
 
   const isKeyInvalid = (() => {
     if (entryValue === undefined) return false;
-    if (minValue !== undefined && entryValue <= minValue) return true;
-    if (maxValue !== undefined && maxValue < entryValue) return true;
+    if (c.type === "boolean") return false;
+    if (c.minValue !== undefined && entryValue <= c.minValue) return true;
+    if (c.maxValue !== undefined && c.maxValue < entryValue) return true;
     return false;
   })();
 
   const helpText = (() => {
-    const min = isPercent && minValue ? minValue * 100 : minValue;
-    const max = isPercent && maxValue ? maxValue * 100 : maxValue;
+    if (c.type === "boolean") return;
+
+    const min = c.minValue ? c.minValue * 100 : c.minValue;
+    const max = c.maxValue ? c.maxValue * 100 : c.maxValue;
 
     if (min !== undefined && max !== undefined)
       return `Must be greater than ${min} and less than or equal to ${max}`;
@@ -213,8 +264,7 @@ const InputField = ({
         )}
       </>
     ),
-    min: minValue,
-    max: maxValue,
+    ...(c.type !== "boolean" ? { min: c.minValue, max: c.maxValue } : {}),
     className: clsx("w-50", isKeyInvalid && "border border-danger"),
     helpText: isKeyInvalid ? (
       <div className="text-danger">{helpText}</div>
@@ -222,20 +272,37 @@ const InputField = ({
   };
 
   return (
-    <div className="col">
-      {isPercent ? (
+    <div className="col-4">
+      {c.type === "percent" && (
         <PercentField
           {...commonOptions}
           value={entryValue}
           onChange={(v) => form.setValue(`metrics.${metricId}.${entry}`, v)}
         />
-      ) : (
+      )}
+      {c.type === "number" && (
         <Field
           {...commonOptions}
           {...form.register(`metrics.${metricId}.${entry}`, {
             valueAsNumber: true,
           })}
         />
+      )}
+      {c.type === "boolean" && (
+        <div className="form-group h-100">
+          <div className="row align-items-center h-100 mt-2">
+            <div className="col-auto">
+              <Toggle
+                id={`input-value-${metricId}-${entry}`}
+                value={entryValue}
+                setValue={(v) => {
+                  form.setValue(`metrics.${metricId}.${entry}`, v);
+                }}
+              />
+            </div>
+            <div>{title}</div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -244,29 +311,61 @@ const InputField = ({
 const MetricParamsInput = ({
   form,
   metricId,
+  engineType,
 }: {
   form: Form;
   metricId: string;
+  engineType: "bayesian" | "frequentist";
 }) => {
   const metrics = form.watch("metrics");
   // eslint-disable-next-line
   const { name, type: _type, ...params } = ensureAndReturn(metrics[metricId]);
+  const [showBayesian, setShowBayesian] = useState(false);
 
   return (
     <div className="card gsbox mb-3 p-3 mb-2 power-analysis-params">
       <div className="card-title uppercase-title mb-3">{name}</div>
       <div className="row">
-        {Object.keys(params).map(
-          (entry: keyof Omit<MetricParams, "name" | "type">) => (
+        {Object.keys(params)
+          .filter((v) => !(bayesianParams as readonly string[]).includes(v))
+          .map((entry: keyof Omit<MetricParams, "name" | "type">) => (
             <InputField
               key={`${name}-${entry}`}
               entry={entry}
               form={form}
               metricId={metricId}
             />
-          )
-        )}
+          ))}
       </div>
+      {engineType === "bayesian" && (
+        <>
+          <div className="row align-items-center h-100 mb-2">
+            <div className="col-auto">
+              <Toggle
+                id={`input-value-${metricId}-showBayesian`}
+                value={showBayesian}
+                setValue={setShowBayesian}
+              />
+            </div>
+            <div>Modify metric priors</div>
+          </div>
+          <div className="row">
+            {showBayesian &&
+              Object.keys(params)
+                .filter((v) =>
+                  (bayesianParams as readonly string[]).includes(v)
+                )
+                .map((entry: keyof Omit<MetricParams, "name" | "type">) => (
+                  <InputField
+                    key={`${name}-${entry}`}
+                    entry={entry}
+                    form={form}
+                    metricId={metricId}
+                  />
+                ))}
+          </div>
+        </>
+      )}
     </div>
   );
 };
@@ -276,11 +375,13 @@ const SetParamsStep = ({
   close,
   onBack,
   onSubmit,
+  engineType,
 }: {
   form: Form;
   close?: () => void;
   onBack: () => void;
   onSubmit: (_: FullModalPowerCalculationParams) => void;
+  engineType: "bayesian" | "frequentist";
 }) => {
   const metrics = form.watch("metrics");
   const metricIds = Object.keys(metrics);
@@ -300,10 +401,17 @@ const SetParamsStep = ({
       }
       tertiaryCTA={
         <button
-          disabled={!isValidPowerCalculationParams(form.getValues())}
+          disabled={
+            !isValidPowerCalculationParams(engineType, form.getValues())
+          }
           className="btn btn-primary"
           onClick={() =>
-            onSubmit(ensureAndReturnPowerCalculationParams(form.getValues()))
+            onSubmit(
+              ensureAndReturnPowerCalculationParams(
+                engineType,
+                form.getValues()
+              )
+            )
           }
         >
           Submit
@@ -314,7 +422,12 @@ const SetParamsStep = ({
         <p>Customize metric details for calculating experiment duration.</p>
 
         {metricIds.map((metricId) => (
-          <MetricParamsInput key={metricId} metricId={metricId} form={form} />
+          <MetricParamsInput
+            key={metricId}
+            metricId={metricId}
+            engineType={engineType}
+            form={form}
+          />
         ))}
       </div>
     </Modal>
@@ -324,13 +437,54 @@ const SetParamsStep = ({
 export default function PowerCalculationModal({
   close,
   onSuccess,
+  statsEngineSettings,
   params,
 }: Props) {
   const [step, setStep] = useState<"select" | "set-params">("select");
+  const settings = useOrgSettings();
 
   const form = useForm<PartialPowerCalculationParams>({
     defaultValues: params,
   });
+
+  const metrics = form.watch("metrics");
+  const defaultValues = Object.keys(config).reduce(
+    (defaultValues, key) =>
+      config[key].metricType
+        ? {
+            ...defaultValues,
+            [key]: {
+              type: config[key].metricType,
+              value: defaultValue(config[key], undefined, settings),
+            },
+          }
+        : defaultValues,
+    {}
+  );
+
+  useEffect(() => {
+    form.setValue(
+      "metrics",
+      Object.keys(metrics).reduce(
+        (m, id) => ({
+          ...m,
+          [id]: {
+            ...Object.keys(defaultValues).reduce(
+              (values, key) =>
+                metrics[id].type === defaultValues[key].type ||
+                defaultValues[key].type === "all"
+                  ? { ...values, [key]: defaultValues[key].value }
+                  : {},
+              {}
+            ),
+            ...metrics[id],
+          },
+        }),
+        {}
+      )
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>
@@ -345,6 +499,7 @@ export default function PowerCalculationModal({
         <SetParamsStep
           form={form}
           close={close}
+          engineType={statsEngineSettings.type}
           onBack={() => setStep("select")}
           onSubmit={onSuccess}
         />
