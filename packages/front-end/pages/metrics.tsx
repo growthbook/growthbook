@@ -3,7 +3,7 @@ import { FaArchive, FaPlus, FaRegCopy } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { ago, datetime } from "shared/dates";
+import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink } from "shared/experiments";
 import SortedTags from "@/components/Tags/SortedTags";
@@ -481,7 +481,7 @@ const MetricsPage = (): React.ReactElement => {
                 >
                   {metric.managedBy === "config"
                     ? ""
-                    : ago(metric.dateUpdated || "")}
+                    : date(metric.dateUpdated || "")}
                 </td>
                 <td className="text-muted">
                   {metric.archived && (
