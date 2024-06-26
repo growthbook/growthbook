@@ -20,7 +20,7 @@ const BaseClass = MakeModelClass({
 
 export class SegmentModel extends BaseClass {
   protected canRead(): boolean {
-    return this.context.hasPermission("readData", []);
+    return this.context.permissions.canReadSingleProjectResource("");
   }
   protected canCreate(): boolean {
     return this.context.permissions.canCreateSegment();
