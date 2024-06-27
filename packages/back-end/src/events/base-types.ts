@@ -22,12 +22,16 @@ export const notificationEventResources = Object.keys(notificationEvents) as [
 ];
 export type NotificationEventResource = typeof notificationEventResources[number];
 
+export type NotificationEventTemplate<
+  K extends NotificationEventResource
+> = NotificationEvents[K][number];
+
 export type NotificationEventNameTemplate<
   K extends NotificationEventResource,
   E = NotificationEvents[K][number]
 > = K extends NotificationEventResource
   ? E extends NotificationEvents[K][number]
-    ? `${K}.${NotificationEvents[K][number]}`
+    ? `${K}.${NotificationEventTemplate<K>}`
     : never
   : never;
 
