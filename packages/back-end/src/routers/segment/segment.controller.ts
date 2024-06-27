@@ -84,9 +84,6 @@ export const getSegmentUsage = async (
   if (!segment) {
     throw new Error("Could not find segment");
   }
-
-  // segments are used in a few places:
-  // ideas (impact estimate)
   const query: FilterQuery<IdeaDocument> = {
     organization: org.id,
     "estimateParams.segment": id,
@@ -115,6 +112,7 @@ export const getSegmentUsage = async (
 type CreateSegmentRequest = AuthRequest<{
   datasource: string;
   userIdType: string;
+  owner: string;
   name: string;
   sql: string;
   description: string;
@@ -138,7 +136,7 @@ export const postSegment = async (
     EventAuditUserForResponseLocals
   >
 ) => {
-  const { datasource, name, sql, userIdType, description } = req.body;
+  const { datasource, name, sql, userIdType, description, owner } = req.body;
 
   const context = getContextFromReq(req);
   if (!context.permissions.canCreateSegment()) {
@@ -151,7 +149,7 @@ export const postSegment = async (
   }
 
   const doc = await context.models.segments.create({
-    owner: context.userName,
+    owner: owner || "",
     datasource,
     userIdType,
     name,
