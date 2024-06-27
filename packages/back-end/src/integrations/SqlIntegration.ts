@@ -2998,7 +2998,7 @@ export default abstract class SqlIntegration
               ? `${formatDate(dates.end, "yyyy-MM-dd")}`
               : `{{date endDateISO "yyyy-MM-dd"}}`;
 
-            return `event_time BETWEEN '${start}' AND'${end}'`;
+            return `event_time BETWEEN '${start}' AND' ${end}'`;
           },
           getAdditionalEvents: () => [],
           getEventFilterWhereClause: (eventName: string) =>
@@ -3069,7 +3069,7 @@ export default abstract class SqlIntegration
             const end = dates
               ? `${formatDate(dates.end, "yyyy-MM-dd")}`
               : `{{date endDateISO "yyyy-MM-dd"}}`;
-            return `received_at BETWEEN '${start}' AND'${end}'`;
+            return `received_at BETWEEN '${start}' AND' ${end}'`;
           },
           getAdditionalEvents: () => [
             {
@@ -3226,7 +3226,7 @@ export default abstract class SqlIntegration
     groupByColumn?: string
   ) {
     const end = new Date();
-    const start = subDays(new Date(), 7);
+    const start = subDays(new Date(), 70);
 
     return `
       SELECT
