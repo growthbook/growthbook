@@ -9,7 +9,7 @@ slug: /app/data-pipeline
 
 :::note
 
-Pipeline mode is only available for Enterprise customers and is currently only available for BigQuery and Snowflake Data Sources.
+Pipeline mode is only available for Enterprise customers and is currently only available for BigQuery, Snowflake, and Databricks Data Sources.
 
 :::
 
@@ -39,7 +39,7 @@ To enable Pipeline Mode, follow the steps for your data warehouse:
 
 Databricks works slightly differently. Instead of creating a temporary table, we create a regular table for the deduped units assignment and then `DROP` that table when analysis is completed.
 
-::: note
+:::note
 
 Using pipeline mode in Databricks requires either granting DROP permissions to the Databricks account that GrowthBook uses, or leaving many tables in your schema you have to manually delete later! For this reason we strongly recommend a standalone schema for GrowthBook to use to write tables to.
 
