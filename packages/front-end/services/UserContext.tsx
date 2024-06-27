@@ -11,6 +11,7 @@ import {
   Role,
   ProjectScopedPermission,
   UserPermissions,
+  SubscriptionQuote,
 } from "back-end/types/organization";
 import type {
   AccountPlan,
@@ -123,6 +124,7 @@ export interface UserContextValue {
   error?: string;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
   permissionsUtil: Permissions;
+  quote: SubscriptionQuote | null;
 }
 
 interface UserResponse {
@@ -166,6 +168,7 @@ export const UserContext = createContext<UserContextValue>({
     },
     false
   ),
+  quote: null,
 });
 
 export function useUser() {
@@ -384,6 +387,18 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     [users]
   );
 
+  const [quote, setQuote] = useState<SubscriptionQuote | null>(null);
+  const freeSeats = currentOrg?.organization?.freeSeats || 3;
+  useEffect(() => {
+    if (!permissionsUtil.canManageBilling()) return;
+
+    apiCall<{ quote: SubscriptionQuote }>(`/subscription/quote`)
+      .then((data) => {
+        setQuote(data.quote);
+      })
+      .catch((e) => console.error(e));
+  }, [apiCall, freeSeats, permissionsUtil]);
+
   return (
     <UserContext.Provider
       value={{
@@ -412,6 +427,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         teams,
         error: error || orgLoadingError?.message,
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
+        quote: quote,
       }}
     >
       {children}
