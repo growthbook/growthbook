@@ -9,9 +9,10 @@ import {
 } from "react-icons/fa";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { filterEnvironmentsByFeature } from "shared/dist/util";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import { getRules } from "@/services/features";
+import { getRules, useEnvironments } from "@/services/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Button";
@@ -72,6 +73,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     ref
   ) => {
     const { apiCall } = useAuth();
+
+    const allEnvironments = useEnvironments();
+    const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+
     const title =
       rule.description ||
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
@@ -218,15 +223,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 >
                   {rule.enabled ? "Disable" : "Enable"}
                 </Button>
-                <Button
-                  color=""
-                  className="dropdown-item"
-                  onClick={() => {
-                    setCopyRuleModal({ environment, rules: [rule] });
-                  }}
-                >
-                  Copy rule to environment(s)
-                </Button>
+                {environments.length > 1 && (
+                  <Button
+                    color=""
+                    className="dropdown-item"
+                    onClick={() => {
+                      setCopyRuleModal({ environment, rules: [rule] });
+                    }}
+                  >
+                    Copy rule to environment(s)
+                  </Button>
+                )}
                 <DeleteButton
                   className="dropdown-item"
                   displayName="Rule"

@@ -40,12 +40,12 @@ export default function CopyRuleModal({
   >({});
 
   const submit = async () => {
-    let res: { version: number } | undefined;
+    let draftVersion = version;
     for (const env in selectedEnvironments) {
       if (!selectedEnvironments[env]) continue;
       for (const rule of rules) {
-        res = await apiCall<{ version: number }>(
-          `/feature/${feature.id}/${version}/rule`,
+        const res = await apiCall<{ version: number }>(
+          `/feature/${feature.id}/${draftVersion}/rule`,
           {
             method: "POST",
             body: JSON.stringify({
@@ -54,13 +54,14 @@ export default function CopyRuleModal({
             }),
           }
         );
+        draftVersion = res.version;
       }
     }
     track("Clone Feature Rule", {
       environment,
     });
     await mutate();
-    res?.version && setVersion(res.version);
+    setVersion(draftVersion);
   };
 
   return (
