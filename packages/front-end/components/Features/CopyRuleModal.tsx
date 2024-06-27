@@ -32,12 +32,28 @@ export default function CopyRuleModal({
   const filteredEnvironments = environments.filter(
     (env) => env.id !== environment
   );
+  const envs = filteredEnvironments.map((e) => e.id);
 
   const ruleTxt = rules.length === 1 ? "rule" : "rules";
 
   const [selectedEnvironments, setSelectedEnvironments] = useState<
     Record<string, boolean>
   >({});
+
+  const allToggled =
+    Object.values(selectedEnvironments).filter((v) => v).length === envs.length;
+
+  const toggleAll = () => {
+    if (allToggled) {
+      setSelectedEnvironments({});
+    } else {
+      const o = {};
+      envs.forEach((env) => {
+        o[env] = true;
+      });
+      setSelectedEnvironments(o);
+    }
+  };
 
   const submit = async () => {
     let draftVersion = version;
@@ -80,26 +96,40 @@ export default function CopyRuleModal({
         from <span className="text-indigo h5">{environment}</span> to...
       </div>
       <div className="mt-3">
-        {filteredEnvironments.map((env) => {
-          const rules = getRules(feature, env.id);
+        <label className="cursor-pointer hover-underline py-1 px-1 mb-0">
+          <input
+            type="checkbox"
+            id="select_all"
+            className="position-relative mr-2"
+            style={{ top: "2px" }}
+            onChange={toggleAll}
+            checked={allToggled}
+          />
+          <span className="h5 mr-1 text-dark">all environments</span>
+        </label>
+      </div>
+      <hr />
+      <div className="mt-2">
+        {envs.map((env) => {
+          const rules = getRules(feature, env);
 
           return (
-            <div key={env.id}>
-              <label className="cursor-pointer hover-underline py-1 px-2">
+            <div key={env}>
+              <label className="cursor-pointer hover-underline py-1 px-1">
                 <input
                   type="checkbox"
-                  id={"select_" + env.id}
+                  id={"select_" + env}
                   className="position-relative mr-2"
                   style={{ top: "2px" }}
                   onChange={() => {
                     setSelectedEnvironments({
                       ...selectedEnvironments,
-                      [env.id]: !selectedEnvironments?.[env.id],
+                      [env]: !selectedEnvironments?.[env],
                     });
                   }}
-                  checked={selectedEnvironments?.[env.id] ?? false}
+                  checked={selectedEnvironments?.[env] ?? false}
                 />
-                <span className="h5 mr-1 text-indigo">{env.id}</span>
+                <span className="h5 mr-1 text-indigo">{env}</span>
                 <span className={`badge badge-gray ml-2`}>
                   {rules.length} rule{rules.length !== 1 ? "s" : ""}
                 </span>
