@@ -129,11 +129,11 @@ type UndefinedResourceEventTemplate<R extends AuditEventResource> =
 
 type UndefinedEvents = UndefinedResourceEventTemplate<AuditEventResource>;
 
-type AuditEventTemplate<R> = R extends AuditEventResource
+type AuditEventNameTemplate<R> = R extends AuditEventResource
   ? AuditResourceEventTemplate<R, UndefinedResourceEventTemplate<R>>
   : never;
 
-export type AuditNotificationEvent = AuditEventTemplate<AuditEventResource>;
+export type AuditNotificationEvent = AuditEventNameTemplate<AuditEventResource>;
 
 /**
  * All supported event types in the database

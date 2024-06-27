@@ -3,19 +3,19 @@ import { UnionToIntersection } from "../types";
 import {
   entityEvents as auditEvents,
   EntityType as AuditEventResource,
-  EntityEventTemplate as AuditEventTemplate,
+  EntityEventTemplate as AuditEventNameTemplate,
 } from "../../types/Audit";
 
 export {
   entityEvents as auditEvents,
   EntityType as auditEventResources,
   EntityType as AuditEventResource,
-  EntityEventTemplate as AuditEventTemplate,
+  EntityEventTemplate as AuditEventNameTemplate,
 } from "../../types/Audit";
 
-export type FromAuditEventMap<
+export type AuditNotificationEventMap<
   Resource extends AuditEventResource,
-  Event extends AuditEventTemplate<Resource>
+  Event extends AuditEventNameTemplate<Resource>
 > = Resource extends "savedGroup"
   ? Event
   : Resource extends "archetype"
@@ -28,56 +28,65 @@ export type FromAuditEventMap<
   ? "deleted"
   : Event;
 
-export const fromAuditEvent = <
+export const auditNotificationEvent = <
   Resource extends AuditEventResource,
-  Event extends AuditEventTemplate<Resource>
+  Event extends AuditEventNameTemplate<Resource>
 >(
   resource: Resource,
   event: Event
 ) => {
   if (resource == "savedGroup" || resource == "archetype")
-    return (event as unknown) as FromAuditEventMap<Resource, Event>;
+    return (event as unknown) as AuditNotificationEventMap<Resource, Event>;
 
   switch (event as unknown) {
     case "create":
-      return ("created" as unknown) as FromAuditEventMap<Resource, Event>;
+      return ("created" as unknown) as AuditNotificationEventMap<
+        Resource,
+        Event
+      >;
     case "update":
-      return ("updated" as unknown) as FromAuditEventMap<Resource, Event>;
+      return ("updated" as unknown) as AuditNotificationEventMap<
+        Resource,
+        Event
+      >;
     case "delete":
-      return ("deleted" as unknown) as FromAuditEventMap<Resource, Event>;
+      return ("deleted" as unknown) as AuditNotificationEventMap<
+        Resource,
+        Event
+      >;
     default:
-      return event as FromAuditEventMap<Resource, Event>;
+      return event as AuditNotificationEventMap<Resource, Event>;
   }
 };
 
 type AuditNotificationEventTemplate<R> = R extends AuditEventResource
-  ? { [k in R]: FromAuditEventMap<R, AuditEventTemplate<R>>[] }
+  ? { [k in R]: AuditNotificationEventMap<R, AuditEventNameTemplate<R>>[] }
   : never;
 
 // This is all the audit events mapped to the notification convention,
 // e.g. attribute: ["created", ...]
-type AuditNotificationEvent = UnionToIntersection<
+type AuditNotificationEvents = UnionToIntersection<
   AuditNotificationEventTemplate<AuditEventResource>
 >;
 
-export const auditNotificationEvent: AuditNotificationEvent = (Object.keys(
+export const auditNotificationEvents: AuditNotificationEvents = (Object.keys(
   auditEvents
-) as AuditEventResource[]).reduce<AuditNotificationEvent>(
-  (mappings: AuditNotificationEvent, resource: AuditEventResource) => ({
+) as AuditEventResource[]).reduce<AuditNotificationEvents>(
+  (mappings: AuditNotificationEvents, resource: AuditEventResource) => ({
     ...mappings,
     [resource]: auditEvents[resource].map((event) =>
-      fromAuditEvent(resource, event)
+      auditNotificationEvent(resource, event)
     ),
   }),
-  ({} as unknown) as AuditNotificationEvent
+  ({} as unknown) as AuditNotificationEvents
 );
 
 type AuditNoficationEventNameTemplate<
   R,
-  E = AuditEventTemplate<R>
+  E = AuditEventNameTemplate<R>
 > = R extends AuditEventResource
-  ? E extends AuditEventTemplate<R>
-    ? `${R}.${FromAuditEventMap<R, E>}`
+  ? E extends AuditEventNameTemplate<R>
+    ? `${R}.${AuditNotificationEventMap<R, E>}`
     : never
   : never;
 

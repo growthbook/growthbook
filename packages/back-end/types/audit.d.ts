@@ -1,6 +1,6 @@
 import { EntityType, EventTypes } from "../src/types/Audit";
 export { EventType } from "../src/types/Audit";
-import { LegacyAuditInterfaceTemplate } from "../src/util/legacyAudit/interfaces";
+import { AuditInterfaceTemplate as LegacyAuditInterfaceTemplate } from "../src/util/legacyAudit/maps";
 
 export interface AuditUserLoggedIn {
   id: string;
@@ -14,7 +14,7 @@ export interface AuditUserApiKey {
 
 export type AuditInterfaceTemplate<
   Entity,
-  Event = EventTypes<Entity>,
+  Event = EventTypes<Entity>
 > = Entity extends EntityType
   ? Event extends EventTypes<Entity>
     ? LegacyAuditInterfaceTemplate<{

@@ -5,7 +5,7 @@ import {
 } from "../../../types/audit";
 import { createEvent } from "../../models/EventModel";
 import { EventAuditUser } from "../../events/event-types";
-import { toAuditEventMappings } from "./interfaces";
+import { auditEventMappings } from "./maps";
 
 const wrapUser = (
   user: AuditUserLoggedIn | AuditUserApiKey
@@ -31,7 +31,7 @@ export async function insertAudit(
   } = data;
 
   const savedObject = await createEvent(organizationId, {
-    ...toAuditEventMappings[event],
+    ...auditEventMappings[event],
     ...payload,
     data: undefined,
     projects: [] as string[],
