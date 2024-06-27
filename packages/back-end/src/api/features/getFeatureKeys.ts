@@ -7,7 +7,6 @@ export const getFeatureKeys = createApiRequestHandler(getFeatureKeysValidator)(
   async (req): Promise<GetFeatureKeysResponse> => {
     const features = await getAllFeatures(req.context, {
       project: req.query.projectId,
-      includeArchived: true,
     });
 
     return features.map((f) => f.id);
