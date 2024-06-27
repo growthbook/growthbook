@@ -2998,7 +2998,7 @@ export default abstract class SqlIntegration
               ? `${formatDate(dates.end, "yyyy-MM-dd")}`
               : `{{date endDateISO "yyyy-MM-dd"}}`;
 
-            return `event_time BETWEEN '${start}' AND' ${end}'`;
+            return `event_time BETWEEN '${start}' AND '${end}'`;
           },
           getAdditionalEvents: () => [],
           getEventFilterWhereClause: (eventName: string) =>
@@ -3069,7 +3069,7 @@ export default abstract class SqlIntegration
             const end = dates
               ? `${formatDate(dates.end, "yyyy-MM-dd")}`
               : `{{date endDateISO "yyyy-MM-dd"}}`;
-            return `received_at BETWEEN '${start}' AND' ${end}'`;
+            return `received_at BETWEEN '${start}' AND '${end}'`;
           },
           getAdditionalEvents: () => [
             {
@@ -3268,8 +3268,8 @@ export default abstract class SqlIntegration
     return trackedEvents.map((event) => {
       const alreadyExists = existingFactTables.some(
         (factTable) =>
-          factTable.datasource === datasourceId &&
-          factTable.eventName === event.eventName
+          factTable.datasource.toLowerCase() === datasourceId.toLowerCase() &&
+          factTable.eventName.toLowerCase() === event.displayName.toLowerCase()
       );
       return {
         displayName: event.displayName,
