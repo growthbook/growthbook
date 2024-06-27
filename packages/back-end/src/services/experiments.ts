@@ -33,6 +33,7 @@ import {
 import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
 import { MetricPriorSettings } from "@back-end/types/fact-table";
+import { promiseAllChunks } from "@back-end/src/util/promise";
 import { updateExperiment } from "../models/ExperimentModel";
 import { Context } from "../models/BaseModel";
 import {
@@ -768,7 +769,8 @@ export async function createMultipleSnapshotAnalysis(
     Array.from(analysisParamsMap.values())
   );
 
-  results.map(async (result) => {
+  const promises: (() => Promise<void>)[] = [];
+  results.map((result) => {
     const analysisParams = analysisParamsMap.get(result.id);
     if (!analysisParams) return;
 
@@ -863,8 +865,13 @@ export async function createMultipleSnapshotAnalysis(
       analysis.error = undefined;
     }
 
-    updateSnapshotAnalysis({ organization, id: snapshot, analysis, context });
+    promises.push(async () =>
+      updateSnapshotAnalysis({ organization, id: snapshot, analysis, context })
+    );
   });
+  if (promises.length > 0) {
+    promiseAllChunks(promises, 10);
+  }
 }
 
 export async function createSnapshotAnalysis({

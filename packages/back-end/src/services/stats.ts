@@ -177,7 +177,7 @@ start = time.time()
 
 data = json.loads("""${escapedStatsData}""", strict=False)
 
-// cast asdict because dataclasses are not serializable
+# cast asdict because dataclasses are not serializable
 results = [asdict(analysis) for analysis in process_multiple_experiment_results(data)]
 
 print(json.dumps({
