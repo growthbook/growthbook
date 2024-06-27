@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { SavedGroups } from "./types/growthbook";
+import { SavedGroupsValues } from "./types/growthbook";
 import {
   ConditionInterface,
   TestedObj,
@@ -17,7 +17,7 @@ const _regexCache: { [key: string]: RegExp } = {};
 export function evalCondition(
   obj: TestedObj,
   condition: ConditionInterface,
-  savedGroups: SavedGroups
+  savedGroups: SavedGroupsValues
 ): boolean {
   savedGroups = savedGroups || {};
   // Condition is an object, keys are either specific operators or object paths
@@ -70,7 +70,7 @@ function getRegex(regex: string): RegExp {
 function evalConditionValue(
   condition: ConditionValue,
   value: any,
-  savedGroups: SavedGroups
+  savedGroups: SavedGroupsValues
 ) {
   // Simple equality comparisons
   if (typeof condition === "string") {
@@ -127,7 +127,7 @@ function getType(v: any): VarType | "unknown" {
 }
 
 // At least one element of actual must match the expected condition/value
-function elemMatch(actual: any, expected: any, savedGroups: SavedGroups) {
+function elemMatch(actual: any, expected: any, savedGroups: SavedGroupsValues) {
   if (!Array.isArray(actual)) return false;
   const check = isOperatorObject(expected)
     ? (v: any) => evalConditionValue(expected, v, savedGroups)
@@ -140,25 +140,12 @@ function elemMatch(actual: any, expected: any, savedGroups: SavedGroups) {
   return false;
 }
 
-function setOrArrayContains(
-  value: any,
-  collection: Array<any> | Set<any>
-): boolean {
-  if (collection instanceof Set) {
-    return collection.has(value);
-  }
-  if (Array.isArray(collection)) {
-    return collection.includes(value);
-  }
-  return false;
-}
-
-function isIn(actual: any, expected: Array<any> | Set<any>): boolean {
+function isIn(actual: any, expected: Array<any>): boolean {
   // Do an intersection if attribute is an array
   if (Array.isArray(actual)) {
-    return actual.some((el) => setOrArrayContains(el, expected));
+    return actual.some((el) => expected.includes(el));
   }
-  return setOrArrayContains(actual, expected);
+  return expected.includes(actual);
 }
 
 // Evaluate a single operator condition
@@ -166,7 +153,7 @@ function evalOperatorCondition(
   operator: Operator,
   actual: any,
   expected: any,
-  savedGroups: SavedGroups
+  savedGroups: SavedGroupsValues
 ): boolean {
   switch (operator) {
     case "$veq":
@@ -200,9 +187,9 @@ function evalOperatorCondition(
       if (!Array.isArray(expected)) return false;
       return isIn(actual, expected);
     case "$inGroup":
-      return isIn(actual, savedGroups[expected] || new Set());
+      return isIn(actual, savedGroups[expected] || []);
     case "$notInGroup":
-      return !isIn(actual, savedGroups[expected] || new Set());
+      return !isIn(actual, savedGroups[expected] || []);
     case "$nin":
       if (!Array.isArray(expected)) return false;
       return !isIn(actual, expected);
@@ -244,7 +231,7 @@ function evalOperatorCondition(
 function evalOr(
   obj: TestedObj,
   conditions: ConditionInterface[],
-  savedGroups: SavedGroups
+  savedGroups: SavedGroupsValues
 ): boolean {
   if (!conditions.length) return true;
   for (let i = 0; i < conditions.length; i++) {
@@ -259,7 +246,7 @@ function evalOr(
 function evalAnd(
   obj: TestedObj,
   conditions: ConditionInterface[],
-  savedGroups: SavedGroups
+  savedGroups: SavedGroupsValues
 ): boolean {
   for (let i = 0; i < conditions.length; i++) {
     if (!evalCondition(obj, conditions[i], savedGroups)) {

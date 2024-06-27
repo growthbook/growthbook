@@ -11,7 +11,7 @@ import {
 } from "../src";
 import { evalCondition } from "../src/mongrule";
 import {
-  SavedGroups,
+  SavedGroupsValues,
   StickyAssignmentsDocument,
   StickyAttributeKey,
   VariationRange,
@@ -36,7 +36,7 @@ type Cases = {
   // name, context, feature key, result
   feature: [string, Context, string, Omit<FeatureResult, "ruleId">][];
   // name, condition, attribute, result
-  evalCondition: [string, any, any, boolean, SavedGroups][];
+  evalCondition: [string, any, any, boolean, SavedGroupsValues][];
   // name, args ([numVariations, coverage, weights]), result
   getBucketRange: [
     string,

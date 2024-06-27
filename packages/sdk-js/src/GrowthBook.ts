@@ -200,15 +200,12 @@ export class GrowthBook<
     if (data.features) {
       this._ctx.features = data.features;
     }
+    if (data.savedGroups) {
+      this._ctx.savedGroups = data.savedGroups;
+    }
     if (data.experiments) {
       this._ctx.experiments = data.experiments;
       this._updateAllAutoExperiments();
-    }
-    if (data.savedGroups) {
-      this._ctx.savedGroups = {};
-      Object.entries(data.savedGroups).forEach(([key, valueList]) => {
-        this._ctx.savedGroups![key] = new Set(valueList);
-      });
     }
     this.ready = true;
     this._render();
@@ -472,6 +469,7 @@ export class GrowthBook<
           subtle
         )
       );
+      delete data.encryptedSavedGroups;
     }
     return data;
   }
