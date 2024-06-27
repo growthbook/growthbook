@@ -26,6 +26,7 @@ import { AuthRequest } from "../types/AuthRequest";
 import { UserModel } from "../models/UserModel";
 import {
   ExpandedMember,
+  ExpandedMemberInfo,
   Invite,
   Member,
   MemberRoleInfo,
@@ -1018,23 +1019,76 @@ export async function findVerifiedOrgsForNewUser(email: string) {
   }
 }
 
+const expandedMemberInfoCache: Record<
+  string,
+  ExpandedMemberInfo & {
+    dateCreated: Date;
+    e: number;
+  }
+> = {};
+const EXPANDED_MEMBER_CACHE_TTL = 1000 * 60 * 15; // 15 minutes
+
+// Garbage collection for cache (probably not needed)
+setInterval(() => {
+  const now = Date.now();
+  Object.keys(expandedMemberInfoCache).forEach((k) => {
+    if (expandedMemberInfoCache[k].e <= now) {
+      delete expandedMemberInfoCache[k];
+    }
+  });
+}, EXPANDED_MEMBER_CACHE_TTL);
+
+// Add email/name to the organization members array
 export async function expandOrgMembers(
   members: Member[]
 ): Promise<ExpandedMember[]> {
-  // Add email/name to the organization members array
-  const userInfo = await getUsersByIds(members.map((m) => m.id));
   const expandedMembers: ExpandedMember[] = [];
-  userInfo.forEach(({ id, email, verified, name, _id }) => {
-    const memberInfo = members.find((m) => m.id === id);
-    if (!memberInfo) return;
-    expandedMembers.push({
-      email,
-      verified,
-      name: name || "",
-      ...memberInfo,
-      dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
-    });
+
+  // First look in cache
+  const now = Date.now();
+  const remainingMembers: Member[] = [];
+  members.forEach((m) => {
+    const cache = expandedMemberInfoCache[m.id];
+    if (cache && cache.e > now) {
+      expandedMembers.push({
+        email: cache.email,
+        verified: cache.verified,
+        name: cache.name || "",
+        ...m,
+        dateCreated: m.dateCreated || cache.dateCreated,
+      });
+    } else {
+      remainingMembers.push(m);
+    }
   });
+
+  if (remainingMembers.length > 0) {
+    const userInfo = await getUsersByIds(remainingMembers.map((m) => m.id));
+    userInfo.forEach(({ id, email, verified, name, _id }) => {
+      const memberInfo = remainingMembers.find((m) => m.id === id);
+      if (!memberInfo) return;
+      expandedMembers.push({
+        email,
+        verified,
+        name: name || "",
+        ...memberInfo,
+        dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
+      });
+
+      expandedMemberInfoCache[id] = {
+        email,
+        verified,
+        name: name || "",
+        dateCreated: _id.getTimestamp(),
+        e:
+          now +
+          EXPANDED_MEMBER_CACHE_TTL +
+          // Random jitter to avoid cache stampedes
+          Math.floor(Math.random() * EXPANDED_MEMBER_CACHE_TTL * 0.1),
+      };
+    });
+  }
+
   return expandedMembers;
 }
 

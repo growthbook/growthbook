@@ -23,7 +23,10 @@ const apiKeySchema = new mongoose.Schema({
   environment: String,
   project: String,
   description: String,
-  organization: String,
+  organization: {
+    type: String,
+    index: true,
+  },
   dateCreated: Date,
   encryptSDK: Boolean,
   encryptionKey: String,
