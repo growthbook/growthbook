@@ -1,22 +1,27 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const EditProjectsForm: FC<{
-  projects: string[];
+  value: string[];
+  permissionRequired: (projectId: string) => boolean;
   save: (projects: string[]) => Promise<void>;
   cancel: () => void;
   mutate: () => void;
   entityName?: string;
-}> = ({ projects = [], save, cancel, mutate, entityName }) => {
-  const { projects: projectDefinitions } = useDefinitions();
+}> = ({ value = [], permissionRequired, save, cancel, mutate, entityName }) => {
+  const { projects: orgProjects } = useDefinitions();
   const form = useForm({
     defaultValues: {
-      projects,
+      projects: value,
     },
   });
+
+  const projectOptions = orgProjects.filter((project) =>
+    permissionRequired(project.id)
+  );
 
   return (
     <Modal
@@ -33,7 +38,7 @@ const EditProjectsForm: FC<{
         label="Projects"
         placeholder="All projects"
         value={form.watch("projects")}
-        options={projectDefinitions.map((p) => ({
+        options={projectOptions.map((p) => ({
           value: p.id,
           label: p.name,
         }))}

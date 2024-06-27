@@ -165,6 +165,9 @@ const ExperimentPage = (): ReactElement => {
       {projectModalOpen && (
         <EditProjectForm
           cancel={() => setProjectModalOpen(false)}
+          permissionRequired={(project) =>
+            permissionsUtil.canUpdateExperiment({ project }, {})
+          }
           mutate={mutate}
           current={experiment.project}
           apiEndpoint={`/experiment/${experiment.id}`}

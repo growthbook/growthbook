@@ -1238,6 +1238,9 @@ export default function FeaturesOverview({
         )}
         {editProjectModal && (
           <EditProjectForm
+            permissionRequired={(project) =>
+              permissionsUtil.canUpdateFeature({ project }, {})
+            }
             apiEndpoint={`/feature/${feature.id}`}
             cancel={() => setEditProjectModal(false)}
             mutate={mutate}

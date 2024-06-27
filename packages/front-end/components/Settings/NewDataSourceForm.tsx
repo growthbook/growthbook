@@ -550,7 +550,13 @@ const NewDataSourceForm: FC<{
               label="Projects"
               placeholder="All projects"
               value={datasource.projects || []}
-              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              options={projects
+                .filter((project) =>
+                  permissionsUtil.canCreateDataSource({
+                    projects: [project.id],
+                  })
+                )
+                .map((p) => ({ value: p.id, label: p.name }))}
               onChange={(v) => onManualChange("projects", v)}
               customClassName="label-overflow-ellipsis"
               helpText="Assign this data source to specific projects"
