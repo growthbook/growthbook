@@ -166,15 +166,19 @@ async function runStatsEngine(
   const cpus = os.cpus();
   const result = await promisify(PythonShell.runString)(
     `
-from gbstats.gbstats import process_multiple_experiment_results
+
+from dataclasses import asdict
 import json
 import time
+
+from gbstats.gbstats import process_multiple_experiment_results
 
 start = time.time()
 
 data = json.loads("""${escapedStatsData}""", strict=False)
 
-results = process_multiple_experiment_results(data)
+// cast asdict because dataclasses are not serializable
+results = [asdict(analysis) for analysis in process_multiple_experiment_results(data)]
 
 print(json.dumps({
   'results': results,

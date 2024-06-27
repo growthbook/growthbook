@@ -72,4 +72,5 @@ class ExperimentMetricAnalysis:
 @dataclass
 class MultipleExperimentMetricAnalysis:
     id: str
-    results: List[ExperimentMetricAnalysisResult]
+    results: List[ExperimentMetricAnalysis]
+    error: Optional[str]
