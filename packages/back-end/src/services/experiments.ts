@@ -689,8 +689,14 @@ export async function createMultipleSnapshotAnalysis(
       snapshot: string;
     }
   >();
-  await params.forEach(
-    async (
+
+  // get queryMap for all snapshots
+  const queryMap = await getQueryMap(
+    context.org.id,
+    params.map((p) => p.snapshot.queries).flat()
+  );
+  params.forEach(
+    (
       { experiment, organization, analysisSettings, metricMap, snapshot },
       i
     ) => {
@@ -727,11 +733,6 @@ export async function createMultipleSnapshotAnalysis(
         context,
       });
 
-      // Format data correctly
-      const queryMap: QueryMap = await getQueryMap(
-        organization.id,
-        snapshot.queries
-      );
       const mdat = getMetricsAndQueryDataForStatsEngine(
         queryMap,
         metricMap,
