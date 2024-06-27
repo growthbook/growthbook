@@ -2,10 +2,10 @@ import {
   AuditUserLoggedIn,
   AuditUserApiKey,
   AuditInterface,
-} from "../../types/audit";
-import { createEvent } from "../models/EventModel";
-import { EventAuditUser } from "../events/event-types";
-import { toAuditEventMappings } from "./legacyAuditBase";
+} from "../../../types/audit";
+import { createEvent } from "../../models/EventModel";
+import { EventAuditUser } from "../../events/event-types";
+import { toAuditEventMappings } from "./interfaces";
 
 const wrapUser = (
   user: AuditUserLoggedIn | AuditUserApiKey

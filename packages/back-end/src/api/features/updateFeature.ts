@@ -17,7 +17,6 @@ import {
 import { FeatureInterface } from "../../../types/feature";
 import { getEnabledEnvironments } from "../../util/features";
 import { addTagsDiff } from "../../models/TagModel";
-import { auditDetailsUpdate } from "../../services/audit";
 import { createRevision } from "../../models/FeatureRevisionModel";
 import { FeatureRevisionInterface } from "../../../types/feature-revision";
 import { getEnvironmentIdsFromOrg } from "../../services/organizations";
@@ -187,15 +186,6 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       feature.tags || [],
       updates.tags || []
     );
-
-    await req.audit({
-      event: "feature.update",
-      entity: {
-        object: "feature",
-        id: feature.id,
-      },
-      details: auditDetailsUpdate(feature, updatedFeature),
-    });
 
     const groupMap = await getSavedGroupMap(req.organization);
 

@@ -1,6 +1,6 @@
 import { EntityType, EventTypes } from "../src/types/Audit";
 export { EventType } from "../src/types/Audit";
-import { LegacyAuditInterfaceTemplate } from "../src/util/legacyAuditBase";
+import { LegacyAuditInterfaceTemplate } from "../src/util/legacyAudit/interfaces";
 
 export interface AuditUserLoggedIn {
   id: string;

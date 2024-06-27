@@ -6,7 +6,7 @@ import { insertMetrics } from "../models/MetricModel";
 import { MetricInterface, MetricType } from "../../types/metric";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { logger } from "../util/logger";
-import { insertAudit } from "../util/legacyAudit";
+import { insertAudit } from "../util/legacyAudit/wrappers";
 import { auditDetailsCreate } from "../services/audit";
 import { ExpandedMember } from "../../types/organization";
 import { AuditUserLoggedIn } from "../../types/audit";

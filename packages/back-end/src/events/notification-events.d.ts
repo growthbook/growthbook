@@ -6,7 +6,7 @@ import {
   NotificationEventNameTemplate,
 } from "./base-types";
 import { UserLoginAuditableProperties } from "./event-types";
-import { AuditEventResource } from "../util/legacyAuditBase";
+import { AuditEventResource } from "../util/legacyAudit/base";
 
 // region User
 

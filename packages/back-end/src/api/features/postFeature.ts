@@ -14,7 +14,6 @@ import {
   getApiFeatureObj,
   getSavedGroupMap,
 } from "../../services/features";
-import { auditDetailsCreate } from "../../services/audit";
 import { OrganizationInterface } from "../../../types/organization";
 import { getEnvironments } from "../../services/organizations";
 
@@ -133,15 +132,6 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
     addIdsToRules(feature.environmentSettings, feature.id);
 
     await createFeature(req.context, feature);
-
-    await req.audit({
-      event: "feature.create",
-      entity: {
-        object: "feature",
-        id: feature.id,
-      },
-      details: auditDetailsCreate(feature),
-    });
 
     const groupMap = await getSavedGroupMap(req.organization);
 
