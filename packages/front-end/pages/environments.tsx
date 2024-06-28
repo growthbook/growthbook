@@ -23,8 +23,8 @@ const EnvironmentsPage: FC = () => {
 
   const environments = useEnvironments();
   const filteredEnvironments = project
-    ? environments.filter((ds) =>
-        isProjectListValidForProject(ds.projects, project)
+    ? environments.filter((env) =>
+        isProjectListValidForProject(env.projects, project)
       )
     : environments;
 

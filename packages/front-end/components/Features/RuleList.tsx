@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import {
   DndContext,
   DragOverlay,
@@ -26,6 +26,7 @@ export default function RuleList({
   mutate,
   environment,
   setRuleModal,
+  setCopyRuleModal,
   version,
   setVersion,
   locked,
@@ -35,6 +36,10 @@ export default function RuleList({
   environment: string;
   mutate: () => void;
   setRuleModal: (rule: { environment: string; i: number }) => void;
+  setCopyRuleModal: (args: {
+    environment: string;
+    rules: FeatureRule[];
+  }) => void;
   version: number;
   setVersion: (version: number) => void;
   locked: boolean;
@@ -141,6 +146,7 @@ export default function RuleList({
             feature={feature}
             mutate={mutate}
             setRuleModal={setRuleModal}
+            setCopyRuleModal={setCopyRuleModal}
             unreachable={!!unreachableIndex && i >= unreachableIndex}
             version={version}
             setVersion={setVersion}
@@ -158,6 +164,7 @@ export default function RuleList({
             feature={feature}
             mutate={mutate}
             setRuleModal={setRuleModal}
+            setCopyRuleModal={setCopyRuleModal}
             version={version}
             setVersion={setVersion}
             locked={locked}
