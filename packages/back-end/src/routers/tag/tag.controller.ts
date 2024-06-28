@@ -95,9 +95,14 @@ export const putTag = async (
   }
   const { label, color, description } = req.body;
   const { id } = req.params;
-  const existing = await getTag(context.org.id, id);
-  if (!existing) {
+  const existing = await getAllTags(context.org.id);
+  const matchingId = existing.find((tag) => tag.id === id);
+  const matchingLabel = existing.find((tag) => tag.label === label);
+  if (!matchingId) {
     throw new Error("Tag not found");
+  }
+  if (matchingLabel) {
+    throw new Error("A Tag with this name already exists");
   }
   await updateTag(context.org.id, id, color, description, label);
 
