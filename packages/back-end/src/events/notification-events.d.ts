@@ -1,12 +1,12 @@
 import { ApiExperiment, ApiFeature } from "../../types/openapi";
 import { ExperimentWarningNotificationPayload } from "../types/ExperimentNotification";
+import { AuditEventResource } from "../util/legacyAudit/base";
 import {
   NotificationEventPayload,
   OptionalNotificationEventNameTemplate,
   NotificationEventNameTemplate,
 } from "./base-types";
 import { UserLoginAuditableProperties } from "./event-types";
-import { AuditEventResource } from "../util/legacyAudit/base";
 
 // region User
 
@@ -124,8 +124,9 @@ type AuditResourceEventTemplate<R, E> = R extends AuditEventResource
 
 type UndefinedEventTemplate<E> = E extends DefinedEvent ? never : E;
 
-type UndefinedResourceEventTemplate<R extends AuditEventResource> =
-  UndefinedEventTemplate<NotificationEventNameTemplate<R>>;
+type UndefinedResourceEventTemplate<
+  R extends AuditEventResource
+> = UndefinedEventTemplate<NotificationEventNameTemplate<R>>;
 
 export type UndefinedEvent = UndefinedResourceEventTemplate<AuditEventResource>;
 

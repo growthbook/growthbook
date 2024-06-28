@@ -53,8 +53,11 @@ type UnionToTupleRecursively<Union, Result extends any[]> = {
 
 export type UnionToTuple<U> = UnionToTupleRecursively<U, []>;
 
-export type UnionToIntersection<U> = 
-  (U extends any ? (x: U)=>void : never) extends ((x: infer I)=>void) ? I : never
+export type UnionToIntersection<U> = (
+  U extends any ? (x: U) => void : never
+) extends (x: infer I) => void
+  ? I
+  : never;
 
 export function ensure<T>(x: T): asserts x is NonNullable<T> {
   if (x === undefined || x === null) {
