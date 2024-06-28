@@ -95,20 +95,24 @@ export default function CopyRuleModal({
         </span>{" "}
         from <span className="text-indigo h5">{environment}</span> to...
       </div>
-      <div className="mt-3">
-        <label className="cursor-pointer hover-underline py-1 px-1 mb-0">
-          <input
-            type="checkbox"
-            id="select_all"
-            className="position-relative mr-2"
-            style={{ top: "2px" }}
-            onChange={toggleAll}
-            checked={allToggled}
-          />
-          <span className="h5 mr-1 text-dark">all environments</span>
-        </label>
-      </div>
-      <hr />
+      {envs.length > 1 ? (
+        <>
+          <div className="mt-3">
+            <label className="cursor-pointer hover-underline py-1 px-1 mb-0">
+              <input
+                type="checkbox"
+                id="select_all"
+                className="position-relative mr-2"
+                style={{ top: "2px" }}
+                onChange={toggleAll}
+                checked={allToggled}
+              />
+              <span className="h5 mr-1 text-dark">all environments</span>
+            </label>
+          </div>
+          <hr />
+        </>
+      ) : null}
       <div className="mt-2">
         {envs.map((env) => {
           const rules = getRules(feature, env);
