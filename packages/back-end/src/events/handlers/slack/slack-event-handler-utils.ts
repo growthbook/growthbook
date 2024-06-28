@@ -11,6 +11,7 @@ import {
   FeatureDeletedNotificationEvent,
   FeatureUpdatedNotificationEvent,
   NotificationEvent,
+  UndefinedEvent,
 } from "../../notification-events";
 import { getEvent } from "../../../models/EventModel";
 import { SlackIntegrationInterface } from "../../../../types/slack-integration";
@@ -31,6 +32,11 @@ export const getSlackMessageForNotificationEvent = async (
   event: NotificationEvent,
   eventId: string
 ): Promise<SlackMessage | null> => {
+  // Undefined events are events that were imported from audits but
+  // do not have (yet) a corresponding notification event payload.
+  // These should never surface as notified events.
+  let undefinedEvent: UndefinedEvent;
+
   switch (event.event) {
     case "user.login":
       return null;
@@ -63,7 +69,8 @@ export const getSlackMessageForNotificationEvent = async (
       return buildSlackMessageForWebhookTestEvent(event.data.webhookId);
 
     default:
-      throw `Unsupported event: ${event}`;
+      undefinedEvent = event.event;
+      throw `Unsupported event: ${undefinedEvent}`;
   }
 };
 

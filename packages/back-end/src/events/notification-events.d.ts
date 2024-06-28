@@ -127,7 +127,7 @@ type UndefinedEventTemplate<E> = E extends DefinedEvent ? never : E;
 type UndefinedResourceEventTemplate<R extends AuditEventResource> =
   UndefinedEventTemplate<NotificationEventNameTemplate<R>>;
 
-type UndefinedEvents = UndefinedResourceEventTemplate<AuditEventResource>;
+export type UndefinedEvent = UndefinedResourceEventTemplate<AuditEventResource>;
 
 type AuditEventNameTemplate<R> = R extends AuditEventResource
   ? AuditResourceEventTemplate<R, UndefinedResourceEventTemplate<R>>
