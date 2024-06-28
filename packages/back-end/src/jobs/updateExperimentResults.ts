@@ -244,7 +244,7 @@ async function sendSignificanceEmail(
 
   try {
     // get the org confidence level settings:
-    const { ciUpper, ciLower } = await getConfidenceLevelsForOrg(context);
+    const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
 
     // check this and the previous snapshot to see if anything changed:
     const experimentChanges: string[] = [];

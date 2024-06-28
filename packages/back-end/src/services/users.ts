@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { promisify } from "util";
 import { Request } from "express";
 import md5 from "md5";
-import { UserInterface } from "@back-end/types/user";
+import { UserInterface } from "../../types/user";
 import {
   getAllUserEmailsAcrossAllOrgs,
   getUserByEmail,

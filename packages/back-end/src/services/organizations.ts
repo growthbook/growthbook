@@ -140,7 +140,7 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
   });
 }
 
-export async function getConfidenceLevelsForOrg(context: ReqContext) {
+export function getConfidenceLevelsForOrg(context: ReqContext) {
   const ciUpper = context.org.settings?.confidenceLevel || 0.95;
   return {
     ciUpper,
