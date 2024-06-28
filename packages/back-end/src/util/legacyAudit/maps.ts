@@ -37,7 +37,7 @@ type AuditEventMappingTemplate<
   : never;
 
 // This is used to make audit interface to event interface.
-// Tt has type: { "experiment.update": { entity: "experiment", event: "experiment.updated" } & ...
+// It has type: { "experiment.update": { entity: "experiment", event: "experiment.updated" } & ...
 // and excludes the events already defined.
 type AuditEventMappings = UnionToIntersection<
   AuditEventMappingTemplate<AuditEventResource>
