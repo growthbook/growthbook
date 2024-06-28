@@ -107,6 +107,7 @@ export default function TagsModal({
           <div>
             <Tag
               tag={form.watch("label")}
+              label={form.watch("label")}
               color={form.watch("color")}
               description={form.watch("description")}
             />

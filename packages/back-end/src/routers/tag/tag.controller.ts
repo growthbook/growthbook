@@ -8,7 +8,13 @@ import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getContextFromReq } from "../../services/organizations";
 import { TagInterface } from "../../../types/tag";
-import { addTag, getTag, removeTag, updateTag } from "../../models/TagModel";
+import {
+  addTag,
+  getAllTags,
+  getTag,
+  removeTag,
+  updateTag,
+} from "../../models/TagModel";
 import { removeTagInMetrics } from "../../models/MetricModel";
 import { removeTagInFeature } from "../../models/FeatureModel";
 import { removeTagFromSlackIntegration } from "../../models/SlackIntegrationModel";
@@ -40,6 +46,18 @@ export const postTag = async (
   }
   const { id, color, description, label } = req.body;
 
+  // make sure it doesn't already exist:
+  const existing = await getAllTags(context.org.id);
+  const matchingId = existing.find((tag) => tag.id === id);
+  const matchingLabel = existing.find((tag) => tag.label === label);
+
+  if (matchingId) {
+    throw new Error("A Tag with this id already exists");
+  }
+  if (matchingLabel) {
+    throw new Error("A Tag with this name already exists");
+  }
+  // add the tag:
   await addTag(context.org.id, id, color, description, label);
 
   // audit log:

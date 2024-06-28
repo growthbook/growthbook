@@ -41,6 +41,8 @@ export async function getTag(
   });
   if (!doc) return null;
 
+  if (!doc.tags.includes(tag)) return null;
+
   const settings = doc.settings || {};
   return {
     id: tag,

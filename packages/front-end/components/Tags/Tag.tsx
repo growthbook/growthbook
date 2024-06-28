@@ -7,15 +7,22 @@ interface Props {
   color?: string;
   description?: string;
   skipMargin?: boolean;
+  label?: string;
 }
 
-export default function Tag({ tag, color, description, skipMargin }: Props) {
+export default function Tag({
+  tag,
+  color,
+  description,
+  skipMargin,
+  label,
+}: Props) {
   const { getTagById } = useDefinitions();
   const fullTag = getTagById(tag);
 
   const displayTitle = description ?? fullTag?.description ?? "";
   const displayColor = color ?? fullTag?.color ?? "#029dd1";
-  const displayLabel = fullTag?.label ?? tag;
+  const displayLabel = label ?? fullTag?.label ?? tag;
 
   return (
     <Badge
