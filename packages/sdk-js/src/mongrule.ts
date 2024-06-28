@@ -17,7 +17,8 @@ const _regexCache: { [key: string]: RegExp } = {};
 export function evalCondition(
   obj: TestedObj,
   condition: ConditionInterface,
-  savedGroups: SavedGroupsValues
+  // Must be included for `condition` to correctly evaluate group Operators
+  savedGroups?: SavedGroupsValues
 ): boolean {
   savedGroups = savedGroups || {};
   // Condition is an object, keys are either specific operators or object paths
