@@ -6,8 +6,9 @@ import {
   EntityEventTemplate as AuditEventNameTemplate,
 } from "../../types/Audit";
 
-export {
-  entityEvents as auditEvents,
+export { entityEvents as auditEvents } from "../../types/Audit";
+
+export type {
   EntityType as auditEventResources,
   EntityType as AuditEventResource,
   EntityEventTemplate as AuditEventNameTemplate,
