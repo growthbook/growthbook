@@ -70,7 +70,6 @@ import {
   LinkedFeatureState,
 } from "../../types/experiment";
 import { findDimensionById } from "../models/DimensionModel";
-import { findSegmentById } from "../models/SegmentModel";
 import {
   DEFAULT_CONVERSION_WINDOW_HOURS,
   EXPERIMENT_REFRESH_FREQUENCY,
@@ -99,7 +98,7 @@ import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
-import { FactTableMap } from "../models/FactTableModel";
+import { FactTableMap, getFactTableMap } from "../models/FactTableModel";
 import { StatsEngine } from "../../types/stats";
 import { getFeaturesByIds } from "../models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel";
@@ -159,11 +158,13 @@ export async function refreshMetric(
     let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
       segment =
-        (await findSegmentById(metric.segment, context.org.id)) || undefined;
+        (await context.models.segments.getById(metric.segment)) || undefined;
       if (!segment || segment.datasource !== metric.datasource) {
         throw new Error("Invalid user segment chosen");
       }
     }
+
+    const factTableMap = await getFactTableMap(context);
 
     let days = metricAnalysisDays;
     if (days < 1) {
@@ -187,6 +188,7 @@ export async function refreshMetric(
       includeByDate: true,
       segment,
       metric,
+      factTableMap,
     });
   } else {
     throw new Error("Cannot analyze manual metrics");

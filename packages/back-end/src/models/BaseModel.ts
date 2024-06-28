@@ -5,7 +5,8 @@ import mongoose, { FilterQuery } from "mongoose";
 import { Collection } from "mongodb";
 import omit from "lodash/omit";
 import { z } from "zod";
-import { isEqual, pick } from "lodash";
+import { isEqual, orderBy, pick } from "lodash";
+import { evalCondition } from "@growthbook/growthbook";
 import { ApiReqContext } from "../../types/api";
 import { ReqContext } from "../../types/organization";
 import { logger } from "../util/logger";
@@ -164,6 +165,12 @@ export abstract class BaseModel<
   /***************
    * Optional methods that can be overridden by subclasses as needed
    ***************/
+  protected useConfigFile(): boolean {
+    return false;
+  }
+  protected getConfigDocuments(): z.infer<T>[] {
+    return [];
+  }
   protected async filterByReadPermissions(
     docs: z.infer<T>[]
   ): Promise<z.infer<T>[]> {
@@ -344,16 +351,38 @@ export abstract class BaseModel<
       ...query,
       organization: this.context.org.id,
     };
-    const cursor = this._dangerousGetCollection().find(queryWithOrg);
+    let rawDocs;
 
-    sort &&
-      cursor.sort(
-        sort as {
-          [key: string]: 1 | -1;
-        }
-      );
+    if (this.useConfigFile()) {
+      const docs =
+        this.getConfigDocuments().filter((doc) =>
+          evalCondition(doc, queryWithOrg)
+        ) || [];
 
-    const rawDocs = await cursor.toArray();
+      sort &&
+        docs.sort((a, b) => {
+          for (const key in sort) {
+            const typedKey = key as keyof z.infer<T>;
+            const sortDir = sort[typedKey] as 1 | -1;
+
+            if (a[typedKey] < b[typedKey]) return -1 * sortDir;
+            if (a[typedKey] > b[typedKey]) return 1 * sortDir;
+          }
+          return 0;
+        });
+
+      rawDocs = docs;
+    } else {
+      const cursor = this._dangerousGetCollection().find(queryWithOrg);
+      sort &&
+        cursor.sort(
+          sort as {
+            [key: string]: 1 | -1;
+          }
+        );
+      rawDocs = await cursor.toArray();
+    }
+
     if (!rawDocs.length) return [];
 
     const migrated = rawDocs.map((d) =>
@@ -371,10 +400,14 @@ export abstract class BaseModel<
   protected async _findOne(
     query: FilterQuery<Omit<z.infer<T>, "organization">>
   ) {
-    const doc = await this._dangerousGetCollection().findOne({
-      ...query,
-      organization: this.context.org.id,
-    });
+    const doc = this.useConfigFile()
+      ? this.getConfigDocuments().find((doc) =>
+          evalCondition(doc, { ...query, organization: this.context.org.id })
+        )
+      : await this._dangerousGetCollection().findOne({
+          ...query,
+          organization: this.context.org.id,
+        });
     if (!doc) return null;
 
     const migrated = this.migrate(this._removeMongooseFields(doc));
@@ -722,7 +755,7 @@ export abstract class BaseModel<
     // Resources with a single project
     if ("project" in obj && obj.project && typeof obj.project === "string") {
       const projects = await this.context.getProjects();
-      if (!projects.some((p) => p.id === obj.project)) {
+      if (!projects || !projects.some((p) => p.id === obj.project)) {
         throw new Error("Invalid project");
       }
     }
@@ -730,6 +763,7 @@ export abstract class BaseModel<
     else if ("projects" in obj && obj.projects && Array.isArray(obj.projects)) {
       const projects = await this.context.getProjects();
       if (
+        !projects ||
         !obj.projects.every((p: string) =>
           projects.some((proj) => proj.id === p)
         )

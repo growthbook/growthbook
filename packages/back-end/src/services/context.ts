@@ -27,6 +27,7 @@ import { ExperimentInterface } from "../../types/experiment";
 import { DataSourceInterface } from "../../types/datasource";
 import { getExperimentsByIds } from "../models/ExperimentModel";
 import { getDataSourcesByOrganization } from "../models/DataSourceModel";
+import { SegmentModel } from "../models/SegmentModel";
 
 export type ForeignRefTypes = {
   experiment: ExperimentInterface;
@@ -39,12 +40,14 @@ export class ReqContextClass {
     factMetrics: FactMetricModel;
     projects: ProjectModel;
     urlRedirects: UrlRedirectModel;
+    segments: SegmentModel;
   };
   private initModels() {
     this.models = {
       factMetrics: new FactMetricModel(this),
       projects: new ProjectModel(this),
       urlRedirects: new UrlRedirectModel(this),
+      segments: new SegmentModel(this),
     };
   }
 

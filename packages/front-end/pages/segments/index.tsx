@@ -27,6 +27,7 @@ const SegmentPage: FC = () => {
     datasources,
     error: segmentsError,
     mutateDefinitions: mutate,
+    getFactTableById,
   } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
@@ -249,7 +250,7 @@ const SegmentPage: FC = () => {
                   <th className="d-none d-sm-table-cell">Data Source</th>
                   <th className="d-none d-md-table-cell">Identifier Type</th>
                   <th className="d-none d-lg-table-cell">Definition</th>
-                  <th>Date Updated</th>
+                  {canStoreSegmentsInMongo ? <th>Date Updated</th> : null}
                   <th></th>
                 </tr>
               </thead>
@@ -258,6 +259,9 @@ const SegmentPage: FC = () => {
                   const datasource = getDatasourceById(s.datasource);
                   const language: Language =
                     datasource?.properties?.queryLanguage || "sql";
+                  const factTable = s.factTableId
+                    ? getFactTableById(s.factTableId)
+                    : "";
                   return (
                     <tr key={s.id}>
                       <td>
@@ -290,13 +294,33 @@ const SegmentPage: FC = () => {
                         className="d-none d-lg-table-cell"
                         style={{ maxWidth: "30em" }}
                       >
-                        <Code
-                          code={s.sql}
-                          language={language}
-                          expandable={true}
-                        />
+                        {s.sql ? (
+                          <Code
+                            code={s.sql}
+                            language={language}
+                            expandable={true}
+                          />
+                        ) : (
+                          //MKTODO: This is temporary - need to actually design this
+                          <div className="appbox px-3 pt-3 bg-light">
+                            <div className="row align-items-center">
+                              <div className="col-auto">
+                                {(factTable && factTable.name) || ""}
+                              </div>
+                              {s.filters && s.filters.length > 0 ? (
+                                <div className="col-auto">
+                                  {s.filters.map((filter) => (
+                                    <code key={filter}>{filter}</code>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        )}
                       </td>
-                      <td>{s.dateUpdated ? ago(s.dateUpdated) : ""}</td>
+                      {canStoreSegmentsInMongo ? (
+                        <td>{s.dateUpdated ? ago(s.dateUpdated) : ""}</td>
+                      ) : null}
                       <td>
                         {permissionsUtil.canUpdateSegment() &&
                         canStoreSegmentsInMongo ? (
