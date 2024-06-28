@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import mongoose from "mongoose";
-import { getUserByEmail } from "../services/users";
+import { getUserByEmail } from "../models/UserModel";
 import { APP_ORIGIN } from "../util/secrets";
 import { isEmailEnabled, sendResetPasswordEmail } from "../services/email";
 import { logger } from "../util/logger";

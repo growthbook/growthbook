@@ -23,7 +23,6 @@ import {
 } from "../models/OrganizationModel";
 import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
 import { AuthRequest } from "../types/AuthRequest";
-import { UserModel } from "../models/UserModel";
 import {
   ExpandedMember,
   ExpandedMemberInfo,
@@ -67,6 +66,7 @@ import {
 import { getAllExperiments } from "../models/ExperimentModel";
 import { LegacyExperimentPhase } from "../../types/experiment";
 import { addTags } from "../models/TagModel";
+import { getUsersByIds } from "../models/UserModel";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -74,7 +74,6 @@ import {
 } from "./datasource";
 import { createMetric } from "./experiments";
 import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
-import { getUsersByIds } from "./users";
 import { ReqContextClass } from "./context";
 
 export {
@@ -141,9 +140,8 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
   });
 }
 
-export async function getConfidenceLevelsForOrg(id: string) {
-  const org = await getOrganizationById(id);
-  const ciUpper = org?.settings?.confidenceLevel || 0.95;
+export async function getConfidenceLevelsForOrg(context: ReqContext) {
+  const ciUpper = context.org.settings?.confidenceLevel || 0.95;
   return {
     ciUpper,
     ciLower: 1 - ciUpper,
@@ -189,21 +187,6 @@ export function getNumberOfUniqueMembersAndInvites(
   const numInvites = new Set(organization.invites.map((i) => i.email)).size;
 
   return numMembers + numInvites;
-}
-
-export async function userHasAccess(
-  req: AuthRequest,
-  organization: string
-): Promise<boolean> {
-  if (req.superAdmin) return true;
-  if (req.organization?.id === organization) return true;
-  if (!req.userId) return false;
-
-  const doc = await getOrganizationById(organization);
-  if (doc && doc.members.map((m) => m.id).includes(req.userId)) {
-    return true;
-  }
-  return false;
 }
 
 export async function removeMember(
@@ -854,11 +837,6 @@ export async function importConfig(
   }
 }
 
-export async function getEmailFromUserId(userId: string) {
-  const u = await UserModel.findOne({ id: userId });
-  return u?.email || "";
-}
-
 export async function getExperimentOverrides(
   context: ReqContext | ApiReqContext,
   project?: string
@@ -1022,7 +1000,7 @@ export async function findVerifiedOrgsForNewUser(email: string) {
 const expandedMemberInfoCache: Record<
   string,
   ExpandedMemberInfo & {
-    dateCreated: Date;
+    dateCreated?: Date;
     e: number;
   }
 > = {};
@@ -1040,7 +1018,8 @@ setInterval(() => {
 
 // Add email/name to the organization members array
 export async function expandOrgMembers(
-  members: Member[]
+  members: Member[],
+  currentUserId?: string
 ): Promise<ExpandedMember[]> {
   const expandedMembers: ExpandedMember[] = [];
 
@@ -1049,7 +1028,7 @@ export async function expandOrgMembers(
   const remainingMembers: Member[] = [];
   members.forEach((m) => {
     const cache = expandedMemberInfoCache[m.id];
-    if (cache && cache.e > now) {
+    if (cache && cache.e > now && m.id !== currentUserId) {
       expandedMembers.push({
         email: cache.email,
         verified: cache.verified,
@@ -1064,7 +1043,7 @@ export async function expandOrgMembers(
 
   if (remainingMembers.length > 0) {
     const userInfo = await getUsersByIds(remainingMembers.map((m) => m.id));
-    userInfo.forEach(({ id, email, verified, name, _id }) => {
+    userInfo.forEach(({ id, email, verified, name, dateCreated }) => {
       const memberInfo = remainingMembers.find((m) => m.id === id);
       if (!memberInfo) return;
       expandedMembers.push({
@@ -1072,14 +1051,14 @@ export async function expandOrgMembers(
         verified,
         name: name || "",
         ...memberInfo,
-        dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
+        dateCreated: memberInfo.dateCreated || dateCreated,
       });
 
       expandedMemberInfoCache[id] = {
         email,
         verified,
         name: name || "",
-        dateCreated: _id.getTimestamp(),
+        dateCreated: dateCreated,
         e:
           now +
           EXPANDED_MEMBER_CACHE_TTL +

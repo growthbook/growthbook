@@ -48,7 +48,7 @@ import {
 } from "../models/ExperimentSnapshotModel";
 import { getIntegrationFromDatasourceId } from "../services/datasource";
 import { addTagsDiff } from "../models/TagModel";
-import { getContextFromReq, userHasAccess } from "../services/organizations";
+import { getContextFromReq } from "../services/organizations";
 import { removeExperimentFromPresentations } from "../services/presentations";
 import {
   createPastExperiments,
@@ -265,14 +265,6 @@ export async function getExperiment(
     res.status(403).json({
       status: 404,
       message: "Experiment not found",
-    });
-    return;
-  }
-
-  if (!(await userHasAccess(req, experiment.organization))) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to view this experiment",
     });
     return;
   }
@@ -1664,10 +1656,9 @@ export async function getWatchingUsers(
   const { org } = getContextFromReq(req);
   const { id } = req.params;
   const watchers = await getExperimentWatchers(id, org.id);
-  const userIds = watchers.map((w) => w.userId);
   res.status(200).json({
     status: 200,
-    userIds,
+    userIds: watchers,
   });
 }
 

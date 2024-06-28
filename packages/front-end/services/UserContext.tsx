@@ -58,6 +58,10 @@ type OrgSettingsResponse = {
   licenseKey?: string;
   currentUserPermissions: UserPermissions;
   teams: TeamInterface[];
+  watching: {
+    experiments: string[];
+    features: string[];
+  };
 };
 
 export interface PermissionFunctions {
@@ -125,6 +129,10 @@ export interface UserContextValue {
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
   permissionsUtil: Permissions;
   quote: SubscriptionQuote | null;
+  watching: {
+    experiments: string[];
+    features: string[];
+  };
 }
 
 interface UserResponse {
@@ -169,6 +177,10 @@ export const UserContext = createContext<UserContextValue>({
     false
   ),
   quote: null,
+  watching: {
+    experiments: [],
+    features: [],
+  },
 });
 
 export function useUser() {
@@ -399,6 +411,13 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       .catch((e) => console.error(e));
   }, [apiCall, freeSeats, permissionsUtil]);
 
+  const watching = useMemo(() => {
+    return {
+      experiments: currentOrg?.watching?.experiments || [],
+      features: currentOrg?.watching?.features || [],
+    };
+  }, [currentOrg]);
+
   return (
     <UserContext.Provider
       value={{
@@ -428,6 +447,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         error: error || orgLoadingError?.message,
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
         quote: quote,
+        watching: watching,
       }}
     >
       {children}

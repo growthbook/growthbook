@@ -1,16 +1,22 @@
 import useSWR from "swr";
+import { useCallback } from "react";
 import { useAuth } from "@/services/auth";
 
 export default function useApi<Response = unknown>(path: string | null) {
-  const { apiCall } = useAuth();
-  const { orgId } = useAuth();
+  const { apiCall, orgId } = useAuth();
 
   // Scope the api request to the current organization
   const key = path === null ? null : orgId + "::" + path;
 
-  return useSWR<Response, Error>(key, async () =>
-    apiCall<Response>(path, {
-      method: "GET",
-    })
+  const fetcher = useCallback(
+    async (key: string) => {
+      const path = key ? key.split("::", 2)[1] : null;
+      return apiCall<Response>(path || null, {
+        method: "GET",
+      });
+    },
+    [apiCall]
   );
+
+  return useSWR<Response, Error>(key, fetcher);
 }

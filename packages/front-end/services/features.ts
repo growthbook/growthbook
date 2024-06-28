@@ -932,7 +932,7 @@ export function useRealtimeData(
 ): { usage: FeatureUsageRecords; usageDomain: [number, number] } {
   const { data, mutate } = useApi<{
     usage: FeatureUsageRecords;
-  }>(`/usage/features`);
+  }>(update ? `/usage/features` : null);
 
   // Mock data
   const usage = useMemo(() => {
