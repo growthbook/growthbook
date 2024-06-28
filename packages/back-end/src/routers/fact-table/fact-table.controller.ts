@@ -168,6 +168,7 @@ export const deleteFactTable = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200 }>
 ) => {
+  //TODO: Before deleting, check if a fact segment is using it
   const context = getContextFromReq(req);
 
   const factTable = await getFactTable(context, req.params.id);
@@ -301,6 +302,7 @@ export const deleteFactFilter = async (
   req: AuthRequest<null, { id: string; filterId: string }>,
   res: Response<{ status: 200 }>
 ) => {
+  //TODO: Before deleting a fact filter, check if it's used by a fact segment
   const context = getContextFromReq(req);
 
   const factTable = await getFactTable(context, req.params.id);

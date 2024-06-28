@@ -456,7 +456,8 @@ export default abstract class SqlIntegration
             ? `segment as (${this.getSegmentCTE(
                 params.segment,
                 baseIdType,
-                idJoinMap
+                idJoinMap,
+                params.factTableMap
               )}),`
             : ""
         }
@@ -1262,6 +1263,7 @@ export default abstract class SqlIntegration
             segment,
             baseIdType,
             idJoinMap,
+            factTableMap,
             {
               startDate: settings.startDate,
               endDate: settings.endDate,
@@ -3592,12 +3594,50 @@ AND event_name = '${eventName}'`,
     segment: SegmentInterface,
     baseIdType: string,
     idJoinMap: Record<string, string>,
+    factTableMap: FactTableMap,
     sqlVars?: SQLVars
   ) {
     // replace template variables
-    const segmentSql = sqlVars
-      ? compileSqlTemplate(segment.sql, sqlVars)
-      : segment.sql;
+    let segmentSql = "";
+
+    if (segment.sql) {
+      segmentSql = sqlVars
+        ? compileSqlTemplate(segment.sql, sqlVars)
+        : segment.sql;
+    }
+    if (segment.factTableId) {
+      const factTable = factTableMap.get(segment.factTableId);
+      segmentSql = factTable?.sql || "";
+
+      if (factTable?.sql && segment.filters?.length) {
+        //TODO: Wrap this is a named function getFilterWhereClause or something
+        const filterClauses: string[] = [];
+
+        segment.filters.forEach((filter) => {
+          const filterObj = factTable.filters.find(
+            (factFilter) => factFilter.id === filter
+          );
+
+          if (filterObj) {
+            filterClauses.push(filterObj.value);
+          }
+        });
+
+        let whereClause = "";
+
+        if (filterClauses.length) {
+          filterClauses.forEach((filterClause, i) => {
+            if (i === 0) {
+              whereClause += filterClause;
+            } else {
+              whereClause += ` AND WHERE ${filterClause}`;
+            }
+          });
+
+          return segmentSql + whereClause;
+        }
+      }
+    }
     const dateCol = this.castUserDateCol("s.date");
 
     const userIdType = segment.userIdType || "user_id";

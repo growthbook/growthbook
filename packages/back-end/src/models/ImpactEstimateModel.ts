@@ -9,6 +9,7 @@ import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { processMetricValueQueryResponse } from "../queryRunners/MetricAnalysisQueryRunner";
 import { ReqContext } from "../../types/organization";
 import { ApiReqContext } from "../../types/api";
+import { getFactTableMap } from "./FactTableModel";
 
 const impactEstimateSchema = new mongoose.Schema({
   id: String,
@@ -76,6 +77,8 @@ export async function getImpactEstimate(
     segmentObj = null;
   }
 
+  const factTableMap = await getFactTableMap(context);
+
   const conversionWindowHours =
     getConversionWindowHours(metricObj.windowSettings) ||
     DEFAULT_CONVERSION_WINDOW_HOURS;
@@ -94,6 +97,7 @@ export async function getImpactEstimate(
     metric: metricObj,
     includeByDate: true,
     segment: segmentObj || undefined,
+    factTableMap,
   });
 
   const queryResponse = await integration.runMetricValueQuery(
