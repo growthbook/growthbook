@@ -36,7 +36,7 @@ const auditSchema = new mongoose.Schema({
   dateCreated: Date,
 });
 
-type AuditDocument = mongoose.Document & AuditInterface;
+export type AuditDocument = mongoose.Document & AuditInterface;
 
 const AuditModel = mongoose.model<AuditInterface>("Audit", auditSchema);
 
@@ -81,7 +81,7 @@ export async function findAuditByEntity(
   return auditDocs.map((doc) => toInterface(doc));
 }
 
-export async function findAuditByEntityList(
+export async function legacyFindAuditByEntityList(
   organization: string,
   type: EntityType,
   ids: string[],

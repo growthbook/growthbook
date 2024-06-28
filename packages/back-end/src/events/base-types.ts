@@ -55,12 +55,13 @@ export type OptionalNotificationEventNameTemplate<
   ? NotificationEventNameTemplate<R>
   : NotificationEventName;
 
-type AuditData<EventName> = EventName extends AuditNoficationEventName
+type AuditData<Resource, EventName> = EventName extends AuditNoficationEventName
   ? {
       auditData: {
+        id: string;
         reason?: string;
         parent?: {
-          object: string;
+          object: Resource;
           id: string;
         };
         details?: string;
@@ -84,7 +85,7 @@ export type NotificationEventPayload<
   tags: string[];
   environments: string[];
   containsSecrets: boolean;
-} & AuditData<EventName>;
+} & AuditData<ResourceType, EventName>;
 
 // Only use this for zod validations!
 export const zodNotificationEventNamesEnum = notificationEventNames as UnionToTuple<NotificationEventName>;

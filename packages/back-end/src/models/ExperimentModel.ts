@@ -734,7 +734,7 @@ const logExperimentCreated = async (
     data: {
       current: apiExperiment,
     },
-    auditData: { details: auditDetailsCreate(experiment) },
+    auditData: { id: experiment.id, details: auditDetailsCreate(experiment) },
     projects: [apiExperiment.project],
     tags: apiExperiment.tags,
     environments: changedEnvs,
@@ -790,7 +790,10 @@ const logExperimentUpdated = async ({
       previous: previousApiExperiment,
       current: currentApiExperiment,
     },
-    auditData: { details: auditDetailsUpdate(previous, current) },
+    auditData: {
+      id: current.id,
+      details: auditDetailsUpdate(previous, current),
+    },
     projects: Array.from(
       new Set([previousApiExperiment.project, currentApiExperiment.project])
     ),
@@ -1110,7 +1113,7 @@ export const logExperimentDeleted = async (
     data: {
       previous: apiExperiment,
     },
-    auditData: { details: auditDetailsDelete(experiment) },
+    auditData: { id: experiment.id, details: auditDetailsDelete(experiment) },
     projects: [apiExperiment.project],
     environments: changedEnvs,
     tags: apiExperiment.tags,

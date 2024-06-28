@@ -90,7 +90,7 @@ const eventSchema = new mongoose.Schema({
 
 eventSchema.index({ organizationId: 1, dateCreated: -1 });
 
-type EventDocument<T> = mongoose.Document & EventInterface<T>;
+export type EventDocument<T> = mongoose.Document & EventInterface<T>;
 
 /**
  * Convert the Mongo document to an EventInterface, omitting Mongo default fields __v, _id

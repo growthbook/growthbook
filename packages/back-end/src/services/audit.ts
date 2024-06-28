@@ -1,4 +1,4 @@
-import { findAuditByEntityList } from "../models/AuditModel";
+import { findAuditByEntityList } from "../util/legacyAudit/wrappers";
 import { getWatchedByUser } from "../models/WatchModel";
 import { EntityType } from "../types/Audit";
 

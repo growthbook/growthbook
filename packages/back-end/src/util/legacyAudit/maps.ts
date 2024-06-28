@@ -22,6 +22,15 @@ type AuditEventMappingTemplate<
           [k in `${R}.${E}`]: {
             object: R;
             event: `${R}.${AuditNotificationEventMap<R, E>}`;
+            auditData: {
+              id: string;
+              reason?: string;
+              parent?: {
+                object: R;
+                id: string;
+              };
+              details?: string;
+            };
           };
         }
     : never
@@ -34,24 +43,39 @@ type AuditEventMappings = UnionToIntersection<
   AuditEventMappingTemplate<AuditEventResource>
 >;
 
-export const auditEventMappings: AuditEventMappings = (Object.keys(
-  auditEvents
-) as AuditEventResource[]).reduce<AuditEventMappings>(
-  (mappings: AuditEventMappings, resource: AuditEventResource) => ({
-    ...mappings,
-    ...auditEvents[resource].reduce(
-      (events, event) => ({
-        ...events,
-        [`${resource}.${event}`]: {
-          object: resource,
-          event: `${resource}.${auditNotificationEvent(resource, event)}`,
-        },
-      }),
-      ({} as unknown) as AuditEventMappings
-    ),
-  }),
-  ({} as unknown) as AuditEventMappings
-);
+export const auditEventMappings = ({
+  id,
+  reason,
+  parent,
+  details,
+}: {
+  id: string;
+  reason?: string;
+  parent?: string;
+  details?: string;
+}): AuditEventMappings =>
+  (Object.keys(auditEvents) as AuditEventResource[]).reduce<AuditEventMappings>(
+    (mappings: AuditEventMappings, resource: AuditEventResource) => ({
+      ...mappings,
+      ...auditEvents[resource].reduce(
+        (events, event) => ({
+          ...events,
+          [`${resource}.${event}`]: {
+            object: resource,
+            event: `${resource}.${auditNotificationEvent(resource, event)}`,
+            auditData: {
+              id,
+              reason,
+              ...(parent ? { parent: { object: resource, id: parent } } : {}),
+              details,
+            },
+          },
+        }),
+        ({} as unknown) as AuditEventMappings
+      ),
+    }),
+    ({} as unknown) as AuditEventMappings
+  );
 
 export type EventAuditMap<
   Resource extends AuditEventResource,
@@ -96,7 +120,11 @@ type EventAuditMappingTemplate<
 > = R extends AuditEventResource
   ? E extends NotificationEventTemplate<R>
     ? {
-        [k in `${R}.${E}`]: `${R}.${EventAuditMap<R, E>}`;
+        [k in `${R}.${E}`]: {
+          entity: { object: R; id: string; name?: string };
+          event: `${R}.${EventAuditMap<R, E>}`;
+          parent?: { object: R; id: string };
+        };
       }
     : never
   : never;
@@ -107,21 +135,32 @@ type EventAuditMappings = UnionToIntersection<
   EventAuditMappingTemplate<AuditEventResource>
 >;
 
-export const eventAuditMappings: EventAuditMappings = (Object.keys(
-  auditEvents
-) as AuditEventResource[]).reduce<EventAuditMappings>(
-  (mappings: EventAuditMappings, resource: AuditEventResource) => ({
-    ...mappings,
-    ...[...auditNotificationEvents[resource]].reduce(
-      (events, event) => ({
-        ...events,
-        [`${resource}.${event}`]: `${resource}.${eventAudit(resource, event)}`,
-      }),
-      ({} as unknown) as EventAuditMappings
-    ),
-  }),
-  ({} as unknown) as EventAuditMappings
-);
+export const eventAuditMappings = ({
+  id,
+  name,
+  parent,
+}: {
+  id: string;
+  name?: string;
+  parent?: string;
+}): EventAuditMappings =>
+  (Object.keys(auditEvents) as AuditEventResource[]).reduce<EventAuditMappings>(
+    (mappings: EventAuditMappings, resource: AuditEventResource) => ({
+      ...mappings,
+      ...[...auditNotificationEvents[resource]].reduce(
+        (events, event) => ({
+          ...events,
+          [`${resource}.${event}`]: {
+            entity: { object: resource, id, name },
+            event: `${resource}.${eventAudit(resource, event)}`,
+            ...(parent ? { parent: { object: resource, id: parent } } : {}),
+          },
+        }),
+        ({} as unknown) as EventAuditMappings
+      ),
+    }),
+    ({} as unknown) as EventAuditMappings
+  );
 
 export type AuditInterfaceTemplate<I> = I extends { event: unknown }
   ? I["event"] extends keyof AuditEventMappings
