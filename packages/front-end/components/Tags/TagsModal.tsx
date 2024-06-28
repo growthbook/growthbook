@@ -44,7 +44,7 @@ export default function TagsModal({
       open={true}
       close={close}
       cta={existing?.id ? "Save Changes" : "Create Tag"}
-      header={existing?.id ? `Edit Tag: ${existing.id}` : "Create Tag"}
+      header={existing?.id ? `Edit Tag: ${existing.label}` : "Create Tag"}
       submit={form.handleSubmit(async (value) => {
         if (existing?.id) {
           // update
