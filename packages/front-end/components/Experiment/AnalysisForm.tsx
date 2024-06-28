@@ -19,14 +19,14 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { GBSequential } from "@/components/Icons";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import UpgradeMessage from "../Marketing/UpgradeMessage";
-import UpgradeModal from "../Settings/UpgradeModal";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
@@ -65,7 +65,7 @@ const AnalysisForm: FC<{
 
   const { organization, hasCommercialFeature } = useUser();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const orgSettings = useOrgSettings();
 
@@ -90,7 +90,7 @@ const AnalysisForm: FC<{
   let canRunExperiment = !experiment.archived;
   const envs = getAffectedEnvsForExperiment({ experiment });
   if (envs.length > 0) {
-    if (!permissions.check("runExperiments", experiment.project, envs)) {
+    if (!permissionsUtil.canRunExperiment(experiment, envs)) {
       canRunExperiment = false;
     }
   }
@@ -180,8 +180,6 @@ const AnalysisForm: FC<{
   );
 
   // Error: Type instantiation is excessively deep and possibly infinite.
-  // eslint-disable-next-line
-  // @ts-ignore
   const variations = useFieldArray({
     control: form.control,
     name: "variations",
@@ -453,14 +451,14 @@ const AnalysisForm: FC<{
               value: "strict",
             },
           ]}
-          helpText="How to treat users who have not had the full time to convert yet"
+          helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
         />
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
         <SelectField
           label={
             <AttributionModelTooltip>
-              <strong>Attribution Model</strong> <FaQuestionCircle />
+              <strong>Conversion Window Override</strong> <FaQuestionCircle />
             </AttributionModelTooltip>
           }
           value={form.watch("attributionModel")}
@@ -470,11 +468,11 @@ const AnalysisForm: FC<{
           }}
           options={[
             {
-              label: "First Exposure",
+              label: "Respect Conversion Windows",
               value: "firstExposure",
             },
             {
-              label: "Experiment Duration",
+              label: "Ignore Conversion Windows",
               value: "experimentDuration",
             },
           ]}

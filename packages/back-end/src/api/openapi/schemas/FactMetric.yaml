@@ -12,7 +12,13 @@ required:
   - inverse
   - cappingSettings
   - windowSettings
+  - priorSettings
   - regressionAdjustmentSettings
+  - riskThresholdSuccess
+  - riskThresholdDanger
+  - minPercentChange
+  - maxPercentChange
+  - minSampleSize
   - managedBy
   - dateCreated
   - dateUpdated
@@ -40,6 +46,7 @@ properties:
     enum:
       - proportion
       - mean
+      - quantile
       - ratio
   numerator:
     type: object
@@ -76,6 +83,29 @@ properties:
   inverse:
     type: boolean
     description: Set to true for things like Bounce Rate, where you want the metric to decrease
+  quantileSettings:
+    description: Controls the settings for quantile metrics (mandatory if metricType is "quantile")
+    type: object
+    required:
+      - type
+      - quantile
+      - ignoreZeros
+    properties:
+      type:
+        type: string
+        enum:
+          - "event"
+          - "unit"
+        description: Whether the quantile is over unit aggregations or raw event values
+      ignoreZeros:
+        type: boolean
+        description: If true, zero values will be ignored when calculating the quantile
+      quantile:
+        type: number
+        description: The quantile value (from 0.001 to 0.999)
+        multipleOf: 0.001
+        minimum: 0.001
+        maximum: 0.999
   cappingSettings:
     description: Controls how outliers are handled
     type: object
@@ -91,18 +121,21 @@ properties:
       value:
         type: number
         description: When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).
+      ignoreZeros:
+        type: boolean
+        description: If true and capping is `percentile`, zeros will be ignored when calculating the percentile.
   windowSettings:
     type: object
     description: Controls the conversion window for the metric
     required:
       - type
-      - delayHours
     properties:
       type:
         type: string
         enum:
           - "none"
           - "conversion"
+          - "lookback"
       delayHours:
         type: number
         description: Wait this many hours after experiment exposure before counting conversions
@@ -114,6 +147,27 @@ properties:
           - "hours"
           - "days"
           - "weeks"
+    priorSettings:
+      type: object
+      description: Controls the bayesian prior for the metric
+      required:
+        - override
+        - proper
+        - mean
+        - stddev
+      properties:
+        override:
+          type: boolean
+          description: If false, the organization default settings will be used instead of the other settings in this object
+        proper:
+          type: boolean
+          description: If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.
+        mean:
+          type: number
+          description: The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)
+        stddev:
+          type: number
+          description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
   regressionAdjustmentSettings:
     type: object
     description: Controls the regression adjustment (CUPED) settings for the metric
@@ -129,6 +183,16 @@ properties:
       days:
         type: number
         description: Number of pre-exposure days to use for the regression adjustment
+  riskThresholdSuccess:
+    type: number
+  riskThresholdDanger:
+    type: number
+  minPercentChange:
+    type: number
+  maxPercentChange:
+    type: number
+  minSampleSize:
+    type: number
   managedBy:
     type: string
     description: Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere.

@@ -1,4 +1,4 @@
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 
 // mutates metric object itself!
@@ -12,17 +12,13 @@ export function applyMetricOverrides(
     ?.computedSettings;
   if (!computed) return;
 
-  metric.conversionDelayHours = computed.conversionDelayHours;
-
-  if (isFactMetric(metric)) {
-    metric.conversionWindowUnit = "hours";
-    metric.conversionWindowValue = computed.conversionWindowHours;
-  } else {
-    metric.conversionWindowHours = computed.conversionWindowHours;
-  }
-
+  metric.windowSettings = computed.windowSettings;
   metric.regressionAdjustmentEnabled = computed.regressionAdjustmentEnabled;
   metric.regressionAdjustmentDays = computed.regressionAdjustmentDays;
+
+  metric.priorSettings.proper = computed.properPrior;
+  metric.priorSettings.mean = computed.properPriorMean;
+  metric.priorSettings.stddev = computed.properPriorStdDev;
 
   // TODO: move this to the form validation when saving this settings
   if (metric.regressionAdjustmentDays < 0) {

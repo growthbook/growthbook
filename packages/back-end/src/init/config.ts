@@ -2,7 +2,6 @@ import { readFileSync, existsSync, statSync } from "fs";
 import path from "path";
 import { env } from "string-env-interpolation";
 import yaml from "js-yaml";
-import { hasReadAccess } from "shared/permissions";
 import {
   EMAIL_ENABLED,
   ENVIRONMENT,
@@ -200,7 +199,7 @@ export function getConfigMetrics(
         managedBy: "config",
       });
     })
-    .filter((m) => hasReadAccess(context.readAccessFilter, m.projects));
+    .filter((m) => context.permissions.canReadMultiProjectResource(m.projects));
 }
 
 export function getConfigDimensions(

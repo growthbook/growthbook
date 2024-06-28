@@ -2,7 +2,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { Ace } from "ace-builds";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import { CursorData } from "../Segments/SegmentForm";
+import { CursorData } from "@/components/Segments/SegmentForm";
 import Field, { FieldProps } from "./Field";
 
 const AceEditor = dynamic(
@@ -110,6 +110,7 @@ export default function CodeTextArea({
                 placeholder={placeholder}
                 fontSize="1em"
                 {...heightProps}
+                readOnly={fieldProps.disabled}
                 onCursorChange={(e) =>
                   setCursorData &&
                   setCursorData({

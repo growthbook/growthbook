@@ -1,5 +1,5 @@
 import { CSSProperties, ReactElement } from "react";
-import Tooltip from "../Tooltip/Tooltip";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function Toggle({
   value,
@@ -26,8 +26,7 @@ export default function Toggle({
 }) {
   const TooltipWrapper = ({ children }) =>
     disabledMessage ? (
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | false' is not assignable to type 's... Remove this comment to see the full error message
-      <Tooltip body={disabled && disabledMessage}>{children}</Tooltip>
+      <Tooltip body={disabled ? disabledMessage : ""}>{children}</Tooltip>
     ) : (
       children
     );
@@ -44,6 +43,7 @@ export default function Toggle({
           type="checkbox"
           id={id}
           checked={value}
+          disabled={disabled}
           onChange={(e) => {
             if (disabled) return;
             setValue(e.target.checked);

@@ -2,12 +2,14 @@
 
 import cloneDeep from "lodash/cloneDeep";
 import {
+  DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import omit from "lodash/omit";
-import { LegacyMetricInterface, MetricInterface } from "../types/metric";
+import { LegacyMetricInterface } from "../types/metric";
 import {
+  migrateReport,
   migrateSavedGroup,
   migrateSnapshot,
   upgradeDatasourceObject,
@@ -32,67 +34,16 @@ import {
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
 } from "../types/experiment-snapshot";
-import { ExperimentReportResultDimension } from "../types/report";
+import {
+  ExperimentReportResultDimension,
+  LegacyReportInterface,
+} from "../types/report";
 import { Queries } from "../types/query";
 import { ExperimentPhase } from "../types/experiment";
 import { LegacySavedGroupInterface } from "../types/saved-group";
 
 describe("Metric Migration", () => {
-  it("updates old metric objects - earlyStart", () => {
-    const baseMetric: MetricInterface = {
-      datasource: "",
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-      description: "",
-      id: "",
-      ignoreNulls: false,
-      inverse: false,
-      name: "",
-      organization: "",
-      owner: "",
-      queries: [],
-      runStarted: null,
-      type: "binomial",
-      userIdColumns: {
-        user_id: "user_id",
-        anonymous_id: "anonymous_id",
-      },
-      userIdTypes: ["anonymous_id", "user_id"],
-    };
-
-    const earlyStartNoConversionWindow: MetricInterface = {
-      ...baseMetric,
-      earlyStart: true,
-    };
-    expect(upgradeMetricDoc(earlyStartNoConversionWindow)).toEqual({
-      ...earlyStartNoConversionWindow,
-      conversionDelayHours: -0.5,
-      conversionWindowHours: 72.5,
-    });
-
-    const earlyStartConversionWindow: MetricInterface = {
-      ...baseMetric,
-      earlyStart: true,
-      conversionWindowHours: 50,
-    };
-    expect(upgradeMetricDoc(earlyStartConversionWindow)).toEqual({
-      ...earlyStartNoConversionWindow,
-      conversionDelayHours: -0.5,
-      conversionWindowHours: 50.5,
-    });
-
-    const earlyStartConversionDelay: MetricInterface = {
-      ...baseMetric,
-      earlyStart: true,
-      conversionDelayHours: 5,
-      conversionWindowHours: 50,
-    };
-    expect(upgradeMetricDoc(earlyStartConversionDelay)).toEqual({
-      ...earlyStartConversionDelay,
-    });
-  });
-
-  it("updates old metric objects - cap", () => {
+  it("updates old metric objects - earlyStart and conversion*Hours", () => {
     const baseMetric: LegacyMetricInterface = {
       datasource: "",
       dateCreated: new Date(),
@@ -111,6 +62,133 @@ describe("Metric Migration", () => {
         user_id: "user_id",
         anonymous_id: "anonymous_id",
       },
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+      },
+      userIdTypes: ["anonymous_id", "user_id"],
+    };
+
+    const earlyStartNoConversionWindow: LegacyMetricInterface = {
+      ...baseMetric,
+      earlyStart: true,
+    };
+    expect(upgradeMetricDoc(earlyStartNoConversionWindow)).toEqual({
+      ...earlyStartNoConversionWindow,
+      windowSettings: {
+        type: "conversion",
+        windowUnit: "hours",
+        windowValue: 72.5,
+        delayHours: -0.5,
+      },
+    });
+
+    const earlyStartConversionWindow: LegacyMetricInterface = {
+      ...baseMetric,
+      earlyStart: true,
+      conversionWindowHours: 50,
+    };
+    expect(upgradeMetricDoc(earlyStartConversionWindow)).toEqual({
+      ...baseMetric,
+      earlyStart: true,
+      windowSettings: {
+        type: "conversion",
+        windowUnit: "hours",
+        windowValue: 50.5,
+        delayHours: -0.5,
+      },
+    });
+
+    const earlyStartConversionDelay: LegacyMetricInterface = {
+      ...baseMetric,
+      earlyStart: true,
+      conversionDelayHours: 5,
+      conversionWindowHours: 50,
+    };
+    expect(upgradeMetricDoc(earlyStartConversionDelay)).toEqual({
+      ...baseMetric,
+      earlyStart: true,
+      windowSettings: {
+        type: "conversion",
+        windowUnit: "hours",
+        windowValue: 50,
+        delayHours: 5,
+      },
+    });
+
+    const conversionWindow: LegacyMetricInterface = {
+      ...baseMetric,
+      conversionDelayHours: 5,
+      conversionWindowHours: 50,
+    };
+    expect(upgradeMetricDoc(conversionWindow)).toEqual({
+      ...baseMetric,
+      windowSettings: {
+        type: "conversion",
+        windowUnit: "hours",
+        windowValue: 50,
+        delayHours: 5,
+      },
+    });
+    const conversionWindowAndSettings: LegacyMetricInterface = {
+      ...baseMetric,
+      conversionDelayHours: 5,
+      conversionWindowHours: 50,
+      windowSettings: {
+        type: "lookback",
+        windowUnit: "days",
+        windowValue: 33,
+        delayHours: 3,
+      },
+    };
+    expect(upgradeMetricDoc(conversionWindowAndSettings)).toEqual({
+      ...baseMetric,
+      windowSettings: {
+        type: "lookback",
+        windowUnit: "days",
+        windowValue: 33,
+        delayHours: 3,
+      },
+    });
+  });
+
+  it("updates old metric objects - cap and capping", () => {
+    const baseMetric: LegacyMetricInterface = {
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "",
+      id: "",
+      ignoreNulls: false,
+      inverse: false,
+      name: "",
+      organization: "",
+      owner: "",
+      queries: [],
+      runStarted: null,
+      type: "binomial",
+      userIdColumns: {
+        user_id: "user_id",
+        anonymous_id: "anonymous_id",
+      },
+      windowSettings: {
+        type: "conversion",
+        windowUnit: "hours",
+        windowValue: 72,
+        delayHours: 0,
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+      },
       userIdTypes: ["anonymous_id", "user_id"],
     };
 
@@ -121,8 +199,10 @@ describe("Metric Migration", () => {
 
     expect(upgradeMetricDoc(capMetric)).toEqual({
       ...baseMetric,
-      capping: "absolute",
-      capValue: 35,
+      cappingSettings: {
+        type: "absolute",
+        value: 35,
+      },
     });
 
     const capZeroMetric: LegacyMetricInterface = {
@@ -132,6 +212,25 @@ describe("Metric Migration", () => {
 
     expect(upgradeMetricDoc(capZeroMetric)).toEqual({
       ...baseMetric,
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
+    });
+
+    const cappingMetric: LegacyMetricInterface = {
+      ...baseMetric,
+      capping: "percentile",
+      capValue: 0.99,
+      cap: 35,
+    };
+
+    expect(upgradeMetricDoc(cappingMetric)).toEqual({
+      ...baseMetric,
+      cappingSettings: {
+        type: "percentile",
+        value: 0.99,
+      },
     });
   });
 
@@ -149,26 +248,109 @@ describe("Metric Migration", () => {
       owner: "",
       queries: [],
       runStarted: null,
-      capping: "percentile",
-      capValue: 0.99,
       type: "binomial",
       userIdColumns: {
         user_id: "user_id",
         anonymous_id: "anonymous_id",
       },
+      windowSettings: {
+        type: "conversion",
+        windowUnit: "hours",
+        windowValue: 72,
+        delayHours: 0,
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+      },
       userIdTypes: ["anonymous_id", "user_id"],
     };
 
-    expect(upgradeMetricDoc({ ...baseMetric, cap: 35 })).toEqual({
+    expect(
+      upgradeMetricDoc({
+        ...baseMetric,
+        capping: "percentile",
+        capValue: 0.99,
+        cap: 35,
+      })
+    ).toEqual({
       ...baseMetric,
+      cappingSettings: {
+        type: "percentile",
+        value: 0.99,
+      },
     });
 
-    expect(upgradeMetricDoc({ ...baseMetric, capping: null, cap: 35 })).toEqual(
-      {
+    expect(
+      upgradeMetricDoc({ ...baseMetric, capping: "", capValue: 0.99, cap: 35 })
+    ).toEqual({
+      ...baseMetric,
+      cappingSettings: {
+        type: "",
+        value: 0.99,
+      },
+    });
+
+    expect(
+      upgradeMetricDoc({
         ...baseMetric,
-        capping: null,
-      }
-    );
+        cappingSettings: { type: "percentile", value: 0.95 },
+        capValue: 0.99,
+        capping: "absolute",
+        cap: 35,
+      })
+    ).toEqual({
+      ...baseMetric,
+      cappingSettings: {
+        type: "percentile",
+        value: 0.95,
+      },
+    });
+  });
+
+  it("updates old metric objects - adds prior settings", () => {
+    const baseMetric: LegacyMetricInterface = {
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "",
+      id: "",
+      ignoreNulls: false,
+      inverse: false,
+      name: "",
+      organization: "",
+      owner: "",
+      queries: [],
+      runStarted: null,
+      type: "binomial",
+      userIdColumns: {
+        user_id: "user_id",
+        anonymous_id: "anonymous_id",
+      },
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
+      windowSettings: {
+        type: "conversion",
+        windowUnit: "hours",
+        windowValue: 72,
+        delayHours: 0,
+      },
+      userIdTypes: ["anonymous_id", "user_id"],
+    };
+
+    expect(upgradeMetricDoc(baseMetric)).toEqual({
+      ...baseMetric,
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+      },
+    });
   });
 
   it("updates old metric objects - userIdType", () => {
@@ -186,6 +368,22 @@ describe("Metric Migration", () => {
       queries: [],
       runStarted: null,
       type: "binomial",
+      windowSettings: {
+        type: "conversion",
+        windowUnit: "hours",
+        windowValue: 72,
+        delayHours: 0,
+      },
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+      },
     };
 
     const userId: LegacyMetricInterface = {
@@ -254,6 +452,22 @@ describe("Metric Migration", () => {
       runStarted: null,
       type: "binomial",
       userIdTypes: ["anonymous_id", "user_id"],
+      windowSettings: {
+        type: "conversion",
+        windowUnit: "hours",
+        windowValue: 72,
+        delayHours: 0,
+      },
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+      },
     };
 
     const userIdCol: LegacyMetricInterface = {
@@ -1034,6 +1248,36 @@ describe("Organization Migration", () => {
       },
     });
   });
+
+  it("migrate approval flow settings", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_sktwi1id9l7z9xkjb",
+      name: "Test Org",
+      ownerEmail: "test@test.com",
+      url: "https://test.com",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: {
+        requireReviews: true,
+      },
+    };
+    const org = upgradeOrganizationDoc(testOrg);
+    expect(org).toEqual({
+      ...org,
+      settings: {
+        ...org.settings,
+        requireReviews: [
+          {
+            environments: [],
+            projects: [],
+            requireReviewOn: true,
+            resetReviewOnChange: false,
+          },
+        ],
+      },
+    });
+  });
 });
 
 describe("Snapshot Migration", () => {
@@ -1146,26 +1390,46 @@ describe("Snapshot Migration", () => {
           {
             id: "met_abc",
             computedSettings: {
-              conversionDelayHours: 0,
-              conversionWindowHours: 72,
+              windowSettings: {
+                type: "conversion",
+                windowUnit: "hours",
+                windowValue: 72,
+                delayHours: 0,
+              },
               regressionAdjustmentDays: 0,
               regressionAdjustmentEnabled: false,
               regressionAdjustmentAvailable: false,
               regressionAdjustmentReason: "",
+              properPrior: false,
+              properPriorMean: 0,
+              properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
             },
           },
           {
             id: "met_123",
             computedSettings: {
-              conversionDelayHours: 0,
-              conversionWindowHours: 72,
+              windowSettings: {
+                type: "conversion",
+                windowUnit: "hours",
+                windowValue: 72,
+                delayHours: 0,
+              },
               regressionAdjustmentDays: 0,
               regressionAdjustmentEnabled: false,
               regressionAdjustmentAvailable: false,
               regressionAdjustmentReason: "",
+              properPrior: false,
+              properPriorMean: 0,
+              properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
             },
           },
         ],
+        defaultMetricPriorSettings: {
+          override: false,
+          proper: false,
+          mean: 0,
+          stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+        },
         regressionAdjustmentEnabled: false,
         segment: "seg_123",
         skipPartialData: false,
@@ -1230,6 +1494,12 @@ describe("Snapshot Migration", () => {
         skipPartialData: false,
         startDate: now,
         variations: [],
+        defaultMetricPriorSettings: {
+          override: false,
+          proper: false,
+          mean: 0,
+          stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+        },
       },
       status: "running",
     };
@@ -1331,15 +1601,28 @@ describe("Snapshot Migration", () => {
           {
             id: "met_abc",
             computedSettings: {
-              conversionDelayHours: 0,
-              conversionWindowHours: 72,
+              windowSettings: {
+                type: "conversion",
+                windowUnit: "hours",
+                windowValue: 72,
+                delayHours: 0,
+              },
               regressionAdjustmentDays: 0,
               regressionAdjustmentEnabled: false,
               regressionAdjustmentAvailable: false,
               regressionAdjustmentReason: "",
+              properPrior: false,
+              properPriorMean: 0,
+              properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
             },
           },
         ],
+        defaultMetricPriorSettings: {
+          override: false,
+          proper: false,
+          mean: 0,
+          stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+        },
         regressionAdjustmentEnabled: false,
         segment: "",
         skipPartialData: false,
@@ -1355,6 +1638,83 @@ describe("Snapshot Migration", () => {
     expect(
       migrateSnapshot(initial as LegacyExperimentSnapshotInterface)
     ).toEqual(result);
+  });
+});
+
+describe("Report Migration", () => {
+  const baseLegacyReport: LegacyReportInterface = {
+    type: "experiment",
+    id: "",
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    organization: "",
+    title: "",
+    description: "",
+    runStarted: null,
+    queries: [],
+    args: {
+      trackingKey: "",
+      datasource: "",
+      exposureQueryId: "",
+      startDate: new Date(),
+      variations: [],
+      metrics: [],
+    },
+  };
+
+  it("migrates attribution model", () => {
+    const report = {
+      ...baseLegacyReport,
+      args: {
+        ...baseLegacyReport.args,
+        attributionModel: "allExposures",
+      },
+    };
+
+    expect(migrateReport(report)).toEqual({
+      ...report,
+      args: {
+        ...report.args,
+        attributionModel: "experimentDuration",
+      },
+    });
+  });
+
+  it("migrates metricRegressionAdjustmentStatuses", () => {
+    const report: LegacyReportInterface = {
+      ...baseLegacyReport,
+      args: {
+        ...baseLegacyReport.args,
+        metricRegressionAdjustmentStatuses: [
+          {
+            metric: "met_123",
+            regressionAdjustmentEnabled: true,
+            regressionAdjustmentAvailable: true,
+            regressionAdjustmentDays: 14,
+            reason: "foo",
+          },
+        ],
+      },
+    };
+
+    expect(migrateReport(report)).toEqual({
+      ...report,
+      args: {
+        ...report.args,
+        settingsForSnapshotMetrics: [
+          {
+            metric: "met_123",
+            regressionAdjustmentEnabled: true,
+            regressionAdjustmentAvailable: true,
+            regressionAdjustmentDays: 14,
+            regressionAdjustmentReason: "foo",
+            properPrior: false,
+            properPriorMean: 0,
+            properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
+          },
+        ],
+      },
+    });
   });
 });
 

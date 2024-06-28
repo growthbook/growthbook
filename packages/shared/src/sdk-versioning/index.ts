@@ -3,8 +3,10 @@ import {
   SDKLanguage,
 } from "back-end/types/sdk-connection";
 import uniq from "lodash/uniq";
+import { paddedVersionString } from "@growthbook/growthbook";
 import { CapabilityStrategy, SDKCapability } from "./types";
 
+import * as nocode_json from "./sdk-versions/nocode.json";
 import * as javascript_json from "./sdk-versions/javascript.json";
 import * as nodejs_json from "./sdk-versions/nodejs.json";
 import * as react_json from "./sdk-versions/react.json";
@@ -17,6 +19,11 @@ import * as swift_json from "./sdk-versions/swift.json";
 import * as go_json from "./sdk-versions/go.json";
 import * as flutter_json from "./sdk-versions/flutter.json";
 import * as csharp_json from "./sdk-versions/csharp.json";
+import * as elixir_json from "./sdk-versions/elixir.json";
+import * as edge_cloudflare_json from "./sdk-versions/edge-cloudflare.json";
+import * as edge_fastly_json from "./sdk-versions/edge-fastly.json";
+import * as edge_lambda_json from "./sdk-versions/edge-lambda.json";
+import * as edge_other_json from "./sdk-versions/edge-other.json";
 import * as other_json from "./sdk-versions/other.json";
 
 type SDKRecords = Record<SDKLanguage, SDKData>;
@@ -29,6 +36,10 @@ type SDKVersionData = {
 };
 
 const sdks: SDKRecords = {
+  "nocode-other": nocode_json,
+  "nocode-webflow": nocode_json,
+  "nocode-shopify": nocode_json,
+  "nocode-wordpress": nocode_json,
   javascript: javascript_json,
   nodejs: nodejs_json,
   react: react_json,
@@ -41,11 +52,21 @@ const sdks: SDKRecords = {
   go: go_json,
   flutter: flutter_json,
   csharp: csharp_json,
+  elixir: elixir_json,
+  "edge-cloudflare": edge_cloudflare_json,
+  "edge-fastly": edge_fastly_json,
+  "edge-lambda": edge_lambda_json,
+  "edge-other": edge_other_json,
   other: other_json,
 };
 
 // Default SDK versions as of 12/5/2023
+// DO NOT UPDATE. Used to migrate SDK connections created before we started storing versions
 const defaultSdkVersions: Record<SDKLanguage, string> = {
+  "nocode-other": "0.0.0",
+  "nocode-webflow": "0.0.0",
+  "nocode-shopify": "0.0.0",
+  "nocode-wordpress": "0.0.0",
   javascript: "0.31.0",
   nodejs: "0.31.0",
   react: "0.21.0",
@@ -58,6 +79,11 @@ const defaultSdkVersions: Record<SDKLanguage, string> = {
   go: "0.1.4",
   flutter: "1.1.2",
   csharp: "0.2.0",
+  elixir: "0.2.0",
+  "edge-cloudflare": "0.1.10",
+  "edge-fastly": "0.1.4",
+  "edge-lambda": "0.0.5",
+  "edge-other": "0.1.3",
   other: "0.0.0",
 };
 
@@ -163,17 +189,35 @@ export const getConnectionSDKCapabilities = (
   return uniq(capabilities);
 };
 
-export const getConnectionsSDKCapabilities = (
-  connections: Partial<SDKConnectionInterface>[],
-  strategy:
-    | "min-ver-intersection"
-    | "max-ver-intersection" = "min-ver-intersection"
-) => {
+export const getConnectionsSDKCapabilities = ({
+  connections,
+  strategy = "min-ver-intersection",
+  mustMatchAllConnections = false,
+  project,
+}: {
+  connections: Partial<SDKConnectionInterface>[];
+  strategy?: "min-ver-intersection" | "max-ver-intersection";
+  mustMatchAllConnections?: boolean;
+  project?: string;
+}) => {
   let capabilities: SDKCapability[] = [];
-  for (const connection of connections) {
-    capabilities = capabilities.concat(
-      getConnectionSDKCapabilities(connection, strategy)
+  const filteredConnections = connections.filter((c) => {
+    if (project === undefined) return true;
+    return c.projects?.includes(project) || (c.projects ?? [])?.length === 0;
+  });
+  for (let i = 0; i < filteredConnections.length; i++) {
+    const connection = filteredConnections[i];
+    const connectionCapabilities = getConnectionSDKCapabilities(
+      connection,
+      strategy
     );
+    if (!mustMatchAllConnections || i === 0) {
+      capabilities = capabilities.concat(connectionCapabilities);
+    } else {
+      capabilities = capabilities.filter((c) =>
+        connectionCapabilities.includes(c)
+      );
+    }
   }
   return uniq(capabilities);
 };
@@ -193,32 +237,23 @@ export const getSDKCapabilityVersion = (
   return null;
 };
 
-// Copied from the JS SDK's mongrule.ts
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function paddedVersionString(input: any): string {
-  if (typeof input === "number") {
-    input = input + "";
-  }
-  if (!input || typeof input !== "string") {
-    input = "0";
-  }
-  // Remove build info and leading `v` if any
-  // Split version into parts (both core version numbers and pre-release tags)
-  // "v1.2.3-rc.1+build123" -> ["1","2","3","rc","1"]
-  const parts = (input as string).replace(/(^v|\+.*$)/g, "").split(/[-.]/);
+export type MinSupportedSDKVersions = {
+  language: SDKLanguage;
+  minVersion: string;
+};
+export function getMinSupportedSDKVersions(
+  capability: SDKCapability
+): MinSupportedSDKVersions[] {
+  const languages = Object.keys(sdks) as SDKLanguage[];
+  const matches: MinSupportedSDKVersions[] = [];
+  languages.forEach((language) => {
+    const minVersion = getSDKCapabilityVersion(language, capability);
 
-  // If it's SemVer without a pre-release, add `~` to the end
-  // ["1","0","0"] -> ["1","0","0","~"]
-  // "~" is the largest ASCII character, so this will make "1.0.0" greater than "1.0.0-beta" for example
-  if (parts.length === 3) {
-    parts.push("~");
-  }
-
-  // Left pad each numeric part with spaces so string comparisons will work ("9">"10", but " 9"<"10")
-  // Then, join back together into a single string
-  return parts
-    .map((v) => (v.match(/^[0-9]+$/) ? v.padStart(5, " ") : v))
-    .join("-");
+    if (minVersion) {
+      matches.push({ language, minVersion });
+    }
+  });
+  return matches;
 }
 
 export * from "./types";

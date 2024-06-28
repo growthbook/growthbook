@@ -16,9 +16,6 @@ import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
 import DateResults from "@/components/Experiment/DateResults";
-import BreakDownResults_old from "@/components/Experiment/BreakDownResults_old";
-import CompactResults_old from "@/components/Experiment/CompactResults_old";
-import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import { useAuth } from "@/services/auth";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
@@ -38,26 +35,22 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import PValueGuardrailResults from "@/components/Experiment/PValueGuardrailResults";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import track, { trackReport } from "@/services/track";
+import { trackReport } from "@/services/track";
 import CompactResults from "@/components/Experiment/CompactResults";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
+import PageHead from "@/components/Layout/PageHead";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
 
 export default function ReportPage() {
-  const [newUi, setNewUi] = useLocalStorage<boolean>(
-    "experiment-results-new-ui-v2",
-    true
-  );
-
   const router = useRouter();
   const { rid } = router.query;
 
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  const { getExperimentMetricById, getDatasourceById } = useDefinitions();
+  const { getDatasourceById } = useDefinitions();
   const { data, error, mutate } = useApi<{ report: ReportInterface }>(
     `/report/${rid}`
   );
@@ -71,16 +64,20 @@ export default function ReportPage() {
       : null
   );
 
-  const {
-    permissions,
-    userId,
-    getUserDisplay,
-    hasCommercialFeature,
-  } = useUser();
+  const { userId, getUserDisplay, hasCommercialFeature } = useUser();
+  const permissionsUtil = usePermissionsUtil();
   const [active, setActive] = useState<string | null>("Results");
   const [refreshError, setRefreshError] = useState("");
 
   const { apiCall } = useAuth();
+
+  const canUpdateReport = experimentData
+    ? permissionsUtil.canViewReportModal(experimentData.experiment.project)
+    : false;
+
+  const canDeleteReport = permissionsUtil.canDeleteReport(
+    experimentData?.experiment || {}
+  );
 
   // todo: move to report args
   const orgSettings = useOrgSettings();
@@ -137,9 +134,7 @@ export default function ReportPage() {
   const phaseAgeMinutes =
     (Date.now() - getValidDate(report.args.startDate).getTime()) / (1000 * 60);
 
-  const statsEngine = data?.report?.args?.statsEngine || DEFAULT_STATS_ENGINE;
-  const regressionAdjustmentAvailable =
-    hasRegressionAdjustmentFeature && statsEngine === "frequentist";
+  const regressionAdjustmentAvailable = hasRegressionAdjustmentFeature;
   const regressionAdjustmentEnabled =
     hasRegressionAdjustmentFeature &&
     regressionAdjustmentAvailable &&
@@ -147,29 +142,25 @@ export default function ReportPage() {
 
   const sequentialTestingEnabled =
     hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled;
+  const differenceType = report.args.differenceType ?? "relative";
 
   return (
     <>
-      <div
-        className="alert-secondary p-2 mb-2 text-center"
-        style={{ marginTop: -5 }}
-      >
-        You are using the {newUi ? "new" : "old"} experiment results view.{" "}
-        <a
-          role="button"
-          className="a"
-          onClick={() => {
-            track("Switched Experiment Results UI", {
-              switchTo: newUi ? "old" : "new",
-            });
-            setNewUi(!newUi);
-          }}
-        >
-          {newUi
-            ? "Switch back to the old view?"
-            : "Try the new experiment results view?"}
-        </a>
-      </div>
+      <PageHead
+        breadcrumb={[
+          {
+            display: `Experiments`,
+            href: `/experiments`,
+          },
+          {
+            display: `${experimentData?.experiment.name ?? "Report"}`,
+            href: experimentData?.experiment.id
+              ? `/experiment/${experimentData.experiment.id}`
+              : undefined,
+          },
+          { display: report.title },
+        ]}
+      />
       <div className="container-fluid pagecontents experiment-details">
         {editModalOpen && (
           <Modal
@@ -217,47 +208,44 @@ export default function ReportPage() {
         <div className="mb-3">
           {report?.experimentId && (
             <Link href={`/experiment/${report.experimentId}#results`}>
-              <a>
-                <GBCircleArrowLeft /> Go to experiment results
-              </a>
+              <GBCircleArrowLeft className="mr-2" />
+              Go to experiment results
             </Link>
           )}
-          {permissions.check("createAnalyses", "") &&
-            (userId === report?.userId || !report?.userId) && (
-              <DeleteButton
-                displayName="Custom Report"
-                link={false}
-                className="float-right btn-sm"
-                text="delete"
-                useIcon={true}
-                onClick={async () => {
-                  await apiCall<{ status: number; message?: string }>(
-                    `/report/${report.id}`,
-                    {
-                      method: "DELETE",
-                    }
-                  );
-                  trackReport(
-                    "delete",
-                    "DeleteButton",
-                    datasource?.type || null,
-                    report
-                  );
-                  router.push(`/experiment/${report.experimentId}#results`);
-                }}
-              />
-            )}
+          {canDeleteReport && (userId === report?.userId || !report?.userId) && (
+            <DeleteButton
+              displayName="Custom Report"
+              link={false}
+              className="float-right btn-sm"
+              text="delete"
+              useIcon={true}
+              onClick={async () => {
+                await apiCall<{ status: number; message?: string }>(
+                  `/report/${report.id}`,
+                  {
+                    method: "DELETE",
+                  }
+                );
+                trackReport(
+                  "delete",
+                  "DeleteButton",
+                  datasource?.type || null,
+                  report
+                );
+                router.push(`/experiment/${report.experimentId}#results`);
+              }}
+            />
+          )}
           <h1 className="mb-0 mt-2">
             {report.title}{" "}
-            {permissions.check("createAnalyses", "") &&
-              (userId === report?.userId || !report?.userId) && (
-                <a
-                  className="ml-2 cursor-pointer"
-                  onClick={() => setEditModalOpen(true)}
-                >
-                  <GBEdit />
-                </a>
-              )}
+            {canUpdateReport && (userId === report?.userId || !report?.userId) && (
+              <a
+                className="ml-2 cursor-pointer"
+                onClick={() => setEditModalOpen(true)}
+              >
+                <GBEdit />
+              </a>
+            )}
           </h1>
           <div className="mb-1">
             <small className="text-muted">
@@ -280,7 +268,7 @@ export default function ReportPage() {
           active={active}
           setActive={setActive}
           newStyle={true}
-          navClassName={permissions.check("createAnalyses", "") ? "" : "d-none"}
+          navClassName={canUpdateReport ? "" : "d-none"}
         >
           <Tab key="results" anchor="results" display="Results" padding={false}>
             <div className="pt-3 px-3">
@@ -297,9 +285,34 @@ export default function ReportPage() {
                     exposureQueryId={report.args.exposureQueryId}
                     userIdType={report.args.userIdType}
                     labelClassName="mr-2"
-                    newUi={true}
                     disabled={true}
                   />
+                </div>
+                <div className="col-auto d-flex align-items-end mr-3">
+                  <DifferenceTypeChooser
+                    differenceType={report.args.differenceType ?? "relative"}
+                    // ensure disabled is true to style correctly
+                    // and callbacks are not needed
+                    disabled={true}
+                    phase={0}
+                    setDifferenceType={() => {}}
+                    setAnalysisSettings={() => {}}
+                    loading={false}
+                    mutate={() => {}}
+                  />
+                </div>
+                <div className="col-auto d-flex align-items-end mr-3">
+                  <div>
+                    <div className="uppercase-title text-muted">Date range</div>
+                    <div className="relative">
+                      <span className="date-label">
+                        {date(report.args.startDate)} —{" "}
+                        {report.args.endDate
+                          ? date(report.args.endDate)
+                          : "now"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
                 <div className="col-auto">
                   {hasData &&
@@ -325,10 +338,7 @@ export default function ReportPage() {
                   )}
                 </div>
                 <div className="col-auto">
-                  {permissions.check(
-                    "runQueries",
-                    experimentData?.experiment.project || ""
-                  ) && (
+                  {canUpdateReport && (
                     <form
                       onSubmit={async (e) => {
                         e.preventDefault();
@@ -365,6 +375,7 @@ export default function ReportPage() {
                 <div className="col-auto">
                   <ResultMoreMenu
                     id={report.id}
+                    datasource={datasource}
                     hasData={hasData}
                     forceRefresh={async () => {
                       try {
@@ -386,28 +397,24 @@ export default function ReportPage() {
                       }
                     }}
                     supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
-                    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
-                    configure={
-                      permissions.check("createAnalyses", "")
-                        ? () => setActive("Configuration")
-                        : null
-                    }
-                    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
                     editMetrics={
-                      permissions.check("createAnalyses", "")
+                      canUpdateReport
                         ? () => setActive("Configuration")
-                        : null
+                        : undefined
                     }
                     generateReport={false}
                     notebookUrl={`/report/${report.id}/notebook`}
                     notebookFilename={report.title}
                     queries={report.queries}
                     queryError={report.error}
-                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                    results={report.results.dimensions}
+                    results={report.results?.dimensions}
                     variations={variations}
-                    metrics={report.args.metrics}
+                    metrics={[
+                      ...report.args.metrics,
+                      ...(report.args.guardrails || []),
+                    ]}
                     trackingKey={report.title}
+                    project={experimentData?.experiment.project || ""}
                   />
                 </div>
               </div>
@@ -442,10 +449,7 @@ export default function ReportPage() {
                         ago(report.args.startDate) +
                         ". Give it a little longer and click the 'Refresh' button to check again."}
                     {!report.results &&
-                      permissions.check(
-                        "runQueries",
-                        experimentData?.experiment.project || ""
-                      ) &&
+                      canUpdateReport &&
                       `Click the "Refresh" button.`}
                   </div>
                 )}
@@ -461,8 +465,9 @@ export default function ReportPage() {
                   seriestype={report.args.dimension}
                   variations={variations}
                   statsEngine={report.args.statsEngine}
+                  differenceType={differenceType}
                 />
-              ) : newUi ? (
+              ) : (
                 <BreakDownResults
                   isLatestPhase={true}
                   metrics={report.args.metrics}
@@ -480,38 +485,16 @@ export default function ReportPage() {
                   statsEngine={report.args.statsEngine || DEFAULT_STATS_ENGINE}
                   pValueCorrection={pValueCorrection}
                   regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-                  metricRegressionAdjustmentStatuses={
-                    report.args.metricRegressionAdjustmentStatuses
+                  settingsForSnapshotMetrics={
+                    report.args.settingsForSnapshotMetrics
                   }
                   sequentialTestingEnabled={sequentialTestingEnabled}
-                  differenceType={"relative"}
-                />
-              ) : (
-                <BreakDownResults_old
-                  isLatestPhase={true}
-                  metrics={report.args.metrics}
-                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MetricOverride[] | undefined' is not assigna... Remove this comment to see the full error message
-                  metricOverrides={report.args.metricOverrides}
-                  reportDate={report.dateCreated}
-                  results={report.results?.dimensions || []}
-                  status={"stopped"}
-                  startDate={getValidDate(report.args.startDate).toISOString()}
-                  dimensionId={report.args.dimension}
-                  activationMetric={report.args.activationMetric}
-                  guardrails={report.args.guardrails}
-                  variations={variations}
-                  key={report.args.dimension}
-                  statsEngine={report.args.statsEngine}
-                  pValueCorrection={pValueCorrection}
-                  regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-                  metricRegressionAdjustmentStatuses={
-                    report.args.metricRegressionAdjustmentStatuses
-                  }
-                  sequentialTestingEnabled={sequentialTestingEnabled}
+                  differenceType={differenceType}
                 />
               ))}
             {report.results && !report.args.dimension && (
               <VariationIdWarning
+                datasource={datasource}
                 unknownVariations={report.results?.unknownVariations || []}
                 isUpdating={status === "running"}
                 setVariationIds={async (ids) => {
@@ -544,115 +527,41 @@ export default function ReportPage() {
                 }}
                 variations={variations}
                 results={report.results?.dimensions?.[0]}
+                project={experimentData?.experiment.project}
               />
             )}
             {hasData &&
               !report.args.dimension &&
               report.results?.dimensions?.[0] !== undefined && (
-                <>
-                  {newUi ? (
-                    <div className="mt-0 mb-3">
-                      <CompactResults
-                        variations={variations}
-                        multipleExposures={
-                          report.results?.multipleExposures || 0
-                        }
-                        results={report.results?.dimensions?.[0]}
-                        queryStatusData={queryStatusData}
-                        reportDate={report.dateCreated}
-                        startDate={getValidDate(
-                          report.args.startDate
-                        ).toISOString()}
-                        isLatestPhase={true}
-                        status={"stopped"}
-                        metrics={report.args.metrics}
-                        metricOverrides={report.args.metricOverrides ?? []}
-                        guardrails={report.args.guardrails}
-                        id={report.id}
-                        statsEngine={
-                          report.args.statsEngine || DEFAULT_STATS_ENGINE
-                        }
-                        pValueCorrection={pValueCorrection}
-                        regressionAdjustmentEnabled={
-                          regressionAdjustmentEnabled
-                        }
-                        metricRegressionAdjustmentStatuses={
-                          report.args.metricRegressionAdjustmentStatuses
-                        }
-                        sequentialTestingEnabled={sequentialTestingEnabled}
-                        differenceType={"relative"}
-                        isTabActive={true}
-                      />
-                    </div>
-                  ) : (
-                    <>
-                      <CompactResults_old
-                        id={report.id}
-                        isLatestPhase={true}
-                        metrics={report.args.metrics}
-                        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MetricOverride[] | undefined' is not assigna... Remove this comment to see the full error message
-                        metricOverrides={report.args.metricOverrides}
-                        reportDate={report.dateCreated}
-                        results={report.results?.dimensions?.[0]}
-                        status={"stopped"}
-                        startDate={getValidDate(
-                          report.args.startDate
-                        ).toISOString()}
-                        multipleExposures={
-                          report.results?.multipleExposures || 0
-                        }
-                        variations={variations}
-                        statsEngine={report.args.statsEngine}
-                        pValueCorrection={pValueCorrection}
-                        regressionAdjustmentEnabled={
-                          regressionAdjustmentEnabled
-                        }
-                        metricRegressionAdjustmentStatuses={
-                          report.args.metricRegressionAdjustmentStatuses
-                        }
-                        sequentialTestingEnabled={sequentialTestingEnabled}
-                      />
-                      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                      {report.args.guardrails?.length > 0 && (
-                        <div className="mt-1 px-3">
-                          <h3 className="mb-3">Guardrails</h3>
-                          <div className="row">
-                            {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                            {report.args.guardrails.map((g) => {
-                              const metric = getExperimentMetricById(g);
-                              if (!metric) return "";
-
-                              const data =
-                                report.results?.dimensions?.[0]?.variations;
-                              if (!data) return "";
-
-                              return (
-                                <div
-                                  className="col-12 col-xl-4 col-lg-6 mb-3"
-                                  key={g}
-                                >
-                                  {report.args.statsEngine === "frequentist" ? (
-                                    <PValueGuardrailResults
-                                      data={data}
-                                      variations={variations}
-                                      metric={metric}
-                                    />
-                                  ) : (
-                                    <GuardrailResults
-                                      data={data}
-                                      variations={variations}
-                                      metric={metric}
-                                    />
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </>
+                <div className="mt-0 mb-3">
+                  <CompactResults
+                    variations={variations}
+                    multipleExposures={report.results?.multipleExposures || 0}
+                    results={report.results?.dimensions?.[0]}
+                    queryStatusData={queryStatusData}
+                    reportDate={report.dateCreated}
+                    startDate={getValidDate(
+                      report.args.startDate
+                    ).toISOString()}
+                    isLatestPhase={true}
+                    status={"stopped"}
+                    metrics={report.args.metrics}
+                    metricOverrides={report.args.metricOverrides ?? []}
+                    guardrails={report.args.guardrails}
+                    id={report.id}
+                    statsEngine={
+                      report.args.statsEngine || DEFAULT_STATS_ENGINE
+                    }
+                    pValueCorrection={pValueCorrection}
+                    regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+                    settingsForSnapshotMetrics={
+                      report.args.settingsForSnapshotMetrics
+                    }
+                    sequentialTestingEnabled={sequentialTestingEnabled}
+                    differenceType={differenceType}
+                    isTabActive={true}
+                  />
+                </div>
               )}
             {hasData && (
               <div className="row align-items-center mx-2 my-3">
@@ -668,29 +577,28 @@ export default function ReportPage() {
                         : "Bayesian"}
                     </span>
                   </div>
+                  <div>
+                    <span className="text-muted">
+                      <GBCuped size={13} /> CUPED:
+                    </span>{" "}
+                    <span>
+                      {report.args?.regressionAdjustmentEnabled
+                        ? "Enabled"
+                        : "Disabled"}
+                    </span>
+                  </div>
+
                   {report.args?.statsEngine === "frequentist" && (
-                    <>
-                      <div>
-                        <span className="text-muted">
-                          <GBCuped size={13} /> CUPED:
-                        </span>{" "}
-                        <span>
-                          {report.args?.regressionAdjustmentEnabled
-                            ? "Enabled"
-                            : "Disabled"}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-muted">
-                          <GBSequential size={13} /> Sequential:
-                        </span>{" "}
-                        <span>
-                          {report.args?.sequentialTestingEnabled
-                            ? "Enabled"
-                            : "Disabled"}
-                        </span>
-                      </div>
-                    </>
+                    <div>
+                      <span className="text-muted">
+                        <GBSequential size={13} /> Sequential:
+                      </span>{" "}
+                      <span>
+                        {report.args?.sequentialTestingEnabled
+                          ? "Enabled"
+                          : "Disabled"}
+                      </span>
+                    </div>
                   )}
                   <div>
                     <span className="text-muted">Run date:</span>{" "}
@@ -708,12 +616,11 @@ export default function ReportPage() {
               </div>
             )}
           </Tab>
-          {permissions.check("createAnalyses", "") && (
+          {canUpdateReport && (
             <Tab
               key="configuration"
               anchor="configuration"
               display="Configuration"
-              visible={permissions.check("createAnalyses", "")}
               forceRenderOnFocus={true}
             >
               <h2>Configuration</h2>

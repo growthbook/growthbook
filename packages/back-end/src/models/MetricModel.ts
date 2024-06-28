@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { hasReadAccess } from "shared/permissions";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
 import { upgradeMetricDoc } from "../util/migrations";
@@ -11,7 +10,6 @@ import { queriesSchema } from "./QueryModel";
 import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";
 import { addTagsDiff } from "./TagModel";
-import { getAllFactMetricsForOrganization } from "./FactMetricModel";
 
 export const ALLOWED_METRIC_TYPES = [
   "binomial",
@@ -37,11 +35,24 @@ const metricSchema = new mongoose.Schema({
   earlyStart: Boolean,
   inverse: Boolean,
   ignoreNulls: Boolean,
-  capping: String,
-  capValue: Number,
+  cappingSettings: {
+    type: { type: String },
+    value: Number,
+    ignoreZeros: Boolean,
+  },
+  windowSettings: {
+    type: { type: String },
+    delayHours: Number,
+    windowValue: Number,
+    windowUnit: String,
+  },
+  priorSettings: {
+    override: Boolean,
+    proper: Boolean,
+    mean: Number,
+    stddev: Number,
+  },
   denominator: String,
-  conversionWindowHours: Number,
-  conversionDelayHours: Number,
   winRisk: Number,
   loseRisk: Number,
   maxPercentChange: Number,
@@ -102,6 +113,12 @@ const metricSchema = new mongoose.Schema({
         c: Number,
       },
     ],
+
+    // deprecated fields
+    capping: String,
+    capValue: Number,
+    conversionWindowHours: Number,
+    conversionDelayHours: Number,
   },
 });
 metricSchema.index({ id: 1, organization: 1 }, { unique: true });
@@ -143,8 +160,8 @@ export async function insertMetrics(
 }
 
 export async function deleteMetricById(
-  metric: MetricInterface,
-  context: ReqContext | ApiReqContext
+  context: ReqContext | ApiReqContext,
+  metric: LegacyMetricInterface | MetricInterface
 ) {
   if (metric.managedBy === "config") {
     throw new Error("Cannot delete a metric managed by config.yml");
@@ -164,7 +181,7 @@ export async function deleteMetricById(
   );
 
   // Experiments
-  await removeMetricFromExperiments(metric.id, context);
+  await removeMetricFromExperiments(context, metric.id);
 
   await MetricModel.deleteOne({
     id: metric.id,
@@ -191,7 +208,7 @@ export async function deleteAllMetricsForAProject({
   });
 
   for (const metric of metricsToDelete) {
-    await deleteMetricById(metric, context);
+    await deleteMetricById(context, metric);
   }
 }
 
@@ -202,7 +219,7 @@ export async function getMetricMap(context: ReqContext | ApiReqContext) {
     metricMap.set(m.id, m);
   });
 
-  const allFactMetrics = await getAllFactMetricsForOrganization(context);
+  const allFactMetrics = await context.models.factMetrics.getAll();
   allFactMetrics.forEach((m) => {
     metricMap.set(m.id, m);
   });
@@ -255,7 +272,7 @@ async function findMetrics(
   });
 
   return metrics.filter((m) =>
-    hasReadAccess(context.readAccessFilter, m.projects)
+    context.permissions.canReadMultiProjectResource(m.projects)
   );
 }
 
@@ -278,7 +295,7 @@ export async function getSampleMetrics(context: ReqContext | ApiReqContext) {
     organization: context.org.id,
   });
   return docs
-    .filter((m) => hasReadAccess(context.readAccessFilter, m.projects))
+    .filter((m) => context.permissions.canReadMultiProjectResource(m.projects))
     .map(toInterface);
 }
 
@@ -316,7 +333,10 @@ export async function getMetricById(
 
   const metric = res ? toInterface(res) : null;
 
-  if (!metric || !hasReadAccess(context.readAccessFilter, metric.projects)) {
+  if (
+    !metric ||
+    !context.permissions.canReadMultiProjectResource(metric.projects)
+  ) {
     return null;
   }
   return metric;
@@ -353,7 +373,7 @@ export async function getMetricsByIds(
     });
   }
   return metrics.filter((m) =>
-    hasReadAccess(context.readAccessFilter, m.projects)
+    context.permissions.canReadMultiProjectResource(m.projects)
   );
 }
 

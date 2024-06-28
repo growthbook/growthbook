@@ -2,8 +2,8 @@ import { FC } from "react";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
-import Field from "../Forms/Field";
-import Modal from "../Modal";
+import Field from "@/components/Forms/Field";
+import Modal from "@/components/Modal";
 
 const EditOrganizationModal: FC<{
   name: string;

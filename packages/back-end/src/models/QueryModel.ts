@@ -41,8 +41,11 @@ const querySchema = new mongoose.Schema({
   error: String,
   statistics: {},
   dependencies: [String],
+  runAtEnd: Boolean,
   cachedQueryUsed: String,
 });
+
+querySchema.index({ organization: 1, datasource: 1, status: 1, createdAt: -1 });
 
 type QueryDocument = mongoose.Document & QueryInterface;
 
@@ -56,6 +59,19 @@ function toInterface(doc: QueryDocument): QueryInterface {
 export async function getQueriesByIds(organization: string, ids: string[]) {
   if (!ids.length) return [];
   const docs = await QueryModel.find({ organization, id: { $in: ids } });
+  return docs.map((doc) => toInterface(doc));
+}
+
+export async function getQueriesByDatasource(
+  organization: string,
+  datasource: string,
+  limit: number = 50
+) {
+  const docs = await QueryModel.find({ organization, datasource })
+    .limit(limit)
+    .sort({
+      createdAt: -1,
+    });
   return docs.map((doc) => toInterface(doc));
 }
 
@@ -144,6 +160,7 @@ export async function createNewQuery({
   dependencies = [],
   running = false,
   queryType = "",
+  runAtEnd = false,
 }: {
   organization: string;
   datasource: string;
@@ -152,6 +169,7 @@ export async function createNewQuery({
   dependencies: string[];
   running: boolean;
   queryType: QueryType;
+  runAtEnd?: boolean;
 }): Promise<QueryInterface> {
   const data: QueryInterface = {
     createdAt: new Date(),
@@ -164,6 +182,7 @@ export async function createNewQuery({
     startedAt: running ? new Date() : undefined,
     status: running ? "running" : "queued",
     dependencies: dependencies,
+    runAtEnd: runAtEnd,
     queryType,
   };
   const doc = await QueryModel.create(data);
@@ -173,9 +192,11 @@ export async function createNewQuery({
 export async function createNewQueryFromCached({
   existing,
   dependencies,
+  runAtEnd,
 }: {
   existing: QueryInterface;
   dependencies: string[];
+  runAtEnd?: boolean;
 }): Promise<QueryInterface> {
   const data: QueryInterface = {
     createdAt: new Date(),
@@ -193,6 +214,7 @@ export async function createNewQueryFromCached({
     error: existing.error,
     statistics: existing.statistics,
     dependencies: dependencies,
+    runAtEnd: runAtEnd,
     cachedQueryUsed: existing.id,
   };
   const doc = await QueryModel.create(data);

@@ -7,9 +7,7 @@ import { QueryResponse } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Mysql extends SqlIntegration {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  params: MysqlConnectionParams;
+  params!: MysqlConnectionParams;
   requiresDatabase = false;
   requiresSchema = false;
   setParams(encryptedParams: string) {
@@ -76,6 +74,7 @@ export default class Mysql extends SqlIntegration {
       valueCol: string;
       outputCol: string;
       percentile: number;
+      ignoreZeros: boolean;
     }[],
     metricTable: string,
     where: string = ""
@@ -84,6 +83,13 @@ export default class Mysql extends SqlIntegration {
       throw new Error(
         "MySQL only supports one percentile capped metric at a time"
       );
+    }
+
+    let whereClause = where;
+    if (values[0].ignoreZeros) {
+      whereClause = whereClause
+        ? `${whereClause} AND ${values[0].valueCol} != 0`
+        : `WHERE ${values[0].valueCol} != 0`;
     }
 
     return `
@@ -95,8 +101,11 @@ export default class Mysql extends SqlIntegration {
         ${values[0].valueCol},
         PERCENT_RANK() OVER (ORDER BY ${values[0].valueCol}) p
       FROM ${metricTable}
-      ${where}
+      ${whereClause}
     ) t`;
+  }
+  hasQuantileTesting(): boolean {
+    return false;
   }
   hasEfficientPercentile(): boolean {
     return false;

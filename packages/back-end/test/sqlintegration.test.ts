@@ -2,8 +2,9 @@ import BigQuery from "../src/integrations/BigQuery";
 import { MetricInterface } from "../types/metric";
 
 describe("bigquery integration", () => {
+  const bqIntegration = new BigQuery("", {});
+
   it("builds the correct aggregate metric column", () => {
-    const bqIntegration = new BigQuery("", {});
     const baseMetric: MetricInterface = {
       datasource: "",
       dateCreated: new Date(),
@@ -21,6 +22,16 @@ describe("bigquery integration", () => {
       userIdColumns: {
         user_id: "user_id",
         anonymous_id: "anonymous_id",
+      },
+      windowSettings: {
+        type: "conversion",
+        windowUnit: "hours",
+        windowValue: 72,
+        delayHours: 0,
+      },
+      cappingSettings: {
+        type: "",
+        value: 0,
       },
       userIdTypes: ["anonymous_id", "user_id"],
     };
@@ -55,10 +66,27 @@ describe("bigquery integration", () => {
         "val",
         normalSqlMetric,
         false,
+        new Date(),
         false
       ).replace(/\s+/g, " ")
     ).toEqual(
       "(CASE WHEN m.timestamp >= d.timestamp AND m.timestamp <= DATETIME_ADD(d.timestamp, INTERVAL 72 HOUR) THEN val ELSE NULL END)"
+    );
+
+    const date = new Date();
+    const endDateFilter = `AND m.timestamp <= ${bqIntegration["toTimestamp"](
+      date
+    )}`;
+    expect(
+      bqIntegration["addCaseWhenTimeFilter"](
+        "val",
+        normalSqlMetric,
+        true,
+        date,
+        false
+      ).replace(/\s+/g, " ")
+    ).toEqual(
+      `(CASE WHEN m.timestamp >= d.timestamp ${endDateFilter} THEN val ELSE NULL END)`
     );
 
     expect(
@@ -66,19 +94,11 @@ describe("bigquery integration", () => {
         "val",
         normalSqlMetric,
         true,
-        false
-      ).replace(/\s+/g, " ")
-    ).toEqual("(CASE WHEN m.timestamp >= d.timestamp THEN val ELSE NULL END)");
-
-    expect(
-      bqIntegration["addCaseWhenTimeFilter"](
-        "val",
-        normalSqlMetric,
-        true,
+        new Date(),
         true
       ).replace(/\s+/g, " ")
     ).toEqual(
-      "(CASE WHEN m.timestamp >= d.timestamp AND date_trunc(m.timestamp, DAY) <= dr.day THEN val ELSE NULL END)"
+      `(CASE WHEN m.timestamp >= d.timestamp ${endDateFilter} AND date_trunc(m.timestamp, DAY) <= dr.day THEN val ELSE NULL END)`
     );
 
     expect(
@@ -111,36 +131,55 @@ describe("bigquery integration", () => {
         user_id: "user_id",
         anonymous_id: "anonymous_id",
       },
+      windowSettings: {
+        type: "conversion",
+        windowUnit: "hours",
+        windowValue: 72,
+        delayHours: 0,
+      },
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
       userIdTypes: ["anonymous_id", "user_id"],
     };
 
     const numeratorMetric: MetricInterface = {
       ...baseMetric,
-      ...{
-        conversionDelayHours: -4,
-        conversionWindowHours: 24,
+      windowSettings: {
+        type: "conversion",
+        windowUnit: "hours",
+        windowValue: 24,
+        delayHours: -4,
       },
     };
     const denominatorCountMetric: MetricInterface = {
       ...baseMetric,
-      ...{
-        type: "count",
-        conversionDelayHours: 0,
-        conversionWindowHours: 1,
+      type: "count",
+
+      windowSettings: {
+        type: "conversion",
+        windowUnit: "hours",
+        windowValue: 1,
+        delayHours: 0,
       },
     };
     const denominatorBinomialMetric: MetricInterface = {
       ...baseMetric,
-      ...{
-        conversionDelayHours: 0,
-        conversionWindowHours: 1,
+      windowSettings: {
+        type: "conversion",
+        windowUnit: "hours",
+        windowValue: 1,
+        delayHours: 0,
       },
     };
     const activationMetric: MetricInterface = {
       ...baseMetric,
-      ...{
-        conversionDelayHours: 0,
-        conversionWindowHours: 72,
+      windowSettings: {
+        type: "conversion",
+        windowUnit: "hours",
+        windowValue: 72,
+        delayHours: 0,
       },
     };
 
@@ -175,5 +214,10 @@ describe("bigquery integration", () => {
         activationMetric
       )
     ).toEqual(92);
+  });
+  it("escape single quotes and backslash correctly", () => {
+    expect(bqIntegration["escapeStringLiteral"](`test\\'string`)).toEqual(
+      `test\\\\\\'string`
+    );
   });
 });

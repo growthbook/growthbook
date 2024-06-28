@@ -1,6 +1,6 @@
 import { ListSdkConnectionsResponse } from "../../../types/openapi";
 import {
-  findAllSDKConnections,
+  findAllSDKConnectionsAcrossAllOrgs,
   findSDKConnectionsByOrganization,
   toApiSDKConnectionInterface,
 } from "../../models/SdkConnectionModel";
@@ -21,9 +21,9 @@ export const listSdkConnections = createApiRequestHandler(
 
     if (req.query.multiOrg) {
       await validateIsSuperUserRequest(req);
-      connections = await findAllSDKConnections();
+      connections = await findAllSDKConnectionsAcrossAllOrgs();
     } else {
-      connections = await findSDKConnectionsByOrganization(req.organization.id);
+      connections = await findSDKConnectionsByOrganization(req.context);
     }
 
     const { filtered, returnFields } = applyPagination(

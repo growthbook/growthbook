@@ -3,7 +3,7 @@ import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-sn
 import { DifferenceType } from "back-end/types/stats";
 import { getExposureQuery } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import SelectField from "../Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 
 export interface Props {
   value: string;
@@ -33,7 +33,7 @@ export default function DimensionChooser({
   userIdType,
   labelClassName,
   showHelp,
-  newUi = false,
+  newUi = true,
   setVariationFilter,
   setBaselineRow,
   setDifferenceType,

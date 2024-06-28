@@ -3,7 +3,6 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
-import { hasReadAccess } from "shared/permissions";
 import {
   Changeset,
   ExperimentInterface,
@@ -25,9 +24,12 @@ import {
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { logger } from "../util/logger";
 import { upgradeExperimentDoc } from "../util/migrations";
-import { refreshSDKPayloadCache, VisualExperiment } from "../services/features";
+import {
+  refreshSDKPayloadCache,
+  URLRedirectExperiment,
+  VisualExperiment,
+} from "../services/features";
 import { SDKPayloadKey } from "../../types/sdk-payload";
-import { EventAuditUser } from "../events/event-types";
 import { FeatureInterface } from "../../types/feature";
 import { getAffectedSDKPayloadKeys } from "../util/features";
 import { getEnvironmentIdsFromOrg } from "../services/organizations";
@@ -79,17 +81,26 @@ const experimentSchema = new mongoose.Schema({
   observations: String,
   hypothesis: String,
   metrics: [String],
+  pastNotifications: [String],
   metricOverrides: [
     {
       _id: false,
       id: String,
-      conversionWindowHours: Number,
-      conversionDelayHours: Number,
+      windowType: String,
+      windowHours: Number,
+      delayHours: Number,
       winRisk: Number,
       loseRisk: Number,
+      properPriorOverride: Boolean,
+      properPriorEnabled: Boolean,
+      properPriorMean: Number,
+      properPriorStdDev: Number,
       regressionAdjustmentOverride: Boolean,
       regressionAdjustmentEnabled: Boolean,
       regressionAdjustmentDays: Number,
+      // deprecated fields
+      conversionWindowHours: Number,
+      conversionDelayHours: Number,
     },
   ],
   guardrails: [String],
@@ -157,6 +168,13 @@ const experimentSchema = new mongoose.Schema({
           match: String,
         },
       ],
+      prerequisites: [
+        {
+          _id: false,
+          id: String,
+          condition: String,
+        },
+      ],
       namespace: {},
       seed: String,
       variationWeights: [Number],
@@ -170,6 +188,7 @@ const experimentSchema = new mongoose.Schema({
   ideaSource: String,
   regressionAdjustmentEnabled: Boolean,
   hasVisualChangesets: Boolean,
+  hasURLRedirects: Boolean,
   linkedFeatures: [String],
   sequentialTestingEnabled: Boolean,
   sequentialTestingTuningParameter: Number,
@@ -187,7 +206,7 @@ const experimentSchema = new mongoose.Schema({
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
 
-const ExperimentModel = mongoose.model<ExperimentInterface>(
+export const ExperimentModel = mongoose.model<ExperimentInterface>(
   "Experiment",
   experimentSchema
 );
@@ -219,7 +238,7 @@ async function findExperiments(
   const experiments = (await cursor).map(toInterface);
 
   return experiments.filter((exp) =>
-    hasReadAccess(context.readAccessFilter, exp.project)
+    context.permissions.canReadSingleProjectResource(exp.project)
   );
 }
 
@@ -236,7 +255,7 @@ export async function getExperimentById(
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
+  return context.permissions.canReadSingleProjectResource(experiment.project)
     ? experiment
     : null;
 }
@@ -269,7 +288,7 @@ export async function getExperimentByTrackingKey(
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
+  return context.permissions.canReadSingleProjectResource(experiment.project)
     ? experiment
     : null;
 }
@@ -309,18 +328,16 @@ export async function getSampleExperiment(
 export async function createExperiment({
   data,
   context,
-  user,
 }: {
   data: Partial<ExperimentInterface>;
   context: ReqContext | ApiReqContext;
-  user: EventAuditUser;
 }): Promise<ExperimentInterface> {
   data.organization = context.org.id;
 
   if (!data.trackingKey) {
     // Try to generate a unique tracking key based on the experiment name
     let n = 1;
-    let found = null;
+    let found: null | string = null;
     while (n < 10 && !found) {
       const key = generateTrackingKey(data.name || data.id || "", n);
       if (!(await getExperimentByTrackingKey(context, key))) {
@@ -351,7 +368,6 @@ export async function createExperiment({
   await onExperimentCreate({
     context,
     experiment: exp,
-    user,
   });
 
   if (data.tags) {
@@ -364,33 +380,35 @@ export async function createExperiment({
 export async function updateExperiment({
   context,
   experiment,
-  user,
   changes,
   bypassWebhooks = false,
 }: {
   context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
-  user: EventAuditUser;
   changes: Changeset;
   bypassWebhooks?: boolean;
-}): Promise<ExperimentInterface | null> {
+}): Promise<ExperimentInterface> {
+  // TODO: are there some changes where we don't want to update the dateUpdated?
+  const allChanges = { ...changes };
+  allChanges.dateUpdated = new Date();
+
   await ExperimentModel.updateOne(
     {
       id: experiment.id,
       organization: context.org.id,
     },
     {
-      $set: changes,
+      $set: allChanges,
     }
   );
 
-  const updated = { ...experiment, ...changes };
+  const updated = { ...experiment, ...allChanges };
 
+  // TODO: are there some changes where we want to skip calling this?
   await onExperimentUpdate({
     context,
     oldExperiment: experiment,
     newExperiment: updated,
-    user,
     bypassWebhooks,
   });
 
@@ -458,7 +476,7 @@ export async function getExperimentByIdea(
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
+  return context.permissions.canReadSingleProjectResource(experiment.project)
     ? experiment
     : null;
 }
@@ -535,7 +553,9 @@ export async function getExperimentsToUpdateLegacy(
 export async function getPastExperimentsByDatasource(
   context: ReqContext | ApiReqContext,
   datasource: string
-): Promise<Pick<ExperimentInterface, "id" | "trackingKey">[]> {
+): Promise<
+  Pick<ExperimentInterface, "id" | "trackingKey" | "exposureQueryId">[]
+> {
   const experiments = await ExperimentModel.find(
     {
       organization: context.org.id,
@@ -545,17 +565,19 @@ export async function getPastExperimentsByDatasource(
       _id: false,
       id: true,
       trackingKey: true,
+      exposureQueryId: true,
       project: true,
     }
   );
 
   const experimentsUserCanAccess = experiments.filter((exp) =>
-    hasReadAccess(context.readAccessFilter, exp.project)
+    context.permissions.canReadSingleProjectResource(exp.project)
   );
 
   return experimentsUserCanAccess.map((exp) => ({
     id: exp.id,
     trackingKey: exp.trackingKey,
+    exposureQueryId: exp.exposureQueryId,
   }));
 }
 
@@ -600,10 +622,9 @@ export async function getRecentExperimentsUsingMetric(
 
 export async function deleteExperimentSegment(
   context: ReqContext | ApiReqContext,
-  user: EventAuditUser,
   segment: string
 ): Promise<void> {
-  const exps = await getExperimentsUsingSegment(segment, context);
+  const exps = await getExperimentsUsingSegment(context, segment);
 
   if (!exps.length) return;
 
@@ -623,7 +644,8 @@ export async function deleteExperimentSegment(
       oldExperiment: previous,
       newExperiment: current,
       bypassWebhooks: true,
-      user,
+    }).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on experiment update");
     });
   });
 }
@@ -648,7 +670,7 @@ export async function getExperimentsForActivityFeed(
   );
 
   const filteredExperiments = experiments.filter((exp) =>
-    hasReadAccess(context.readAccessFilter, exp.project)
+    context.permissions.canReadSingleProjectResource(exp.project)
   );
 
   return filteredExperiments.map((exp) => ({
@@ -675,7 +697,7 @@ const findExperiment = async ({
 
   const experiment = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, experiment.project)
+  return context.permissions.canReadSingleProjectResource(experiment.project)
     ? experiment
     : null;
 };
@@ -684,24 +706,33 @@ const findExperiment = async ({
 
 /**
  * @param context
- * @param user
  * @param experiment
  * @return event.id
  */
 const logExperimentCreated = async (
   context: ReqContext | ApiReqContext,
-  user: EventAuditUser,
   experiment: ExperimentInterface
 ): Promise<string | undefined> => {
   const { org: organization } = context;
   const apiExperiment = await toExperimentApiInterface(context, experiment);
+
+  // If experiment is part of the SDK payload, it affects all environments
+  // Otherwise, it doesn't affect any
+  const changedEnvs = includeExperimentInPayload(experiment)
+    ? getEnvironmentIdsFromOrg(context.org)
+    : [];
+
   const payload: ExperimentCreatedNotificationEvent = {
     object: "experiment",
     event: "experiment.created",
-    user,
+    user: context.auditUser,
     data: {
       current: apiExperiment,
     },
+    projects: [apiExperiment.project],
+    tags: apiExperiment.tags,
+    environments: changedEnvs,
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(organization.id, payload);
@@ -713,18 +744,15 @@ const logExperimentCreated = async (
 
 /**
  * @param context
- * @param user
  * @param current
  * @return previous
  */
 const logExperimentUpdated = async ({
   context,
-  user,
   current,
   previous,
 }: {
   context: ReqContext | ApiReqContext;
-  user: EventAuditUser;
   current: ExperimentInterface;
   previous: ExperimentInterface;
 }): Promise<string | undefined> => {
@@ -741,14 +769,29 @@ const logExperimentUpdated = async ({
     currentApiExperimentPromise,
   ]);
 
+  // If experiment is part of the SDK payload, it affects all environments
+  // Otherwise, it doesn't affect any
+  const hasPayloadChanges = hasChangesForSDKPayloadRefresh(previous, current);
+  const changedEnvs = hasPayloadChanges
+    ? getEnvironmentIdsFromOrg(context.org)
+    : [];
+
   const payload: ExperimentUpdatedNotificationEvent = {
     object: "experiment",
     event: "experiment.updated",
-    user,
+    user: context.auditUser,
     data: {
       previous: previousApiExperiment,
       current: currentApiExperiment,
     },
+    projects: Array.from(
+      new Set([previousApiExperiment.project, currentApiExperiment.project])
+    ),
+    tags: Array.from(
+      new Set([...previousApiExperiment.tags, ...currentApiExperiment.tags])
+    ),
+    environments: changedEnvs,
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(context.org.id, payload);
@@ -762,12 +805,10 @@ const logExperimentUpdated = async ({
  * Deletes an experiment by ID and logs the event for the organization
  * @param experiment
  * @param organization
- * @param user
  */
 export async function deleteExperimentByIdForOrganization(
-  experiment: ExperimentInterface,
   context: ReqContext | ApiReqContext,
-  user: EventAuditUser
+  experiment: ExperimentInterface
 ) {
   try {
     await ExperimentModel.deleteOne({
@@ -777,7 +818,7 @@ export async function deleteExperimentByIdForOrganization(
 
     await VisualChangesetModel.deleteMany({ experiment: experiment.id });
 
-    await onExperimentDelete(context, user, experiment);
+    await onExperimentDelete(context, experiment);
   } catch (e) {
     logger.error(e);
   }
@@ -787,16 +828,13 @@ export async function deleteExperimentByIdForOrganization(
  * Delete experiments belonging to a project
  * @param projectId
  * @param organization
- * @param user
  */
 export async function deleteAllExperimentsForAProject({
   projectId,
   context,
-  user,
 }: {
   projectId: string;
   context: ReqContext | ApiReqContext;
-  user: EventAuditUser;
 }) {
   const experimentsToDelete = await ExperimentModel.find({
     organization: context.org.id,
@@ -806,7 +844,7 @@ export async function deleteAllExperimentsForAProject({
   for (const experiment of experimentsToDelete) {
     await experiment.delete();
     VisualChangesetModel.deleteMany({ experiment: experiment.id });
-    await onExperimentDelete(context, user, experiment);
+    await onExperimentDelete(context, experiment);
   }
 }
 
@@ -814,16 +852,13 @@ export async function deleteAllExperimentsForAProject({
  * Removes the tag from any experiments that have it
  * and logs the experiment.updated event
  * @param context
- * @param user
  * @param tag
  */
 export const removeTagFromExperiments = async ({
   context,
-  user,
   tag,
 }: {
   context: ReqContext | ApiReqContext;
-  user: EventAuditUser;
   tag: string;
 }): Promise<void> => {
   const query = { organization: context.org.id, tags: tag };
@@ -833,15 +868,15 @@ export const removeTagFromExperiments = async ({
     $pull: { tags: tag },
   });
 
-  logAllChanges(context, user, previousExperiments, (exp) => ({
+  logAllChanges(context, previousExperiments, (exp) => ({
     ...exp,
     tags: exp.tags.filter((t) => t !== tag),
   }));
 };
 
 export async function removeMetricFromExperiments(
-  metricId: string,
-  context: ReqContext | ApiReqContext
+  context: ReqContext | ApiReqContext,
+  metricId: string
 ) {
   const oldExperiments: Record<
     string,
@@ -905,31 +940,31 @@ export async function removeMetricFromExperiments(
   });
 
   // Log all the changes
-  each(oldExperiments, async (changeSet) => {
+  each(oldExperiments, (changeSet) => {
     const { previous, current } = changeSet;
     if (current && previous) {
-      await onExperimentUpdate({
+      onExperimentUpdate({
         context,
         oldExperiment: previous,
         newExperiment: current,
         bypassWebhooks: true,
-        user: context.auditUser,
+      }).catch((e) => {
+        logger.error(e, "Error refreshing SDK Payload on experiment update");
       });
     }
   });
 }
 
 export async function removeProjectFromExperiments(
-  project: string,
   context: ReqContext | ApiReqContext,
-  user: EventAuditUser
+  project: string
 ) {
   const query = { organization: context.org.id, project };
   const previousExperiments = await findExperiments(context, query);
 
   await ExperimentModel.updateMany(query, { $set: { project: "" } });
 
-  logAllChanges(context, user, previousExperiments, (exp) => ({
+  logAllChanges(context, previousExperiments, (exp) => ({
     ...exp,
     project: "",
   }));
@@ -937,7 +972,6 @@ export async function removeProjectFromExperiments(
 
 export async function addLinkedFeatureToExperiment(
   context: ReqContext | ApiReqContext,
-  user: EventAuditUser,
   experimentId: string,
   featureId: string,
   experiment?: ExperimentInterface | null
@@ -972,13 +1006,13 @@ export async function addLinkedFeatureToExperiment(
       ...experiment,
       linkedFeatures: [...(experiment.linkedFeatures || []), featureId],
     },
-    user,
+  }).catch((e) => {
+    logger.error(e, "Error refreshing SDK Payload on experiment update");
   });
 }
 
 export async function removeLinkedFeatureFromExperiment(
   context: ReqContext | ApiReqContext,
-  user: EventAuditUser,
   experimentId: string,
   featureId: string
 ) {
@@ -1012,13 +1046,13 @@ export async function removeLinkedFeatureFromExperiment(
         (f) => f !== featureId
       ),
     },
-    user,
+  }).catch((e) => {
+    logger.error(e, "Error refreshing SDK Payload on experiment update");
   });
 }
 
 function logAllChanges(
   context: ReqContext | ApiReqContext,
-  user: EventAuditUser,
   previousExperiments: ExperimentInterface[],
   applyChanges: (exp: ExperimentInterface) => ExperimentInterface | null
 ) {
@@ -1029,14 +1063,15 @@ function logAllChanges(
       context,
       oldExperiment: previous,
       newExperiment: current,
-      user,
+    }).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on experiment update");
     });
   });
 }
 
 export async function getExperimentsUsingSegment(
-  id: string,
-  context: ReqContext | ApiReqContext
+  context: ReqContext | ApiReqContext,
+  id: string
 ) {
   return await findExperiments(context, {
     organization: context.org.id,
@@ -1046,23 +1081,32 @@ export async function getExperimentsUsingSegment(
 
 /**
  * @param context
- * @param user
  * @param experiment
  * @return experiment
  */
 export const logExperimentDeleted = async (
   context: ReqContext | ApiReqContext,
-  user: EventAuditUser,
   experiment: ExperimentInterface
 ): Promise<string | undefined> => {
   const apiExperiment = await toExperimentApiInterface(context, experiment);
+
+  // If experiment is part of the SDK payload, it affects all environments
+  // Otherwise, it doesn't affect any
+  const changedEnvs = includeExperimentInPayload(experiment)
+    ? getEnvironmentIdsFromOrg(context.org)
+    : [];
+
   const payload: ExperimentDeletedNotificationEvent = {
     object: "experiment",
     event: "experiment.deleted",
-    user,
+    user: context.auditUser,
     data: {
       previous: apiExperiment,
     },
+    projects: [apiExperiment.project],
+    environments: changedEnvs,
+    tags: apiExperiment.tags,
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(context.org.id, payload);
@@ -1109,6 +1153,9 @@ export async function getAllPayloadExperiments(
       {
         hasVisualChangesets: true,
       },
+      {
+        hasURLRedirects: true,
+      },
     ],
   });
 
@@ -1147,9 +1194,10 @@ export const getAllVisualExperiments = async (
   };
 
   return visualChangesets
-    .map((c) => ({
-      experiment: experimentMap.get(c.experiment),
+    .map<VisualExperiment>((c) => ({
+      experiment: experimentMap.get(c.experiment) as ExperimentInterface,
       visualChangeset: c,
+      type: "visual",
     }))
     .filter(_isValidVisualExperiment)
     .filter((e) => {
@@ -1168,6 +1216,41 @@ export const getAllVisualExperiments = async (
       }
       return true;
     });
+};
+
+export const getAllURLRedirectExperiments = async (
+  context: ReqContext | ApiReqContext,
+  experimentMap: Map<string, ExperimentInterface>
+): Promise<Array<URLRedirectExperiment>> => {
+  const redirects = await context.models.urlRedirects.getAll();
+
+  if (!redirects.length) return [];
+
+  const exps: URLRedirectExperiment[] = [];
+
+  redirects.forEach((r) => {
+    const experiment = experimentMap.get(r.experiment);
+    if (!experiment) return;
+
+    // Exclude experiments from SDK payload
+    if (!includeExperimentInPayload(experiment)) return;
+
+    // Exclude experiments that are stopped and the released variation doesn’t have a destination URL
+    if (experiment.status === "stopped") {
+      const destination = r.destinationURLs.find(
+        (d) => d.variation === experiment.releasedVariationId
+      );
+      if (!destination || !destination.url) return;
+    }
+
+    exps.push({
+      type: "redirect",
+      experiment,
+      urlRedirect: r,
+    });
+  });
+
+  return exps;
 };
 
 export function getPayloadKeysForAllEnvs(
@@ -1190,11 +1273,11 @@ export function getPayloadKeysForAllEnvs(
   return keys;
 }
 
-export const getPayloadKeys = (
+export function getPayloadKeys(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   linkedFeatures?: FeatureInterface[]
-): SDKPayloadKey[] => {
+): SDKPayloadKey[] {
   // If experiment is not included in the SDK payload
   if (!includeExperimentInPayload(experiment, linkedFeatures)) {
     return [];
@@ -1203,8 +1286,8 @@ export const getPayloadKeys = (
   const environments: string[] = getEnvironmentIdsFromOrg(context.org);
   const project = experiment.project ?? "";
 
-  // Visual editor experiments always affect all environments
-  if (experiment.hasVisualChangesets) {
+  // Visual editor and URL redirect experiments always affect all environments
+  if (experiment.hasVisualChangesets || experiment.hasURLRedirects) {
     const keys: SDKPayloadKey[] = [];
 
     environments.forEach((e) => {
@@ -1229,9 +1312,9 @@ export const getPayloadKeys = (
     );
   }
 
-  // Otherwise, if no linked visual editor or feature flag changes, there are no affected payload keys
+  // Otherwise, if no linked changes, there are no affected payload keys
   return [];
-};
+}
 
 const getExperimentChanges = (
   experiment: ExperimentInterface
@@ -1265,7 +1348,7 @@ const hasChangesForSDKPayloadRefresh = (
   oldExperiment: ExperimentInterface,
   newExperiment: ExperimentInterface
 ): boolean => {
-  // Skip experiments that don't have linked features or visual changesets
+  // Skip experiments that don't have linked changes
   if (
     !includeExperimentInPayload(oldExperiment) &&
     !includeExperimentInPayload(newExperiment)
@@ -1282,13 +1365,11 @@ const hasChangesForSDKPayloadRefresh = (
 const onExperimentCreate = async ({
   context,
   experiment,
-  user,
 }: {
   context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
-  user: EventAuditUser;
 }) => {
-  await logExperimentCreated(context, user, experiment);
+  await logExperimentCreated(context, experiment);
 };
 
 const onExperimentUpdate = async ({
@@ -1296,19 +1377,16 @@ const onExperimentUpdate = async ({
   oldExperiment,
   newExperiment,
   bypassWebhooks = false,
-  user,
 }: {
   context: ReqContext | ApiReqContext;
   oldExperiment: ExperimentInterface;
   newExperiment: ExperimentInterface;
   bypassWebhooks?: boolean;
-  user: EventAuditUser;
 }) => {
   await logExperimentUpdated({
     context,
     current: newExperiment,
     previous: oldExperiment,
-    user,
   });
 
   if (
@@ -1338,16 +1416,17 @@ const onExperimentUpdate = async ({
       isEqual
     );
 
-    refreshSDKPayloadCache(context, payloadKeys);
+    refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
+      logger.error(e, "Error refreshing SDK payload cache");
+    });
   }
 };
 
 const onExperimentDelete = async (
   context: ReqContext | ApiReqContext,
-  user: EventAuditUser,
   experiment: ExperimentInterface
 ) => {
-  await logExperimentDeleted(context, user, experiment);
+  await logExperimentDeleted(context, experiment);
 
   const featureIds = [...(experiment.linkedFeatures || [])];
   let linkedFeatures: FeatureInterface[] = [];
@@ -1356,5 +1435,7 @@ const onExperimentDelete = async (
   }
 
   const payloadKeys = getPayloadKeys(context, experiment, linkedFeatures);
-  refreshSDKPayloadCache(context, payloadKeys);
+  refreshSDKPayloadCache(context, payloadKeys).catch((e) => {
+    logger.error(e, "Error refreshing SDK payload cache");
+  });
 };

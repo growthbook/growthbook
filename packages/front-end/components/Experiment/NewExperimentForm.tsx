@@ -19,23 +19,33 @@ import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
 import { getEqualWeights } from "@/services/utils";
-import { generateVariationId, useAttributeSchema } from "@/services/features";
+import {
+  generateVariationId,
+  useAttributeSchema,
+  useEnvironments,
+} from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import useIncrementer from "@/hooks/useIncrementer";
+import { useIncrementer } from "@/hooks/useIncrementer";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
-import MarkdownInput from "../Markdown/MarkdownInput";
-import TagsInput from "../Tags/TagsInput";
-import Page from "../Modal/Page";
-import PagedModal from "../Modal/PagedModal";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import FeatureVariationsInput from "../Features/FeatureVariationsInput";
-import ConditionInput from "../Features/ConditionInput";
-import NamespaceSelector from "../Features/NamespaceSelector";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import HashVersionSelector, {
+  allConnectionsSupportBucketingV2,
+} from "@/components/Experiment/HashVersionSelector";
+import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import TagsInput from "@/components/Tags/TagsInput";
+import Page from "@/components/Modal/Page";
+import PagedModal from "@/components/Modal/PagedModal";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
+import ConditionInput from "@/components/Features/ConditionInput";
+import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
-} from "../Features/SavedGroupTargetingField";
+} from "@/components/Features/SavedGroupTargetingField";
+import Toggle from "@/components/Forms/Toggle";
 import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
 
 const weekAgo = new Date();
@@ -126,6 +136,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     false
   );
 
+  const [autoRefreshResults, setAutoRefreshResults] = useState(true);
+
   const {
     datasources,
     getDatasourceById,
@@ -133,8 +145,22 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     project,
   } = useDefinitions();
 
+  const environments = useEnvironments();
+  const envs = environments.map((e) => e.id);
+
+  const [
+    prerequisiteTargetingSdkIssues,
+    setPrerequisiteTargetingSdkIssues,
+  ] = useState(false);
+
   const settings = useOrgSettings();
   const { refreshWatching } = useWatching();
+
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
+    sdkConnectionsData?.connections,
+    project
+  );
 
   useEffect(() => {
     track("New Experiment Form", {
@@ -144,7 +170,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
-  const attributeSchema = useAttributeSchema();
+  const attributeSchema = useAttributeSchema(false, project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
@@ -161,7 +187,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       name: initialValue?.name || "",
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
-      hashVersion: initialValue?.hashVersion || 2,
+      hashVersion:
+        initialValue?.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
       attributionModel:
         initialValue?.attributionModel ??
         settings?.attributionModel ??
@@ -246,6 +273,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         form.setValue("phases.0.condition", condition);
         forceConditionRender();
       });
+
+      if (prerequisiteTargetingSdkIssues) {
+        throw new Error("Prerequisite targeting issues must be resolved");
+      }
     }
 
     const body = JSON.stringify(data);
@@ -257,6 +288,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
     if (source === "duplicate" && initialValue?.id) {
       params.originalId = initialValue.id;
+    }
+
+    if (autoRefreshResults && isImport) {
+      params.autoRefreshResults = true;
     }
 
     const res = await apiCall<
@@ -441,21 +476,47 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     "Will be hashed together with the Experiment Id (tracking key) to determine which variation to assign"
                   }
                 />
-                <FallbackAttributeSelector form={form} />
+                <FallbackAttributeSelector
+                  form={form}
+                  attributeSchema={attributeSchema}
+                />
               </div>
 
+              {hasSDKWithNoBucketingV2 && (
+                <HashVersionSelector
+                  value={(form.watch("hashVersion") || 1) as 1 | 2}
+                  onChange={(v) => form.setValue("hashVersion", v)}
+                  project={project}
+                />
+              )}
+
+              <hr />
               <SavedGroupTargetingField
                 value={form.watch("phases.0.savedGroups") || []}
                 setValue={(savedGroups) =>
                   form.setValue("phases.0.savedGroups", savedGroups)
                 }
               />
+              <hr />
               <ConditionInput
                 defaultValue={form.watch("phases.0.condition") || ""}
                 onChange={(value) => form.setValue("phases.0.condition", value)}
                 key={conditionKey}
+                project={project}
               />
-
+              <hr />
+              <PrerequisiteTargetingField
+                value={form.watch("phases.0.prerequisites") || []}
+                setValue={(prerequisites) =>
+                  form.setValue("phases.0.prerequisites", prerequisites)
+                }
+                environments={envs}
+                project={form.watch("project")}
+                setPrerequisiteTargetingSdkIssues={
+                  setPrerequisiteTargetingSdkIssues
+                }
+              />
+              <hr />
               <NamespaceSelector
                 formPrefix="phases.0."
                 form={form}
@@ -465,6 +526,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             </>
           )}
 
+          <hr />
+          {isImport && (
+            <div className="alert alert-info">
+              We guessed at the variation percents below based on the data we
+              saw. They might need to be adjusted.
+            </div>
+          )}
           <FeatureVariationsInput
             valueType={"string"}
             coverage={form.watch("phases.0.coverage")}
@@ -567,6 +635,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               />
             )}
             <div className="form-group">
+              <label className="font-weight-bold mb-1">Goal Metrics</label>
               <div className="mb-1">
                 <span className="font-italic">
                   Metrics you are trying to improve with this experiment.{" "}
@@ -601,6 +670,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               />
             </div>
           </div>
+
+          {isImport && (
+            <div className="form-group">
+              <Toggle
+                id="auto_refresh_results"
+                label="Auto Refresh Results"
+                value={autoRefreshResults}
+                setValue={setAutoRefreshResults}
+              />
+              <label>Populate Results on Save</label>
+            </div>
+          )}
         </Page>
       )}
     </PagedModal>

@@ -1,6 +1,7 @@
 import { promisify } from "util";
 import os from "os";
 import { PythonShell } from "python-shell";
+import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -13,6 +14,7 @@ import {
   isFactMetric,
   isRatioMetric,
   isRegressionAdjusted,
+  quantileMetricType,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import { ExperimentMetricAnalysis } from "../../types/stats";
@@ -39,6 +41,7 @@ import {
 } from "../../types/experiment-snapshot";
 import { QueryMap } from "../queryRunners/QueryRunner";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "../integrations/SqlIntegration";
+import { applyMetricOverrides } from "../util/integration";
 
 // Keep these interfaces in sync with gbstats
 export interface AnalysisSettingsForStatsEngine {
@@ -60,10 +63,19 @@ export interface MetricSettingsForStatsEngine {
   id: string;
   name: string;
   inverse: boolean;
-  statistic_type: "mean" | "ratio" | "mean_ra";
-  main_metric_type: "count" | "binomial";
-  denominator_metric_type?: "count" | "binomial";
-  covariate_metric_type?: "count" | "binomial";
+  statistic_type:
+    | "mean"
+    | "ratio"
+    | "mean_ra"
+    | "quantile_event"
+    | "quantile_unit";
+  main_metric_type: "count" | "binomial" | "quantile";
+  denominator_metric_type?: "count" | "binomial" | "quantile";
+  covariate_metric_type?: "count" | "binomial" | "quantile";
+  quantile_value?: number;
+  prior_proper?: boolean;
+  prior_mean?: number;
+  prior_stddev?: number;
 }
 
 export interface QueryResultsForStatsEngine {
@@ -210,29 +222,52 @@ print(json.dumps({
 }
 
 export function getMetricSettingsForStatsEngine(
-  metric: ExperimentMetricInterface,
-  metricMap: Map<string, ExperimentMetricInterface>
+  metricDoc: ExperimentMetricInterface,
+  metricMap: Map<string, ExperimentMetricInterface>,
+  settings: ExperimentSnapshotSettings
 ): MetricSettingsForStatsEngine {
-  let denominator =
+  const metric = cloneDeep<ExperimentMetricInterface>(metricDoc);
+  applyMetricOverrides(metric, settings);
+
+  const denominatorDoc =
     metric.denominator && !isFactMetric(metric)
       ? metricMap.get(metric.denominator)
       : undefined;
+  let denominator: undefined | ExperimentMetricInterface = undefined;
+  if (denominatorDoc) {
+    denominator = cloneDeep<ExperimentMetricInterface>(denominatorDoc);
+    applyMetricOverrides(denominator, settings);
+  }
+
   const ratioMetric = isRatioMetric(metric, denominator);
-  const regressionAdjusted = isRegressionAdjusted(metric, denominator);
-  const mainMetricType = isBinomialMetric(metric) ? "binomial" : "count";
+  const quantileMetric = quantileMetricType(metric);
+  const regressionAdjusted =
+    settings.regressionAdjustmentEnabled &&
+    isRegressionAdjusted(metric, denominator);
+  const mainMetricType = quantileMetric
+    ? "quantile"
+    : isBinomialMetric(metric)
+    ? "binomial"
+    : "count";
   // Fact ratio metrics contain denominator
   if (isFactMetric(metric) && ratioMetric) {
     denominator = metric;
   }
+
   return {
     id: metric.id,
     name: metric.name,
     inverse: !!metric.inverse,
-    statistic_type: ratioMetric
-      ? "ratio"
-      : regressionAdjusted
-      ? "mean_ra"
-      : "mean",
+    statistic_type:
+      quantileMetric === "unit"
+        ? "quantile_unit"
+        : quantileMetric === "event"
+        ? "quantile_event"
+        : ratioMetric
+        ? "ratio"
+        : regressionAdjusted
+        ? "mean_ra"
+        : "mean",
     main_metric_type: mainMetricType,
     ...(denominator && {
       denominator_metric_type: isBinomialMetric(denominator)
@@ -240,13 +275,19 @@ export function getMetricSettingsForStatsEngine(
         : "count",
     }),
     ...(regressionAdjusted && { covariate_metric_type: mainMetricType }),
+    ...(!!quantileMetric && isFactMetric(metric)
+      ? { quantile_value: metric.quantileSettings?.quantile ?? 0 }
+      : {}),
+    prior_proper: metric.priorSettings.proper,
+    prior_mean: metric.priorSettings.mean,
+    prior_stddev: metric.priorSettings.stddev,
   };
 }
 
 export function getMetricsAndQueryDataForStatsEngine(
   queryData: QueryMap,
   metricMap: Map<string, ExperimentMetricInterface>,
-  variations: (SnapshotSettingsVariation | ExperimentReportVariation)[]
+  settings: ExperimentSnapshotSettings
 ) {
   const queryResults: QueryResultsForStatsEngine[] = [];
   const metricSettings: Record<string, MetricSettingsForStatsEngine> = {};
@@ -271,11 +312,12 @@ export function getMetricsAndQueryDataForStatsEngine(
           }
           metricSettings[metric] = getMetricSettingsForStatsEngine(
             metricInterface,
-            metricMap
+            metricMap,
+            settings
           );
           byMetric[metric].push({
             dimension: row.dimension,
-            variation: variations[v.variation]?.id || v.variation + "",
+            variation: settings.variations[v.variation]?.id || v.variation + "",
             users: stats.count,
             count: stats.count,
             main_sum: stats.main_sum,
@@ -311,7 +353,8 @@ export function getMetricsAndQueryDataForStatsEngine(
             metricIds.push(metricId);
             metricSettings[metricId] = getMetricSettingsForStatsEngine(
               metric,
-              metricMap
+              metricMap,
+              settings
             );
           } else {
             metricIds.push(null);
@@ -328,7 +371,11 @@ export function getMetricsAndQueryDataForStatsEngine(
       // Single metric query, just return rows as-is
       const metric = metricMap.get(key);
       if (!metric) return;
-      metricSettings[key] = getMetricSettingsForStatsEngine(metric, metricMap);
+      metricSettings[key] = getMetricSettingsForStatsEngine(
+        metric,
+        metricMap,
+        settings
+      );
       queryResults.push({
         metrics: [key],
         rows: (query.result ?? []) as ExperimentMetricQueryResponseRows,
@@ -359,7 +406,7 @@ export async function analyzeExperimentResults({
   const mdat = getMetricsAndQueryDataForStatsEngine(
     queryData,
     metricMap,
-    snapshotSettings.variations
+    snapshotSettings
   );
   const { queryResults, metricSettings } = mdat;
   let { unknownVariations } = mdat;

@@ -1,8 +1,8 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { ago } from "shared/dates";
-import SelectField from "../Forms/SelectField";
-import AuditUser from "../Avatar/AuditUser";
+import { datetime } from "shared/dates";
+import SelectField from "@/components/Forms/SelectField";
+import AuditUser from "@/components/Avatar/AuditUser";
 
 export interface Props {
   feature: FeatureInterface;
@@ -65,7 +65,9 @@ export default function RevisionDropdown({
               ) : null}
               {context !== "value" && (
                 <div style={{ marginTop: -4 }}>
-                  {date && <small className="text-muted">{ago(date)}</small>}
+                  {date && (
+                    <small className="text-muted">{datetime(date)}</small>
+                  )}
                 </div>
               )}
             </div>

@@ -6,7 +6,7 @@ import {
 } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import { generateVariationId } from "@/services/features";
-import Modal from "../Modal";
+import Modal from "@/components/Modal";
 import ExperimentVariationsInput from "./ExperimentVariationsInput";
 
 const EditVariationsForm: FC<{

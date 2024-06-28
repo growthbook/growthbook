@@ -3,15 +3,15 @@ import { BsArrowRepeat } from "react-icons/bs";
 import { LicenseInterface } from "enterprise";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import Button from "../Button";
+import Button from "@/components/Button";
 
 const RefreshLicenseButton: FC = () => {
   const { apiCall } = useAuth();
-  const { updateUser, refreshOrganization } = useUser();
+  const { refreshOrganization } = useUser();
 
   const refresh = async () => {
     const res = await apiCall<{ status: number; license: LicenseInterface }>(
-      `/admin/license`,
+      `/license`,
       {
         method: "GET",
       }
@@ -20,7 +20,6 @@ const RefreshLicenseButton: FC = () => {
     if (res.status !== 200) {
       throw new Error("There was an error fetching the license");
     }
-    updateUser();
     refreshOrganization();
   };
 

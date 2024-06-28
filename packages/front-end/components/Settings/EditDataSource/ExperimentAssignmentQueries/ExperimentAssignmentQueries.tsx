@@ -7,15 +7,14 @@ import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { BsGear } from "react-icons/bs";
-import { checkDatasourceProjectPermissions } from "@/services/datasources";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
-import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/components/Button";
-import { UpdateDimensionMetadataModal } from "../DimensionMetadata/UpdateDimensionMetadata";
+import { UpdateDimensionMetadataModal } from "@/components/Settings/EditDataSource/DimensionMetadata/UpdateDimensionMetadata";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 type UIMode = "view" | "edit" | "add" | "dimension";
@@ -39,14 +38,8 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     intitialOpenIndexes
   );
 
-  const permissions = usePermissions();
-  canEdit =
-    canEdit &&
-    checkDatasourceProjectPermissions(
-      dataSource,
-      permissions,
-      "editDatasourceSettings"
-    );
+  const permissionsUtil = usePermissionsUtil();
+  canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
   const handleExpandCollapseForIndex = useCallback(
     (index) => () => {
@@ -66,10 +59,8 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   }, [onCancel]);
 
   const experimentExposureQueries = useMemo(
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    () => dataSource.settings?.queries.exposure || [],
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    [dataSource.settings?.queries.exposure]
+    () => dataSource.settings?.queries?.exposure || [],
+    [dataSource.settings?.queries?.exposure]
   );
 
   const handleAdd = useCallback(() => {

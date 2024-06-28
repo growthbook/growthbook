@@ -1,6 +1,20 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
 import { useState } from "react";
-import SDKLanguageLogo from "./SDKLanguageLogo";
+import ControlledTabs from "@/components/Tabs/ControlledTabs";
+import Tab from "@/components/Tabs/Tab";
+import SDKLanguageLogo, {
+  getLanguagesByFilter,
+  LanguageFilter,
+} from "./SDKLanguageLogo";
+
+const tabs: Record<LanguageFilter, string> = {
+  popular: "Popular",
+  all: "All",
+  browser: "Browser",
+  server: "Server",
+  mobile: "Mobile",
+  edge: "Edge",
+};
 
 function LanguageOption({
   language,
@@ -15,14 +29,14 @@ function LanguageOption({
 }) {
   return (
     <div
-      className={`cursor-pointer border rounded mr-2 mb-2 ${
+      className={`hover-highlight cursor-pointer border rounded ${
         selected.has(language) ? "bg-light" : ""
       }`}
       style={{
         height: 50,
         padding: 10,
         boxShadow: selected.has(language)
-          ? "0 0 0 3px var(--text-color-primary)"
+          ? "0 0 0 1px var(--text-color-primary)"
           : "",
       }}
       key={language}
@@ -52,13 +66,22 @@ export default function SDKLanguageSelector({
   multiple = false,
   includeOther = true,
   limitLanguages,
+  skipLabel = false,
+  hideShowAllLanguages = false,
+  languageFilter = "popular",
+  setLanguageFilter,
 }: {
   value: SDKLanguage[];
   setValue: (languages: SDKLanguage[]) => void;
   multiple?: boolean;
   includeOther?: boolean;
   limitLanguages?: SDKLanguage[];
+  skipLabel?: boolean;
+  hideShowAllLanguages?: boolean;
+  languageFilter?: LanguageFilter;
+  setLanguageFilter?: (l: LanguageFilter) => void;
 }) {
+  const useTabs = !!setLanguageFilter;
   const selected = new Set(value);
 
   // If the selected language(s) are not in the "limitLanguages" list, add them
@@ -77,6 +100,8 @@ export default function SDKLanguageSelector({
 
   const [includeAll, setIncludeAll] = useState(false);
 
+  const renderLabels = !skipLabel || includeAll;
+
   const filterLanguages = (languages: SDKLanguage[]): SDKLanguage[] => {
     if (includeAll) return languages;
     return languages.filter(
@@ -84,7 +109,7 @@ export default function SDKLanguageSelector({
     );
   };
 
-  const frontEnd = filterLanguages(["javascript", "react"]);
+  const frontEnd = filterLanguages(["javascript", "react", "nocode-other"]);
   const backEnd = filterLanguages([
     "nodejs",
     "php",
@@ -93,18 +118,80 @@ export default function SDKLanguageSelector({
     "java",
     "csharp",
     "go",
+    "elixir",
   ]);
   const mobile = filterLanguages(["ios", "android", "flutter"]);
+  const edge = filterLanguages([
+    "edge-cloudflare",
+    "edge-fastly",
+    "edge-lambda",
+    "edge-other",
+  ]);
+  const nocode = filterLanguages([
+    "nocode-shopify",
+    "nocode-wordpress",
+    "nocode-webflow",
+  ]);
+
+  if (useTabs) {
+    let languages = getLanguagesByFilter(languageFilter);
+    if (!includeOther) {
+      languages = languages.filter((l) => l !== "other");
+    }
+    return (
+      <ControlledTabs
+        buttonsClassName="px-3"
+        buttonsWrapperClassName="mb-3"
+        active={languageFilter}
+        setActive={(v) => setLanguageFilter((v ?? "all") as LanguageFilter)}
+      >
+        {Object.keys(tabs).map((tab) => (
+          <Tab
+            key={tab}
+            id={tab}
+            display={
+              <span
+                className={tab === languageFilter ? "text-main" : undefined}
+              >
+                {tabs[tab]}
+              </span>
+            }
+            padding={false}
+          >
+            <div
+              className="d-flex flex-wrap pb-3"
+              style={{ rowGap: "1em", columnGap: "0.6em" }}
+            >
+              {languages.map((l) => (
+                <LanguageOption
+                  key={l}
+                  language={l}
+                  setValue={setValue}
+                  selected={selected}
+                  multiple={multiple}
+                />
+              ))}
+            </div>
+          </Tab>
+        ))}
+      </ControlledTabs>
+    );
+  }
 
   return (
     <div>
       <div className="row">
         {backEnd.length > 0 && (
           <div className="col-auto">
-            <small>
-              <strong>Back-end</strong>
-            </small>
-            <div className="d-flex flex-wrap">
+            {renderLabels && (
+              <div className="small">
+                <strong>Back-end</strong>
+              </div>
+            )}
+            <div
+              className="d-flex flex-wrap pb-3"
+              style={{ rowGap: "1em", columnGap: "0.6em" }}
+            >
               {backEnd.map((l) => (
                 <LanguageOption
                   key={l}
@@ -119,10 +206,15 @@ export default function SDKLanguageSelector({
         )}
         {frontEnd.length > 0 && (
           <div className="col-auto">
-            <small>
-              <strong>Front-end</strong>
-            </small>
-            <div className="d-flex align-items-center">
+            {renderLabels && (
+              <div className="small">
+                <strong>Front-end</strong>
+              </div>
+            )}
+            <div
+              className="d-flex flex-wrap pb-3"
+              style={{ rowGap: "1em", columnGap: "0.6em" }}
+            >
               {frontEnd.map((l) => (
                 <LanguageOption
                   key={l}
@@ -137,11 +229,62 @@ export default function SDKLanguageSelector({
         )}
         {mobile.length > 0 && (
           <div className="col-auto">
-            <small>
-              <strong>Mobile</strong>
-            </small>
-            <div className="d-flex">
+            {renderLabels && (
+              <div className="small">
+                <strong>Mobile</strong>
+              </div>
+            )}
+            <div
+              className="d-flex flex-wrap pb-3"
+              style={{ rowGap: "1em", columnGap: "0.6em" }}
+            >
               {mobile.map((l) => (
+                <LanguageOption
+                  key={l}
+                  language={l}
+                  setValue={setValue}
+                  selected={selected}
+                  multiple={multiple}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+        {edge.length > 0 && (
+          <div className="col-auto">
+            {renderLabels && (
+              <div className="small">
+                <strong>Edge</strong>
+              </div>
+            )}
+            <div
+              className="d-flex flex-wrap pb-3"
+              style={{ rowGap: "1em", columnGap: "0.6em" }}
+            >
+              {edge.map((l) => (
+                <LanguageOption
+                  key={l}
+                  language={l}
+                  setValue={setValue}
+                  selected={selected}
+                  multiple={multiple}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+        {nocode.length > 0 && (
+          <div className="col-auto">
+            {renderLabels && (
+              <div className="small">
+                <strong>No/Low Code Platform</strong>
+              </div>
+            )}
+            <div
+              className="d-flex flex-wrap pb-3"
+              style={{ rowGap: "1em", columnGap: "0.6em" }}
+            >
+              {nocode.map((l) => (
                 <LanguageOption
                   key={l}
                   language={l}
@@ -155,9 +298,11 @@ export default function SDKLanguageSelector({
         )}
         {includeOther && (!limitLanguages || limitLanguages.includes("other")) && (
           <div className="col-auto">
-            <small>
-              <strong>Other</strong>
-            </small>
+            {renderLabels && (
+              <div className="small">
+                <strong>Other</strong>
+              </div>
+            )}
             <LanguageOption
               language={"other"}
               setValue={setValue}
@@ -166,7 +311,7 @@ export default function SDKLanguageSelector({
             />
           </div>
         )}
-        {!includeAll && limitLanguages && (
+        {!includeAll && limitLanguages && !hideShowAllLanguages && (
           <div className="col-auto align-self-center" style={{ marginTop: 10 }}>
             <a
               href="#"

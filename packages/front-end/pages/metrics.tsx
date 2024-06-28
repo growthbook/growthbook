@@ -1,9 +1,9 @@
-import React, { useCallback, useState } from "react";
+import React, { ReactElement, useCallback, useState } from "react";
 import { FaArchive, FaPlus, FaRegCopy } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { ago, datetime } from "shared/dates";
+import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink } from "shared/experiments";
 import SortedTags from "@/components/Tags/SortedTags";
@@ -18,18 +18,17 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import MetricForm from "@/components/Metrics/MetricForm";
-import usePermissions from "@/hooks/usePermissions";
 import Toggle from "@/components/Forms/Toggle";
 import { DocLink } from "@/components/DocLink";
 import { useUser } from "@/services/UserContext";
-import { canCreateMetrics } from "@/services/env";
+import { envAllowsCreatingMetrics } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { checkMetricProjectPermissions } from "@/services/metrics";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import MetricName from "@/components/Metrics/MetricName";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 interface MetricTableItem {
   id: string;
   managedBy: "" | "api" | "config";
@@ -59,7 +58,7 @@ const MetricsPage = (): React.ReactElement => {
   const {
     getDatasourceById,
     mutateDefinitions,
-    metrics: inlineMetrics,
+    _metricsIncludingArchived: inlineMetrics,
     factMetrics,
     project,
     ready,
@@ -68,7 +67,7 @@ const MetricsPage = (): React.ReactElement => {
 
   const { getUserDisplay } = useUser();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
 
   const tagsFilter = useTagsFilter("metrics");
@@ -167,12 +166,15 @@ const MetricsPage = (): React.ReactElement => {
     },
     [showArchived, recentlyArchived, tagsFilter.tags]
   );
-  const editMetricsPermissions: { [id: string]: boolean } = {};
+
+  const editMetricsPermissions: {
+    [id: string]: { canDuplicate: boolean; canUpdate: boolean };
+  } = {};
   filteredMetrics.forEach((m) => {
-    editMetricsPermissions[m.id] = checkMetricProjectPermissions(
-      m,
-      permissions
-    );
+    editMetricsPermissions[m.id] = {
+      canDuplicate: permissionsUtil.canCreateMetric(m),
+      canUpdate: permissionsUtil.canUpdateMetric(m, {}),
+    };
   });
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: filteredMetrics,
@@ -240,32 +242,35 @@ const MetricsPage = (): React.ReactElement => {
             transactions, revenue, engagement
           </li>
         </ul>
-        {permissions.check("createMetrics", project) && canCreateMetrics() && (
-          <>
-            <AutoGenerateMetricsButton
-              setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
-              size="lg"
-            />
-            <button
-              className="btn btn-lg btn-success"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalData({
-                  current: {},
-                  edit: false,
-                  duplicate: false,
-                });
-              }}
-            >
-              <FaPlus /> Add your first Metric
-            </button>
-          </>
-        )}
+        {permissionsUtil.canCreateMetric({ projects: [project] }) &&
+          envAllowsCreatingMetrics() && (
+            <>
+              <AutoGenerateMetricsButton
+                setShowAutoGenerateMetricsModal={
+                  setShowAutoGenerateMetricsModal
+                }
+                size="lg"
+              />
+              <button
+                className="btn btn-lg btn-success"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setModalData({
+                    current: {},
+                    edit: false,
+                    duplicate: false,
+                  });
+                }}
+              >
+                <FaPlus /> Add your first Metric
+              </button>
+            </>
+          )}
       </div>
     );
   }
 
-  const hasArchivedMetrics = filteredMetrics.find((m) => m.archived);
+  const hasArchivedMetrics = filteredMetrics.some((m) => m.archived);
 
   return (
     <div className="container-fluid py-3 p-3 pagecontents">
@@ -300,28 +305,31 @@ const MetricsPage = (): React.ReactElement => {
           </DocLink>
         </div>
         <div style={{ flex: 1 }} />
-        {permissions.check("createMetrics", project) && canCreateMetrics() && (
-          <div className="col-auto">
-            <AutoGenerateMetricsButton
-              setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
-            />
-            <button
-              className="btn btn-primary float-right"
-              onClick={() =>
-                setModalData({
-                  current: {},
-                  edit: false,
-                  duplicate: false,
-                })
-              }
-            >
-              <span className="h4 pr-2 m-0 d-inline-block align-top">
-                <GBAddCircle />
-              </span>
-              Add Metric
-            </button>
-          </div>
-        )}
+        {permissionsUtil.canCreateMetric({ projects: [project] }) &&
+          envAllowsCreatingMetrics() && (
+            <div className="col-auto">
+              <AutoGenerateMetricsButton
+                setShowAutoGenerateMetricsModal={
+                  setShowAutoGenerateMetricsModal
+                }
+              />
+              <button
+                className="btn btn-primary float-right"
+                onClick={() =>
+                  setModalData({
+                    current: {},
+                    edit: false,
+                    duplicate: false,
+                  })
+                }
+              >
+                <span className="h4 pr-2 m-0 d-inline-block align-top">
+                  <GBAddCircle />
+                </span>
+                Add Metric
+              </button>
+            </div>
+          )}
       </div>
       <div className="row mb-2 align-items-center">
         <div className="col-lg-3 col-md-4 col-6">
@@ -371,118 +379,139 @@ const MetricsPage = (): React.ReactElement => {
           </tr>
         </thead>
         <tbody>
-          {items.map((metric) => (
-            <tr
-              key={metric.id}
-              onClick={(e) => {
-                e.preventDefault();
-                router.push(getMetricLink(metric.id));
-              }}
-              style={{ cursor: "pointer" }}
-              className={metric.archived ? "text-muted" : ""}
-            >
-              <td>
-                <Link href={getMetricLink(metric.id)}>
-                  <a
+          {items.map((metric) => {
+            const moreMenuLinks: ReactElement[] = [];
+
+            if (
+              metric.onDuplicate &&
+              editMetricsPermissions[metric.id].canDuplicate &&
+              envAllowsCreatingMetrics()
+            ) {
+              moreMenuLinks.push(
+                <button
+                  className="btn dropdown-item py-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    metric.onDuplicate && metric.onDuplicate();
+                  }}
+                >
+                  <FaRegCopy /> Duplicate
+                </button>
+              );
+            }
+
+            if (
+              !metric.managedBy &&
+              metric.onArchive &&
+              editMetricsPermissions[metric.id].canUpdate
+            ) {
+              moreMenuLinks.push(
+                <button
+                  className="btn dropdown-item py-2"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    metric.onArchive &&
+                      (await metric.onArchive(!metric.archived));
+                    mutateDefinitions({});
+                  }}
+                >
+                  <FaArchive /> {metric.archived ? "Unarchive" : "Archive"}
+                </button>
+              );
+            }
+
+            return (
+              <tr
+                key={metric.id}
+                onClick={(e) => {
+                  e.preventDefault();
+                  router.push(getMetricLink(metric.id));
+                }}
+                style={{ cursor: "pointer" }}
+                className={metric.archived ? "text-muted" : ""}
+              >
+                <td>
+                  <Link
+                    href={getMetricLink(metric.id)}
                     className={`${
                       metric.archived ? "text-muted" : "text-dark"
                     } font-weight-bold`}
                   >
                     <MetricName id={metric.id} />
-                  </a>
-                </Link>
-              </td>
-              <td>{metric.type}</td>
+                  </Link>
+                </td>
+                <td>{metric.type}</td>
 
-              <td className="col-4">
-                <SortedTags
-                  tags={metric.tags ? Object.values(metric.tags) : []}
-                  shouldShowEllipsis={true}
-                />
-              </td>
-              <td className="col-2">
-                {metric && (metric.projects || []).length > 0 ? (
-                  <ProjectBadges
-                    projectIds={metric.projects}
-                    className="badge-ellipsis short align-middle"
+                <td className="col-4">
+                  <SortedTags
+                    tags={metric.tags ? Object.values(metric.tags) : []}
+                    shouldShowEllipsis={true}
                   />
-                ) : (
-                  <ProjectBadges className="badge-ellipsis short align-middle" />
-                )}
-              </td>
-              <td>{metric.owner}</td>
-              <td className="d-none d-lg-table-cell">
-                {metric.datasourceName}
-                {metric.datasourceDescription && (
-                  <div
-                    className="text-gray font-weight-normal small text-ellipsis"
-                    style={{ maxWidth: 350 }}
-                  >
-                    {metric.datasourceDescription}
-                  </div>
-                )}
-              </td>
-              <td
-                title={datetime(metric.dateUpdated || "")}
-                className="d-none d-md-table-cell"
-              >
-                {metric.managedBy === "config"
-                  ? ""
-                  : ago(metric.dateUpdated || "")}
-              </td>
-              <td className="text-muted">
-                {metric.archived && (
-                  <Tooltip
-                    body={"Archived"}
-                    innerClassName="p-2"
-                    tipMinWidth="auto"
-                  >
-                    <FaArchive />
-                  </Tooltip>
-                )}
-              </td>
-              <td
-                style={{ cursor: "initial" }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                }}
-              >
-                {canCreateMetrics() && (
+                </td>
+                <td className="col-2">
+                  {metric && (metric.projects || []).length > 0 ? (
+                    <ProjectBadges
+                      resourceType="metric"
+                      projectIds={metric.projects}
+                      className="badge-ellipsis short align-middle"
+                    />
+                  ) : (
+                    <ProjectBadges
+                      resourceType="metric"
+                      className="badge-ellipsis short align-middle"
+                    />
+                  )}
+                </td>
+                <td>{metric.owner}</td>
+                <td className="d-none d-lg-table-cell">
+                  {metric.datasourceName}
+                  {metric.datasourceDescription && (
+                    <div
+                      className="text-gray font-weight-normal small text-ellipsis"
+                      style={{ maxWidth: 350 }}
+                    >
+                      {metric.datasourceDescription}
+                    </div>
+                  )}
+                </td>
+                <td
+                  title={datetime(metric.dateUpdated || "")}
+                  className="d-none d-md-table-cell"
+                >
+                  {metric.managedBy === "config"
+                    ? ""
+                    : date(metric.dateUpdated || "")}
+                </td>
+                <td className="text-muted">
+                  {metric.archived && (
+                    <Tooltip
+                      body={"Archived"}
+                      innerClassName="p-2"
+                      tipMinWidth="auto"
+                    >
+                      <FaArchive />
+                    </Tooltip>
+                  )}
+                </td>
+                <td
+                  style={{ cursor: "initial" }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
+                >
                   <MoreMenu>
-                    {metric.onDuplicate && editMetricsPermissions[metric.id] && (
-                      <button
-                        className="btn dropdown-item py-2"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          metric.onDuplicate && metric.onDuplicate();
-                        }}
-                      >
-                        <FaRegCopy /> Duplicate
-                      </button>
-                    )}
-                    {!metric.managedBy &&
-                      metric.onArchive &&
-                      editMetricsPermissions[metric.id] && (
-                        <button
-                          className="btn dropdown-item py-2"
-                          onClick={async (e) => {
-                            e.preventDefault();
-                            metric.onArchive &&
-                              (await metric.onArchive(!metric.archived));
-                            mutateDefinitions({});
-                          }}
-                        >
-                          <FaArchive />{" "}
-                          {metric.archived ? "Unarchive" : "Archive"}
-                        </button>
-                      )}
+                    {moreMenuLinks.map((menuItem, i) => (
+                      <div key={`${menuItem}-${i}`} className="d-inline">
+                        {menuItem}
+                      </div>
+                    ))}
                   </MoreMenu>
-                )}
-              </td>
-            </tr>
-          ))}
+                </td>
+              </tr>
+            );
+          })}
 
           {!items.length && (isFiltered || tagsFilter.tags.length > 0) && (
             <tr>

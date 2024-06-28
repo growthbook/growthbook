@@ -28,19 +28,19 @@ export const postTag = async (
   req: CreateTagRequest,
   res: Response<CreateTagResponse>
 ) => {
-  req.checkPermissions("manageTags");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canCreateAndUpdateTag()) {
+    context.permissions.throwPermissionError();
+  }
   const { id, color, description } = req.body;
 
-  await addTag(org.id, id, color, description);
+  await addTag(context.org.id, id, color, description);
 
   res.status(200).json({
     status: 200,
   });
 };
-
-// endregion POST /tag
 
 // region DELETE /tag/:id
 
@@ -63,16 +63,17 @@ export const deleteTag = async (
     EventAuditUserForResponseLocals
   >
 ) => {
-  req.checkPermissions("manageTags");
-
   const context = getContextFromReq(req);
+
+  if (!context.permissions.canDeleteTag()) {
+    context.permissions.throwPermissionError();
+  }
   const { org } = context;
   const { id } = req.body;
 
   // experiments
   await removeTagFromExperiments({
     context,
-    user: res.locals.eventAudit,
     tag: id,
   });
 
@@ -80,7 +81,7 @@ export const deleteTag = async (
   await removeTagInMetrics(org.id, id);
 
   // features
-  await removeTagInFeature(context, res.locals.eventAudit, id);
+  await removeTagInFeature(context, id);
 
   // Slack integrations
   await removeTagFromSlackIntegration({ organizationId: org.id, tag: id });

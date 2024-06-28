@@ -1,4 +1,4 @@
-import { FeatureValueType } from "back-end/types/feature";
+import { FeatureInterface, FeatureValueType } from "back-end/types/feature";
 import React, { useState } from "react";
 import { FaInfoCircle } from "react-icons/fa";
 import {
@@ -11,8 +11,8 @@ import {
   generateVariationId,
   getDefaultVariationValue,
 } from "@/services/features";
-import { GBAddCircle } from "../Icons";
-import Tooltip from "../Tooltip/Tooltip";
+import { GBAddCircle } from "@/components/Icons";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import {
@@ -37,6 +37,7 @@ export interface Props {
   disableVariations?: boolean;
   label?: string;
   customSplitOn?: boolean;
+  feature?: FeatureInterface;
 }
 
 export default function FeatureVariationsInput({
@@ -55,6 +56,7 @@ export default function FeatureVariationsInput({
   disableVariations = false,
   label,
   customSplitOn,
+  feature,
 }: Props) {
   const weights = variations.map((v) => v.weight);
   const isEqualWeights = weights.every((w) => w === weights[0]);
@@ -185,6 +187,7 @@ export default function FeatureVariationsInput({
                   customSplit={customSplit}
                   valueType={valueType}
                   valueAsId={valueAsId}
+                  feature={feature}
                 />
               ))}
             </SortableVariationsList>

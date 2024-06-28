@@ -52,7 +52,7 @@ const Dropdown: FC<{
     if (!isValidElement(child)) return null;
 
     if (child.type === DropdownLink && child.props.closeOnClick !== false) {
-      return cloneElement(child, {
+      return cloneElement(child as ReactElement, {
         onClick: () => {
           child.props.onClick();
           setOpen?.(false);

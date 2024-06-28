@@ -1,15 +1,15 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import { getConversionWindowHours } from "shared/experiments";
 import { ImpactEstimateInterface } from "../../types/impact-estimate";
 import { getMetricById } from "../models/MetricModel";
-import { getSourceIntegrationObject } from "../services/datasource";
+import { getIntegrationFromDatasourceId } from "../services/datasource";
 import { SegmentInterface } from "../../types/segment";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { processMetricValueQueryResponse } from "../queryRunners/MetricAnalysisQueryRunner";
 import { ReqContext } from "../../types/organization";
 import { ApiReqContext } from "../../types/api";
 import { findSegmentById } from "./SegmentModel";
-import { getDataSourceById } from "./DataSourceModel";
 
 const impactEstimateSchema = new mongoose.Schema({
   id: String,
@@ -58,12 +58,14 @@ export async function getImpactEstimate(
     return null;
   }
 
-  const datasource = await getDataSourceById(
+  const integration = await getIntegrationFromDatasourceId(
+    context,
     metricObj.datasource,
-    context.org.id
+    true
   );
-  if (!datasource) {
-    throw new Error("Datasource not found");
+
+  if (!context.permissions.canRunMetricQueries(integration.datasource)) {
+    context.permissions.throwPermissionError();
   }
 
   let segmentObj: SegmentInterface | null = null;
@@ -75,10 +77,9 @@ export async function getImpactEstimate(
     segmentObj = null;
   }
 
-  const integration = getSourceIntegrationObject(datasource, true);
-
   const conversionWindowHours =
-    metricObj.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
+    getConversionWindowHours(metricObj.windowSettings) ||
+    DEFAULT_CONVERSION_WINDOW_HOURS;
 
   // Ignore last X hours of data since we need to give people time to convert
   const end = new Date();

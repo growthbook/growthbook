@@ -3,6 +3,7 @@ import {
   ExperimentMetricInterface,
   isFactMetric,
   isRatioMetric,
+  quantileMetricType,
 } from "shared/experiments";
 import chunk from "lodash/chunk";
 import {
@@ -66,6 +67,8 @@ export type ExperimentResultsQueryParams = {
 
 export const TRAFFIC_QUERY_NAME = "traffic";
 
+export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
+
 export const MAX_METRICS_PER_QUERY = 20;
 
 export function getFactMetricGroup(metric: FactMetricInterface) {
@@ -74,6 +77,13 @@ export function getFactMetricGroup(metric: FactMetricInterface) {
     if (metric.numerator.factTableId !== metric.denominator?.factTableId) {
       return "";
     }
+  }
+
+  // Quantile metrics get their own group to prevent slowing down the main query
+  if (quantileMetricType(metric)) {
+    return metric.numerator.factTableId
+      ? `${metric.numerator.factTableId} (quantile metrics)`
+      : "";
   }
   return metric.numerator.factTableId || "";
 }
@@ -114,9 +124,9 @@ export function getFactMetricGroups(
     // Only fact metrics
     if (!isFactMetric(m)) return;
 
-    // Skip grouping metrics with percentile caps if there's not an efficient implementation
+    // Skip grouping metrics with percentile caps or quantile metrics if there's not an efficient implementation
     if (
-      m.capping === "percentile" &&
+      (m.cappingSettings.type === "percentile" || quantileMetricType(m)) &&
       !integration.getSourceProperties().hasEfficientPercentiles
     ) {
       return;
@@ -191,7 +201,9 @@ export const startExperimentResultQueries = async (
     );
   }
 
-  const exposureQuery = (integration.settings?.queries?.exposure || []).find(
+  const settings = integration.datasource.settings;
+
+  const exposureQuery = (settings?.queries?.exposure || []).find(
     (q) => q.id === snapshotSettings.exposureQueryId
   );
 
@@ -205,17 +217,17 @@ export const startExperimentResultQueries = async (
   // Settings for units table
   const useUnitsTable =
     (integration.getSourceProperties().supportsWritingTables &&
-      integration.settings.pipelineSettings?.allowWriting &&
-      !!integration.settings.pipelineSettings?.writeDataset &&
+      settings.pipelineSettings?.allowWriting &&
+      !!settings.pipelineSettings?.writeDataset &&
       hasPipelineModeFeature) ??
     false;
   let unitQuery: QueryPointer | null = null;
   const unitsTableFullName =
     useUnitsTable && !!integration.generateTablePath
       ? integration.generateTablePath(
-          `growthbook_tmp_units_${queryParentId}`,
-          integration.settings.pipelineSettings?.writeDataset,
-          "",
+          `${UNITS_TABLE_PREFIX}_${queryParentId}`,
+          settings.pipelineSettings?.writeDataset,
+          settings.pipelineSettings?.writeDatabase,
           true
         )
       : "";
@@ -342,8 +354,9 @@ export const startExperimentResultQueries = async (
 
   await Promise.all([...singlePromises, ...groupPromises]);
 
+  let trafficQuery: QueryPointer | null = null;
   if (runTrafficQuery) {
-    const trafficQuery = await startQuery({
+    trafficQuery = await startQuery({
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
@@ -359,6 +372,26 @@ export const startExperimentResultQueries = async (
     queries.push(trafficQuery);
   }
 
+  const dropUnitsTable =
+    integration.getSourceProperties().dropUnitsTable &&
+    settings.pipelineSettings?.unitsTableDeletion;
+  if (useUnitsTable && dropUnitsTable) {
+    const dropUnitsTableQuery = await startQuery({
+      name: `drop_${queryParentId}`,
+      query: integration.getDropUnitsTableQuery({
+        fullTablePath: unitsTableFullName,
+      }),
+      dependencies: [],
+      // all other queries in model must succeed or fail first
+      runAtEnd: true,
+      run: (query, setExternalId) =>
+        integration.runDropTableQuery(query, setExternalId),
+      process: (rows) => rows,
+      queryType: "experimentDropUnitsTable",
+    });
+    queries.push(dropUnitsTableQuery);
+  }
+
   return queries;
 };
 
@@ -369,6 +402,12 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
 > {
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
+
+  checkPermissions(): boolean {
+    return this.context.permissions.canRunExperimentQueries(
+      this.integration.datasource
+    );
+  }
 
   async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
@@ -430,7 +469,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
   async getLatestModel(): Promise<ExperimentSnapshotInterface> {
     const obj = await findSnapshotById(this.model.organization, this.model.id);
-    if (!obj) throw new Error("Could not load snapshot model");
+    if (!obj)
+      throw new Error("Could not load snapshot model: " + this.model.id);
     return obj;
   }
   async updateModel({
@@ -458,7 +498,12 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
           ? "error"
           : "success",
     };
-    await updateSnapshot(this.model.organization, this.model.id, updates);
+    await updateSnapshot({
+      organization: this.model.organization,
+      id: this.model.id,
+      updates,
+      context: this.context,
+    });
     return {
       ...this.model,
       ...updates,

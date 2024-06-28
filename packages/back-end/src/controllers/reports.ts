@@ -23,7 +23,6 @@ import { generateReportNotebook } from "../services/notebook";
 import { getContextFromReq } from "../services/organizations";
 import { reportArgsFromSnapshot } from "../services/reports";
 import { AuthRequest } from "../types/AuthRequest";
-import { ExperimentInterface } from "../../types/experiment";
 import { getFactTableMap } from "../models/FactTableModel";
 
 export async function postReportFromSnapshot(
@@ -45,7 +44,9 @@ export async function postReportFromSnapshot(
     throw new Error("Could not find experiment");
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canCreateReport(experiment)) {
+    context.permissions.throwPermissionError();
+  }
 
   const phase = experiment.phases[snapshot.phase];
   if (!phase) {
@@ -169,7 +170,8 @@ export async function deleteReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const report = await getReportById(org.id, req.params.id);
 
   if (!report) {
@@ -178,7 +180,18 @@ export async function deleteReport(
 
   // Only allow admins to delete other people's reports
   if (report.userId !== req.userId) {
-    req.checkPermissions("superDelete");
+    if (!context.permissions.canSuperDeleteReport()) {
+      context.permissions.throwPermissionError();
+    }
+  }
+
+  const connectedExperiment = await getExperimentById(
+    context,
+    report.experimentId || ""
+  );
+
+  if (!context.permissions.canDeleteReport(connectedExperiment || {})) {
+    context.permissions.throwPermissionError();
   }
 
   await deleteReportById(org.id, req.params.id);
@@ -200,36 +213,26 @@ export async function refreshReport(
     throw new Error("Unknown report id");
   }
 
-  let experiment: ExperimentInterface | null = null;
-
-  if (report.experimentId) {
-    experiment = await getExperimentById(context, report.experimentId || "");
-  }
-
-  req.checkPermissions("runQueries", experiment?.project || "");
-
   const useCache = !req.query["force"];
 
   const statsEngine = report.args?.statsEngine || DEFAULT_STATS_ENGINE;
 
   report.args.statsEngine = statsEngine;
-  report.args.regressionAdjustmentEnabled =
-    statsEngine === "frequentist"
-      ? !!report.args?.regressionAdjustmentEnabled
-      : false;
+  report.args.regressionAdjustmentEnabled = !!report.args
+    ?.regressionAdjustmentEnabled;
 
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
   const integration = await getIntegrationFromDatasourceId(
-    org.id,
+    context,
     report.args.datasource,
     true
   );
   const queryRunner = new ReportQueryRunner(
+    context,
     report,
     integration,
-    context,
     useCache
   );
 
@@ -248,8 +251,6 @@ export async function putReport(
   req: AuthRequest<Partial<ReportInterface>, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("createAnalyses", "");
-
   const context = getContextFromReq(req);
   const { org } = context;
 
@@ -264,7 +265,10 @@ export async function putReport(
     report.experimentId || ""
   );
 
-  req.checkPermissions("runQueries", experiment?.project || "");
+  // Reports don't have projects, but the experiment does, so check the experiment's project for permission if it exists
+  if (!context.permissions.canUpdateReport(experiment || {})) {
+    context.permissions.throwPermissionError();
+  }
 
   const updates: Partial<ReportInterface> = {};
   let needsRun = false;
@@ -283,12 +287,10 @@ export async function putReport(
       updates.args.endDate = getValidDate(updates.args.endDate || new Date());
     }
     updates.args.statsEngine = statsEngine;
-    updates.args.regressionAdjustmentEnabled =
-      statsEngine === "frequentist"
-        ? !!updates.args?.regressionAdjustmentEnabled
-        : false;
-    updates.args.metricRegressionAdjustmentStatuses =
-      updates.args?.metricRegressionAdjustmentStatuses || [];
+    updates.args.regressionAdjustmentEnabled = !!updates.args
+      ?.regressionAdjustmentEnabled;
+    updates.args.settingsForSnapshotMetrics =
+      updates.args?.settingsForSnapshotMetrics || [];
 
     needsRun = true;
   }
@@ -307,14 +309,15 @@ export async function putReport(
     const factTableMap = await getFactTableMap(context);
 
     const integration = await getIntegrationFromDatasourceId(
-      org.id,
+      context,
       updatedReport.args.datasource,
       true
     );
+
     const queryRunner = new ReportQueryRunner(
+      context,
       updatedReport,
-      integration,
-      context
+      integration
     );
 
     await queryRunner.startAnalysis({
@@ -341,18 +344,12 @@ export async function cancelReport(
     throw new Error("Could not cancel query");
   }
 
-  const experiment = await getExperimentById(
-    context,
-    report.experimentId || ""
-  );
-
-  req.checkPermissions("runQueries", experiment?.project || "");
-
   const integration = await getIntegrationFromDatasourceId(
-    org.id,
+    context,
     report.args.datasource
   );
-  const queryRunner = new ReportQueryRunner(report, integration, context);
+
+  const queryRunner = new ReportQueryRunner(context, report, integration);
   await queryRunner.cancelQueries();
 
   res.status(200).json({ status: 200 });

@@ -8,12 +8,13 @@ import {
   MergeStrategy,
   autoMerge,
   mergeResultHasChanges,
+  filterEnvironmentsByFeature,
 } from "shared/util";
 import clsx from "clsx";
 import { useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
-import PagedModal from "../Modal/PagedModal";
-import Page from "../Modal/Page";
+import PagedModal from "@/components/Modal/PagedModal";
+import Page from "@/components/Modal/Page";
 import { ExpandableDiff } from "./DraftModal";
 
 export interface Props {
@@ -127,7 +128,8 @@ export default function FixConflictsModal({
   close,
   mutate,
 }: Props) {
-  const environments = useEnvironments();
+  const allEnvironments = useEnvironments();
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
   const { apiCall } = useAuth();
 

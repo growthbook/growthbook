@@ -7,7 +7,7 @@ slug: /features/targeting
 
 # Targeting
 
-GrowthBook lets you target a specific feature value or experiment to a subset of your users. This is accomplished with **Attributes**, **Conditions**, and **Saved Groups**.
+GrowthBook lets you target a specific feature value or experiment to a subset of your users. This is accomplished with **Attributes**, **Conditions**, **Saved Groups**, and **Prerequisites**.
 
 ## Attributes
 
@@ -30,7 +30,7 @@ growthbook.setAttributes({
 });
 ```
 
-In addition to passing attributes into the SDK, you also must update the GrowthBook App with these same attribute keys. You can do this under **SDK Connections** > **Attributes**:
+In addition to passing attributes into the SDK, you also must update the GrowthBook App with these same attribute keys. You can do this under **SDK Connections** → **Attributes**:
 
 ![List of targeting attributes](/images/edit-targeting-attributes.png)
 
@@ -41,11 +41,12 @@ eliminates huge potential security holes and keeps your user's PII safe and secu
 
 :::
 
-Each attribute has 3 parts:
+Each attribute has 4 parts:
 
 - The **attribute name** itself. This is how the attribute will be referenced in the SDK.
 - The **data type** of the attribute
 - Whether it's an **identifier**. Identifiers are attributes which uniquely identify something - typically either a person, account, company, or device- and are used for experiment assignments.
+- The **projects** that the attribute is associated with. This is useful if some attributes are only relevant to certain projects. If no projects are selected, the attribute will be available for all projects.
 
 ### Attribute Data Types
 
@@ -64,7 +65,7 @@ GrowthBook supports the following attribute data types:
 
 In version 2.2, we introduced support for semantic version string comparisons. Without this, the string `1.0.9` will be seen as "greater" than `1.0.10`.
 
-To leverage this feature, you first need to create a version string attribute. Navigate to **SDK Configurations > Attributes** and create or edit a String attribute. In the format dropdown, select: **Version string.**
+To leverage this feature, you first need to create a version string attribute. Navigate to **SDK Configurations → Attributes** and create or edit a String attribute. In the format dropdown, select: **Version string.**
 
 ![Version string attribute](/images/targeting-semantic-versions.png)
 
@@ -232,3 +233,7 @@ GrowthBook 2.7 introduced a naming change. "Inline Groups" were renamed to "ID L
 Only ID Lists can be referenced in the **Target by Attribute** field. Both types of Saved Groups can be referenced with the newer **Saved Group Targeting** field.
 
 :::
+
+## Prerequisite Targeting
+
+You can add prerequisite targeting to any feature or experiment. For more information, see the [Prerequisite Features](/features/prerequisites#inline-prerequisite-targeting) page.

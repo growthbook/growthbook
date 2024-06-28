@@ -3,8 +3,10 @@ import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { ReactElement } from "react";
 import { includeExperimentInPayload } from "shared/util";
+import { FaExclamationTriangle } from "react-icons/fa";
 import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import ConditionDisplay from "./ConditionDisplay";
@@ -40,8 +42,11 @@ function ExperimentSkipped({
           <div className="flex">{message}</div>
           {experimentId && (
             <div className="ml-auto">
-              <Link href={`/experiment/${experimentId}`}>
-                <a className="btn btn-outline-primary">{cta}</a>
+              <Link
+                href={`/experiment/${experimentId}`}
+                className="btn btn-outline-primary"
+              >
+                {cta}
               </Link>
             </div>
           )}
@@ -62,6 +67,8 @@ export default function ExperimentRefSummary({
 }) {
   const { variations } = rule;
   const type = feature.valueType;
+
+  const { namespaces } = useOrgSettings();
 
   if (!experiment) {
     return (
@@ -132,7 +139,8 @@ export default function ExperimentRefSummary({
 
   const hasCondition =
     (phase.condition && phase.condition !== "{}") ||
-    !!phase.savedGroups?.length;
+    !!phase.savedGroups?.length ||
+    !!phase.prerequisites?.length;
 
   return (
     <div>
@@ -152,13 +160,14 @@ export default function ExperimentRefSummary({
       )}
       {hasCondition && (
         <div className="row mb-3 align-items-top">
-          <div className="col-auto">
+          <div className="col-auto d-flex align-items-center">
             <strong>IF</strong>
           </div>
           <div className="col">
             <ConditionDisplay
               condition={phase.condition}
               savedGroups={phase.savedGroups}
+              prerequisites={phase.prerequisites}
             />
           </div>
         </div>
@@ -178,9 +187,19 @@ export default function ExperimentRefSummary({
             <>
               {" "}
               <span>in the namespace </span>
-              <span className="mr-1 border px-2 py-1 bg-light rounded">
-                {phase.namespace.name}
-              </span>
+              <Link href={`/namespaces`}>
+                <span className="mr-1 border px-2 py-1 bg-light rounded">
+                  {namespaces?.find((n) => n.name === phase.namespace.name)
+                    ?.label || (
+                    <span
+                      className="italic text-danger"
+                      title="this namespace is not found"
+                    >
+                      <FaExclamationTriangle /> {phase.namespace.name}
+                    </span>
+                  )}
+                </span>
+              </Link>
             </>
           )}
         </div>
@@ -298,10 +317,11 @@ export default function ExperimentRefSummary({
               </span>{" "}
             </div>
             <div className="col-auto">
-              <Link href={`/experiment/${experiment.id}`}>
-                <a className="btn btn-outline-primary">
-                  View details and results
-                </a>
+              <Link
+                href={`/experiment/${experiment.id}`}
+                className="btn btn-outline-primary"
+              >
+                View details and results
               </Link>
             </div>
           </div>

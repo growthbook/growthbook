@@ -4,8 +4,7 @@ import { FaArrowLeft } from "react-icons/fa";
 import { ProjectInterface } from "back-end/types/project";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { canCreateMetrics, hasFileConfig } from "@/services/env";
-import usePermissions from "@/hooks/usePermissions";
+import { envAllowsCreatingMetrics, hasFileConfig } from "@/services/env";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import MetricForm from "@/components/Metrics/MetricForm";
 import { DocLink } from "@/components/DocLink";
@@ -16,13 +15,14 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
-import NewExperimentForm from "../Experiment/NewExperimentForm";
-import Button from "../Button";
+import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import Button from "@/components/Button";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const ExperimentsGetStarted = (): React.ReactElement => {
   const { metrics, datasources, mutateDefinitions, project } = useDefinitions();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const [dataSourceOpen, setDataSourceOpen] = useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);
@@ -189,8 +189,12 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                       // Otherwise, you need full create access
                       !hasFileConfig() &&
                       !(hasDataSource
-                        ? permissions.check("editDatasourceSettings", project)
-                        : permissions.check("createDatasources", project))
+                        ? datasources.some((datasource) =>
+                            permissionsUtil.canUpdateDataSourceSettings(
+                              datasource
+                            )
+                          )
+                        : permissionsUtil.canViewCreateDataSourceModal(project))
                     }
                     cta="Add data source"
                     finishedCTA="View data sources"
@@ -217,12 +221,14 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                         library to represent all of the KPIs for your business
                       </p>
                     }
-                    hideCTA={!canCreateMetrics()}
+                    hideCTA={!envAllowsCreatingMetrics()}
                     cta="Add metric"
                     finishedCTA="View metrics"
                     permissionsError={
-                      canCreateMetrics() &&
-                      !permissions.check("createMetrics", project) &&
+                      envAllowsCreatingMetrics() &&
+                      !permissionsUtil.canCreateMetric({
+                        projects: [project],
+                      }) &&
                       !hasMetrics
                     }
                     imageLeft={false}
@@ -251,7 +257,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta={"Import Experiment"}
                     finishedCTA="Import Experiment"
                     permissionsError={
-                      !permissions.check("createAnalyses", project)
+                      !permissionsUtil.canViewExperimentModal(project)
                     }
                     imageLeft={true}
                     onClick={() => {
@@ -306,7 +312,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta="View Sample Experiment"
                     finishedCTA="View Sample Experiment"
                     permissionsError={
-                      !permissions.check("createAnalyses", project)
+                      !permissionsUtil.canViewExperimentModal(project)
                     }
                     imageLeft={false}
                     onClick={openSampleExperiment}
@@ -325,8 +331,9 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     text={
                       <p>
                         Design a new A/B test from scratch using either{" "}
-                        <strong>Feature Flags</strong> or our{" "}
-                        <strong>Visual Editor</strong>. Then, integrate our SDK
+                        <strong>Feature Flags</strong>, our{" "}
+                        <strong>Visual Editor</strong>, or{" "}
+                        <strong>URL Redirects</strong>. Then, integrate our SDK
                         into your application and start collecting and analyzing
                         data from your users.
                       </p>
@@ -335,7 +342,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta="Design New Experiment"
                     finishedCTA="Design New Experiment"
                     permissionsError={
-                      !permissions.check("createAnalyses", project)
+                      !permissionsUtil.canViewExperimentModal(project)
                     }
                     imageLeft={false}
                     onClick={() => {
@@ -361,7 +368,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     cta="Analyze Existing Experiment"
                     finishedCTA="Analyze Existing Experiment"
                     permissionsError={
-                      !permissions.check("createAnalyses", project)
+                      !permissionsUtil.canViewExperimentModal(project)
                     }
                     imageLeft={false}
                     onClick={() => {

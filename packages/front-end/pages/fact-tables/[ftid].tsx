@@ -10,7 +10,6 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import FactTableModal from "@/components/FactTables/FactTableModal";
 import Code from "@/components/SyntaxHighlighting/Code";
-import usePermissions from "@/hooks/usePermissions";
 import ColumnList from "@/components/FactTables/ColumnList";
 import FactFilterList from "@/components/FactTables/FactFilterList";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
@@ -21,6 +20,7 @@ import FactMetricList from "@/components/FactTables/FactMetricList";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { usesEventName } from "@/components/Metrics/MetricForm";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function FactTablePage() {
   const router = useRouter();
@@ -34,7 +34,7 @@ export default function FactTablePage() {
 
   const { apiCall } = useAuth();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const {
     factTables,
@@ -59,7 +59,7 @@ export default function FactTablePage() {
 
   const canEdit =
     !factTable.managedBy &&
-    permissions.check("manageFactTables", factTable.projects || "");
+    permissionsUtil.canViewEditFactTableModal(factTable);
 
   const hasColumns = factTable.columns?.some((col) => !col.deleted);
 
@@ -178,10 +178,11 @@ export default function FactTablePage() {
         </div>
         <div className="col-auto">
           Data source:{" "}
-          <Link href={`/datasources/${factTable.datasource}`}>
-            <a className="font-weight-bold">
-              {getDatasourceById(factTable.datasource)?.name || "Unknown"}
-            </a>
+          <Link
+            href={`/datasources/${factTable.datasource}`}
+            className="font-weight-bold"
+          >
+            {getDatasourceById(factTable.datasource)?.name || "Unknown"}
           </Link>
         </div>
       </div>

@@ -30,8 +30,8 @@ import isEqual from "lodash/isEqual";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
-import useOrgSettings from "../hooks/useOrgSettings";
-import useApi from "../hooks/useApi";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import useApi from "@/hooks/useApi";
 import { useDefinitions } from "./DefinitionsContext";
 
 export { generateVariationId } from "shared/util";
@@ -79,11 +79,13 @@ export function useEnvironments() {
         id: "dev",
         description: "",
         toggleOnList: true,
+        projects: [],
       },
       {
         id: "production",
         description: "",
         toggleOnList: true,
+        projects: [],
       },
     ];
   }
@@ -95,6 +97,9 @@ export function getRules(feature: FeatureInterface, environment: string) {
 }
 export function getFeatureDefaultValue(feature: FeatureInterface) {
   return feature.defaultValue ?? "";
+}
+export function getPrerequisites(feature: FeatureInterface) {
+  return feature.prerequisites ?? [];
 }
 
 export function roundVariationWeight(num: number): number {
@@ -192,14 +197,25 @@ export function getVariationColor(i: number) {
   return colors[i % colors.length];
 }
 
-export function useAttributeSchema(showArchived = false) {
+export function useAttributeSchema(
+  showArchived = false,
+  projectFilter?: string
+) {
   const attributeSchema = useOrgSettings().attributeSchema || [];
+
+  const filteredAttributeSchema = attributeSchema.filter((attribute) => {
+    return (
+      !projectFilter ||
+      !attribute.projects?.length ||
+      attribute.projects.includes(projectFilter)
+    );
+  });
   return useMemo(() => {
     if (!showArchived) {
-      return attributeSchema.filter((s) => !s.archived);
+      return filteredAttributeSchema.filter((s) => !s.archived);
     }
-    return attributeSchema;
-  }, [attributeSchema, showArchived]);
+    return filteredAttributeSchema;
+  }, [attributeSchema, showArchived, projectFilter]);
 }
 
 export function validateFeatureRule(
@@ -220,6 +236,11 @@ export function validateFeatureRule(
       },
       false
     );
+  }
+  if (rule.prerequisites) {
+    if (rule.prerequisites.some((p) => !p.id)) {
+      throw new Error("Cannot have empty prerequisites");
+    }
   }
   if (rule.type === "force") {
     const newValue = validateFeatureValue(
@@ -318,7 +339,7 @@ export function getDefaultValue(valueType: FeatureValueType): string {
     return "1";
   }
   if (valueType === "string") {
-    return "foo";
+    return "OFF"; // Default Values should be the OFF State to match most platforms.
   }
   if (valueType === "json") {
     return "{}";
@@ -533,6 +554,10 @@ export function isRuleFullyCovered(rule: FeatureRule): boolean {
     upcomingScheduleRule?.enabled ||
     !rule.enabled;
 
+  if (rule?.prerequisites?.length) {
+    return false;
+  }
+
   // rollouts and experiments at 100%:
   if (
     (rule.type === "rollout" || rule.type === "experiment") &&
@@ -600,6 +625,10 @@ export function jsonToConds(
         const v = value[operator];
 
         if (operator === "$in" || operator === "$nin") {
+          if (v.some((str) => typeof str === "string" && str.includes(","))) {
+            valid = false;
+            return;
+          }
           return conds.push({
             field,
             operator,
@@ -807,8 +836,10 @@ function getAttributeDataType(type: SDKAttributeType) {
   return "number";
 }
 
-export function useAttributeMap(): Map<string, AttributeData> {
-  const attributeSchema = useAttributeSchema(true);
+export function useAttributeMap(
+  projectFilter?: string
+): Map<string, AttributeData> {
+  const attributeSchema = useAttributeSchema(true, projectFilter);
 
   return useMemo(() => {
     if (!attributeSchema.length) {

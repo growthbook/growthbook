@@ -1,13 +1,11 @@
 import { DataSourceInterface } from "../../../types/datasource";
-import { FactMetricInterface } from "../../../types/fact-table";
+import {
+  CreateFactTableProps,
+  FactMetricInterface,
+} from "../../../types/fact-table";
 import { PostBulkImportFactsResponse } from "../../../types/openapi";
 import { queueFactTableColumnsRefresh } from "../../jobs/refreshFactTableColumns";
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
-import {
-  createFactMetric,
-  getAllFactMetricsForOrganization,
-  updateFactMetric,
-} from "../../models/FactMetricModel";
 import {
   createFactFilter,
   createFactTable,
@@ -15,14 +13,9 @@ import {
   updateFactFilter,
   getFactTableMap,
 } from "../../models/FactTableModel";
-import { findAllProjectsByOrganization } from "../../models/ProjectModel";
-import { addTags } from "../../models/TagModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { postBulkImportFactsValidator } from "../../validators/openapi";
-import {
-  getCreateMetricPropsFromBody,
-  validateFactMetric,
-} from "../fact-metrics/postFactMetric";
+import { getCreateMetricPropsFromBody } from "../fact-metrics/postFactMetric";
 import { getUpdateFactMetricPropsFromBody } from "../fact-metrics/updateFactMetric";
 
 export const postBulkImportFacts = createApiRequestHandler(
@@ -42,28 +35,19 @@ export const postBulkImportFacts = createApiRequestHandler(
 
     const factTableMap = await getFactTableMap(req.context);
 
-    const allFactMetrics = await getAllFactMetricsForOrganization(req.context);
+    const allFactMetrics = await req.context.models.factMetrics.getAll();
     const factMetricMap = new Map<string, FactMetricInterface>(
       allFactMetrics.map((m) => [m.id, m])
     );
 
-    const allDataSources = await getDataSourcesByOrganization(
-      req.organization.id
-    );
+    const allDataSources = await getDataSourcesByOrganization(req.context);
     const dataSourceMap = new Map<string, DataSourceInterface>(
       allDataSources.map((s) => [s.id, s])
     );
 
     const tagsToAdd = new Set<string>();
 
-    function checkFactTablePermission(factTable: { projects?: string[] }) {
-      req.checkPermissions("manageFactTables", factTable.projects || []);
-    }
-    function checkFactMetricPermission(factMetric: { projects?: string[] }) {
-      req.checkPermissions("createMetrics", factMetric.projects || []);
-    }
-
-    const projects = await findAllProjectsByOrganization(req.context);
+    const projects = await req.context.models.projects.getAll();
     const projectIds = new Set(projects.map((p) => p.id));
     function validateProjectIds(ids: string[]) {
       for (const id of ids) {
@@ -103,8 +87,9 @@ export const postBulkImportFacts = createApiRequestHandler(
         const existing = factTableMap.get(id);
         // Update existing fact table
         if (existing) {
-          checkFactTablePermission(existing);
-          if (data.projects) checkFactTablePermission(data);
+          if (!req.context.permissions.canUpdateFactTable(existing, data)) {
+            req.context.permissions.throwPermissionError();
+          }
           if (data.userIdTypes) {
             validateUserIdTypes(existing.datasource, data.userIdTypes);
           }
@@ -126,17 +111,7 @@ export const postBulkImportFacts = createApiRequestHandler(
         }
         // Create new fact table
         else {
-          checkFactTablePermission(data);
-
-          if (!dataSourceMap.has(data.datasource)) {
-            throw new Error("Could not find datasource");
-          }
-
-          if (data.userIdTypes) {
-            validateUserIdTypes(data.datasource, data.userIdTypes);
-          }
-
-          const newFactTable = await createFactTable(req.context, {
+          const factTable: CreateFactTableProps = {
             columns: [],
             eventName: "",
             id: id,
@@ -145,7 +120,21 @@ export const postBulkImportFacts = createApiRequestHandler(
             projects: [],
             tags: [],
             ...data,
-          });
+          };
+
+          if (!req.context.permissions.canCreateFactTable(factTable)) {
+            req.context.permissions.throwPermissionError();
+          }
+
+          if (!dataSourceMap.has(factTable.datasource)) {
+            throw new Error("Could not find datasource");
+          }
+
+          if (factTable.userIdTypes) {
+            validateUserIdTypes(factTable.datasource, factTable.userIdTypes);
+          }
+
+          const newFactTable = await createFactTable(req.context, factTable);
           await queueFactTableColumnsRefresh(newFactTable);
           factTableMap.set(newFactTable.id, newFactTable);
           numCreated.factTables++;
@@ -161,7 +150,9 @@ export const postBulkImportFacts = createApiRequestHandler(
             `Could not find fact table ${factTableId} for filter ${id}`
           );
         }
-        checkFactTablePermission(factTable);
+        if (!req.context.permissions.canCreateAndUpdateFactFilter(factTable)) {
+          req.context.permissions.throwPermissionError();
+        }
 
         // This bulk endpoint is mostly used to sync from version control
         // So default these resources to only be managed by API and not the UI
@@ -210,26 +201,18 @@ export const postBulkImportFacts = createApiRequestHandler(
         const existing = factMetricMap.get(id);
         // Update existing fact metric
         if (existing) {
-          checkFactMetricPermission(existing);
-          if (data.projects) checkFactMetricPermission(data);
+          const changes = getUpdateFactMetricPropsFromBody(data, existing);
 
-          const changes = getUpdateFactMetricPropsFromBody(data);
-          await validateFactMetric(
-            { ...existing, ...changes },
-            async (id) => factTableMap.get(id) || null
+          const newFactMetric = await req.context.models.factMetrics.update(
+            existing,
+            changes
           );
+          factMetricMap.set(existing.id, newFactMetric);
 
-          await updateFactMetric(req.context, existing, changes);
-          factMetricMap.set(existing.id, {
-            ...existing,
-            ...changes,
-          });
           numUpdated.factMetrics++;
         }
         // Create new fact metric
         else {
-          checkFactMetricPermission(data);
-
           const lookupFactTable = async (id: string) =>
             factTableMap.get(id) || null;
 
@@ -240,10 +223,7 @@ export const postBulkImportFacts = createApiRequestHandler(
           );
           createProps.id = id;
 
-          await validateFactMetric(createProps, lookupFactTable);
-
-          const newFactMetric = await createFactMetric(
-            req.context,
+          const newFactMetric = await req.context.models.factMetrics.create(
             createProps
           );
           factMetricMap.set(newFactMetric.id, newFactMetric);
@@ -255,7 +235,7 @@ export const postBulkImportFacts = createApiRequestHandler(
 
     // Update tags
     if (tagsToAdd.size) {
-      await addTags(req.organization.id, [...tagsToAdd]);
+      await req.context.registerTags([...tagsToAdd]);
     }
 
     return {

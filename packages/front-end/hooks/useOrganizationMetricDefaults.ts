@@ -1,15 +1,48 @@
 import { useCallback, useMemo } from "react";
 import { OrganizationSettings } from "back-end/types/organization";
+import {
+  MetricCappingSettings,
+  MetricPriorSettings,
+  MetricWindowSettings,
+} from "back-end/types/fact-table";
+import {
+  DEFAULT_METRIC_CAPPING,
+  DEFAULT_METRIC_CAPPING_VALUE,
+  DEFAULT_METRIC_WINDOW,
+  DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  DEFAULT_METRIC_WINDOW_HOURS,
+  DEFAULT_PROPER_PRIOR_STDDEV,
+} from "shared/constants";
 import useOrgSettings from "./useOrgSettings";
 
 const defaultMaxPercentChange = 0.5;
 const defaultMinPercentChange = 0.005;
 const defaultMinSampleSize = 150;
 
+const defaultMetricWindowSettings: MetricWindowSettings = {
+  type: DEFAULT_METRIC_WINDOW,
+  windowValue: DEFAULT_METRIC_WINDOW_HOURS,
+  delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  windowUnit: "hours",
+};
+const defaultMetricCappingSettings: MetricCappingSettings = {
+  type: DEFAULT_METRIC_CAPPING,
+  value: DEFAULT_METRIC_CAPPING_VALUE,
+};
+const defaultMetricPriorSettings: MetricPriorSettings = {
+  override: false,
+  proper: false,
+  mean: 0,
+  stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+};
+
 const METRIC_DEFAULTS = {
   minimumSampleSize: defaultMinSampleSize,
   maxPercentageChange: defaultMaxPercentChange,
   minPercentageChange: defaultMinPercentChange,
+  windowSettings: defaultMetricWindowSettings,
+  cappingSettings: defaultMetricCappingSettings,
+  priorSettings: defaultMetricPriorSettings,
 };
 
 /**
@@ -27,6 +60,9 @@ type OrganizationMetricDefaults = {
     minimumSampleSize: number;
     maxPercentageChange: number;
     minPercentageChange: number;
+    windowSettings: MetricWindowSettings;
+    cappingSettings: MetricCappingSettings;
+    priorSettings: MetricPriorSettings;
   };
 
   /**
@@ -70,12 +106,12 @@ export type OrganizationSettingsWithMetricDefaults = Omit<
     minimumSampleSize: number;
     maxPercentageChange: number;
     minPercentageChange: number;
+    priorSettings: MetricPriorSettings;
   };
 };
 
 export const useOrganizationMetricDefaults = (): OrganizationMetricDefaults => {
   const orgSettings = useOrgSettings();
-
   /**
    * @link OrganizationMetricDefaults#metricDefaults
    */
@@ -86,7 +122,6 @@ export const useOrganizationMetricDefaults = (): OrganizationMetricDefaults => {
     }),
     [orgSettings]
   );
-
   /**
    * @link OrganizationMetricDefaults#getMaxPercentageChangeForMetric
    */

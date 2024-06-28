@@ -7,16 +7,16 @@ import {
 } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
-import useIncrementer from "@/hooks/useIncrementer";
-import { useAuth } from "../../services/auth";
-import useMembers from "../../hooks/useMembers";
-import { useAttributeSchema } from "../../services/features";
-import { useDefinitions } from "../../services/DefinitionsContext";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import StringArrayField from "../Forms/StringArrayField";
-import ConditionInput from "../Features/ConditionInput";
+import { useIncrementer } from "@/hooks/useIncrementer";
+import { useAuth } from "@/services/auth";
+import useMembers from "@/hooks/useMembers";
+import { useAttributeSchema } from "@/services/features";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import StringArrayField from "@/components/Forms/StringArrayField";
+import ConditionInput from "@/components/Features/ConditionInput";
 
 const SavedGroupForm: FC<{
   close: () => void;
@@ -114,6 +114,7 @@ const SavedGroupForm: FC<{
           defaultValue={form.watch("condition") || ""}
           onChange={(v) => form.setValue("condition", v)}
           key={conditionKey}
+          project={""}
           emptyText="No conditions specified."
           title="Include all users who match the following"
           require

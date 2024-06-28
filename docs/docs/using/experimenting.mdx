@@ -81,22 +81,26 @@ We recommend running an experiment for at least 1 or 2 weeks to capture variatio
 Before a test is significant, GrowthBook will give you an estimated time remaining before it reaches the
 minimum thresholds. Traffic to your product is likely not uniform, and there may be differences
 
-## Attribution models / Conversion Windows
+## Metric Windows
 
 A lot can happen between when a user is exposed to an experiment, and when a metric event is
 triggered. How you want to attribute that conversion event to the experiment is adjustable within
-GrowthBook. Once a user enters an experiment for the first time, the attribution model determines
-which subsequent conversion events are included in the analysis. GrowthBook lets you choose
-between two attribution models, first exposure, and experiment duration.
+GrowthBook using metric and experiment level settings.
 
-**First Exposure** - Only include events that fall within the configured metric conversion window. For
-example, if the metric's conversion window is set to 72 hours, any conversion that happens after that is
-ignored.
+At the metric level, you can pick three different metric windows:
 
-**Experiment Duration** - Include all events that happen while the experiment is running, no matter what
-the metric's conversion window is set to.
+- None - uses as much data as possible from the user's exposure until the end of the experiment.
+- Conversion - uses only data in some window after a user's first exposure. If the metric's conversion window is set to 72 hours, any conversion that happens after that is
+  ignored.
+- Lookback - uses only data in the last window before an experiment ends.
 
-![Attribution Window Diagram](/images/using/attribution-window-diagram2.png)
+Here's a representation of how these metric windows work for a hypothetical user:
+![Metric Windows](/images/metric-windows.png)
+
+Here's a second example for a hypothetical User 2, who joins the experiment late. Notice that the conversion window can extend beyond the experiment end date.
+![Metric Windows (User 2)](/images/metric-windows-user-2.png)
+
+You can override all Conversion windows to be No window at the experiment level using the "Conversion Window Override" in the Experiment Analysis Settings.
 
 ## Understanding results
 
@@ -112,9 +116,8 @@ see the full data, including 'risk', mouse over any of the results.
 ![GrowthBook Results](/images/using/experiment-results-bayesian-details2.png)
 
 Risk tells you how much you are predicted to lose if you choose the selected variation as the winner
-and you are wrong. Anything highlighted in green indicates that the risk is very low and it may be safe
-to call the experiment. You can use the dropdown to see the risk of choosing a different winner if you
-have multiple variations. Risk thresholds are adjustable per metric.
+and you are wrong. You can specify upper risk thresholds (designed to flag high-risk outcomes) and lower risk thresholds (designed to flag low-risk outcomes) in Behavior on the Metrics tab. Red indicates that the treatment variation has risk above the high-risk threshold.
+Yellow indicates that your risk is between the two thresholds. You can use the dropdown to see the risk of choosing a different winner if you have multiple variations.
 
 Value is the conversion rate or average value per user. In small print you can see the raw numbers
 used to calculate this.
@@ -180,7 +183,8 @@ experiment health page.
 </div>
 
 Like the warning says, you shouldn't trust the results since they are likely misleading. Instead, find and
-fix the source of the bug and restart the experiment.
+fix the source of the bug and restart the experiment. You can find more information about potential sources
+of the problems in our [troubleshooting guide](/kb/experiments/troubleshooting-experiments).
 
 ### Multiple Exposures
 
@@ -233,7 +237,7 @@ change.
 Segments are applied to experiment results to only show users that match a particular attribute. For
 example, you might have “country” as a dimension, and create a segment for just “US visitors”. In the
 experiment you can configure the experiment to just look at one particular segment of users. Segments
-can be created with SQL from the "Data and Metrics -> Segments" page.
+can be created with SQL from the "Data and Metrics → Segments" page.
 
 ![Segments](/images/using/segments-page.png)
 

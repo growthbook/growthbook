@@ -5,12 +5,12 @@ import { BsArrowRepeat } from "react-icons/bs";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
 import { useAddComputedFields, useSearch } from "@/services/search";
-import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Field from "../Forms/Field";
-import Tooltip from "../Tooltip/Tooltip";
-import Button from "../Button";
-import { GBEdit } from "../Icons";
+import Field from "@/components/Forms/Field";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Button from "@/components/Button";
+import { GBEdit } from "@/components/Icons";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ColumnModal from "./ColumnModal";
 
 export interface Props {
@@ -25,7 +25,7 @@ export default function ColumnList({ factTable }: Props) {
 
   const { apiCall } = useAuth();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const availableColumns = useMemo(() => {
     return (factTable.columns || []).filter((col) => !col.deleted);
@@ -48,10 +48,7 @@ export default function ColumnList({ factTable }: Props) {
     searchFields: ["name^3", "description", "column^2"],
   });
 
-  const canEdit = permissions.check(
-    "manageFactTables",
-    factTable.projects || ""
-  );
+  const canEdit = permissionsUtil.canViewEditFactTableModal(factTable);
 
   return (
     <>

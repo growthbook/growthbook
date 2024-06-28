@@ -7,9 +7,8 @@ x-codeSamples:
   - lang: "cURL"
     source: |
       curl -X POST https://api.growthbook.io/api/v1/saved-groups \
-        -H "Content-Type: application/json" \
-        -u secret_abc123DEF456: \
-        -d '{"name": "interal-users", "values": ["userId-123", "userId-345", "userId-678"], "attributeKey": "userId", "owner": ""}'
+        -d '{"name": "interal-users", "values": ["userId-123", "userId-345", "userId-678"], "attributeKey": "userId", "owner": ""}' \
+        -u secret_abc123DEF456:
 requestBody:
   required: true
   content:

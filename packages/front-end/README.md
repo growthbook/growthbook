@@ -21,7 +21,7 @@ If a page or component relies on data from the API, it can use the `useApi` hook
 This uses swr under the hood and will automatically take care of caching and refreshing.
 
 ```tsx
-import useApi from "../hooks/useApi";
+import useApi from "@/hooks/useApi";
 
 function MyComponent({ id }) {
   // Describe the shape of the returned data with Typescript types
@@ -58,7 +58,7 @@ Use `apiCall` to make an authenticated call to the API in response to a user act
 If your API call returns a status other than `200`, it will throw an error that you can catch.
 
 ```tsx
-import { useAuth } from "../services/auth";
+import { useAuth } from "@/services/auth";
 
 function MyComponent() {
   const { apiCall } = useAuth();
@@ -96,7 +96,7 @@ Basic usage:
 
 ```tsx
 import { useForm } from "react-hook-form";
-import Field from "../components/Forms/Field";
+import Field from "@/components/Forms/Field";
 
 function MyComponent() {
   const form = useForm({
@@ -375,67 +375,35 @@ return (
 
 Sometimes we want to add support for custom syntax to the search box. For example, on the features page, we allow searching by toggled environment (e.g. `on:dev`).
 
-This is handled by the `transformQuery` parameter in the `useSearch` hook, which lets you modify the search term before it's processed by our search engine. Then, you can use `filterResults` to apply your custom logic.
+This is handled by the `searchTermFilters` parameter in the `useSearch` hook, which lets you define custom filters. This is run before `filterResults` (if specified).
 
 Here's a simplified example:
 
 ```ts
-const regex = /(\s|^)on:([^s]*)/g;
-
-// Remove the "on:..." part from the search term
-const transformQuery = useCallback((q: string) => q.replace(regex, ""), []);
-
-// Get the filtered environment from the original search term and apply it if found
-const filterResults = useCallback(
-  (results: FeatureInterface[], originalQuery: string) => {
-    const env = originalQuery.match(regex)?.[2];
-    if (env) {
-      results = results.filter((feature) => isEnvEnabled(feature, env));
-    }
-    return results;
-  },
-  []
-);
-
 useSearch({
   items: features,
   localStorageKey: "features",
   searchFields: ["id", "description"],
   defaultSortField: "id",
-  transformQuery,
-  filterResults,
+  searchTermFilters: {
+    version: (feature) => feature.version,
+    type: (feature) => feature.valueType,
+    created: (feature) => feature.dateCreated,
+    on: (feature) => {
+      // Build a list of all environments where this feature is on
+      const on: string[] = [];
+      environments.forEach((e) => {
+        if (isEnvEnabled(feature, e)) on.push(e);
+      });
+      return on;
+    },
+  },
 });
 ```
 
-## Storybook
+Now, the following queries will work as expected:
 
-The project uses [Storybook](https://storybook.js.org/) to help with the development of presentational components.
-
-To run the server at http://localhost:6006 you can execute the following command:
-
-    yarn storybook
-
-When creating a new component, it is recommended to create a directory for it with the same name, and in that directory include both the component and the stories file. Here's an example:
-
-```
-packages/front-end/components/DeleteButton
-├── DeleteButton.stories.tsx
-└── DeleteButton.tsx
-
-0 directories, 2 files
-```
-
-A story must include a default export with a `title` and the component as `component`, as well as named exports of examples. Here's an example.
-
-```tsx
-export default {
-  component: MyComponent,
-  title: "MyComponent",
-};
-
-export const Default = () => {
-  return <MyComponent />;
-};
-```
-
-See files with suffix `.stories.tsx` for real examples that include how to implement a variety of helpful add-ons (e.g. actions, knobs, etc.)
+- `on:production` - search for a match in an array of strings
+- `type:bool` - prefix match by default (actual type is "boolean")
+- `version:>2 version:<10 version:!5` - supports numbers and modifiers
+- `created:2024-01` - ISO date support with prefix matching

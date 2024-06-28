@@ -1,6 +1,11 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { CSSProperties, DetailedHTMLProps, TdHTMLAttributes } from "react";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  isFactMetric,
+  isRatioMetric,
+  quantileMetricType,
+} from "shared/experiments";
 import {
   getColumnRefFormatter,
   getExperimentMetricFormatter,
@@ -23,7 +28,6 @@ interface Props
   stats: SnapshotMetric;
   users: number;
   className?: string;
-  newUi?: boolean;
   style?: CSSProperties;
   rowSpan?: number;
   showRatio?: boolean;
@@ -34,7 +38,6 @@ export default function MetricValueColumn({
   stats,
   users,
   className,
-  newUi = false,
   style,
   rowSpan,
   showRatio = true,
@@ -42,7 +45,7 @@ export default function MetricValueColumn({
 }: Props) {
   const displayCurrency = useCurrency();
   const formatterOptions = { currency: displayCurrency };
-  const { getFactTableById } = useDefinitions();
+  const { getFactTableById, getMetricById } = useDefinitions();
 
   const overall = getExperimentMetricFormatter(metric, getFactTableById)(
     stats.cr,
@@ -50,12 +53,24 @@ export default function MetricValueColumn({
   );
 
   const numeratorValue = stats.value;
-  const denominatorValue = stats.denominator || stats.users || users;
+  const denominatorValue = isRatioMetric(
+    metric,
+    !isFactMetric(metric) && metric.denominator
+      ? getMetricById(metric.denominator) ?? undefined
+      : undefined
+  )
+    ? stats.denominator ?? stats.users
+    : stats.denominator || stats.users || users;
 
   let numerator: string;
   let denominator = numberFormatter.format(denominatorValue);
 
-  if (isFactMetric(metric)) {
+  const quantileMetric = quantileMetricType(metric);
+  if (quantileMetric && stats.stats?.count !== undefined) {
+    numerator = `${numberFormatter.format(stats.stats.count)} ${
+      quantileMetric === "event" ? "events" : "users"
+    }`;
+  } else if (isFactMetric(metric)) {
     numerator = getColumnRefFormatter(metric.numerator, getFactTableById)(
       numeratorValue,
       formatterOptions
@@ -77,34 +92,29 @@ export default function MetricValueColumn({
       {metric && stats.users ? (
         <>
           <div className="result-number">{overall}</div>
-          {showRatio ? (
+          {showRatio && numerator ? (
             <div className="result-number-sub text-muted">
-              <em
-                style={
-                  newUi
-                    ? {}
-                    : {
-                        display: "inline-block",
-                        lineHeight: "1.2em",
-                        marginTop: "0.2em",
-                      }
-                }
-              >
+              <em>
                 <span
                   style={{
                     whiteSpace: "nowrap",
                   }}
                 >
                   {numerator}
-                </span>{" "}
-                /&nbsp;
-                {denominator}
+                </span>
+                {!quantileMetric ? (
+                  <>
+                    {" "}
+                    /&nbsp;
+                    {denominator}
+                  </>
+                ) : null}
               </em>
             </div>
           ) : null}
         </>
       ) : (
-        <em className={newUi ? "text-muted" : ""}>no data</em>
+        <em className="text-muted">no data</em>
       )}
     </td>
   );

@@ -1,4 +1,4 @@
-import { ReactNode, FC, useState } from "react";
+import React, { ReactNode, FC, useState } from "react";
 import uniqId from "uniqid";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
@@ -13,8 +13,9 @@ import useGlobalMenu from "@/services/useGlobalMenu";
 const MoreMenu: FC<{
   autoCloseOnClick?: boolean;
   className?: string;
+  zIndex?: number;
   children: ReactNode;
-}> = ({ children, autoCloseOnClick = true, className = "" }) => {
+}> = ({ children, autoCloseOnClick = true, className = "", zIndex = 1020 }) => {
   const [open, setOpen] = useState(false);
   const [id] = useState(() => uniqId("more_menu_"));
   useGlobalMenu(`#${id}`, () => setOpen(false));
@@ -31,6 +32,11 @@ const MoreMenu: FC<{
     ],
     whileElementsMounted: autoUpdate,
   });
+
+  // If there are no children, don't render the dropdown
+  if (!React.Children.toArray(children).some((child) => !!child)) {
+    return null;
+  }
 
   return (
     <div className={`dropdown position-relative ${className}`} id={id}>
@@ -58,7 +64,7 @@ const MoreMenu: FC<{
             }
           }}
           ref={refs.setFloating}
-          style={{ ...floatingStyles, zIndex: 1020, width: "max-content" }}
+          style={{ ...floatingStyles, zIndex, width: "max-content" }}
         >
           {children}
         </div>

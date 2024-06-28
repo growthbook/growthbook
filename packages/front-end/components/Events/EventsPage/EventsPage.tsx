@@ -1,16 +1,13 @@
 import React, { FC } from "react";
-import {
-  EventInterface,
-  NotificationEventName,
-  NotificationEventPayload,
-  NotificationEventResource,
-} from "back-end/types/event";
+import { EventInterface } from "back-end/types/event";
+import { NotificationEvent } from "back-end/src/events/notification-events";
 import { FaDownload } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import { useDownloadDataExport } from "@/hooks/useDownloadDataExport";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import LoadingSpinner from "../../LoadingSpinner";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { EventsTableRow } from "./EventsTableRow";
 
 type EventsPageProps = {
@@ -20,13 +17,7 @@ type EventsPageProps = {
   hasExportError: boolean;
   performDownload: () => void;
   isDownloading: boolean;
-  events: EventInterface<
-    NotificationEventPayload<
-      NotificationEventName,
-      NotificationEventResource,
-      unknown
-    >
-  >[];
+  events: EventInterface<NotificationEvent>[];
 };
 
 export const EventsPage: FC<EventsPageProps> = ({
@@ -38,6 +29,18 @@ export const EventsPage: FC<EventsPageProps> = ({
   performDownload,
   isDownloading,
 }) => {
+  const permissionsUtil = usePermissionsUtil();
+
+  if (!permissionsUtil.canViewAuditLogs()) {
+    return (
+      <div className="container pagecontents">
+        <div className="alert alert-danger">
+          You do not have access to view this page.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container py-4">
       <div className="row">
@@ -108,13 +111,7 @@ export const EventsPage: FC<EventsPageProps> = ({
 
 export const EventsPageContainer = () => {
   const { data, error, isValidating } = useApi<{
-    events: EventInterface<
-      NotificationEventPayload<
-        NotificationEventName,
-        NotificationEventResource,
-        unknown
-      >
-    >[];
+    events: EventInterface<NotificationEvent>[];
   }>("/events");
 
   const {

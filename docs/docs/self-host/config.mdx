@@ -311,14 +311,19 @@ userIdTypes:
   - user
 # Any user with a higher metric amount will be capped at this value
 # In this case, if someone bought a $10,000 order, it would only be counted as $100
-# Note: you can also specify `capping: percentile` and a `capValue` between 0 and 1
+# Note: you can also specify `type: percentile` and a `value` between 0 and 1
 # for percentile based capping
-capping: absolute
-capValue: 100
-# Ignore all conversions within the first X hours of being put into an experiment.
-conversionDelayHours: 0
-# After the conversion delay (if any), wait this many hours for a conversion event.
-conversionWindowHours: 72
+cappingSettings:
+  type: absolute
+  value: 100
+# Control the date window for your metrics
+windowSettings:
+  type: conversion
+  # Ignore all conversions within the first X hours of being put into an experiment.
+  delayHours: 0
+  # After the conversion delay (if any), wait this many hours for a conversion event.
+  windowValue: 72
+  windowUnit: hours
 # The risk thresholds for the metric.
 # If risk < $winRisk, it is highlighted green.
 # If risk > $loseRisk, it is highlighted red.
@@ -336,10 +341,11 @@ maxPercentChange: 0.50
 # test a draw.
 # Default 0.005 = 0.5% change
 minPercentChange: 0.005
-# (frequentist analysis only)
-# Whether Regression Adjustment (CUPED) should be on or off for this metric and
-# how many days of data to use.
-# Leave either setting out of your config file to accept your organization level settings.
+# Overrides for  Regression Adjustment (CUPED) at the metric level. To enforce these fields
+# you must set regressionAdjustmentOverride to true.
+# Leave the settings out of your config file to accept your organization level settings; or
+# set regressionAdjustmentOverride to false.
+regressionAdjustmentOverride: true
 regressionAdjustmentEnabled: true
 regressionAdjustmentDays: 14
 # Arbitrary tags used to group related metrics
@@ -523,7 +529,6 @@ organization:
     # The min percent of users exposed to multiple variations in an
     # experiment before we start warning you (between 0 and 1, defaults to `0.01`)
     multipleExposureMinPercent: 0.01
-    # (frequentist analysis only)
     # Whether Regression Adjustment (CUPED) should be on or off by default how many
     # days to use. Can be overridden in your metric definitions if you wish.
     regressionAdjustmentEnabled: true

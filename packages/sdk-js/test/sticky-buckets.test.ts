@@ -48,6 +48,8 @@ function mockApi(
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve({
+          status: data ? 200 : 500,
+          ok: !!data,
           headers: {
             get: (header: string) =>
               header === "x-sse-support" && supportSSE ? "enabled" : undefined,
@@ -84,6 +86,8 @@ function mockRemoteEvalApi(
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve({
+          status: data ? 200 : 500,
+          ok: !!data,
           headers: {
             get: (header: string) =>
               header === "x-sse-support" && supportSSE ? "enabled" : undefined,

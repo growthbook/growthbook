@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
@@ -7,13 +7,18 @@ import { TemplateVariables } from "back-end/types/sql";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
-import CodeTextArea from "../Forms/CodeTextArea";
-import Modal from "../Modal";
-import { CursorData } from "../Segments/SegmentForm";
-import DisplayTestQueryResults from "../Settings/DisplayTestQueryResults";
-import Button from "../Button";
-import { usesEventName, usesValueColumn } from "../Metrics/MetricForm";
-import Field from "../Forms/Field";
+import CodeTextArea from "@/components/Forms/CodeTextArea";
+import Modal from "@/components/Modal";
+import { CursorData } from "@/components/Segments/SegmentForm";
+import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
+import Button from "@/components/Button";
+import {
+  usesEventName,
+  usesValueColumn,
+} from "@/components/Metrics/MetricForm";
+import Field from "@/components/Forms/Field";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -66,6 +71,8 @@ export default function EditSqlModal({
 
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [testingQuery, setTestingQuery] = useState(false);
+
+  const permissionsUtil = usePermissionsUtil();
 
   const validateRequiredColumns = useCallback(
     (result: TestQueryRow) => {
@@ -133,11 +140,18 @@ export default function EditSqlModal({
   }, [form, runTestQuery]);
 
   const datasource = getDatasourceById(datasourceId);
+  const canRunQueries = datasource
+    ? permissionsUtil.canRunTestQueries(datasource)
+    : null;
   const supportsSchemaBrowser =
     datasource?.properties?.supportsInformationSchema;
 
   const hasEventName = usesEventName(form.watch("sql"));
   const hasValueCol = usesValueColumn(form.watch("sql"));
+
+  useEffect(() => {
+    if (!canRunQueries) setTestQueryBeforeSaving(false);
+  }, [canRunQueries]);
 
   return (
     <Modal
@@ -171,15 +185,22 @@ export default function EditSqlModal({
       cta="Confirm Changes"
       closeCta="Back"
       secondaryCTA={
-        <label className="mr-4">
-          <input
-            type="checkbox"
-            className="form-check-input"
-            checked={testQueryBeforeSaving}
-            onChange={(e) => setTestQueryBeforeSaving(e.target.checked)}
-          />
-          Test query before confirming
-        </label>
+        <Tooltip
+          body="You do not have permission to run test queries"
+          shouldDisplay={!canRunQueries}
+          tipPosition="top"
+        >
+          <label className="mr-4">
+            <input
+              type="checkbox"
+              disabled={!canRunQueries}
+              className="form-check-input"
+              checked={testQueryBeforeSaving}
+              onChange={(e) => setTestQueryBeforeSaving(e.target.checked)}
+            />
+            Test query before confirming
+          </label>
+        </Tooltip>
       }
     >
       <div
@@ -195,18 +216,24 @@ export default function EditSqlModal({
             <div className="bg-light p-1">
               <div className="row align-items-center">
                 <div className="col-auto">
-                  <Button
-                    color="primary"
-                    className="btn-sm"
-                    onClick={handleTestQuery}
-                    loading={testingQuery}
-                    type="button"
+                  <Tooltip
+                    body="You do not have permission to run test queries"
+                    shouldDisplay={!canRunQueries}
                   >
-                    <span className="pr-2">
-                      <FaPlay />
-                    </span>
-                    Test Query
-                  </Button>
+                    <Button
+                      color="primary"
+                      className="btn-sm"
+                      onClick={handleTestQuery}
+                      loading={testingQuery}
+                      disabled={!canRunQueries}
+                      type="button"
+                    >
+                      <span className="pr-2">
+                        <FaPlay />
+                      </span>
+                      Test Query
+                    </Button>
+                  </Tooltip>
                 </div>
                 {Array.from(requiredColumns).length > 0 && (
                   <div className="col-auto ml-auto pr-3">

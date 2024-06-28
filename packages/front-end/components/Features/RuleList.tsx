@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import {
   DndContext,
   DragOverlay,
@@ -18,7 +18,7 @@ import {
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import { getRules, isRuleFullyCovered } from "@/services/features";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { Rule, SortableRule } from "./Rule";
 
 export default function RuleList({
@@ -26,6 +26,7 @@ export default function RuleList({
   mutate,
   environment,
   setRuleModal,
+  setCopyRuleModal,
   version,
   setVersion,
   locked,
@@ -35,6 +36,10 @@ export default function RuleList({
   environment: string;
   mutate: () => void;
   setRuleModal: (rule: { environment: string; i: number }) => void;
+  setCopyRuleModal: (args: {
+    environment: string;
+    rules: FeatureRule[];
+  }) => void;
   version: number;
   setVersion: (version: number) => void;
   locked: boolean;
@@ -43,7 +48,7 @@ export default function RuleList({
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [items, setItems] = useState(getRules(feature, environment));
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   useEffect(() => {
     setItems(getRules(feature, environment));
@@ -86,8 +91,8 @@ export default function RuleList({
 
   const canEdit =
     !locked &&
-    permissions.check("manageFeatures", feature.project) &&
-    permissions.check("createFeatureDrafts", feature.project);
+    permissionsUtil.canViewFeatureModal(feature.project) &&
+    permissionsUtil.canManageFeatureDrafts(feature);
 
   return (
     <DndContext
@@ -141,6 +146,7 @@ export default function RuleList({
             feature={feature}
             mutate={mutate}
             setRuleModal={setRuleModal}
+            setCopyRuleModal={setCopyRuleModal}
             unreachable={!!unreachableIndex && i >= unreachableIndex}
             version={version}
             setVersion={setVersion}
@@ -158,6 +164,7 @@ export default function RuleList({
             feature={feature}
             mutate={mutate}
             setRuleModal={setRuleModal}
+            setCopyRuleModal={setCopyRuleModal}
             version={version}
             setVersion={setVersion}
             locked={locked}

@@ -13,8 +13,8 @@ import {
   getMetricFormatter,
 } from "@/services/metrics";
 import { trackSnapshot } from "@/services/track";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
 
 const ManualSnapshotForm: FC<{
   experiment: ExperimentInterfaceStringDates;

@@ -84,6 +84,7 @@
     "no-console": [
       "warn"
     ],
+    "no-restricted-imports": "off",
     "react/react-in-jsx-scope": "off",
     "react/prop-types": "off",
     "react-hooks/rules-of-hooks": "error",
@@ -108,6 +109,14 @@
     },
     {
       "files": [
+        "./packages/front-end/**/*.ts*"
+      ],
+      "rules": {
+        "no-restricted-imports": ["error", {"patterns": ["..*"]}]
+      }
+    },
+    {
+      "files": [
         "./packages/docs/pages/_app.tsx",
         "./packages/front-end/components/Auth/InAppHelp.tsx",
         "./packages/front-end/components/Dimensions/DimensionChooser.tsx",
@@ -116,7 +125,6 @@
         "./packages/front-end/components/Experiment/NewExperimentForm.tsx",
         "./packages/front-end/components/Experiment/VisualEditorScriptMissing.tsx",
         "./packages/front-end/components/Features/CodeSnippetModal.tsx",
-        "./packages/front-end/components/Features/ConditionInput.tsx",
         "./packages/front-end/components/Features/DraftModal.tsx",
         "./packages/front-end/components/Features/RuleList.tsx",
         "./packages/front-end/components/Forms/SelectField.tsx",
@@ -127,12 +135,10 @@
         "./packages/front-end/components/Queries/RunQueriesButton.tsx",
         "./packages/front-end/components/Segments/PickSegmentModal.tsx",
         "./packages/front-end/components/Settings/UpgradeModal.tsx",
-        "./packages/front-end/components/Settings/VisualEditorInstructions.tsx",
         "./packages/front-end/components/Share/ShareModal.tsx",
         "./packages/front-end/components/Tabs/ControlledTabs.tsx",
         "./packages/front-end/components/TempMessage.tsx",
         "./packages/front-end/hooks/useStripeSubscription.ts",
-        "./packages/front-end/pages/experiments/designer/*.tsx",
         "./packages/front-end/pages/experiments/index.tsx",
         "./packages/front-end/pages/idea/*iid*.tsx",
         "./packages/front-end/pages/index.tsx",

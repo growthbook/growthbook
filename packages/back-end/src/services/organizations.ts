@@ -1,9 +1,17 @@
 import { randomBytes } from "crypto";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
+import { Request } from "express";
 import {
-  FULL_ACCESS_PERMISSIONS,
-  getReadAccessFilter,
+  getLicense,
+  isActiveSubscriptionStatus,
+  isAirGappedLicenseKey,
+  postSubscriptionUpdateToLicenseServer,
+} from "enterprise";
+import {
+  areProjectRolesValid,
+  isRoleValid,
+  getDefaultRole,
 } from "shared/permissions";
 import {
   createOrganization,
@@ -20,7 +28,6 @@ import {
   ExpandedMember,
   Invite,
   Member,
-  MemberRole,
   MemberRoleInfo,
   MemberRoleWithProjects,
   OrganizationInterface,
@@ -50,7 +57,6 @@ import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 import { logger } from "../util/logger";
-import { getDefaultRole, getUserPermissions } from "../util/organization.util";
 import { SegmentInterface } from "../../types/segment";
 import {
   createSegment,
@@ -60,7 +66,6 @@ import {
 import { getAllExperiments } from "../models/ExperimentModel";
 import { LegacyExperimentPhase } from "../../types/experiment";
 import { addTags } from "../models/TagModel";
-import { markInstalled } from "./auth";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -69,6 +74,12 @@ import {
 import { createMetric } from "./experiments";
 import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
 import { getUsersByIds } from "./users";
+import { ReqContextClass } from "./context";
+
+export {
+  getEnvironments,
+  getEnvironmentIdsFromOrg,
+} from "../util/organization.util";
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
@@ -110,44 +121,23 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
     throw new Error("Must be logged in");
   }
 
-  return {
+  return new ReqContextClass({
     org: req.organization,
-    userId: req.userId,
-    email: req.email,
-    environments: getEnvironmentIdsFromOrg(req.organization),
-    userName: req.name || "",
-    readAccessFilter: getReadAccessFilter(
-      getUserPermissions(req.userId, req.organization, req.teams)
-    ),
     auditUser: {
       type: "dashboard",
       id: req.userId,
       email: req.email,
       name: req.name || "",
     },
-  };
-}
-
-export function getEnvironmentIdsFromOrg(org: OrganizationInterface): string[] {
-  return getEnvironments(org).map((e) => e.id);
-}
-
-export function getEnvironments(org: OrganizationInterface) {
-  if (!org.settings?.environments || !org.settings?.environments?.length) {
-    return [
-      {
-        id: "dev",
-        description: "",
-        toggleOnList: true,
-      },
-      {
-        id: "production",
-        description: "",
-        toggleOnList: true,
-      },
-    ];
-  }
-  return org.settings.environments;
+    user: {
+      id: req.userId,
+      email: req.email,
+      name: req.name || "",
+      superAdmin: req.superAdmin,
+    },
+    teams: req.teams,
+    req: req as Request,
+  });
 }
 
 export async function getConfidenceLevelsForOrg(id: string) {
@@ -233,7 +223,13 @@ export async function removeMember(
     pendingMembers,
   });
 
-  return organization;
+  const updatedOrganization = cloneDeep(organization);
+  updatedOrganization.members = members;
+  updatedOrganization.pendingMembers = pendingMembers;
+
+  await updateSubscriptionIfProLicense(updatedOrganization);
+
+  return updatedOrganization;
 }
 
 export async function revokeInvite(
@@ -246,11 +242,37 @@ export async function revokeInvite(
     invites,
   });
 
-  return organization;
+  const updatedOrganization = cloneDeep(organization);
+  updatedOrganization.invites = invites;
+  await updateSubscriptionIfProLicense(updatedOrganization);
+
+  return updatedOrganization;
 }
 
 export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
+}
+
+async function updateSubscriptionIfProLicense(
+  organization: OrganizationInterface
+) {
+  if (
+    organization.licenseKey &&
+    !isAirGappedLicenseKey(organization.licenseKey)
+  ) {
+    const license = await getLicense(organization.licenseKey);
+    if (
+      license?.plan === "pro" &&
+      isActiveSubscriptionStatus(license?.stripeSubscription?.status)
+    ) {
+      // Only pro plans have a Stripe subscription that needs to get updated
+      const seatsInUse = getNumberOfUniqueMembersAndInvites(organization);
+      await postSubscriptionUpdateToLicenseServer(
+        organization.licenseKey,
+        seatsInUse
+      );
+    }
+  }
 }
 
 export async function addMemberToOrg({
@@ -265,7 +287,7 @@ export async function addMemberToOrg({
 }: {
   organization: OrganizationInterface;
   userId: string;
-  role: MemberRole;
+  role: string;
   limitAccessByEnvironment: boolean;
   environments: string[];
   projectRoles?: ProjectMemberRole[];
@@ -279,6 +301,14 @@ export async function addMemberToOrg({
   // If member is also a pending member, remove
   let pendingMembers: PendingMember[] = organization?.pendingMembers || [];
   pendingMembers = pendingMembers.filter((m) => m.id !== userId);
+
+  // Ensure roles are valid
+  if (
+    !isRoleValid(role, organization) ||
+    !areProjectRolesValid(projectRoles, organization)
+  ) {
+    throw new Error("Invalid role");
+  }
 
   const members: Member[] = [
     ...organization.members,
@@ -298,6 +328,12 @@ export async function addMemberToOrg({
     members,
     pendingMembers,
   });
+
+  const updatedOrganization = cloneDeep(organization);
+  updatedOrganization.members = members;
+  updatedOrganization.pendingMembers = pendingMembers;
+
+  await updateSubscriptionIfProLicense(updatedOrganization);
 }
 
 export async function addMembersToTeam({
@@ -379,7 +415,7 @@ export async function addPendingMemberToOrg({
   name: string;
   userId: string;
   email: string;
-  role: MemberRole;
+  role: string;
   limitAccessByEnvironment: boolean;
   environments: string[];
   projectRoles?: ProjectMemberRole[];
@@ -391,6 +427,14 @@ export async function addPendingMemberToOrg({
   // If member is also a pending member, skip
   if (organization?.pendingMembers?.find((m) => m.id === userId)) {
     return;
+  }
+
+  // Ensure roles are valid
+  if (
+    !isRoleValid(role, organization) ||
+    !areProjectRolesValid(projectRoles, organization)
+  ) {
+    throw new Error("Invalid role");
   }
 
   const pendingMembers: PendingMember[] = [
@@ -443,6 +487,8 @@ export async function acceptInvite(key: string, userId: string) {
       role: invite.role || "admin",
       limitAccessByEnvironment: !!invite.limitAccessByEnvironment,
       environments: invite.environments || [],
+      projectRoles: invite.projectRoles,
+      teams: invite.teams,
       dateCreated: new Date(),
     },
   ];
@@ -481,6 +527,14 @@ export async function inviteUser({
     };
   }
 
+  // Ensure roles are valid
+  if (
+    !isRoleValid(role, organization) ||
+    !areProjectRolesValid(projectRoles, organization)
+  ) {
+    throw new Error("Invalid role");
+  }
+
   // Generate random key for invite
   const buffer: Buffer = await new Promise((resolve, reject) => {
     randomBytes(32, function (ex, buffer) {
@@ -510,13 +564,15 @@ export async function inviteUser({
     invites,
   });
 
-  // append the new invites to the existin object (or refetch)
-  organization.invites = invites;
+  const updatedOrganization = cloneDeep(organization);
+  updatedOrganization.invites = invites;
+
+  await updateSubscriptionIfProLicense(updatedOrganization);
 
   let emailSent = false;
   if (isEmailEnabled()) {
     try {
-      await sendInviteEmail(organization, key);
+      await sendInviteEmail(updatedOrganization, key);
       emailSent = true;
     } catch (e) {
       logger.error(e, "Error sending invite email");
@@ -538,7 +594,7 @@ function validateId(id: string) {
   }
 }
 
-function validateConfig(config: ConfigFile, organizationId: string) {
+function validateConfig(context: ReqContext, config: ConfigFile) {
   const errors: string[] = [];
 
   const datasourceIds: string[] = [];
@@ -553,11 +609,11 @@ function validateConfig(config: ConfigFile, organizationId: string) {
         const { params, ...props } = ds;
 
         // This will throw an error if something required is missing
-        getSourceIntegrationObject({
+        getSourceIntegrationObject(context, {
           ...props,
           params: encryptParams(params),
           id: k,
-          organization: organizationId,
+          organization: context.org.id,
           dateCreated: new Date(),
           dateUpdated: new Date(),
         } as DataSourceInterface);
@@ -616,7 +672,7 @@ export async function importConfig(
   config: ConfigFile
 ) {
   const organization = context.org;
-  const errors = validateConfig(config, organization.id);
+  const errors = validateConfig(context, config);
   if (errors.length > 0) {
     throw new Error(errors.join("\n"));
   }
@@ -640,12 +696,12 @@ export async function importConfig(
             // Fix newlines in the private keys:
             ds.params.privateKey = ds.params?.privateKey?.replace(/\\n/g, "\n");
           }
-          const existing = await getDataSourceById(k, organization.id);
+          const existing = await getDataSourceById(context, k);
           if (existing) {
             let params = existing.params;
             // If params are changing, merge them with existing and test the connection
             if (ds.params) {
-              const integration = getSourceIntegrationObject(existing);
+              const integration = getSourceIntegrationObject(context, existing);
               mergeParams(integration, ds.params);
               await integration.testConnection();
               params = encryptParams(integration.params);
@@ -669,10 +725,10 @@ export async function importConfig(
                 },
               },
             };
-            await updateDataSource(existing, organization.id, updates);
+            await updateDataSource(context, existing, updates);
           } else {
             await createDataSource(
-              organization.id,
+              context,
               ds.name || k,
               ds.type,
               ds.params,
@@ -911,7 +967,6 @@ export async function addMemberFromSSOConnection(
         userId: req.userId,
         name: "My Organization",
       });
-      markInstalled();
       return organization;
     }
 
@@ -938,7 +993,7 @@ export async function addMemberFromSSOConnection(
   return organization;
 }
 
-export async function findVerifiedOrgForNewUser(email: string) {
+export async function findVerifiedOrgsForNewUser(email: string) {
   const domain = email.toLowerCase().split("@")[1];
   const isFreeDomain = freeEmailDomains.includes(domain);
   if (isFreeDomain) {
@@ -950,10 +1005,17 @@ export async function findVerifiedOrgForNewUser(email: string) {
     return null;
   }
 
-  // get the org with the most members
-  return organizations.reduce((prev, current) => {
-    return prev.members.length > current.members.length ? prev : current;
-  });
+  if (IS_CLOUD) {
+    // On cloud, return an array with only the single org with the most members, as the others are probably just "test" accounts.
+    return [
+      organizations.reduce((prev, current) => {
+        return prev.members.length > current.members.length ? prev : current;
+      }),
+    ];
+  } else {
+    // On multi-org self hosted sites, all orgs with the domain should be available to users to join not just the one with the most members
+    return organizations;
+  }
 }
 
 export async function expandOrgMembers(
@@ -979,12 +1041,12 @@ export async function expandOrgMembers(
 export function getContextForAgendaJobByOrgObject(
   organization: OrganizationInterface
 ): ApiReqContext {
-  return {
+  return new ReqContextClass({
     org: organization,
-    environments: getEnvironmentIdsFromOrg(organization),
-    readAccessFilter: FULL_ACCESS_PERMISSIONS,
     auditUser: null,
-  };
+    // TODO: Limit background job permissions to the user who created the job
+    role: "admin",
+  });
 }
 
 export async function getContextForAgendaJobByOrgId(
