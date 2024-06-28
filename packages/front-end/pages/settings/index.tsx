@@ -28,6 +28,7 @@ import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetri
 import ExperimentSettings from "@/components/GeneralSettings/ExperimentSettings";
 import MetricsSettings from "@/components/GeneralSettings/MetricsSettings";
 import FeaturesSettings from "@/components/GeneralSettings/FeaturesSettings";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 
@@ -127,6 +128,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
       codeRefsPlatformUrl: "",
       featureKeyExample: "",
       featureRegexValidator: "",
+      featureListMarkdown: settings.featureListMarkdown || "",
+      featurePageMarkdown: settings.featurePageMarkdown || "",
+      experimentListMarkdown: settings.experimentListMarkdown || "",
+      metricListMarkdown: settings.metricListMarkdown || "",
+      metricPageMarkdown: settings.metricPageMarkdown || "",
     },
   });
   const { apiCall } = useAuth();
@@ -371,6 +377,47 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     helpText="The default data source is the default data source selected when creating metrics and experiments."
                   />
                 </>
+              </div>
+            </div>
+          </div>
+          <div className="my-3 bg-white p-3 border">
+            <div className="row">
+              <div className="col-sm-3">
+                <h4>Custom Markdown</h4>
+              </div>
+              <div className="col-sm-9">
+                <p>
+                  Custom markdown allows you to provide organization-specific
+                  guidance and documentation to your team on key pages within
+                  GrowthBook.
+                </p>
+                <div className={"form-group"}>
+                  <div className="my-3">
+                    <div className="form-group">
+                      <label>Features List</label>
+                      <MarkdownInput
+                        value={form.watch("featureListMarkdown") || ""}
+                        setValue={(value) =>
+                          form.setValue("featureListMarkdown", value)
+                        }
+                      />
+                      <label>Experiments List</label>
+                      <MarkdownInput
+                        value={form.watch("experimentListMarkdown") || ""}
+                        setValue={(value) =>
+                          form.setValue("experimentListMarkdown", value)
+                        }
+                      />
+                      <label>Metrics List</label>
+                      <MarkdownInput
+                        value={form.watch("metricListMarkdown") || ""}
+                        setValue={(value) =>
+                          form.setValue("metricListMarkdown", value)
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

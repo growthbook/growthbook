@@ -204,6 +204,12 @@ export interface OrganizationSettings {
   powerCalculatorEnabled?: boolean;
   featureKeyExample?: string; // Example Key of feature flag (e.g. "feature-20240201-name")
   featureRegexValidator?: string; // Regex to validate feature flag name (e.g. ^.+-\d{8}-.+$)
+  featureListMarkdown?: string;
+  featurePageMarkdown?: string;
+  experimentListMarkdown?: string;
+  experimentPageMarkdown?: string;
+  metricListMarkdown?: string;
+  metricPageMarkdown?: string;
 }
 
 export interface SubscriptionQuote {

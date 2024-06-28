@@ -6,6 +6,7 @@ import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
+import Handlebars from "handlebars";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
@@ -32,6 +33,7 @@ import { useWatching } from "@/services/WatchProvider";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Markdown from "@/components/Markdown/Markdown";
 
 const NUM_PER_PAGE = 20;
 
@@ -60,6 +62,11 @@ const ExperimentsPage = (): React.ReactElement => {
   const { getUserDisplay, userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const settings = useOrgSettings();
+
+  const { experimentListMarkdown: customMarkdown } = settings;
+  const template = Handlebars.compile(customMarkdown || "");
+  const variables = { orgName: "GrowthBook", project: "" };
+  const renderedMarkdown = template(variables);
 
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -272,6 +279,14 @@ const ExperimentsPage = (): React.ReactElement => {
               </div>
             )}
           </div>
+          {customMarkdown && (
+            <Markdown
+              className="mb-3 p-2 rounded-lg"
+              style={{ backgroundColor: "var(--surface-background-color)" }}
+            >
+              {renderedMarkdown}
+            </Markdown>
+          )}
           {!hasExperiments ? (
             <div
               className="appbox d-flex flex-column align-items-center"
