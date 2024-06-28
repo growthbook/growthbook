@@ -290,11 +290,13 @@ const SegmentPage: FC = () => {
                         className="d-none d-lg-table-cell"
                         style={{ maxWidth: "30em" }}
                       >
-                        <Code
-                          code={s.sql}
-                          language={language}
-                          expandable={true}
-                        />
+                        {s.sql ? (
+                          <Code
+                            code={s.sql}
+                            language={language}
+                            expandable={true}
+                          />
+                        ) : null}
                       </td>
                       {canStoreSegmentsInMongo ? (
                         <td>{s.dateUpdated ? ago(s.dateUpdated) : ""}</td>

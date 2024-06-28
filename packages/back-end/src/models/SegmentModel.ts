@@ -51,6 +51,10 @@ export class SegmentModel extends BaseClass {
   }
 
   protected async beforeCreate() {
+    //MKTODO: Validate the shape based on the type
+
+    //EG if type is "sql", make sure sql is there, and factTableId and filters are ignored
+    // if the type is "fact", make sure factTableId and filters are there, and sql is ignored
     if (this.useConfigFile()) {
       throw new Error(
         "Cannot create. Segments are being managed by config.yml"
@@ -59,6 +63,10 @@ export class SegmentModel extends BaseClass {
   }
 
   protected async beforeUpdate() {
+    //MKTODO: Validate the shape based on the type
+
+    //EG if type is "sql", make sure sql is there, and factTableId and filters are ignored
+    // if the type is "fact", make sure factTableId and filters are there, and sql is ignored
     if (this.useConfigFile()) {
       throw new Error(
         "Cannot update. Segments are being managed by config.yml"

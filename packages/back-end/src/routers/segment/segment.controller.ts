@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import uniqid from "uniqid";
 import { FilterQuery } from "mongoose";
+import { z } from "zod";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getContextFromReq } from "../../services/organizations";
@@ -19,6 +20,7 @@ import { MetricInterface } from "../../../types/metric";
 import { SegmentInterface } from "../../../types/segment";
 import { ExperimentInterface } from "../../../types/experiment";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
+import { createSegmentValidator } from "./segment.validators";
 
 // region GET /segments
 
@@ -43,7 +45,12 @@ export const getSegments = async (
   const segments = await context.models.segments.getAll();
   res.status(200).json({
     status: 200,
-    segments,
+    segments: segments.map((segment) => {
+      return {
+        ...segment,
+        type: segment.type || "SQL",
+      };
+    }),
   });
 };
 
@@ -109,14 +116,7 @@ export const getSegmentUsage = async (
 
 // region POST /segments
 
-type CreateSegmentRequest = AuthRequest<{
-  datasource: string;
-  userIdType: string;
-  owner: string;
-  name: string;
-  sql: string;
-  description: string;
-}>;
+type CreateSegmentRequest = AuthRequest<z.infer<typeof createSegmentValidator>>;
 
 type CreateSegmentResponse = {
   status: 200;
@@ -136,7 +136,17 @@ export const postSegment = async (
     EventAuditUserForResponseLocals
   >
 ) => {
-  const { datasource, name, sql, userIdType, description, owner } = req.body;
+  const {
+    datasource,
+    name,
+    sql,
+    userIdType,
+    description,
+    owner,
+    factTableId,
+    filters,
+    type,
+  } = req.body;
 
   const context = getContextFromReq(req);
   if (!context.permissions.canCreateSegment()) {
@@ -156,6 +166,9 @@ export const postSegment = async (
     sql,
     id: uniqid("seg_"),
     description,
+    type,
+    factTableId,
+    filters,
   });
 
   res.status(200).json({
