@@ -20,8 +20,8 @@ const TagsPage: FC = () => {
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: tags || [],
     localStorageKey: "tags",
-    defaultSortField: "id",
-    searchFields: ["id", "description"],
+    defaultSortField: "label",
+    searchFields: ["label", "description"],
   });
 
   const permissionsUtil = usePermissionsUtil();
@@ -64,7 +64,7 @@ const TagsPage: FC = () => {
           <table className="table appbox gbtable table-hover">
             <thead>
               <tr>
-                <SortableTH field="id">Tag name</SortableTH>
+                <SortableTH field="label">Tag name</SortableTH>
                 <SortableTH field="description">Description</SortableTH>
                 <th>Preview</th>
                 <th style={{ width: 140 }}></th>
@@ -81,7 +81,7 @@ const TagsPage: FC = () => {
                       }}
                       className="cursor-pointer"
                     >
-                      {t.id}
+                      {t.label}
                     </td>
                     <td>{t.description}</td>
                     <td>

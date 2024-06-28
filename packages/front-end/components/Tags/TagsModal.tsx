@@ -22,6 +22,7 @@ export default function TagsModal({
       id: existing?.id || "",
       color: existing?.color || "#029dd1",
       description: existing?.description || "",
+      label: existing?.label || "",
     },
   });
   const { apiCall } = useAuth();
@@ -45,26 +46,32 @@ export default function TagsModal({
       cta={existing?.id ? "Save Changes" : "Create Tag"}
       header={existing?.id ? `Edit Tag: ${existing.id}` : "Create Tag"}
       submit={form.handleSubmit(async (value) => {
-        await apiCall(`/tag`, {
-          method: "POST",
-          body: JSON.stringify(value),
-        });
+        if (existing?.id) {
+          // update
+          await apiCall(`/tag/${encodeURIComponent(existing.id)}`, {
+            method: "PUT",
+            body: JSON.stringify(value),
+          });
+        } else {
+          // create
+          value.id = value.label;
+          await apiCall(`/tag`, {
+            method: "POST",
+            body: JSON.stringify(value),
+          });
+        }
         await onSuccess();
       })}
     >
       <div className="colorpicker tagmodal">
-        {!existing?.id && (
-          <Field
-            // @ts-expect-error TS(2783) If you come across this, please fix it!: 'name' is specified more than once, so this usage ... Remove this comment to see the full error message
-            name="Name"
-            label="Name"
-            minLength={2}
-            maxLength={64}
-            className=""
-            required
-            {...form.register("id")}
-          />
-        )}
+        <Field
+          label="Name"
+          minLength={2}
+          maxLength={64}
+          className=""
+          required
+          {...form.register("label")}
+        />
         <label>Color:</label>
         <div className={styles.picker}>
           <HexColorPicker
@@ -90,8 +97,6 @@ export default function TagsModal({
           </div>
         </div>
         <Field
-          // @ts-expect-error TS(2783) If you come across this, please fix it!: 'name' is specified more than once, so this usage ... Remove this comment to see the full error message
-          name="Name"
           label="Description"
           textarea
           maxLength={256}
@@ -101,7 +106,7 @@ export default function TagsModal({
           <label>Preview</label>
           <div>
             <Tag
-              tag={form.watch("id")}
+              tag={form.watch("label")}
               color={form.watch("color")}
               description={form.watch("description")}
             />

@@ -27,8 +27,27 @@ function toTagInterface(doc: TagDocument | null): TagInterface[] {
       id: t,
       color: settings[t]?.color || "#029dd1",
       description: settings[t]?.description || "",
+      label: settings[t]?.label || t,
     };
   });
+}
+
+export async function getTag(
+  organization: string,
+  tag: string
+): Promise<TagInterface | null> {
+  const doc = await TagModel.findOne({
+    organization,
+  });
+  if (!doc) return null;
+
+  const settings = doc.settings || {};
+  return {
+    id: tag,
+    color: settings[tag]?.color || "#029dd1",
+    description: settings[tag]?.description || "",
+    label: settings[tag]?.label || tag,
+  };
 }
 
 export async function getAllTags(
@@ -37,6 +56,7 @@ export async function getAllTags(
   const doc = await TagModel.findOne({
     organization,
   });
+
   return toTagInterface(doc);
 }
 
@@ -63,7 +83,8 @@ export async function addTag(
   organization: string,
   tag: string,
   color: string,
-  description: string
+  description: string,
+  label?: string
 ) {
   if (tag.length < MIN_TAG_LENGTH || tag.length > MAX_TAG_LENGTH) {
     throw new Error(
@@ -71,14 +92,14 @@ export async function addTag(
     );
   }
   if (description.length > 256) {
-    description = description.substr(0, 256);
+    description = description.substring(0, 256);
   }
 
   const existing = await TagModel.findOne({
     organization,
   });
   const settings = existing?.settings || {};
-  settings[tag] = { color, description };
+  settings[tag] = { color, description, label: label ?? tag };
 
   await TagModel.updateOne(
     { organization },
@@ -105,6 +126,42 @@ export async function removeTag(organization: string, tag: string) {
     },
     {
       $pull: { tags: tag },
+    }
+  );
+  await TagModel.updateOne(
+    {
+      organization,
+    },
+    {
+      $unset: { [`settings.${tag}`]: 1 },
+    }
+  );
+}
+
+export async function updateTag(
+  organization: string,
+  tag: string,
+  color: string,
+  description: string,
+  label: string
+) {
+  if (description.length > 256) {
+    description = description.substring(0, 256);
+  }
+
+  const existing = await getTag(organization, tag);
+  if (!existing) {
+    throw new Error(`Tag ${tag} does not exist.`);
+  }
+
+  await TagModel.updateOne(
+    {
+      organization,
+    },
+    {
+      $set: {
+        [`settings.${tag}`]: { color, description, label },
+      },
     }
   );
 }

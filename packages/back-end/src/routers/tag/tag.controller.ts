@@ -1,9 +1,14 @@
 import type { Response } from "express";
+import {
+  auditDetailsCreate,
+  auditDetailsDelete,
+  auditDetailsUpdate,
+} from "../../services/audit";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getContextFromReq } from "../../services/organizations";
 import { TagInterface } from "../../../types/tag";
-import { addTag, removeTag } from "../../models/TagModel";
+import { addTag, getTag, removeTag, updateTag } from "../../models/TagModel";
 import { removeTagInMetrics } from "../../models/MetricModel";
 import { removeTagInFeature } from "../../models/FeatureModel";
 import { removeTagFromSlackIntegration } from "../../models/SlackIntegrationModel";
@@ -33,10 +38,70 @@ export const postTag = async (
   if (!context.permissions.canCreateAndUpdateTag()) {
     context.permissions.throwPermissionError();
   }
-  const { id, color, description } = req.body;
+  const { id, color, description, label } = req.body;
 
-  await addTag(context.org.id, id, color, description);
+  await addTag(context.org.id, id, color, description, label);
 
+  // audit log:
+  await req.audit({
+    event: "tag.create",
+    entity: {
+      object: "organization",
+      id: context.org.id,
+    },
+    details: auditDetailsCreate({ id, color, description, label }),
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
+};
+
+type PutTagResponse = {
+  status: 200;
+};
+
+/**
+ * PUT /tag/:id
+ * Update a tag by id
+ * @param req
+ * @param res
+ */
+export const putTag = async (
+  req: AuthRequest<TagInterface, { id: string }>,
+  res: Response<PutTagResponse>
+) => {
+  const context = getContextFromReq(req);
+  if (!context.permissions.canCreateAndUpdateTag()) {
+    context.permissions.throwPermissionError();
+  }
+  const { label, color, description } = req.body;
+  const { id } = req.params;
+  const existing = await getTag(context.org.id, id);
+  if (!existing) {
+    throw new Error("Tag not found");
+  }
+  await updateTag(context.org.id, id, color, description, label);
+
+  // audit log:
+  await req.audit({
+    event: "tag.update",
+    entity: {
+      object: "organization",
+      id: context.org.id,
+    },
+    details: auditDetailsUpdate(
+      { tag: existing },
+      {
+        tag: {
+          id,
+          color,
+          description,
+          label,
+        },
+      }
+    ),
+  });
   res.status(200).json({
     status: 200,
   });
@@ -71,6 +136,11 @@ export const deleteTag = async (
   const { org } = context;
   const { id } = req.body;
 
+  // check if the tag exists
+  const existing = await getTag(org.id, id);
+  if (!existing) {
+    throw new Error("Tag not found");
+  }
   // experiments
   await removeTagFromExperiments({
     context,
@@ -88,6 +158,15 @@ export const deleteTag = async (
 
   // finally, remove the tag itself
   await removeTag(org.id, id);
+
+  await req.audit({
+    event: "tag.delete",
+    entity: {
+      object: "organization",
+      id: org.id,
+    },
+    details: auditDetailsDelete(existing),
+  });
 
   res.status(200).json({
     status: 200,

@@ -15,12 +15,13 @@ export default function Tag({ tag, color, description, skipMargin }: Props) {
 
   const displayTitle = description ?? fullTag?.description ?? "";
   const displayColor = color ?? fullTag?.color ?? "#029dd1";
+  const displayLabel = fullTag?.label ?? tag;
 
   return (
     <Badge
       className={"tag badge-primary"}
       title={displayTitle}
-      content={tag}
+      content={displayLabel}
       skipMargin={skipMargin}
       style={{
         backgroundColor: displayColor,
