@@ -162,6 +162,90 @@ export const getEventForOrganization = async (
 };
 
 /**
+ * Get all events for an organization, and allow for pagination
+ * @param organizationId
+ * @param page  Providing 0 as a limit will return all events
+ * @param perPage
+ * @param eventTypes
+ * @param from
+ * @param to
+ * @param sortOrder
+ * @returns
+ */
+export const getEventsForOrganization = async (
+  organizationId: string,
+  page: number,
+  perPage: number,
+  eventTypes?: string[],
+  from?: string,
+  to?: string,
+  sortOrder: 1 | -1 = -1
+): Promise<EventInterface<unknown>[]> => {
+  const query: {
+    organizationId: string;
+    event?: unknown;
+    dateCreated?: unknown;
+  } = {
+    organizationId,
+  };
+
+  if (eventTypes && eventTypes.length > 0) {
+    query["event"] = { $in: eventTypes };
+  }
+  if (from && to) {
+    query["dateCreated"] = {
+      $gte: new Date(from),
+      $lt: new Date(to),
+    };
+  } else if (from) {
+    query["dateCreated"] = { $gte: new Date(from) };
+  } else if (to) {
+    query["dateCreated"] = { $lt: new Date(to) };
+  }
+  const docs = await EventModel.find(query)
+    .sort([["dateCreated", sortOrder]])
+    .skip((page - 1) * perPage)
+    .limit(perPage);
+
+  return docs.map(toInterface);
+};
+
+/**
+ * Get the total count of events for an organization
+ * @param organizationId
+ * @param eventTypes
+ * @param from
+ * @param to
+ * @returns
+ */
+export const getEventsCountForOrganization = async (
+  organizationId: string,
+  eventTypes?: string[],
+  from?: string,
+  to?: string
+): Promise<number> => {
+  const query: {
+    organizationId: string;
+    event?: unknown;
+    dateCreated?: unknown;
+  } = { organizationId };
+  if (eventTypes && eventTypes.length > 0) {
+    query["event"] = { $in: eventTypes };
+  }
+  if (from && to) {
+    query["dateCreated"] = {
+      $gte: new Date(from),
+      $lt: new Date(to),
+    };
+  } else if (from) {
+    query["dateCreated"] = { $gte: new Date(from) };
+  } else if (to) {
+    query["dateCreated"] = { $lt: new Date(to) };
+  }
+  return EventModel.countDocuments(query);
+};
+
+/**
  * Get all events for an organization
  * @param organizationId
  * @param limit  Providing 0 as a limit will return all events
