@@ -93,14 +93,14 @@ function App({
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       {ready ? (
-        preAuth ? (
-          <Component {...pageProps} />
-        ) : (
-          <PageHeadProvider>
-            <AuthProvider>
-              <AppearanceUIThemeProvider>
-                <GrowthBookProvider growthbook={growthbook}>
-                  <RadixTheme>
+        <RadixTheme>
+          {preAuth ? (
+            <Component {...pageProps} />
+          ) : (
+            <PageHeadProvider>
+              <AuthProvider>
+                <AppearanceUIThemeProvider>
+                  <GrowthBookProvider growthbook={growthbook}>
                     <ProtectedPage organizationRequired={organizationRequired}>
                       {organizationRequired ? (
                         <GetStartedProvider>
@@ -123,12 +123,12 @@ function App({
                         </div>
                       )}
                     </ProtectedPage>
-                  </RadixTheme>
-                </GrowthBookProvider>
-              </AppearanceUIThemeProvider>
-            </AuthProvider>
-          </PageHeadProvider>
-        )
+                  </GrowthBookProvider>
+                </AppearanceUIThemeProvider>
+              </AuthProvider>
+            </PageHeadProvider>
+          )}
+        </RadixTheme>
       ) : error ? (
         <div className="container mt-3">
           <div className="alert alert-danger">
