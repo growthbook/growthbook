@@ -44,10 +44,12 @@ const TagsInput: FC<{
   tagOptions = [...tagOptions];
   value.forEach((value) => {
     if (!tagSet.has(value)) {
+      const tag = getTagById(value);
       tagOptions?.push({
         id: value,
-        description: "",
-        color: getTagById(value)?.color || "#029dd1",
+        label: tag?.label || value,
+        description: tag?.description || "",
+        color: tag?.color || "#029dd1",
       });
     }
   });
@@ -111,7 +113,7 @@ const TagsInput: FC<{
         tagOptions.map((t) => {
           return {
             value: t.id,
-            label: t.id,
+            label: t.label,
             color: t.color || "var(--form-multivalue-text-color)",
             tooltip: t.description,
           };
