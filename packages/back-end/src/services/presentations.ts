@@ -8,10 +8,8 @@ import { getExperimentsByIds } from "../models/ExperimentModel";
 import { ExperimentInterface } from "../../types/experiment";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
-import { AuthRequest } from "../types/AuthRequest";
 import { ReqContext } from "../../types/organization";
 import { ApiReqContext } from "../../types/api";
-import { userHasAccess } from "./organizations";
 
 //import {query} from "../config/postgres";
 
@@ -29,8 +27,7 @@ export function getPresentationById(id: string) {
 
 export async function getPresentationSnapshots(
   context: ReqContext | ApiReqContext,
-  expIds: string[],
-  req: AuthRequest
+  expIds: string[]
 ) {
   const experiments = await getExperimentsByIds(context, expIds);
 
@@ -39,16 +36,13 @@ export async function getPresentationSnapshots(
     snapshot: ExperimentSnapshotInterface | null;
   }[] = [];
   const promises = experiments.map(async (experiment) => {
-    // only show experiments that you have permission to view
-    if (await userHasAccess(req, experiment.organization)) {
-      // get best phase to show:
-      const phase = experiment.phases.length - 1;
-      const snapshot = await getLatestSnapshot(experiment.id, phase);
-      withSnapshots.push({
-        experiment,
-        snapshot: snapshot ? snapshot : null,
-      });
-    }
+    // get best phase to show:
+    const phase = experiment.phases.length - 1;
+    const snapshot = await getLatestSnapshot(experiment.id, phase);
+    withSnapshots.push({
+      experiment,
+      snapshot: snapshot ? snapshot : null,
+    });
   });
   await Promise.all(promises);
   // getExperimentsByIds returns experiments in any order, we want to put it

@@ -5,6 +5,7 @@ import "@/styles/theme-config.css";
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+import { Inter } from "next/font/google";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
 import { PageHeadProvider } from "@/components/Layout/PageHead";
@@ -22,6 +23,9 @@ import TopNavLite from "@/components/Layout/TopNavLite";
 import { AppFeatures } from "@/./types/app-features";
 import GetStartedProvider from "@/services/GetStartedProvider";
 import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
+
+// If loading a variable font, you don't need to specify the font weight
+const inter = Inter({ subsets: ["latin"] });
 
 type ModAppProps = AppProps & {
   Component: {
@@ -88,6 +92,18 @@ function App({
 
   return (
     <>
+      <style jsx global>{`
+        html {
+          font-family: var(--default-font-family);
+          --default-font-family: ${inter.style.fontFamily};
+        }
+        body {
+          font-family: var(--default-font-family);
+        }
+        .radix-themes {
+          --default-font-family: ${inter.style.fontFamily};
+        }
+      `}</style>
       <Head>
         <title>GrowthBook</title>
         <meta name="robots" content="noindex, nofollow" />
