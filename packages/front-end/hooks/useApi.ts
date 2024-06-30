@@ -8,7 +8,7 @@ export interface UseApiOptions {
 }
 
 export default function useApi<Response = unknown>(
-  path: string | null,
+  path: string,
   { shouldRun, autoRevalidate = true, orgScoped = true }: UseApiOptions = {}
 ) {
   const { apiCall, orgId } = useAuth();
@@ -16,7 +16,7 @@ export default function useApi<Response = unknown>(
   // Scope the api request to the current organization
   const key = orgScoped ? orgId + "::" + path : path;
 
-  const allowed = path !== null && (shouldRun ? shouldRun() : true);
+  const allowed = shouldRun ? shouldRun() : true;
 
   const config: SWRConfiguration = {};
 

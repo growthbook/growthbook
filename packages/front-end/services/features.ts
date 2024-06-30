@@ -930,9 +930,10 @@ export function useRealtimeData(
   mock = false,
   update = false
 ): { usage: FeatureUsageRecords; usageDomain: [number, number] } {
-  const { data, mutate } = useApi<{
-    usage: FeatureUsageRecords;
-  }>(update ? `/usage/features` : null);
+  const { data, mutate } = useApi<{ usage: FeatureUsageRecords }>(
+    `/usage/features`,
+    { shouldRun: () => !!update }
+  );
 
   // Mock data
   const usage = useMemo(() => {
