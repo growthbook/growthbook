@@ -5,7 +5,6 @@
 @import "bootstrap-variable-overrides";
 
 @import "bootstrap/scss/bootstrap.scss";
-@import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap");
 
 // Bootstrap theme overrides must be loaded AFTER Bootstrap
 @import "_bootstrap-theme-overrides";
@@ -1367,7 +1366,7 @@ main.main.report {
   position: relative;
   min-height: 100vh;
   font-size: 1rem;
-  font-family: Poppins, "Helvetica Neue", Arial, sans-serif;
+  font-family: Inter, "Helvetica Neue", Arial, sans-serif;
 
   .welcomemodal {
     @media (max-width: 575px) {
