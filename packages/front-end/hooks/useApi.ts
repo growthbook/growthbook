@@ -1,22 +1,33 @@
-import useSWR from "swr";
-import { useCallback } from "react";
+import useSWR, { SWRConfiguration } from "swr";
 import { useAuth } from "@/services/auth";
 
-export default function useApi<Response = unknown>(path: string | null) {
+export interface UseApiOptions {
+  autoRevalidate?: boolean;
+  shouldRun?: () => boolean;
+  orgScoped?: boolean;
+}
+
+export default function useApi<Response = unknown>(
+  path: string | null,
+  { shouldRun, autoRevalidate = true, orgScoped = true }: UseApiOptions = {}
+) {
   const { apiCall, orgId } = useAuth();
 
   // Scope the api request to the current organization
-  const key = path === null ? null : orgId + "::" + path;
+  const key = orgScoped ? orgId + "::" + path : path;
 
-  const fetcher = useCallback(
-    async (key: string) => {
-      const path = key ? key.split("::", 2)[1] : null;
-      return apiCall<Response>(path || null, {
-        method: "GET",
-      });
-    },
-    [apiCall]
+  const allowed = path !== null && (shouldRun ? shouldRun() : true);
+
+  const config: SWRConfiguration = {};
+
+  if (!autoRevalidate) {
+    config.revalidateOnFocus = false;
+    config.revalidateOnReconnect = false;
+  }
+
+  return useSWR<Response, Error>(
+    allowed ? key : null,
+    async () => apiCall<Response>(path, { method: "GET" }),
+    config
   );
-
-  return useSWR<Response, Error>(key, fetcher);
 }
