@@ -91,7 +91,19 @@ function App({
   }, [router.pathname]);
 
   return (
-    <div className={inter.className}>
+    <>
+      <style jsx global>{`
+        html {
+          font-family: var(--default-font-family);
+          --default-font-family: ${inter.style.fontFamily};
+        }
+        body {
+          font-family: var(--default-font-family);
+        }
+        .radix-themes {
+          --default-font-family: ${inter.style.fontFamily};
+        }
+      `}</style>
       <Head>
         <title>GrowthBook</title>
         <meta name="robots" content="noindex, nofollow" />
@@ -142,7 +154,7 @@ function App({
       ) : (
         <LoadingOverlay />
       )}
-    </div>
+    </>
   );
 }
 
