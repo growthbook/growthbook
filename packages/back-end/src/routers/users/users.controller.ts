@@ -2,7 +2,6 @@ import { Response } from "express";
 import { OrganizationInterface } from "@back-end/types/organization";
 import { AuthRequest } from "../../types/AuthRequest";
 import { usingOpenId } from "../../services/auth";
-import { createUser, getUserByEmail } from "../../services/users";
 import { findOrganizationsByMemberId } from "../../models/OrganizationModel";
 import {
   addMemberFromSSOConnection,
@@ -10,12 +9,8 @@ import {
   getContextFromReq,
   validateLoginMethod,
 } from "../../services/organizations";
-import { UserModel } from "../../models/UserModel";
-import {
-  deleteWatchedByEntity,
-  getWatchedByUser,
-  upsertWatch,
-} from "../../models/WatchModel";
+import { createUser, getUserByEmail, updateUser } from "../../models/UserModel";
+import { deleteWatchedByEntity, upsertWatch } from "../../models/WatchModel";
 import { getFeature } from "../../models/FeatureModel";
 import { getExperimentById } from "../../models/ExperimentModel";
 
@@ -97,16 +92,7 @@ export async function putUserName(
   const { userId } = getContextFromReq(req);
 
   try {
-    await UserModel.updateOne(
-      {
-        id: userId,
-      },
-      {
-        $set: {
-          name,
-        },
-      }
-    );
+    await updateUser(userId, { name });
     res.status(200).json({
       status: 200,
     });
@@ -114,23 +100,6 @@ export async function putUserName(
     res.status(400).json({
       status: 400,
       message: e.message || "An error occurred",
-    });
-  }
-}
-
-export async function getWatchedItems(req: AuthRequest, res: Response) {
-  const { org, userId } = getContextFromReq(req);
-  try {
-    const watch = await getWatchedByUser(org.id, userId);
-    res.status(200).json({
-      status: 200,
-      experiments: watch?.experiments || [],
-      features: watch?.features || [],
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message,
     });
   }
 }

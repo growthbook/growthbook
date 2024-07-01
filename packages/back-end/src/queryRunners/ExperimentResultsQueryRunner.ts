@@ -37,7 +37,6 @@ import {
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
-import { getOrganizationById } from "../services/organizations";
 import { FactTableMap } from "../models/FactTableModel";
 import { OrganizationInterface } from "../../types/organization";
 import { FactMetricInterface } from "../../types/fact-table";
@@ -172,10 +171,10 @@ export const startExperimentResultQueries = async (
   const queryParentId = params.queryParentId;
   const metricMap = params.metricMap;
 
-  const org = await getOrganizationById(organization.id);
-  const hasPipelineModeFeature = org
-    ? orgHasPremiumFeature(org, "pipeline-mode")
-    : false;
+  const hasPipelineModeFeature = orgHasPremiumFeature(
+    organization,
+    "pipeline-mode"
+  );
 
   const activationMetric = snapshotSettings.activationMetric
     ? metricMap.get(snapshotSettings.activationMetric) ?? null
@@ -233,7 +232,8 @@ export const startExperimentResultQueries = async (
       : "";
 
   // Settings for health query
-  const runTrafficQuery = !dimensionObj && org?.settings?.runHealthTrafficQuery;
+  const runTrafficQuery =
+    !dimensionObj && organization.settings?.runHealthTrafficQuery;
   let dimensionsForTraffic: ExperimentDimension[] = [];
   if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
     dimensionsForTraffic = exposureQuery.dimensionMetadata
