@@ -77,7 +77,7 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
     } catch (e) {
       setSystemTheme(actualTheme);
     }
-  }, []);
+  }, [preferredTheme]);
 
   useEffect(function attachSystemListener() {
     const listener = (e) => {
@@ -118,7 +118,6 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
       );
 
       setPreferredTheme(updated);
-
       try {
         if (updated === "system") {
           localStorage.removeItem(STORAGE_KEY_THEME);
@@ -135,7 +134,6 @@ export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
     },
     []
   );
-
   const theme: AppearanceUITheme = useMemo(
     () => (preferredTheme === "system" ? systemTheme : preferredTheme),
     [systemTheme, preferredTheme]

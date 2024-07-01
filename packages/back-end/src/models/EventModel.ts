@@ -3,7 +3,7 @@ import z from "zod";
 import omit from "lodash/omit";
 import mongoose from "mongoose";
 import {
-  notificationEventNames,
+  zodNotificationEventNamesEnum,
   notificationEventResources,
 } from "../events/base-types";
 import { EventInterface } from "../../types/event";
@@ -30,7 +30,7 @@ const eventSchema = new mongoose.Schema({
   event: {
     type: String,
     required: true,
-    enum: notificationEventNames,
+    enum: zodNotificationEventNamesEnum,
   },
   data: {
     type: Object,
@@ -40,7 +40,7 @@ const eventSchema = new mongoose.Schema({
         // NotificationEventPayload<EventName, ResourceType, DataType>
         const zodSchema = z
           .object({
-            event: z.enum(notificationEventNames),
+            event: z.enum(zodNotificationEventNamesEnum),
             object: z.enum(notificationEventResources),
             data: z.any(),
             projects: z.array(z.string()),

@@ -17,6 +17,7 @@ import {
   getDefaultRole,
 } from "shared/permissions";
 import uniqid from "uniqid";
+import { getWatchedByUser } from "../../models/WatchModel";
 import {
   UpdateSdkWebhookProps,
   deleteLegacySdkWebhookById,
@@ -111,7 +112,7 @@ import {
   getUnredactedSecretKey,
 } from "../../models/ApiKeyModel";
 import { getUserPermissions } from "../../util/organization.util";
-import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
+import { deleteUser, getUserById, getAllUsers } from "../../models/UserModel";
 import {
   getAllExperiments,
   getExperimentsForActivityFeed,
@@ -697,7 +698,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
 
-  const expandedMembers = await expandOrgMembers(members);
+  const expandedMembers = await expandOrgMembers(members, userId);
 
   const teams = await getTeamsForOrganization(org.id);
 
@@ -714,6 +715,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   const currentUserPermissions = getUserPermissions(userId, org, teams || []);
   const seatsInUse = getNumberOfUniqueMembersAndInvites(org);
 
+  const watch = await getWatchedByUser(org.id, userId);
+
   return res.status(200).json({
     status: 200,
     apiKeys,
@@ -727,6 +730,10 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     currentUserPermissions,
     teams: teamsWithMembers,
     license,
+    watching: {
+      experiments: watch?.experiments || [],
+      features: watch?.features || [],
+    },
     organization: {
       invites,
       ownerEmail,
@@ -1797,7 +1804,7 @@ export async function addOrphanedUser(
   } = req.body;
 
   // Make sure user exists
-  const user = await findUserById(id);
+  const user = await getUserById(id);
   if (!user) {
     return res.status(400).json({
       status: 400,
@@ -1870,7 +1877,7 @@ export async function deleteOrphanedUser(
   const { id } = req.params;
 
   // Make sure user exists
-  const user = await findUserById(id);
+  const user = await getUserById(id);
   if (!user) {
     return res.status(400).json({
       status: 400,
