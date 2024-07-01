@@ -76,7 +76,8 @@ export default function FeaturesPage() {
     loading,
     error,
     mutate,
-  } = useFeaturesList();
+    hasArchived,
+  } = useFeaturesList(true, showArchived);
 
   const { usage, usageDomain } = useRealtimeData(
     allFeatures,
@@ -537,7 +538,7 @@ export default function FeaturesPage() {
   const hasFeatures = features.length > 0;
 
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
-  const showArchivedToggle = features.some((f) => f.archived);
+  const showArchivedToggle = hasArchived;
 
   const canCreateFeatures = permissionsUtil.canManageFeatureDrafts({
     project,
@@ -555,6 +556,7 @@ export default function FeaturesPage() {
             mutate({
               features: [...features, feature],
               linkedExperiments: experiments,
+              hasArchived,
             });
           }}
           featureToDuplicate={featureToDuplicate || undefined}
