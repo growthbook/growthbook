@@ -163,6 +163,12 @@ pre[class*="language-"] {
       }
     }
   }
+
+  img {
+    display: block;
+    margin-inline: auto;
+    margin-block-end: var(--ifm-leading);
+  }
 }
 
 .alert a {
