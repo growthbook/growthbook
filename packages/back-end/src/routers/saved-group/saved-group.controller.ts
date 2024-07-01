@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import { isEqual } from "lodash";
 import { validateCondition } from "shared/util";
+import { SavedGroupInterface } from "shared/src/types";
 import { logger } from "../../util/logger";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
@@ -8,11 +9,11 @@ import { getContextFromReq } from "../../services/organizations";
 import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
-  SavedGroupInterface,
 } from "../../../types/saved-group";
 import {
   createSavedGroup,
   deleteSavedGroupById,
+  getAllSavedGroups,
   getSavedGroupById,
   updateSavedGroupById,
 } from "../../models/SavedGroupModel";
@@ -22,6 +23,45 @@ import {
   auditDetailsUpdate,
 } from "../../services/audit";
 import { savedGroupUpdated } from "../../services/savedGroups";
+
+// region GET /saved-groups
+type ListSavedGroupsRequest = AuthRequest<
+  Record<string, never>,
+  { includeValues: boolean }
+>;
+
+type ListSavedGroupsResponse = {
+  status: 200;
+  savedGroups: SavedGroupInterface[];
+};
+
+/**
+ * GET /saved-groups
+ * Create a saved-group resource
+ * @param req
+ * @param res
+ */
+export const getSavedGroups = async (
+  req: ListSavedGroupsRequest,
+  res: Response<ListSavedGroupsResponse>
+) => {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { includeValues } = req.params;
+
+  if (!context.permissions.canCreateSavedGroup()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const savedGroups = await getAllSavedGroups(org.id, { includeValues });
+
+  return res.status(200).json({
+    status: 200,
+    savedGroups,
+  });
+};
+
+// endregion GET /saved-groups
 
 // region POST /saved-groups
 
@@ -44,7 +84,15 @@ export const postSavedGroup = async (
 ) => {
   const context = getContextFromReq(req);
   const { org, userName } = context;
-  const { groupName, owner, attributeKey, values, type, condition } = req.body;
+  const {
+    groupName,
+    owner,
+    attributeKey,
+    values,
+    type,
+    condition,
+    description,
+  } = req.body;
 
   if (!context.permissions.canCreateSavedGroup()) {
     context.permissions.throwPermissionError();
@@ -66,6 +114,9 @@ export const postSavedGroup = async (
       throw new Error("Must specify an attributeKey");
     }
   }
+  if (typeof description === "string" && description.length > 100) {
+    throw new Error("Description must be at most 100 characters");
+  }
 
   const savedGroup = await createSavedGroup(org.id, {
     values,
@@ -74,6 +125,7 @@ export const postSavedGroup = async (
     groupName,
     owner: owner || userName,
     attributeKey,
+    description,
   });
 
   await req.audit({
@@ -93,6 +145,206 @@ export const postSavedGroup = async (
 };
 
 // endregion POST /saved-groups
+
+// region GET /saved-groups/:id
+
+type GetSavedGroupRequest = AuthRequest<Record<string, never>, { id: string }>;
+
+type GetSavedGroupResponse = {
+  status: 200;
+  savedGroup: SavedGroupInterface;
+};
+
+/**
+ * GET /saved-groups/:id
+ * Fetch a saved-group resource
+ * @param req
+ * @param res
+ */
+export const getSavedGroup = async (
+  req: GetSavedGroupRequest,
+  res: Response<GetSavedGroupResponse>
+) => {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id } = req.params;
+
+  if (!id) {
+    throw new Error("Must specify saved group id");
+  }
+
+  const savedGroup = await getSavedGroupById(id, org.id);
+
+  if (!savedGroup) {
+    throw new Error("Could not find saved group");
+  }
+
+  return res.status(200).json({
+    status: 200,
+    savedGroup,
+  });
+};
+
+// endregion GET /saved-groups/:id
+
+// region POST /saved-groups/:id/add-member/:mid
+
+type PostSavedGroupAddMembersRequest = AuthRequest<
+  Record<string, never>,
+  { id: string; mid: string }
+>;
+
+type PostSavedGroupAddMembersResponse = {
+  status: 200;
+};
+
+/**
+ * POST /saved-groups/:id/add-member/:mid
+ * Update one saved-group resource by adding the specified member
+ * @param req
+ * @param res
+ */
+export const postSavedGroupAddMembers = async (
+  req: PostSavedGroupAddMembersRequest,
+  res: Response<PostSavedGroupAddMembersResponse | ApiErrorResponse>
+) => {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id } = req.params;
+  const { members } = req.body;
+
+  if (!id) {
+    throw new Error("Must specify saved group id");
+  }
+
+  if (!context.permissions.canUpdateSavedGroup()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const savedGroup = await getSavedGroupById(id, org.id);
+
+  if (!savedGroup) {
+    throw new Error("Could not find saved group");
+  }
+
+  if (savedGroup.type !== "list") {
+    throw new Error("Can only add members to ID list saved groups");
+  }
+
+  if (!members) {
+    throw new Error("Must specify member ids to remove from group");
+  }
+
+  if (!Array.isArray(members)) {
+    throw new Error("Must provide a list of members to remove");
+  }
+
+  const newValues = (savedGroup.values || []).concat(members);
+  const changes = await updateSavedGroupById(id, org.id, {
+    values: newValues,
+  });
+
+  const updatedSavedGroup = { ...savedGroup, ...changes };
+
+  await req.audit({
+    event: "savedGroup.updated",
+    entity: {
+      object: "savedGroup",
+      id: updatedSavedGroup.id,
+      name: savedGroup.groupName,
+    },
+    details: auditDetailsUpdate(savedGroup, updatedSavedGroup),
+  });
+
+  savedGroupUpdated(context, savedGroup.id);
+
+  return res.status(200).json({
+    status: 200,
+  });
+};
+
+// endregion POST /saved-groups/:id/add-member/:mid
+
+// region POST /saved-groups/:id/remove-members
+
+type PostSavedGroupRemoveMembersRequest = AuthRequest<
+  { members: string[] },
+  { id: string }
+>;
+
+type PostSavedGroupRemoveMembersResponse = {
+  status: 200;
+};
+
+/**
+ * POST /saved-groups/:id/remove-members
+ * Update one saved-group resource by removing the specified list of members
+ * @param req
+ * @param res
+ */
+export const postSavedGroupRemoveMembers = async (
+  req: PostSavedGroupRemoveMembersRequest,
+  res: Response<PostSavedGroupRemoveMembersResponse | ApiErrorResponse>
+) => {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id } = req.params;
+  const { members } = req.body;
+
+  if (!id) {
+    throw new Error("Must specify saved group id");
+  }
+
+  if (!context.permissions.canUpdateSavedGroup()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const savedGroup = await getSavedGroupById(id, org.id);
+
+  if (!savedGroup) {
+    throw new Error("Could not find saved group");
+  }
+
+  if (savedGroup.type !== "list") {
+    throw new Error("Can only remove members from ID list saved groups");
+  }
+
+  if (!members) {
+    throw new Error("Must specify member ids to remove from group");
+  }
+
+  if (!Array.isArray(members)) {
+    throw new Error("Must provide a list of members to remove");
+  }
+
+  const toRemove = new Set(members);
+  const newValues = (savedGroup.values || []).filter(
+    (value) => !toRemove.has(value)
+  );
+  const changes = await updateSavedGroupById(id, org.id, {
+    values: newValues,
+  });
+
+  const updatedSavedGroup = { ...savedGroup, ...changes };
+
+  await req.audit({
+    event: "savedGroup.updated",
+    entity: {
+      object: "savedGroup",
+      id: updatedSavedGroup.id,
+      name: savedGroup.groupName,
+    },
+    details: auditDetailsUpdate(savedGroup, updatedSavedGroup),
+  });
+
+  savedGroupUpdated(context, savedGroup.id);
+
+  return res.status(200).json({
+    status: 200,
+  });
+};
+
+// endregion POST /saved-groups/:id/remove-members
 
 // region PUT /saved-groups/:id
 
@@ -114,7 +366,7 @@ export const putSavedGroup = async (
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { groupName, owner, values, condition } = req.body;
+  const { groupName, owner, values, condition, description } = req.body;
   const { id } = req.params;
 
   if (!id) {
@@ -161,6 +413,12 @@ export const putSavedGroup = async (
     }
 
     fieldsToUpdate.condition = condition;
+  }
+  if (description !== savedGroup.description) {
+    if (typeof description === "string" && description.length > 100) {
+      throw new Error("Description must be at most 100 characters");
+    }
+    fieldsToUpdate.description = description;
   }
 
   // If there are no changes, return early

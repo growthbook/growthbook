@@ -7,6 +7,7 @@ import {
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import { accountFeatures, getAccountPlan } from "enterprise";
+import { SavedGroupInterface } from "shared/src/types";
 import { LegacyReportInterface, ReportInterface } from "@back-end/types/report";
 import { SdkWebHookLogDocument } from "../models/SdkWebhookLogModel";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
@@ -34,10 +35,7 @@ import {
   MetricForSnapshot,
 } from "../../types/experiment-snapshot";
 import { getEnvironments } from "../services/organizations";
-import {
-  LegacySavedGroupInterface,
-  SavedGroupInterface,
-} from "../../types/saved-group";
+import { LegacySavedGroupInterface } from "../../types/saved-group";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {

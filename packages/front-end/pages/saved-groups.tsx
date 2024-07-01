@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { SavedGroupInterface } from "shared/src/types";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import IdLists from "@/components/SavedGroups/IdLists";
 import ConditionGroups from "@/components/SavedGroups/ConditionGroups";
 import { useUser } from "@/services/UserContext";
@@ -10,6 +12,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import ControlledTabs from "@/components/Tabs/ControlledTabs";
+import Tab from "@/components/Tabs/Tab";
 
 export const getSavedGroupMessage = (
   featuresUsingSavedGroups: Set<string> | undefined
@@ -60,6 +64,20 @@ export default function SavedGroupsPage() {
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
   const attributeSchema = useAttributeSchema();
+  const [tab, setTab] = useState<string | null>("conditionGroups");
+  const [idLists, conditionGroups] = useMemo(() => {
+    const idLists: SavedGroupInterface[] = [];
+    const conditionGroups: SavedGroupInterface[] = [];
+    savedGroups.forEach((savedGroup) => {
+      if (savedGroup.type === "condition") {
+        conditionGroups.push(savedGroup);
+      }
+      if (savedGroup.type === "list") {
+        idLists.push(savedGroup);
+      }
+    });
+    return [idLists, conditionGroups];
+  }, [savedGroups]);
 
   useEffect(() => {
     // Not using $groups attribute in a any saved groups
@@ -118,10 +136,22 @@ export default function SavedGroupsPage() {
         </div>
       </div>
       <p>
-        Reusable groups of users you can target from any feature flag rule or
-        experiment. There are two ways to define Saved Groups - as an{" "}
-        <strong>ID List</strong> or <strong>Targeting Condition</strong>.
+        Create reusable groups of users to use as targets for feature flag rules
+        or experiments. Choose to define groups as an ID List or a Targeting
+        Condition.
       </p>
+      <div className="alert alert-info mt-2">
+        Learn more about the differences between using ID Lists or Targeting
+        Conditions.{" "}
+        <a
+          href="https://docs.growthbook.io/features/targeting#saved-groups"
+          target="_blank"
+          rel="noreferrer"
+          className="underline"
+        >
+          View docs <FaExternalLinkAlt />
+        </a>
+      </div>
 
       {error ? (
         <div className="alert alert-danger">
@@ -129,8 +159,49 @@ export default function SavedGroupsPage() {
         </div>
       ) : (
         <>
-          <IdLists groups={savedGroups} mutate={mutateDefinitions} />
-          <ConditionGroups groups={savedGroups} mutate={mutateDefinitions} />
+          <ControlledTabs
+            orientation="horizontal"
+            defaultTab="conditionGroups"
+            tabContentsClassName="tab-content-full"
+            active={tab}
+            setActive={(tab) => {
+              setTab(tab);
+            }}
+          >
+            <Tab
+              id="conditionGroups"
+              padding={false}
+              anchor="conditionGroups"
+              display={
+                <>
+                  Condition Groups{" "}
+                  <span className="round-text-background text-color-main">
+                    {conditionGroups.length}
+                  </span>
+                </>
+              }
+            >
+              <ConditionGroups
+                groups={savedGroups}
+                mutate={mutateDefinitions}
+              />
+            </Tab>
+            <Tab
+              id="idLists"
+              padding={false}
+              anchor="idLists"
+              display={
+                <>
+                  ID Lists{" "}
+                  <span className="round-text-background text-color-main">
+                    {idLists.length}
+                  </span>
+                </>
+              }
+            >
+              <IdLists groups={savedGroups} mutate={mutateDefinitions} />
+            </Tab>
+          </ControlledTabs>
         </>
       )}
 

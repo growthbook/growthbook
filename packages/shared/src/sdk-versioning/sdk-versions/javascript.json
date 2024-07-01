@@ -1,6 +1,10 @@
 {
   "versions": [
     {
+      "version": "1.0.2",
+      "capabilities": ["savedGroupReferences"]
+    },
+    {
       "version": "1.0.1"
     },
     {

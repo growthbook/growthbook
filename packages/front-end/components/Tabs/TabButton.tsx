@@ -40,6 +40,7 @@ export default function TabButton({
           active,
           last,
           "nav-button-item": newStyle,
+          "nav-tab-item": !newStyle,
         },
         activeClassName && active ? activeClassName : null
       )}

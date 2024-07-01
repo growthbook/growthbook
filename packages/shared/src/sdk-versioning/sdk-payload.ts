@@ -4,6 +4,7 @@ import {
 } from "back-end/types/api";
 import { pick, omit } from "lodash";
 import cloneDeep from "lodash/cloneDeep";
+import { SavedGroupsValues } from "../types";
 import { SDKCapability } from "./index";
 
 const strictFeatureKeys = ["defaultValue", "rules"];
@@ -35,9 +36,31 @@ const stickyBucketingKeys = [
 ];
 const prerequisiteKeys = ["parentConditions"];
 
+// eslint-disable-next-line
+type Node = [string, any];
+// eslint-disable-next-line
+export type NodeHandler = (node: Node, object: any) => void;
+
+// Recursively traverses the given object and calls onNode on each key/value pair.
+// If onNode modifies the object in place, it walks the new values as they're inserted, updated, or deleted
+// eslint-disable-next-line
+export const recursiveWalk = (object: any, onNode: NodeHandler) => {
+  // Base case: stop recursion once you hit a primitive or null
+  if (object === null || typeof object !== "object") {
+    return;
+  }
+  // If currently walking over an object or array, iterate the entries and call onNode before recurring
+  Object.entries(object).forEach((node) => {
+    onNode(node, object);
+    // Recompute the reference for the recursive call as the key may have changed
+    recursiveWalk(object[node[0]], onNode);
+  });
+};
+
 export const scrubFeatures = (
   features: Record<string, FeatureDefinitionWithProject>,
-  capabilities: SDKCapability[]
+  capabilities: SDKCapability[],
+  savedGroups: SavedGroupsValues
 ): Record<string, FeatureDefinitionWithProject> => {
   const allowedFeatureKeys = [...strictFeatureKeys];
   const allowedFeatureRuleKeys = [...strictFeatureRuleKeys];
@@ -49,6 +72,17 @@ export const scrubFeatures = (
   }
   if (capabilities.includes("prerequisites")) {
     allowedFeatureRuleKeys.push(...prerequisiteKeys);
+  }
+  if (!capabilities.includes("savedGroupReferences")) {
+    Object.values(features).forEach((feature) => {
+      if (!feature.rules) {
+        return;
+      }
+      feature.rules.forEach((rule) => {
+        recursiveWalk(rule.condition, replaceSavedGroups(savedGroups));
+        recursiveWalk(rule.parentConditions, replaceSavedGroups(savedGroups));
+      });
+    });
   }
 
   const newFeatures = cloneDeep(features);
@@ -98,11 +132,25 @@ export const scrubFeatures = (
 
 export const scrubExperiments = (
   experiments: AutoExperimentWithProject[],
-  capabilities: SDKCapability[]
+  capabilities: SDKCapability[],
+  savedGroups: SavedGroupsValues
 ): AutoExperimentWithProject[] => {
   const removedExperimentKeys: string[] = [];
   const supportsPrerequisites = capabilities.includes("prerequisites");
   const supportsRedirects = capabilities.includes("redirects");
+
+  if (!capabilities.includes("savedGroupReferences")) {
+    experiments.forEach((experimentDefinition) => {
+      recursiveWalk(
+        experimentDefinition.condition,
+        replaceSavedGroups(savedGroups)
+      );
+      recursiveWalk(
+        experimentDefinition.parentConditions,
+        replaceSavedGroups(savedGroups)
+      );
+    });
+  }
 
   if (supportsPrerequisites && supportsRedirects) return experiments;
 
@@ -135,4 +183,26 @@ export const scrubExperiments = (
     newExperiments.push(experiment);
   }
   return newExperiments;
+};
+
+export const scrubSavedGroups = (
+  savedGroups: SavedGroupsValues,
+  capabilities: SDKCapability[]
+): SavedGroupsValues | undefined => {
+  if (!capabilities.includes("savedGroupReferences")) {
+    return undefined;
+  }
+  return savedGroups;
+};
+
+// Returns a handler which modifies the object in place, replacing saved group IDs with the contents of those groups
+const replaceSavedGroups: (savedGroups: SavedGroupsValues) => NodeHandler = (
+  savedGroups: SavedGroupsValues
+) => {
+  return ([key, value], object) => {
+    if (key === "$inGroup" || key === "$notInGroup") {
+      object[key.replace("Group", "")] = savedGroups[value] || [];
+      delete object[key];
+    }
+  };
 };
