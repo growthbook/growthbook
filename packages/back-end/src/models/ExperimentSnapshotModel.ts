@@ -339,7 +339,7 @@ export async function getLatestSnapshotMultipleExperiments(
 ): Promise<ExperimentSnapshotInterface[]> {
   const experimentPhasesToGet = new Map(experimentPhaseMap);
   const query: FilterQuery<ExperimentSnapshotDocument> = {
-    experiment: { $in: experimentPhasesToGet.keys() },
+    experiment: { $in: Array.from(experimentPhasesToGet.keys()) },
     dimension: dimension || null,
     ...(withResults
       ? {
@@ -357,7 +357,7 @@ export async function getLatestSnapshotMultipleExperiments(
     { $sort: { dateCreated: -1 } },
     {
       $group: {
-        _id: { experiment: "$id", phase: "$phase" },
+        _id: { experiment: "$experiment", phase: "$phase" },
         latestSnapshot: { $first: "$$ROOT" },
       },
     },
@@ -367,13 +367,15 @@ export async function getLatestSnapshotMultipleExperiments(
   ];
 
   // First try getting new snapshots that have a `status` field
-  const all = await ExperimentSnapshotModel.aggregate(aggregatePipeline).exec();
-
+  const all = await ExperimentSnapshotModel.aggregate<ExperimentSnapshotDocument>(
+    aggregatePipeline
+  ).exec();
   const snapshots: ExperimentSnapshotInterface[] = [];
   if (all[0]) {
     // get interfaces matching the right phase
     all.forEach((doc) => {
-      const snapshot = toInterface(doc);
+      // aggregate returns document directly, no need for toJSON
+      const snapshot = migrateSnapshot(omit(doc, ["__v", "_id"]));
       const desiredPhase = experimentPhaseMap.get(snapshot.experiment);
       if (desiredPhase !== undefined && snapshot.phase === desiredPhase) {
         snapshots.push(snapshot);

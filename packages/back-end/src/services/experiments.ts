@@ -33,7 +33,7 @@ import {
 import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
 import { MetricPriorSettings } from "@back-end/types/fact-table";
-import { promiseAllChunks } from "@back-end/src/util/promise";
+import { promiseAllChunks } from "../util/promise";
 import { updateExperiment } from "../models/ExperimentModel";
 import { Context } from "../models/BaseModel";
 import {

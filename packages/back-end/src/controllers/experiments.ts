@@ -311,28 +311,28 @@ export async function getExperiment(
 
 async function _getSnapshot(
   context: ReqContext | ApiReqContext,
-  id: string,
+  experiment: string,
   phase?: string,
   dimension?: string,
   withResults: boolean = true
 ) {
-  const experiment = await getExperimentById(context, id);
+  const experimentObj = await getExperimentById(context, experiment);
 
-  if (!experiment) {
+  if (!experimentObj) {
     throw new Error("Experiment not found");
   }
 
-  if (experiment.organization !== context.org.id) {
+  if (experimentObj.organization !== context.org.id) {
     throw new Error("You do not have access to view this experiment");
   }
 
   if (!phase) {
     // get the latest phase:
-    phase = String(experiment.phases.length - 1);
+    phase = String(experimentObj.phases.length - 1);
   }
 
   return await getLatestSnapshot(
-    experiment.id,
+    experimentObj.id,
     parseInt(phase),
     dimension,
     withResults
@@ -341,12 +341,12 @@ async function _getSnapshot(
 
 async function _getSnapshots(
   context: ReqContext | ApiReqContext,
-  ids: string[],
+  experimentIds: string[],
   dimension?: string,
   withResults: boolean = true
 ): Promise<ExperimentSnapshotInterface[]> {
   const experimentPhaseMap: Map<string, number> = new Map();
-  const experiments = await getExperimentsByIds(context, ids);
+  const experiments = await getExperimentsByIds(context, experimentIds);
   experiments.forEach((e) => {
     if (e.organization !== context.org.id) {
       throw new Error("You do not have access to view this experiment");
@@ -355,7 +355,6 @@ async function _getSnapshots(
     const phase = String(e.phases.length - 1);
     experimentPhaseMap.set(e.id, parseInt(phase));
   });
-
   return await getLatestSnapshotMultipleExperiments(
     experimentPhaseMap,
     dimension,
@@ -412,11 +411,11 @@ export async function postSnapshotNotebook(
 }
 
 export async function getSnapshots(
-  req: AuthRequest<unknown, unknown, { ids?: string }>,
+  req: AuthRequest<unknown, unknown, { experiments?: string }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
-  const idsString = (req.query?.ids as string) || "";
+  const idsString = (req.query?.experiments as string) || "";
   if (!idsString.length) {
     res.status(200).json({
       status: 200,
@@ -426,7 +425,6 @@ export async function getSnapshots(
   }
 
   const ids = idsString.split(",");
-
   const snapshots = await _getSnapshots(context, ids);
 
   res.status(200).json({
@@ -2126,14 +2124,14 @@ function addCoverageToSnapshotIfMissing(
 
 export async function postSnapshotsWithScaledImpactAnalysis(
   req: AuthRequest<{
-    ids: string[];
+    experiments: string[];
   }>,
   res: Response<{ status: 200 } | PrivateApiErrorResponse>
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { ids } = req.body;
-  if (!ids.length) {
+  const { experiments } = req.body;
+  if (!experiments.length) {
     res.status(200).json({
       status: 200,
     });
@@ -2142,10 +2140,10 @@ export async function postSnapshotsWithScaledImpactAnalysis(
   const metricMap = await getMetricMap(context);
 
   // get latest snapshot for latest phase without dimensions but with results
-  const snapshots = await _getSnapshots(context, ids);
+  const snapshots = await _getSnapshots(context, experiments);
 
   // Add snapshots missing scaled analysis to list to fetch
-  const experiments = await getExperimentsByIds(context, ids);
+  const experimentObjs = await getExperimentsByIds(context, experiments);
   const snapshotAnalysesToCreate: SnapshotAnalysisParams[] = [];
   snapshots.forEach((s) => {
     const defaultAnalysis = getSnapshotAnalysis(s);
@@ -2155,11 +2153,9 @@ export async function postSnapshotsWithScaledImpactAnalysis(
       ...defaultAnalysis.settings,
       differenceType: "scaled",
     };
-    if (getSnapshotAnalysis(s, scaledImpactAnalysisSettings)) {
-      return;
-    }
+    if (getSnapshotAnalysis(s, scaledImpactAnalysisSettings)) return;
 
-    const experiment = experiments.find((e) => e.id === s.experiment);
+    const experiment = experimentObjs.find((e) => e.id === s.experiment);
     if (!experiment) return;
 
     addCoverageToSnapshotIfMissing(s, experiment);
@@ -2173,11 +2169,14 @@ export async function postSnapshotsWithScaledImpactAnalysis(
     });
   });
 
-  await createMultipleSnapshotAnalysis(snapshotAnalysesToCreate, context).catch(
-    (e) => {
+  if (snapshotAnalysesToCreate.length > 0) {
+    await createMultipleSnapshotAnalysis(
+      snapshotAnalysesToCreate,
+      context
+    ).catch((e) => {
       req.log.error(e);
-    }
-  );
+    });
+  }
   res.status(200).json({
     status: 200,
   });
