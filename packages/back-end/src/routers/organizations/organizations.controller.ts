@@ -67,7 +67,6 @@ import {
 } from "../../services/audit";
 import { getAllFeatures } from "../../models/FeatureModel";
 import { findDimensionsByOrganization } from "../../models/DimensionModel";
-import { findSegmentsByOrganization } from "../../models/SegmentModel";
 import {
   ALLOW_SELF_ORG_CREATION,
   APP_ORIGIN,
@@ -155,7 +154,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     getMetricsByOrganization(context),
     getDataSourcesByOrganization(context),
     findDimensionsByOrganization(orgId),
-    findSegmentsByOrganization(orgId),
+    context.models.segments.getAll(),
     getAllTags(orgId),
     getAllSavedGroups(orgId),
     context.models.projects.getAll(),

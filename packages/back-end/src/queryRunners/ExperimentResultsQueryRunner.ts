@@ -6,6 +6,7 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import chunk from "lodash/chunk";
+import { ApiReqContext } from "@back-end/types/api";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotHealth,
@@ -19,7 +20,6 @@ import {
   findSnapshotById,
   updateSnapshot,
 } from "../models/ExperimentSnapshotModel";
-import { findSegmentById } from "../models/SegmentModel";
 import { parseDimensionId } from "../services/experiments";
 import {
   analyzeExperimentResults,
@@ -160,9 +160,9 @@ export function getFactMetricGroups(
 }
 
 export const startExperimentResultQueries = async (
+  context: ApiReqContext,
   params: ExperimentResultsQueryParams,
   integration: SourceIntegrationInterface,
-  organization: OrganizationInterface,
   startQuery: (
     params: StartQueryParams<RowsType, ProcessedRowsType>
   ) => Promise<QueryPointer>
@@ -171,10 +171,8 @@ export const startExperimentResultQueries = async (
   const queryParentId = params.queryParentId;
   const metricMap = params.metricMap;
 
-  const hasPipelineModeFeature = orgHasPremiumFeature(
-    organization,
-    "pipeline-mode"
-  );
+  const { org } = context;
+  const hasPipelineModeFeature = orgHasPremiumFeature(org, "pipeline-mode");
 
   const activationMetric = snapshotSettings.activationMetric
     ? metricMap.get(snapshotSettings.activationMetric) ?? null
@@ -194,9 +192,8 @@ export const startExperimentResultQueries = async (
 
   let segmentObj: SegmentInterface | null = null;
   if (snapshotSettings.segment) {
-    segmentObj = await findSegmentById(
-      snapshotSettings.segment,
-      organization.id
+    segmentObj = await context.models.segments.getById(
+      snapshotSettings.segment
     );
   }
 
@@ -208,7 +205,7 @@ export const startExperimentResultQueries = async (
 
   const dimensionObj = await parseDimensionId(
     snapshotSettings.dimensions[0]?.id,
-    organization.id
+    org.id
   );
 
   const queries: Queries = [];
@@ -232,8 +229,7 @@ export const startExperimentResultQueries = async (
       : "";
 
   // Settings for health query
-  const runTrafficQuery =
-    !dimensionObj && organization.settings?.runHealthTrafficQuery;
+  const runTrafficQuery = !dimensionObj && org.settings?.runHealthTrafficQuery;
   let dimensionsForTraffic: ExperimentDimension[] = [];
   if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
     dimensionsForTraffic = exposureQuery.dimensionMetadata
@@ -278,7 +274,7 @@ export const startExperimentResultQueries = async (
     selectedMetrics,
     params.snapshotSettings,
     integration,
-    organization
+    org
   );
 
   const singlePromises = singles.map(async (m) => {
@@ -416,9 +412,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       this.integration.getSourceProperties().separateExperimentResultQueries
     ) {
       return startExperimentResultQueries(
+        this.context,
         params,
         this.integration,
-        this.context.org,
         this.startQuery.bind(this)
       );
     } else {
