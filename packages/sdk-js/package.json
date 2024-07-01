@@ -1,6 +1,6 @@
 {
   "name": "@growthbook/growthbook",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "license": "MIT",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.mjs",
