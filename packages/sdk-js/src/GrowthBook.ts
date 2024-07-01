@@ -442,33 +442,48 @@ export class GrowthBook<
   ): Promise<FeatureApiResponse> {
     data = { ...data };
     if (data.encryptedFeatures) {
-      data.features = JSON.parse(
-        await decrypt(
-          data.encryptedFeatures,
-          decryptionKey || this._ctx.decryptionKey,
-          subtle
-        )
-      );
+      try {
+        data.features = JSON.parse(
+          await decrypt(
+            data.encryptedFeatures,
+            decryptionKey || this._ctx.decryptionKey,
+            subtle
+          )
+        );
+      } catch (e) {
+        console.error(e);
+        data.features = {};
+      }
       delete data.encryptedFeatures;
     }
     if (data.encryptedExperiments) {
-      data.experiments = JSON.parse(
-        await decrypt(
-          data.encryptedExperiments,
-          decryptionKey || this._ctx.decryptionKey,
-          subtle
-        )
-      );
+      try {
+        data.experiments = JSON.parse(
+          await decrypt(
+            data.encryptedExperiments,
+            decryptionKey || this._ctx.decryptionKey,
+            subtle
+          )
+        );
+      } catch (e) {
+        console.error(e);
+        data.experiments = [];
+      }
       delete data.encryptedExperiments;
     }
     if (data.encryptedSavedGroups) {
-      data.savedGroups = JSON.parse(
-        await decrypt(
-          data.encryptedSavedGroups,
-          decryptionKey || this._ctx.decryptionKey,
-          subtle
-        )
-      );
+      try {
+        data.savedGroups = JSON.parse(
+          await decrypt(
+            data.encryptedSavedGroups,
+            decryptionKey || this._ctx.decryptionKey,
+            subtle
+          )
+        );
+      } catch (e) {
+        console.error(e);
+        data.savedGroups = {};
+      }
       delete data.encryptedSavedGroups;
     }
     return data;
