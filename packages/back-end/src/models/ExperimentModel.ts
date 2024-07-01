@@ -394,7 +394,7 @@ export async function createExperiment({
 
   await onExperimentCreate({
     context,
-    experiment: exp,
+    experiment: toInterface(exp),
   });
 
   if (data.tags) {
@@ -845,7 +845,7 @@ export async function deleteAllExperimentsForAProject({
   for (const experiment of experimentsToDelete) {
     await experiment.delete();
     VisualChangesetModel.deleteMany({ experiment: experiment.id });
-    await onExperimentDelete(context, experiment);
+    await onExperimentDelete(context, toInterface(experiment));
   }
 }
 
