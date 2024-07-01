@@ -814,7 +814,7 @@ export async function importConfig(
             };
             delete updates.organization;
 
-            await context.models.segments.updateById(k, updates);
+            await context.models.segments.update(existing, updates);
           } else {
             await context.models.segments.create({
               ...s,

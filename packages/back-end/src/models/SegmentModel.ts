@@ -45,8 +45,6 @@ export class SegmentModel extends BaseClass {
   public async getByDataSource(
     datasourceId: string
   ): Promise<SegmentInterface[]> {
-    const allSegments = await this.getAll();
-
-    return allSegments.filter((segment) => segment.datasource === datasourceId);
+    return await this._find({ datasource: datasourceId });
   }
 }

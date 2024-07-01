@@ -266,7 +266,7 @@ export const deleteSegment = async (
     throw new Error("Could not find segment");
   }
 
-  await context.models.segments.deleteById(id);
+  await context.models.segments.delete(segment);
 
   // delete references:
   // ideas:
