@@ -7,7 +7,7 @@ slug: build-your-own
 
 # Build Your Own SDK
 
-**Latest spec version: 0.6.0 [View Changelog](#changelog)**
+**Latest spec version: 0.7.0 [View Changelog](#changelog)**
 
 This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
 
@@ -1117,6 +1117,7 @@ The cases.json file is an object. The keys are the function being tested, and th
   - condition
   - attributes
   - expected return value (boolean)
+  - definitions for Saved Groups referenced in the test case (object of keys: ID of list -> values: array of members)
 - **hash**
   - seed (string)
   - value to hash (string)
@@ -1240,3 +1241,7 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
 - **v0.6.1** 2024-05-13
   - Update logic in `evalCondition` to allow for and/or/not/nor operators to appear at the same level as other conditions
   - Added test cases for multiple operators on the same level
+- **v0.7.0** 2024-06-25
+  - New Operators `$inGroup` and `$notInGroup` to check Saved Groups by reference
+  - Add argument to `evalCondition` for definition of Saved Groups
+  - Add test cases for `evalCondition`, `feature`, and `run` using the new operators
