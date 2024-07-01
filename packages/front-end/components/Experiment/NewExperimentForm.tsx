@@ -9,6 +9,7 @@ import { useRouter } from "next/router";
 import { getValidDate } from "shared/dates";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { OrganizationSettings } from "back-end/types/organization";
+import { GeneratedHypothesisInterface } from "back-end/types/generated-hypothesis";
 import {
   isProjectListValidForProject,
   validateAndFixCondition,
@@ -65,6 +66,7 @@ export type NewExperimentFormProps = {
   onCreate?: (id: string) => void;
   inline?: boolean;
   isNewExperiment?: boolean;
+  generatedHypothesis?: GeneratedHypothesisInterface;
 };
 
 function getDefaultVariations(num: number) {
@@ -129,6 +131,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   msg,
   inline,
   isNewExperiment,
+  generatedHypothesis,
 }) => {
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
@@ -185,7 +188,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         initialValue
       ),
       name: initialValue?.name || "",
-      hypothesis: initialValue?.hypothesis || "",
+      hypothesis: generatedHypothesis
+        ? generatedHypothesis.hypothesis
+        : initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
       hashVersion:
         initialValue?.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
@@ -196,11 +201,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       metrics: initialValue?.metrics || [],
       tags: initialValue?.tags || [],
       targetURLRegex: initialValue?.targetURLRegex || "",
-      description: initialValue?.description || "",
+      description: generatedHypothesis
+        ? "Experiment created with the Hypothesis Generator"
+        : initialValue?.description || "",
       guardrails: initialValue?.guardrails || [],
-      variations: initialValue?.variations
-        ? initialValue.variations
-        : getDefaultVariations(initialNumVariations),
+      variations:
+        initialValue?.variations && !generatedHypothesis
+          ? initialValue.variations
+          : getDefaultVariations(initialNumVariations),
       phases: [
         initialValue
           ? {
@@ -317,6 +325,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     });
     refreshWatching();
 
+    if (generatedHypothesis) {
+      await apiCall<{
+        experiment: ExperimentInterfaceStringDates;
+      }>("/link-generated-hypothesis", {
+        method: "POST",
+        body: JSON.stringify({
+          expId: res.experiment.id,
+          hypId: generatedHypothesis.id,
+        }),
+      });
+    }
+
     data.tags && refreshTags(data.tags);
     if (onCreate) {
       onCreate(res.experiment.id);
@@ -402,6 +422,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           <Field
             label="Hypothesis"
             textarea
+            readOnly={!!generatedHypothesis}
             minRows={2}
             maxRows={6}
             placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
@@ -579,6 +600,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 : "This is just for documentation purposes and has no effect on the analysis."
             }
             showPreview={!!isNewExperiment}
+            disableVariations={!!generatedHypothesis}
           />
         </div>
       </Page>

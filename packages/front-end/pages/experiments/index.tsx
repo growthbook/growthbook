@@ -6,6 +6,8 @@ import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
+import { useRouter } from "next/router";
+import { GeneratedHypothesisInterface } from "@back-end/types/generated-hypothesis";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
@@ -32,6 +34,8 @@ import { useWatching } from "@/services/WatchProvider";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import { useAuth } from "@/services/auth";
 
 const NUM_PER_PAGE = 20;
 
@@ -60,6 +64,38 @@ const ExperimentsPage = (): React.ReactElement => {
     false
   );
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
+
+  const router = useRouter();
+  const params = router.query;
+  const { apiCall } = useAuth();
+  const [
+    generatedHypothesis,
+    setGeneratedHypothesis,
+  ] = useState<GeneratedHypothesisInterface | null>(null);
+
+  useEffect(() => {
+    if (!params.hypId) return;
+    const load = async () => {
+      try {
+        const { generatedHypothesis } = await apiCall<{
+          generatedHypothesis: GeneratedHypothesisInterface;
+        }>(`/generated-hypothesis/${params.hypId}`);
+        if (generatedHypothesis.experiment) {
+          // route to existing experiment
+          router.replace(`/experiment/${generatedHypothesis.experiment}`);
+        } else {
+          setGeneratedHypothesis(generatedHypothesis);
+        }
+      } catch (e) {
+        console.error("Error loading generated hypothesis", {
+          hypId: params.hypId,
+          error: e,
+        });
+        setGeneratedHypothesis(null);
+      }
+    };
+    load();
+  }, [params.hypId]);
 
   const { getUserDisplay, userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -535,6 +571,14 @@ const ExperimentsPage = (): React.ReactElement => {
           )}
         </div>
       </div>
+      {generatedHypothesis && (
+        <NewExperimentForm
+          isNewExperiment
+          onClose={() => setGeneratedHypothesis(null)}
+          generatedHypothesis={generatedHypothesis}
+          source="experiment-list"
+        />
+      )}
       {openNewExperimentModal &&
         (growthbook?.isOn("new-experiment-modal") ? (
           <AddExperimentModal
