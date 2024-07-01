@@ -32,7 +32,7 @@ import {
   AutoMetricTrackedEvent,
 } from "../types/Integration";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
-import { getUserById } from "../services/users";
+import { getUserById } from "../models/UserModel";
 import { AuditUserLoggedIn } from "../../types/audit";
 
 /**

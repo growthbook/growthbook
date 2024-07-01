@@ -71,7 +71,10 @@ export async function getReportsByOrg(
   ).map((r) => toInterface(r));
   // filter by project assigned to the experiment:
   if (reports.length > 0 && project) {
-    const allExperiments = await getAllExperiments(context, project);
+    const allExperiments = await getAllExperiments(context, {
+      project,
+      includeArchived: true,
+    });
     const expIds = new Set(allExperiments.map((e) => e.id));
     reports = reports.filter(
       (r) => r.experimentId && expIds.has(r.experimentId)

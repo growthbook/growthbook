@@ -15,6 +15,11 @@ import {
 import { upgradeOrganizationDoc } from "../util/migrations";
 import { ApiOrganization } from "../../types/openapi";
 import { IS_CLOUD } from "../util/secrets";
+import {
+  ToInterface,
+  getCollection,
+  removeMongooseFields,
+} from "../util/mongo.util";
 
 const baseMemberFields = {
   _id: false,
@@ -129,16 +134,14 @@ const organizationSchema = new mongoose.Schema({
 
 organizationSchema.index({ "members.id": 1 });
 
-type OrganizationDocument = mongoose.Document & OrganizationInterface;
-
 const OrganizationModel = mongoose.model<OrganizationInterface>(
   "Organization",
   organizationSchema
 );
+const COLLECTION = "organizations";
 
-function toInterface(doc: OrganizationDocument): OrganizationInterface {
-  return upgradeOrganizationDoc(doc.toJSON());
-}
+const toInterface: ToInterface<OrganizationInterface> = (doc) =>
+  upgradeOrganizationDoc(removeMongooseFields(doc));
 
 export async function createOrganization({
   email,
@@ -239,7 +242,7 @@ export async function findAllOrganizations(
 }
 
 export async function findOrganizationById(id: string) {
-  const doc = await OrganizationModel.findOne({ id });
+  const doc = await getCollection(COLLECTION).findOne({ id });
   return doc ? toInterface(doc) : null;
 }
 
@@ -310,18 +313,20 @@ export async function getSelfHostedOrganization() {
 }
 
 export async function hasOrganization() {
-  const res = await OrganizationModel.findOne();
+  const res = await getCollection(COLLECTION).findOne();
   return !!res;
 }
 
 export async function findOrganizationsByMemberId(userId: string) {
-  const docs = await OrganizationModel.find({
-    members: {
-      $elemMatch: {
-        id: userId,
+  const docs = await getCollection(COLLECTION)
+    .find({
+      members: {
+        $elemMatch: {
+          id: userId,
+        },
       },
-    },
-  });
+    })
+    .toArray();
   return docs.map(toInterface);
 }
 

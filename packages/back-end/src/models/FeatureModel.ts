@@ -135,6 +135,7 @@ const featureSchema = new mongoose.Schema({
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
+featureSchema.index({ organization: 1, project: 1 });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
@@ -152,11 +153,17 @@ const toInterface = (doc: FeatureDocument): FeatureInterface =>
 
 export async function getAllFeatures(
   context: ReqContext | ApiReqContext,
-  project?: string
+  {
+    project,
+    includeArchived = false,
+  }: { project?: string; includeArchived?: boolean } = {}
 ): Promise<FeatureInterface[]> {
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
   if (project) {
     q.project = project;
+  }
+  if (!includeArchived) {
+    q.archived = { $ne: true };
   }
 
   const features = (await FeatureModel.find(q)).map((m) =>
@@ -171,9 +178,28 @@ export async function getAllFeatures(
 const _undefinedTypeGuard = (x: string[] | undefined): x is string[] =>
   typeof x !== "undefined";
 
-export async function getAllFeaturesWithLinkedExperiments(
+export async function hasArchivedFeatures(
   context: ReqContext | ApiReqContext,
   project?: string
+): Promise<boolean> {
+  const q: FilterQuery<FeatureDocument> = {
+    organization: context.org.id,
+    archived: true,
+  };
+  if (project) {
+    q.project = project;
+  }
+
+  const f = await FeatureModel.findOne(q);
+  return !!f;
+}
+
+export async function getAllFeaturesWithLinkedExperiments(
+  context: ReqContext | ApiReqContext,
+  {
+    project,
+    includeArchived = false,
+  }: { project?: string; includeArchived?: boolean } = {}
 ): Promise<{
   features: FeatureInterface[];
   experiments: ExperimentInterface[];
@@ -181,6 +207,9 @@ export async function getAllFeaturesWithLinkedExperiments(
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
   if (project) {
     q.project = project;
+  }
+  if (!includeArchived) {
+    q.archived = { $ne: true };
   }
 
   const allFeatures = await FeatureModel.find(q);

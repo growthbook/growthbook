@@ -7,7 +7,7 @@ import {
   deletePresentationById,
   getPresentationSnapshots,
 } from "../services/presentations";
-import { getContextFromReq, userHasAccess } from "../services/organizations";
+import { getContextFromReq } from "../services/organizations";
 import { ExperimentInterface } from "../../types/experiment";
 import { PresentationInterface } from "../../types/presentation";
 
@@ -30,18 +30,10 @@ export async function getPresentation(
 
   const pres = await getPresentationById(id);
 
-  if (!pres) {
-    res.status(403).json({
+  if (!pres || pres.organization !== context.org.id) {
+    res.status(404).json({
       status: 404,
       message: "Presentation not found",
-    });
-    return;
-  }
-
-  if (!(await userHasAccess(req, pres.organization))) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this presentation",
     });
     return;
   }
@@ -54,7 +46,7 @@ export async function getPresentation(
       .map((o) => o.id);
   }
 
-  const withSnapshots = await getPresentationSnapshots(context, expIds, req);
+  const withSnapshots = await getPresentationSnapshots(context, expIds);
 
   res.status(200).json({
     status: 200,
@@ -76,7 +68,7 @@ export async function getPresentationPreview(req: AuthRequest, res: Response) {
   }
   const expIdsArr = expIds.split(",");
 
-  const withSnapshots = await getPresentationSnapshots(context, expIdsArr, req);
+  const withSnapshots = await getPresentationSnapshots(context, expIdsArr);
 
   res.status(200).json({
     status: 200,
