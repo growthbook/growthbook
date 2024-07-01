@@ -49,28 +49,4 @@ export class SegmentModel extends BaseClass {
 
     return allSegments.filter((segment) => segment.datasource === datasourceId);
   }
-
-  protected async beforeCreate() {
-    if (this.useConfigFile()) {
-      throw new Error(
-        "Cannot create. Segments are being managed by config.yml"
-      );
-    }
-  }
-
-  protected async beforeUpdate() {
-    if (this.useConfigFile()) {
-      throw new Error(
-        "Cannot update. Segments are being managed by config.yml"
-      );
-    }
-  }
-
-  protected async beforeDelete() {
-    if (this.useConfigFile()) {
-      throw new Error(
-        "Cannot delete. Segments are being managed by config.yml"
-      );
-    }
-  }
 }

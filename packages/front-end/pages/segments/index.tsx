@@ -297,7 +297,7 @@ const SegmentPage: FC = () => {
                         />
                       </td>
                       {canStoreSegmentsInMongo ? (
-                        <td>{s.dateUpdated ? ago(s.dateUpdated) : ""}</td>
+                        <td>{ago(s.dateUpdated)}</td>
                       ) : null}
                       <td>
                         {permissionsUtil.canUpdateSegment() &&

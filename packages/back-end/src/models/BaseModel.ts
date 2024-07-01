@@ -198,7 +198,11 @@ export abstract class BaseModel<
     // Do nothing by default
   }
   protected async beforeCreate(doc: z.infer<T>, writeOptions?: WriteOptions) {
-    // Do nothing by default
+    if (this.useConfigFile()) {
+      throw new Error(
+        "Cannot create. Segments are being managed by config.yml"
+      );
+    }
   }
   protected async afterCreate(doc: z.infer<T>, writeOptions?: WriteOptions) {
     // Do nothing by default
@@ -209,7 +213,11 @@ export abstract class BaseModel<
     newDoc: z.infer<T>,
     writeOptions?: WriteOptions
   ) {
-    // Do nothing by default
+    if (this.useConfigFile()) {
+      throw new Error(
+        "Cannot update. Segments are being managed by config.yml"
+      );
+    }
   }
   protected async afterUpdate(
     existing: z.infer<T>,
@@ -220,7 +228,11 @@ export abstract class BaseModel<
     // Do nothing by default
   }
   protected async beforeDelete(doc: z.infer<T>, writeOptions?: WriteOptions) {
-    // Do nothing by default
+    if (this.useConfigFile()) {
+      throw new Error(
+        "Cannot delete. Segments are being managed by config.yml"
+      );
+    }
   }
   protected async afterDelete(doc: z.infer<T>, writeOptions?: WriteOptions) {
     // Do nothing by default

@@ -1,5 +1,4 @@
 import type { Response } from "express";
-import uniqid from "uniqid";
 import { FilterQuery } from "mongoose";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
@@ -154,7 +153,6 @@ export const postSegment = async (
     userIdType,
     name,
     sql,
-    id: uniqid("seg_"),
     description,
   });
 
