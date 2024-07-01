@@ -917,11 +917,13 @@ export function getApiFeatureObj({
   organization,
   groupMap,
   experimentMap,
+  revision,
 }: {
   feature: FeatureInterface;
   organization: OrganizationInterface;
   groupMap: GroupMap;
   experimentMap: Map<string, ExperimentInterface>;
+  revision: FeatureRevisionInterface | null;
 }): ApiFeature {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
@@ -958,7 +960,10 @@ export function getApiFeatureObj({
       featureEnvironments[env].definition = JSON.stringify(definition);
     }
   });
-
+  const publishedBy =
+    revision?.publishedBy?.type === "api_key"
+      ? "API"
+      : revision?.publishedBy?.name;
   const featureRecord: ApiFeature = {
     id: feature.id,
     description: feature.description || "",
@@ -972,9 +977,9 @@ export function getApiFeatureObj({
     tags: feature.tags || [],
     valueType: feature.valueType,
     revision: {
-      comment: "",
-      date: feature.dateCreated.toISOString(),
-      publishedBy: "",
+      comment: revision?.comment || "",
+      date: revision?.dateCreated.toISOString() || "",
+      publishedBy: publishedBy || "",
       version: feature.version,
     },
   };

@@ -17,6 +17,7 @@ import {
 import { auditDetailsCreate } from "../../services/audit";
 import { OrganizationInterface } from "../../../types/organization";
 import { getEnvironments } from "../../services/organizations";
+import { getRevision } from "../../models/FeatureRevisionModel";
 
 export type ApiFeatureEnvSettings = NonNullable<
   z.infer<typeof postFeatureValidator.bodySchema>["environments"]
@@ -149,6 +150,11 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       req.context,
       feature.id
     );
+    const revision = await getRevision(
+      feature.organization,
+      feature.id,
+      feature.version
+    );
 
     return {
       feature: getApiFeatureObj({
@@ -156,6 +162,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
         organization: req.organization,
         groupMap,
         experimentMap,
+        revision,
       }),
     };
   }
