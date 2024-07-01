@@ -452,7 +452,6 @@ export class GrowthBook<
         );
       } catch (e) {
         console.error(e);
-        data.features = {};
       }
       delete data.encryptedFeatures;
     }
@@ -467,7 +466,6 @@ export class GrowthBook<
         );
       } catch (e) {
         console.error(e);
-        data.experiments = [];
       }
       delete data.encryptedExperiments;
     }
@@ -482,7 +480,6 @@ export class GrowthBook<
         );
       } catch (e) {
         console.error(e);
-        data.savedGroups = {};
       }
       delete data.encryptedSavedGroups;
     }
