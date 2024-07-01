@@ -7,9 +7,17 @@
   "types": "dist/index.d.ts",
   "typings": "dist/index.d.ts",
   "exports": {
-    "require": "./dist/cjs/index.js",
-    "import": "./dist/esm/index.mjs",
-    "types": "./dist/index.d.ts"
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/esm/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
+    }
   },
   "files": [
     "dist",
