@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from dataclasses import field
-from typing import List, Literal, Optional
+from typing import Union, List, Literal, Optional, Sequence
 
 import numpy as np
 from pydantic.dataclasses import dataclass
@@ -13,7 +13,12 @@ from gbstats.messages import (
     NO_UNITS_IN_VARIATION_MESSAGE,
 )
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
-from gbstats.models.statistics import TestStatistic
+from gbstats.models.statistics import (
+    TestStatistic,
+    SampleMeanStatistic,
+    ProportionStatistic,
+    RatioStatistic,
+)
 from gbstats.frequentist.tests import frequentist_diff, frequentist_variance
 from gbstats.utils import truncated_normal_mean
 
@@ -36,6 +41,18 @@ class BayesianConfig(BaseConfig):
 @dataclass
 class EffectBayesianConfig(BayesianConfig):
     prior_effect: GaussianPrior = field(default_factory=GaussianPrior)
+
+
+@dataclass
+class BanditConfig(BayesianConfig):
+    top_two: bool = True
+    prior_distribution: GaussianPrior = field(default_factory=GaussianPrior)
+
+
+@dataclass
+class BanditWeights:
+    update_message: str
+    weights: List[float]
 
 
 # Results
@@ -223,3 +240,129 @@ class EffectBayesianABTest(BayesianABTest):
         risk_ctrl = float((1.0 - prob_ctrl_is_better) * mn_pos)
         risk_trt = -float(prob_ctrl_is_better * mn_neg)
         return [risk_ctrl, risk_trt]
+
+
+class Bandits(object):
+    def __init__(
+        self,
+        stats: Sequence[
+            Union[ProportionStatistic, SampleMeanStatistic, RatioStatistic]
+        ],
+        config: BanditConfig,
+    ):
+        self.stats = stats
+        self.config = config
+        self.n_variations = len(stats)
+
+    @property
+    def variation_means(self) -> np.ndarray:
+        return np.array([arm.mean for arm in self.stats])
+
+    @property
+    def variation_variances(self) -> np.ndarray:
+        return np.array([arm.variance for arm in self.stats])
+
+    @property
+    def variation_counts(self) -> np.ndarray:
+        return np.array([arm.n for arm in self.stats])
+
+    @property
+    def prior_precision(self) -> np.ndarray:
+        return np.full(
+            (self.n_variations,),
+            int(self.config.prior_distribution.proper)
+            / self.config.prior_distribution.variance,
+        )
+
+    @property
+    def data_precision(self) -> np.ndarray:
+        return np.array(
+            [
+                float(n) / v if v > 0 else 0
+                for n, v in zip(self.variation_counts, self.variation_variances)
+            ]
+        )
+
+    @property
+    def posterior_precision(self) -> np.ndarray:
+        return self.prior_precision + self.data_precision
+
+    @property
+    def posterior_variance(self) -> np.ndarray:
+        return 1 / self.posterior_precision
+
+    @property
+    def prior_mean(self) -> np.ndarray:
+        return np.full((self.n_variations,), self.config.prior_distribution.mean)
+
+    @property
+    def posterior_mean(self) -> np.ndarray:
+        return self.posterior_variance * (
+            self.prior_precision * self.prior_mean
+            + self.data_precision * self.variation_means
+        )
+
+    # number of Monte Carlo samples to perform when sampling to estimate weights for the SDK
+    @property
+    def n_samples(self):
+        return int(1e4)
+
+    # function that computes thompson sampling variation weights
+    def compute_variation_weights(self) -> BanditWeights:
+        min_n = 100
+        if any(self.variation_counts < min_n):
+            update_message = "some variation counts smaller than " + str(min_n)
+            p = np.full((self.n_variations,), 1 / self.n_variations).tolist()
+            return BanditWeights(update_message=update_message, weights=p)
+        y = np.random.multivariate_normal(
+            mean=self.posterior_mean,
+            cov=np.diag(self.posterior_variance),
+            size=self.n_samples,
+        )
+        row_maxes = np.max(y, axis=1)
+        p = np.mean((y == row_maxes[:, np.newaxis]), axis=0)
+        if self.config.top_two:
+            p = self.top_two_weights(p)
+        update_message = "successfully updated"
+        return BanditWeights(update_message=update_message, weights=p.tolist())
+
+    # function that takes weights for largest realization and turns into top two weights
+    @staticmethod
+    def top_two_weights(p) -> np.ndarray:
+        # normalize weights to be no smaller than 1e-5
+        p_star = np.array([max(x, 1e-5) for x in p])
+        p_star /= sum(p_star)
+        n_arms = len(p_star)
+        p_mat = np.repeat(np.expand_dims(p_star, axis=1), n_arms, axis=1)
+        p_mat_t = p_mat.T
+        probs = p_mat * p_mat_t / (1 - p_mat) + p_mat_t * p_mat / (1 - p_mat_t)
+        np.fill_diagonal(probs, 0)
+        return 0.5 * np.sum(probs, axis=1)
+
+    # given n_periods x n_variations arrays of counts and means, what is the reward?
+    @staticmethod
+    def reward(variation_counts, variation_means) -> float:
+        return np.sum(variation_counts * variation_means)
+
+    # given n_periods x n_variations arrays of counts and means, what is the additional reward compared to fixed weight balanced design?
+    @staticmethod
+    def additional_reward(variation_counts, variation_means) -> float:
+        # sample sizes per period
+        period_counts = np.expand_dims(np.sum(variation_counts, axis=1), axis=1)
+        n_variations = variation_counts.shape[1]
+        variation_counts_balanced = np.tile(
+            period_counts / n_variations, (1, n_variations)
+        )
+        counts_diff = variation_counts - variation_counts_balanced
+        return np.sum(counts_diff * variation_means)
+
+    # create config for AB testing from Thompson sampling prior
+    def compute_delta_config(self) -> EffectBayesianConfig:
+        prior_effect = GaussianPrior(
+            mean=0, variance=2 * self.config.prior_distribution.variance, proper=True
+        )
+        return EffectBayesianConfig(
+            prior_effect=prior_effect,
+            prior_type="absolute",
+            difference_type=self.config.difference_type,
+        )
