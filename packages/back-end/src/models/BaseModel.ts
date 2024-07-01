@@ -198,11 +198,7 @@ export abstract class BaseModel<
     // Do nothing by default
   }
   protected async beforeCreate(doc: z.infer<T>, writeOptions?: WriteOptions) {
-    if (this.useConfigFile()) {
-      throw new Error(
-        "Cannot create. Segments are being managed by config.yml"
-      );
-    }
+    // Do nothing by default
   }
   protected async afterCreate(doc: z.infer<T>, writeOptions?: WriteOptions) {
     // Do nothing by default
@@ -213,11 +209,7 @@ export abstract class BaseModel<
     newDoc: z.infer<T>,
     writeOptions?: WriteOptions
   ) {
-    if (this.useConfigFile()) {
-      throw new Error(
-        "Cannot update. Segments are being managed by config.yml"
-      );
-    }
+    // Do nothing by default
   }
   protected async afterUpdate(
     existing: z.infer<T>,
@@ -228,11 +220,7 @@ export abstract class BaseModel<
     // Do nothing by default
   }
   protected async beforeDelete(doc: z.infer<T>, writeOptions?: WriteOptions) {
-    if (this.useConfigFile()) {
-      throw new Error(
-        "Cannot delete. Segments are being managed by config.yml"
-      );
-    }
+    // Do nothing by default
   }
   protected async afterDelete(doc: z.infer<T>, writeOptions?: WriteOptions) {
     // Do nothing by default
@@ -469,6 +457,12 @@ export abstract class BaseModel<
     await this.validateProjectFields(doc);
     await this.customValidation(doc, writeOptions);
 
+    if (this.useConfigFile()) {
+      throw new Error(
+        `Cannot create - ${this.config.collectionName} are being managed by config.yml`
+      );
+    }
+
     await this.beforeCreate(doc, writeOptions);
 
     await this._dangerousGetCollection().insertOne(doc);
@@ -563,6 +557,12 @@ export abstract class BaseModel<
 
     await this.validateProjectFields(updates as Partial<z.infer<T>>);
 
+    if (this.useConfigFile()) {
+      throw new Error(
+        `Cannot update - ${this.config.collectionName} are being managed by config.yml`
+      );
+    }
+
     await this.beforeUpdate(doc, updates, newDoc, options?.writeOptions);
 
     await this.customValidation(newDoc, options?.writeOptions);
@@ -613,6 +613,12 @@ export abstract class BaseModel<
   protected async _deleteOne(doc: z.infer<T>, writeOptions?: WriteOptions) {
     if (!this.canDelete(doc)) {
       throw new Error("You do not have access to delete this resource");
+    }
+
+    if (this.useConfigFile()) {
+      throw new Error(
+        `Cannot delete - ${this.config.collectionName} are being managed by config.yml`
+      );
     }
     await this.beforeDelete(doc, writeOptions);
     await this._dangerousGetCollection().deleteOne({
