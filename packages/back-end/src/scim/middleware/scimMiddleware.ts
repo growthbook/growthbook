@@ -1,11 +1,10 @@
 import { Response, NextFunction } from "express";
-import { getAccountPlan } from "enterprise";
-import { AuthRequest } from "../../types/AuthRequest";
+import { orgHasPremiumFeature } from "enterprise";
 import { usingOpenId } from "../../services/auth";
-import { ScimError } from "../../../types/scim";
+import { BaseScimRequest, ScimError } from "../../../types/scim";
 
 export default function scimMiddleware(
-  req: AuthRequest,
+  req: BaseScimRequest,
   res: Response,
   next: NextFunction
 ): Response<ScimError> | undefined {
@@ -17,7 +16,9 @@ export default function scimMiddleware(
   }
 
   try {
-    req.checkPermissions("manageTeam");
+    if (!req.context.permissions.canManageTeam()) {
+      req.context.permissions.throwPermissionError();
+    }
   } catch (e) {
     return res.status(403).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
@@ -34,7 +35,7 @@ export default function scimMiddleware(
     });
   }
 
-  if (getAccountPlan(req.organization) !== "enterprise") {
+  if (!orgHasPremiumFeature(req.organization, "scim")) {
     return res.status(403).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       status: "403",

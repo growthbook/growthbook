@@ -1,32 +1,31 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "back-end/types/experiment";
 import { getScopedSettings } from "shared/settings";
 import { useMemo, useState } from "react";
-import {
-  MetricRegressionAdjustmentStatus,
-  ReportInterface,
-} from "back-end/types/report";
-import { DEFAULT_REGRESSION_ADJUSTMENT_ENABLED } from "shared/constants";
-import { MetricInterface } from "back-end/types/metric";
+import { ReportInterface } from "back-end/types/report";
 import uniq from "lodash/uniq";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { DifferenceType } from "back-end/types/stats";
+import { getAllMetricSettingsForSnapshot } from "shared/experiments";
+import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { getRegressionAdjustmentsForMetric } from "@/services/experiments";
 import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import { GBAddCircle } from "@/components/Icons";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
-import Results, { ResultsMetricFilters } from "../Results";
-import { StartExperimentBanner } from "../StartExperimentBanner";
-import AnalysisForm from "../AnalysisForm";
-import ExperimentReportsList from "../ExperimentReportsList";
-import { useSnapshot } from "../SnapshotProvider";
+import Results, { ResultsMetricFilters } from "@/components/Experiment/Results";
+import AnalysisForm from "@/components/Experiment/AnalysisForm";
+import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
-import { ExperimentTab, LinkedFeature } from ".";
+import { ExperimentTab } from ".";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -37,11 +36,19 @@ export interface Props {
   editPhases?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
   editTargeting?: (() => void) | null;
-  linkedFeatures: LinkedFeature[];
+  linkedFeatures: LinkedFeatureInfo[];
   setTab: (tab: ExperimentTab) => void;
   connections: SDKConnectionInterface[];
   isTabActive: boolean;
   safeToEdit: boolean;
+  baselineRow: number;
+  setBaselineRow: (b: number) => void;
+  differenceType: DifferenceType;
+  setDifferenceType: (d: DifferenceType) => void;
+  variationFilter: number[];
+  setVariationFilter: (v: number[]) => void;
+  metricFilter: ResultsMetricFilters;
+  setMetricFilter: (m: ResultsMetricFilters) => void;
 }
 
 export default function ResultsTab({
@@ -49,29 +56,23 @@ export default function ResultsTab({
   mutate,
   editMetrics,
   editResult,
-  newPhase,
   editPhases,
-  connections,
-  linkedFeatures,
   setTab,
-  visualChangesets,
-  editTargeting,
   isTabActive,
   safeToEdit,
+  baselineRow,
+  setBaselineRow,
+  differenceType,
+  setDifferenceType,
+  variationFilter,
+  setVariationFilter,
+  metricFilter,
+  setMetricFilter,
 }: Props) {
-  const [baselineRow, setBaselineRow] = useState<number>(0);
-  const [variationFilter, setVariationFilter] = useState<number[]>([]);
-  const [metricFilter, setMetricFilter] = useLocalStorage<ResultsMetricFilters>(
-    `experiment-page__${experiment.id}__metric_filter`,
-    {
-      tagOrder: [],
-      filterByTag: false,
-    }
-  );
-
   const {
     getDatasourceById,
     getExperimentMetricById,
+    getMetricById,
     getProjectById,
     metrics,
     datasources,
@@ -84,6 +85,7 @@ export default function ResultsTab({
   const router = useRouter();
 
   const { snapshot } = useSnapshot();
+  const permissionsUtil = usePermissionsUtil();
 
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
 
@@ -117,70 +119,30 @@ export default function ResultsTab({
       .filter((d) => d && typeof d === "string") as string[]
   );
   const denominatorMetrics = denominatorMetricIds
-    .map((m) => getExperimentMetricById(m as string))
-    .filter(Boolean) as MetricInterface[];
+    .map((m) => getMetricById(m as string))
+    .filter(isDefined);
 
   const orgSettings = useOrgSettings();
 
-  const [
+  const {
     regressionAdjustmentAvailable,
     regressionAdjustmentEnabled,
-    metricRegressionAdjustmentStatuses,
     regressionAdjustmentHasValidMetrics,
-  ] = useMemo(() => {
-    const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
-    let regressionAdjustmentAvailable = true;
-    let regressionAdjustmentEnabled = true;
-    let regressionAdjustmentHasValidMetrics = false;
-    for (const metric of allExperimentMetrics) {
-      if (!metric) continue;
-      const {
-        metricRegressionAdjustmentStatus,
-      } = getRegressionAdjustmentsForMetric({
-        metric: metric,
-        denominatorMetrics: denominatorMetrics,
-        experimentRegressionAdjustmentEnabled:
-          experiment.regressionAdjustmentEnabled ??
-          DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-        organizationSettings: orgSettings,
-        metricOverrides: experiment.metricOverrides,
-      });
-      if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {
-        regressionAdjustmentEnabled = true;
-        regressionAdjustmentHasValidMetrics = true;
-      }
-      metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
-    }
-    if (!experiment.regressionAdjustmentEnabled) {
-      regressionAdjustmentEnabled = false;
-    }
-    if (statsEngine === "bayesian") {
-      regressionAdjustmentAvailable = false;
-      regressionAdjustmentEnabled = false;
-    }
-    if (
-      !datasource?.type ||
-      datasource?.type === "google_analytics" ||
-      datasource?.type === "mixpanel"
-    ) {
-      // these do not implement getExperimentMetricQuery
-      regressionAdjustmentAvailable = false;
-      regressionAdjustmentEnabled = false;
-    }
-    if (!hasRegressionAdjustmentFeature) {
-      regressionAdjustmentEnabled = false;
-    }
-    return [
-      regressionAdjustmentAvailable,
-      regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatuses,
-      regressionAdjustmentHasValidMetrics,
-    ];
+  } = useMemo(() => {
+    return getAllMetricSettingsForSnapshot({
+      allExperimentMetrics,
+      denominatorMetrics,
+      orgSettings,
+      experimentRegressionAdjustmentEnabled:
+        experiment.regressionAdjustmentEnabled,
+      experimentMetricOverrides: experiment.metricOverrides,
+      datasourceType: datasource?.type,
+      hasRegressionAdjustmentFeature,
+    });
   }, [
     allExperimentMetrics,
     denominatorMetrics,
     orgSettings,
-    statsEngine,
     experiment.regressionAdjustmentEnabled,
     experiment.metricOverrides,
     datasource?.type,
@@ -216,14 +178,11 @@ export default function ResultsTab({
             experiment={experiment}
             mutate={mutate}
             statsEngine={statsEngine}
-            regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-            metricRegressionAdjustmentStatuses={
-              metricRegressionAdjustmentStatuses
-            }
             editMetrics={editMetrics ?? undefined}
             setVariationFilter={(v: number[]) => setVariationFilter(v)}
             baselineRow={baselineRow}
             setBaselineRow={(b: number) => setBaselineRow(b)}
+            setDifferenceType={setDifferenceType}
           />
           {experiment.status === "draft" ? (
             <div className="mx-3">
@@ -231,17 +190,6 @@ export default function ResultsTab({
                 Your experiment is still in a <strong>draft</strong> state. You
                 must start the experiment first before seeing results.
               </div>
-
-              <StartExperimentBanner
-                experiment={experiment}
-                mutateExperiment={mutate}
-                linkedFeatures={linkedFeatures}
-                visualChangesets={visualChangesets}
-                editTargeting={editTargeting}
-                connections={connections}
-                openSetupTab={() => setTab("overview")}
-                newPhase={newPhase}
-              />
             </div>
           ) : (
             <>
@@ -276,8 +224,8 @@ export default function ResultsTab({
                         metrics and stats engine to automatically analyze your
                         experiment results.
                       </p>
-                      <Link href="/datasources">
-                        <a className="btn btn-primary">Connect to your Data</a>
+                      <Link href="/datasources" className="btn btn-primary">
+                        Connect to your Data
                       </Link>
                     </>
                   )}
@@ -310,17 +258,17 @@ export default function ResultsTab({
                   regressionAdjustmentHasValidMetrics={
                     regressionAdjustmentHasValidMetrics
                   }
-                  metricRegressionAdjustmentStatuses={
-                    metricRegressionAdjustmentStatuses
-                  }
                   onRegressionAdjustmentChange={onRegressionAdjustmentChange}
                   isTabActive={isTabActive}
                   variationFilter={variationFilter}
                   setVariationFilter={setVariationFilter}
                   baselineRow={baselineRow}
                   setBaselineRow={setBaselineRow}
+                  differenceType={differenceType}
+                  setDifferenceType={setDifferenceType}
                   metricFilter={metricFilter}
                   setMetricFilter={setMetricFilter}
+                  setTab={setTab}
                 />
               )}
             </>
@@ -332,26 +280,28 @@ export default function ResultsTab({
           <div className="row mx-2 py-3 d-flex align-items-center">
             <div className="col h3 ml-2 mb-0">Custom Reports</div>
             <div className="col-auto mr-2">
-              <Button
-                className="btn btn-outline-primary float-right"
-                color="outline-info"
-                stopPropagation={true}
-                onClick={async () => {
-                  const res = await apiCall<{ report: ReportInterface }>(
-                    `/experiments/report/${snapshot.id}`,
-                    {
-                      method: "POST",
+              {permissionsUtil.canCreateReport(experiment) ? (
+                <Button
+                  className="btn btn-outline-primary float-right"
+                  color="outline-info"
+                  stopPropagation={true}
+                  onClick={async () => {
+                    const res = await apiCall<{ report: ReportInterface }>(
+                      `/experiments/report/${snapshot.id}`,
+                      {
+                        method: "POST",
+                      }
+                    );
+                    if (!res.report) {
+                      throw new Error("Failed to create report");
                     }
-                  );
-                  if (!res.report) {
-                    throw new Error("Failed to create report");
-                  }
-                  await router.push(`/report/${res.report.id}`);
-                }}
-              >
-                <GBAddCircle className="pr-1" />
-                Custom Report
-              </Button>
+                    await router.push(`/report/${res.report.id}`);
+                  }}
+                >
+                  <GBAddCircle className="pr-1" />
+                  Custom Report
+                </Button>
+              ) : null}
             </div>
           </div>
           <ExperimentReportsList experiment={experiment} />

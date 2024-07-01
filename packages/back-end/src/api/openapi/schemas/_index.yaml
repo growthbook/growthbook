@@ -6,6 +6,8 @@ Metric:
   $ref: "./Metric.yaml"
 Project:
   $ref: "./Project.yaml"
+Environment:
+  $ref: "./Environment.yaml"
 Segment:
   $ref: "./Segment.yaml"
 Feature:
@@ -44,3 +46,9 @@ SavedGroup:
   $ref: "./SavedGroup.yaml"
 Organization:
   $ref: "./Organization.yaml"
+FactTable:
+  $ref: "./FactTable.yaml"
+FactTableFilter:
+  $ref: "./FactTableFilter.yaml"
+FactMetric:
+  $ref: "./FactMetric.yaml"

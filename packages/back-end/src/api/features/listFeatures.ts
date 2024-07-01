@@ -7,13 +7,13 @@ import { listFeaturesValidator } from "../../validators/openapi";
 
 export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
   async (req): Promise<ListFeaturesResponse> => {
-    const features = await getAllFeatures(
-      req.organization.id,
-      req.query.projectId
-    );
+    const features = await getAllFeatures(req.context, {
+      project: req.query.projectId,
+      includeArchived: true,
+    });
     const groupMap = await getSavedGroupMap(req.organization);
     const experimentMap = await getAllPayloadExperiments(
-      req.organization.id,
+      req.context,
       req.query.projectId
     );
 

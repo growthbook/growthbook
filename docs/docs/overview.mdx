@@ -13,7 +13,7 @@ GrowthBook is a modular platform. You can use it for either Feature Flags, Exper
 
 [**Feature Flags**](/app/features) you create in the GrowthBook UI are published to our API as a JSON file. Pass this JSON into our SDKs and use the feature flags throughout your code. If a feature is running as part of an A/B test, we'll fire a tracking callback in the SDK so you can record that event in your data warehouse or analytics platform for later analysis.
 
-[**Experiment Analysis**](/app/experiments) queries your data warehouse for raw experiment data and runs it through our stats engine to produce a report. No raw user-level events or PII are ever sent to GrowthBook. We only get back aggregate info instead (sums, sums of squares, etc.).
+[**Experiment Analysis**](/app/experiment-configuration) queries your data warehouse for raw experiment data and runs it through our stats engine to produce a report. No raw user-level events or PII are ever sent to GrowthBook. We only get back aggregate info instead (sums, sums of squares, etc.).
 
 <div style={{textAlign: 'center'}}>
 
@@ -52,7 +52,7 @@ You can also change the value of a feature with **Override Rules**. The followin
 - **Percentage Rollout** - Use random sampling to roll out a new feature value to a percent of users
 - **A/B Experiment** - Run a controlled A/B test between 2 or more feature values
 
-All features for an environment are packaged together into a single JSON file. All you need to do is pass this into our [SDKs](/lib) along with [user targeting attributes](/app/features#targeting-attributes).
+All features for an environment are packaged together into a single JSON file. All you need to do is pass this into our [SDKs](/lib) along with [user targeting attributes](/features/targeting).
 
 Read more about [features here](/app/features).
 

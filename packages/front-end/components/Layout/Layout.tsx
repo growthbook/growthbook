@@ -11,17 +11,22 @@ import {
 import { FaArrowRight } from "react-icons/fa";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
-import useOrgSettings from "../../hooks/useOrgSettings";
-import { GBDatabase, GBExperiment, GBPremiumBadge, GBSettings } from "../Icons";
-import { inferDocUrl } from "../DocLink";
-import UpgradeModal from "../Settings/UpgradeModal";
+import useStripeSubscription from "@/hooks/useStripeSubscription";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import {
+  GBDatabase,
+  GBExperiment,
+  GBPremiumBadge,
+  GBSettings,
+} from "@/components/Icons";
+import { inferDocUrl } from "@/components/DocLink";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";
 import styles from "./Layout.module.scss";
 import { usePageHead } from "./PageHead";
 
-// move experiments inside of 'analysis' menu
 const navlinks: SidebarLinkProps[] = [
   {
     name: "Get Started",
@@ -59,7 +64,6 @@ const navlinks: SidebarLinkProps[] = [
         href: "/fact-tables",
         path: /^fact-tables/,
         beta: true,
-        feature: "fact-tables",
       },
       {
         name: "Segments",
@@ -142,87 +146,108 @@ const navlinks: SidebarLinkProps[] = [
     Icon: GBSettings,
     path: /^(settings|admin|projects|integrations)/,
     autoClose: true,
-    permissions: [
-      "organizationSettings",
-      "manageTeam",
-      "manageTags",
-      "manageApiKeys",
-      "manageBilling",
-      "manageWebhooks",
-    ],
     subLinks: [
       {
         name: "General",
         href: "/settings",
         path: /^settings$/,
-        permissions: ["organizationSettings"],
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canManageOrgSettings(),
       },
       {
-        name: "Team",
+        name: "Members",
         href: "/settings/team",
         path: /^settings\/team/,
-        permissions: ["manageTeam"],
+        filter: ({ permissionsUtils }) => permissionsUtils.canManageTeam(),
       },
       {
         name: "Tags",
         href: "/settings/tags",
         path: /^settings\/tags/,
-        permissions: ["manageTags"],
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canCreateAndUpdateTag() ||
+          permissionsUtils.canDeleteTag(),
       },
       {
         name: "Projects",
         href: "/projects",
         path: /^project/,
-        permissions: ["manageProjects"],
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canManageSomeProjects(),
       },
       {
         name: "API Keys",
         href: "/settings/keys",
         path: /^settings\/keys/,
-        permissions: ["manageApiKeys"],
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canCreateApiKey() ||
+          permissionsUtils.canDeleteApiKey(),
       },
       {
         name: "Webhooks",
         href: "/settings/webhooks",
         path: /^settings\/webhooks/,
-        permissions: ["manageWebhooks"],
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canViewEventWebhook(),
       },
       {
         name: "Logs",
         href: "/events",
         path: /^events/,
-        permissions: ["viewEvents"],
+        filter: ({ permissionsUtils }) => permissionsUtils.canViewAuditLogs(),
       },
       {
         name: "Slack",
         href: "/integrations/slack",
         path: /^integrations\/slack/,
-        feature: "slack-integration",
-        permissions: ["manageIntegrations"],
+        filter: ({ permissionsUtils, gb }) =>
+          permissionsUtils.canManageIntegrations() &&
+          !!gb?.isOn("slack-integration"),
+      },
+      {
+        name: "GitHub",
+        href: "/integrations/github",
+        path: /^integrations\/github/,
+        filter: ({ permissionsUtils, gb }) =>
+          permissionsUtils.canManageIntegrations() &&
+          !!gb?.isOn("github-integration"),
       },
       {
         name: "Import your data",
         href: "/importing",
         path: /^importing/,
-        feature: "import-from-x",
-        permissions: ["manageFeatures", "manageEnvironments", "manageProjects"],
+        filter: ({ permissionsUtils, gb }) =>
+          permissionsUtils.canViewFeatureModal() &&
+          permissionsUtils.canCreateOrUpdateEnvironment({
+            projects: [],
+            id: "",
+          }) &&
+          permissionsUtils.canCreateProjects() &&
+          !!gb?.isOn("import-from-x"),
       },
       {
         name: "Billing",
         href: "/settings/billing",
         path: /^settings\/billing/,
-        cloudOnly: true,
-        permissions: ["manageBilling"],
+        filter: ({ permissionsUtils }) => permissionsUtils.canManageBilling(),
       },
       {
         name: "Admin",
         href: "/admin",
         path: /^admin/,
-        multiOrgOnly: true,
         divider: true,
-        superAdmin: true,
+        filter: ({ superAdmin, isMultiOrg }) => superAdmin && isMultiOrg,
       },
     ],
+  },
+];
+
+const breadcumbLinks = [
+  ...navlinks,
+  {
+    name: "Power Calculator",
+    path: /^power-calculator/,
+    subLinks: [] as SidebarLinkProps[],
   },
 ];
 
@@ -234,10 +259,6 @@ const otherPageTitles = [
   {
     path: /^activity/,
     title: "Activity Feed",
-  },
-  {
-    path: /^experiments\/designer/,
-    title: "Visual Experiment Designer",
   },
   {
     path: /^integrations\/vercel/,
@@ -276,13 +297,17 @@ const backgroundShade = (color: string) => {
 const Layout = (): React.ReactElement => {
   const [open, setOpen] = useState(false);
   const settings = useOrgSettings();
-  const { accountPlan } = useUser();
+  const { accountPlan, license } = useUser();
+  const { hasPaymentMethod } = useStripeSubscription();
 
   const { breadcrumb } = usePageHead();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  const showUpgradeButton = ["oss", "starter"].includes(accountPlan);
+  const showUpgradeButton =
+    ["oss", "starter"].includes(accountPlan || "") ||
+    (license?.isTrial && !hasPaymentMethod) ||
+    (["pro", "pro_sso"].includes(accountPlan || "") &&
+      license?.stripeSubscription?.status === "canceled");
 
   // hacky:
   const router = useRouter();
@@ -301,7 +326,7 @@ const Layout = (): React.ReactElement => {
       pageTitle = o.title;
     }
   });
-  navlinks.forEach((o) => {
+  breadcumbLinks.forEach((o) => {
     if (o.subLinks) {
       o.subLinks.forEach((s) => {
         if (!pageTitle && s.path.test(path)) {
@@ -356,38 +381,37 @@ const Layout = (): React.ReactElement => {
         <div className="">
           <div className="app-sidebar-header">
             <div className="app-sidebar-logo">
-              <Link href="/">
-                <a
-                  aria-current="page"
-                  className="app-sidebar-logo active"
-                  title="GrowthBook Home"
-                  onClick={() => setOpen(false)}
-                >
-                  <div className={styles.sidebarlogo}>
-                    {settings?.customized && settings?.logoPath ? (
-                      <>
-                        <img
-                          className={styles.userlogo}
-                          alt="GrowthBook"
-                          src={settings.logoPath}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <img
-                          className={styles.logo}
-                          alt="GrowthBook"
-                          src="/logo/growth-book-logomark-white.svg"
-                        />
-                        <img
-                          className={styles.logotext}
-                          alt="GrowthBook"
-                          src="/logo/growth-book-name-white.svg"
-                        />
-                      </>
-                    )}
-                  </div>
-                </a>
+              <Link
+                href="/"
+                aria-current="page"
+                className="app-sidebar-logo active"
+                title="GrowthBook Home"
+                onClick={() => setOpen(false)}
+              >
+                <div className={styles.sidebarlogo}>
+                  {settings?.customized && settings?.logoPath ? (
+                    <>
+                      <img
+                        className={styles.userlogo}
+                        alt="GrowthBook"
+                        src={settings.logoPath}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <img
+                        className={styles.logo}
+                        alt="GrowthBook"
+                        src="/logo/growth-book-logomark-white.svg"
+                      />
+                      <img
+                        className={styles.logotext}
+                        alt="GrowthBook"
+                        src="/logo/growth-book-name-white.svg"
+                      />
+                    </>
+                  )}
+                </div>
               </Link>
             </div>
             <div className={styles.mainmenu}>
@@ -439,15 +463,9 @@ const Layout = (): React.ReactElement => {
               className="btn btn-premium btn-block font-weight-normal"
               onClick={() => setUpgradeModal(true)}
             >
-              {accountPlan === "oss" ? (
-                <>
-                  Try Enterprise <GBPremiumBadge />
-                </>
-              ) : (
-                <>
-                  Try Pro <GBPremiumBadge />
-                </>
-              )}
+              <>
+                Upgrade <GBPremiumBadge />
+              </>
             </button>
           )}
           <a

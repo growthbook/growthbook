@@ -7,9 +7,7 @@ import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Snowflake extends SqlIntegration {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  params: SnowflakeConnectionParams;
+  params!: SnowflakeConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<SnowflakeConnectionParams>(
@@ -20,7 +18,9 @@ export default class Snowflake extends SqlIntegration {
     return true;
   }
   createUnitsTableOptions() {
-    return snowflakeCreateTableOptions(this.settings.pipelineSettings ?? {});
+    return snowflakeCreateTableOptions(
+      this.datasource.settings.pipelineSettings ?? {}
+    );
   }
   getFormatDialect(): FormatDialect {
     return "snowflake";

@@ -1,14 +1,16 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { StatsEngine } from "back-end/types/stats";
-import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
-import { getValidDate, ago } from "shared/dates";
-import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import { DifferenceType, StatsEngine } from "back-end/types/stats";
+import { getValidDate, ago, relativeDate } from "shared/dates";
+import {
+  DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { ExperimentSnapshotInterface } from "@/../back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "@back-end/types/experiment-snapshot";
+import { MetricSnapshotSettings } from "@back-end/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -20,6 +22,8 @@ import StatusBanner from "@/components/Experiment/StatusBanner";
 import { GBCuped, GBSequential } from "@/components/Icons";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { ExperimentTab } from "./TabbedPage";
 
 const BreakDownResults = dynamic(
   () => import("@/components/Experiment/BreakDownResults")
@@ -41,15 +45,17 @@ const Results: FC<{
   regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
   regressionAdjustmentHasValidMetrics?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
-  onRegressionAdjustmentChange?: (enabled: boolean) => void;
+  onRegressionAdjustmentChange?: (enabled: boolean) => Promise<void>;
   variationFilter?: number[];
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
+  differenceType?: DifferenceType;
+  setDifferenceType?: (differenceType: DifferenceType) => void;
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (metricFilter: ResultsMetricFilters) => void;
   isTabActive?: boolean;
+  setTab?: (tab: ExperimentTab) => void;
 }> = ({
   experiment,
   mutateExperiment,
@@ -63,15 +69,17 @@ const Results: FC<{
   regressionAdjustmentAvailable = false,
   regressionAdjustmentEnabled = false,
   regressionAdjustmentHasValidMetrics = false,
-  metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
   variationFilter,
   setVariationFilter,
   baselineRow,
   setBaselineRow,
+  differenceType,
+  setDifferenceType,
   metricFilter,
   setMetricFilter,
   isTabActive = true,
+  setTab,
 }) => {
   const { apiCall } = useAuth();
 
@@ -98,7 +106,7 @@ const Results: FC<{
     setPhase(experiment.phases.length - 1);
   }, [experiment.phases.length, setPhase]);
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
 
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
@@ -120,14 +128,21 @@ const Results: FC<{
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
   });
-  const snapshotMetricRegressionAdjustmentStatuses =
+  const settingsForSnapshotMetrics: MetricSnapshotSettings[] =
     snapshot?.settings?.metricSettings?.map((m) => ({
       metric: m.id,
-      reason: m.computedSettings?.regressionAdjustmentReason || "",
+      properPrior: m.computedSettings?.properPrior ?? false,
+      properPriorMean: m.computedSettings?.properPriorMean ?? 0,
+      properPriorStdDev:
+        m.computedSettings?.properPriorStdDev ?? DEFAULT_PROPER_PRIOR_STDDEV,
+      regressionAdjustmentReason:
+        m.computedSettings?.regressionAdjustmentReason || "",
       regressionAdjustmentDays:
         m.computedSettings?.regressionAdjustmentDays || 0,
       regressionAdjustmentEnabled: !!m.computedSettings
         ?.regressionAdjustmentEnabled,
+      regressionAdjustmentAvailable: !!m.computedSettings
+        ?.regressionAdjustmentAvailable,
     })) || [];
 
   const showCompactResults =
@@ -160,6 +175,8 @@ const Results: FC<{
     return <div className="alert alert-danger m-3">{error.message}</div>;
   }
 
+  const datasource = getDatasourceById(experiment.datasource);
+
   return (
     <>
       {!draftMode ? (
@@ -170,22 +187,19 @@ const Results: FC<{
           variations={variations}
           editPhases={editPhases}
           alwaysShowPhaseSelector={alwaysShowPhaseSelector}
-          statsEngine={statsEngine}
           regressionAdjustmentAvailable={regressionAdjustmentAvailable}
           regressionAdjustmentEnabled={regressionAdjustmentEnabled}
           regressionAdjustmentHasValidMetrics={
             regressionAdjustmentHasValidMetrics
           }
-          metricRegressionAdjustmentStatuses={
-            metricRegressionAdjustmentStatuses
-          }
           onRegressionAdjustmentChange={onRegressionAdjustmentChange}
-          newUi={true}
           showMoreMenu={false}
           variationFilter={variationFilter}
           setVariationFilter={(v: number[]) => setVariationFilter?.(v)}
           baselineRow={baselineRow}
           setBaselineRow={(b: number) => setBaselineRow?.(b)}
+          differenceType={differenceType}
+          setDifferenceType={setDifferenceType}
         />
       ) : (
         <StatusBanner
@@ -224,11 +238,16 @@ const Results: FC<{
               "Make sure your experiment is tracking properly."}
             {snapshot &&
               phaseAgeMinutes < 120 &&
-              "It was just started " +
-                ago(experiment.phases[phase]?.dateStarted ?? "") +
-                ". Give it a little longer and click the 'Update' button above to check again."}
+              (phaseAgeMinutes < 0
+                ? "This experiment will start " +
+                  relativeDate(experiment.phases[phase]?.dateStarted ?? "") +
+                  ". Wait until it's been running for a little while and click the 'Update' button above to check again."
+                : "It was just started " +
+                  ago(experiment.phases[phase]?.dateStarted ?? "") +
+                  ". Give it a little longer and click the 'Update' button above to check again.")}
             {!snapshot &&
-              permissions.check("runQueries", experiment.project) &&
+              datasource &&
+              permissionsUtil.canRunExperimentQueries(datasource) &&
               `Click the "Update" button above.`}
             {snapshotLoading && <div> Snapshot loading...</div>}
           </div>
@@ -236,6 +255,7 @@ const Results: FC<{
 
       {snapshot && !snapshot.dimension && (
         <VariationIdWarning
+          datasource={datasource}
           unknownVariations={snapshot.unknownVariations || []}
           isUpdating={status === "running"}
           results={analysis?.results?.[0]}
@@ -290,6 +310,7 @@ const Results: FC<{
           seriestype={snapshot.dimension ?? ""}
           variations={variations}
           statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
+          differenceType={analysis.settings?.differenceType}
         />
       ) : showBreakDownResults ? (
         <BreakDownResults
@@ -311,10 +332,9 @@ const Results: FC<{
           statsEngine={analysis.settings.statsEngine}
           pValueCorrection={pValueCorrection}
           regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
-          metricRegressionAdjustmentStatuses={
-            snapshotMetricRegressionAdjustmentStatuses
-          }
+          settingsForSnapshotMetrics={settingsForSnapshotMetrics}
           sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
+          differenceType={analysis.settings?.differenceType}
           metricFilter={metricFilter}
           setMetricFilter={setMetricFilter}
         />
@@ -348,13 +368,13 @@ const Results: FC<{
             statsEngine={analysis.settings.statsEngine}
             pValueCorrection={pValueCorrection}
             regressionAdjustmentEnabled={analysis.settings?.regressionAdjusted}
-            metricRegressionAdjustmentStatuses={
-              snapshotMetricRegressionAdjustmentStatuses
-            }
+            settingsForSnapshotMetrics={settingsForSnapshotMetrics}
             sequentialTestingEnabled={analysis.settings?.sequentialTesting}
+            differenceType={analysis.settings?.differenceType}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
             isTabActive={isTabActive}
+            setTab={setTab}
           />
         </>
       ) : null}
@@ -373,29 +393,27 @@ const Results: FC<{
                   : "Bayesian"}
               </span>
             </div>
+            <div>
+              <span className="text-muted">
+                <GBCuped size={13} /> CUPED:
+              </span>{" "}
+              <span>
+                {analysis?.settings?.regressionAdjusted
+                  ? "Enabled"
+                  : "Disabled"}
+              </span>
+            </div>
             {analysis?.settings?.statsEngine === "frequentist" && (
-              <>
-                <div>
-                  <span className="text-muted">
-                    <GBCuped size={13} /> CUPED:
-                  </span>{" "}
-                  <span>
-                    {analysis?.settings?.regressionAdjusted
-                      ? "Enabled"
-                      : "Disabled"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted">
-                    <GBSequential size={13} /> Sequential:
-                  </span>{" "}
-                  <span>
-                    {analysis?.settings?.sequentialTesting
-                      ? "Enabled"
-                      : "Disabled"}
-                  </span>
-                </div>
-              </>
+              <div>
+                <span className="text-muted">
+                  <GBSequential size={13} /> Sequential:
+                </span>{" "}
+                <span>
+                  {analysis?.settings?.sequentialTesting
+                    ? "Enabled"
+                    : "Disabled"}
+                </span>
+              </div>
             )}
             <div>
               <span className="text-muted">Run date:</span>{" "}

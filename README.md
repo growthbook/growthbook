@@ -79,3 +79,5 @@ If you want to, you can reach out via [Slack](https://slack.growthbook.io?ref=re
 GrowthBook is an Open Core product. The bulk of the code is under the permissive MIT license, and the `packages/enterprise` directory has its own separate commercial license.
 
 View the `LICENSE` file in this repository for the full text and details.
+
+![GrowthBook Repository Stats](https://repobeats.axiom.co/api/embed/13ffc63ec5ce7fe45efa95dd326d9185517f0a15.svg "GrowthBook Repository Stats")

@@ -1,4 +1,4 @@
-import type { DataSourcePipelineSettings } from "../../back-end/types/datasource";
+import type { DataSourcePipelineSettings } from "back-end/types/datasource";
 
 const UNITS_TABLE_RETENTION_HOURS_DEFAULT = 24;
 
@@ -14,6 +14,17 @@ export function bigQueryCreateTableOptions(
           } HOUR
         )
       )`;
+}
+
+export function databricksCreateTableOptions(
+  settings: DataSourcePipelineSettings
+) {
+  return `OPTIONS(
+        delta.deletedFileRetentionDuration='INTERVAL ${
+          settings.unitsTableRetentionHours ??
+          UNITS_TABLE_RETENTION_HOURS_DEFAULT
+        } HOURS'
+          )`;
 }
 
 export function snowflakeCreateTableOptions(

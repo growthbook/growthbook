@@ -1,8 +1,12 @@
 import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
+import { filterEnvironmentsByFeature } from "shared/util";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse, PrivateApiErrorResponse } from "../../../types/api";
-import { getOrgFromReq } from "../../services/organizations";
+import {
+  getEnvironments,
+  getContextFromReq,
+} from "../../services/organizations";
 import {
   ArchetypeAttributeValues,
   ArchetypeInterface,
@@ -20,30 +24,21 @@ import {
   auditDetailsUpdate,
 } from "../../services/audit";
 import { FeatureTestResult } from "../../../types/feature";
-import { evaluateFeature } from "../../services/features";
+import { evaluateFeature, getSavedGroupMap } from "../../services/features";
 import { getFeature } from "../../models/FeatureModel";
-import { promiseAllChunks } from "../../util/promise";
-
-// region GET /sample-users
+import { getAllPayloadExperiments } from "../../models/ExperimentModel";
+import { getRevision } from "../../models/FeatureRevisionModel";
 
 type GetArchetypeResponse = {
   status: 200;
   archetype: ArchetypeInterface[];
 };
 
-/**
- * GET /sample-users
- * Create a sample user
- * @param req
- * @param res
- */
 export const getArchetype = async (
   req: AuthRequest,
   res: Response<GetArchetypeResponse>
 ) => {
-  const { org, userId } = getOrgFromReq(req);
-
-  req.checkPermissions("manageArchetype");
+  const { org, userId } = getContextFromReq(req);
 
   const archetype = await getAllArchetypes(org.id, userId);
 
@@ -52,10 +47,6 @@ export const getArchetype = async (
     archetype,
   });
 };
-
-// endregion GET /sample-users
-
-// region GET /sample-users/eval/:id
 
 type GetArchetypeAndEvalResponse = {
   status: 200;
@@ -65,23 +56,34 @@ type GetArchetypeAndEvalResponse = {
     | Record<string, never>;
 };
 
-/**
- * GET /sample-users/eval/:id
- * Get sample users and eval for a given feature
- * @param req
- * @param res
- */
 export const getArchetypeAndEval = async (
-  req: AuthRequest<null, { id: string }>,
+  req: AuthRequest<
+    null,
+    { id: string; version: string },
+    {
+      scrubPrerequisites?: string;
+      skipRulesWithPrerequisites?: string;
+    }
+  >,
   res: Response<GetArchetypeAndEvalResponse | PrivateApiErrorResponse>
 ) => {
-  const { org, userId } = getOrgFromReq(req);
-  const { id } = req.params;
-  const feature = await getFeature(org.id, id);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
+  const { id, version } = req.params;
+  const {
+    scrubPrerequisites: scrubPrerequisitesStr,
+    skipRulesWithPrerequisites: skipRulesWithPrerequisitesStr,
+  } = req.query;
+  const feature = await getFeature(context, id);
 
-  if (!feature) {
-    throw new Error("Feature not found");
-  }
+  const scrubPrerequisites =
+    scrubPrerequisitesStr === undefined
+      ? undefined
+      : ["1", "true"].includes(scrubPrerequisitesStr ?? "");
+  const skipRulesWithPrerequisites =
+    skipRulesWithPrerequisitesStr === undefined
+      ? undefined
+      : ["1", "true"].includes(skipRulesWithPrerequisitesStr ?? "");
 
   if (!orgHasPremiumFeature(org, "archetypes")) {
     return res.status(403).json({
@@ -90,26 +92,46 @@ export const getArchetypeAndEval = async (
     });
   }
 
-  req.checkPermissions("manageArchetype");
+  if (!feature) {
+    throw new Error("Feature not found");
+  }
+
+  const revision = await getRevision(org.id, feature.id, parseInt(version));
+  if (!revision) {
+    throw new Error("Could not find feature revision");
+  }
 
   const archetype = await getAllArchetypes(org.id, userId);
   const featureResults: { [key: string]: FeatureTestResult[] } = {};
 
   if (archetype.length) {
-    const promiseCallbacks: (() => Promise<unknown>)[] = [];
+    const groupMap = await getSavedGroupMap(org);
+    const experimentMap = await getAllPayloadExperiments(context);
+    const allEnvironments = getEnvironments(org);
+    const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+
     archetype.forEach((arch) => {
       try {
-        const attrs = JSON.parse(arch.attributes) as ArchetypeAttributeValues;
-        promiseCallbacks.push(async () => {
-          const result = await evaluateFeature(feature, attrs, org);
-          if (!result) return;
-          featureResults[arch.id] = result;
+        const attributes = JSON.parse(
+          arch.attributes
+        ) as ArchetypeAttributeValues;
+        const result = evaluateFeature({
+          feature,
+          attributes,
+          environments,
+          experimentMap,
+          groupMap,
+          revision,
+          scrubPrerequisites,
+          skipRulesWithPrerequisites,
         });
+
+        if (!result) return;
+        featureResults[arch.id] = result;
       } catch (e) {
         // not sure what we should do with a json error - should be impossible to get here.
       }
     });
-    await promiseAllChunks(promiseCallbacks, 5);
   }
 
   return res.status(200).json({
@@ -118,9 +140,6 @@ export const getArchetypeAndEval = async (
     featureResults,
   });
 };
-// endregion GET /sample-users/eval/:id
-
-// region POST /sample-users
 
 type CreateArchetypeRequest = AuthRequest<{
   name: string;
@@ -135,17 +154,12 @@ type CreateArchetypeResponse = {
   archetype: ArchetypeInterface;
 };
 
-/**
- * POST /sample-users
- * Create a sample user
- * @param req
- * @param res
- */
 export const postArchetype = async (
   req: CreateArchetypeRequest,
   res: Response<CreateArchetypeResponse | PrivateApiErrorResponse>
 ) => {
-  const { org, userId } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   const { name, attributes, description, isPublic } = req.body;
 
   if (!orgHasPremiumFeature(org, "archetypes")) {
@@ -155,7 +169,9 @@ export const postArchetype = async (
     });
   }
 
-  req.checkPermissions("manageArchetype");
+  if (!context.permissions.canCreateArchetype()) {
+    context.permissions.throwPermissionError();
+  }
 
   const archetype = await createArchetype({
     attributes,
@@ -182,10 +198,6 @@ export const postArchetype = async (
   });
 };
 
-// endregion POST /sample-users
-
-// region PUT /sample-users/:id
-
 type PutArchetypeRequest = AuthRequest<
   {
     name: string;
@@ -201,19 +213,14 @@ type PutArchetypeResponse = {
   status: 200;
 };
 
-/**
- * PUT /sample-users/:id
- * Update one sample user
- * @param req
- * @param res
- */
 export const putArchetype = async (
   req: PutArchetypeRequest,
   res: Response<
     PutArchetypeResponse | ApiErrorResponse | PrivateApiErrorResponse
   >
 ) => {
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { name, description, isPublic, owner, attributes } = req.body;
   const { id } = req.params;
 
@@ -228,7 +235,9 @@ export const putArchetype = async (
     });
   }
 
-  req.checkPermissions("manageArchetype");
+  if (!context.permissions.canUpdateArchetype()) {
+    context.permissions.throwPermissionError();
+  }
 
   const archetype = await getArchetypeById(id, org.id);
 
@@ -261,10 +270,6 @@ export const putArchetype = async (
   });
 };
 
-// endregion PUT /sample-users/:id
-
-// region DELETE /sample-users/:id
-
 type DeleteArchetypeRequest = AuthRequest<
   Record<string, never>,
   { id: string },
@@ -280,20 +285,17 @@ type DeleteArchetypeResponse =
       message: string;
     };
 
-/**
- * DELETE /sample-users/:id
- * Delete one sample-users resource by ID
- * @param req
- * @param res
- */
 export const deleteArchetype = async (
   req: DeleteArchetypeRequest,
   res: Response<DeleteArchetypeResponse>
 ) => {
-  req.checkPermissions("manageArchetype");
-
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  if (!context.permissions.canDeleteArchetype()) {
+    context.permissions.throwPermissionError();
+  }
 
   const archetype = await getArchetypeById(id, org.id);
 
@@ -329,5 +331,3 @@ export const deleteArchetype = async (
     status: 200,
   });
 };
-
-// endregion DELETE /sample-users/:id

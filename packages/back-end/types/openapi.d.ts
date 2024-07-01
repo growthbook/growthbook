@@ -33,19 +33,23 @@ export interface paths {
       };
     };
   };
+  "/feature-keys": {
+    /** Get list of feature keys */
+    get: operations["getFeatureKeys"];
+  };
   "/projects": {
     /** Get all projects */
     get: operations["listProjects"];
+    /** Create a single project */
+    post: operations["postProject"];
   };
   "/projects/{id}": {
     /** Get a single project */
     get: operations["getProject"];
-    parameters: {
-        /** @description The id of the requested resource */
-      path: {
-        id: string;
-      };
-    };
+    /** Edit a single project */
+    put: operations["putProject"];
+    /** Deletes a single project */
+    delete: operations["deleteProject"];
   };
   "/dimensions": {
     /** Get all dimensions */
@@ -78,16 +82,16 @@ export interface paths {
   "/sdk-connections": {
     /** Get all sdk connections */
     get: operations["listSdkConnections"];
+    /** Create a single sdk connection */
+    post: operations["postSdkConnection"];
   };
   "/sdk-connections/{id}": {
     /** Get a single sdk connection */
     get: operations["getSdkConnection"];
-    parameters: {
-        /** @description The id of the requested resource */
-      path: {
-        id: string;
-      };
-    };
+    /** Update a single sdk connection */
+    put: operations["putSdkConnection"];
+    /** Deletes a single SDK connection */
+    delete: operations["deleteSdkConnection"];
   };
   "/data-sources": {
     /** Get all data sources */
@@ -195,6 +199,68 @@ export interface paths {
     /** Edit a single organization (only for super admins on multi-org Enterprise Plan only) */
     put: operations["putOrganization"];
   };
+  "/environments": {
+    /** Get the organization's environments */
+    get: operations["listEnvironments"];
+    /** Create a new environment */
+    post: operations["postEnvironment"];
+  };
+  "/environments/${id}": {
+    /** Update an environment */
+    put: operations["putEnvironment"];
+    /** Deletes a single environment */
+    delete: operations["deleteEnvironment"];
+  };
+  "/fact-tables": {
+    /** Get all fact tables */
+    get: operations["listFactTables"];
+    /** Create a single fact table */
+    post: operations["postFactTable"];
+  };
+  "/fact-tables/{id}": {
+    /** Get a single fact table */
+    get: operations["getFactTable"];
+    /** Update a single fact table */
+    post: operations["updateFactTable"];
+    /** Deletes a single fact table */
+    delete: operations["deleteFactTable"];
+  };
+  "/fact-tables/{factTableId}/filters": {
+    /** Get all filters for a fact table */
+    get: operations["listFactTableFilters"];
+    /** Create a single fact table filter */
+    post: operations["postFactTableFilter"];
+  };
+  "/fact-tables/{factTableId}/filters/{id}": {
+    /** Get a single fact filter */
+    get: operations["getFactTableFilter"];
+    /** Update a single fact table filter */
+    post: operations["updateFactTableFilter"];
+    /** Deletes a single fact table filter */
+    delete: operations["deleteFactTableFilter"];
+  };
+  "/fact-metrics": {
+    /** Get all fact metrics */
+    get: operations["listFactMetrics"];
+    /** Create a single fact metric */
+    post: operations["postFactMetric"];
+  };
+  "/fact-metrics/{id}": {
+    /** Get a single fact metric */
+    get: operations["getFactMetric"];
+    /** Update a single fact metric */
+    post: operations["updateFactMetric"];
+    /** Deletes a single fact metric */
+    delete: operations["deleteFactMetric"];
+  };
+  "/bulk-import/facts": {
+    /** Bulk import fact tables, filters, and metrics */
+    post: operations["postBulkImportFacts"];
+  };
+  "/code-refs": {
+    /** Submit list of code references */
+    post: operations["postCodeRefs"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -221,6 +287,11 @@ export interface components {
     };
     Metric: {
       id: string;
+      /**
+       * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+       * @enum {string}
+       */
+      managedBy: "" | "api" | "config";
       dateCreated: string;
       dateUpdated: string;
       owner: string;
@@ -235,12 +306,49 @@ export interface components {
       behavior: {
         /** @enum {string} */
         goal: "increase" | "decrease";
+        /** @description Controls how outliers are handled */
+        cappingSettings?: {
+          /** @enum {string} */
+          type: "none" | "absolute" | "percentile";
+          /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+          value?: number;
+          /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+          ignoreZeros?: boolean;
+        };
+        /** @deprecated */
         cap?: number;
-        /** @enum {string|null} */
+        /**
+         * @deprecated 
+         * @enum {string|null}
+         */
         capping?: "absolute" | "percentile" | null;
+        /** @deprecated */
         capValue?: number;
-        conversionWindowStart: number;
-        conversionWindowEnd: number;
+        /** @description Controls the conversion window for the metric */
+        windowSettings: {
+          /** @enum {string} */
+          type: "none" | "conversion" | "lookback";
+          /** @description Wait this many hours after experiment exposure before counting conversions */
+          delayHours?: number;
+          windowValue?: number;
+          /** @enum {string} */
+          windowUnit?: "hours" | "days" | "weeks";
+        };
+        /** @description Controls the bayesian prior for the metric. */
+        priorSettings?: {
+          /** @description If false, the organization default settings will be used instead of the other settings in this object */
+          override: boolean;
+          /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+          proper: boolean;
+          /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+          mean: number;
+          /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+          stddev: number;
+        };
+        /** @deprecated */
+        conversionWindowStart?: number;
+        /** @deprecated */
+        conversionWindowEnd?: number;
         riskThresholdSuccess: number;
         riskThresholdDanger: number;
         minPercentChange: number;
@@ -290,6 +398,13 @@ export interface components {
         statsEngine?: string;
       };
     };
+    Environment: {
+      id: string;
+      description: string;
+      toggleOnList: boolean;
+      defaultState: boolean;
+      projects: (string)[];
+    };
     Segment: {
       id: string;
       owner: string;
@@ -328,7 +443,8 @@ export interface components {
                 })[];
               id: string;
               enabled: boolean;
-              type: string;
+              /** @enum {string} */
+              type: "force";
               value: string;
             }) | ({
               description: string;
@@ -340,7 +456,8 @@ export interface components {
                 })[];
               id: string;
               enabled: boolean;
-              type: string;
+              /** @enum {string} */
+              type: "rollout";
               value: string;
               coverage: number;
               hashAttribute: string;
@@ -349,9 +466,14 @@ export interface components {
               condition: string;
               id: string;
               enabled: boolean;
-              type: string;
+              /** @enum {string} */
+              type: "experiment";
               trackingKey?: string;
               hashAttribute?: string;
+              fallbackAttribute?: string;
+              disableStickyBucketing?: any;
+              bucketVersion?: number;
+              minBucketVersion?: number;
               namespace?: {
                 enabled: boolean;
                 name: string;
@@ -367,7 +489,8 @@ export interface components {
               description: string;
               id: string;
               enabled: boolean;
-              type: string;
+              /** @enum {string} */
+              type: "experiment-ref";
               condition?: string;
               variations: ({
                   value: string;
@@ -390,7 +513,8 @@ export interface components {
                   })[];
                 id: string;
                 enabled: boolean;
-                type: string;
+                /** @enum {string} */
+                type: "force";
                 value: string;
               }) | ({
                 description: string;
@@ -402,7 +526,8 @@ export interface components {
                   })[];
                 id: string;
                 enabled: boolean;
-                type: string;
+                /** @enum {string} */
+                type: "rollout";
                 value: string;
                 coverage: number;
                 hashAttribute: string;
@@ -411,9 +536,14 @@ export interface components {
                 condition: string;
                 id: string;
                 enabled: boolean;
-                type: string;
+                /** @enum {string} */
+                type: "experiment";
                 trackingKey?: string;
                 hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: any;
+                bucketVersion?: number;
+                minBucketVersion?: number;
                 namespace?: {
                   enabled: boolean;
                   name: string;
@@ -429,7 +559,8 @@ export interface components {
                 description: string;
                 id: string;
                 enabled: boolean;
-                type: string;
+                /** @enum {string} */
+                type: "experiment-ref";
                 condition?: string;
                 variations: ({
                     value: string;
@@ -442,6 +573,10 @@ export interface components {
           };
         }) | undefined;
       };
+      prerequisites?: ({
+          parentId: string;
+          parentCondition: string;
+        })[];
       revision: {
         version: number;
         comment: string;
@@ -463,7 +598,8 @@ export interface components {
             })[];
           id: string;
           enabled: boolean;
-          type: string;
+          /** @enum {string} */
+          type: "force";
           value: string;
         }) | ({
           description: string;
@@ -475,7 +611,8 @@ export interface components {
             })[];
           id: string;
           enabled: boolean;
-          type: string;
+          /** @enum {string} */
+          type: "rollout";
           value: string;
           coverage: number;
           hashAttribute: string;
@@ -484,9 +621,14 @@ export interface components {
           condition: string;
           id: string;
           enabled: boolean;
-          type: string;
+          /** @enum {string} */
+          type: "experiment";
           trackingKey?: string;
           hashAttribute?: string;
+          fallbackAttribute?: string;
+          disableStickyBucketing?: any;
+          bucketVersion?: number;
+          minBucketVersion?: number;
           namespace?: {
             enabled: boolean;
             name: string;
@@ -502,7 +644,8 @@ export interface components {
           description: string;
           id: string;
           enabled: boolean;
-          type: string;
+          /** @enum {string} */
+          type: "experiment-ref";
           condition?: string;
           variations: ({
               value: string;
@@ -525,7 +668,8 @@ export interface components {
               })[];
             id: string;
             enabled: boolean;
-            type: string;
+            /** @enum {string} */
+            type: "force";
             value: string;
           }) | ({
             description: string;
@@ -537,7 +681,8 @@ export interface components {
               })[];
             id: string;
             enabled: boolean;
-            type: string;
+            /** @enum {string} */
+            type: "rollout";
             value: string;
             coverage: number;
             hashAttribute: string;
@@ -546,9 +691,14 @@ export interface components {
             condition: string;
             id: string;
             enabled: boolean;
-            type: string;
+            /** @enum {string} */
+            type: "experiment";
             trackingKey?: string;
             hashAttribute?: string;
+            fallbackAttribute?: string;
+            disableStickyBucketing?: any;
+            bucketVersion?: number;
+            minBucketVersion?: number;
             namespace?: {
               enabled: boolean;
               name: string;
@@ -564,7 +714,8 @@ export interface components {
             description: string;
             id: string;
             enabled: boolean;
-            type: string;
+            /** @enum {string} */
+            type: "experiment-ref";
             condition?: string;
             variations: ({
                 value: string;
@@ -586,7 +737,8 @@ export interface components {
         })[];
       id: string;
       enabled: boolean;
-      type: string;
+      /** @enum {string} */
+      type: "force";
       value: string;
     }) | ({
       description: string;
@@ -598,7 +750,8 @@ export interface components {
         })[];
       id: string;
       enabled: boolean;
-      type: string;
+      /** @enum {string} */
+      type: "rollout";
       value: string;
       coverage: number;
       hashAttribute: string;
@@ -607,9 +760,14 @@ export interface components {
       condition: string;
       id: string;
       enabled: boolean;
-      type: string;
+      /** @enum {string} */
+      type: "experiment";
       trackingKey?: string;
       hashAttribute?: string;
+      fallbackAttribute?: string;
+      disableStickyBucketing?: any;
+      bucketVersion?: number;
+      minBucketVersion?: number;
       namespace?: {
         enabled: boolean;
         name: string;
@@ -625,7 +783,8 @@ export interface components {
       description: string;
       id: string;
       enabled: boolean;
-      type: string;
+      /** @enum {string} */
+      type: "experiment-ref";
       condition?: string;
       variations: ({
           value: string;
@@ -658,7 +817,8 @@ export interface components {
         })[];
       id: string;
       enabled: boolean;
-      type: string;
+      /** @enum {string} */
+      type: "force";
       value: string;
     };
     FeatureRolloutRule: {
@@ -671,7 +831,8 @@ export interface components {
         })[];
       id: string;
       enabled: boolean;
-      type: string;
+      /** @enum {string} */
+      type: "rollout";
       value: string;
       coverage: number;
       hashAttribute: string;
@@ -681,9 +842,14 @@ export interface components {
       condition: string;
       id: string;
       enabled: boolean;
-      type: string;
+      /** @enum {string} */
+      type: "experiment";
       trackingKey?: string;
       hashAttribute?: string;
+      fallbackAttribute?: string;
+      disableStickyBucketing?: any;
+      bucketVersion?: number;
+      minBucketVersion?: number;
       namespace?: {
         enabled: boolean;
         name: string;
@@ -700,7 +866,8 @@ export interface components {
       description: string;
       id: string;
       enabled: boolean;
-      type: string;
+      /** @enum {string} */
+      type: "experiment-ref";
       condition?: string;
       variations: ({
           value: string;
@@ -717,13 +884,17 @@ export interface components {
       name: string;
       organization: string;
       languages: (string)[];
+      sdkVersion?: string;
       environment: string;
+      /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
       project: string;
+      projects?: (string)[];
       encryptPayload: boolean;
       encryptionKey: string;
       includeVisualExperiments?: boolean;
       includeDraftExperiments?: boolean;
       includeExperimentNames?: boolean;
+      includeRedirectExperiments?: boolean;
       key: string;
       proxyEnabled: boolean;
       proxyHost: string;
@@ -748,8 +919,12 @@ export interface components {
       status: string;
       autoRefresh: boolean;
       hashAttribute: string;
+      fallbackAttribute?: string;
       /** @enum {number} */
       hashVersion: 1 | 2;
+      disableStickyBucketing?: any;
+      bucketVersion?: number;
+      minBucketVersion?: number;
       variations: ({
           variationId: string;
           key: string;
@@ -794,8 +969,10 @@ export interface components {
         goals: ({
             metricId: string;
             overrides: {
-              conversionWindowStart?: number;
-              conversionWindowEnd?: number;
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
               winRiskThreshold?: number;
               loseRiskThreshold?: number;
             };
@@ -803,8 +980,10 @@ export interface components {
         guardrails: ({
             metricId: string;
             overrides: {
-              conversionWindowStart?: number;
-              conversionWindowEnd?: number;
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
               winRiskThreshold?: number;
               loseRiskThreshold?: number;
             };
@@ -812,8 +991,10 @@ export interface components {
         activationMetric?: {
           metricId: string;
           overrides: {
-            conversionWindowStart?: number;
-            conversionWindowEnd?: number;
+            delayHours?: number;
+            windowHours?: number;
+            /** @enum {string} */
+            window?: "conversion" | "lookback" | "";
             winRiskThreshold?: number;
             loseRiskThreshold?: number;
           };
@@ -830,8 +1011,10 @@ export interface components {
     ExperimentMetric: {
       metricId: string;
       overrides: {
-        conversionWindowStart?: number;
-        conversionWindowEnd?: number;
+        delayHours?: number;
+        windowHours?: number;
+        /** @enum {string} */
+        window?: "conversion" | "lookback" | "";
         winRiskThreshold?: number;
         loseRiskThreshold?: number;
       };
@@ -851,8 +1034,10 @@ export interface components {
       goals: ({
           metricId: string;
           overrides: {
-            conversionWindowStart?: number;
-            conversionWindowEnd?: number;
+            delayHours?: number;
+            windowHours?: number;
+            /** @enum {string} */
+            window?: "conversion" | "lookback" | "";
             winRiskThreshold?: number;
             loseRiskThreshold?: number;
           };
@@ -860,8 +1045,10 @@ export interface components {
       guardrails: ({
           metricId: string;
           overrides: {
-            conversionWindowStart?: number;
-            conversionWindowEnd?: number;
+            delayHours?: number;
+            windowHours?: number;
+            /** @enum {string} */
+            window?: "conversion" | "lookback" | "";
             winRiskThreshold?: number;
             loseRiskThreshold?: number;
           };
@@ -869,8 +1056,10 @@ export interface components {
       activationMetric?: {
         metricId: string;
         overrides: {
-          conversionWindowStart?: number;
-          conversionWindowEnd?: number;
+          delayHours?: number;
+          windowHours?: number;
+          /** @enum {string} */
+          window?: "conversion" | "lookback" | "";
           winRiskThreshold?: number;
           loseRiskThreshold?: number;
         };
@@ -902,8 +1091,10 @@ export interface components {
         goals: ({
             metricId: string;
             overrides: {
-              conversionWindowStart?: number;
-              conversionWindowEnd?: number;
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
               winRiskThreshold?: number;
               loseRiskThreshold?: number;
             };
@@ -911,8 +1102,10 @@ export interface components {
         guardrails: ({
             metricId: string;
             overrides: {
-              conversionWindowStart?: number;
-              conversionWindowEnd?: number;
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
               winRiskThreshold?: number;
               loseRiskThreshold?: number;
             };
@@ -920,8 +1113,10 @@ export interface components {
         activationMetric?: {
           metricId: string;
           overrides: {
-            conversionWindowStart?: number;
-            conversionWindowEnd?: number;
+            delayHours?: number;
+            windowHours?: number;
+            /** @enum {string} */
+            window?: "conversion" | "lookback" | "";
             winRiskThreshold?: number;
             loseRiskThreshold?: number;
           };
@@ -938,6 +1133,7 @@ export interface components {
               metricId: string;
               variations: ({
                   variationId: string;
+                  users?: number;
                   analyses: ({
                       /** @enum {unknown} */
                       engine: "bayesian" | "frequentist";
@@ -1034,16 +1230,20 @@ export interface components {
     };
     SavedGroup: {
       id: string;
+      /** @enum {string} */
+      type: "condition" | "list";
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
       name: string;
-      /** @enum {string} */
-      source: "inline" | "runtime";
       owner?: string;
-      attributeKey: string;
-      values: (string)[];
+      /** @description When type = 'condition', this is the JSON-encoded condition for the group */
+      condition?: string;
+      /** @description When type = 'list', this is the attribute key the group is based on */
+      attributeKey?: string;
+      /** @description When type = 'list', this is the list of values for the attribute key */
+      values?: (string)[];
     };
     Organization: {
       /** @description The Growthbook unique identifier for the organization */
@@ -1059,6 +1259,120 @@ export interface components {
       name?: string;
       /** @description The email address of the organization owner */
       ownerEmail?: string;
+    };
+    FactTable: {
+      id: string;
+      name: string;
+      description: string;
+      owner: string;
+      projects: (string)[];
+      tags: (string)[];
+      datasource: string;
+      userIdTypes: (string)[];
+      sql: string;
+      /**
+       * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
+       * @enum {string}
+       */
+      managedBy: "" | "api";
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+    };
+    FactTableFilter: {
+      id: string;
+      name: string;
+      description: string;
+      value: string;
+      /**
+       * @description Where this fact table filter must be managed from. If not set (empty string), it can be managed from anywhere. 
+       * @enum {string}
+       */
+      managedBy: "" | "api";
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+    };
+    FactMetric: {
+      id: string;
+      name: string;
+      description: string;
+      owner: string;
+      projects: (string)[];
+      tags: (string)[];
+      datasource: string;
+      /** @enum {string} */
+      metricType: "proportion" | "mean" | "quantile" | "ratio";
+      numerator: {
+        factTableId: string;
+        column: string;
+        /** @description Array of Fact Table Filter Ids */
+        filters: (string)[];
+      };
+      denominator?: {
+        factTableId: string;
+        column: string;
+        /** @description Array of Fact Table Filter Ids */
+        filters: (string)[];
+      };
+      /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
+      inverse: boolean;
+      /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
+      quantileSettings?: {
+        /**
+         * @description Whether the quantile is over unit aggregations or raw event values 
+         * @enum {string}
+         */
+        type: "event" | "unit";
+        /** @description If true, zero values will be ignored when calculating the quantile */
+        ignoreZeros: boolean;
+        /** @description The quantile value (from 0.001 to 0.999) */
+        quantile: number;
+      };
+      /** @description Controls how outliers are handled */
+      cappingSettings: {
+        /** @enum {string} */
+        type: "none" | "absolute" | "percentile";
+        /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+        value?: number;
+        /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+        ignoreZeros?: boolean;
+      };
+      /** @description Controls the conversion window for the metric */
+      windowSettings: {
+        /** @enum {string} */
+        type: "none" | "conversion" | "lookback";
+        /** @description Wait this many hours after experiment exposure before counting conversions */
+        delayHours?: number;
+        windowValue?: number;
+        /** @enum {string} */
+        windowUnit?: "hours" | "days" | "weeks";
+      };
+      /** @description Controls the regression adjustment (CUPED) settings for the metric */
+      regressionAdjustmentSettings: {
+        /** @description If false, the organization default settings will be used */
+        override: boolean;
+        /** @description Controls whether or not regresion adjustment is applied to the metric */
+        enabled?: boolean;
+        /** @description Number of pre-exposure days to use for the regression adjustment */
+        days?: number;
+      };
+      riskThresholdSuccess: number;
+      riskThresholdDanger: number;
+      minPercentChange: number;
+      maxPercentChange: number;
+      minSampleSize: number;
+      /**
+       * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+       * @enum {string}
+       */
+      managedBy: "" | "api";
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
     };
   };
   responses: {
@@ -1077,6 +1391,14 @@ export interface components {
     datasourceId: string;
     /** @description Specify a specific visual change */
     visualChangeId: string;
+    /** @description Specify a specific fact table */
+    factTableId: string;
+    /** @description Fully qualified name of repo either in GitHub or some other version control platform. */
+    repo: string;
+    /** @description Name of branch for git repo. */
+    branch: string;
+    /** @description Name of versino control platform like GitHub or Gitlab. */
+    platform: "github" | "gitlab" | "bitbucket";
   };
   requestBodies: never;
   headers: never;
@@ -1131,7 +1453,8 @@ export interface operations {
                           })[];
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "force";
                         value: string;
                       }) | ({
                         description: string;
@@ -1143,7 +1466,8 @@ export interface operations {
                           })[];
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "rollout";
                         value: string;
                         coverage: number;
                         hashAttribute: string;
@@ -1152,9 +1476,14 @@ export interface operations {
                         condition: string;
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "experiment";
                         trackingKey?: string;
                         hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: any;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -1170,7 +1499,8 @@ export interface operations {
                         description: string;
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "experiment-ref";
                         condition?: string;
                         variations: ({
                             value: string;
@@ -1193,7 +1523,8 @@ export interface operations {
                             })[];
                           id: string;
                           enabled: boolean;
-                          type: string;
+                          /** @enum {string} */
+                          type: "force";
                           value: string;
                         }) | ({
                           description: string;
@@ -1205,7 +1536,8 @@ export interface operations {
                             })[];
                           id: string;
                           enabled: boolean;
-                          type: string;
+                          /** @enum {string} */
+                          type: "rollout";
                           value: string;
                           coverage: number;
                           hashAttribute: string;
@@ -1214,9 +1546,14 @@ export interface operations {
                           condition: string;
                           id: string;
                           enabled: boolean;
-                          type: string;
+                          /** @enum {string} */
+                          type: "experiment";
                           trackingKey?: string;
                           hashAttribute?: string;
+                          fallbackAttribute?: string;
+                          disableStickyBucketing?: any;
+                          bucketVersion?: number;
+                          minBucketVersion?: number;
                           namespace?: {
                             enabled: boolean;
                             name: string;
@@ -1232,7 +1569,8 @@ export interface operations {
                           description: string;
                           id: string;
                           enabled: boolean;
-                          type: string;
+                          /** @enum {string} */
+                          type: "experiment-ref";
                           condition?: string;
                           variations: ({
                               value: string;
@@ -1245,6 +1583,10 @@ export interface operations {
                     };
                   }) | undefined;
                 };
+                prerequisites?: ({
+                    parentId: string;
+                    parentCondition: string;
+                  })[];
                 revision: {
                   version: number;
                   comment: string;
@@ -1433,7 +1775,8 @@ export interface operations {
                         })[];
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "force";
                       value: string;
                     }) | ({
                       description: string;
@@ -1445,7 +1788,8 @@ export interface operations {
                         })[];
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "rollout";
                       value: string;
                       coverage: number;
                       hashAttribute: string;
@@ -1454,9 +1798,14 @@ export interface operations {
                       condition: string;
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "experiment";
                       trackingKey?: string;
                       hashAttribute?: string;
+                      fallbackAttribute?: string;
+                      disableStickyBucketing?: any;
+                      bucketVersion?: number;
+                      minBucketVersion?: number;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -1472,7 +1821,8 @@ export interface operations {
                       description: string;
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "experiment-ref";
                       condition?: string;
                       variations: ({
                           value: string;
@@ -1495,7 +1845,8 @@ export interface operations {
                           })[];
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "force";
                         value: string;
                       }) | ({
                         description: string;
@@ -1507,7 +1858,8 @@ export interface operations {
                           })[];
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "rollout";
                         value: string;
                         coverage: number;
                         hashAttribute: string;
@@ -1516,9 +1868,14 @@ export interface operations {
                         condition: string;
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "experiment";
                         trackingKey?: string;
                         hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: any;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -1534,7 +1891,8 @@ export interface operations {
                         description: string;
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "experiment-ref";
                         condition?: string;
                         variations: ({
                             value: string;
@@ -1547,6 +1905,10 @@ export interface operations {
                   };
                 }) | undefined;
               };
+              prerequisites?: ({
+                  parentId: string;
+                  parentCondition: string;
+                })[];
               revision: {
                 version: number;
                 comment: string;
@@ -1600,7 +1962,8 @@ export interface operations {
                         })[];
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "force";
                       value: string;
                     }) | ({
                       description: string;
@@ -1612,7 +1975,8 @@ export interface operations {
                         })[];
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "rollout";
                       value: string;
                       coverage: number;
                       hashAttribute: string;
@@ -1621,9 +1985,14 @@ export interface operations {
                       condition: string;
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "experiment";
                       trackingKey?: string;
                       hashAttribute?: string;
+                      fallbackAttribute?: string;
+                      disableStickyBucketing?: any;
+                      bucketVersion?: number;
+                      minBucketVersion?: number;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -1639,7 +2008,8 @@ export interface operations {
                       description: string;
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "experiment-ref";
                       condition?: string;
                       variations: ({
                           value: string;
@@ -1662,7 +2032,8 @@ export interface operations {
                           })[];
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "force";
                         value: string;
                       }) | ({
                         description: string;
@@ -1674,7 +2045,8 @@ export interface operations {
                           })[];
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "rollout";
                         value: string;
                         coverage: number;
                         hashAttribute: string;
@@ -1683,9 +2055,14 @@ export interface operations {
                         condition: string;
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "experiment";
                         trackingKey?: string;
                         hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: any;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -1701,7 +2078,8 @@ export interface operations {
                         description: string;
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "experiment-ref";
                         condition?: string;
                         variations: ({
                             value: string;
@@ -1714,6 +2092,10 @@ export interface operations {
                   };
                 }) | undefined;
               };
+              prerequisites?: ({
+                  parentId: string;
+                  parentCondition: string;
+                })[];
               revision: {
                 version: number;
                 comment: string;
@@ -1891,7 +2273,8 @@ export interface operations {
                         })[];
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "force";
                       value: string;
                     }) | ({
                       description: string;
@@ -1903,7 +2286,8 @@ export interface operations {
                         })[];
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "rollout";
                       value: string;
                       coverage: number;
                       hashAttribute: string;
@@ -1912,9 +2296,14 @@ export interface operations {
                       condition: string;
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "experiment";
                       trackingKey?: string;
                       hashAttribute?: string;
+                      fallbackAttribute?: string;
+                      disableStickyBucketing?: any;
+                      bucketVersion?: number;
+                      minBucketVersion?: number;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -1930,7 +2319,8 @@ export interface operations {
                       description: string;
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "experiment-ref";
                       condition?: string;
                       variations: ({
                           value: string;
@@ -1953,7 +2343,8 @@ export interface operations {
                           })[];
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "force";
                         value: string;
                       }) | ({
                         description: string;
@@ -1965,7 +2356,8 @@ export interface operations {
                           })[];
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "rollout";
                         value: string;
                         coverage: number;
                         hashAttribute: string;
@@ -1974,9 +2366,14 @@ export interface operations {
                         condition: string;
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "experiment";
                         trackingKey?: string;
                         hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: any;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -1992,7 +2389,8 @@ export interface operations {
                         description: string;
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "experiment-ref";
                         condition?: string;
                         variations: ({
                             value: string;
@@ -2005,6 +2403,10 @@ export interface operations {
                   };
                 }) | undefined;
               };
+              prerequisites?: ({
+                  parentId: string;
+                  parentCondition: string;
+                })[];
               revision: {
                 version: number;
                 comment: string;
@@ -2062,7 +2464,8 @@ export interface operations {
                         })[];
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "force";
                       value: string;
                     }) | ({
                       description: string;
@@ -2074,7 +2477,8 @@ export interface operations {
                         })[];
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "rollout";
                       value: string;
                       coverage: number;
                       hashAttribute: string;
@@ -2083,9 +2487,14 @@ export interface operations {
                       condition: string;
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "experiment";
                       trackingKey?: string;
                       hashAttribute?: string;
+                      fallbackAttribute?: string;
+                      disableStickyBucketing?: any;
+                      bucketVersion?: number;
+                      minBucketVersion?: number;
                       namespace?: {
                         enabled: boolean;
                         name: string;
@@ -2101,7 +2510,8 @@ export interface operations {
                       description: string;
                       id: string;
                       enabled: boolean;
-                      type: string;
+                      /** @enum {string} */
+                      type: "experiment-ref";
                       condition?: string;
                       variations: ({
                           value: string;
@@ -2124,7 +2534,8 @@ export interface operations {
                           })[];
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "force";
                         value: string;
                       }) | ({
                         description: string;
@@ -2136,7 +2547,8 @@ export interface operations {
                           })[];
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "rollout";
                         value: string;
                         coverage: number;
                         hashAttribute: string;
@@ -2145,9 +2557,14 @@ export interface operations {
                         condition: string;
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "experiment";
                         trackingKey?: string;
                         hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: any;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
                         namespace?: {
                           enabled: boolean;
                           name: string;
@@ -2163,7 +2580,8 @@ export interface operations {
                         description: string;
                         id: string;
                         enabled: boolean;
-                        type: string;
+                        /** @enum {string} */
+                        type: "experiment-ref";
                         condition?: string;
                         variations: ({
                             value: string;
@@ -2176,6 +2594,10 @@ export interface operations {
                   };
                 }) | undefined;
               };
+              prerequisites?: ({
+                  parentId: string;
+                  parentCondition: string;
+                })[];
               revision: {
                 version: number;
                 comment: string;
@@ -2185,6 +2607,22 @@ export interface operations {
               };
             };
           };
+        };
+      };
+    };
+  };
+  getFeatureKeys: {
+    /** Get list of feature keys */
+    parameters: {
+        /** @description Filter by project id */
+      query: {
+        projectId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": (string)[];
         };
       };
     };
@@ -2227,8 +2665,21 @@ export interface operations {
       };
     };
   };
-  getProject: {
-    /** Get a single project */
+  postProject: {
+    /** Create a single project */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          description?: string;
+          /** @description Project settings. */
+          settings?: {
+            /** @description Stats engine. */
+            statsEngine?: string;
+          };
+        };
+      };
+    };
     responses: {
       200: {
         content: {
@@ -2245,6 +2696,101 @@ export interface operations {
                 statsEngine?: string;
               };
             };
+          };
+        };
+      };
+    };
+  };
+  getProject: {
+    /** Get a single project */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            project: {
+              id: string;
+              name: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              description?: string;
+              settings?: {
+                statsEngine?: string;
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+  putProject: {
+    /** Edit a single project */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Project name. */
+          name?: string;
+          /** @description Project description. */
+          description?: string;
+          /** @description Project settings. */
+          settings?: {
+            /** @description Stats engine. */
+            statsEngine?: string;
+          };
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            project: {
+              id: string;
+              name: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              description?: string;
+              settings?: {
+                statsEngine?: string;
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteProject: {
+    /** Deletes a single project */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /**
+             * @description The ID of the deleted project 
+             * @example prj__123abc
+             */
+            deletedId?: string;
           };
         };
       };
@@ -2395,13 +2941,17 @@ export interface operations {
                 name: string;
                 organization: string;
                 languages: (string)[];
+                sdkVersion?: string;
                 environment: string;
+                /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
                 project: string;
+                projects?: (string)[];
                 encryptPayload: boolean;
                 encryptionKey: string;
                 includeVisualExperiments?: boolean;
                 includeDraftExperiments?: boolean;
                 includeExperimentNames?: boolean;
+                includeRedirectExperiments?: boolean;
                 key: string;
                 proxyEnabled: boolean;
                 proxyHost: string;
@@ -2422,8 +2972,28 @@ export interface operations {
       };
     };
   };
-  getSdkConnection: {
-    /** Get a single sdk connection */
+  postSdkConnection: {
+    /** Create a single sdk connection */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          language: string;
+          sdkVersion?: string;
+          environment: string;
+          projects?: (string)[];
+          encryptPayload?: boolean;
+          includeVisualExperiments?: boolean;
+          includeDraftExperiments?: boolean;
+          includeExperimentNames?: boolean;
+          includeRedirectExperiments?: boolean;
+          proxyEnabled?: boolean;
+          proxyHost?: string;
+          hashSecureAttributes?: boolean;
+          remoteEvalEnabled?: boolean;
+        };
+      };
+    };
     responses: {
       200: {
         content: {
@@ -2437,13 +3007,17 @@ export interface operations {
               name: string;
               organization: string;
               languages: (string)[];
+              sdkVersion?: string;
               environment: string;
+              /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
               project: string;
+              projects?: (string)[];
               encryptPayload: boolean;
               encryptionKey: string;
               includeVisualExperiments?: boolean;
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
+              includeRedirectExperiments?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -2452,6 +3026,134 @@ export interface operations {
               hashSecureAttributes?: boolean;
               remoteEvalEnabled?: boolean;
             };
+          };
+        };
+      };
+    };
+  };
+  getSdkConnection: {
+    /** Get a single sdk connection */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            sdkConnection: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              organization: string;
+              languages: (string)[];
+              sdkVersion?: string;
+              environment: string;
+              /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
+              project: string;
+              projects?: (string)[];
+              encryptPayload: boolean;
+              encryptionKey: string;
+              includeVisualExperiments?: boolean;
+              includeDraftExperiments?: boolean;
+              includeExperimentNames?: boolean;
+              includeRedirectExperiments?: boolean;
+              key: string;
+              proxyEnabled: boolean;
+              proxyHost: string;
+              proxySigningKey: string;
+              sseEnabled?: boolean;
+              hashSecureAttributes?: boolean;
+              remoteEvalEnabled?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  putSdkConnection: {
+    /** Update a single sdk connection */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          language?: string;
+          sdkVersion?: string;
+          environment?: string;
+          projects?: (string)[];
+          encryptPayload?: boolean;
+          includeVisualExperiments?: boolean;
+          includeDraftExperiments?: boolean;
+          includeExperimentNames?: boolean;
+          includeRedirectExperiments?: boolean;
+          proxyEnabled?: boolean;
+          proxyHost?: string;
+          hashSecureAttributes?: boolean;
+          remoteEvalEnabled?: boolean;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            sdkConnection: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              organization: string;
+              languages: (string)[];
+              sdkVersion?: string;
+              environment: string;
+              /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
+              project: string;
+              projects?: (string)[];
+              encryptPayload: boolean;
+              encryptionKey: string;
+              includeVisualExperiments?: boolean;
+              includeDraftExperiments?: boolean;
+              includeExperimentNames?: boolean;
+              includeRedirectExperiments?: boolean;
+              key: string;
+              proxyEnabled: boolean;
+              proxyHost: string;
+              proxySigningKey: string;
+              sseEnabled?: boolean;
+              hashSecureAttributes?: boolean;
+              remoteEvalEnabled?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteSdkConnection: {
+    /** Deletes a single SDK connection */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
           };
         };
       };
@@ -2602,8 +3304,12 @@ export interface operations {
                 status: string;
                 autoRefresh: boolean;
                 hashAttribute: string;
+                fallbackAttribute?: string;
                 /** @enum {number} */
                 hashVersion: 1 | 2;
+                disableStickyBucketing?: any;
+                bucketVersion?: number;
+                minBucketVersion?: number;
                 variations: ({
                     variationId: string;
                     key: string;
@@ -2648,8 +3354,10 @@ export interface operations {
                   goals: ({
                       metricId: string;
                       overrides: {
-                        conversionWindowStart?: number;
-                        conversionWindowEnd?: number;
+                        delayHours?: number;
+                        windowHours?: number;
+                        /** @enum {string} */
+                        window?: "conversion" | "lookback" | "";
                         winRiskThreshold?: number;
                         loseRiskThreshold?: number;
                       };
@@ -2657,8 +3365,10 @@ export interface operations {
                   guardrails: ({
                       metricId: string;
                       overrides: {
-                        conversionWindowStart?: number;
-                        conversionWindowEnd?: number;
+                        delayHours?: number;
+                        windowHours?: number;
+                        /** @enum {string} */
+                        window?: "conversion" | "lookback" | "";
                         winRiskThreshold?: number;
                         loseRiskThreshold?: number;
                       };
@@ -2666,8 +3376,10 @@ export interface operations {
                   activationMetric?: {
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -2715,16 +3427,26 @@ export interface operations {
           metrics?: (string)[];
           guardrailMetrics?: (string)[];
           /** @description Email of the person who owns this experiment */
-          owner: string;
+          owner?: string;
           archived?: boolean;
           /** @enum {string} */
           status?: "draft" | "running" | "stopped";
           autoRefresh?: boolean;
           hashAttribute?: string;
+          fallbackAttribute?: string;
           /** @enum {number} */
           hashVersion?: 1 | 2;
+          disableStickyBucketing?: any;
+          bucketVersion?: number;
+          minBucketVersion?: number;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
+          /** @enum {string} */
+          inProgressConversions?: "loose" | "strict";
+          /** @enum {string} */
+          attributionModel?: "firstExposure" | "experimentDuration";
+          /** @enum {string} */
+          statsEngine?: "bayesian" | "frequentist";
           variations: ({
               id?: string;
               key: string;
@@ -2739,9 +3461,9 @@ export interface operations {
             })[];
           phases?: ({
               name: string;
-              /** Format: date */
+              /** Format: date-time */
               dateStarted: string;
-              /** Format: date */
+              /** Format: date-time */
               dateEnded?: string;
               reasonForStopping?: string;
               seed?: string;
@@ -2788,8 +3510,12 @@ export interface operations {
               status: string;
               autoRefresh: boolean;
               hashAttribute: string;
+              fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
+              disableStickyBucketing?: any;
+              bucketVersion?: number;
+              minBucketVersion?: number;
               variations: ({
                   variationId: string;
                   key: string;
@@ -2834,8 +3560,10 @@ export interface operations {
                 goals: ({
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -2843,8 +3571,10 @@ export interface operations {
                 guardrails: ({
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -2852,8 +3582,10 @@ export interface operations {
                 activationMetric?: {
                   metricId: string;
                   overrides: {
-                    conversionWindowStart?: number;
-                    conversionWindowEnd?: number;
+                    delayHours?: number;
+                    windowHours?: number;
+                    /** @enum {string} */
+                    window?: "conversion" | "lookback" | "";
                     winRiskThreshold?: number;
                     loseRiskThreshold?: number;
                   };
@@ -2900,8 +3632,12 @@ export interface operations {
               status: string;
               autoRefresh: boolean;
               hashAttribute: string;
+              fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
+              disableStickyBucketing?: any;
+              bucketVersion?: number;
+              minBucketVersion?: number;
               variations: ({
                   variationId: string;
                   key: string;
@@ -2946,8 +3682,10 @@ export interface operations {
                 goals: ({
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -2955,8 +3693,10 @@ export interface operations {
                 guardrails: ({
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -2964,8 +3704,10 @@ export interface operations {
                 activationMetric?: {
                   metricId: string;
                   overrides: {
-                    conversionWindowStart?: number;
-                    conversionWindowEnd?: number;
+                    delayHours?: number;
+                    windowHours?: number;
+                    /** @enum {string} */
+                    window?: "conversion" | "lookback" | "";
                     winRiskThreshold?: number;
                     loseRiskThreshold?: number;
                   };
@@ -3015,10 +3757,20 @@ export interface operations {
           status?: "draft" | "running" | "stopped";
           autoRefresh?: boolean;
           hashAttribute?: string;
+          fallbackAttribute?: string;
           /** @enum {number} */
           hashVersion?: 1 | 2;
+          disableStickyBucketing?: any;
+          bucketVersion?: number;
+          minBucketVersion?: number;
           releasedVariationId?: string;
           excludeFromPayload?: boolean;
+          /** @enum {string} */
+          inProgressConversions?: "loose" | "strict";
+          /** @enum {string} */
+          attributionModel?: "firstExposure" | "experimentDuration";
+          /** @enum {string} */
+          statsEngine?: "bayesian" | "frequentist";
           variations?: ({
               id?: string;
               key: string;
@@ -3033,9 +3785,9 @@ export interface operations {
             })[];
           phases?: ({
               name: string;
-              /** Format: date */
+              /** Format: date-time */
               dateStarted: string;
-              /** Format: date */
+              /** Format: date-time */
               dateEnded?: string;
               reasonForStopping?: string;
               seed?: string;
@@ -3082,8 +3834,12 @@ export interface operations {
               status: string;
               autoRefresh: boolean;
               hashAttribute: string;
+              fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
+              disableStickyBucketing?: any;
+              bucketVersion?: number;
+              minBucketVersion?: number;
               variations: ({
                   variationId: string;
                   key: string;
@@ -3128,8 +3884,10 @@ export interface operations {
                 goals: ({
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -3137,8 +3895,10 @@ export interface operations {
                 guardrails: ({
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -3146,8 +3906,10 @@ export interface operations {
                 activationMetric?: {
                   metricId: string;
                   overrides: {
-                    conversionWindowStart?: number;
-                    conversionWindowEnd?: number;
+                    delayHours?: number;
+                    windowHours?: number;
+                    /** @enum {string} */
+                    window?: "conversion" | "lookback" | "";
                     winRiskThreshold?: number;
                     loseRiskThreshold?: number;
                   };
@@ -3204,8 +3966,10 @@ export interface operations {
                 goals: ({
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -3213,8 +3977,10 @@ export interface operations {
                 guardrails: ({
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -3222,8 +3988,10 @@ export interface operations {
                 activationMetric?: {
                   metricId: string;
                   overrides: {
-                    conversionWindowStart?: number;
-                    conversionWindowEnd?: number;
+                    delayHours?: number;
+                    windowHours?: number;
+                    /** @enum {string} */
+                    window?: "conversion" | "lookback" | "";
                     winRiskThreshold?: number;
                     loseRiskThreshold?: number;
                   };
@@ -3240,6 +4008,7 @@ export interface operations {
                       metricId: string;
                       variations: ({
                           variationId: string;
+                          users?: number;
                           analyses: ({
                               /** @enum {unknown} */
                               engine: "bayesian" | "frequentist";
@@ -3283,6 +4052,11 @@ export interface operations {
           "application/json": ({
             metrics: ({
                 id: string;
+                /**
+                 * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+                 * @enum {string}
+                 */
+                managedBy: "" | "api" | "config";
                 dateCreated: string;
                 dateUpdated: string;
                 owner: string;
@@ -3297,12 +4071,49 @@ export interface operations {
                 behavior: {
                   /** @enum {string} */
                   goal: "increase" | "decrease";
+                  /** @description Controls how outliers are handled */
+                  cappingSettings?: {
+                    /** @enum {string} */
+                    type: "none" | "absolute" | "percentile";
+                    /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+                    value?: number;
+                    /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+                    ignoreZeros?: boolean;
+                  };
+                  /** @deprecated */
                   cap?: number;
-                  /** @enum {string|null} */
+                  /**
+                   * @deprecated 
+                   * @enum {string|null}
+                   */
                   capping?: "absolute" | "percentile" | null;
+                  /** @deprecated */
                   capValue?: number;
-                  conversionWindowStart: number;
-                  conversionWindowEnd: number;
+                  /** @description Controls the conversion window for the metric */
+                  windowSettings: {
+                    /** @enum {string} */
+                    type: "none" | "conversion" | "lookback";
+                    /** @description Wait this many hours after experiment exposure before counting conversions */
+                    delayHours?: number;
+                    windowValue?: number;
+                    /** @enum {string} */
+                    windowUnit?: "hours" | "days" | "weeks";
+                  };
+                  /** @description Controls the bayesian prior for the metric. */
+                  priorSettings?: {
+                    /** @description If false, the organization default settings will be used instead of the other settings in this object */
+                    override: boolean;
+                    /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+                    proper: boolean;
+                    /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+                    mean: number;
+                    /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+                    stddev: number;
+                  };
+                  /** @deprecated */
+                  conversionWindowStart?: number;
+                  /** @deprecated */
+                  conversionWindowEnd?: number;
                   riskThresholdSuccess: number;
                   riskThresholdDanger: number;
                   minPercentChange: number;
@@ -3359,6 +4170,11 @@ export interface operations {
         "application/json": {
           /** @description ID for the [DataSource](#tag/DataSource_model) */
           datasourceId: string;
+          /**
+           * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
           /** @description Name of the person who owns this metric */
           owner?: string;
           /** @description Name of the metric */
@@ -3378,22 +4194,62 @@ export interface operations {
           behavior?: {
             /** @enum {string} */
             goal?: "increase" | "decrease";
+            /** @description Controls how outliers are handled */
+            cappingSettings?: {
+              /** @enum {string|null} */
+              type: "none" | "absolute" | "percentile" | null;
+              /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+              value?: number;
+              /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+              ignoreZeros?: boolean;
+            };
             /**
              * @deprecated 
-             * @description (deprecated, use capping and capValue fields instead) This should be non-negative
+             * @description (deprecated, use cappingSettings instead) This should be non-negative
              */
             cap?: number;
             /**
-             * @description Used in conjunction with `capValue` to set the capping (winsorization). Do not specify or set to null for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/>  If `behavior.capping` is non-null, you must specify `behavior.capValue`. 
+             * @deprecated 
+             * @description (deprecated, use cappingSettings instead) Used in conjunction with `capValue` to set the capping (winsorization). Do not specify or set to null for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/>  If `behavior.capping` is non-null, you must specify `behavior.capValue`. 
              * @enum {string|null}
              */
             capping?: "absolute" | "percentile" | null;
-            /** @description This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`. */
+            /**
+             * @deprecated 
+             * @description (deprecated, use cappingSettings instead) This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`.
+             */
             capValue?: number;
-            /** @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither. */
+            /** @description Controls the conversion window for the metric */
+            windowSettings?: {
+              /** @enum {string} */
+              type: "none" | "conversion" | "lookback";
+              /** @description Wait this many hours after experiment exposure before counting conversions */
+              delayHours?: number;
+              windowValue?: number;
+              /** @enum {string} */
+              windowUnit?: "hours" | "days" | "weeks";
+            };
+            /**
+             * @deprecated 
+             * @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
+             */
             conversionWindowStart?: number;
-            /** @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither. */
+            /**
+             * @deprecated 
+             * @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
+             */
             conversionWindowEnd?: number;
+            /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
+            priorSettings?: {
+              /** @description If false, the organization default settings will be used instead of the other settings in this object */
+              override: boolean;
+              /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+              proper: boolean;
+              /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+              mean: number;
+              /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+              stddev: number;
+            };
             /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
             riskThresholdSuccess?: number;
             /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
@@ -3448,6 +4304,11 @@ export interface operations {
           "application/json": {
             metric: {
               id: string;
+              /**
+               * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api" | "config";
               dateCreated: string;
               dateUpdated: string;
               owner: string;
@@ -3462,12 +4323,49 @@ export interface operations {
               behavior: {
                 /** @enum {string} */
                 goal: "increase" | "decrease";
+                /** @description Controls how outliers are handled */
+                cappingSettings?: {
+                  /** @enum {string} */
+                  type: "none" | "absolute" | "percentile";
+                  /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+                  value?: number;
+                  /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+                  ignoreZeros?: boolean;
+                };
+                /** @deprecated */
                 cap?: number;
-                /** @enum {string|null} */
+                /**
+                 * @deprecated 
+                 * @enum {string|null}
+                 */
                 capping?: "absolute" | "percentile" | null;
+                /** @deprecated */
                 capValue?: number;
-                conversionWindowStart: number;
-                conversionWindowEnd: number;
+                /** @description Controls the conversion window for the metric */
+                windowSettings: {
+                  /** @enum {string} */
+                  type: "none" | "conversion" | "lookback";
+                  /** @description Wait this many hours after experiment exposure before counting conversions */
+                  delayHours?: number;
+                  windowValue?: number;
+                  /** @enum {string} */
+                  windowUnit?: "hours" | "days" | "weeks";
+                };
+                /** @description Controls the bayesian prior for the metric. */
+                priorSettings?: {
+                  /** @description If false, the organization default settings will be used instead of the other settings in this object */
+                  override: boolean;
+                  /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+                  proper: boolean;
+                  /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+                  mean: number;
+                  /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+                  stddev: number;
+                };
+                /** @deprecated */
+                conversionWindowStart?: number;
+                /** @deprecated */
+                conversionWindowEnd?: number;
                 riskThresholdSuccess: number;
                 riskThresholdDanger: number;
                 minPercentChange: number;
@@ -3524,6 +4422,11 @@ export interface operations {
           "application/json": {
             metric: {
               id: string;
+              /**
+               * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api" | "config";
               dateCreated: string;
               dateUpdated: string;
               owner: string;
@@ -3538,12 +4441,49 @@ export interface operations {
               behavior: {
                 /** @enum {string} */
                 goal: "increase" | "decrease";
+                /** @description Controls how outliers are handled */
+                cappingSettings?: {
+                  /** @enum {string} */
+                  type: "none" | "absolute" | "percentile";
+                  /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+                  value?: number;
+                  /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+                  ignoreZeros?: boolean;
+                };
+                /** @deprecated */
                 cap?: number;
-                /** @enum {string|null} */
+                /**
+                 * @deprecated 
+                 * @enum {string|null}
+                 */
                 capping?: "absolute" | "percentile" | null;
+                /** @deprecated */
                 capValue?: number;
-                conversionWindowStart: number;
-                conversionWindowEnd: number;
+                /** @description Controls the conversion window for the metric */
+                windowSettings: {
+                  /** @enum {string} */
+                  type: "none" | "conversion" | "lookback";
+                  /** @description Wait this many hours after experiment exposure before counting conversions */
+                  delayHours?: number;
+                  windowValue?: number;
+                  /** @enum {string} */
+                  windowUnit?: "hours" | "days" | "weeks";
+                };
+                /** @description Controls the bayesian prior for the metric. */
+                priorSettings?: {
+                  /** @description If false, the organization default settings will be used instead of the other settings in this object */
+                  override: boolean;
+                  /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+                  proper: boolean;
+                  /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+                  mean: number;
+                  /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+                  stddev: number;
+                };
+                /** @deprecated */
+                conversionWindowStart?: number;
+                /** @deprecated */
+                conversionWindowEnd?: number;
                 riskThresholdSuccess: number;
                 riskThresholdDanger: number;
                 minPercentChange: number;
@@ -3597,6 +4537,11 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
+          /**
+           * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
           /** @description Name of the person who owns this metric */
           owner?: string;
           /** @description Name of the metric */
@@ -3616,17 +4561,62 @@ export interface operations {
           behavior?: {
             /** @enum {string} */
             goal?: "increase" | "decrease";
+            /** @description Controls how outliers are handled */
+            cappingSettings?: {
+              /** @enum {string|null} */
+              type: "none" | "absolute" | "percentile" | null;
+              /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+              value?: number;
+              /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+              ignoreZeros?: boolean;
+            };
             /**
-             * @description Used in conjunction with `capValue` to set the capping (winsorization). Set to null to turn capping off. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/> If `behavior.capping` is non-null, you must specify `behavior.capValue`. 
+             * @deprecated 
+             * @description (deprecated, use cappingSettings instead) This should be non-negative
+             */
+            cap?: number;
+            /**
+             * @deprecated 
+             * @description (deprecated, use cappingSettings instead) Used in conjunction with `capValue` to set the capping (winsorization). Do not specify or set to null for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/>  If `behavior.capping` is non-null, you must specify `behavior.capValue`. 
              * @enum {string|null}
              */
             capping?: "absolute" | "percentile" | null;
-            /** @description This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`. */
+            /**
+             * @deprecated 
+             * @description (deprecated, use cappingSettings instead) This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`.
+             */
             capValue?: number;
-            /** @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither. */
+            /** @description Controls the conversion window for the metric */
+            windowSettings?: {
+              /** @enum {string} */
+              type: "none" | "conversion" | "lookback";
+              /** @description Wait this many hours after experiment exposure before counting conversions */
+              delayHours?: number;
+              windowValue?: number;
+              /** @enum {string} */
+              windowUnit?: "hours" | "days" | "weeks";
+            };
+            /**
+             * @deprecated 
+             * @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
+             */
             conversionWindowStart?: number;
-            /** @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither. */
+            /**
+             * @deprecated 
+             * @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.
+             */
             conversionWindowEnd?: number;
+            /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
+            priorSettings?: {
+              /** @description If false, the organization default settings will be used instead of the other settings in this object */
+              override: boolean;
+              /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+              proper: boolean;
+              /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+              mean: number;
+              /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+              stddev: number;
+            };
             /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
             riskThresholdSuccess?: number;
             /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
@@ -3804,8 +4794,12 @@ export interface operations {
               status: string;
               autoRefresh: boolean;
               hashAttribute: string;
+              fallbackAttribute?: string;
               /** @enum {number} */
               hashVersion: 1 | 2;
+              disableStickyBucketing?: any;
+              bucketVersion?: number;
+              minBucketVersion?: number;
               variations: ({
                   variationId: string;
                   key: string;
@@ -3850,8 +4844,10 @@ export interface operations {
                 goals: ({
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -3859,8 +4855,10 @@ export interface operations {
                 guardrails: ({
                     metricId: string;
                     overrides: {
-                      conversionWindowStart?: number;
-                      conversionWindowEnd?: number;
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
                       winRiskThreshold?: number;
                       loseRiskThreshold?: number;
                     };
@@ -3868,8 +4866,10 @@ export interface operations {
                 activationMetric?: {
                   metricId: string;
                   overrides: {
-                    conversionWindowStart?: number;
-                    conversionWindowEnd?: number;
+                    delayHours?: number;
+                    windowHours?: number;
+                    /** @enum {string} */
+                    window?: "conversion" | "lookback" | "";
                     winRiskThreshold?: number;
                     loseRiskThreshold?: number;
                   };
@@ -3972,16 +4972,20 @@ export interface operations {
           "application/json": ({
             savedGroups: ({
                 id: string;
+                /** @enum {string} */
+                type: "condition" | "list";
                 /** Format: date-time */
                 dateCreated: string;
                 /** Format: date-time */
                 dateUpdated: string;
                 name: string;
-                /** @enum {string} */
-                source: "inline" | "runtime";
                 owner?: string;
-                attributeKey: string;
-                values: (string)[];
+                /** @description When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string;
+                /** @description When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string;
+                /** @description When type = 'list', this is the list of values for the attribute key */
+                values?: (string)[];
               })[];
           }) & {
             limit: number;
@@ -4002,12 +5006,17 @@ export interface operations {
         "application/json": {
           /** @description The display name of the Saved Group */
           name: string;
-          /** @enum {string} */
-          source?: "inline" | "runtime";
-          /** @description An array of values to target (Ex: a list of userIds). Not applicable for runtime groups */
+          /**
+           * @description The type of Saved Group (inferred from other arguments if missing) 
+           * @enum {string}
+           */
+          type?: "condition" | "list";
+          /** @description When type = 'condition', this is the JSON-encoded condition for the group */
+          condition?: string;
+          /** @description When type = 'list', this is the attribute key the group is based on */
+          attributeKey?: string;
+          /** @description When type = 'list', this is the list of values for the attribute key */
           values?: (string)[];
-          /** @description For inline groups, the name of the attribute the values belong to (e.g. `user_id`). For runtime groups, the group name you reference in your code */
-          attributeKey: string;
           /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
         };
@@ -4019,16 +5028,20 @@ export interface operations {
           "application/json": {
             savedGroup: {
               id: string;
+              /** @enum {string} */
+              type: "condition" | "list";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               name: string;
-              /** @enum {string} */
-              source: "inline" | "runtime";
               owner?: string;
-              attributeKey: string;
-              values: (string)[];
+              /** @description When type = 'condition', this is the JSON-encoded condition for the group */
+              condition?: string;
+              /** @description When type = 'list', this is the attribute key the group is based on */
+              attributeKey?: string;
+              /** @description When type = 'list', this is the list of values for the attribute key */
+              values?: (string)[];
             };
           };
         };
@@ -4049,16 +5062,20 @@ export interface operations {
           "application/json": {
             savedGroup: {
               id: string;
+              /** @enum {string} */
+              type: "condition" | "list";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               name: string;
-              /** @enum {string} */
-              source: "inline" | "runtime";
               owner?: string;
-              attributeKey: string;
-              values: (string)[];
+              /** @description When type = 'condition', this is the JSON-encoded condition for the group */
+              condition?: string;
+              /** @description When type = 'list', this is the attribute key the group is based on */
+              attributeKey?: string;
+              /** @description When type = 'list', this is the list of values for the attribute key */
+              values?: (string)[];
             };
           };
         };
@@ -4078,12 +5095,12 @@ export interface operations {
         "application/json": {
           /** @description The display name of the Saved Group */
           name?: string;
-          /** @description An array of values to target (Ex: a list of userIds). */
+          /** @description When type = 'condition', this is the JSON-encoded condition for the group */
+          condition?: string;
+          /** @description When type = 'list', this is the list of values for the attribute key */
           values?: (string)[];
           /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
-          /** @description (Runtime groups only) The key used to reference the Saved Group in the SDK */
-          attributeKey?: string;
         };
       };
     };
@@ -4093,16 +5110,20 @@ export interface operations {
           "application/json": {
             savedGroup: {
               id: string;
+              /** @enum {string} */
+              type: "condition" | "list";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               name: string;
-              /** @enum {string} */
-              source: "inline" | "runtime";
               owner?: string;
-              attributeKey: string;
-              values: (string)[];
+              /** @description When type = 'condition', this is the JSON-encoded condition for the group */
+              condition?: string;
+              /** @description When type = 'list', this is the attribute key the group is based on */
+              attributeKey?: string;
+              /** @description When type = 'list', this is the list of values for the attribute key */
+              values?: (string)[];
             };
           };
         };
@@ -4248,6 +5269,1329 @@ export interface operations {
       };
     };
   };
+  listEnvironments: {
+    /** Get the organization's environments */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            environments: ({
+                id: string;
+                description: string;
+                toggleOnList: boolean;
+                defaultState: boolean;
+                projects: (string)[];
+              })[];
+          };
+        };
+      };
+    };
+  };
+  postEnvironment: {
+    /** Create a new environment */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The ID of the new environment */
+          id: string;
+          /** @description The description of the new environment */
+          description?: string;
+          /** @description Show toggle on feature list */
+          toggleOnList?: any;
+          /** @description Default state for new features */
+          defaultState?: any;
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            environment: {
+              id: string;
+              description: string;
+              toggleOnList: boolean;
+              defaultState: boolean;
+              projects: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  putEnvironment: {
+    /** Update an environment */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The description of the new environment */
+          description?: string;
+          /** @description Show toggle on feature list */
+          toggleOnList?: boolean;
+          /** @description Default state for new features */
+          defaultState?: boolean;
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            environment: {
+              id: string;
+              description: string;
+              toggleOnList: boolean;
+              defaultState: boolean;
+              projects: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteEnvironment: {
+    /** Deletes a single environment */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  listFactTables: {
+    /** Get all fact tables */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+        /** @description Filter by Data Source */
+        /** @description Filter by project id */
+      query: {
+        limit?: number;
+        offset?: number;
+        datasourceId?: string;
+        projectId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+            factTables: ({
+                id: string;
+                name: string;
+                description: string;
+                owner: string;
+                projects: (string)[];
+                tags: (string)[];
+                datasource: string;
+                userIdTypes: (string)[];
+                sql: string;
+                /**
+                 * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
+                 * @enum {string}
+                 */
+                managedBy: "" | "api";
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+              })[];
+          }) & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  postFactTable: {
+    /** Create a single fact table */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          /** @description Description of the fact table */
+          description?: string;
+          /** @description The person who is responsible for this fact table */
+          owner?: string;
+          /** @description List of associated project ids */
+          projects?: (string)[];
+          /** @description List of associated tags */
+          tags?: (string)[];
+          /** @description The datasource id */
+          datasource: string;
+          /** @description List of identifier columns in this table. For example, "id" or "anonymous_id" */
+          userIdTypes: (string)[];
+          /** @description The SQL query for this fact table */
+          sql: string;
+          /**
+           * @description Set this to "api" to disable editing in the GrowthBook UI 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            factTable: {
+              id: string;
+              name: string;
+              description: string;
+              owner: string;
+              projects: (string)[];
+              tags: (string)[];
+              datasource: string;
+              userIdTypes: (string)[];
+              sql: string;
+              /**
+               * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api";
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  getFactTable: {
+    /** Get a single fact table */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            factTable: {
+              id: string;
+              name: string;
+              description: string;
+              owner: string;
+              projects: (string)[];
+              tags: (string)[];
+              datasource: string;
+              userIdTypes: (string)[];
+              sql: string;
+              /**
+               * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api";
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  updateFactTable: {
+    /** Update a single fact table */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          /** @description Description of the fact table */
+          description?: string;
+          /** @description The person who is responsible for this fact table */
+          owner?: string;
+          /** @description List of associated project ids */
+          projects?: (string)[];
+          /** @description List of associated tags */
+          tags?: (string)[];
+          /** @description List of identifier columns in this table. For example, "id" or "anonymous_id" */
+          userIdTypes?: (string)[];
+          /** @description The SQL query for this fact table */
+          sql?: string;
+          /**
+           * @description Set this to "api" to disable editing in the GrowthBook UI 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            factTable: {
+              id: string;
+              name: string;
+              description: string;
+              owner: string;
+              projects: (string)[];
+              tags: (string)[];
+              datasource: string;
+              userIdTypes: (string)[];
+              sql: string;
+              /**
+               * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api";
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteFactTable: {
+    /** Deletes a single fact table */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /**
+             * @description The ID of the deleted fact table 
+             * @example ftb_123abc
+             */
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  listFactTableFilters: {
+    /** Get all filters for a fact table */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+      query: {
+        limit?: number;
+        offset?: number;
+      };
+        /** @description Specify a specific fact table */
+      path: {
+        factTableId: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+            factTableFilters: ({
+                id: string;
+                name: string;
+                description: string;
+                value: string;
+                /**
+                 * @description Where this fact table filter must be managed from. If not set (empty string), it can be managed from anywhere. 
+                 * @enum {string}
+                 */
+                managedBy: "" | "api";
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+              })[];
+          }) & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  postFactTableFilter: {
+    /** Create a single fact table filter */
+    parameters: {
+        /** @description Specify a specific fact table */
+      path: {
+        factTableId: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          /** @description Description of the fact table filter */
+          description?: string;
+          /**
+           * @description The SQL expression for this filter. 
+           * @example country = 'US'
+           */
+          value: string;
+          /**
+           * @description Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api" 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            factTableFilter: {
+              id: string;
+              name: string;
+              description: string;
+              value: string;
+              /**
+               * @description Where this fact table filter must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api";
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  getFactTableFilter: {
+    /** Get a single fact filter */
+    parameters: {
+        /** @description Specify a specific fact table */
+        /** @description The id of the requested resource */
+      path: {
+        factTableId: string;
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            factTableFilter: {
+              id: string;
+              name: string;
+              description: string;
+              value: string;
+              /**
+               * @description Where this fact table filter must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api";
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  updateFactTableFilter: {
+    /** Update a single fact table filter */
+    parameters: {
+        /** @description Specify a specific fact table */
+        /** @description The id of the requested resource */
+      path: {
+        factTableId: string;
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          /** @description Description of the fact table filter */
+          description?: string;
+          /**
+           * @description The SQL expression for this filter. 
+           * @example country = 'US'
+           */
+          value?: string;
+          /**
+           * @description Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api" 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            factTableFilter: {
+              id: string;
+              name: string;
+              description: string;
+              value: string;
+              /**
+               * @description Where this fact table filter must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api";
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteFactTableFilter: {
+    /** Deletes a single fact table filter */
+    parameters: {
+        /** @description Specify a specific fact table */
+        /** @description The id of the requested resource */
+      path: {
+        factTableId: string;
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /**
+             * @description The ID of the deleted fact filter 
+             * @example flt_123abc
+             */
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  listFactMetrics: {
+    /** Get all fact metrics */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+        /** @description Filter by Data Source */
+        /** @description Filter by project id */
+        /** @description Filter by Fact Table Id (for ratio metrics, we only look at the numerator) */
+      query: {
+        limit?: number;
+        offset?: number;
+        datasourceId?: string;
+        projectId?: string;
+        factTableId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+            factMetrics: ({
+                id: string;
+                name: string;
+                description: string;
+                owner: string;
+                projects: (string)[];
+                tags: (string)[];
+                datasource: string;
+                /** @enum {string} */
+                metricType: "proportion" | "mean" | "quantile" | "ratio";
+                numerator: {
+                  factTableId: string;
+                  column: string;
+                  /** @description Array of Fact Table Filter Ids */
+                  filters: (string)[];
+                };
+                denominator?: {
+                  factTableId: string;
+                  column: string;
+                  /** @description Array of Fact Table Filter Ids */
+                  filters: (string)[];
+                };
+                /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
+                inverse: boolean;
+                /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
+                quantileSettings?: {
+                  /**
+                   * @description Whether the quantile is over unit aggregations or raw event values 
+                   * @enum {string}
+                   */
+                  type: "event" | "unit";
+                  /** @description If true, zero values will be ignored when calculating the quantile */
+                  ignoreZeros: boolean;
+                  /** @description The quantile value (from 0.001 to 0.999) */
+                  quantile: number;
+                };
+                /** @description Controls how outliers are handled */
+                cappingSettings: {
+                  /** @enum {string} */
+                  type: "none" | "absolute" | "percentile";
+                  /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+                  value?: number;
+                  /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+                  ignoreZeros?: boolean;
+                };
+                /** @description Controls the conversion window for the metric */
+                windowSettings: {
+                  /** @enum {string} */
+                  type: "none" | "conversion" | "lookback";
+                  /** @description Wait this many hours after experiment exposure before counting conversions */
+                  delayHours?: number;
+                  windowValue?: number;
+                  /** @enum {string} */
+                  windowUnit?: "hours" | "days" | "weeks";
+                };
+                /** @description Controls the regression adjustment (CUPED) settings for the metric */
+                regressionAdjustmentSettings: {
+                  /** @description If false, the organization default settings will be used */
+                  override: boolean;
+                  /** @description Controls whether or not regresion adjustment is applied to the metric */
+                  enabled?: boolean;
+                  /** @description Number of pre-exposure days to use for the regression adjustment */
+                  days?: number;
+                };
+                riskThresholdSuccess: number;
+                riskThresholdDanger: number;
+                minPercentChange: number;
+                maxPercentChange: number;
+                minSampleSize: number;
+                /**
+                 * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+                 * @enum {string}
+                 */
+                managedBy: "" | "api";
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+              })[];
+          }) & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  postFactMetric: {
+    /** Create a single fact metric */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          description?: string;
+          owner?: string;
+          projects?: (string)[];
+          tags?: (string)[];
+          /** @enum {string} */
+          metricType: "proportion" | "mean" | "quantile" | "ratio";
+          numerator: {
+            factTableId: string;
+            /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
+            column?: string;
+            /** @description Array of Fact Table Filter Ids */
+            filters?: (string)[];
+          };
+          /** @description Only when metricType is 'ratio' */
+          denominator?: {
+            factTableId: string;
+            /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
+            column: string;
+            /** @description Array of Fact Table Filter Ids */
+            filters?: (string)[];
+          };
+          /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
+          inverse?: boolean;
+          /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
+          quantileSettings?: {
+            /**
+             * @description Whether the quantile is over unit aggregations or raw event values 
+             * @enum {string}
+             */
+            type: "event" | "unit";
+            /** @description If true, zero values will be ignored when calculating the quantile */
+            ignoreZeros: boolean;
+            /** @description The quantile value (from 0.001 to 0.999) */
+            quantile: number;
+          };
+          /** @description Controls how outliers are handled */
+          cappingSettings?: {
+            /** @enum {string} */
+            type: "none" | "absolute" | "percentile";
+            /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+            value?: number;
+            /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+            ignoreZeros?: boolean;
+          };
+          /** @description Controls the conversion window for the metric */
+          windowSettings?: {
+            /** @enum {string} */
+            type: "none" | "conversion" | "lookback";
+            /** @description Wait this many hours after experiment exposure before counting conversions */
+            delayHours?: number;
+            windowValue?: number;
+            /** @enum {string} */
+            windowUnit?: "hours" | "days" | "weeks";
+          };
+          /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
+          priorSettings?: {
+            /** @description If false, the organization default settings will be used instead of the other settings in this object */
+            override: boolean;
+            /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+            proper: boolean;
+            /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+            mean: number;
+            /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+            stddev: number;
+          };
+          /** @description Controls the regression adjustment (CUPED) settings for the metric */
+          regressionAdjustmentSettings?: {
+            /** @description If false, the organization default settings will be used */
+            override: boolean;
+            /** @description Controls whether or not regression adjustment is applied to the metric */
+            enabled?: boolean;
+            /** @description Number of pre-exposure days to use for the regression adjustment */
+            days?: number;
+          };
+          /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
+          riskThresholdSuccess?: number;
+          /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
+          riskThresholdDanger?: number;
+          /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
+          minPercentChange?: number;
+          /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
+          maxPercentChange?: number;
+          minSampleSize?: number;
+          /**
+           * @description Set this to "api" to disable editing in the GrowthBook UI 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            factMetric: {
+              id: string;
+              name: string;
+              description: string;
+              owner: string;
+              projects: (string)[];
+              tags: (string)[];
+              datasource: string;
+              /** @enum {string} */
+              metricType: "proportion" | "mean" | "quantile" | "ratio";
+              numerator: {
+                factTableId: string;
+                column: string;
+                /** @description Array of Fact Table Filter Ids */
+                filters: (string)[];
+              };
+              denominator?: {
+                factTableId: string;
+                column: string;
+                /** @description Array of Fact Table Filter Ids */
+                filters: (string)[];
+              };
+              /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
+              inverse: boolean;
+              /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
+              quantileSettings?: {
+                /**
+                 * @description Whether the quantile is over unit aggregations or raw event values 
+                 * @enum {string}
+                 */
+                type: "event" | "unit";
+                /** @description If true, zero values will be ignored when calculating the quantile */
+                ignoreZeros: boolean;
+                /** @description The quantile value (from 0.001 to 0.999) */
+                quantile: number;
+              };
+              /** @description Controls how outliers are handled */
+              cappingSettings: {
+                /** @enum {string} */
+                type: "none" | "absolute" | "percentile";
+                /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+                value?: number;
+                /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+                ignoreZeros?: boolean;
+              };
+              /** @description Controls the conversion window for the metric */
+              windowSettings: {
+                /** @enum {string} */
+                type: "none" | "conversion" | "lookback";
+                /** @description Wait this many hours after experiment exposure before counting conversions */
+                delayHours?: number;
+                windowValue?: number;
+                /** @enum {string} */
+                windowUnit?: "hours" | "days" | "weeks";
+              };
+              /** @description Controls the regression adjustment (CUPED) settings for the metric */
+              regressionAdjustmentSettings: {
+                /** @description If false, the organization default settings will be used */
+                override: boolean;
+                /** @description Controls whether or not regresion adjustment is applied to the metric */
+                enabled?: boolean;
+                /** @description Number of pre-exposure days to use for the regression adjustment */
+                days?: number;
+              };
+              riskThresholdSuccess: number;
+              riskThresholdDanger: number;
+              minPercentChange: number;
+              maxPercentChange: number;
+              minSampleSize: number;
+              /**
+               * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api";
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  getFactMetric: {
+    /** Get a single fact metric */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            factMetric: {
+              id: string;
+              name: string;
+              description: string;
+              owner: string;
+              projects: (string)[];
+              tags: (string)[];
+              datasource: string;
+              /** @enum {string} */
+              metricType: "proportion" | "mean" | "quantile" | "ratio";
+              numerator: {
+                factTableId: string;
+                column: string;
+                /** @description Array of Fact Table Filter Ids */
+                filters: (string)[];
+              };
+              denominator?: {
+                factTableId: string;
+                column: string;
+                /** @description Array of Fact Table Filter Ids */
+                filters: (string)[];
+              };
+              /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
+              inverse: boolean;
+              /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
+              quantileSettings?: {
+                /**
+                 * @description Whether the quantile is over unit aggregations or raw event values 
+                 * @enum {string}
+                 */
+                type: "event" | "unit";
+                /** @description If true, zero values will be ignored when calculating the quantile */
+                ignoreZeros: boolean;
+                /** @description The quantile value (from 0.001 to 0.999) */
+                quantile: number;
+              };
+              /** @description Controls how outliers are handled */
+              cappingSettings: {
+                /** @enum {string} */
+                type: "none" | "absolute" | "percentile";
+                /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+                value?: number;
+                /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+                ignoreZeros?: boolean;
+              };
+              /** @description Controls the conversion window for the metric */
+              windowSettings: {
+                /** @enum {string} */
+                type: "none" | "conversion" | "lookback";
+                /** @description Wait this many hours after experiment exposure before counting conversions */
+                delayHours?: number;
+                windowValue?: number;
+                /** @enum {string} */
+                windowUnit?: "hours" | "days" | "weeks";
+              };
+              /** @description Controls the regression adjustment (CUPED) settings for the metric */
+              regressionAdjustmentSettings: {
+                /** @description If false, the organization default settings will be used */
+                override: boolean;
+                /** @description Controls whether or not regresion adjustment is applied to the metric */
+                enabled?: boolean;
+                /** @description Number of pre-exposure days to use for the regression adjustment */
+                days?: number;
+              };
+              riskThresholdSuccess: number;
+              riskThresholdDanger: number;
+              minPercentChange: number;
+              maxPercentChange: number;
+              minSampleSize: number;
+              /**
+               * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api";
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  updateFactMetric: {
+    /** Update a single fact metric */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          description?: string;
+          owner?: string;
+          projects?: (string)[];
+          tags?: (string)[];
+          /** @enum {string} */
+          metricType?: "proportion" | "mean" | "quantile" | "ratio";
+          numerator?: {
+            factTableId: string;
+            /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
+            column?: string;
+            /** @description Array of Fact Table Filter Ids */
+            filters?: (string)[];
+          };
+          /** @description Only when metricType is 'ratio' */
+          denominator?: {
+            factTableId: string;
+            /** @description Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
+            column: string;
+            /** @description Array of Fact Table Filter Ids */
+            filters?: (string)[];
+          };
+          /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
+          inverse?: boolean;
+          /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
+          quantileSettings?: {
+            /**
+             * @description Whether the quantile is over unit aggregations or raw event values 
+             * @enum {string}
+             */
+            type: "event" | "unit";
+            /** @description If true, zero values will be ignored when calculating the quantile */
+            ignoreZeros: boolean;
+            /** @description The quantile value (from 0.001 to 0.999) */
+            quantile: number;
+          };
+          /** @description Controls how outliers are handled */
+          cappingSettings?: {
+            /** @enum {string} */
+            type: "none" | "absolute" | "percentile";
+            /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+            value?: number;
+            /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+            ignoreZeros?: boolean;
+          };
+          /** @description Controls the conversion window for the metric */
+          windowSettings?: {
+            /** @enum {string} */
+            type: "none" | "conversion" | "lookback";
+            /** @description Wait this many hours after experiment exposure before counting conversions */
+            delayHours?: number;
+            windowValue?: number;
+            /** @enum {string} */
+            windowUnit?: "hours" | "days" | "weeks";
+          };
+          /** @description Controls the regression adjustment (CUPED) settings for the metric */
+          regressionAdjustmentSettings?: {
+            /** @description If false, the organization default settings will be used */
+            override: boolean;
+            /** @description Controls whether or not regression adjustment is applied to the metric */
+            enabled?: boolean;
+            /** @description Number of pre-exposure days to use for the regression adjustment */
+            days?: number;
+          };
+          /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
+          riskThresholdSuccess?: number;
+          /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
+          riskThresholdDanger?: number;
+          /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
+          minPercentChange?: number;
+          /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
+          maxPercentChange?: number;
+          minSampleSize?: number;
+          /**
+           * @description Set this to "api" to disable editing in the GrowthBook UI 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            factMetric: {
+              id: string;
+              name: string;
+              description: string;
+              owner: string;
+              projects: (string)[];
+              tags: (string)[];
+              datasource: string;
+              /** @enum {string} */
+              metricType: "proportion" | "mean" | "quantile" | "ratio";
+              numerator: {
+                factTableId: string;
+                column: string;
+                /** @description Array of Fact Table Filter Ids */
+                filters: (string)[];
+              };
+              denominator?: {
+                factTableId: string;
+                column: string;
+                /** @description Array of Fact Table Filter Ids */
+                filters: (string)[];
+              };
+              /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
+              inverse: boolean;
+              /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
+              quantileSettings?: {
+                /**
+                 * @description Whether the quantile is over unit aggregations or raw event values 
+                 * @enum {string}
+                 */
+                type: "event" | "unit";
+                /** @description If true, zero values will be ignored when calculating the quantile */
+                ignoreZeros: boolean;
+                /** @description The quantile value (from 0.001 to 0.999) */
+                quantile: number;
+              };
+              /** @description Controls how outliers are handled */
+              cappingSettings: {
+                /** @enum {string} */
+                type: "none" | "absolute" | "percentile";
+                /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+                value?: number;
+                /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+                ignoreZeros?: boolean;
+              };
+              /** @description Controls the conversion window for the metric */
+              windowSettings: {
+                /** @enum {string} */
+                type: "none" | "conversion" | "lookback";
+                /** @description Wait this many hours after experiment exposure before counting conversions */
+                delayHours?: number;
+                windowValue?: number;
+                /** @enum {string} */
+                windowUnit?: "hours" | "days" | "weeks";
+              };
+              /** @description Controls the regression adjustment (CUPED) settings for the metric */
+              regressionAdjustmentSettings: {
+                /** @description If false, the organization default settings will be used */
+                override: boolean;
+                /** @description Controls whether or not regresion adjustment is applied to the metric */
+                enabled?: boolean;
+                /** @description Number of pre-exposure days to use for the regression adjustment */
+                days?: number;
+              };
+              riskThresholdSuccess: number;
+              riskThresholdDanger: number;
+              minPercentChange: number;
+              maxPercentChange: number;
+              minSampleSize: number;
+              /**
+               * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy: "" | "api";
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteFactMetric: {
+    /** Deletes a single fact metric */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /**
+             * @description The ID of the deleted fact metric 
+             * @example fact__123abc
+             */
+            deletedId?: string;
+          };
+        };
+      };
+    };
+  };
+  postBulkImportFacts: {
+    /** Bulk import fact tables, filters, and metrics */
+    requestBody: {
+      content: {
+        "application/json": {
+          factTables?: ({
+              id: string;
+              data: {
+                name: string;
+                /** @description Description of the fact table */
+                description?: string;
+                /** @description The person who is responsible for this fact table */
+                owner?: string;
+                /** @description List of associated project ids */
+                projects?: (string)[];
+                /** @description List of associated tags */
+                tags?: (string)[];
+                /** @description The datasource id */
+                datasource: string;
+                /** @description List of identifier columns in this table. For example, "id" or "anonymous_id" */
+                userIdTypes: (string)[];
+                /** @description The SQL query for this fact table */
+                sql: string;
+                /**
+                 * @description Set this to "api" to disable editing in the GrowthBook UI 
+                 * @enum {string}
+                 */
+                managedBy?: "" | "api";
+              };
+            })[];
+          factTableFilters?: ({
+              factTableId: string;
+              id: string;
+              data: {
+                name: string;
+                /** @description Description of the fact table filter */
+                description?: string;
+                /**
+                 * @description The SQL expression for this filter. 
+                 * @example country = 'US'
+                 */
+                value: string;
+                /**
+                 * @description Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api" 
+                 * @enum {string}
+                 */
+                managedBy?: "" | "api";
+              };
+            })[];
+          factMetrics?: ({
+              id: string;
+              data: {
+                name: string;
+                description?: string;
+                owner?: string;
+                projects?: (string)[];
+                tags?: (string)[];
+                /** @enum {string} */
+                metricType: "proportion" | "mean" | "quantile" | "ratio";
+                numerator: {
+                  factTableId: string;
+                  /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
+                  column?: string;
+                  /** @description Array of Fact Table Filter Ids */
+                  filters?: (string)[];
+                };
+                /** @description Only when metricType is 'ratio' */
+                denominator?: {
+                  factTableId: string;
+                  /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
+                  column: string;
+                  /** @description Array of Fact Table Filter Ids */
+                  filters?: (string)[];
+                };
+                /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
+                inverse?: boolean;
+                /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
+                quantileSettings?: {
+                  /**
+                   * @description Whether the quantile is over unit aggregations or raw event values 
+                   * @enum {string}
+                   */
+                  type: "event" | "unit";
+                  /** @description If true, zero values will be ignored when calculating the quantile */
+                  ignoreZeros: boolean;
+                  /** @description The quantile value (from 0.001 to 0.999) */
+                  quantile: number;
+                };
+                /** @description Controls how outliers are handled */
+                cappingSettings?: {
+                  /** @enum {string} */
+                  type: "none" | "absolute" | "percentile";
+                  /** @description When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0). */
+                  value?: number;
+                  /** @description If true and capping is `percentile`, zeros will be ignored when calculating the percentile. */
+                  ignoreZeros?: boolean;
+                };
+                /** @description Controls the conversion window for the metric */
+                windowSettings?: {
+                  /** @enum {string} */
+                  type: "none" | "conversion" | "lookback";
+                  /** @description Wait this many hours after experiment exposure before counting conversions */
+                  delayHours?: number;
+                  windowValue?: number;
+                  /** @enum {string} */
+                  windowUnit?: "hours" | "days" | "weeks";
+                };
+                /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
+                priorSettings?: {
+                  /** @description If false, the organization default settings will be used instead of the other settings in this object */
+                  override: boolean;
+                  /** @description If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior. */
+                  proper: boolean;
+                  /** @description The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%) */
+                  mean: number;
+                  /** @description Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms. */
+                  stddev: number;
+                };
+                /** @description Controls the regression adjustment (CUPED) settings for the metric */
+                regressionAdjustmentSettings?: {
+                  /** @description If false, the organization default settings will be used */
+                  override: boolean;
+                  /** @description Controls whether or not regression adjustment is applied to the metric */
+                  enabled?: boolean;
+                  /** @description Number of pre-exposure days to use for the regression adjustment */
+                  days?: number;
+                };
+                /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
+                riskThresholdSuccess?: number;
+                /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
+                riskThresholdDanger?: number;
+                /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
+                minPercentChange?: number;
+                /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
+                maxPercentChange?: number;
+                minSampleSize?: number;
+                /**
+                 * @description Set this to "api" to disable editing in the GrowthBook UI 
+                 * @enum {string}
+                 */
+                managedBy?: "" | "api";
+              };
+            })[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            success: boolean;
+            factTablesAdded: number;
+            factTablesUpdated: number;
+            factTableFiltersAdded: number;
+            factTableFiltersUpdated: number;
+            factMetricsAdded: number;
+            factMetricsUpdated: number;
+          };
+        };
+      };
+    };
+  };
+  postCodeRefs: {
+    /** Submit list of code references */
+    requestBody: {
+      content: {
+        "application/json": {
+          branch: string;
+          repoName: string;
+          refs: ({
+              filePath: string;
+              startingLineNumber: number;
+              lines: string;
+              flagKey: string;
+              contentHash: string;
+            })[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            featuresUpdated?: (string)[];
+          };
+        };
+      };
+    };
+  };
 }
 
 // Schemas
@@ -4255,6 +6599,7 @@ export type ApiPaginationFields = components["schemas"]["PaginationFields"];
 export type ApiDimension = components["schemas"]["Dimension"];
 export type ApiMetric = components["schemas"]["Metric"];
 export type ApiProject = components["schemas"]["Project"];
+export type ApiEnvironment = components["schemas"]["Environment"];
 export type ApiSegment = components["schemas"]["Segment"];
 export type ApiFeature = components["schemas"]["Feature"];
 export type ApiFeatureEnvironment = components["schemas"]["FeatureEnvironment"];
@@ -4274,6 +6619,9 @@ export type ApiVisualChangeset = components["schemas"]["VisualChangeset"];
 export type ApiVisualChange = components["schemas"]["VisualChange"];
 export type ApiSavedGroup = components["schemas"]["SavedGroup"];
 export type ApiOrganization = components["schemas"]["Organization"];
+export type ApiFactTable = components["schemas"]["FactTable"];
+export type ApiFactTableFilter = components["schemas"]["FactTableFilter"];
+export type ApiFactMetric = components["schemas"]["FactMetric"];
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -4281,14 +6629,21 @@ export type PostFeatureResponse = operations["postFeature"]["responses"]["200"][
 export type GetFeatureResponse = operations["getFeature"]["responses"]["200"]["content"]["application/json"];
 export type UpdateFeatureResponse = operations["updateFeature"]["responses"]["200"]["content"]["application/json"];
 export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["200"]["content"]["application/json"];
+export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
+export type PostProjectResponse = operations["postProject"]["responses"]["200"]["content"]["application/json"];
 export type GetProjectResponse = operations["getProject"]["responses"]["200"]["content"]["application/json"];
+export type PutProjectResponse = operations["putProject"]["responses"]["200"]["content"]["application/json"];
+export type DeleteProjectResponse = operations["deleteProject"]["responses"]["200"]["content"]["application/json"];
 export type ListDimensionsResponse = operations["listDimensions"]["responses"]["200"]["content"]["application/json"];
 export type GetDimensionResponse = operations["getDimension"]["responses"]["200"]["content"]["application/json"];
 export type ListSegmentsResponse = operations["listSegments"]["responses"]["200"]["content"]["application/json"];
 export type GetSegmentResponse = operations["getSegment"]["responses"]["200"]["content"]["application/json"];
 export type ListSdkConnectionsResponse = operations["listSdkConnections"]["responses"]["200"]["content"]["application/json"];
+export type PostSdkConnectionResponse = operations["postSdkConnection"]["responses"]["200"]["content"]["application/json"];
 export type GetSdkConnectionResponse = operations["getSdkConnection"]["responses"]["200"]["content"]["application/json"];
+export type PutSdkConnectionResponse = operations["putSdkConnection"]["responses"]["200"]["content"]["application/json"];
+export type DeleteSdkConnectionResponse = operations["deleteSdkConnection"]["responses"]["200"]["content"]["application/json"];
 export type ListDataSourcesResponse = operations["listDataSources"]["responses"]["200"]["content"]["application/json"];
 export type GetDataSourceResponse = operations["getDataSource"]["responses"]["200"]["content"]["application/json"];
 export type ListExperimentsResponse = operations["listExperiments"]["responses"]["200"]["content"]["application/json"];
@@ -4314,3 +6669,24 @@ export type DeleteSavedGroupResponse = operations["deleteSavedGroup"]["responses
 export type ListOrganizationsResponse = operations["listOrganizations"]["responses"]["200"]["content"]["application/json"];
 export type PostOrganizationResponse = operations["postOrganization"]["responses"]["200"]["content"]["application/json"];
 export type PutOrganizationResponse = operations["putOrganization"]["responses"]["200"]["content"]["application/json"];
+export type ListEnvironmentsResponse = operations["listEnvironments"]["responses"]["200"]["content"]["application/json"];
+export type PostEnvironmentResponse = operations["postEnvironment"]["responses"]["200"]["content"]["application/json"];
+export type PutEnvironmentResponse = operations["putEnvironment"]["responses"]["200"]["content"]["application/json"];
+export type DeleteEnvironmentResponse = operations["deleteEnvironment"]["responses"]["200"]["content"]["application/json"];
+export type ListFactTablesResponse = operations["listFactTables"]["responses"]["200"]["content"]["application/json"];
+export type PostFactTableResponse = operations["postFactTable"]["responses"]["200"]["content"]["application/json"];
+export type GetFactTableResponse = operations["getFactTable"]["responses"]["200"]["content"]["application/json"];
+export type UpdateFactTableResponse = operations["updateFactTable"]["responses"]["200"]["content"]["application/json"];
+export type DeleteFactTableResponse = operations["deleteFactTable"]["responses"]["200"]["content"]["application/json"];
+export type ListFactTableFiltersResponse = operations["listFactTableFilters"]["responses"]["200"]["content"]["application/json"];
+export type PostFactTableFilterResponse = operations["postFactTableFilter"]["responses"]["200"]["content"]["application/json"];
+export type GetFactTableFilterResponse = operations["getFactTableFilter"]["responses"]["200"]["content"]["application/json"];
+export type UpdateFactTableFilterResponse = operations["updateFactTableFilter"]["responses"]["200"]["content"]["application/json"];
+export type DeleteFactTableFilterResponse = operations["deleteFactTableFilter"]["responses"]["200"]["content"]["application/json"];
+export type ListFactMetricsResponse = operations["listFactMetrics"]["responses"]["200"]["content"]["application/json"];
+export type PostFactMetricResponse = operations["postFactMetric"]["responses"]["200"]["content"]["application/json"];
+export type GetFactMetricResponse = operations["getFactMetric"]["responses"]["200"]["content"]["application/json"];
+export type UpdateFactMetricResponse = operations["updateFactMetric"]["responses"]["200"]["content"]["application/json"];
+export type DeleteFactMetricResponse = operations["deleteFactMetric"]["responses"]["200"]["content"]["application/json"];
+export type PostBulkImportFactsResponse = operations["postBulkImportFacts"]["responses"]["200"]["content"]["application/json"];
+export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"]["content"]["application/json"];

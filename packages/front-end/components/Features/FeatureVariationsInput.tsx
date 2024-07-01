@@ -1,5 +1,6 @@
-import { FeatureValueType } from "back-end/types/feature";
+import { FeatureInterface, FeatureValueType } from "back-end/types/feature";
 import React, { useState } from "react";
+import { FaInfoCircle } from "react-icons/fa";
 import {
   decimalToPercent,
   distributeWeights,
@@ -10,8 +11,8 @@ import {
   generateVariationId,
   getDefaultVariationValue,
 } from "@/services/features";
-import { GBAddCircle } from "../Icons";
-import Tooltip from "../Tooltip/Tooltip";
+import { GBAddCircle } from "@/components/Icons";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "./VariationsInput.module.scss";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import {
@@ -32,6 +33,11 @@ export interface Props {
   valueAsId?: boolean;
   showPreview?: boolean;
   hideCoverage?: boolean;
+  disableCoverage?: boolean;
+  disableVariations?: boolean;
+  label?: string;
+  customSplitOn?: boolean;
+  feature?: FeatureInterface;
 }
 
 export default function FeatureVariationsInput({
@@ -46,10 +52,17 @@ export default function FeatureVariationsInput({
   valueAsId = false,
   showPreview = true,
   hideCoverage = false,
+  disableCoverage = false,
+  disableVariations = false,
+  label,
+  customSplitOn,
+  feature,
 }: Props) {
   const weights = variations.map((v) => v.weight);
   const isEqualWeights = weights.every((w) => w === weights[0]);
-  const [customSplit, setCustomSplit] = useState(!isEqualWeights);
+  const [customSplit, setCustomSplit] = useState(
+    customSplitOn ?? !isEqualWeights
+  );
 
   const setEqualWeights = () => {
     getEqualWeights(variations.length).forEach((w, i) => {
@@ -59,12 +72,14 @@ export default function FeatureVariationsInput({
 
   return (
     <div className="form-group">
-      {setVariations ? (
-        <label>Exposure, Variations and Weights</label>
+      {label ? (
+        <label>{label}</label>
+      ) : setVariations ? (
+        <label>Traffic Percentage, Variations, and Weights</label>
       ) : hideCoverage ? (
-        <label>Traffic Split</label>
+        <label>Traffic Percentage</label>
       ) : (
-        <label>Exposure and Weights</label>
+        <label>Traffic Percentage &amp; Variation Weights</label>
       )}
       <div className="gbtable bg-light">
         {!hideCoverage && (
@@ -88,6 +103,7 @@ export default function FeatureVariationsInput({
                   step="1"
                   type="range"
                   className="w-100"
+                  disabled={!!disableCoverage}
                 />
               </div>
               <div
@@ -108,6 +124,7 @@ export default function FeatureVariationsInput({
                     min={0}
                     max={100}
                     step="1"
+                    disabled={!!disableCoverage}
                   />
                   <span>%</span>
                 </div>
@@ -121,38 +138,43 @@ export default function FeatureVariationsInput({
               <th className="pl-3">Id</th>
               {!valueAsId && <th>Variation</th>}
               <th>
-                Name{" "}
-                <Tooltip body="Optional way to identify the variations within GrowthBook." />
+                <Tooltip
+                  body="Optional way to identify the variations within GrowthBook."
+                  tipPosition="top"
+                >
+                  Name <FaInfoCircle />
+                </Tooltip>
               </th>
               <th>
                 Split
-                <div className="d-inline-block float-right form-check form-check-inline">
-                  <label className="mb-0">
-                    <input
-                      type="checkbox"
-                      className="form-check-input position-relative"
-                      checked={customSplit}
-                      value={1}
-                      onChange={(e) => {
-                        setCustomSplit(e.target.checked);
-                        if (!e.target.checked) {
-                          setEqualWeights();
-                        }
-                      }}
-                      id="checkbox-customsplits"
-                      style={{ top: "2px" }}
-                    />{" "}
-                    Customize split
-                  </label>
-                </div>
+                {!disableVariations && (
+                  <div className="d-inline-block float-right form-check form-check-inline">
+                    <label className="mb-0">
+                      <input
+                        type="checkbox"
+                        className="form-check-input position-relative"
+                        checked={customSplit}
+                        value={1}
+                        onChange={(e) => {
+                          setCustomSplit(e.target.checked);
+                          if (!e.target.checked) {
+                            setEqualWeights();
+                          }
+                        }}
+                        id="checkbox-customsplits"
+                        style={{ top: "2px" }}
+                      />{" "}
+                      Customize split
+                    </label>
+                  </div>
+                )}
               </th>
             </tr>
           </thead>
           <tbody>
             <SortableVariationsList
               variations={variations}
-              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '((variations: SortableVariation[]) => void) ... Remove this comment to see the full error message
-              setVariations={setVariations}
+              setVariations={!disableVariations ? setVariations : undefined}
             >
               {variations.map((variation, i) => (
                 <SortableFeatureVariationRow
@@ -160,86 +182,88 @@ export default function FeatureVariationsInput({
                   key={variation.id}
                   variation={variation}
                   variations={variations}
-                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '((variations: SortableVariation[]) => void) ... Remove this comment to see the full error message
-                  setVariations={setVariations}
-                  setWeight={setWeight}
+                  setVariations={!disableVariations ? setVariations : undefined}
+                  setWeight={!disableVariations ? setWeight : undefined}
                   customSplit={customSplit}
                   valueType={valueType}
                   valueAsId={valueAsId}
+                  feature={feature}
                 />
               ))}
             </SortableVariationsList>
-            <tr>
-              <td colSpan={4}>
-                <div className="row">
-                  <div className="col">
-                    {valueType !== "boolean" && setVariations && (
-                      <a
-                        className="btn btn-outline-primary"
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
+            {!disableVariations && (
+              <tr>
+                <td colSpan={4}>
+                  <div className="row">
+                    <div className="col">
+                      {valueType !== "boolean" && setVariations && (
+                        <a
+                          className="btn btn-outline-primary"
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
 
-                          const newWeights = distributeWeights(
-                            [...weights, 0],
-                            customSplit
-                          );
+                            const newWeights = distributeWeights(
+                              [...weights, 0],
+                              customSplit
+                            );
 
-                          // Add a new value and update weights
-                          const newValues = [
-                            ...variations,
-                            {
-                              value: getDefaultVariationValue(defaultValue),
-                              name: "",
-                              weight: 0,
-                              id: generateVariationId(),
-                            },
-                          ];
-                          newValues.forEach((v, i) => {
-                            v.weight = newWeights[i] || 0;
-                          });
-                          setVariations(newValues);
-                        }}
-                      >
-                        <span
-                          className={`h4 pr-2 m-0 d-inline-block align-top`}
+                            // Add a new value and update weights
+                            const newValues = [
+                              ...variations,
+                              {
+                                value: getDefaultVariationValue(defaultValue),
+                                name: "",
+                                weight: 0,
+                                id: generateVariationId(),
+                              },
+                            ];
+                            newValues.forEach((v, i) => {
+                              v.weight = newWeights[i] || 0;
+                            });
+                            setVariations(newValues);
+                          }}
                         >
-                          <GBAddCircle />
-                        </span>
-                        add another variation
-                      </a>
-                    )}
-                    {valueType === "boolean" && (
-                      <>
-                        <Tooltip body="Boolean features can only have two variations. Use a different feature type to add multiple variations.">
-                          <a className="btn btn-outline-primary disabled">
-                            <span
-                              className={`h4 pr-2 m-0 d-inline-block align-top`}
-                            >
-                              <GBAddCircle />
-                            </span>
-                            add another variation
-                          </a>
-                        </Tooltip>
-                      </>
+                          <span
+                            className={`h4 pr-2 m-0 d-inline-block align-top`}
+                          >
+                            <GBAddCircle />
+                          </span>
+                          add another variation
+                        </a>
+                      )}
+                      {valueType === "boolean" && (
+                        <>
+                          <Tooltip body="Boolean features can only have two variations. Use a different feature type to add multiple variations.">
+                            <a className="btn btn-outline-primary disabled">
+                              <span
+                                className={`h4 pr-2 m-0 d-inline-block align-top`}
+                              >
+                                <GBAddCircle />
+                              </span>
+                              add another variation
+                            </a>
+                          </Tooltip>
+                        </>
+                      )}
+                    </div>
+                    {!isEqualWeights && (
+                      <div className="col-auto text-right">
+                        <a
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setEqualWeights();
+                          }}
+                        >
+                          set equal weights
+                        </a>
+                      </div>
                     )}
                   </div>
-                  {!isEqualWeights && (
-                    <div className="col-auto text-right">
-                      <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setEqualWeights();
-                        }}
-                      >
-                        set equal weights
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </td>
-            </tr>
+                </td>
+              </tr>
+            )}
 
             {showPreview && (
               <tr>

@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { validateFeatureValue } from "shared/util";
-import { accountFeatures, getAccountPlan } from "enterprise";
+import { orgHasPremiumFeature } from "enterprise";
 import { PostFeatureResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
 import { postFeatureValidator } from "../../validators/openapi";
 import { createFeature, getFeature } from "../../models/FeatureModel";
 import { getExperimentMapForFeature } from "../../models/ExperimentModel";
-import { FeatureInterface } from "../../../types/feature";
+import { FeatureInterface, JSONSchemaDef } from "../../../types/feature";
 import { getEnabledEnvironments } from "../../util/features";
 import {
   addIdsToRules,
@@ -16,6 +16,7 @@ import {
 } from "../../services/features";
 import { auditDetailsCreate } from "../../services/audit";
 import { OrganizationInterface } from "../../../types/organization";
+import { getEnvironments } from "../../services/organizations";
 
 export type ApiFeatureEnvSettings = NonNullable<
   z.infer<typeof postFeatureValidator.bodySchema>["environments"]
@@ -42,14 +43,15 @@ export const parseJsonSchemaForEnterprise = (
   org: OrganizationInterface,
   jsonSchema: string | undefined
 ) => {
-  const jsonSchemaWrapper = {
+  const jsonSchemaWrapper: JSONSchemaDef = {
+    schemaType: "schema",
     schema: "",
+    simple: { type: "object", fields: [] },
     date: new Date(),
     enabled: false,
   };
   if (!jsonSchema) return jsonSchemaWrapper;
-  const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
-  if (!commercialFeatures.includes("json-validation")) return jsonSchemaWrapper;
+  if (!orgHasPremiumFeature(org, "json-validation")) return jsonSchemaWrapper;
   try {
     // ensure the schema is valid JSON
     jsonSchemaWrapper.schema = JSON.stringify(JSON.parse(jsonSchema));
@@ -64,14 +66,16 @@ export const parseJsonSchemaForEnterprise = (
 
 export const postFeature = createApiRequestHandler(postFeatureValidator)(
   async (req): Promise<PostFeatureResponse> => {
-    req.checkPermissions("manageFeatures", req.body.project);
+    if (!req.context.permissions.canCreateFeature(req.body)) {
+      req.context.permissions.throwPermissionError();
+    }
 
-    const existing = await getFeature(req.organization.id, req.body.id);
+    const existing = await getFeature(req.context, req.body.id);
     if (existing) {
       throw new Error(`Feature id '${req.body.id}' already exists.`);
     }
 
-    const orgEnvs = req.organization.settings?.environments || [];
+    const orgEnvs = getEnvironments(req.organization);
 
     // ensure environment keys are valid
     validateEnvKeys(
@@ -88,18 +92,9 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       dateCreated: new Date(),
       dateUpdated: new Date(),
       organization: req.organization.id,
-      id: req.body.id.toLowerCase(),
+      id: req.body.id,
       archived: !!req.body.archived,
-      revision: {
-        version: 1,
-        comment: "New feature",
-        date: new Date(),
-        publishedBy: {
-          id: req.body.owner,
-          email: req.body.owner,
-          name: req.body.owner,
-        },
-      },
+      version: 1,
       environmentSettings: {},
     };
 
@@ -121,15 +116,23 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
     // ensure default value matches value type
     feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
 
-    req.checkPermissions(
-      "publishFeatures",
-      feature.project,
-      getEnabledEnvironments(feature)
-    );
+    if (
+      !req.context.permissions.canPublishFeature(
+        feature,
+        Array.from(
+          getEnabledEnvironments(
+            feature,
+            orgEnvs.map((e) => e.id)
+          )
+        )
+      )
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
 
     addIdsToRules(feature.environmentSettings, feature.id);
 
-    await createFeature(req.organization, req.eventAudit, feature);
+    await createFeature(req.context, feature);
 
     await req.audit({
       event: "feature.create",
@@ -143,7 +146,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
     const groupMap = await getSavedGroupMap(req.organization);
 
     const experimentMap = await getExperimentMapForFeature(
-      req.organization.id,
+      req.context,
       feature.id
     );
 

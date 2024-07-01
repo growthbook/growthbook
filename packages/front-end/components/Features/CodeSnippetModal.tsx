@@ -11,21 +11,22 @@ import {
 } from "react-icons/fa";
 import { FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
+import { getLatestSDKVersion } from "shared/sdk-versioning";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getApiHost, getCdnHost } from "@/services/env";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { useAttributeSchema } from "@/services/features";
 import { GBHashLock } from "@/components/Icons";
-import Modal from "../Modal";
-import { DocLink } from "../DocLink";
-import InstallationCodeSnippet from "../SyntaxHighlighting/Snippets/InstallationCodeSnippet";
-import GrowthBookSetupCodeSnippet from "../SyntaxHighlighting/Snippets/GrowthBookSetupCodeSnippet";
-import BooleanFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/BooleanFeatureCodeSnippet";
-import ClickToCopy from "../Settings/ClickToCopy";
-import TargetingAttributeCodeSnippet from "../SyntaxHighlighting/Snippets/TargetingAttributeCodeSnippet";
-import SelectField from "../Forms/SelectField";
-import CheckSDKConnectionModal from "../GuidedGetStarted/CheckSDKConnectionModal";
-import MultivariateFeatureCodeSnippet from "../SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
+import Modal from "@/components/Modal";
+import { DocLink } from "@/components/DocLink";
+import InstallationCodeSnippet from "@/components/SyntaxHighlighting/Snippets/InstallationCodeSnippet";
+import GrowthBookSetupCodeSnippet from "@/components/SyntaxHighlighting/Snippets/GrowthBookSetupCodeSnippet";
+import BooleanFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/BooleanFeatureCodeSnippet";
+import ClickToCopy from "@/components/Settings/ClickToCopy";
+import TargetingAttributeCodeSnippet from "@/components/SyntaxHighlighting/Snippets/TargetingAttributeCodeSnippet";
+import SelectField from "@/components/Forms/SelectField";
+import CheckSDKConnectionModal from "@/components/GuidedGetStarted/CheckSDKConnectionModal";
+import MultivariateFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
 import { languageMapping } from "./SDKConnections/SDKLanguageLogo";
 
@@ -34,9 +35,11 @@ function trimTrailingSlash(str: string): string {
 }
 
 export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
-  if (connection && connection.proxy.enabled && connection.proxy.host) {
+  if (connection && connection.proxy.enabled) {
     return trimTrailingSlash(
-      connection.proxy.hostExternal || connection.proxy.host
+      connection.proxy.hostExternal ||
+        connection.proxy.host ||
+        "https://proxy.yoursite.io"
     );
   }
 
@@ -83,6 +86,9 @@ export default function CodeSnippetModal({
   const [showTestModal, setShowTestModal] = useState(false);
 
   const [language, setLanguage] = useState<SDKLanguage>("javascript");
+  const [version, setVersion] = useState<string>(
+    getLatestSDKVersion("javascript")
+  );
 
   const [configOpen, setConfigOpen] = useState(true);
   const [installationOpen, setInstallationOpen] = useState(true);
@@ -96,19 +102,22 @@ export default function CodeSnippetModal({
   useEffect(() => {
     if (!currentConnection) return;
 
-    // connection changes & current language isn't included in new connection, reset to default
-    if (!currentConnection.languages.includes(language)) {
-      setLanguage(currentConnection.languages[0] || "javascript");
-    }
+    const language = currentConnection.languages[0] ?? "javascript";
+    const version =
+      (currentConnection?.languages?.length === 1 &&
+      currentConnection?.languages?.[0] === language
+        ? currentConnection?.sdkVersion
+        : undefined) ?? getLatestSDKVersion(language);
+    setLanguage(language);
+    setVersion(version);
   }, [currentConnection]);
 
   if (!currentConnection) {
     return null;
   }
 
-  const { docs, label } = languageMapping[language];
-  const hasProxy =
-    currentConnection.proxy.enabled && !!currentConnection.proxy.host;
+  const { docs, docLabel, label } = languageMapping[language];
+  const hasProxy = currentConnection.proxy.enabled;
   const apiHost = getApiBaseUrl(currentConnection);
   const clientKey = currentConnection.key;
   const featuresEndpoint = apiHost + "/api/features/" + clientKey;
@@ -202,7 +211,13 @@ export default function CodeSnippetModal({
               <SDKLanguageSelector
                 value={[language]}
                 setValue={([language]) => {
+                  const version =
+                    (currentConnection?.languages?.length === 1 &&
+                    currentConnection?.languages?.[0] === language
+                      ? currentConnection?.sdkVersion
+                      : undefined) ?? getLatestSDKVersion(language);
                   setLanguage(language);
+                  setVersion(version);
                 }}
                 multiple={false}
                 includeOther={false}
@@ -229,79 +244,92 @@ export default function CodeSnippetModal({
           ) : (
             <p>
               Below is some starter code to integrate GrowthBook into your app.
-              Read the <DocLink docSection={docs}>{label} docs</DocLink> for
+              Read the{" "}
+              <DocLink docSection={docs}>{docLabel || label} docs</DocLink> for
               more details.
             </p>
           )}
-          <div className="mb-3">
-            <h4
-              className="cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                setConfigOpen(!configOpen);
-              }}
-            >
-              {label} Config Settings{" "}
-              {configOpen ? <FaAngleDown /> : <FaAngleRight />}
-            </h4>
-            {configOpen && (
-              <div className="appbox bg-light p-3">
-                <table className="gbtable table table-bordered table-sm">
-                  <tbody>
-                    <tr>
-                      <th className="pl-3" style={{ verticalAlign: "middle" }}>
-                        Full API Endpoint
-                        {hasProxy ? (
-                          <>
-                            {" "}
-                            <small>(proxied)</small>
-                          </>
-                        ) : null}
-                      </th>
-                      <td>
-                        <ClickToCopy>{featuresEndpoint}</ClickToCopy>
-                      </td>
-                    </tr>
-                    <tr>
-                      <th className="pl-3" style={{ verticalAlign: "middle" }}>
-                        API Host
-                        {hasProxy ? (
-                          <>
-                            {" "}
-                            <small>(proxied)</small>
-                          </>
-                        ) : null}
-                      </th>
-                      <td>
-                        <ClickToCopy>{apiHost}</ClickToCopy>
-                      </td>
-                    </tr>
-                    <tr>
-                      <th className="pl-3" style={{ verticalAlign: "middle" }}>
-                        Client Key
-                      </th>
-                      <td>
-                        <ClickToCopy>{clientKey}</ClickToCopy>
-                      </td>
-                    </tr>
-                    {encryptionKey && (
+          {!language.match(/^nocode/) && (
+            <div className="mb-3">
+              <h4
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setConfigOpen(!configOpen);
+                }}
+              >
+                {docLabel || label} Config Settings{" "}
+                {configOpen ? <FaAngleDown /> : <FaAngleRight />}
+              </h4>
+              {configOpen && (
+                <div className="appbox bg-light p-3">
+                  <table className="gbtable table table-bordered table-sm">
+                    <tbody>
                       <tr>
                         <th
                           className="pl-3"
                           style={{ verticalAlign: "middle" }}
                         >
-                          Decryption Key
+                          Full API Endpoint
+                          {hasProxy ? (
+                            <>
+                              {" "}
+                              <small>(proxied)</small>
+                            </>
+                          ) : null}
                         </th>
                         <td>
-                          <ClickToCopy>{encryptionKey}</ClickToCopy>
+                          <ClickToCopy>{featuresEndpoint}</ClickToCopy>
                         </td>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+                      <tr>
+                        <th
+                          className="pl-3"
+                          style={{ verticalAlign: "middle" }}
+                        >
+                          API Host
+                          {hasProxy ? (
+                            <>
+                              {" "}
+                              <small>(proxied)</small>
+                            </>
+                          ) : null}
+                        </th>
+                        <td>
+                          <ClickToCopy>{apiHost}</ClickToCopy>
+                        </td>
+                      </tr>
+                      <tr>
+                        <th
+                          className="pl-3"
+                          style={{ verticalAlign: "middle" }}
+                        >
+                          Client Key
+                        </th>
+                        <td>
+                          <ClickToCopy>{clientKey}</ClickToCopy>
+                        </td>
+                      </tr>
+                      {encryptionKey && (
+                        <tr>
+                          <th
+                            className="pl-3"
+                            style={{ verticalAlign: "middle" }}
+                          >
+                            Decryption Key
+                          </th>
+                          <td>
+                            <ClickToCopy>{encryptionKey}</ClickToCopy>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
           {language !== "other" && (
             <div className="mb-3">
               <h4
@@ -316,7 +344,13 @@ export default function CodeSnippetModal({
               </h4>
               {installationOpen && (
                 <div className="appbox bg-light p-3">
-                  <InstallationCodeSnippet language={language} />
+                  <InstallationCodeSnippet
+                    language={language}
+                    apiHost={apiHost}
+                    apiKey={clientKey}
+                    encryptionKey={encryptionKey}
+                    remoteEvalEnabled={remoteEvalEnabled}
+                  />
                 </div>
               )}
             </div>
@@ -336,6 +370,7 @@ export default function CodeSnippetModal({
                 <div className="appbox bg-light p-3">
                   <GrowthBookSetupCodeSnippet
                     language={language}
+                    version={version}
                     apiHost={apiHost}
                     apiKey={clientKey}
                     encryptionKey={encryptionKey}
@@ -346,7 +381,7 @@ export default function CodeSnippetModal({
             </div>
           )}
 
-          {language !== "other" && (
+          {!(language.match(/^edge-/) || language === "other") && (
             <div className="mb-3">
               <h4
                 className="cursor-pointer"
@@ -360,11 +395,6 @@ export default function CodeSnippetModal({
               </h4>
               {attributesOpen && (
                 <div className="appbox bg-light p-3">
-                  <span>
-                    Replace the placeholders with your real targeting attribute
-                    values. This enables you to target feature flags based on
-                    user attributes.
-                  </span>
                   <TargetingAttributeCodeSnippet
                     language={language}
                     hashSecureAttributes={hashSecureAttributes}
@@ -462,7 +492,7 @@ myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
             </div>
           )}
 
-          {language !== "other" && (
+          {!(language.match(/^edge-/) || language === "other") && (
             <div className="mb-3">
               <h4
                 className="cursor-pointer"

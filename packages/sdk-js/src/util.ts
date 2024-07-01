@@ -1,4 +1,20 @@
-import { UrlTarget, UrlTargetType, VariationRange } from "./types/growthbook";
+import {
+  AutoExperiment,
+  AutoExperimentChangeType,
+  Polyfills,
+  UrlTarget,
+  UrlTargetType,
+  VariationRange,
+} from "./types/growthbook";
+
+const polyfills: Polyfills = {
+  fetch: globalThis.fetch ? globalThis.fetch.bind(globalThis) : undefined,
+  SubtleCrypto: globalThis.crypto ? globalThis.crypto.subtle : undefined,
+  EventSource: globalThis.EventSource,
+};
+export function getPolyfills(): Polyfills {
+  return polyfills;
+}
 
 function hashFnv32a(str: string): number {
   let hval = 0x811c9dc5;
@@ -260,7 +276,10 @@ export async function decrypt(
   subtle?: SubtleCrypto
 ): Promise<string> {
   decryptionKey = decryptionKey || "";
-  subtle = subtle || (globalThis.crypto && globalThis.crypto.subtle);
+  subtle =
+    subtle ||
+    (globalThis.crypto && globalThis.crypto.subtle) ||
+    polyfills.SubtleCrypto;
   if (!subtle) {
     throw new Error("No SubtleCrypto implementation found");
   }
@@ -283,6 +302,12 @@ export async function decrypt(
   } catch (e) {
     throw new Error("Failed to decrypt");
   }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function toString(input: any): string {
+  if (typeof input === "string") return input;
+  return JSON.stringify(input);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -321,4 +346,53 @@ export function loadSDKVersion(): string {
     version = "";
   }
   return version;
+}
+
+export function mergeQueryStrings(oldUrl: string, newUrl: string): string {
+  let currUrl: URL;
+  let redirectUrl: URL;
+  try {
+    currUrl = new URL(oldUrl);
+    redirectUrl = new URL(newUrl);
+  } catch (e) {
+    console.error(`Unable to merge query strings: ${e}`);
+    return newUrl;
+  }
+
+  currUrl.searchParams.forEach((value, key) => {
+    // skip  if search param already exists in redirectUrl
+    if (redirectUrl.searchParams.has(key)) {
+      return;
+    }
+    redirectUrl.searchParams.set(key, value);
+  });
+
+  return redirectUrl.toString();
+}
+
+function isObj(x: unknown): x is Record<string, unknown> {
+  return typeof x === "object" && x !== null;
+}
+
+export function getAutoExperimentChangeType(
+  exp: AutoExperiment
+): AutoExperimentChangeType {
+  if (
+    exp.urlPatterns &&
+    exp.variations.some(
+      (variation) => isObj(variation) && "urlRedirect" in variation
+    )
+  ) {
+    return "redirect";
+  } else if (
+    exp.variations.some(
+      (variation) =>
+        isObj(variation) &&
+        (variation.domMutations || "js" in variation || "css" in variation)
+    )
+  ) {
+    return "visual";
+  }
+
+  return "unknown";
 }

@@ -6,9 +6,7 @@ import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Redshift extends SqlIntegration {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  params: PostgresConnectionParams;
+  params!: PostgresConnectionParams;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<PostgresConnectionParams>(
       encryptedParams
@@ -19,6 +17,9 @@ export default class Redshift extends SqlIntegration {
   }
   getSensitiveParamKeys(): string[] {
     return ["password", "caCert", "clientCert", "clientKey"];
+  }
+  hasEfficientPercentile(): boolean {
+    return false;
   }
   runQuery(sql: string): Promise<QueryResponse> {
     return runPostgresQuery(this.params, sql);
@@ -34,6 +35,10 @@ export default class Redshift extends SqlIntegration {
   }
   ensureFloat(col: string): string {
     return `${col}::float`;
+  }
+  approxQuantile(value: string, quantile: string | number): string {
+    // approx behaves differently in redshift
+    return `PERCENTILE_CONT(${quantile}) WITHIN GROUP (ORDER BY ${value})`;
   }
   getInformationSchemaTable(): string {
     return "SVV_COLUMNS";

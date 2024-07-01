@@ -13,47 +13,40 @@ export interface ProxyConnection {
 export type EditSDKConnectionParams = {
   name?: string;
   languages?: SDKLanguage[];
+  sdkVersion?: string;
   proxyEnabled?: boolean;
   proxyHost?: string;
   environment?: string;
-  project?: string;
+  projects?: string[];
   encryptPayload?: boolean;
   hashSecureAttributes?: boolean;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  includeRedirectExperiments?: boolean;
   remoteEvalEnabled?: boolean;
 };
 export type CreateSDKConnectionParams = {
   organization: string;
   name?: string;
   languages?: SDKLanguage[];
+  sdkVersion?: string;
   proxyEnabled?: boolean;
   proxyHost?: string;
   environment: string;
-  project: string;
+  projects: string[];
   encryptPayload: boolean;
   hashSecureAttributes: boolean;
   includeVisualExperiments: boolean;
   includeDraftExperiments: boolean;
   includeExperimentNames: boolean;
+  includeRedirectExperiments: boolean;
   remoteEvalEnabled?: boolean;
 };
 
-export type SDKLanguage =
-  | "javascript"
-  | "nodejs"
-  | "react"
-  | "php"
-  | "ruby"
-  | "python"
-  | "go"
-  | "java"
-  | "csharp"
-  | "android"
-  | "ios"
-  | "flutter"
-  | "other";
+import { sdkLanguages } from "../src/util/constants";
+
+export type SDKLanguage = typeof sdkLanguages[number];
 
 export interface SDKConnectionInterface {
   id: string;
@@ -62,18 +55,21 @@ export interface SDKConnectionInterface {
   dateCreated: Date;
   dateUpdated: Date;
 
-  // The SDK languages being used (e.g. `javascript`)
+  // The SDK languages being used (e.g. `javascript`). Ideally it should only have 1 language (previously we encouraged multiple)
   languages: SDKLanguage[];
+  // The SDK version being used (e.g. `1.0.0`). Assumes a single language, otherwise should default to "0".
+  sdkVersion?: string;
 
   // SDK payload settings
   environment: string;
-  project: string;
+  projects: string[];
   encryptPayload: boolean;
   encryptionKey: string;
   hashSecureAttributes?: boolean;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  includeRedirectExperiments?: boolean;
 
   // URL slug for fetching features from the API
   key: string;

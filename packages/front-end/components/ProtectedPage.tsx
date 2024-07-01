@@ -1,9 +1,9 @@
 import { ReactNode } from "react";
-import { useAuth, safeLogout } from "../services/auth";
-import WatchProvider from "../services/WatchProvider";
-import { UserContextProvider, useUser } from "../services/UserContext";
+import { useAuth, safeLogout } from "@/services/auth";
+import WatchProvider from "@/services/WatchProvider";
+import { UserContextProvider, useUser } from "@/services/UserContext";
 import LoadingOverlay from "./LoadingOverlay";
-import CreateOrganization from "./Auth/CreateOrganization";
+import CreateOrJoinOrganization from "./Auth/CreateOrJoinOrganization";
 import InAppHelp from "./Auth/InAppHelp";
 import Button from "./Button";
 import TopNavLite from "./Layout/TopNavLite";
@@ -15,7 +15,7 @@ const LoggedInPageGuard = ({
   children: ReactNode;
   organizationRequired: boolean;
 }) => {
-  const { error, userId, organization } = useUser();
+  const { error, ready, organization } = useUser();
   const { organizations } = useAuth();
 
   if (error) {
@@ -53,7 +53,7 @@ const LoggedInPageGuard = ({
   }
 
   // Waiting for initial authentication
-  if (!userId) {
+  if (!ready) {
     return <LoadingOverlay />;
   }
 
@@ -63,7 +63,7 @@ const LoggedInPageGuard = ({
   }
 
   // Still waiting to fetch current user/org details
-  if ((organizations || []).length > 0 && !organization) {
+  if ((organizations || []).length > 0 && !Object.keys(organization).length) {
     return <LoadingOverlay />;
   }
 
@@ -85,7 +85,7 @@ const ProtectedPage: React.FC<{
         ) : orgId ? (
           <WatchProvider>{children}</WatchProvider>
         ) : (
-          <CreateOrganization />
+          <CreateOrJoinOrganization />
         )}
       </LoggedInPageGuard>
     </UserContextProvider>

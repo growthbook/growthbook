@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "test": ". $(poetry env info --path)/bin/activate && pytest",
-    "lint": ". $(poetry env info --path)/bin/activate && black gbstats tests && flake8 && mypy gbstats --check-untyped-defs",
-    "lint:ci": ". $(poetry env info --path)/bin/activate && black gbstats tests --check && flake8 && mypy gbstats --check-untyped-defs",
+    "lint": ". $(poetry env info --path)/bin/activate && black gbstats tests && flake8 && pyright gbstats",
+    "lint:ci": ". $(poetry env info --path)/bin/activate && black gbstats tests --check && flake8 && pyright gbstats",
     "setup": "poetry install",
-    "build:export": "poetry export -f requirements.txt --output requirements.txt && poetry export --dev -f requirements.txt --output dev-requirements.txt",
-    "build": "poetry build && yarn build:export"
+    "build:export": "poetry export -f requirements.txt --output requirements.txt && poetry export --with dev -f requirements.txt --output dev-requirements.txt",
+    "build": "poetry build && yarn build:export",
+    "notebook": ". $(poetry env info --path)/bin/activate && jupyter notebook"
   }
 }

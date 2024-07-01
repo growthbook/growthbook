@@ -1,15 +1,19 @@
 import { NextFunction, Request, Response } from "express";
 import { licenseInit, SSO_CONFIG } from "enterprise";
-import { hasPermission } from "shared/permissions";
+import { userHasPermission } from "shared/permissions";
+import { logger } from "../../util/logger";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
-import { markUserAsVerified, UserModel } from "../../models/UserModel";
+import {
+  hasUser,
+  markUserAsVerified,
+  getUserByEmail,
+} from "../../models/UserModel";
 import { getOrganizationById, validateLoginMethod } from "../organizations";
 import { Permission } from "../../../types/organization";
 import { UserInterface } from "../../../types/user";
 import { AuditInterface } from "../../../types/audit";
-import { getUserByEmail } from "../users";
-import { hasOrganization } from "../../models/OrganizationModel";
+import { hasOrganization, updateMember } from "../../models/OrganizationModel";
 import {
   IdTokenCookie,
   AuthChecksCookie,
@@ -22,8 +26,8 @@ import {
   EventAuditUserLoggedIn,
 } from "../../events/event-types";
 import { insertAudit } from "../../models/AuditModel";
-import { TeamInterface } from "../../../types/team";
 import { getTeamsForOrganization } from "../../models/TeamModel";
+import { getLicenseMetaData, getUserCodesForOrg } from "../licenseData";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
@@ -62,7 +66,7 @@ async function getUserFromJWT(token: IdToken): Promise<null | UserInterface> {
     }
   }
 
-  return user.toJSON<UserInterface>();
+  return user;
 }
 function getInitialDataFromJWT(user: IdToken): JWTInfo {
   return {
@@ -84,52 +88,32 @@ export async function processJWT(
   req.email = email || "";
   req.name = name || "";
   req.verified = verified || false;
-
-  let teams: TeamInterface[] = [];
-
-  const userHasPermission = (
-    permission: Permission,
-    teams: TeamInterface[],
-    project?: string,
-    envs?: string[]
-  ): boolean => {
-    if (!req.organization || !req.userId) {
-      return false;
-    }
-
-    if (req.superAdmin) {
-      return true;
-    }
-
-    // Generate full list of permissions for the user
-    const userPermissions = getUserPermissions(
-      req.userId,
-      req.organization,
-      teams
-    );
-
-    // Check if the user has the permission
-    return hasPermission(userPermissions, permission, project, envs);
-  };
+  req.teams = [];
 
   // Throw error if permissions don't pass
   req.checkPermissions = (
     permission: Permission,
-    project?: string | (string | undefined)[] | undefined,
+    project?: string | string[],
     envs?: string[] | Set<string>
   ) => {
-    let checkProjects: (string | undefined)[];
-    if (Array.isArray(project)) {
-      checkProjects = project.length > 0 ? project : [undefined];
-    } else {
-      checkProjects = [project];
-    }
-    for (const p of checkProjects) {
-      if (
-        !userHasPermission(permission, teams, p, envs ? [...envs] : undefined)
-      ) {
-        throw new Error("You do not have permission to complete that action.");
-      }
+    if (!req.userId || !req.organization) return false;
+
+    const userPermissions = getUserPermissions(
+      req.userId,
+      req.organization,
+      req.teams
+    );
+
+    if (
+      !userHasPermission(
+        req.superAdmin || false,
+        userPermissions,
+        permission,
+        project,
+        envs ? [...envs] : undefined
+      )
+    ) {
+      throw new Error("You do not have permission to complete that action.");
     }
   };
 
@@ -148,7 +132,7 @@ export async function processJWT(
     if (IS_CLOUD && !req.loginMethod?.id && user.verified && !req.verified) {
       res.status(406).json({
         status: 406,
-        message: "You must verify your email address before using GrowthBook",
+        message: "You must log in via SSO to use GrowthBook",
       });
       return;
     }
@@ -174,7 +158,32 @@ export async function processJWT(
           return;
         }
 
-        teams = await getTeamsForOrganization(req.organization.id);
+        const memberRecord = req.organization.members.find(
+          (m) => m.id === req.userId
+        );
+        if (memberRecord) {
+          const lastLoginDate = memberRecord.lastLoginDate;
+          const now = new Date();
+          const interval = 1000 * 60 * 60 * 12; // 12 hr
+          if (
+            !lastLoginDate ||
+            lastLoginDate.getTime() < now.getTime() - interval
+          ) {
+            try {
+              await updateMember(req.organization, memberRecord.id, {
+                lastLoginDate: now,
+              });
+            } catch (e) {
+              logger.error("error updating last login date", {
+                organization: req.organization.id,
+                member: memberRecord.id,
+                error: e,
+              });
+            }
+          }
+        }
+
+        req.teams = await getTeamsForOrganization(req.organization.id);
 
         // Make sure this is a valid login method for the organization
         try {
@@ -188,7 +197,11 @@ export async function processJWT(
         }
 
         // init license for org if it exists
-        await licenseInit(req.organization.licenseKey);
+        await licenseInit(
+          req.organization,
+          getUserCodesForOrg,
+          getLicenseMetaData
+        );
       } else {
         res.status(404).json({
           status: 404,
@@ -206,7 +219,9 @@ export async function processJWT(
     };
     res.locals.eventAudit = eventAudit;
 
-    req.audit = async (data: Partial<AuditInterface>) => {
+    req.audit = async (
+      data: Omit<AuditInterface, "user" | "organization" | "dateCreated" | "id">
+    ) => {
       await insertAudit({
         ...data,
         user: {
@@ -214,7 +229,7 @@ export async function processJWT(
           email: user.email,
           name: user.name || "",
         },
-        organization: req.organization?.id,
+        organization: req.organization?.id || "",
         dateCreated: new Date(),
       });
     };
@@ -241,33 +256,22 @@ export function validatePasswordFormat(password?: string): string {
   if (password.length < 8) {
     throw new Error("Password must be at least 8 characters.");
   }
+  if (password.length > 255) {
+    throw new Error("Password must be less than 256 characters.");
+  }
 
   return password;
 }
 
-async function checkNewInstallation() {
-  const doc = await hasOrganization();
-  if (doc) {
+export async function isNewInstallation() {
+  if (await hasOrganization()) {
     return false;
   }
-
-  const doc2 = await UserModel.findOne();
-  if (doc2) {
+  if (await hasUser()) {
     return false;
   }
 
   return true;
-}
-
-let newInstallationPromise: Promise<boolean>;
-export function isNewInstallation() {
-  if (!newInstallationPromise) {
-    newInstallationPromise = checkNewInstallation();
-  }
-  return newInstallationPromise;
-}
-export function markInstalled() {
-  newInstallationPromise = new Promise((resolve) => resolve(false));
 }
 
 export function usingOpenId() {

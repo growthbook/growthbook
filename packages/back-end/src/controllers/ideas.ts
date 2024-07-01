@@ -11,7 +11,7 @@ import {
 import { IdeaInterface } from "../../types/idea";
 import { addTagsDiff } from "../models/TagModel";
 import { Vote } from "../../types/vote";
-import { getOrgFromReq, userHasAccess } from "../services/organizations";
+import { getContextFromReq } from "../services/organizations";
 import {
   getImpactEstimate,
   ImpactEstimateModel,
@@ -24,7 +24,7 @@ export async function getIdeas(
   req: AuthRequest<any, any, { project?: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   let project = "";
   if (typeof req.query.project === "string") {
     project = req.query.project;
@@ -39,22 +39,16 @@ export async function getIdeas(
 }
 
 export async function getEstimatedImpact(
-  req: AuthRequest<{ metric: string; segment?: string; ideaId?: string }>,
+  req: AuthRequest<{ metric: string; segment?: string }>,
   res: Response
 ) {
-  req.checkPermissions("createIdeas", "");
+  const { metric, segment } = req.body;
 
-  const { metric, segment, ideaId } = req.body;
-
-  const idea = await getIdeaById(ideaId || "");
-
-  req.checkPermissions("runQueries", idea?.project || "");
-
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
   const estimate = await getImpactEstimate(
-    org.id,
+    context,
     metric,
-    org.settings?.metricAnalysisDays || 30,
+    context.org.settings?.metricAnalysisDays || 30,
     segment
   );
 
@@ -73,11 +67,13 @@ export async function postIdeas(
   req: AuthRequest<Partial<IdeaInterface>>,
   res: Response
 ) {
-  const { org, userId } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   const data = req.body;
 
-  req.checkPermissions("createIdeas", data.project);
-
+  if (!context.permissions.canCreateIdea(data)) {
+    context.permissions.throwPermissionError();
+  }
   data.organization = org.id;
   data.source = "web";
   data.userId = userId;
@@ -94,22 +90,14 @@ export async function getIdea(
   res: Response
 ) {
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
 
   const idea = await getIdeaById(id);
 
-  if (!idea) {
-    res.status(403).json({
+  if (!idea || idea.organization !== context.org.id) {
+    res.status(404).json({
       status: 404,
       message: "Idea not found",
-    });
-    return;
-  }
-
-  if (!(await userHasAccess(req, idea.organization))) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this idea",
     });
     return;
   }
@@ -132,7 +120,7 @@ export async function getIdea(
     }
   }
 
-  const experiment = await getExperimentByIdea(org.id, idea);
+  const experiment = await getExperimentByIdea(context, idea);
 
   res.status(200).json({
     status: 200,
@@ -161,7 +149,8 @@ export async function postIdea(
   const { id } = req.params;
   const idea = await getIdeaById(id);
   const data = req.body;
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   if (!idea) {
     res.status(403).json({
@@ -179,8 +168,9 @@ export async function postIdea(
     return;
   }
 
-  req.checkPermissions("createIdeas", idea.project);
-
+  if (!context.permissions.canUpdateIdea(idea, data)) {
+    context.permissions.throwPermissionError();
+  }
   const existing = idea.toJSON();
 
   data.text && idea.set("text", data.text);
@@ -211,7 +201,8 @@ export async function deleteIdea(
 ) {
   const { id } = req.params;
   const idea = await getIdeaById(id);
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   if (!idea) {
     res.status(403).json({
@@ -229,7 +220,9 @@ export async function deleteIdea(
     return;
   }
 
-  req.checkPermissions("createIdeas", idea.project);
+  if (!context.permissions.canDeleteIdea(idea)) {
+    context.permissions.throwPermissionError();
+  }
 
   // note: we might want to change this to change the status to
   // 'deleted' instead of actually deleting the document.
@@ -249,7 +242,7 @@ export async function postVote(
   const data = req.body;
   const idea = await getIdeaById(id);
 
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId } = getContextFromReq(req);
 
   if (!idea) {
     res.status(403).json({
@@ -312,7 +305,7 @@ export async function getRecentIdeas(
   req: AuthRequest<unknown, { num: string }, { project?: string }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org } = getContextFromReq(req);
   const { num } = req.params;
   let intNum = parseInt(num);
   if (intNum > 100) intNum = 100;

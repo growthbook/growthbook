@@ -1,35 +1,42 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
+import { getDefaultRole, isRoleValid } from "shared/permissions";
 import {
   addMemberToOrg,
   convertMemberToManagedByIdp,
   expandOrgMembers,
 } from "../../services/organizations";
 import { OrganizationInterface } from "../../../types/organization";
-import {
-  ScimError,
-  ScimUser,
-  ScimUserPutOrPostRequest,
-} from "../../../types/scim";
+import { ScimError, ScimUser, ScimUserPostRequest } from "../../../types/scim";
 import {
   createUser as createNewUser,
   getUserByEmail,
-} from "../../services/users";
+} from "../../models/UserModel";
 
 export async function createUser(
-  req: ScimUserPutOrPostRequest,
+  req: ScimUserPostRequest,
   res: Response<ScimUser | ScimError>
 ) {
-  const { externalId, displayName, userName } = req.body;
+  const { externalId, displayName, userName, growthbookRole } = req.body;
 
   const org: OrganizationInterface = req.organization;
+
+  let roleInfo = getDefaultRole(org);
+
+  if (growthbookRole && isRoleValid(growthbookRole, org)) {
+    // If a growthbookRole is provided, use that
+    roleInfo = {
+      role: growthbookRole,
+      limitAccessByEnvironment: false,
+      environments: [],
+    };
+  }
 
   const expandedMembers = await expandOrgMembers(org.members);
   const existingOrgMember = expandedMembers.find(
     (member) => member.email === userName
   );
 
-  const role = org.settings?.defaultRole?.role || "readonly";
   const responseObj = cloneDeep(req.body);
 
   try {
@@ -54,18 +61,16 @@ export async function createUser(
       let newUser = await getUserByEmail(userName);
 
       if (!newUser) {
-        newUser = await createNewUser(displayName, userName);
+        newUser = await createNewUser({ name: displayName, email: userName });
       }
 
       await addMemberToOrg({
         organization: org,
         userId: newUser.id,
-        role,
-        limitAccessByEnvironment: false,
-        environments: [],
         projectRoles: [],
         externalId,
         managedByIdp: true,
+        ...roleInfo,
       });
 
       responseObj.id = newUser.id;

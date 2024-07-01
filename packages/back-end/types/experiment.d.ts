@@ -1,9 +1,21 @@
-import { NamespaceValue, SavedGroupTargeting } from "./feature";
+import { MetricWindowSettings } from "./fact-table";
+import {
+  ExperimentRefVariation,
+  FeatureInterface,
+  FeaturePrerequisite,
+  NamespaceValue,
+  SavedGroupTargeting,
+} from "./feature";
 import { StatsEngine } from "./stats";
 
 export type ImplementationType = "visual" | "code" | "configuration" | "custom";
 
 export type ExperimentPhaseType = "ramp" | "main" | "holdout";
+
+export type ExperimentNotification =
+  | "auto-update"
+  | "multiple-exposures"
+  | "srm";
 
 export type DomChange = {
   selector: string;
@@ -52,6 +64,7 @@ export interface ExperimentPhase {
   coverage: number;
   condition: string;
   savedGroups?: SavedGroupTargeting[];
+  prerequisites?: FeaturePrerequisite[];
   namespace: NamespaceValue;
   seed?: string;
   variationWeights: number[];
@@ -73,27 +86,47 @@ export type ExperimentResultsType = "dnf" | "won" | "lost" | "inconclusive";
 
 export type MetricOverride = {
   id: string;
-  conversionWindowHours?: number;
-  conversionDelayHours?: number;
+
+  windowType?: MetricWindowSettings["type"];
+  windowHours?: number;
+  delayHours?: number;
+
   winRisk?: number;
   loseRisk?: number;
+
+  properPriorOverride?: boolean;
+  properPriorEnabled?: boolean;
+  properPriorMean?: number;
+  properPriorStdDev?: number;
+
   regressionAdjustmentOverride?: boolean;
   regressionAdjustmentEnabled?: boolean;
   regressionAdjustmentDays?: number;
 };
 
+export type LegacyMetricOverride = MetricOverride & {
+  conversionWindowHours?: number;
+  conversionDelayHours?: number;
+};
+
 export interface LegacyExperimentInterface
   extends Omit<
     ExperimentInterface,
-    "phases" | "variations" | "attributionModel"
+    | "phases"
+    | "variations"
+    | "attributionModel"
+    | "releasedVariationId"
+    | "metricOverrides"
   > {
   /**
    * @deprecated
    */
   observations?: string;
+  metricOverrides?: LegacyMetricOverride[];
   attributionModel: ExperimentInterface["attributionModel"] | "allExposures";
   variations: LegacyVariation[];
   phases: LegacyExperimentPhase[];
+  releasedVariationId?: string;
 }
 
 export interface ExperimentInterface {
@@ -113,7 +146,12 @@ export interface ExperimentInterface {
    */
   userIdType?: "anonymous" | "user";
   hashAttribute: string;
+  fallbackAttribute?: string;
   hashVersion: 1 | 2;
+  disableStickyBucketing?: boolean;
+  pastNotifications?: ExperimentNotification[];
+  bucketVersion?: number;
+  minBucketVersion?: number;
   name: string;
   dateCreated: Date;
   dateUpdated: Date;
@@ -146,10 +184,12 @@ export interface ExperimentInterface {
   ideaSource?: string;
   regressionAdjustmentEnabled?: boolean;
   hasVisualChangesets?: boolean;
+  hasURLRedirects?: boolean;
   linkedFeatures?: string[];
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
   statsEngine?: StatsEngine;
+  manualLaunchChecklist?: { key: string; status: "complete" | "incomplete" }[];
 }
 
 export type ExperimentInterfaceStringDates = Omit<
@@ -171,11 +211,36 @@ export type ExperimentTargetingData = Pick<
   | "seed"
   | "variationWeights"
   | "savedGroups"
+  | "prerequisites"
 > &
   Pick<
     ExperimentInterfaceStringDates,
-    "hashAttribute" | "hashVersion" | "trackingKey"
+    | "hashAttribute"
+    | "fallbackAttribute"
+    | "hashVersion"
+    | "disableStickyBucketing"
+    | "bucketVersion"
+    | "minBucketVersion"
+    | "trackingKey"
   > & {
     newPhase: boolean;
     reseed: boolean;
   };
+
+export type LinkedFeatureState = "locked" | "live" | "draft" | "discarded";
+
+export type LinkedFeatureEnvState =
+  | "missing"
+  | "disabled-env"
+  | "disabled-rule"
+  | "active";
+
+export interface LinkedFeatureInfo {
+  feature: FeatureInterface;
+  state: LinkedFeatureState;
+  values: ExperimentRefVariation[];
+  valuesFrom: string;
+  inconsistentValues: boolean;
+  rulesAbove: boolean;
+  environmentStates: Record<string, LinkedFeatureEnvState>;
+}

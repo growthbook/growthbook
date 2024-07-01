@@ -10,6 +10,7 @@ export type QueryStatus =
 export type QueryStatistics = {
   executionDurationMs?: number;
   totalSlotMs?: number;
+  rowsProcessed?: number;
   bytesProcessed?: number;
   bytesBilled?: number;
   warehouseCachedResult?: boolean;
@@ -22,6 +23,18 @@ export type QueryPointer = {
   name: string;
 };
 export type Queries = QueryPointer[];
+
+export type QueryType =
+  | ""
+  | "pastExperiment"
+  | "metricAnalysis"
+  | "experimentMetric"
+  | "dimensionSlices"
+  | "experimentUnits"
+  | "experimentDropUnitsTable"
+  | "experimentResults"
+  | "experimentTraffic"
+  | "experimentMultiMetric";
 
 export interface QueryInterface {
   id: string;
@@ -36,9 +49,12 @@ export interface QueryInterface {
   heartbeat: Date;
   // eslint-disable-next-line
   result?: Record<string, any>;
-  rawResult?: Record<string, number | string | boolean>[];
+  queryType?: QueryType;
+  rawResult?: Record<string, number | string | boolean | object>[];
   error?: string;
-  dependencies?: string[];
+  dependencies?: string[]; // must succeed before running query
+  runAtEnd?: boolean; // only run when all other queries in model finish
   cachedQueryUsed?: string;
   statistics?: QueryStatistics;
+  externalId?: string;
 }

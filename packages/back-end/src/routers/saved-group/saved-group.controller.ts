@@ -1,17 +1,18 @@
 import type { Response } from "express";
 import { isEqual } from "lodash";
+import { validateCondition } from "shared/util";
+import { logger } from "../../util/logger";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
-import { getOrgFromReq } from "../../services/organizations";
+import { getContextFromReq } from "../../services/organizations";
 import {
+  CreateSavedGroupProps,
+  UpdateSavedGroupProps,
   SavedGroupInterface,
-  SavedGroupSource,
 } from "../../../types/saved-group";
 import {
-  UpdateSavedGroupProps,
   createSavedGroup,
   deleteSavedGroupById,
-  getRuntimeSavedGroup,
   getSavedGroupById,
   updateSavedGroupById,
 } from "../../models/SavedGroupModel";
@@ -24,13 +25,7 @@ import { savedGroupUpdated } from "../../services/savedGroups";
 
 // region POST /saved-groups
 
-type CreateSavedGroupRequest = AuthRequest<{
-  groupName: string;
-  owner: string;
-  attributeKey: string;
-  groupList: string[];
-  source: SavedGroupSource;
-}>;
+type CreateSavedGroupRequest = AuthRequest<CreateSavedGroupProps>;
 
 type CreateSavedGroupResponse = {
   status: 200;
@@ -47,26 +42,38 @@ export const postSavedGroup = async (
   req: CreateSavedGroupRequest,
   res: Response<CreateSavedGroupResponse>
 ) => {
-  const { org, userName } = getOrgFromReq(req);
-  const { groupName, owner, attributeKey, groupList, source } = req.body;
+  const context = getContextFromReq(req);
+  const { org, userName } = context;
+  const { groupName, owner, attributeKey, values, type, condition } = req.body;
 
-  req.checkPermissions("manageSavedGroups");
+  if (!context.permissions.canCreateSavedGroup()) {
+    context.permissions.throwPermissionError();
+  }
 
-  // If this is a runtime saved group, make sure the attributeKey is unique
-  if (source === "runtime") {
-    const existing = await getRuntimeSavedGroup(attributeKey, org.id);
-    if (existing) {
-      throw new Error("A runtime saved group with that key already exists");
+  // If this is a condition group, make sure the condition is valid and not empty
+  if (type === "condition") {
+    const conditionRes = validateCondition(condition);
+    if (!conditionRes.success) {
+      throw new Error(conditionRes.error);
+    }
+    if (conditionRes.empty) {
+      throw new Error("Condition cannot be empty");
+    }
+  }
+  // If this is a list group, make sure the attributeKey is specified
+  else if (type === "list") {
+    if (!attributeKey) {
+      throw new Error("Must specify an attributeKey");
     }
   }
 
-  const savedGroup = await createSavedGroup({
-    values: groupList,
-    source: source || "inline",
+  const savedGroup = await createSavedGroup(org.id, {
+    values,
+    type,
+    condition,
     groupName,
     owner: owner || userName,
     attributeKey,
-    organization: org.id,
   });
 
   await req.audit({
@@ -89,15 +96,7 @@ export const postSavedGroup = async (
 
 // region PUT /saved-groups/:id
 
-type PutSavedGroupRequest = AuthRequest<
-  {
-    groupName: string;
-    owner: string;
-    attributeKey: string;
-    groupList: string[];
-  },
-  { id: string }
->;
+type PutSavedGroupRequest = AuthRequest<UpdateSavedGroupProps, { id: string }>;
 
 type PutSavedGroupResponse = {
   status: 200;
@@ -113,15 +112,18 @@ export const putSavedGroup = async (
   req: PutSavedGroupRequest,
   res: Response<PutSavedGroupResponse | ApiErrorResponse>
 ) => {
-  const { org } = getOrgFromReq(req);
-  const { groupName, owner, groupList, attributeKey } = req.body;
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { groupName, owner, values, condition } = req.body;
   const { id } = req.params;
 
   if (!id) {
     throw new Error("Must specify saved group id");
   }
 
-  req.checkPermissions("manageSavedGroups");
+  if (!context.permissions.canUpdateSavedGroup()) {
+    context.permissions.throwPermissionError();
+  }
 
   const savedGroup = await getSavedGroupById(id, org.id);
 
@@ -129,22 +131,43 @@ export const putSavedGroup = async (
     throw new Error("Could not find saved group");
   }
 
-  const fieldsToUpdate: UpdateSavedGroupProps = {
-    values: groupList,
-    groupName,
-    owner,
-  };
+  const fieldsToUpdate: UpdateSavedGroupProps = {};
 
+  if (typeof groupName !== "undefined" && groupName !== savedGroup.groupName) {
+    fieldsToUpdate.groupName = groupName;
+  }
+  if (typeof owner !== "undefined" && owner !== savedGroup.owner) {
+    fieldsToUpdate.owner = owner;
+  }
   if (
-    savedGroup.source === "runtime" &&
-    attributeKey !== savedGroup.attributeKey
+    savedGroup.type === "list" &&
+    values &&
+    !isEqual(values, savedGroup.values)
   ) {
-    const existing = await getRuntimeSavedGroup(attributeKey, org.id);
-    if (existing) {
-      throw new Error("A runtime saved group with that key already exists");
+    fieldsToUpdate.values = values;
+  }
+  if (
+    savedGroup.type === "condition" &&
+    condition &&
+    condition !== savedGroup.condition
+  ) {
+    // Validate condition to make sure it's valid
+    const conditionRes = validateCondition(condition);
+    if (!conditionRes.success) {
+      throw new Error(conditionRes.error);
+    }
+    if (conditionRes.empty) {
+      throw new Error("Condition cannot be empty");
     }
 
-    fieldsToUpdate.attributeKey = attributeKey;
+    fieldsToUpdate.condition = condition;
+  }
+
+  // If there are no changes, return early
+  if (Object.keys(fieldsToUpdate).length === 0) {
+    return res.status(200).json({
+      status: 200,
+    });
   }
 
   const changes = await updateSavedGroupById(id, org.id, fieldsToUpdate);
@@ -161,9 +184,11 @@ export const putSavedGroup = async (
     details: auditDetailsUpdate(savedGroup, updatedSavedGroup),
   });
 
-  // If the values or key change, we need to invalidate cached feature rules
-  if (!isEqual(savedGroup.values, groupList) || fieldsToUpdate.attributeKey) {
-    savedGroupUpdated(org, savedGroup.id);
+  // If the values or condition change, we need to invalidate cached feature rules
+  if (fieldsToUpdate.condition || fieldsToUpdate.values) {
+    savedGroupUpdated(context, savedGroup.id).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on saved group update");
+    });
   }
 
   return res.status(200).json({
@@ -200,10 +225,14 @@ export const deleteSavedGroup = async (
   req: DeleteSavedGroupRequest,
   res: Response<DeleteSavedGroupResponse>
 ) => {
-  req.checkPermissions("manageSavedGroups");
-
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canCreateSavedGroup()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
 
   const savedGroup = await getSavedGroupById(id, org.id);
 

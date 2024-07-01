@@ -115,20 +115,19 @@ export default function ProjectTagBar({
       {idea && (
         <div className="col-auto">
           Idea:{" "}
-          <Link href={`/idea/${idea.id}`}>
-            <a
-              style={{
-                maxWidth: 160,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                display: "inline-block",
-                whiteSpace: "nowrap",
-                verticalAlign: "middle",
-              }}
-              title={idea.text}
-            >
-              <FaExternalLinkAlt /> {idea.text}
-            </a>
+          <Link
+            href={`/idea/${idea.id}`}
+            style={{
+              maxWidth: 160,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              display: "inline-block",
+              whiteSpace: "nowrap",
+              verticalAlign: "middle",
+            }}
+            title={idea.text}
+          >
+            <FaExternalLinkAlt /> {idea.text}
           </Link>
         </div>
       )}

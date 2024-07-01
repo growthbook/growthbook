@@ -7,10 +7,12 @@ import {
   FaPencilAlt,
   FaPlus,
   FaSearch,
+  FaSpinner,
 } from "react-icons/fa";
 import { date } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import Collapsible from "react-collapsible";
+import { LicenseInterface } from "enterprise";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
@@ -20,7 +22,8 @@ import { isCloud, isMultiOrg } from "@/services/env";
 import EditOrganization from "@/components/Admin/EditOrganization";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
-import { useAuth } from "../services/auth";
+import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
+import { useAuth } from "@/services/auth";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -41,6 +44,33 @@ function OrganizationRow({
   const [editOrgModalOpen, setEditOrgModalOpen] = useState(false);
 
   const { settings, members, ...otherAttributes } = organization;
+  const [license, setLicense] = useState<LicenseInterface | null>(null);
+  const [licenseLoading, setLicenseLoading] = useState(false);
+  const { apiCall } = useAuth();
+
+  useEffect(() => {
+    if (isCloud() && expanded && !license) {
+      const fetchLicense = async () => {
+        setLicenseLoading(true);
+        const res = await apiCall<{
+          status: number;
+          licenseData: LicenseInterface;
+        }>(`/license`, {
+          method: "GET",
+          headers: { "X-Organization": organization.id },
+        });
+
+        setLicenseLoading(false);
+        if (res.status !== 200) {
+          throw new Error("There was an error fetching the license");
+        }
+
+        setLicense(res.licenseData);
+      };
+
+      fetchLicense();
+    }
+  }, [expanded, apiCall, license, organization]);
 
   return (
     <>
@@ -49,7 +79,7 @@ function OrganizationRow({
           id={organization.id}
           currentName={organization.name}
           currentExternalId={organization.externalId || ""}
-          showExternalId={!isCloud()}
+          currentLicenseKey={organization.licenseKey || ""}
           onEdit={onEdit}
           close={() => setEditOrgModalOpen(false)}
         />
@@ -110,7 +140,7 @@ function OrganizationRow({
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={5} className="bg-light">
+          <td colSpan={isCloud() ? 6 : 7} className="bg-light">
             <div className="mb-3">
               <h3>Info</h3>
               <Code language="json" code={stringify(otherAttributes)} />
@@ -137,6 +167,24 @@ function OrganizationRow({
             >
               <Code language="json" code={stringify(members)} />
             </Collapsible>
+            {isCloud() && (
+              <div className="mt-3">
+                <Collapsible
+                  trigger={
+                    <h3>
+                      License <FaAngleRight className="chevron" />
+                    </h3>
+                  }
+                  transitionTime={150}
+                >
+                  {licenseLoading && <FaSpinner />}
+                  {(license && (
+                    <Code language="json" code={stringify(license)} />
+                  )) ||
+                    "No license found for this organization."}
+                </Collapsible>
+              </div>
+            )}
           </td>
         </tr>
       )}
@@ -150,8 +198,7 @@ const Admin: FC = () => {
 
   const { orgId, setOrgId, setSpecialOrg, apiCall } = useAuth();
 
-  const { superAdmin } = useUser();
-
+  const { license, superAdmin } = useUser();
   const [orgs, setOrgs] = useState<OrganizationInterface[]>([]);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState("");
@@ -198,6 +245,13 @@ const Admin: FC = () => {
       </div>
     );
   }
+  if (!isCloud() && license?.plan != "enterprise") {
+    return (
+      <div className="alert alert-danger">
+        You must be on an enterprise license to view this page
+      </div>
+    );
+  }
 
   return (
     <div className="container-fluid p-3 pagecontents">
@@ -210,6 +264,14 @@ const Admin: FC = () => {
           close={() => setOrgModalOpen(false)}
         />
       )}
+      <h1>GrowthBook Admin</h1>
+      {!isCloud() && (
+        <div>
+          <ShowLicenseInfo showInput={false} />{" "}
+          <div className="divider border-bottom mb-3 mt-3" />
+        </div>
+      )}
+      <h4>Organizations</h4>
       <button
         className="btn btn-primary float-right"
         onClick={(e) => {
@@ -219,9 +281,7 @@ const Admin: FC = () => {
       >
         <FaPlus /> New Organization
       </button>
-      <h1>GrowthBook Admin</h1>
       <p>Click an organization name below to switch to it.</p>
-
       <div className="mb-2 row align-items-center">
         <div className="col-auto">
           <form
@@ -253,12 +313,10 @@ const Admin: FC = () => {
           </span>
         </div>
       </div>
-
       {error && <div className="alert alert-danger">{error}</div>}
-
       <div className="position-relative">
         {loading && <LoadingOverlay />}
-        <table className="table appbox">
+        <table className="table appbox" style={{ tableLayout: "fixed" }}>
           <thead>
             <tr>
               <th>Name</th>
@@ -266,8 +324,8 @@ const Admin: FC = () => {
               <th>Created</th>
               <th>Id</th>
               {!isCloud() && <th>External Id</th>}
-              <th></th>
-              <th></th>
+              <th style={{ width: "14px" }}></th>
+              <th style={{ width: "40px" }}></th>
             </tr>
           </thead>
           <tbody>
@@ -302,9 +360,8 @@ const Admin: FC = () => {
           }}
         />
       </div>
-
       {!isCloud() && isMultiOrg() && (
-        <div>
+        <div className="divider border-top mt-3">
           <OrphanedUsersList
             mutateUsers={() => {
               loadOrgs(page, search);

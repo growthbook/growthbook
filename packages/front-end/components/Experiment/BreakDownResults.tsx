@@ -2,18 +2,23 @@ import { FC, useMemo, useState } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-  MetricRegressionAdjustmentStatus,
+  MetricSnapshotSettings,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
-import { PValueCorrection, StatsEngine } from "back-end/types/stats";
+import {
+  DifferenceType,
+  PValueCorrection,
+  StatsEngine,
+} from "back-end/types/stats";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
-  useRiskVariation,
   setAdjustedCIs,
+  hasRisk,
 } from "@/services/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
@@ -50,8 +55,9 @@ const BreakDownResults: FC<{
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   regressionAdjustmentEnabled?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   sequentialTestingEnabled?: boolean;
+  differenceType: DifferenceType;
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
 }> = ({
@@ -72,8 +78,9 @@ const BreakDownResults: FC<{
   statsEngine,
   pValueCorrection,
   regressionAdjustmentEnabled,
-  metricRegressionAdjustmentStatuses,
+  settingsForSnapshotMetrics,
   sequentialTestingEnabled,
+  differenceType,
   metricFilter,
   setMetricFilter,
 }) => {
@@ -106,7 +113,7 @@ const BreakDownResults: FC<{
 
     const metricDefs = [...metrics, ...(guardrails || [])]
       .map((metricId) => getExperimentMetricById(metricId))
-      .filter(Boolean) as ExperimentMetricInterface[];
+      .filter(isDefined);
     const sortedFilteredMetrics = sortAndFilterMetricsByTags(
       metricDefs,
       metricFilter
@@ -120,11 +127,9 @@ const BreakDownResults: FC<{
         if (ret.length === 0) return;
 
         const { newMetric } = applyMetricOverrides(metric, metricOverrides);
-        let regressionAdjustmentStatus:
-          | MetricRegressionAdjustmentStatus
-          | undefined;
-        if (regressionAdjustmentEnabled && metricRegressionAdjustmentStatuses) {
-          regressionAdjustmentStatus = metricRegressionAdjustmentStatuses.find(
+        let metricSnapshotSettings: MetricSnapshotSettings | undefined;
+        if (settingsForSnapshotMetrics) {
+          metricSnapshotSettings = settingsForSnapshotMetrics.find(
             (s) => s.metric === metricId
           );
         }
@@ -138,7 +143,7 @@ const BreakDownResults: FC<{
             variations: d.variations.map((variation) => {
               return variation.metrics[metricId];
             }),
-            regressionAdjustmentStatus,
+            metricSnapshotSettings,
           })) as ExperimentTableRow[],
         };
       })
@@ -148,8 +153,7 @@ const BreakDownResults: FC<{
     metrics,
     guardrails,
     metricOverrides,
-    regressionAdjustmentEnabled,
-    metricRegressionAdjustmentStatuses,
+    settingsForSnapshotMetrics,
     pValueCorrection,
     statsEngine,
     pValueThreshold,
@@ -158,8 +162,7 @@ const BreakDownResults: FC<{
     metricFilter,
   ]);
 
-  const risk = useRiskVariation(
-    variations.length,
+  const _hasRisk = hasRisk(
     ([] as ExperimentTableRow[]).concat(...tables.map((t) => t.rows))
   );
 
@@ -209,21 +212,21 @@ const BreakDownResults: FC<{
               rows={table.rows}
               dimension={dimension}
               id={table.metric.id}
-              hasRisk={risk.hasRisk}
+              hasRisk={_hasRisk}
               tableRowAxis="dimension" // todo: dynamic grouping?
               labelHeader={
                 <div style={{ marginBottom: 2 }}>
-                  {getRenderLabelColumn(regressionAdjustmentEnabled)(
-                    table.metric.name,
-                    table.metric,
-                    table.rows[0]
-                  )}
+                  {getRenderLabelColumn(
+                    regressionAdjustmentEnabled,
+                    statsEngine
+                  )(table.metric.name, table.metric, table.rows[0])}
                 </div>
               }
               editMetrics={undefined}
               statsEngine={statsEngine}
               sequentialTestingEnabled={sequentialTestingEnabled}
               pValueCorrection={pValueCorrection}
+              differenceType={differenceType}
               renderLabelColumn={(label) => (
                 <>
                   {/*<div className="uppercase-title">{dimension}:</div>*/}

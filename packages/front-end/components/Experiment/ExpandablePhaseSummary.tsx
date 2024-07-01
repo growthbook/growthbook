@@ -3,8 +3,8 @@ import { useState } from "react";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import { date } from "shared/dates";
 import { phaseSummary } from "@/services/utils";
-import ConditionDisplay from "../Features/ConditionDisplay";
-import { GBEdit } from "../Icons";
+import ConditionDisplay from "@/components/Features/ConditionDisplay";
+import { GBEdit } from "@/components/Icons";
 
 export interface Props {
   i: number;

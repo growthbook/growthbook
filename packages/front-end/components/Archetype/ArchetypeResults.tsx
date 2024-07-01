@@ -2,6 +2,7 @@ import React, { FC, Fragment, useState } from "react";
 import { ArchetypeInterface } from "back-end/types/archetype";
 import { FeatureInterface, FeatureTestResult } from "back-end/types/feature";
 import { FaPlusCircle } from "react-icons/fa";
+import { filterEnvironmentsByFeature } from "shared/util";
 import { useAuth } from "@/services/auth";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";
 import ValueDisplay from "@/components/Features/ValueDisplay";
@@ -11,6 +12,7 @@ import ArchetypeAttributesModal from "@/components/Archetype/ArchetypeAttributes
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useEnvironments } from "@/services/features";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const ArchetypeResults: FC<{
   feature: FeatureInterface;
@@ -34,7 +36,12 @@ const ArchetypeResults: FC<{
     setEditArchetype,
   ] = useState<Partial<ArchetypeInterface> | null>(null);
 
-  const environments = useEnvironments();
+  const allEnvironments = useEnvironments();
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+
+  const permissionsUtil = usePermissionsUtil();
+  const canEdit = permissionsUtil.canUpdateArchetype();
+  const canDelete = permissionsUtil.canDeleteArchetype();
 
   if (archetype.length === 0) {
     return null;
@@ -238,7 +245,7 @@ const ArchetypeResults: FC<{
   };
 
   return (
-    <div className={`my-3`}>
+    <div className={`mb-3`}>
       <table className="table gbtable appbox ">
         <thead>
           <tr>
@@ -426,26 +433,30 @@ const ArchetypeResults: FC<{
                 )}
                 <td className={styles.showOnHover}>
                   <MoreMenu>
-                    <button
-                      className="dropdown-item"
-                      onClick={() => {
-                        setEditArchetype(archetype);
-                      }}
-                    >
-                      Edit
-                    </button>
-                    <DeleteButton
-                      className="dropdown-item"
-                      displayName="Archetype"
-                      text="Delete"
-                      useIcon={false}
-                      onClick={async () => {
-                        await apiCall(`/archetype/${archetype.id}`, {
-                          method: "DELETE",
-                        });
-                        onChange();
-                      }}
-                    />
+                    {canEdit ? (
+                      <button
+                        className="dropdown-item"
+                        onClick={() => {
+                          setEditArchetype(archetype);
+                        }}
+                      >
+                        Edit
+                      </button>
+                    ) : null}
+                    {canDelete ? (
+                      <DeleteButton
+                        className="dropdown-item"
+                        displayName="Archetype"
+                        text="Delete"
+                        useIcon={false}
+                        onClick={async () => {
+                          await apiCall(`/archetype/${archetype.id}`, {
+                            method: "DELETE",
+                          });
+                          onChange();
+                        }}
+                      />
+                    ) : null}
                   </MoreMenu>
                 </td>
               </tr>

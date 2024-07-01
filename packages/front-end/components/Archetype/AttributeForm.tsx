@@ -7,9 +7,8 @@ import Field from "@/components/Forms/Field";
 import TabButton from "@/components/Tabs/TabButton";
 import TabButtons from "@/components/Tabs/TabButtons";
 import SelectField from "@/components/Forms/SelectField";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Toggle from "../Forms/Toggle";
-import MultiSelectField from "../Forms/MultiSelectField";
+import Toggle from "@/components/Forms/Toggle";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import styles from "./AttributeForm.module.scss";
 
 export interface Props {
@@ -32,28 +31,14 @@ export default function AttributeForm({
   const [jsonErrors, setJsonErrors] = useState<string | null>();
   const [tab, setTab] = useState<"simple" | "adv">("simple");
 
-  const { savedGroups } = useDefinitions();
-
   const attributeSchema = useAttributeSchema(true);
 
   const orderedAttributes = useMemo<SDKAttributeSchema>(
     () => [
       ...attributeSchema.filter((o) => !o.archived),
-      ...(savedGroups.some((s) => s.source === "runtime")
-        ? [
-            {
-              datatype: "string[]",
-              property: "$groups",
-              enum: savedGroups
-                .filter((s) => s.source === "runtime")
-                .map((s) => s.attributeKey)
-                .join(","),
-            } as const,
-          ]
-        : []),
       ...attributeSchema.filter((o) => o.archived),
     ],
-    [attributeSchema, savedGroups]
+    [attributeSchema]
   );
 
   const attributesMap = new Map();
@@ -134,11 +119,13 @@ export default function AttributeForm({
             ) : attribute.datatype === "string[]" ? (
               <MultiSelectField
                 options={
-                  attribute.enum
+                  (attribute.enum
                     ? attribute.enum
                         .split(",")
                         .map((v) => ({ value: v.trim(), label: v.trim() }))
-                    : []
+                    : attributeForm
+                        .watch(attribute.property)
+                        ?.map((v: string) => ({ value: v, label: v }))) || []
                 }
                 value={attributeForm.watch(attribute.property) || []}
                 onChange={(value) => {

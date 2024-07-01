@@ -11,15 +11,18 @@ const ValueTypeField: FC<{
       label="Value Type"
       value={value}
       onChange={onChange}
+      placeholder="Select Type..."
       options={[
         {
-          label: "boolean (on/off)",
+          label: "Boolean (true/false)",
           value: "boolean",
         },
-        { label: "number", value: "number" },
-        { label: "string", value: "string" },
-        { label: "json", value: "json" },
+        { label: "String", value: "string" },
+        { label: "Number", value: "number" },
+        { label: "JSON", value: "json" },
       ]}
+      required
+      sort={false}
     />
   );
 };

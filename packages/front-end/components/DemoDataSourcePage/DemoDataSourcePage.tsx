@@ -7,7 +7,8 @@ import { AuthContextValue, useAuth } from "@/services/auth";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
-import Button from "../Button";
+import Button from "@/components/Button";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 type DemoDataSourcePageProps = {
   error: string | null;
@@ -104,6 +105,15 @@ export function DeleteDemoDatasourceButton({
   const { apiCall } = useAuth();
   const { mutateDefinitions, setProject, project } = useDefinitions();
 
+  const demoProjectId = getDemoDatasourceProjectIdForOrganization(
+    organization.id
+  );
+
+  const permissionsUtil = usePermissionsUtil();
+  if (!permissionsUtil.canDeleteProject(demoProjectId)) {
+    return null;
+  }
+
   return (
     <DeleteButton
       displayName="Sample Data"
@@ -111,9 +121,6 @@ export function DeleteDemoDatasourceButton({
       text="Delete Sample Data"
       outline={false}
       onClick={async () => {
-        const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-          organization.id
-        );
         track("Delete Sample Project", {
           source,
         });

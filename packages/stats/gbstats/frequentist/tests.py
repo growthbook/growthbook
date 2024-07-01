@@ -1,20 +1,23 @@
 from abc import abstractmethod
-from dataclasses import dataclass
-from typing import List
+from dataclasses import asdict
+from typing import List, Optional
 
 import numpy as np
-from scipy.stats import t  # type: ignore
+from pydantic.dataclasses import dataclass
+from scipy.stats import t
 
-from gbstats.shared.models import (
-    FrequentistTestResult,
-    Statistic,
-    Uplift,
+from gbstats.messages import (
+    BASELINE_VARIATION_ZERO_MESSAGE,
+    ZERO_NEGATIVE_VARIANCE_MESSAGE,
+    ZERO_SCALED_VARIATION_MESSAGE,
 )
-from gbstats.shared.tests import BaseABTest
+from gbstats.models.statistics import TestStatistic
+from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
 
 
+# Configs
 @dataclass
-class FrequentistConfig:
+class FrequentistConfig(BaseConfig):
     alpha: float = 0.05
     test_value: float = 0
 
@@ -24,11 +27,36 @@ class SequentialConfig(FrequentistConfig):
     sequential_tuning_parameter: float = 5000
 
 
+# Results
+@dataclass
+class FrequentistTestResult(TestResult):
+    p_value: float
+    error_message: Optional[str] = None
+
+
+def frequentist_diff(mean_a, mean_b, relative, mean_a_unadjusted=None) -> float:
+    if not mean_a_unadjusted:
+        mean_a_unadjusted = mean_a
+    if relative:
+        return (mean_b - mean_a) / mean_a_unadjusted
+    else:
+        return mean_b - mean_a
+
+
+def frequentist_variance(var_a, mean_a, n_a, var_b, mean_b, n_b, relative) -> float:
+    if relative:
+        return var_b / (pow(mean_a, 2) * n_b) + var_a * pow(mean_b, 2) / (
+            pow(mean_a, 4) * n_a
+        )
+    else:
+        return var_b / n_b + var_a / n_a
+
+
 class TTest(BaseABTest):
     def __init__(
         self,
-        stat_a: Statistic,
-        stat_b: Statistic,
+        stat_a: TestStatistic,
+        stat_b: TestStatistic,
         config: FrequentistConfig = FrequentistConfig(),
     ):
         """Base class for one- and two-sided T-Tests with unequal variance.
@@ -43,18 +71,31 @@ class TTest(BaseABTest):
         super().__init__(stat_a, stat_b)
         self.alpha = config.alpha
         self.test_value = config.test_value
+        self.relative = config.difference_type == "relative"
+        self.scaled = config.difference_type == "scaled"
+        self.traffic_proportion_b = config.traffic_proportion_b
+        self.phase_length_days = config.phase_length_days
 
     @property
     def variance(self) -> float:
-        return self.stat_b.variance / (
-            pow(self.stat_a.unadjusted_mean, 2) * self.stat_b.n
-        ) + self.stat_a.variance * pow(self.stat_b.unadjusted_mean, 2) / (
-            pow(self.stat_a.unadjusted_mean, 4) * self.stat_a.n
+        return frequentist_variance(
+            self.stat_a.variance,
+            self.stat_a.unadjusted_mean,
+            self.stat_a.n,
+            self.stat_b.variance,
+            self.stat_b.unadjusted_mean,
+            self.stat_b.n,
+            self.relative,
         )
 
     @property
     def point_estimate(self) -> float:
-        return (self.stat_b.mean - self.stat_a.mean) / self.stat_a.unadjusted_mean
+        return frequentist_diff(
+            self.stat_a.mean,
+            self.stat_b.mean,
+            self.relative,
+            self.stat_a.unadjusted_mean,
+        )
 
     @property
     def critical_value(self) -> float:
@@ -82,7 +123,9 @@ class TTest(BaseABTest):
     def confidence_interval(self) -> List[float]:
         pass
 
-    def _default_output(self) -> FrequentistTestResult:
+    def _default_output(
+        self, error_message: Optional[str] = None
+    ) -> FrequentistTestResult:
         """Return uninformative output when AB test analysis can't be performed
         adequately
         """
@@ -95,6 +138,7 @@ class TTest(BaseABTest):
                 mean=0,
                 stddev=0,
             ),
+            error_message=error_message,
         )
 
     def compute_result(self) -> FrequentistTestResult:
@@ -107,12 +151,13 @@ class TTest(BaseABTest):
                 not absolute differences
         """
         if self.stat_a.mean == 0:
-            return self._default_output()
+            return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         if self.stat_a.unadjusted_mean == 0:
-            return self._default_output()
+            return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         if self._has_zero_variance():
-            return self._default_output()
-        return FrequentistTestResult(
+            return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE)
+
+        result = FrequentistTestResult(
             expected=self.point_estimate,
             ci=self.confidence_interval,
             p_value=self.p_value,
@@ -122,12 +167,34 @@ class TTest(BaseABTest):
                 stddev=np.sqrt(self.variance),
             ),
         )
+        if self.scaled:
+            result = self.scale_result(
+                result, self.traffic_proportion_b, self.phase_length_days
+            )
+        return result
+
+    def scale_result(
+        self, result: FrequentistTestResult, p: float, d: float
+    ) -> FrequentistTestResult:
+        if p == 0:
+            return self._default_output(ZERO_SCALED_VARIATION_MESSAGE)
+        adjustment = self.stat_b.n / p / d
+        return FrequentistTestResult(
+            expected=result.expected * adjustment,
+            ci=[result.ci[0] * adjustment, result.ci[1] * adjustment],
+            p_value=result.p_value,
+            uplift=Uplift(
+                dist=result.uplift.dist,
+                mean=result.uplift.mean * adjustment,
+                stddev=result.uplift.stddev * adjustment,
+            ),
+        )
 
 
 class TwoSidedTTest(TTest):
     @property
     def p_value(self) -> float:
-        return 2 * (1 - t.cdf(abs(self.critical_value), self.dof))
+        return 2 * (1 - t.cdf(abs(self.critical_value), self.dof))  # type: ignore
 
     @property
     def confidence_interval(self) -> List[float]:
@@ -138,7 +205,7 @@ class TwoSidedTTest(TTest):
 class OneSidedTreatmentGreaterTTest(TTest):
     @property
     def p_value(self) -> float:
-        return 1 - t.cdf(self.critical_value, self.dof)
+        return 1 - t.cdf(self.critical_value, self.dof)  # type: ignore
 
     @property
     def confidence_interval(self) -> List[float]:
@@ -149,7 +216,7 @@ class OneSidedTreatmentGreaterTTest(TTest):
 class OneSidedTreatmentLesserTTest(TTest):
     @property
     def p_value(self) -> float:
-        return t.cdf(self.critical_value, self.dof)
+        return t.cdf(self.critical_value, self.dof)  # type: ignore
 
     @property
     def confidence_interval(self) -> List[float]:
@@ -160,16 +227,15 @@ class OneSidedTreatmentLesserTTest(TTest):
 class SequentialTwoSidedTTest(TTest):
     def __init__(
         self,
-        stat_a: Statistic,
-        stat_b: Statistic,
+        stat_a: TestStatistic,
+        stat_b: TestStatistic,
         config: SequentialConfig = SequentialConfig(),
     ):
-        super().__init__(
-            stat_a,
-            stat_b,
-            FrequentistConfig(alpha=config.alpha, test_value=config.test_value),
+        config_dict = asdict(config)
+        self.sequential_tuning_parameter = config_dict.pop(
+            "sequential_tuning_parameter"
         )
-        self.sequential_tuning_parameter = config.sequential_tuning_parameter
+        super().__init__(stat_a, stat_b, FrequentistConfig(**config_dict))
 
     @property
     def confidence_interval(self) -> List[float]:

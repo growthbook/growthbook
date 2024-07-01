@@ -1,6 +1,6 @@
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { useRouter } from "next/router";
-import { ReactElement, ReactNode, useState } from "react";
+import React, { ReactElement, ReactNode, useState } from "react";
 import {
   FaCheckCircle,
   FaExclamationTriangle,
@@ -9,13 +9,17 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import { BsArrowRepeat, BsLightningFill } from "react-icons/bs";
+import {
+  filterProjectsByEnvironment,
+  getDisallowedProjects,
+} from "shared/util";
+import clsx from "clsx";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBEdit, GBHashLock, GBRemoteEvalIcon } from "@/components/Icons";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import usePermissions from "@/hooks/usePermissions";
 import SDKConnectionForm from "@/components/Features/SDKConnections/SDKConnectionForm";
 import CodeSnippetModal, {
   getApiBaseUrl,
@@ -27,6 +31,11 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { isCloud } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PageHead from "@/components/Layout/PageHead";
+import { useEnvironments } from "@/services/features";
+import Badge from "@/components/Badge";
+import ProjectBadges from "@/components/ProjectBadges";
+import SdkWebhooks from "@/pages/sdks/SdkWebhooks";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 function ConnectionDot({ left }: { left: boolean }) {
   return (
@@ -42,6 +51,7 @@ function ConnectionDot({ left }: { left: boolean }) {
         borderRadius: 20,
         border: "3px solid var(--text-color-primary)",
         background: "#fff",
+        zIndex: 1,
       }}
     />
   );
@@ -77,11 +87,13 @@ function ConnectionNode({
 function ConnectionStatus({
   connected,
   error,
+  errorTxt,
   refresh,
   canRefresh,
 }: {
   connected: boolean;
   error?: boolean;
+  errorTxt?: string;
   refresh?: ReactElement;
   canRefresh: boolean;
 }) {
@@ -99,9 +111,34 @@ function ConnectionStatus({
       ) : (
         <>
           {error ? (
-            <span className="text-danger">
-              <FaExclamationTriangle /> error
-            </span>
+            <>
+              <span className="text-danger">
+                <FaExclamationTriangle /> error
+              </span>
+              {errorTxt !== undefined && (
+                <Tooltip
+                  className="ml-1"
+                  innerClassName="pb-1"
+                  usePortal={true}
+                  body={
+                    <>
+                      <div className="mb-2">
+                        Encountered an error while trying to connect:
+                      </div>
+                      {errorTxt ? (
+                        <div className="alert alert-danger mt-2">
+                          {errorTxt}
+                        </div>
+                      ) : (
+                        <div className="alert alert-danger">
+                          <em>Unknown error</em>
+                        </div>
+                      )}
+                    </>
+                  }
+                />
+              )}
+            </>
           ) : (
             <span className="text-secondary">
               <FaQuestionCircle /> not connected
@@ -128,9 +165,37 @@ export default function SDKConnectionPage() {
     initialValue?: SDKConnectionInterface;
   }>({ mode: "closed" });
 
-  const { getProjectById, projects } = useDefinitions();
+  const environments = useEnvironments();
+  const { projects } = useDefinitions();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
+
+  const connection:
+    | SDKConnectionInterface
+    | undefined = data?.connections?.find((conn) => conn.id === sdkid);
+  const environment = environments.find(
+    (e) => e.id === connection?.environment
+  );
+  const envProjects = environment?.projects ?? [];
+  const filteredProjectIds = filterProjectsByEnvironment(
+    connection?.projects ?? [],
+    environment,
+    true
+  );
+  const showAllEnvironmentProjects =
+    (connection?.projects?.length ?? 0) === 0 && filteredProjectIds.length > 0;
+  const disallowedProjects = getDisallowedProjects(
+    projects,
+    connection?.projects ?? [],
+    environment
+  );
+  const disallowedProjectIds = disallowedProjects.map((p) => p.id);
+  const filteredProjectIdsWithDisallowed = [
+    ...filteredProjectIds,
+    ...disallowedProjectIds,
+  ];
+
+  const hasProxy = connection?.proxy?.enabled;
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -138,26 +203,13 @@ export default function SDKConnectionPage() {
   if (!data) {
     return <LoadingOverlay />;
   }
-
-  const connection: SDKConnectionInterface | undefined = data.connections.find(
-    (conn) => conn.id === sdkid
-  );
-
   if (!connection) {
     return <div className="alert alert-danger">Invalid SDK Connection id</div>;
   }
 
-  const hasPermission = permissions.check(
-    "manageEnvironments",
-    connection.project,
-    [connection.environment]
-  );
-
-  const hasProxy = connection.proxy.enabled && !!connection.proxy.host;
-
-  const projectId = connection.project;
-  const projectName = getProjectById(projectId)?.name || null;
-  const projectIsDeReferenced = projectId && !projectName;
+  const canDuplicate = permissionsUtil.canCreateSDKConnection(connection);
+  const canUpdate = permissionsUtil.canUpdateSDKConnection(connection, {});
+  const canDelete = permissionsUtil.canDeleteSDKConnection(connection);
 
   return (
     <div className="contents container pagecontents">
@@ -179,54 +231,60 @@ export default function SDKConnectionPage() {
 
       <div className="row align-items-center mb-2">
         <h1 className="col-auto mb-0">{connection.name}</h1>
-        {hasPermission && (
+        {canDelete || canUpdate || canDuplicate ? (
           <>
-            <div className="col-auto ml-auto">
-              <a
-                role="button"
-                className="btn btn-outline-primary"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setModalState({
-                    mode: "edit",
-                    initialValue: connection,
-                  });
-                }}
-              >
-                <GBEdit /> Edit
-              </a>
-            </div>
-            <div className="col-auto">
-              <MoreMenu>
-                <button
-                  className="dropdown-item"
+            {canUpdate ? (
+              <div className="col-auto ml-auto">
+                <a
+                  role="button"
+                  className="btn btn-outline-primary"
                   onClick={(e) => {
                     e.preventDefault();
                     setModalState({
-                      mode: "create",
+                      mode: "edit",
                       initialValue: connection,
                     });
                   }}
                 >
-                  Duplicate
-                </button>
-                <DeleteButton
-                  className="dropdown-item"
-                  displayName="SDK Connection"
-                  text="Delete"
-                  useIcon={false}
-                  onClick={async () => {
-                    await apiCall(`/sdk-connections/${connection.id}`, {
-                      method: "DELETE",
-                    });
-                    mutate();
-                    router.push(`/sdks`);
-                  }}
-                />
+                  <GBEdit /> Edit
+                </a>
+              </div>
+            ) : null}
+            <div className="col-auto">
+              <MoreMenu>
+                {canDuplicate ? (
+                  <button
+                    className="dropdown-item"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setModalState({
+                        mode: "create",
+                        initialValue: connection,
+                      });
+                    }}
+                  >
+                    Duplicate
+                  </button>
+                ) : null}
+                {canDelete ? (
+                  <DeleteButton
+                    className="dropdown-item text-danger"
+                    displayName="SDK Connection"
+                    text="Delete"
+                    useIcon={false}
+                    onClick={async () => {
+                      await apiCall(`/sdk-connections/${connection.id}`, {
+                        method: "DELETE",
+                      });
+                      mutate();
+                      router.push(`/sdks`);
+                    }}
+                  />
+                ) : null}
               </MoreMenu>
             </div>
           </>
-        )}
+        ) : null}
       </div>
 
       <div className="mb-4 row">
@@ -234,26 +292,36 @@ export default function SDKConnectionPage() {
           Environment: <strong>{connection.environment}</strong>
         </div>
 
-        {(projects.length > 0 || projectIsDeReferenced) && (
-          <div className="col-auto">
-            Project:{" "}
-            {projectIsDeReferenced ? (
-              <Tooltip
-                body={
-                  <>
-                    Project <code>{projectId}</code> not found
-                  </>
-                }
+        {(projects.length > 0 || connection.projects.length > 0) && (
+          <div className="col-auto d-flex">
+            <div className="mr-2">Projects:</div>
+
+            <div>
+              {showAllEnvironmentProjects && (
+                <Badge
+                  content={`All env projects (${envProjects.length})`}
+                  key="All env projects"
+                  className="badge-muted-info border-info"
+                  skipMargin={true}
+                />
+              )}
+              <div
+                className={clsx("d-flex align-items-center", {
+                  "small mt-1": showAllEnvironmentProjects,
+                })}
               >
-                <span className="text-danger">
-                  <FaExclamationTriangle /> Invalid project
-                </span>
-              </Tooltip>
-            ) : projectId ? (
-              <strong>{projectName}</strong>
-            ) : (
-              <em className="text-muted">All Projects</em>
-            )}
+                <ProjectBadges
+                  projectIds={
+                    filteredProjectIdsWithDisallowed.length
+                      ? filteredProjectIdsWithDisallowed
+                      : undefined
+                  }
+                  invalidProjectIds={disallowedProjectIds}
+                  invalidProjectMessage="This project is not allowed in the selected environment and will not be included in the SDK payload."
+                  resourceType="sdk connection"
+                />
+              </div>
+            </div>
           </div>
         )}
 
@@ -285,14 +353,6 @@ export default function SDKConnectionPage() {
         )}
       </div>
 
-      {projectIsDeReferenced && (
-        <div className="alert alert-danger">
-          This SDK connection is scoped to a project that no longer exists. This
-          connection will no longer work until either a valid project or
-          &quot;All Projects&quot; is selected.
-        </div>
-      )}
-
       <div className="row mb-2 align-items-center">
         <div className="col-auto">
           <h2 className="mb-0">Connection</h2>
@@ -322,7 +382,15 @@ export default function SDKConnectionPage() {
           >
             {connection.languages.map((language) => (
               <div className="mx-1" key={language}>
-                <SDKLanguageLogo showLabel={true} language={language} />
+                <SDKLanguageLogo
+                  showLabel={true}
+                  language={language}
+                  version={
+                    connection.languages?.length === 1
+                      ? connection.sdkVersion
+                      : undefined
+                  }
+                />
               </div>
             ))}
           </div>
@@ -330,7 +398,7 @@ export default function SDKConnectionPage() {
 
         <ConnectionStatus
           connected={connection.connected}
-          canRefresh={hasPermission && !connection.connected}
+          canRefresh={canUpdate && !connection.connected}
           refresh={
             <Button
               color="link"
@@ -353,14 +421,17 @@ export default function SDKConnectionPage() {
               }
             >
               <code className="text-muted">
-                {connection.proxy.host || connection.proxy.hostExternal}
+                {connection.proxy.host ||
+                  connection.proxy.hostExternal ||
+                  "https://proxy.yoursite.io"}
               </code>
             </ConnectionNode>
 
             <ConnectionStatus
               connected={connection.proxy.connected}
-              canRefresh={hasPermission}
+              canRefresh={canUpdate && !!connection.proxy.host}
               error={!connection.proxy.connected}
+              errorTxt={connection.proxy.error}
               refresh={
                 <ProxyTestButton
                   host={connection.proxy.host}
@@ -389,7 +460,7 @@ export default function SDKConnectionPage() {
         </ConnectionNode>
       </div>
 
-      <div className="row mb-5 align-items-center">
+      <div className="row mb-3 align-items-center">
         <div className="flex-1"></div>
         <div className="col-auto">
           <Tooltip
@@ -417,7 +488,7 @@ export default function SDKConnectionPage() {
           </Tooltip>
         </div>
       </div>
-
+      <SdkWebhooks connection={connection} />
       <div className="mt-4">
         <CodeSnippetModal
           connections={data.connections}

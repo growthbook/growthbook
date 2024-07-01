@@ -3,21 +3,26 @@ import { MdSwapCalls } from "react-icons/md";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
-  MetricRegressionAdjustmentStatus,
+  MetricSnapshotSettings,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
-import { PValueCorrection, StatsEngine } from "back-end/types/stats";
+import {
+  DifferenceType,
+  PValueCorrection,
+  StatsEngine,
+} from "back-end/types/stats";
 import Link from "next/link";
 import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { ExperimentMetricInterface, getMetricLink } from "shared/experiments";
+import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   setAdjustedPValuesOnResults,
   ExperimentTableRow,
-  useRiskVariation,
   setAdjustedCIs,
+  hasRisk,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
@@ -26,13 +31,14 @@ import {
   sortAndFilterMetricsByTags,
 } from "@/components/Experiment/Results";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import Tooltip from "../Tooltip/Tooltip";
-import MetricTooltipBody from "../Metrics/MetricTooltipBody";
-import FactBadge from "../FactTables/FactBadge";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
+import MetricName, { PercentileLabel } from "@/components/Metrics/MetricName";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 import VariationUsersTable from "./TabbedPage/VariationUsersTable";
+import { ExperimentTab } from "./TabbedPage";
 
 const numberFormatter = Intl.NumberFormat();
 
@@ -55,11 +61,16 @@ const CompactResults: FC<{
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   regressionAdjustmentEnabled?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   sequentialTestingEnabled?: boolean;
+  differenceType: DifferenceType;
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
   isTabActive: boolean;
+  setTab?: (tab: ExperimentTab) => void;
+  mainTableOnly?: boolean;
+  noStickyHeader?: boolean;
+  noTooltip?: boolean;
 }> = ({
   editMetrics,
   variations,
@@ -79,11 +90,16 @@ const CompactResults: FC<{
   statsEngine,
   pValueCorrection,
   regressionAdjustmentEnabled,
-  metricRegressionAdjustmentStatuses,
+  settingsForSnapshotMetrics,
   sequentialTestingEnabled,
+  differenceType,
   metricFilter,
   setMetricFilter,
   isTabActive,
+  setTab,
+  mainTableOnly,
+  noStickyHeader,
+  noTooltip,
 }) => {
   const { getExperimentMetricById, ready } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
@@ -119,11 +135,9 @@ const CompactResults: FC<{
         metric,
         metricOverrides
       );
-      let regressionAdjustmentStatus:
-        | MetricRegressionAdjustmentStatus
-        | undefined;
-      if (regressionAdjustmentEnabled && metricRegressionAdjustmentStatuses) {
-        regressionAdjustmentStatus = metricRegressionAdjustmentStatuses.find(
+      let metricSnapshotSettings: MetricSnapshotSettings | undefined;
+      if (settingsForSnapshotMetrics) {
+        metricSnapshotSettings = settingsForSnapshotMetrics.find(
           (s) => s.metric === metricId
         );
       }
@@ -133,9 +147,16 @@ const CompactResults: FC<{
         metricOverrideFields: overrideFields,
         rowClass: newMetric?.inverse ? "inverse" : "",
         variations: results.variations.map((v) => {
-          return v.metrics[metricId];
+          return (
+            v.metrics?.[metricId] || {
+              users: 0,
+              value: 0,
+              cr: 0,
+              errorMessage: "No data",
+            }
+          );
         }),
-        regressionAdjustmentStatus,
+        metricSnapshotSettings,
         isGuardrail,
       };
     }
@@ -148,7 +169,7 @@ const CompactResults: FC<{
 
     const metricDefs = metrics
       .map((metricId) => getExperimentMetricById(metricId))
-      .filter(Boolean) as ExperimentMetricInterface[];
+      .filter(isDefined);
     const sortedFilteredMetrics = sortAndFilterMetricsByTags(
       metricDefs,
       metricFilter
@@ -156,7 +177,7 @@ const CompactResults: FC<{
 
     const guardrailDefs = guardrails
       .map((metricId) => getExperimentMetricById(metricId))
-      .filter(Boolean) as ExperimentMetricInterface[];
+      .filter(isDefined);
     const sortedFilteredGuardrails = sortAndFilterMetricsByTags(
       guardrailDefs,
       metricFilter
@@ -164,18 +185,17 @@ const CompactResults: FC<{
 
     const retMetrics = sortedFilteredMetrics
       .map((metricId) => getRow(metricId, false))
-      .filter((row) => row?.metric) as ExperimentTableRow[];
+      .filter(isDefined);
     const retGuardrails = sortedFilteredGuardrails
       .map((metricId) => getRow(metricId, true))
-      .filter((row) => row?.metric) as ExperimentTableRow[];
+      .filter(isDefined);
     return [...retMetrics, ...retGuardrails];
   }, [
     results,
     metrics,
     guardrails,
     metricOverrides,
-    regressionAdjustmentEnabled,
-    metricRegressionAdjustmentStatuses,
+    settingsForSnapshotMetrics,
     pValueCorrection,
     pValueThreshold,
     statsEngine,
@@ -188,37 +208,49 @@ const CompactResults: FC<{
     const vars = results?.variations;
     return variations.map((v, i) => vars?.[i]?.users || 0);
   }, [results, variations]);
-  const risk = useRiskVariation(variations.length, rows);
 
   return (
     <>
-      {status !== "draft" && totalUsers > 0 && (
-        <div className="users">
-          <Collapsible
-            trigger={
-              <div className="d-inline-flex mx-3 align-items-center">
-                <FaUsers size={16} className="mr-1" />
-                {numberFormatter.format(totalUsers)} total users
-                <FaAngleRight className="chevron ml-1" />
-              </div>
-            }
-            transitionTime={100}
-          >
-            <VariationUsersTable
+      {!mainTableOnly && (
+        <>
+          {status !== "draft" && totalUsers > 0 && (
+            <div className="users">
+              <Collapsible
+                trigger={
+                  <div className="d-inline-flex mx-3 align-items-center">
+                    <FaUsers size={16} className="mr-1" />
+                    {numberFormatter.format(totalUsers)} total users
+                    <FaAngleRight className="chevron ml-1" />
+                  </div>
+                }
+                transitionTime={100}
+              >
+                <div style={{ maxWidth: "800px" }}>
+                  <VariationUsersTable
+                    variations={variations}
+                    users={variationUsers}
+                    srm={results.srm}
+                  />
+                </div>
+              </Collapsible>
+            </div>
+          )}
+
+          <div className="mx-3">
+            <DataQualityWarning
+              results={results}
               variations={variations}
-              users={variationUsers}
+              linkToHealthTab
+              setTab={setTab}
             />
-          </Collapsible>
-        </div>
+            <MultipleExposureWarning
+              users={users}
+              multipleExposures={multipleExposures}
+            />
+          </div>
+        </>
       )}
 
-      <div className="mx-3">
-        <DataQualityWarning results={results} variations={variations} />
-        <MultipleExposureWarning
-          users={users}
-          multipleExposures={multipleExposures}
-        />
-      </div>
       <ResultsTable
         dateCreated={reportDate}
         isLatestPhase={isLatestPhase}
@@ -230,21 +262,27 @@ const CompactResults: FC<{
         baselineRow={baselineRow}
         rows={rows.filter((r) => !r.isGuardrail)}
         id={id}
-        hasRisk={risk.hasRisk}
+        hasRisk={hasRisk(rows)}
         tableRowAxis="metric"
         labelHeader="Goal Metrics"
         editMetrics={editMetrics}
         statsEngine={statsEngine}
         sequentialTestingEnabled={sequentialTestingEnabled}
         pValueCorrection={pValueCorrection}
-        renderLabelColumn={getRenderLabelColumn(regressionAdjustmentEnabled)}
+        differenceType={differenceType}
+        renderLabelColumn={getRenderLabelColumn(
+          regressionAdjustmentEnabled,
+          statsEngine
+        )}
         metricFilter={metricFilter}
         setMetricFilter={setMetricFilter}
         metricTags={allMetricTags}
         isTabActive={isTabActive}
+        noStickyHeader={noStickyHeader}
+        noTooltip={noTooltip}
       />
 
-      {guardrails.length ? (
+      {!mainTableOnly && guardrails.length ? (
         <div className="mt-4">
           <ResultsTable
             dateCreated={reportDate}
@@ -257,7 +295,7 @@ const CompactResults: FC<{
             baselineRow={baselineRow}
             rows={rows.filter((r) => r.isGuardrail)}
             id={id}
-            hasRisk={risk.hasRisk}
+            hasRisk={hasRisk(rows)}
             tableRowAxis="metric"
             labelHeader="Guardrail Metrics"
             editMetrics={editMetrics}
@@ -265,13 +303,17 @@ const CompactResults: FC<{
             statsEngine={statsEngine}
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}
+            differenceType={differenceType}
             renderLabelColumn={getRenderLabelColumn(
-              regressionAdjustmentEnabled
+              regressionAdjustmentEnabled,
+              statsEngine
             )}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
             metricTags={allMetricTags}
             isTabActive={isTabActive}
+            noStickyHeader={noStickyHeader}
+            noTooltip={noTooltip}
           />
         </div>
       ) : (
@@ -282,7 +324,7 @@ const CompactResults: FC<{
 };
 export default CompactResults;
 
-export function getRenderLabelColumn(regressionAdjustmentEnabled) {
+export function getRenderLabelColumn(regressionAdjustmentEnabled, statsEngine) {
   return function renderLabelColumn(
     label: string,
     metric: ExperimentMetricInterface,
@@ -295,8 +337,8 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
           <MetricTooltipBody
             metric={metric}
             row={row}
+            statsEngine={statsEngine}
             reportRegressionAdjustmentEnabled={regressionAdjustmentEnabled}
-            newUi={true}
           />
         }
         tipPosition="right"
@@ -324,11 +366,12 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
                 }
           }
         >
-          <Link href={getMetricLink(metric.id)}>
-            <a className="metriclabel text-dark">
-              {label}
-              <FactBadge metricId={metric.id} />
-            </a>
+          <Link
+            href={getMetricLink(metric.id)}
+            className="metriclabel text-dark"
+          >
+            <MetricName id={metric.id} disableTooltip />
+            <PercentileLabel metric={metric} />
           </Link>
         </span>
       </Tooltip>
@@ -336,12 +379,12 @@ export function getRenderLabelColumn(regressionAdjustmentEnabled) {
 
     const cupedIconDisplay =
       regressionAdjustmentEnabled &&
-      !row?.regressionAdjustmentStatus?.regressionAdjustmentEnabled ? (
+      !row?.metricSnapshotSettings?.regressionAdjustmentEnabled ? (
         <Tooltip
           className="ml-1"
           body={
-            row?.regressionAdjustmentStatus?.reason
-              ? `CUPED disabled: ${row?.regressionAdjustmentStatus?.reason}`
+            row?.metricSnapshotSettings?.regressionAdjustmentReason
+              ? `CUPED disabled: ${row?.metricSnapshotSettings?.regressionAdjustmentReason}`
               : `CUPED disabled`
           }
         >

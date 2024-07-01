@@ -1,0 +1,271 @@
+# GrowthBook Best Practices
+
+## Organization
+
+As you scale up your usage of GrowthBook and start running many experiments, keeping everything
+organized and easy to find is essential. GrowthBook includes a number of organizational structures
+to help you scale.
+
+### Organizations
+
+The organization is the highest level structure within GrowthBook. An organization contains
+everything within your GrowthBook instance: users, data sources, metrics, features, etc. For both
+cloud and self-hosted users, it is possible for users to join multiple organizations. Users can
+belong to multiple organizations, but each organization is otherwise entirely independent of the
+others. For some, complete isolation of the teams or subdivisions within the company may be desired.
+For example, if your company has two or more largely independent products (e.g., Google has Search
+and Google Docs), you can set up multiple organizations per product.
+
+For self-hosted enterprise users, we support multi-organization mode, which also comes with a
+super-admin account type that can manage users across organizations.
+
+### Environments
+
+In GrowthBook, you can create as many environments as you need for the feature flags and override rules.
+Environments are meant to separate how your feature flags and override rules are deployed. Each environment
+can have one or more SDK API endpoints specified when you create the SDK, allowing you to differentiate
+the override rules. For example, you might have environments for “Staging”, “QA”, and “Production”. While
+testing the feature, you can set specific rules to on the "development" or "QA" environment, and when
+you're ready, you can move applicable rules to the "production" environment.
+
+You can add an arbitrary number of environments from the SDK Connections → Environments page.
+
+![Environments Page](/images/using/environments-page.png)
+
+### Projects
+
+Within an organization, you can create projects. Projects can help isolate the view of GrowthBook to
+just the sections that apply for that GrowthBook user. Projects are a great way to organizationally
+separate features, metrics, experiments, and even data sources by team or product feature. For example,
+you could have a project “front-end” and one for “back-end”, or by team like “Growth” and “API”. Unlike
+separate organizations, projects can share data. Projects are managed from the Settings → Projects page.
+
+![Projects Page](/images/using/projects-page.png)
+
+A use case for using projects is if you have divisions within your product but a centralized data source.
+We typically see projects used per team or per project within your organization. For example, if you have
+a mobile app and a website that shares users, but the code bases are different, you will want to create
+two projects: a _mobile_ project and a _web_ project.
+
+Each of the items within GrowthBook can be assigned to multiple projects. You can have a data source that
+is part of the ‘mobile’ and ‘web’ projects but not to a ‘marketing’ project. That data source will not be
+available for users in the 'marketing' project.
+
+To help keep feature payloads smaller, the SDK endpoint where the feature definitions are returned
+can be scoped to each project. If using Projects based on features or area of your product, you can
+use this feature to only return features that pertain to that area. For example, with our “mobile”
+and “website” example, you can add the project scope to only return features for the project as these
+are likely to use different code than the other, and you don’t want to expose features unnecessarily.
+
+One advantage of using projects is that you can adjust permissions and even some statistical settings per
+project- users can have no access to a project or, inversely, have no general permissions but add a project
+permission so they can work within their project. If a team prefers to use a frequentist statistical model,
+this can be adjusted per project.
+
+### Tags
+
+Another way to organize GrowthBook is with _tags_. With tags, you can quickly filter lists, and select
+metrics. For example, if you tagged all experiments to do with your checkout flow with the tag “checkout”,
+you can quickly see this in the list by clicking on ‘filter by tags’ on the experiment list. Tags can be
+color-coded and managed from our Settings → Tags page. You can add multiple tags per item you are tagging.
+
+![Tags Page](/images/using/tags-page.png)
+
+Metrics with tags can be used to quickly add all those metrics to an experiment. When creating an
+experiment or editing the metrics, there is a section titled “Select metric by tag” which will let you add
+all the metrics by the tag name to both guardrail and goal metrics. This is useful if you want to use a
+standard set of goal metrics or guardrail metrics for your experiments.
+
+Tags are often used to mark sub-features of your product; for example, if you have an e-commerce
+website, you might want to tag features or experiments with the area they affect, like ‘_pricing_,’
+‘_product page_,’ or ‘_checkout_.’
+
+![Experiments filtered by tag](/images/using/experiments-filtered-by-tag.png)
+
+### Naming
+
+Another organizing principle you can use is the naming of your experiments and features. Because GrowthBook
+makes it easy to quickly search the list of features and flags, using naming conventions can be an
+effective way to organize your project.
+
+We’ve seen several strategies be successful here, but as a general rule, you’ll want to be as specific as possible
+with naming features and experiments. For example, you can use &lt;project scope>\_&lt;project name> or the year,
+quarter, or section plus the name of the experiment, e.g.: “23-Q4 New user registration modal“ or “23-Team3 Simplified checkout flow”.
+This lets you quickly see when the experiment was run or which team worked on it.
+
+### Hygiene & Archiving
+
+As the number of features and experiments grows, you will want to remove past items that are no longer
+relevant. Within GrowthBook you can archive and delete. **Deleting** something will permanently remove
+items from GrowthBook. **Archived** items in GrowthBook won’t be deleted, but they are removed from
+the main part of the UI and not available for adding to new experiments (for archived metrics). Archived
+items can also be restored at any time. These methods help you keep your UI clean and relevant.
+
+### Source of Truth
+
+If you run an experimentation program for a long enough time, you’ll find yourself with an experiment
+idea that seems really familiar, and people will wonder, “Didn’t we already test this?” If you don’t
+have a central repository for all your experiment results, it can be difficult to find if you did test
+this previously, and even if you did, if what you tested was similar enough to the new idea not to have
+to test it again.
+
+GrowthBook is designed to help with this by creating a central source for the features you’ve launched
+and the experiments you’ve run. To help facilitate this, GrowthBook has created a number of features to
+help you capture meta information.
+
+### Meta Information
+
+Features and experiments can all have metadata attached to them. The purpose of this is to help capture
+all the meta-information around a feature or experiment that might help contextualize it for posterity
+and help capture the institutional knowledge that your program generates. This is also very helpful when
+new members join your team, so they don’t just suggest ideas you’ve run many times already.
+
+For experiments, you should capture the original idea, any screenshots of similar products, and, most
+importantly, capture images/screenshots of the control and variants for the experiment. Quite often,
+someone will suggest an idea you’ve run previously. In these cases, it is vital to be able to find
+out what exactly you tested previously - it's possible that the new idea is slightly different, or you
+may decide that it is the same and try testing another idea, or you could decide that your product is
+substantially different, and the same idea may be worth testing again. To make this decision, it is
+essential to capture not just the experiment results but the broader context of what your product
+looked like at the time and the test variants.
+
+Getting your team to document is always a challenge. GrowthBook takes two approaches to help with this.
+The first is to make it super easy to add documentation directly in the platform you’re already using
+for the experiment. Secondly, we added launch checklists, which can require that certain files be filled
+before your team is able to start an experiment.
+
+## Searching
+
+GrowthBook has a powerful search feature that allows you to quickly find the feature, experiment, or
+metrics. By default, text searches with this search input will search based on the name, description,
+and other meta information. You can also search using syntax search to search for specific fields.
+
+### Syntax Search
+
+Syntax search allows you to search for specific fields in GrowthBook. The syntax search allows for exact
+matching, starts with, greater, less, and contains. You can also negate any of the operators using !.
+Syntax searches are constructed in the format of `[field]:[operator][value]`. You can also combine multiple
+fields using the same syntax. For example, `name:~pricing status:running` will search for all running experiments
+with the name containing the string "pricing".
+
+| Syntax operator | Description               |
+| --------------- | ------------------------- |
+| :               | exact match               |
+| :=              | exact match               |
+| :~              | contains                  |
+| :^              | starts with               |
+| :>              | greater than              |
+| :\<             | less than                 |
+| :!              | negated (exclude matches) |
+| :!=             | negated (exclude matches) |
+| :!~             | does not contain          |
+| :!^             | does not starts with      |
+| :!>             | not greater than          |
+| :!\<            | not less than             |
+
+You can also add quotes to search for fields that contain spaces. For example, `name:"New Feature"` will search for
+the name field that contains the text “New Feature”.
+
+### Experiments Syntax Fields
+
+| Syntax field | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| :----------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| name         | The experiment name (eg: name:~pricing)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| key or id    | The experiment's tracking key (eg: key:^banner)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| status       | Experiment status, can be one of "stopped", "running", "draft", "archived" (eg: status:running)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| owner        | The creator of the experiment (eg: owner:pat)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| tag          | Experiments tagged with this tag                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| project      | The experiment's project                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| feature      | The experiment is linked to the specified feature                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| metric       | Experiments that contain the metric specified (eg: metric:~revenue)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| result       | The experiment result (won, inconclusive, lost, unfinished)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| variation    | The experiment contains a variant with the name specified                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| variations   | Search for the number of variants                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| created      | The experiment's creation date, in UTC. The date entered is parsed so supports most formats                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| updated      | The date the experiment was updated, in UTC. The date entered is parsed so supports most formats                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| variations   | Search for the number of variants                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| is           | supports searching on the experiment status, results, and other current states. Supported fields <br /><br /><table><tbody><tr><td>archived</td><td>If the experiment is archived</td></tr><tr><td>draft</td><td>The experiment is in draft status</td></tr><tr><td>running</td><td>The experiment is running</td></tr><tr><td>stopped</td><td>The experiment is stopped</td></tr><tr><td>won</td><td>The experiment been marked as won</td></tr><tr><td>lost</td><td>The experiment has been maked as lost</td></tr><tr><td>inconclusive</td><td>The experiment has been marked as inconclusive</td></tr><tr><td>visual</td><td>The experiment has variants made with the visual editor</td></tr><tr><td>redirect</td><td>The experiment has a URL redirect experiment</td></tr></tbody></table> |
+| has          | supports searching on the experiment states. Supported fields <br /><br /><table><tbody><tr><td>project</td><td>The experiment belongs to at least one project</td></tr><tr><td>visualChange</td><td>The experiment has a visual editor change</td></tr><tr><td>redirect/redirects</td><td>The experiment has a URL redirect</td></tr><tr><td>feature/features</td><td>The experiment has features attached</td></tr><tr><td>hypothesis</td><td>The experiment has a hypothesis</td></tr><tr><td>description</td><td>The experiment has a description</td></tr><tr><td>screenshots</td><td>The experiment has at least one screenshot</td></tr></tbody></table>                                                                                                                                   |
+
+#### Examples
+
+```
+name:~pricing status:running
+```
+
+Show all running experiments with the name containing the string "pricing"
+
+```
+tag:checkout result:won updated:>2024-06-05
+```
+
+Show all experiments tagged with "checkout" that have been marked as won and were updated after June 5th, 2024
+
+```
+is:archived has:visualChange variations:>2
+```
+
+Show all archived experiments that have a visual change and have more than 2 variations in the experiment
+
+```
+owner:patty has:!hypothesis
+```
+
+Show all experiments owned by Patty that do not have a hypothesis
+
+```
+created:<"dec 22nd, 2023" has:redirect metrics:~revenue
+```
+
+Show all experiments that have a redirect and were created before December 22nd, 2023 and contain a metric
+name containing "revenue"
+
+### Features Syntax Fields
+
+| Syntax field        | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| :------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| key                 | The feature's key (name)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| owner               | The creator of the feature (eg: owner:abby)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| rules               | Matches based on the number of rules (eg: rules:>2)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| tag                 | Features tagged with this tag                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| project             | The feature's project                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| version or revision | The feature's revision number                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| experiment          | The feature is linked to the specified experiment                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| created             | The feature's creation date, in UTC. Date entered is parsed so supports most formats. <br /><br />(eg: created:\>"2024-06-05" or created:\<"dec 22nd, 2023")                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| updated             | The date the feature was updated, in UTC. Date entered is parsed so supports most formats                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| on                  | Shows features that are on for a specific environment (on:production)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| off                 | Shows features that are off for a specific environment (off:dev)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| is                  | supports searching on the feature status, results, and other current states. Supported fields <br /><br /><table><tbody><tr><td>archived</td><td>If the feature is archived</td></tr><tr><td>draft</td><td>The feature is in draft status</td></tr><tr><td>stale</td><td>The feature is stale</td></tr></tbody></table>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| has                 | supports searching on the feature states. Supported fields <br /><br /><table><tbody><tr><td>project</td><td>The feature belongs to at least one project</td></tr><tr><td>draft or drafts</td><td>The feature has a draft</td></tr><tr><td>prerequisites or prereqs</td><td>The feature has at least one prerequisite flags</td></tr><tr><td>validation or schema or jsonSchema</td><td>The feature has a JSON schema attached</td></tr><tr><td>rule or rules</td><td>The feature has at least one rule</td></tr><tr><td>experiment or experiments</td><td>The feature has at least one experiment rule</td></tr><tr><td>rollout or percent</td><td>The feature has at least one precentage rollout rule</td></tr><tr><td>force or targeting</td><td>The feature has at least one force rule</td></tr></tbody></table> |
+
+#### Examples
+
+```
+key:~pricing on:production
+```
+
+Show all features with the key containing the string "pricing" that are `on` in the production environment
+
+```
+tag:checkout stale:true
+```
+
+Show all features tagged with "checkout" that are stale
+
+```
+is:archived has:prerequisites
+```
+
+Show all archived features that have prerequisites
+
+```
+owner:abby has:draft rules:0
+```
+
+Show all features owned by Abby that have a draft and have no rules
+
+```
+updated:>"2024-06-05" has:experiment
+```
+
+Show all features that have experiment rules and were updated after June 5th, 2024

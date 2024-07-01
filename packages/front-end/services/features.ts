@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import {
+  Environment,
   NamespaceUsage,
   SDKAttributeFormat,
   SDKAttributeSchema,
@@ -19,11 +20,18 @@ import stringify from "json-stringify-pretty-compact";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureUsageRecords } from "back-end/types/realtime";
 import cloneDeep from "lodash/cloneDeep";
-import { generateVariationId, validateFeatureValue } from "shared/util";
+import {
+  generateVariationId,
+  validateAndFixCondition,
+  validateFeatureValue,
+} from "shared/util";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import isEqual from "lodash/isEqual";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import useOrgSettings from "../hooks/useOrgSettings";
-import useApi from "../hooks/useApi";
+import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import useApi from "@/hooks/useApi";
 import { useDefinitions } from "./DefinitionsContext";
 
 export { generateVariationId } from "shared/util";
@@ -71,11 +79,13 @@ export function useEnvironments() {
         id: "dev",
         description: "",
         toggleOnList: true,
+        projects: [],
       },
       {
         id: "production",
         description: "",
         toggleOnList: true,
+        projects: [],
       },
     ];
   }
@@ -83,16 +93,13 @@ export function useEnvironments() {
   return environments;
 }
 export function getRules(feature: FeatureInterface, environment: string) {
-  if (feature.draft?.active && feature.draft.rules?.[environment]) {
-    return feature.draft.rules[environment];
-  }
   return feature?.environmentSettings?.[environment]?.rules ?? [];
 }
 export function getFeatureDefaultValue(feature: FeatureInterface) {
-  if (feature.draft?.active && "defaultValue" in feature.draft) {
-    return feature.draft.defaultValue ?? "";
-  }
   return feature.defaultValue ?? "";
+}
+export function getPrerequisites(feature: FeatureInterface) {
+  return feature.prerequisites ?? [];
 }
 
 export function roundVariationWeight(num: number): number {
@@ -156,20 +163,32 @@ export function findGaps(
   return gaps;
 }
 
-export function useFeaturesList(withProject = true) {
+export function useFeaturesList(withProject = true, includeArchived = false) {
   const { project } = useDefinitions();
 
-  const url = withProject ? `/feature?project=${project || ""}` : "/feature";
+  const qs = new URLSearchParams();
+  if (withProject) {
+    qs.set("project", project);
+  }
+  if (includeArchived) {
+    qs.set("includeArchived", "true");
+  }
+
+  const url = `/feature?${qs.toString()}`;
 
   const { data, error, mutate } = useApi<{
     features: FeatureInterface[];
+    linkedExperiments: ExperimentInterfaceStringDates[];
+    hasArchived: boolean;
   }>(url);
 
   return {
     features: data?.features || [],
+    experiments: data?.linkedExperiments || [],
     loading: !data,
     error,
     mutate,
+    hasArchived: data?.hasArchived || false,
   };
 }
 
@@ -188,14 +207,25 @@ export function getVariationColor(i: number) {
   return colors[i % colors.length];
 }
 
-export function useAttributeSchema(showArchived = false) {
+export function useAttributeSchema(
+  showArchived = false,
+  projectFilter?: string
+) {
   const attributeSchema = useOrgSettings().attributeSchema || [];
+
+  const filteredAttributeSchema = attributeSchema.filter((attribute) => {
+    return (
+      !projectFilter ||
+      !attribute.projects?.length ||
+      attribute.projects.includes(projectFilter)
+    );
+  });
   return useMemo(() => {
     if (!showArchived) {
-      return attributeSchema.filter((s) => !s.archived);
+      return filteredAttributeSchema.filter((s) => !s.archived);
     }
-    return attributeSchema;
-  }, [attributeSchema, showArchived]);
+    return filteredAttributeSchema;
+  }, [attributeSchema, showArchived, projectFilter]);
 }
 
 export function validateFeatureRule(
@@ -204,14 +234,22 @@ export function validateFeatureRule(
 ): null | FeatureRule {
   let hasChanges = false;
   const ruleCopy = cloneDeep(rule);
+
+  validateSavedGroupTargeting(rule.savedGroups);
+
   if (rule.condition) {
-    try {
-      const res = JSON.parse(rule.condition);
-      if (!res || typeof res !== "object") {
-        throw new Error("Condition is invalid");
-      }
-    } catch (e) {
-      throw new Error("Condition is invalid: " + e.message);
+    validateAndFixCondition(
+      rule.condition,
+      (condition) => {
+        hasChanges = true;
+        ruleCopy.condition = condition;
+      },
+      false
+    );
+  }
+  if (rule.prerequisites) {
+    if (rule.prerequisites.some((p) => !p.id)) {
+      throw new Error("Cannot have empty prerequisites");
     }
   }
   if (rule.type === "force") {
@@ -283,8 +321,12 @@ export function validateFeatureRule(
   return hasChanges ? ruleCopy : null;
 }
 
-export function getEnabledEnvironments(feature: FeatureInterface) {
+export function getEnabledEnvironments(
+  feature: FeatureInterface,
+  environments: Environment[]
+) {
   return Object.keys(feature.environmentSettings ?? {}).filter((env) => {
+    if (!environments.some((e) => e.id === env)) return false;
     return !!feature.environmentSettings?.[env]?.enabled;
   });
 }
@@ -307,13 +349,30 @@ export function getDefaultValue(valueType: FeatureValueType): string {
     return "1";
   }
   if (valueType === "string") {
-    return "foo";
+    return "OFF"; // Default Values should be the OFF State to match most platforms.
   }
   if (valueType === "json") {
     return "{}";
   }
   return "";
 }
+
+export function getAffectedRevisionEnvs(
+  liveFeature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  environments: Environment[]
+): string[] {
+  const enabledEnvs = getEnabledEnvironments(liveFeature, environments);
+  if (revision.defaultValue !== liveFeature.defaultValue) return enabledEnvs;
+
+  return enabledEnvs.filter((env) => {
+    const liveRules = liveFeature.environmentSettings?.[env]?.rules || [];
+    const revisionRules = revision.rules?.[env] || [];
+
+    return !isEqual(liveRules, revisionRules);
+  });
+}
+
 export function getDefaultVariationValue(defaultValue: string) {
   const map: Record<string, string> = {
     true: "false",
@@ -505,6 +564,10 @@ export function isRuleFullyCovered(rule: FeatureRule): boolean {
     upcomingScheduleRule?.enabled ||
     !rule.enabled;
 
+  if (rule?.prerequisites?.length) {
+    return false;
+  }
+
   // rollouts and experiments at 100%:
   if (
     (rule.type === "rollout" || rule.type === "experiment") &&
@@ -518,7 +581,12 @@ export function isRuleFullyCovered(rule: FeatureRule): boolean {
   }
 
   // force rule at 100%: (doesn't have coverage)
-  return rule.type === "force" && rule.condition === "{}" && !ruleDisabled;
+  return (
+    rule.type === "force" &&
+    rule.condition === "{}" &&
+    !rule.savedGroups?.length &&
+    !ruleDisabled
+  );
 }
 
 export function jsonToConds(
@@ -567,6 +635,10 @@ export function jsonToConds(
         const v = value[operator];
 
         if (operator === "$in" || operator === "$nin") {
+          if (v.some((str) => typeof str === "string" && str.includes(","))) {
+            valid = false;
+            return;
+          }
           return conds.push({
             field,
             operator,
@@ -774,8 +846,10 @@ function getAttributeDataType(type: SDKAttributeType) {
   return "number";
 }
 
-export function useAttributeMap(): Map<string, AttributeData> {
-  const attributeSchema = useAttributeSchema(true);
+export function useAttributeMap(
+  projectFilter?: string
+): Map<string, AttributeData> {
+  const attributeSchema = useAttributeSchema(true, projectFilter);
 
   return useMemo(() => {
     if (!attributeSchema.length) {
@@ -838,10 +912,12 @@ export function getExperimentDefinitionFromFeature(
         name: "Main",
         reason: "",
         dateStarted: new Date().toISOString(),
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-        condition: expRule.condition,
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'NamespaceValue | undefined' is not assignabl... Remove this comment to see the full error message
-        namespace: expRule.namespace,
+        condition: expRule.condition || "",
+        namespace: expRule.namespace || {
+          enabled: false,
+          name: "",
+          range: [0, 0],
+        },
         seed: trackingKey,
       },
     ],
@@ -854,9 +930,10 @@ export function useRealtimeData(
   mock = false,
   update = false
 ): { usage: FeatureUsageRecords; usageDomain: [number, number] } {
-  const { data, mutate } = useApi<{
-    usage: FeatureUsageRecords;
-  }>(`/usage/features`);
+  const { data, mutate } = useApi<{ usage: FeatureUsageRecords }>(
+    `/usage/features`,
+    { shouldRun: () => !!update }
+  );
 
   // Mock data
   const usage = useMemo(() => {
@@ -920,10 +997,12 @@ export function genDuplicatedKey({ id }: FeatureInterface) {
     // Take the '_4' out of 'feature_a_4'
     const numSuffix = id.match(/_[\d]+$/)?.[0];
     // Store 'feature_a' from 'feature_a_4'
-    const keyRoot = numSuffix ? id.substr(0, id.length - numSuffix.length) : id;
+    const keyRoot = numSuffix
+      ? id.substring(0, id.length - numSuffix.length)
+      : id;
     // Parse the 4 (number) out of '_4' (string)
-    // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
-    const num = (numSuffix ? parseInt(numSuffix.match(/[\d]+/)[0]) : 0) + 1;
+    const num =
+      (numSuffix ? parseInt(numSuffix.match(/[\d]+/)?.[0] || "0") : 0) + 1;
 
     return `${keyRoot}_${num}`;
   } catch (e) {

@@ -8,9 +8,8 @@ x-codeSamples:
   - lang: "cURL"
     source: |
       curl -X POST https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
-        -H "Content-Type: application/json" \
-        -u secret_abc123DEF456: \
-        -d '{"values": [ "userId-123", "userId-345" ]}'
+        -d '{"values": [ "userId-123", "userId-345" ]}' \
+        -u secret_abc123DEF456:
 requestBody:
   required: true
   content:
@@ -22,17 +21,17 @@ requestBody:
           name:
             type: string
             description: The display name of the Saved Group
+          condition:
+            type: string
+            description: "When type = 'condition', this is the JSON-encoded condition for the group"
           values:
             type: array
             items:
               type: string
-            description: "An array of values to target (Ex: a list of userIds)."
+            description: "When type = 'list', this is the list of values for the attribute key"
           owner:
             type: string
             description: "The person or team that owns this Saved Group. If no owner, you can pass an empty string."
-          attributeKey:
-            type: string
-            description: (Runtime groups only) The key used to reference the Saved Group in the SDK
 responses:
   "200":
     content:

@@ -1,11 +1,15 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import InlineGroupsList from "@/components/SavedGroups/InlineGroupsList";
-import RuntimeGroupsList from "@/components/SavedGroups/RuntimeGroupsList";
-import LoadingOverlay from "../components/LoadingOverlay";
-import { useDefinitions } from "../services/DefinitionsContext";
-import Modal from "../components/Modal";
-import HistoryTable from "../components/HistoryTable";
+import IdLists from "@/components/SavedGroups/IdLists";
+import ConditionGroups from "@/components/SavedGroups/ConditionGroups";
+import { useUser } from "@/services/UserContext";
+import { useAuth } from "@/services/auth";
+import { useAttributeSchema } from "@/services/features";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Modal from "@/components/Modal";
+import HistoryTable from "@/components/HistoryTable";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export const getSavedGroupMessage = (
   featuresUsingSavedGroups: Set<string> | undefined
@@ -28,8 +32,11 @@ export const getSavedGroupMessage = (
               return (
                 <li key={feature}>
                   <div className="d-flex">
-                    <Link href={`/features/${feature}`}>
-                      <a className="btn btn-link pt-1 pb-1">{feature}</a>
+                    <Link
+                      href={`/features/${feature}`}
+                      className="btn btn-link pt-1 pb-1"
+                    >
+                      {feature}
                     </Link>
                   </div>
                 </li>
@@ -47,6 +54,48 @@ export default function SavedGroupsPage() {
   const { mutateDefinitions, savedGroups, error } = useDefinitions();
 
   const [auditModal, setAuditModal] = useState(false);
+
+  const { refreshOrganization } = useUser();
+
+  const permissionsUtil = usePermissionsUtil();
+  const { apiCall } = useAuth();
+  const attributeSchema = useAttributeSchema();
+
+  useEffect(() => {
+    // Not using $groups attribute in a any saved groups
+    if (
+      !savedGroups?.some(
+        (g) => g.type === "condition" && g.condition?.includes("$groups")
+      )
+    ) {
+      return;
+    }
+
+    // Already has $groups attribute
+    if (attributeSchema.some((a) => a.property === "$groups")) return;
+
+    // If user has permissions to manage attributes, auto-add $groups attribute
+    //TODO: When we make Saved Groups a project-level feature, we should pass in the Saved Groups projects below
+    if (permissionsUtil.canCreateAttribute({})) {
+      apiCall<{ added: boolean }>("/organization/auto-groups-attribute", {
+        method: "POST",
+      })
+        .then((res) => {
+          if (res.added) {
+            refreshOrganization();
+          }
+        })
+        .catch(() => {
+          // Ignore errors
+        });
+    }
+  }, [
+    apiCall,
+    refreshOrganization,
+    attributeSchema,
+    savedGroups,
+    permissionsUtil,
+  ]);
 
   if (!savedGroups) return <LoadingOverlay />;
 
@@ -70,8 +119,8 @@ export default function SavedGroupsPage() {
       </div>
       <p>
         Reusable groups of users you can target from any feature flag rule or
-        experiment. There are two ways to define Saved Groups -{" "}
-        <strong>Inline</strong> or at <strong>Runtime</strong>.
+        experiment. There are two ways to define Saved Groups - as an{" "}
+        <strong>ID List</strong> or <strong>Targeting Condition</strong>.
       </p>
 
       {error ? (
@@ -80,8 +129,8 @@ export default function SavedGroupsPage() {
         </div>
       ) : (
         <>
-          <InlineGroupsList groups={savedGroups} mutate={mutateDefinitions} />
-          <RuntimeGroupsList groups={savedGroups} mutate={mutateDefinitions} />
+          <IdLists groups={savedGroups} mutate={mutateDefinitions} />
+          <ConditionGroups groups={savedGroups} mutate={mutateDefinitions} />
         </>
       )}
 

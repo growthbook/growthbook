@@ -1,13 +1,19 @@
+import {
+  MetricSettingsForStatsEngine,
+  QueryResultsForStatsEngine,
+} from "../src/services/stats";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
-import { StatsEngine } from "./stats";
+import { DifferenceType, RiskType, StatsEngine } from "./stats";
 import { Queries } from "./query";
 import {
   ExperimentReportResultDimension,
-  MetricRegressionAdjustmentStatus,
+  ExperimentReportVariation,
+  LegacyMetricRegressionAdjustmentStatus,
 } from "./report";
 import { DimensionInterface } from "./dimension";
 import { AttributionModel } from "./experiment";
+import { MetricPriorSettings, MetricWindowSettings } from "./fact-table";
 
 export interface SnapshotMetric {
   value: number;
@@ -18,6 +24,7 @@ export interface SnapshotMetric {
   ciAdjusted?: [number, number];
   expected?: number;
   risk?: [number, number];
+  riskType?: RiskType;
   stats?: MetricStats;
   pValue?: number;
   pValueAdjusted?: number;
@@ -31,6 +38,7 @@ export interface SnapshotMetric {
     y: number;
   }[];
   chanceToWin?: number;
+  errorMessage?: string;
 }
 
 export interface SnapshotVariation {
@@ -47,7 +55,7 @@ export type LegacyExperimentSnapshotInterface = ExperimentSnapshotInterface & {
   hasCorrectedStats?: boolean;
   results?: ExperimentReportResultDimension[];
   regressionAdjustmentEnabled?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  metricRegressionAdjustmentStatuses?: LegacyMetricRegressionAdjustmentStatus[];
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
   queryFilter?: string;
@@ -66,8 +74,7 @@ export interface MetricForSnapshot {
     | "datasource"
     | "aggregation"
     | "sql"
-    | "capping"
-    | "capValue"
+    | "cappingSettings"
     | "denominator"
     | "userIdTypes"
     | "type"
@@ -75,10 +82,13 @@ export interface MetricForSnapshot {
   // Computed settings that take into account overrides
   computedSettings?: {
     regressionAdjustmentEnabled: boolean;
+    regressionAdjustmentAvailable: boolean;
     regressionAdjustmentDays: number;
     regressionAdjustmentReason: string;
-    conversionWindowHours: number;
-    conversionDelayHours: number;
+    properPrior: boolean;
+    properPriorMean: number;
+    properPriorStdDev: number;
+    windowSettings: MetricWindowSettings;
   };
 }
 
@@ -97,6 +107,7 @@ export interface ExperimentSnapshotAnalysisSettings {
   regressionAdjusted?: boolean;
   sequentialTesting?: boolean;
   sequentialTestingTuningParameter?: number;
+  differenceType: DifferenceType;
   pValueCorrection?: null | "holm-bonferroni" | "benjamini-hochberg";
   pValueThreshold?: number;
   baselineVariationIndex?: number;
@@ -111,6 +122,11 @@ export interface ExperimentSnapshotAnalysis {
   results: ExperimentReportResultDimension[];
 }
 
+export interface SnapshotSettingsVariation {
+  id: string;
+  weight: number;
+}
+
 // Settings that control which queries are run
 // Used to determine which types of analyses are possible
 // Also used to determine when to show "out-of-date" in the UI
@@ -121,6 +137,7 @@ export interface ExperimentSnapshotSettings {
   goalMetrics: string[];
   guardrailMetrics: string[];
   activationMetric: string | null;
+  defaultMetricPriorSettings: MetricPriorSettings;
   regressionAdjustmentEnabled: boolean;
   attributionModel: AttributionModel;
   experimentId: string;
@@ -131,10 +148,8 @@ export interface ExperimentSnapshotSettings {
   exposureQueryId: string;
   startDate: Date;
   endDate: Date;
-  variations: {
-    id: string;
-    weight: number;
-  }[];
+  variations: SnapshotSettingsVariation[];
+  coverage?: number;
 }
 
 export interface ExperimentSnapshotInterface {
@@ -159,4 +174,35 @@ export interface ExperimentSnapshotInterface {
   unknownVariations: string[];
   multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
+
+  health?: ExperimentSnapshotHealth;
+}
+
+export interface ExperimentSnapshotHealth {
+  traffic: ExperimentSnapshotTraffic;
+}
+
+export interface ExperimentSnapshotTraffic {
+  overall: ExperimentSnapshotTrafficDimension;
+  dimension: {
+    [dimension: string]: ExperimentSnapshotTrafficDimension[];
+  };
+  error?: "NO_ROWS_IN_UNIT_QUERY" | "TOO_MANY_ROWS" | string;
+}
+export interface ExperimentSnapshotTrafficDimension {
+  name: string;
+  srm: number;
+  variationUnits: number[];
+}
+
+// Params for gbstats
+export interface ExperimentMetricAnalysisParams {
+  variations: ExperimentReportVariation[];
+  phaseLengthHours: number;
+  coverage: number;
+
+  analyses: ExperimentSnapshotAnalysisSettings[];
+
+  queryResults: QueryResultsForStatsEngine[];
+  metrics: Record<string, MetricSettingsForStatsEngine>;
 }

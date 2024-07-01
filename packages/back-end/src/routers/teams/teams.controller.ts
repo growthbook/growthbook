@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { areProjectRolesValid, isRoleValid } from "shared/permissions";
 import { TeamInterface } from "../../../types/team";
 import {
   createTeam,
@@ -14,7 +15,7 @@ import {
 } from "../../services/audit";
 import {
   addMembersToTeam,
-  getOrgFromReq,
+  getContextFromReq,
   removeMembersFromTeam,
 } from "../../services/organizations";
 import { AuthRequest } from "../../types/AuthRequest";
@@ -44,10 +45,13 @@ export const postTeam = async (
   req: CreateTeamRequest,
   res: Response<CreateTeamResponse>
 ) => {
-  const { org, userName } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userName } = context;
   const { name, description, permissions } = req.body;
 
-  req.checkPermissions("manageTeam");
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
 
   const existingTeamWithName = await findTeamByName(name, org.id);
 
@@ -56,6 +60,17 @@ export const postTeam = async (
       status: 400,
       message:
         "A team already exists with the specified name. Please try a unique name.",
+    });
+  }
+
+  // Ensure role is valid
+  if (
+    !isRoleValid(permissions.role, org) ||
+    !areProjectRolesValid(permissions.projectRoles, org)
+  ) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid role",
     });
   }
 
@@ -99,7 +114,7 @@ type PutTeamRequest = AuthRequest<
 >;
 
 type PutTeamResponse = {
-  status: 200 | 404;
+  status: 200 | 404 | 400;
   message?: string;
 };
 
@@ -113,11 +128,14 @@ export const updateTeam = async (
   req: PutTeamRequest,
   res: Response<PutTeamResponse>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { name, description, permissions } = req.body;
   const { id } = req.params;
 
-  req.checkPermissions("manageTeam");
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
 
   const team = await findTeamById(id, org.id);
 
@@ -135,6 +153,17 @@ export const updateTeam = async (
     ...permissions,
     managedByIdp: team.managedByIdp,
   });
+
+  // Ensure role is valid
+  if (
+    !isRoleValid(permissions.role, org) ||
+    !areProjectRolesValid(permissions.projectRoles, org)
+  ) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid role",
+    });
+  }
 
   await req.audit({
     event: "team.update",
@@ -170,10 +199,13 @@ export const deleteTeamById = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<DeleteTeamResponse>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
 
-  req.checkPermissions("manageTeam");
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
 
   const team = await findTeamById(id, org.id);
 
@@ -225,11 +257,14 @@ export const addTeamMembers = async (
   req: AuthRequest<{ members: string[] }, { id: string }>,
   res: Response<DeleteTeamResponse>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id } = req.params;
   const { members } = req.body;
 
-  req.checkPermissions("manageTeam");
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
 
   const team = await findTeamById(id, org.id);
 
@@ -281,10 +316,13 @@ export const deleteTeamMember = async (
   req: AuthRequest<null, { id: string; memberId: string }>,
   res: Response<DeleteTeamResponse>
 ) => {
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { id, memberId } = req.params;
 
-  req.checkPermissions("manageTeam");
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
 
   const team = await findTeamById(id, org.id);
 

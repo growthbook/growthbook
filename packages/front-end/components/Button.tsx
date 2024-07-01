@@ -14,12 +14,13 @@ interface Props
     HTMLButtonElement
   > {
   color?: string;
-  onClick: () => Promise<void>;
+  onClick: (() => Promise<void>) | (() => void);
   disabled?: boolean;
   description?: string;
   children: ReactNode;
   loading?: boolean;
   stopPropagation?: boolean;
+  loadingCta?: string;
 }
 
 const Button: FC<Props> = ({
@@ -31,6 +32,7 @@ const Button: FC<Props> = ({
   disabled,
   loading: _externalLoading,
   stopPropagation,
+  loadingCta = "Loading",
   ...otherProps
 }) => {
   const [_internalLoading, setLoading] = useState(false);
@@ -64,7 +66,7 @@ const Button: FC<Props> = ({
       >
         {loading ? (
           <>
-            <LoadingSpinner /> Loading
+            <LoadingSpinner /> {loadingCta}
           </>
         ) : (
           children

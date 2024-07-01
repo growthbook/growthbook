@@ -4,13 +4,16 @@ const docSections = {
   //Pages
   home: "",
   features: "/app/features",
-  experiments: "/app/experiments",
+  experimentConfiguration: "/app/experiment-configuration",
+  experimentResults: "/app/experiment-results",
+  stickyBucketing: "/app/sticky-bucketing",
   metrics: "/app/metrics",
   dimensions: "/app/dimensions",
   datasources: "/app/datasources",
-  dashboard: "/app/experiments",
+  dashboard: "/app/experiment-configuration",
   api: "/app/api",
-  webhooks: "/app/webhooks",
+  eventWebhooks: "/app/webhooks/event-webhooks",
+  sdkWebhooks: "/app/webhooks/sdk-webhooks",
   //DataSourceType
   athena: "/app/datasources#aws-athena",
   mixpanel: "/guide/mixpanel",
@@ -29,7 +32,13 @@ const docSections = {
   python: "/lib/python",
   java: "/lib/java",
   csharp: "/lib/csharp",
+  elixir: "/lib/elixir",
   flutter: "/lib/flutter",
+  nocode: "/lib/script-tag",
+  cloudflare: "/lib/edge/cloudflare",
+  fastly: "/lib/edge/fastly",
+  lambda: "/lib/edge/lambda",
+  edge: "/lib/edge/other",
   //Other
   user_guide: "/app",
   config: "/self-host/config",
@@ -38,11 +47,18 @@ const docSections = {
   config_organization_settings: "/self-host/config#organization-settings",
   env_prod: "/self-host/env#production-settings",
   visual_editor: "/app/visual",
+  url_redirects: "/app/url-redirects",
   temporaryRollout: "/app/visual#stopping-an-experiment",
   encryptedSDKEndpoints: "/lib/js#loading-features",
   hashSecureAttributes: "/lib/js#secure-attributes",
   autoMetrics: "/app/metrics/#auto-generate-metrics",
-  targetingChanges: "/app/experiments#making-changes-while-running",
+  targetingChanges:
+    "/app/experiment-configuration#making-changes-while-running",
+  shopify: "/integrations/shopify",
+  webflow: "/integrations/webflow",
+  wordpress: "/integrations/wordpress",
+  prerequisites: "/features/prerequisites",
+  statisticsSequential: "/statistics/sequential",
 };
 
 export type DocSection = keyof typeof docSections;
@@ -50,17 +66,17 @@ export type DocSection = keyof typeof docSections;
 const urlPathMapping: Record<string, DocSection> = {
   "/": "home",
   "/features": "features",
-  "/experiment": "experiments",
-  "/experiments": "experiments",
+  "/experiment": "experimentResults",
+  "/experiments": "experimentConfiguration",
   "/metric": "metrics",
   "/metrics": "metrics",
   "/segments": "datasources",
   "/dimensions": "dimensions",
   "/datasources": "datasources",
-  "/dashboard": "experiments",
+  "/dashboard": "experimentConfiguration",
   "/settings/keys": "api",
   "/environments": "api",
-  "/settings/webhooks": "webhooks",
+  "/settings/webhooks": "eventWebhooks",
 };
 
 //for testing use "http://localhost:3200"
@@ -69,7 +85,7 @@ const docsOrigin = "https://docs.growthbook.io";
 /*
 Checks for key, value matches in docSections. Starts with full url path then
 removes a subdirectory every iteration and checks for a match again.
- 
+
 url=http://localhost:3000/metric/a/b
 1./metric/a/b
 2./metric/a

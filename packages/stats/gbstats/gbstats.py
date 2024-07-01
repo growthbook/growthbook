@@ -1,33 +1,50 @@
 from dataclasses import asdict
-from typing import Any, Dict, List, Union
+import re
+from typing import Any, Dict, Hashable, List, Optional, Set, Union
 
 import pandas as pd
-from scipy.stats.distributions import chi2  # type: ignore
 
 from gbstats.bayesian.tests import (
-    BinomialBayesianABTest,
-    BinomialBayesianConfig,
-    GaussianBayesianABTest,
-    GaussianBayesianConfig,
+    BayesianTestResult,
+    EffectBayesianABTest,
+    EffectBayesianConfig,
+    GaussianPrior,
 )
 from gbstats.frequentist.tests import (
     FrequentistConfig,
+    FrequentistTestResult,
     SequentialConfig,
     SequentialTwoSidedTTest,
     TwoSidedTTest,
 )
-from gbstats.shared.constants import StatsEngine
-from gbstats.shared.models import (
-    compute_theta,
-    BayesianTestResult,
-    FrequentistTestResult,
+from gbstats.models.results import (
+    BaselineResponse,
+    BayesianVariationResponse,
+    DimensionResponse,
+    ExperimentMetricAnalysis,
+    ExperimentMetricAnalysisResult,
+    FrequentistVariationResponse,
+    MetricStats,
+)
+from gbstats.models.settings import (
+    AnalysisSettingsForStatsEngine,
+    DataForStatsEngine,
+    ExperimentMetricQueryResponseRows,
+    MetricSettingsForStatsEngine,
+    MetricType,
+    QueryResultsForStatsEngine,
+    VarIdMap,
+)
+from gbstats.models.statistics import (
     ProportionStatistic,
-    SampleMeanStatistic,
+    QuantileStatistic,
+    QuantileClusteredStatistic,
     RatioStatistic,
     RegressionAdjustedStatistic,
-    Statistic,
+    SampleMeanStatistic,
+    TestStatistic,
 )
-from gbstats.messages import raise_error_if_bayesian_ra
+from gbstats.utils import check_srm
 
 
 SUM_COLS = [
@@ -43,13 +60,23 @@ SUM_COLS = [
     "main_covariate_sum_product",
 ]
 
+ROW_COLS = SUM_COLS + [
+    "quantile_n",
+    "quantile_nstar",
+    "quantile",
+    "quantile_lower",
+    "quantile_upper",
+]
+
 
 # Looks for any variation ids that are not in the provided map
-def detect_unknown_variations(rows, var_id_map, ignore_ids={"__multiple__"}):
+def detect_unknown_variations(
+    rows, var_ids: Set[str], ignore_ids: Set[str] = {"__multiple__"}
+) -> Set[str]:
     unknown_var_ids = []
     for row in rows.itertuples(index=False):
         id = str(row.variation)
-        if id not in ignore_ids and id not in var_id_map:
+        if id not in ignore_ids and id not in var_ids:
             unknown_var_ids.append(id)
     return set(unknown_var_ids)
 
@@ -75,14 +102,16 @@ def diff_for_daily_time_series(df: pd.DataFrame) -> pd.DataFrame:
 
 # Transform raw SQL result for metrics into a dataframe of dimensions
 def get_metric_df(
-    rows,
-    var_id_map,
-    var_names,
+    rows: pd.DataFrame,
+    var_id_map: VarIdMap,
+    var_names: List[str],
 ):
+    dfc = rows.copy()
+
     dimensions = {}
     # Each row in the raw SQL result is a dimension/variation combo
     # We want to end up with one row per dimension
-    for row in rows.itertuples(index=False):
+    for row in dfc.itertuples(index=False):
         dim = row.dimension
 
         # If this is the first time we're seeing this dimension, create an empty dict
@@ -91,12 +120,6 @@ def get_metric_df(
             dimensions[dim] = {
                 "dimension": dim,
                 "variations": len(var_names),
-                "statistic_type": row.statistic_type,
-                "main_metric_type": row.main_metric_type,
-                "denominator_metric_type": getattr(
-                    row, "denominator_metric_type", None
-                ),
-                "covariate_metric_type": getattr(row, "covariate_metric_type", None),
                 "total_users": 0,
             }
             # Add columns for each variation (including baseline)
@@ -105,7 +128,7 @@ def get_metric_df(
                 prefix = f"v{i}" if i > 0 else "baseline"
                 dimensions[dim][f"{prefix}_id"] = key
                 dimensions[dim][f"{prefix}_name"] = var_names[i]
-                for col in SUM_COLS:
+                for col in ROW_COLS:
                     dimensions[dim][f"{prefix}_{col}"] = 0
 
         # Add this SQL result row into the dimension dict if we recognize the variation
@@ -115,7 +138,7 @@ def get_metric_df(
 
             dimensions[dim]["total_users"] += row.users
             prefix = f"v{i}" if i > 0 else "baseline"
-            for col in SUM_COLS:
+            for col in ROW_COLS:
                 dimensions[dim][f"{prefix}_{col}"] = getattr(row, col, 0)
             # Special handling for count, if missing returns a method, so override with user value
             if callable(getattr(row, "count")):
@@ -126,7 +149,9 @@ def get_metric_df(
 
 # Limit to the top X dimensions with the most users
 # Merge the rest into an "(other)" dimension
-def reduce_dimensionality(df, max=20):
+def reduce_dimensionality(
+    df: pd.DataFrame, max: int = 20, keep_other: bool = True
+) -> pd.DataFrame:
     num_variations = df.at[0, "variations"]
 
     rows = df.to_dict("records")
@@ -139,7 +164,7 @@ def reduce_dimensionality(df, max=20):
         if i < max:
             newrows.append(row)
         # For the rest, merge them into the last dimension
-        else:
+        elif keep_other:
             current = newrows[max - 1]
             current["dimension"] = "(other)"
             current["total_users"] += row["total_users"]
@@ -151,118 +176,141 @@ def reduce_dimensionality(df, max=20):
     return pd.DataFrame(newrows)
 
 
+def get_configured_test(
+    row: pd.Series,
+    test_index: int,
+    analysis: AnalysisSettingsForStatsEngine,
+    metric: MetricSettingsForStatsEngine,
+) -> Union[EffectBayesianABTest, SequentialTwoSidedTTest, TwoSidedTTest]:
+
+    stat_a = variation_statistic_from_metric_row(row, "baseline", metric)
+    stat_b = variation_statistic_from_metric_row(row, f"v{test_index}", metric)
+
+    base_config = {
+        "traffic_proportion_b": analysis.weights[test_index],
+        "phase_length_days": analysis.phase_length_days,
+        "difference_type": analysis.difference_type,
+    }
+
+    if analysis.stats_engine == "frequentist":
+        if analysis.sequential_testing_enabled:
+            return SequentialTwoSidedTTest(
+                stat_a,
+                stat_b,
+                SequentialConfig(
+                    **base_config,
+                    alpha=analysis.alpha,
+                    sequential_tuning_parameter=analysis.sequential_tuning_parameter,
+                ),
+            )
+        else:
+            return TwoSidedTTest(
+                stat_a,
+                stat_b,
+                FrequentistConfig(
+                    **base_config,
+                    alpha=analysis.alpha,
+                ),
+            )
+    else:
+        assert type(stat_a) is type(stat_b), "stat_a and stat_b must be of same type."
+        prior = GaussianPrior(
+            mean=metric.prior_mean,
+            variance=pow(metric.prior_stddev, 2),
+            proper=metric.prior_proper,
+        )
+        return EffectBayesianABTest(
+            stat_a,
+            stat_b,
+            EffectBayesianConfig(
+                **base_config,
+                inverse=metric.inverse,
+                prior_effect=prior,
+                prior_type="relative",
+            ),
+        )
+
+
 # Run A/B test analysis for each variation and dimension
 def analyze_metric_df(
     df: pd.DataFrame,
-    weights: List[float],
-    inverse: bool = False,
-    engine: StatsEngine = StatsEngine.BAYESIAN,
-    engine_config: Dict[str, Any] = {},
+    metric: MetricSettingsForStatsEngine,
+    analysis: AnalysisSettingsForStatsEngine,
 ) -> pd.DataFrame:
     num_variations = df.at[0, "variations"]
-    # parse config
-    test_config = engine_config.copy()
-    if engine == StatsEngine.BAYESIAN:
-        test_config["inverse"] = inverse
-    sequential: bool = test_config.pop("sequential", False)
 
     # Add new columns to the dataframe with placeholder values
     df["srm_p"] = 0
-    df["engine"] = engine.value
+    df["engine"] = analysis.stats_engine
     for i in range(num_variations):
         if i == 0:
             df["baseline_cr"] = 0
             df["baseline_mean"] = None
             df["baseline_stddev"] = None
-            df["baseline_risk"] = None
         else:
             df[f"v{i}_cr"] = 0
             df[f"v{i}_mean"] = None
             df[f"v{i}_stddev"] = None
             df[f"v{i}_expected"] = 0
             df[f"v{i}_p_value"] = None
-            df[f"v{i}_rawrisk"] = None
             df[f"v{i}_risk"] = None
             df[f"v{i}_prob_beat_baseline"] = None
             df[f"v{i}_uplift"] = None
+            df[f"v{i}_error_message"] = None
 
-    def analyze_row(s):
+    def analyze_row(s: pd.Series) -> pd.Series:
         s = s.copy()
-        # Baseline values
-        stat_a: Statistic = variation_statistic_from_metric_row(s, "baseline")
-        raise_error_if_bayesian_ra(stat_a, engine)
-
-        s["baseline_cr"] = stat_a.unadjusted_mean
-        s["baseline_mean"] = stat_a.unadjusted_mean
-        s["baseline_stddev"] = stat_a.stddev
-
-        # List of users in each variation (used for SRM check)
-        users = [0] * num_variations
-        users[0] = stat_a.n
 
         # Loop through each non-baseline variation and run an analysis
-        baseline_risk: float = 0
         for i in range(1, num_variations):
-            stat_b: Statistic = variation_statistic_from_metric_row(s, f"v{i}")
-            raise_error_if_bayesian_ra(stat_b, engine)
 
-            if isinstance(stat_b, RegressionAdjustedStatistic) and isinstance(
-                stat_a, RegressionAdjustedStatistic
-            ):
-                theta = compute_theta(stat_a, stat_b)
-                if theta == 0:
-                    # revert to non-RA under the hood if no variance in a time period
-                    stat_a = stat_a.post_statistic
-                    stat_b = stat_b.post_statistic
-                else:
-                    stat_a.theta = theta
-                    stat_b.theta = theta
-
-            s[f"v{i}_cr"] = stat_b.unadjusted_mean
-            s[f"v{i}_mean"] = stat_b.unadjusted_mean
-            s[f"v{i}_stddev"] = stat_b.stddev
-
-            users[i] = stat_b.n
-
-            # Get right A/B test
-            binomial_test: bool = isinstance(
-                stat_a, ProportionStatistic
-            ) and isinstance(stat_b, ProportionStatistic)
-            ABTestClass, ABTestConfig = get_test_class_config(
-                engine, sequential, binomial_test
+            # Run analysis of baseline vs variation
+            test = get_configured_test(
+                row=s, test_index=i, analysis=analysis, metric=metric
             )
-            # Run the A/B test analysis of baseline vs variation
-            test = ABTestClass(stat_a, stat_b, ABTestConfig(**test_config))
             res = test.compute_result()
+
+            s["baseline_cr"] = test.stat_a.unadjusted_mean
+            s["baseline_mean"] = test.stat_a.unadjusted_mean
+            s["baseline_stddev"] = test.stat_a.stddev
+
+            s[f"v{i}_cr"] = test.stat_b.unadjusted_mean
+            s[f"v{i}_mean"] = test.stat_b.unadjusted_mean
+            s[f"v{i}_stddev"] = test.stat_b.stddev
 
             # Unpack result in Pandas row
             if isinstance(res, BayesianTestResult):
-                s.at[f"v{i}_rawrisk"] = res.risk
-                s[f"v{i}_risk"] = res.relative_risk[1]
+                s.at[f"v{i}_risk"] = res.risk
+                s[f"v{i}_risk_type"] = res.risk_type
                 s[f"v{i}_prob_beat_baseline"] = res.chance_to_win
-                # The baseline risk is the max risk of any of the variation A/B tests
-                if res.relative_risk[0] > baseline_risk:
-                    baseline_risk = res.relative_risk[0]
             elif isinstance(res, FrequentistTestResult):
                 s[f"v{i}_p_value"] = res.p_value
-                baseline_risk = None  # type: ignore
-
-            if stat_a.unadjusted_mean <= 0:
+            if test.stat_a.unadjusted_mean <= 0:
                 # negative or missing control mean
                 s[f"v{i}_expected"] = 0
             elif res.expected == 0:
                 # if result is not valid, try to return at least the diff
                 s[f"v{i}_expected"] = (
-                    stat_b.mean - stat_a.mean
-                ) / stat_a.unadjusted_mean
+                    test.stat_b.mean - test.stat_a.mean
+                ) / test.stat_a.unadjusted_mean
             else:
                 # return adjusted/prior-affected guess of expectation
                 s[f"v{i}_expected"] = res.expected
             s.at[f"v{i}_ci"] = res.ci
             s.at[f"v{i}_uplift"] = asdict(res.uplift)
+            s[f"v{i}_error_message"] = res.error_message
 
-        s["baseline_risk"] = baseline_risk
-        s["srm_p"] = check_srm(users, weights)
+        # replace count with quantile_n for quantile metrics
+        if metric.statistic_type in ["quantile_event", "quantile_unit"]:
+            for i in range(num_variations):
+                prefix = f"v{i}" if i > 0 else "baseline"
+                s[f"{prefix}_count"] = s[f"{prefix}_quantile_n"]
+
+        s["srm_p"] = check_srm(
+            [s["baseline_users"]]
+            + [s[f"v{i}_users"] for i in range(1, num_variations)],
+            analysis.weights,
+        )
         return s
 
     return df.apply(analyze_row, axis=1)
@@ -270,122 +318,290 @@ def analyze_metric_df(
 
 # Convert final experiment results to a structure that can be easily
 # serialized and used to display results in the GrowthBook front-end
-def format_results(df, baseline_index=0):
+def format_results(
+    df: pd.DataFrame, baseline_index: int = 0
+) -> List[DimensionResponse]:
     num_variations = df.at[0, "variations"]
-    results = []
+    results: List[DimensionResponse] = []
     rows = df.to_dict("records")
     for row in rows:
-        dim = {"dimension": row["dimension"], "srm": row["srm_p"], "variations": []}
-        variation_data = []
-        for v in range(num_variations):
-            prefix = f"v{v}" if v > 0 else "baseline"
-            stats = {
-                "users": row[f"{prefix}_users"],
-                "count": row[f"{prefix}_count"],
-                "stddev": row[f"{prefix}_stddev"],
-                "mean": row[f"{prefix}_mean"],
-            }
-            if v == 0:
-                baseline_data = {
-                    "cr": row[f"{prefix}_cr"],
-                    "value": row[f"{prefix}_main_sum"],
-                    "users": row[f"{prefix}_users"],
-                    "denominator": row[f"{prefix}_denominator_sum"],
-                    "stats": stats,
-                }
-            else:
-                variation_data.append(
-                    {
-                        "cr": row[f"{prefix}_cr"],
-                        "value": row[f"{prefix}_main_sum"],
-                        "users": row[f"{prefix}_users"],
-                        "denominator": row[f"{prefix}_denominator_sum"],
-                        "expected": row[f"{prefix}_expected"],
-                        "chanceToWin": row[f"{prefix}_prob_beat_baseline"],
-                        "pValue": row[f"{prefix}_p_value"],
-                        "uplift": row[f"{prefix}_uplift"],
-                        "ci": row[f"{prefix}_ci"],
-                        "risk": row[f"{prefix}_rawrisk"],
-                        "stats": stats,
-                    }
-                )
+        dim = DimensionResponse(
+            dimension=row["dimension"], srm=row["srm_p"], variations=[]
+        )
+        baseline_data = format_variation_result(row, 0)
+        variation_data = [
+            format_variation_result(row, v) for v in range(1, num_variations)
+        ]
         variation_data.insert(baseline_index, baseline_data)
-        dim["variations"] = variation_data
+        dim.variations = variation_data
         results.append(dim)
     return results
 
 
-def variation_statistic_from_metric_row(row: pd.Series, prefix: str) -> Statistic:
-    statistic_type = row["statistic_type"]
-    if statistic_type == "ratio":
+def format_variation_result(
+    row: Dict[Hashable, Any], v: int
+) -> Union[BaselineResponse, BayesianVariationResponse, FrequentistVariationResponse]:
+    prefix = f"v{v}" if v > 0 else "baseline"
+
+    # if quantile_n
+    stats = MetricStats(
+        users=row[f"{prefix}_users"],
+        count=row[f"{prefix}_count"],
+        stddev=row[f"{prefix}_stddev"],
+        mean=row[f"{prefix}_mean"],
+    )
+    metricResult = {
+        "cr": row[f"{prefix}_cr"],
+        "value": row[f"{prefix}_main_sum"],
+        "users": row[f"{prefix}_users"],
+        "denominator": row[f"{prefix}_denominator_sum"],
+        "stats": stats,
+    }
+    if v == 0:
+        # baseline variation
+        return BaselineResponse(**metricResult)
+    else:
+        # non-baseline variation
+        frequentist = row[f"{prefix}_p_value"] is not None
+        testResult = {
+            "expected": row[f"{prefix}_expected"],
+            "uplift": row[f"{prefix}_uplift"],
+            "ci": row[f"{prefix}_ci"],
+            "errorMessage": row[f"{prefix}_error_message"],
+        }
+        if frequentist:
+            return FrequentistVariationResponse(
+                **metricResult,
+                **testResult,
+                pValue=row[f"{prefix}_p_value"],
+            )
+        else:
+            return BayesianVariationResponse(
+                **metricResult,
+                **testResult,
+                chanceToWin=row[f"{prefix}_prob_beat_baseline"],
+                risk=row[f"{prefix}_risk"],
+                riskType=row[f"{prefix}_risk_type"],
+            )
+
+
+def variation_statistic_from_metric_row(
+    row: pd.Series, prefix: str, metric: MetricSettingsForStatsEngine
+) -> TestStatistic:
+    if metric.statistic_type == "quantile_event":
+        if metric.quantile_value is None:
+            raise ValueError("quantile_value must be set for quantile_event metric")
+        return QuantileClusteredStatistic(
+            n=row[f"{prefix}_quantile_n"],
+            n_star=row[f"{prefix}_quantile_nstar"],
+            nu=metric.quantile_value,
+            quantile_hat=row[f"{prefix}_quantile"],
+            quantile_lower=row[f"{prefix}_quantile_lower"],
+            quantile_upper=row[f"{prefix}_quantile_upper"],
+            main_sum=row[f"{prefix}_main_sum"],
+            main_sum_squares=row[f"{prefix}_main_sum_squares"],
+            denominator_sum=row[f"{prefix}_denominator_sum"],
+            denominator_sum_squares=row[f"{prefix}_denominator_sum_squares"],
+            main_denominator_sum_product=row[f"{prefix}_main_denominator_sum_product"],
+            n_clusters=row[f"{prefix}_users"],
+        )
+    elif metric.statistic_type == "quantile_unit":
+        if metric.quantile_value is None:
+            raise ValueError("quantile_value must be set for quantile_unit metric")
+        return QuantileStatistic(
+            n=row[f"{prefix}_quantile_n"],
+            n_star=row[f"{prefix}_quantile_nstar"],
+            nu=metric.quantile_value,
+            quantile_hat=row[f"{prefix}_quantile"],
+            quantile_lower=row[f"{prefix}_quantile_lower"],
+            quantile_upper=row[f"{prefix}_quantile_upper"],
+        )
+    elif metric.statistic_type == "ratio":
         return RatioStatistic(
-            m_statistic=base_statistic_from_metric_row(row, prefix, "main"),
-            d_statistic=base_statistic_from_metric_row(row, prefix, "denominator"),
+            m_statistic=base_statistic_from_metric_row(
+                row, prefix, "main", metric.main_metric_type
+            ),
+            d_statistic=base_statistic_from_metric_row(
+                row, prefix, "denominator", metric.denominator_metric_type
+            ),
             m_d_sum_of_products=row[f"{prefix}_main_denominator_sum_product"],
             n=row[f"{prefix}_users"],
         )
-    elif statistic_type == "mean":
-        return base_statistic_from_metric_row(row, prefix, "main")
-    elif statistic_type == "mean_ra":
+    elif metric.statistic_type == "mean":
+        return base_statistic_from_metric_row(
+            row, prefix, "main", metric.main_metric_type
+        )
+    elif metric.statistic_type == "mean_ra":
         return RegressionAdjustedStatistic(
-            post_statistic=base_statistic_from_metric_row(row, prefix, "main"),
-            pre_statistic=base_statistic_from_metric_row(row, prefix, "covariate"),
+            post_statistic=base_statistic_from_metric_row(
+                row, prefix, "main", metric.main_metric_type
+            ),
+            pre_statistic=base_statistic_from_metric_row(
+                row, prefix, "covariate", metric.covariate_metric_type
+            ),
             post_pre_sum_of_products=row[f"{prefix}_main_covariate_sum_product"],
             n=row[f"{prefix}_users"],
-            # Theta should be overriden with correct value later
+            # Theta will be overriden with correct value later
             theta=0,
         )
     else:
-        raise ValueError(
-            f"Unexpected statistic_type {statistic_type}' found in experiment data."
-        )
+        raise ValueError(f"Unexpected statistic_type: {metric.statistic_type}")
 
 
 def base_statistic_from_metric_row(
-    row: pd.Series, prefix: str, component: str
+    row: pd.Series, prefix: str, component: str, metric_type: Optional[MetricType]
 ) -> Union[ProportionStatistic, SampleMeanStatistic]:
-    metric_type = row[f"{component}_metric_type"]
-    if metric_type == "binomial":
-        return ProportionStatistic(
-            sum=row[f"{prefix}_{component}_sum"], n=row[f"{prefix}_count"]
-        )
-    elif metric_type in ["count", "duration", "revenue"]:
-        return SampleMeanStatistic(
-            sum=row[f"{prefix}_{component}_sum"],
-            sum_squares=row[f"{prefix}_{component}_sum_squares"],
-            n=row[f"{prefix}_count"],
-        )
-    else:
-        raise ValueError(
-            f"Unexpected metric_type '{metric_type}' type for '{component}_type in experiment data."
-        )
-
-
-def get_test_class_config(engine: StatsEngine, sequential: bool, binomial_test: bool):
-    if engine == StatsEngine.BAYESIAN:
-        if binomial_test:
-            return BinomialBayesianABTest, BinomialBayesianConfig
+    if metric_type:
+        if metric_type == "binomial":
+            return ProportionStatistic(
+                sum=row[f"{prefix}_{component}_sum"], n=row[f"{prefix}_count"]
+            )
+        elif metric_type == "count":
+            return SampleMeanStatistic(
+                sum=row[f"{prefix}_{component}_sum"],
+                sum_squares=row[f"{prefix}_{component}_sum_squares"],
+                n=row[f"{prefix}_count"],
+            )
         else:
-            return GaussianBayesianABTest, GaussianBayesianConfig
+            raise ValueError(f"Unexpected metric_type: {metric_type}")
     else:
-        if sequential:
-            return SequentialTwoSidedTTest, SequentialConfig
-        else:
-            return TwoSidedTTest, FrequentistConfig
+        raise ValueError("Unexpectedly metric_type was None")
 
 
-# Run a chi-squared test to make sure the observed traffic split matches the expected one
-def check_srm(users, weights):
-    # Convert count of users into ratios
-    total_observed = sum(users)
-    if not total_observed:
-        return 1
+# Run a specific analysis given data and configuration settings
+def process_analysis(
+    rows: pd.DataFrame,
+    var_id_map: VarIdMap,
+    metric: MetricSettingsForStatsEngine,
+    analysis: AnalysisSettingsForStatsEngine,
+) -> pd.DataFrame:
+    var_names = analysis.var_names
+    max_dimensions = analysis.max_dimensions
 
-    x = 0
-    for i, o in enumerate(users):
-        if weights[i] <= 0:
-            continue
-        e = weights[i] * total_observed
-        x = x + ((o - e) ** 2) / e
+    # If we're doing a daily time series, we need to diff the data
+    if analysis.dimension == "pre:datedaily":
+        rows = diff_for_daily_time_series(rows)
 
-    return chi2.sf(x, len(users) - 1)
+    # Convert raw SQL result into a dataframe of dimensions
+    df = get_metric_df(
+        rows=rows,
+        var_id_map=var_id_map,
+        var_names=var_names,
+    )
+
+    # Limit to the top X dimensions with the most users
+    # not possible to just re-sum for quantile metrics,
+    # so we throw away "other" dimension
+    reduced = reduce_dimensionality(
+        df=df,
+        max=max_dimensions,
+        keep_other=metric.statistic_type not in ["quantile_event", "quantile_unit"],
+    )
+
+    # Run the analysis for each variation and dimension
+    result = analyze_metric_df(
+        df=reduced,
+        metric=metric,
+        analysis=analysis,
+    )
+
+    return result
+
+
+def get_var_id_map(var_ids: List[str]) -> VarIdMap:
+    return {v: i for i, v in enumerate(var_ids)}
+
+
+def process_single_metric(
+    rows: ExperimentMetricQueryResponseRows,
+    metric: MetricSettingsForStatsEngine,
+    analyses: List[AnalysisSettingsForStatsEngine],
+) -> ExperimentMetricAnalysis:
+    # If no data return blank results
+    if len(rows) == 0:
+        return ExperimentMetricAnalysis(
+            metric=metric.id,
+            analyses=[
+                ExperimentMetricAnalysisResult(
+                    unknownVariations=[],
+                    dimensions=[],
+                    multipleExposures=0,
+                )
+                for _ in analyses
+            ],
+        )
+    pdrows = pd.DataFrame(rows)
+    # TODO validate data in rows matches metric settings
+
+    # Detect any variations that are not in the returned metric rows
+    all_var_ids: Set[str] = set([v for a in analyses for v in a.var_ids])
+    unknown_var_ids = detect_unknown_variations(rows=pdrows, var_ids=all_var_ids)
+
+    results = [
+        format_results(
+            process_analysis(
+                rows=pdrows,
+                var_id_map=get_var_id_map(a.var_ids),
+                metric=metric,
+                analysis=a,
+            ),
+            baseline_index=a.baseline_index,
+        )
+        for a in analyses
+    ]
+    return ExperimentMetricAnalysis(
+        metric=metric.id,
+        analyses=[
+            ExperimentMetricAnalysisResult(
+                unknownVariations=list(unknown_var_ids),
+                dimensions=r,
+                multipleExposures=0,
+            )
+            for r in results
+        ],
+    )
+
+
+# Get just the columns for a single metric
+def filter_query_rows(
+    query_rows: ExperimentMetricQueryResponseRows, metric_index: int
+) -> ExperimentMetricQueryResponseRows:
+    prefix = f"m{metric_index}_"
+    return [
+        {
+            k.replace(prefix, ""): v
+            for (k, v) in r.items()
+            if k.startswith(prefix) or not re.match(r"^m\d+_", k)
+        }
+        for r in query_rows
+    ]
+
+
+def process_data_dict(data: Dict[str, Any]) -> DataForStatsEngine:
+    return DataForStatsEngine(
+        metrics={
+            k: MetricSettingsForStatsEngine(**v) for k, v in data["metrics"].items()
+        },
+        analyses=[AnalysisSettingsForStatsEngine(**a) for a in data["analyses"]],
+        query_results=[QueryResultsForStatsEngine(**q) for q in data["query_results"]],
+    )
+
+
+def process_experiment_results(data: Dict[str, Any]) -> list[Dict[str, Any]]:
+    d = process_data_dict(data)
+    results: List[Dict] = []
+    for query_result in d.query_results:
+        for i, metric in enumerate(query_result.metrics):
+            if metric in d.metrics:
+                rows = filter_query_rows(query_result.rows, i)
+                if len(rows):
+                    results.append(
+                        asdict(
+                            process_single_metric(
+                                rows=rows,
+                                metric=d.metrics[metric],
+                                analyses=d.analyses,
+                            )
+                        )
+                    )
+    return results

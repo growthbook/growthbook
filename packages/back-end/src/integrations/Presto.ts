@@ -10,9 +10,7 @@ import SqlIntegration from "./SqlIntegration";
 type Row = any;
 
 export default class Presto extends SqlIntegration {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  params: PrestoConnectionParams;
+  params!: PrestoConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<PrestoConnectionParams>(
@@ -103,17 +101,6 @@ export default class Presto extends SqlIntegration {
   }
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
-  }
-  percentileCapSelectClause(
-    capPercentile: number,
-    metricTable: string
-  ): string {
-    return `
-      SELECT 
-        APPROX_PERCENTILE(value, ${capPercentile}) AS cap_value
-      FROM ${metricTable}
-      WHERE value IS NOT NULL
-    `;
   }
   getDefaultDatabase() {
     return this.params.catalog || "";

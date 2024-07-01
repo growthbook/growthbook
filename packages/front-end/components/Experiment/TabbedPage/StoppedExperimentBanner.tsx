@@ -1,4 +1,7 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "back-end/types/experiment";
 import { FaClock, FaPencilAlt } from "react-icons/fa";
 import {
   experimentHasLinkedChanges,
@@ -8,20 +11,19 @@ import { DocLink } from "@/components/DocLink";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 import { useAuth } from "@/services/auth";
 import Markdown from "@/components/Markdown/Markdown";
-import ResultsIndicator from "../ResultsIndicator";
-import { LinkedFeature } from ".";
+import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  linkedFeatures: LinkedFeatureInfo[];
   mutate: () => void;
-  linkedFeatures: LinkedFeature[];
   editResult?: () => void;
 }
 
 export default function StoppedExperimentBanner({
   experiment,
-  mutate,
   linkedFeatures,
+  mutate,
   editResult,
 }: Props) {
   const { apiCall } = useAuth();

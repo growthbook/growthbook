@@ -1,16 +1,14 @@
 ---
 title: Visual Editor
-description: Learn about our visual editor currently in beta
+description: Learn about our visual editor
 sidebar_label: Visual Editor
 id: visual-editor
 slug: /app/visual
 ---
 
-import Pill from '@site/src/components/Pill';
-
 # Visual Editor 2.0
 
-With the Visual Editor, users can design A/B tests on their site directly in their browser, run them in production, and analyze results, all without writing a single line of code. To use the Visual Editor, a software developer will need to integrate either our [JavaScript](/lib/js) or [ReactJS](/lib/react) SDK with your application.
+With the Visual Editor, users can design A/B tests on their site directly in their browser, run them in production, and analyze results, all without writing a single line of code. To use the Visual Editor, a software developer will need to integrate GrowthBook's [JavaScript](/lib/js) SDK, [ReactJS](/lib/react) SDK, or [HTML](/lib/script-tag) SDK with your application.
 
 In March 2023, we released version 2.0 of our Visual Editor, which had many improvements.
 
@@ -30,7 +28,7 @@ Once you've create your first experiment and are ready to deploy to production, 
 
 ## Creating a Visual Experiment
 
-To use the visual editor, first add a new Experiment. This can be done under **Analysis -> Experiments**
+To use the visual editor, first add a new Experiment. This can be done under **Experiments** in the left nav.
 
 ![Design a new experiment](/images/add-experiment-modal.png)
 
@@ -104,7 +102,7 @@ At the top is a dropdown where you can select which variation you are currently 
 Below that is your toolbar. It has the following tools in order from left to right:
 
 1. **Interactive Mode** - Click around your site normally
-2. **Element Selector** - Point and click to select an element on your site to edit. This is the most common way to make changes.
+2. **Selection Mode** - Point and click to select an element on your site to edit. This is the most common way to make changes.
 3. **Global CSS** - Inject global CSS styles into the page. Use this to control things like page background color or font size.
 4. **Custom JavaScript** - Inject Javascript into the page. Use this to create complex variations.
 5. **Change List** - See a summary of all of the changes you've made to the page so far
@@ -112,6 +110,54 @@ Below that is your toolbar. It has the following tools in order from left to rig
 When you're using the Element Selector, after you pick an element to edit, you'll be able to modify the Inner HTML (i.e. the copy), any attributes (e.g. a link HREF), and the list of CSS classes.
 
 When you're finished making changes, click the **Done Editing** button to be taken back to GrowthBook.
+
+### Custom JavaScript
+
+Custom JavaScript is executed as quickly as possible, often times before the page has fully loaded. This gives you the most flexibility in how to implement your experiment.
+
+If you are making changes to elements on the page, make sure you wait until they exist. Below is a small helper function you can add to the top of your Custom JavaScript to help with this:
+
+```js
+function waitFor(selector) {
+  return new Promise(resolve => {
+    const el = document.querySelector(selector);
+    if (el) return resolve(el);
+    const observer = new MutationObserver(() => {
+        const el = document.querySelector(selector);
+        if (el) { observer.disconnect(); resolve(el)}
+    });
+    observer.observe(document, {childList: true, subtree: true});
+  });
+}
+```
+
+Then, you can use it like so:
+
+```js
+waitFor(".my-element").then((el) => {
+  el.innerHTML = "Hello World!";
+});
+```
+
+### Drag and Drop
+
+When in Selection Mode, you can select an element and click to **drag and drop** it positionally on the page.
+
+#### Drag and Drop Handle
+
+When an element is selected, you will see a floating handle to move it positionally. Alternatively, you can click anywhere on the selected element to move it as well.
+
+![Visual Editor Drag and Drop Handle](/images/visual-editor-move-handle.png)
+
+Once dragging, the cursor will highlight an edge where the dragged element will land. When you release the cursor the element will move to the indicated spot. If you want to undo the move, click the 'Undo' button that is available for elements that have been dragged.
+
+![Visual Editor Drag and Drop Example](/images/visual-editor-drag-and-drop.gif)
+
+### Debug Panel
+
+The Visual Editor now comes with a Debug Panel to help diagnose any issues with your SDK configuration and URL Targeting rules. Use this to help diagnose your own errors, or provide a screenshot to our Support team when reaching out to help provide context.
+
+<img style={{ width: '400px'}} src="/images/visual-editor-debug-panel.png" alt="Debug Panel"/>
 
 ## Deploying to Production
 
@@ -123,13 +169,9 @@ Before you start your first experiment, you will first need to generate a **Clie
 
 You can also optionally include Draft Experiments (see below).
 
-Once you create an SDK Connection, you need to integrate GrowthBook into your website. There are 2 ways to do this - using our SDKs or using our pre-built script tag.
+Once you create an SDK Connection, you need to follow the steps to integrate GrowthBook into your website.
 
-### Option 1: Using our SDKs
-
-This option requires a developer, but allows for more customization and a deeper integration into your website. We especially recommend this approach if you also plan to use Feature Flags.
-
-View the full instructions for integrating either our [JavaScript](/lib/js) or [ReactJS](/lib/react) SDKs.
+The easiest and recommended way to do this is with our [Script Tag SDK](/lib/script-tag), which works out-of-the-box and doesn't require any configuration for most websites. It's also possible to use either our [JavaScript](/lib/js) or [ReactJS](/lib/react) SDKs, although these do require more up-front work to integrate into your application.
 
 :::note
 
@@ -140,89 +182,9 @@ If you've already been using our front-end SDKs for feature flagging, make sure 
 
 :::
 
-### Option 2: Pre-built Script Tag
-
-This option is quick and easy and only requires the ability to insert a `<script>` tag into your site's source code. However, you do lose some flexibility compared to a full SDK integration.
-
-For this, you'll need the **Client Key** from the SDK Connection you created earlier.
-
-Add the following script tag to your website and replace `YOUR_CLIENT_KEY_HERE` with your actual client key:
-
-```html
-<script async
-  data-client-key="YOUR_CLIENT_KEY_HERE"
-  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
-></script>
-```
-
-For best performance, we recommend adding this script tag directly to your website's `<head>`, however it is also possible to load through something like Google Tag Manager if that is your only option.
-
-With the pre-built script tag, the following targeting attributes are set automatically:
-
-- `id` - creates a long-lived `gbuuid` cookie if it doesn't exist already
-- `url`
-- `path`
-- `host`
-- `query`
-- `deviceType` - either `mobile` or `desktop`
-- `browser` - one of `chrome`, `edge`, `firefox`, `safari`, or `unknown`
-- `utmSource`
-- `utmMedium`
-- `utmCampaign`
-- `utmTerm`
-- `utmContent`
-
-In addition, experiment events will be automatically tracked with both GA4 (using `dataLayer`) and Segment (using `analytics.track`) when available.
-
-You can override some settings by adding `data-*` attributes directly to the script tag. Here's an example of overriding the API host and setting a decryption key:
-
-```html
-<script async
-  data-api-host="https://growthbook-api.example.com"
-  data-client-key="YOUR_CLIENT_KEY_HERE"
-  data-decryption-key="YOUR_DECRYPTION_KEY_HERE"
-  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
-></script>
-```
-
-For more control, you can define a `window.growthbook_config` object BEFORE you load the script tag. This accepts the same settings as our [JavaScript SDK](/lib/js) and is especially useful when you have custom event tracking or attributes that you want to set.
-
-```html
-<script>
-window.growthbook_config = {
-  trackingCallback: (experiment, result) => {
-    customEventTracker("Viewed Experiment", {
-      experiment_id: experiment.key,
-      variation_id: result.key
-    })
-  },
-  // These will be merged with all of the auto-attributes above
-  attributes: {
-    customAttribute: "something"
-  }
-}
-</script>
-```
-
-And lastly, you can access the GrowthBook SDK instance at `window._growthbook` if you need low level access for any reason.
-
 ### Content Security Policy (CSP) Changes
 
 If your website uses a Content Security Policy (CSP), there are some additional changes you'll need to make. This applies to both SDK and pre-build script tag integration.
-
-#### connect-src
-
-If you have the `connect-src` directive defined in your website's CSP, you'll need to include the URL of your GrowthBook API Host in order for your website to load experiments from GrowthBook's servers.
-
-```
-Content-Security-Policy: connect-src <GROWTHBOOK_API_HOST>;
-```
-
-If you use GrowthBook Cloud, use our global CDN: https://cdn.growthbook.io
-
-```
-Content-Security-Policy: connect-src https://cdn.growthbook.io;
-```
 
 #### script-src
 
@@ -233,6 +195,25 @@ If you have the `script-src` directive defined in your website's CSP, you'll nee
 ```
 Content-Security-Policy: script-src 'self' 'unsafe-inline' 'unsafe-eval';
 ```
+
+##### Using Script Nonces
+
+As an alternative to allowing `unsafe-inline`, we support "nonces", although this requires some very technical and custom configuration to hook up.
+
+First, you will need to generate a unique nonce value for every request and add it to your CSP header. This can be done on the edge such as with a Cloudflare Worker.
+
+Then, you will need to pass this nonce into your GrowthBook SDK as `jsInjectionNonce`.
+
+For example, if you are using our [Script Tag SDK](/lib/script-tag), you can add the following into your page's `<head>` BEFORE you load the GrowthBook snippet. Replace all instances of `$NONCE` with the unique nonce value you generated.
+
+```html
+<script nonce="$NONCE">
+window.growthbook_config = window.growthbook_config || {};
+window.growthbook_config.jsInjectionNonce = "$NONCE";
+</script>
+```
+
+You will still need to allow `unsafe-eval`.
 
 ## Drafts and QA
 

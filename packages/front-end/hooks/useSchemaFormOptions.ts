@@ -2,8 +2,8 @@ import { useState } from "react";
 import {
   InformationSchemaInterface,
   InformationSchemaTablesInterface,
-} from "@/../back-end/src/types/Integration";
-import { DataSourceInterfaceWithParams } from "@/../back-end/types/datasource";
+} from "@back-end/src/types/Integration";
+import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
 import { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
 import useApi from "./useApi";
 
@@ -17,11 +17,9 @@ export default function useSchemaFormOptions(
 
   const { data } = useApi<{
     informationSchema: InformationSchemaInterface;
-  }>(
-    supportsInformationSchema && datasource?.id
-      ? `/datasource/${datasource.id}/schema`
-      : null
-  );
+  }>(`/datasource/${datasource?.id}/schema`, {
+    shouldRun: () => !!supportsInformationSchema && !!datasource?.id,
+  });
 
   const tableGroups: Map<string, GroupedValue> = new Map();
   const tableIdMapping: Map<string, string> = new Map();
@@ -50,11 +48,9 @@ export default function useSchemaFormOptions(
 
   const { data: columnData } = useApi<{
     table: InformationSchemaTablesInterface;
-  }>(
-    tableId && datasource?.id
-      ? `/datasource/${datasource.id}/schema/table/${tableId}`
-      : null
-  );
+  }>(`/datasource/${datasource?.id}/schema/table/${tableId}`, {
+    shouldRun: () => !!tableId && !!datasource?.id,
+  });
 
   const columnOptions: SingleValue[] = [];
   if (columnData?.table?.columns.length) {

@@ -1,5 +1,9 @@
 import { FC, useMemo, useRef, ReactNode, useState } from "react";
-import ReactSelect from "react-select";
+import ReactSelect, {
+  components,
+  InputProps,
+  FormatOptionLabelMeta,
+} from "react-select";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
 import CreatableSelect from "react-select/creatable";
@@ -19,9 +23,14 @@ export type SelectFieldProps = Omit<
   onChange: (value: string) => void;
   sort?: boolean;
   createable?: boolean;
-  formatOptionLabel?: (value: SingleValue) => ReactNode;
+  formatOptionLabel?: (
+    value: SingleValue,
+    meta: FormatOptionLabelMeta<SingleValue>
+  ) => ReactNode;
+  formatGroupLabel?: (value: GroupedValue) => ReactNode;
   isSearchable?: boolean;
   isClearable?: boolean;
+  onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
 };
 
 export function useSelectOptions(
@@ -63,6 +72,12 @@ export function useSelectOptions(
   }, [options, initialOption]);
 }
 
+const Input = (props: InputProps) => {
+  // @ts-expect-error will be passed down
+  const { onPaste } = props.selectProps;
+  return <components.Input onPaste={onPaste} {...props} />;
+};
+
 export const ReactSelectProps = {
   // See react-select.scss and apply styles with CSS
   styles: {
@@ -76,6 +91,36 @@ export const ReactSelectProps = {
       return {
         ...styles,
         color: "var(--form-multivalue-text-color)",
+      };
+    },
+    control: (styles) => {
+      return {
+        ...styles,
+        backgroundColor: "var(--surface-background-color)",
+      };
+    },
+    menu: (styles) => {
+      return {
+        ...styles,
+        backgroundColor: "var(--surface-background-color)",
+      };
+    },
+    option: (styles, { isFocused }) => {
+      return {
+        ...styles,
+        color: isFocused ? "var(--text-hover-color)" : "var(--text-color-main)",
+      };
+    },
+    input: (styles) => {
+      return {
+        ...styles,
+        color: "var(--text-color-main)",
+      };
+    },
+    singleValue: (styles) => {
+      return {
+        ...styles,
+        color: "var(--text-color-main)",
       };
     },
   },
@@ -97,8 +142,10 @@ const SelectField: FC<SelectFieldProps> = ({
   className,
   createable = false,
   formatOptionLabel,
+  formatGroupLabel,
   isSearchable = true,
   isClearable = false,
+  onPaste,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -154,19 +201,18 @@ const SelectField: FC<SelectFieldProps> = ({
                 id={id}
                 ref={ref}
                 classNamePrefix="gb-select"
-                isClearable
+                isClearable={isClearable}
                 isDisabled={disabled || false}
                 placeholder={placeholder}
                 inputValue={inputValue}
                 options={sorted}
                 autoFocus={autoFocus}
-                onChange={(selected) => {
+                onChange={(selected: { value: string }) => {
                   onChange(selected?.value || "");
                   setInputValue("");
                 }}
                 onFocus={() => {
-                  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-                  if (!map.has(selected?.value)) {
+                  if (!selected?.value || !map.has(selected?.value)) {
                     // If this was a custom option, reset the input value so it's editable
                     setInputValue(selected?.value || "");
                   }
@@ -192,10 +238,15 @@ const SelectField: FC<SelectFieldProps> = ({
                   onChange(val);
                 }}
                 noOptionsMessage={() => null}
-                isValidNewOption={() => false}
                 value={selected}
                 formatOptionLabel={formatOptionLabel}
+                formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
+                // @ts-expect-error onPaste is passed to Input
+                onPaste={onPaste}
+                components={{
+                  Input,
+                }}
               />
             ) : (
               <ReactSelect
@@ -206,14 +257,20 @@ const SelectField: FC<SelectFieldProps> = ({
                 classNamePrefix="gb-select"
                 isDisabled={disabled || false}
                 options={sorted}
-                onChange={(selected) => {
+                onChange={(selected: { value: string }) => {
                   onChange(selected?.value || "");
                 }}
                 autoFocus={autoFocus}
                 value={selected}
                 placeholder={initialOption ?? placeholder}
                 formatOptionLabel={formatOptionLabel}
+                formatGroupLabel={formatGroupLabel}
                 isSearchable={!!isSearchable}
+                // @ts-expect-error onPaste is passed to Input
+                onPaste={onPaste}
+                components={{
+                  Input,
+                }}
               />
             )}
             {required && (

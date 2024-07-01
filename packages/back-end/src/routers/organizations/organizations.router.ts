@@ -32,6 +32,10 @@ router.delete(
   "/organization/namespaces/:name",
   organizationsController.deleteNamespace
 );
+router.post(
+  "/organization/auto-groups-attribute",
+  organizationsController.autoAddGroupsAttribute
+);
 router.get("/invite/:key", organizationsController.getInviteInfo);
 router.post("/invite/accept", organizationsController.postInviteAccept);
 router.post("/invite", organizationsController.postInvite);
@@ -51,6 +55,10 @@ router.put(
   "/organization/default-role",
   organizationsController.putDefaultRole
 );
+router.put(
+  "/organization/get-started-checklist",
+  organizationsController.putGetStartedChecklistItem
+);
 
 // API keys
 router.get("/keys", organizationsController.getApiKeys);
@@ -58,11 +66,17 @@ router.post("/keys", organizationsController.postApiKey);
 router.delete("/keys", organizationsController.deleteApiKey);
 router.post("/keys/reveal", organizationsController.postApiKeyReveal);
 
-// Webhooks
-router.get("/webhooks", organizationsController.getWebhooks);
-router.post("/webhooks", organizationsController.postWebhook);
-router.put("/webhook/:id", organizationsController.putWebhook);
-router.delete("/webhook/:id", organizationsController.deleteWebhook);
+// Legacy Webhooks
+router.get("/legacy-sdk-webhooks", organizationsController.getLegacyWebhooks);
+router.delete(
+  "/legacy-sdk-webhooks/:id",
+  organizationsController.deleteLegacyWebhook
+);
+
+// SDK Webhooks
+router.put("/sdk-webhooks/:id", organizationsController.putSDKWebhook);
+router.delete("/sdk-webhooks/:id", organizationsController.deleteSDKWebhook);
+router.post("/sdk-webhooks/:id/test", organizationsController.testSDKWebhook);
 
 // Orphaned users (users not part of an organization)
 // Only available when self-hosting
@@ -77,5 +91,14 @@ if (!IS_CLOUD) {
     organizationsController.addOrphanedUser
   );
 }
+
+// Custom Roles
+router.post("/custom-roles", organizationsController.postCustomRole);
+router.put("/custom-roles/:id", organizationsController.putCustomRole);
+router.delete("/custom-roles/:id", organizationsController.deleteCustomRole);
+
+// Standard Roles
+router.post("/role/:id/deactivate", organizationsController.deactivateRole);
+router.post("/role/:id/activate", organizationsController.activateRole);
 
 export { router as organizationsRouter };

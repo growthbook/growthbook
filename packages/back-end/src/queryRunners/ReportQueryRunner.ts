@@ -30,6 +30,12 @@ export class ReportQueryRunner extends QueryRunner<
 > {
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
+  checkPermissions(): boolean {
+    return this.context.permissions.canRunExperimentQueries(
+      this.integration.datasource
+    );
+  }
+
   async startQueries(params: ReportQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
 
@@ -47,9 +53,9 @@ export class ReportQueryRunner extends QueryRunner<
     };
 
     return startExperimentResultQueries(
+      this.context,
       experimentParams,
       this.integration,
-      this.model.organization,
       this.startQuery.bind(this)
     );
   }
@@ -60,13 +66,14 @@ export class ReportQueryRunner extends QueryRunner<
         analysisSettings,
       } = getSnapshotSettingsFromReportArgs(this.model.args, this.metricMap);
 
-      return await analyzeExperimentResults({
+      const res = await analyzeExperimentResults({
         variationNames: this.model.args.variations.map((v) => v.name),
         queryData: queryMap,
         metricMap: this.metricMap,
         snapshotSettings,
-        analysisSettings,
+        analysisSettings: [analysisSettings],
       });
+      return res[0];
     }
 
     throw new Error("Unsupported report type");

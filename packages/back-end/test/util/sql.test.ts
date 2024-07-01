@@ -5,6 +5,7 @@ import {
   format,
   replaceCountStar,
   determineColumnTypes,
+  getHost,
 } from "../../src/util/sql";
 
 describe("backend", () => {
@@ -202,6 +203,23 @@ describe("backend", () => {
       });
     });
 
+    it("uses id frequency count to find more efficient joins", () => {
+      expect(
+        getBaseIdTypeAndJoins([
+          ["id1", "id2"],
+          ["id1", "id3"],
+          ["id2", "id3"],
+          ["id4", "id3"],
+          // to make id 1 most common
+          ["id1", "id8"],
+          ["id1", "id9"],
+        ])
+      ).toEqual({
+        baseIdType: "id1",
+        joinsRequired: ["id3"],
+      });
+    });
+
     it("determines when there is a forced base id type", () => {
       expect(
         getBaseIdTypeAndJoins(
@@ -364,5 +382,22 @@ from
         ])
       ).toEqual([{ column: "col", datatype: "number" }]);
     });
+  });
+});
+
+describe("getHost", () => {
+  it("works as expected", () => {
+    expect(getHost("http://localhost", 8080)).toEqual("http://localhost:8080");
+    expect(getHost("https://localhost", 8080)).toEqual(
+      "https://localhost:8080"
+    );
+  });
+  it("prefers port in url", () => {
+    expect(getHost("http://localhost:8888", 8080)).toEqual(
+      "http://localhost:8888"
+    );
+  });
+  it("tries best if URL is malformed", () => {
+    expect(getHost("localhost", 8080)).toEqual("http://localhost:8080");
   });
 });

@@ -2,7 +2,7 @@ import { EventWebHookInterface } from "back-end/types/event-webhook";
 import React, { FC, useCallback, useState } from "react";
 import pick from "lodash/pick";
 import { TbWebhook } from "react-icons/tb";
-import { FaAngleLeft, FaPencilAlt } from "react-icons/fa";
+import { FaAngleLeft, FaPencilAlt, FaPaperPlane } from "react-icons/fa";
 import classNames from "classnames";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -11,14 +11,19 @@ import { datetime } from "shared/dates";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import Badge from "@/components/Badge";
-import { EventWebHookEditParams, useIconForState } from "../utils";
-import { useCopyToClipboard } from "../../../hooks/useCopyToClipboard";
-import { SimpleTooltip } from "../../SimpleTooltip/SimpleTooltip";
-import useApi from "../../../hooks/useApi";
-import { EventWebHookAddEditModal } from "../EventWebHookAddEditModal/EventWebHookAddEditModal";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import useApi from "@/hooks/useApi";
+import { useEventWebhookLogs } from "@/hooks/useEventWebhookLogs";
+import {
+  EventWebHookEditParams,
+  useIconForState,
+} from "@/components/EventWebHooks/utils";
+import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
+import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
 
 type EventWebHookDetailProps = {
   eventWebHook: EventWebHookInterface;
+  mutateEventWebHook: () => void;
   onEdit: (data: EventWebHookEditParams) => Promise<void>;
   onDelete: () => Promise<void>;
   onEditModalOpen: () => void;
@@ -27,8 +32,21 @@ type EventWebHookDetailProps = {
   editError: string | null;
 };
 
+type State =
+  | {
+      type: "danger";
+      message: string;
+    }
+  | {
+      type: "success";
+      message: string;
+    }
+  | { type: "loading" }
+  | undefined;
+
 export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   eventWebHook,
+  mutateEventWebHook,
   onEdit,
   onDelete,
   onEditModalOpen,
@@ -36,7 +54,19 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   isModalOpen,
   editError,
 }) => {
-  const { lastState, lastRunAt, url, events, name, signingKey } = eventWebHook;
+  const {
+    id: webhookId,
+    lastState,
+    lastRunAt,
+    url,
+    events,
+    name,
+    signingKey,
+  } = eventWebHook;
+
+  const { apiCall } = useAuth();
+  const { mutate: mutateEventLogs } = useEventWebhookLogs(webhookId);
+  const [state, setState] = useState<State>();
 
   const iconForState = useIconForState(eventWebHook.lastState);
 
@@ -44,14 +74,52 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
     timeout: 1500,
   });
 
+  const onTestWebhook = useCallback(async () => {
+    setState({ type: "loading" });
+
+    try {
+      const response = await apiCall<{
+        error?: string;
+        eventId?: string;
+      }>("/event-webhooks/test", {
+        method: "POST",
+        body: JSON.stringify({ webhookId }),
+      });
+
+      if (response.error) {
+        setState({
+          type: "danger",
+          message: `Failed to test webhook: ${
+            response.error || "Unknown error"
+          }`,
+        });
+        return;
+      }
+
+      setState({ type: "success", message: "Test event sucessfully sent!" });
+
+      setTimeout(() => {
+        mutateEventLogs();
+        mutateEventWebHook();
+      }, 1000);
+    } catch (e) {
+      setState({ type: "danger", message: "Unknown error" });
+    }
+  }, [mutateEventLogs, mutateEventWebHook, webhookId, apiCall]);
+
   return (
     <div>
-      <div className="mb-3">
-        <Link href="/settings/webhooks">
-          <a>
-            <FaAngleLeft /> All Webhooks
-          </a>
+      <div className="d-sm-flex mb-3 justify-content-between">
+        <Link href="/settings/webhooks" className="p-sm-1">
+          <FaAngleLeft />
+          All Webhooks
         </Link>
+
+        {state && state.type !== "loading" && (
+          <div className={`p-sm-1 mb-0 alert alert-${state.type}`}>
+            {state.message}
+          </div>
+        )}
       </div>
 
       <div className="d-sm-flex justify-content-between mb-3 mb-sm-0">
@@ -68,6 +136,15 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           >
             <FaPencilAlt className="mr-1" />
             Edit
+          </button>
+
+          <button
+            onClick={onTestWebhook}
+            className="btn btn-sm btn-outline-secondary mr-1"
+            disabled={state && state.type === "loading"}
+          >
+            <FaPaperPlane className="mr-1" />
+            Test
           </button>
 
           <DeleteButton
@@ -174,7 +251,20 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           onClose={onModalClose}
           onSubmit={onEdit}
           error={editError}
-          mode={{ mode: "edit", data: eventWebHook }}
+          mode={{
+            mode: "edit",
+            data: {
+              tags: [],
+              environments: [],
+              projects: [],
+              payloadType: "raw",
+              method: "POST",
+              ...eventWebHook,
+              headers: eventWebHook.headers
+                ? JSON.stringify(eventWebHook.headers)
+                : "{}",
+            },
+          }}
         />
       ) : null}
     </div>
@@ -210,7 +300,18 @@ export const EventWebHookDetailContainer = () => {
           {
             method: "PUT",
             body: JSON.stringify(
-              pick(data, ["events", "name", "url", "enabled"])
+              pick(data, [
+                "events",
+                "name",
+                "url",
+                "enabled",
+                "payloadType",
+                "projects",
+                "tags",
+                "environments",
+                "method",
+                "headers",
+              ])
             ),
           }
         );
@@ -263,6 +364,7 @@ export const EventWebHookDetailContainer = () => {
       onModalClose={() => setIsEditModalOpen(false)}
       eventWebHook={data.eventWebHook}
       editError={editError}
+      mutateEventWebHook={mutate}
     />
   );
 };

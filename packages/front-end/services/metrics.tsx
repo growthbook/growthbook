@@ -1,23 +1,11 @@
 import { MetricType } from "back-end/types/metric";
 import {
-  GlobalPermission,
-  ProjectScopedPermission,
-} from "back-end/types/organization";
-import {
   ColumnInterface,
   ColumnRef,
   FactTableInterface,
 } from "back-end/types/fact-table";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { PermissionFunctions } from "@/services/UserContext";
-
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
-
-export const defaultWinRiskThreshold = 0.0025;
-export const defaultLoseRiskThreshold = 0.0125;
+import { decimalToPercent } from "@/services/utils";
 
 export function getMetricConversionTitle(type: MetricType): string {
   // TODO: support more metric types
@@ -33,20 +21,34 @@ export function getMetricConversionTitle(type: MetricType): string {
   return "Conversion Rate";
 }
 
-export function formatCurrency(value: number, currency?: string) {
+export function getPercentileLabel(quantile: number): string {
+  if (quantile === 0.5) {
+    return "Median";
+  }
+  return `P${decimalToPercent(quantile)}`;
+}
+
+export function formatCurrency(
+  value: number,
+  options: Intl.NumberFormatOptions
+) {
+  const cleanedOptions = {
+    ...options,
+    currency: options?.currency || "USD",
+  };
   // Don't show fractional currency if the value is large
   if (value > 1000) {
     const bigCurrencyFormatter = new Intl.NumberFormat(undefined, {
       style: "currency",
-      currency: currency || "USD",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
+      ...cleanedOptions,
     });
     return bigCurrencyFormatter.format(value);
   }
   const currencyFormatter = new Intl.NumberFormat(undefined, {
     style: "currency",
-    currency: currency || "USD",
+    ...cleanedOptions,
   });
   return currencyFormatter.format(value);
 }
@@ -94,73 +96,86 @@ export function formatDurationSeconds(value: number) {
 
   return f;
 }
-export function formatNumber(value: number) {
-  const digits = value > 1000 ? 0 : value > 100 ? 1 : value > 10 ? 2 : 3;
+export function formatNumber(
+  value: number,
+  options?: Intl.NumberFormatOptions
+) {
+  const absValue = Math.abs(value);
+  const digits =
+    absValue > 1000 ? 0 : absValue > 100 ? 1 : absValue > 10 ? 2 : 3;
   // Show fewer fractional digits for bigger numbers
   const formatter = new Intl.NumberFormat(undefined, {
     maximumFractionDigits: digits,
     minimumFractionDigits: 0,
+    ...options,
   });
   return formatter.format(value);
 }
-export function formatPercent(value: number) {
-  return percentFormatter.format(value);
+export function formatPercent(
+  value: number,
+  options?: Intl.NumberFormatOptions
+) {
+  const percentFormatter = new Intl.NumberFormat(undefined, {
+    style: "percent",
+    maximumSignificantDigits: 3,
+    ...options,
+  });
+  return percentFormatter.format(Math.round(value * 100000) / 100000);
 }
 
-export function formatColumnValue(
-  column: ColumnInterface,
-  value: number,
-  currency?: string
-): string {
+export function getColumnFormatter(
+  column: ColumnInterface
+): (value: number, options?: Intl.NumberFormatOptions) => string {
   switch (column.numberFormat) {
     case "":
-      return formatNumber(value);
+      return formatNumber;
     case "currency":
-      return formatCurrency(value, currency);
+      return formatCurrency;
     case "time:seconds":
-      return formatDurationSeconds(value);
+      return formatDurationSeconds;
   }
 }
 
-export function formatColumnRefValue(
+export function getColumnRefFormatter(
   columnRef: ColumnRef,
-  getFactTableById: (id: string) => FactTableInterface | null,
-  value: number,
-  currency?: string,
-  ratio?: boolean
-) {
-  if (columnRef.column === "$$count") {
-    return formatNumber(value);
-  }
-  if (columnRef.column === "$$distinctUsers" && !ratio) {
-    return formatPercent(value);
+  getFactTableById: (id: string) => FactTableInterface | null
+): (value: number, options?: Intl.NumberFormatOptions) => string {
+  if (
+    columnRef.column === "$$count" ||
+    columnRef.column === "$$distinctUsers"
+  ) {
+    return formatNumber;
   }
 
   const fact = getFactTableById(columnRef.factTableId)?.columns?.find(
     (c) => c.column === columnRef.column
   );
-  if (!fact) return formatNumber(value);
+  if (!fact) return formatNumber;
 
-  return formatColumnValue(fact, value, currency);
+  return getColumnFormatter(fact);
 }
 
-export function formatMetricValue(
+export function getExperimentMetricFormatter(
   metric: ExperimentMetricInterface,
-  value: number,
   getFactTableById: (id: string) => FactTableInterface | null,
-  currency?: string
-): string {
-  value = value || 0;
-
+  formatProportionAsNumber: boolean = false
+): (value: number, options?: Intl.NumberFormatOptions) => string {
   // Old metric
   if ("type" in metric) {
-    return formatConversionRate(metric.type, value, currency);
+    return getMetricFormatter(
+      metric.type === "binomial" && formatProportionAsNumber
+        ? "count"
+        : metric.type
+    );
   }
 
   // Fact metric
   switch (metric.metricType) {
     case "proportion":
-      return formatPercent(value);
+      if (formatProportionAsNumber) {
+        return formatNumber;
+      }
+      return formatPercent;
     case "ratio":
       return (() => {
         // If the metric is ratio of the same unit, they cancel out
@@ -178,61 +193,32 @@ export function formatMetricValue(
           denominator &&
           numerator.numberFormat === denominator.numberFormat
         ) {
-          return formatNumber(value);
+          return formatNumber;
         }
 
         // Otherwise, just use the numerator to figure out the value type
-        return formatColumnRefValue(
-          metric.numerator,
-          getFactTableById,
-          value,
-          currency,
-          true
-        );
+        return getColumnRefFormatter(metric.numerator, getFactTableById);
       })();
 
+    case "quantile":
     case "mean":
-      return formatColumnRefValue(
-        metric.numerator,
-        getFactTableById,
-        value,
-        currency
-      );
+    default:
+      return getColumnRefFormatter(metric.numerator, getFactTableById);
   }
 }
 
-export function formatConversionRate(
-  type: MetricType,
-  value: number,
-  currency?: string
-): string {
-  value = value || 0;
+export function getMetricFormatter(
+  type: MetricType
+): (value: number, options?: Intl.NumberFormatOptions) => string {
   if (type === "count") {
-    return formatNumber(value);
+    return formatNumber;
   }
   if (type === "duration") {
-    return formatDurationSeconds(value);
+    return formatDurationSeconds;
   }
   if (type === "revenue") {
-    return formatCurrency(value, currency);
+    return formatCurrency;
   }
 
-  return formatPercent(value);
-}
-
-export function checkMetricProjectPermissions(
-  metric: { projects?: string[] },
-  permissions: Record<GlobalPermission, boolean> & PermissionFunctions,
-  permission: ProjectScopedPermission = "createMetrics"
-): boolean {
-  let hasPermission = true;
-  if (metric?.projects?.length) {
-    for (const project of metric.projects) {
-      hasPermission = permissions.check(permission, project);
-      if (!hasPermission) break;
-    }
-  } else {
-    hasPermission = permissions.check(permission, "");
-  }
-  return hasPermission;
+  return formatPercent;
 }

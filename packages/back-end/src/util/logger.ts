@@ -23,6 +23,8 @@ const redactPaths = [
   'res.headers["x-powered-by"]',
   'res.headers["access-control-allow-credentials"]',
   'res.headers["access-control-allow-origin"]',
+  'res.headers["set-cookie"]',
+  'res.headers["cookie"]',
 ];
 if (!IS_CLOUD) {
   redactPaths.push(
@@ -69,7 +71,7 @@ const isValidLevel = (input: unknown): input is Level => {
 
 export const httpLogger = pinoHttp({
   autoLogging: ENVIRONMENT === "production",
-  useLevel: isValidLevel(LOG_LEVEL) ? LOG_LEVEL : "info",
+  level: isValidLevel(LOG_LEVEL) ? LOG_LEVEL : "info",
   redact: {
     paths: redactPaths,
     remove: true,

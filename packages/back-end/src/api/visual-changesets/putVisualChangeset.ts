@@ -22,16 +22,23 @@ export const putVisualChangeset = createApiRequestHandler(
     }
 
     const experiment = await getExperimentById(
-      req.organization.id,
+      req.context,
       visualChangeset.experiment
     );
+
+    if (!experiment) {
+      throw new Error("Experiment not found");
+    }
+
+    if (!req.context.permissions.canUpdateVisualChange(experiment)) {
+      req.context.permissions.throwPermissionError();
+    }
 
     const res = await updateVisualChangeset({
       visualChangeset,
       experiment,
-      organization: req.organization,
+      context: req.context,
       updates: req.body,
-      user: req.eventAudit,
     });
 
     const updatedVisualChangeset = await findVisualChangesetById(

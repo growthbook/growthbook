@@ -8,12 +8,13 @@ import { FaAngleRight, FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
 import { useRouter } from "next/router";
 import { useSearch } from "@/services/search";
-import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Field from "../Forms/Field";
-import Tooltip from "../Tooltip/Tooltip";
-import { GBAddCircle } from "../Icons";
-import SortedTags from "../Tags/SortedTags";
+import Field from "@/components/Forms/Field";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { GBAddCircle } from "@/components/Icons";
+import SortedTags from "@/components/Tags/SortedTags";
+import MetricName from "@/components/Metrics/MetricName";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import FactMetricModal from "./FactMetricModal";
 
 export interface Props {
@@ -39,7 +40,7 @@ export default function FactMetricList({ factTable }: Props) {
 
   const { factMetrics } = useDefinitions();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const metrics = getMetricsForFactTable(factMetrics, factTable.id);
 
@@ -50,7 +51,9 @@ export default function FactMetricList({ factTable }: Props) {
     searchFields: ["name^3", "description"],
   });
 
-  const canEdit = permissions.check("createMetrics", factTable.projects || "");
+  const canCreateMetrics = permissionsUtil.canCreateFactMetric({
+    projects: factTable.projects,
+  });
 
   return (
     <>
@@ -83,7 +86,7 @@ export default function FactMetricList({ factTable }: Props) {
         <div className="col-auto">
           <Tooltip
             body={
-              canEdit
+              canCreateMetrics
                 ? ""
                 : `You don't have permission to add metrics to this fact table`
             }
@@ -92,10 +95,10 @@ export default function FactMetricList({ factTable }: Props) {
               className="btn btn-primary"
               onClick={(e) => {
                 e.preventDefault();
-                if (!canEdit) return;
+                if (!canCreateMetrics) return;
                 setNewOpen(true);
               }}
-              disabled={!canEdit}
+              disabled={!canCreateMetrics}
             >
               <GBAddCircle /> Add Metric
             </button>
@@ -124,17 +127,21 @@ export default function FactMetricList({ factTable }: Props) {
                   }}
                 >
                   <td>
-                    <Link href={`/fact-metrics/${metric.id}`}>
-                      <a className="font-weight-bold" title="View Metric">
-                        {metric.name} <FaExternalLinkAlt />
-                      </a>
+                    <Link
+                      href={`/fact-metrics/${metric.id}`}
+                      className="font-weight-bold"
+                      title="View Metric"
+                    >
+                      <MetricName id={metric.id} /> <FaExternalLinkAlt />
                     </Link>
                   </td>
                   <td>{metric.metricType}</td>
                   <td>
                     <SortedTags tags={metric.tags} />
                   </td>
-                  <td>{date(metric.dateUpdated)}</td>
+                  <td>
+                    {metric.dateUpdated ? date(metric.dateUpdated) : null}
+                  </td>
                   <td>
                     <FaAngleRight />
                   </td>

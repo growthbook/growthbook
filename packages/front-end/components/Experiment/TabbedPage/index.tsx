@@ -1,19 +1,18 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "back-end/types/experiment";
 import { IdeaInterface } from "back-end/types/idea";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { FeatureInterface } from "back-end/types/feature";
-import {
-  MatchingRule,
-  getMatchingRules,
-  includeExperimentInPayload,
-} from "shared/util";
-import { useEffect, useMemo, useState } from "react";
+import { includeExperimentInPayload, isDefined } from "shared/util";
+import { useCallback, useEffect, useState } from "react";
 import { FaChartBar } from "react-icons/fa";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useRouter } from "next/router";
+import { DifferenceType } from "back-end/types/stats";
+import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { useEnvironments, useFeaturesList } from "@/services/features";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
@@ -25,34 +24,36 @@ import DiscussionThread from "@/components/DiscussionThread";
 import { useAuth } from "@/services/auth";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import { phaseSummary } from "@/services/utils";
-import EditStatusModal from "../EditStatusModal";
-import VisualChangesetModal from "../VisualChangesetModal";
-import EditExperimentNameForm from "../EditExperimentNameForm";
-import { useSnapshot } from "../SnapshotProvider";
+import EditStatusModal from "@/components/Experiment/EditStatusModal";
+import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
+import EditExperimentNameForm from "@/components/Experiment/EditExperimentNameForm";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import { ResultsMetricFilters } from "@/components/Experiment/Results";
+import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import ExperimentHeader from "./ExperimentHeader";
 import ProjectTagBar from "./ProjectTagBar";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
+import HealthTab from "./HealthTab";
 
-const experimentTabs = ["overview", "results"] as const;
+const experimentTabs = ["overview", "results", "health"] as const;
 export type ExperimentTab = typeof experimentTabs[number];
-
-export type LinkedFeature = {
-  feature: FeatureInterface;
-  rules: MatchingRule[];
-};
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  linkedFeatures: LinkedFeatureInfo[];
   mutate: () => void;
   duplicate?: (() => void) | null;
   editTags?: (() => void) | null;
   editProject?: (() => void) | null;
   idea?: IdeaInterface;
+  checklistItemsRemaining: number | null;
+  setChecklistItemsRemaining: (value: number | null) => void;
   editVariations?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
+  urlRedirects: URLRedirectInterface[];
   newPhase?: (() => void) | null;
   editPhases?: (() => void) | null;
   editPhase?: ((i: number | null) => void) | null;
@@ -63,6 +64,7 @@ export interface Props {
 
 export default function TabbedPage({
   experiment,
+  linkedFeatures,
   mutate,
   duplicate,
   editProject,
@@ -70,11 +72,14 @@ export default function TabbedPage({
   idea,
   editVariations,
   visualChangesets,
+  urlRedirects,
   editPhases,
   editTargeting,
   newPhase,
   editMetrics,
   editResult,
+  checklistItemsRemaining,
+  setChecklistItemsRemaining,
 }: Props) {
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
@@ -91,6 +96,22 @@ export default function TabbedPage({
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
   const [featureModal, setFeatureModal] = useState(false);
+  const [urlRedirectModal, setUrlRedirectModal] = useState(false);
+  const [healthNotificationCount, setHealthNotificationCount] = useState(0);
+
+  // Results tab filters
+  const [baselineRow, setBaselineRow] = useState<number>(0);
+  const [differenceType, setDifferenceType] = useState<DifferenceType>(
+    "relative"
+  );
+  const [variationFilter, setVariationFilter] = useState<number[]>([]);
+  const [metricFilter, setMetricFilter] = useLocalStorage<ResultsMetricFilters>(
+    `experiment-page__${experiment.id}__metric_filter`,
+    {
+      tagOrder: [],
+      filterByTag: false,
+    }
+  );
 
   useEffect(() => {
     const handler = () => {
@@ -119,49 +140,35 @@ export default function TabbedPage({
     });
   };
 
-  const { features, mutate: mutateFeatures } = useFeaturesList(false);
-  const environments = useEnvironments();
+  const handleIncrementHealthNotifications = useCallback(() => {
+    setHealthNotificationCount((prev) => prev + 1);
+  }, []);
 
-  const { linkedFeatures, legacyFeatures } = useMemo(() => {
-    const environmentIds = environments.map((e) => e.id);
-
-    const linkedFeatures: LinkedFeature[] = [];
-    const legacyFeatures: LinkedFeature[] = [];
-
-    features.forEach((feature) => {
-      const refRules = getMatchingRules(
-        feature,
-        (rule) =>
-          rule.type === "experiment-ref" && rule.experimentId === experiment.id,
-        environmentIds
-      );
-      if (refRules.length > 0) {
-        linkedFeatures.push({ feature, rules: refRules });
-        return;
-      }
-
-      const legacyRules = getMatchingRules(
-        feature,
-        (rule) =>
-          rule.type === "experiment" &&
-          (rule.trackingKey || feature.id) === experiment.trackingKey,
-        environmentIds
-      );
-      if (legacyRules.length > 0) {
-        legacyFeatures.push({ feature, rules: legacyRules });
-      }
-    });
-
-    return { linkedFeatures, legacyFeatures };
-  }, [features, environments, experiment.id, experiment.trackingKey]);
+  const handleSnapshotChange = useCallback(() => {
+    // Reset notifications when snapshot changes and the health tab needs to re-render
+    setHealthNotificationCount(0);
+  }, []);
 
   const hasLiveLinkedChanges = includeExperimentInPayload(
     experiment,
-    features.filter((f) => experiment.linkedFeatures?.includes(f.id))
+    linkedFeatures.map((f) => f.feature)
   );
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const connections = sdkConnectionsData?.connections || [];
+
+  const projectConnections = connections.filter(
+    (connection) =>
+      !connection.projects.length ||
+      connection.projects.includes(experiment.project || "")
+  );
+  const matchingConnections = projectConnections.filter(
+    (connection) =>
+      !visualChangesets.length || connection.includeVisualExperiments
+  );
+  const verifiedConnections = matchingConnections.filter(
+    (connection) => connection.connected
+  );
 
   const watcherIds = useApi<{
     userIds: string[];
@@ -171,8 +178,8 @@ export default function TabbedPage({
   // Get name or email of all active users watching this experiment
   const usersWatching = (watcherIds?.data?.userIds || [])
     .map((id) => users.get(id))
-    .filter(Boolean)
-    .map((u) => u?.name || u?.email);
+    .filter(isDefined)
+    .map((u) => u.name || u.email);
 
   const safeToEdit = experiment.status !== "running" || !hasLiveLinkedChanges;
 
@@ -223,6 +230,15 @@ export default function TabbedPage({
           cta="Open Visual Editor"
         />
       )}
+      {urlRedirectModal && (
+        <UrlRedirectModal
+          mode="add"
+          experiment={experiment}
+          mutate={mutate}
+          close={() => setUrlRedirectModal(false)}
+          cta="Add Redirect"
+        />
+      )}
       {statusModal && (
         <EditStatusModal
           experiment={experiment}
@@ -232,14 +248,12 @@ export default function TabbedPage({
       )}
       {featureModal && (
         <FeatureFromExperimentModal
-          features={features}
           experiment={experiment}
           close={() => setFeatureModal(false)}
-          onSuccess={async () => {
-            await mutateFeatures();
-          }}
+          mutate={mutate}
         />
       )}
+      {/* TODO: Update Experiment Header props to include redirest and pipe through to StartExperimentBanner */}
       <ExperimentHeader
         experiment={experiment}
         tab={tab}
@@ -253,12 +267,12 @@ export default function TabbedPage({
         duplicate={duplicate}
         usersWatching={usersWatching}
         editResult={editResult || undefined}
-        connections={connections}
-        linkedFeatures={linkedFeatures}
-        visualChangesets={visualChangesets}
         editTargeting={editTargeting}
         newPhase={newPhase}
         editPhases={editPhases}
+        healthNotificationCount={healthNotificationCount}
+        checklistItemsRemaining={checklistItemsRemaining}
+        verifiedConnections={verifiedConnections}
       />
       <div className="container pagecontents pb-4">
         {experiment.project ===
@@ -325,19 +339,23 @@ export default function TabbedPage({
             safeToEdit={safeToEdit}
             editVariations={!viewingOldPhase ? editVariations : undefined}
             disableEditing={viewingOldPhase}
+            linkedFeatures={linkedFeatures}
+            visualChangesets={visualChangesets}
+            editTargeting={editTargeting}
+            verifiedConnections={verifiedConnections}
+            checklistItemsRemaining={checklistItemsRemaining}
+            setChecklistItemsRemaining={setChecklistItemsRemaining}
           />
           <Implementation
             experiment={experiment}
             mutate={mutate}
             setFeatureModal={setFeatureModal}
             setVisualEditorModal={setVisualEditorModal}
+            setUrlRedirectModal={setUrlRedirectModal}
             visualChangesets={visualChangesets}
+            urlRedirects={urlRedirects}
             editTargeting={!viewingOldPhase ? editTargeting : undefined}
             linkedFeatures={linkedFeatures}
-            legacyFeatures={legacyFeatures}
-            mutateFeatures={mutateFeatures}
-            connections={connections}
-            setTab={setTabAndScroll}
           />
           {experiment.status !== "draft" && (
             <div className="mt-3 mb-2 text-center d-print-none">
@@ -354,6 +372,7 @@ export default function TabbedPage({
           )}
         </div>
         <div className={tab === "results" ? "d-block" : "d-none d-print-block"}>
+          {/* TODO: Update ResultsTab props to include redirest and pipe through to StartExperimentBanner */}
           <ResultsTab
             experiment={experiment}
             mutate={mutate}
@@ -368,6 +387,26 @@ export default function TabbedPage({
             editTargeting={editTargeting}
             isTabActive={tab === "results"}
             safeToEdit={safeToEdit}
+            baselineRow={baselineRow}
+            setBaselineRow={setBaselineRow}
+            differenceType={differenceType}
+            setDifferenceType={setDifferenceType}
+            variationFilter={variationFilter}
+            setVariationFilter={setVariationFilter}
+            metricFilter={metricFilter}
+            setMetricFilter={setMetricFilter}
+          />
+        </div>
+        <div className={tab === "health" ? "d-block" : "d-none d-print-block"}>
+          <HealthTab
+            experiment={experiment}
+            onDrawerNotify={handleIncrementHealthNotifications}
+            onSnapshotUpdate={handleSnapshotChange}
+            resetResultsSettings={() => {
+              setBaselineRow(0);
+              setDifferenceType("relative");
+              setVariationFilter([]);
+            }}
           />
         </div>
       </div>
@@ -382,7 +421,7 @@ export default function TabbedPage({
             type="experiment"
             id={experiment.id}
             allowNewComments={!experiment.archived}
-            project={experiment.project}
+            projects={experiment.project ? [experiment.project] : []}
           />
         </div>
       </div>

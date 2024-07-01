@@ -1,7 +1,7 @@
 import { analyticsreporting_v4, google } from "googleapis";
-import { DataSourceType } from "aws-sdk/clients/quicksight";
+import cloneDeep from "lodash/cloneDeep";
+import { ReqContext } from "../../types/organization";
 import {
-  SourceIntegrationConstructor,
   SourceIntegrationInterface,
   MetricValueParams,
   ExperimentMetricQueryResponse,
@@ -10,6 +10,9 @@ import {
   MetricValueQueryResponseRows,
   PastExperimentQueryResponse,
   ExperimentUnitsQueryResponse,
+  ExperimentAggregateUnitsQueryResponse,
+  DimensionSlicesQueryResponse,
+  DropTableQueryResponse,
 } from "../types/Integration";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "../services/datasource";
@@ -20,11 +23,12 @@ import {
 } from "../util/secrets";
 import { sumSquaresFromStats } from "../util/stats";
 import {
+  DataSourceInterface,
   DataSourceProperties,
-  DataSourceSettings,
 } from "../../types/datasource";
 import { MetricInterface } from "../../types/metric";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
+import { applyMetricOverrides } from "../util/integration";
 
 export function getOauth2Client() {
   return new google.auth.OAuth2(
@@ -50,27 +54,39 @@ function convertDate(rawDate: string): string {
   return "";
 }
 
-const GoogleAnalytics: SourceIntegrationConstructor = class
-  implements SourceIntegrationInterface {
+export default class GoogleAnalytics implements SourceIntegrationInterface {
   params: GoogleAnalyticsParams;
-  type!: DataSourceType;
-  datasource!: string;
-  organization!: string;
-  settings: DataSourceSettings;
-  decryptionError!: boolean;
+  context: ReqContext;
+  datasource: DataSourceInterface;
+  decryptionError: boolean;
 
-  constructor(encryptedParams: string) {
+  constructor(context: ReqContext, datasource: DataSourceInterface) {
+    this.context = context;
+    this.datasource = datasource;
+
+    this.decryptionError = false;
     try {
       this.params = decryptDataSourceParams<GoogleAnalyticsParams>(
-        encryptedParams
+        datasource.params
       );
     } catch (e) {
       this.params = { customDimension: "", refreshToken: "", viewId: "" };
       this.decryptionError = true;
     }
-    this.settings = {};
+  }
+  getDropUnitsTableQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runDropTableQuery(): Promise<DropTableQueryResponse> {
+    throw new Error("Method not implemented.");
   }
   getExperimentMetricQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  getExperimentAggregateUnitsQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runExperimentAggregateUnitsQuery(): Promise<ExperimentAggregateUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
   runExperimentMetricQuery(): Promise<ExperimentMetricQueryResponse> {
@@ -86,6 +102,12 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
     throw new Error("Method not implemented.");
   }
   runPastExperimentQuery(): Promise<PastExperimentQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  getDimensionSlicesQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  async runDimensionSlicesQuery(): Promise<DimensionSlicesQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getMetricValueQuery(params: MetricValueParams): string {
@@ -223,8 +245,13 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
 
   getExperimentResultsQuery(
     snapshotSettings: ExperimentSnapshotSettings,
-    metrics: MetricInterface[]
+    metricDocs: MetricInterface[]
   ): string {
+    const metrics = metricDocs.map((m) => {
+      const mCopy = cloneDeep<MetricInterface>(m);
+      applyMetricOverrides(mCopy, snapshotSettings);
+      return mCopy;
+    });
     const metricExpressions = metrics.map((m) => ({
       expression: m.table,
     }));
@@ -333,5 +360,4 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
       };
     });
   }
-};
-export default GoogleAnalytics;
+}

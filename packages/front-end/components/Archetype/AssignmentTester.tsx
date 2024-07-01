@@ -1,92 +1,78 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { FeatureInterface, FeatureTestResult } from "back-end/types/feature";
 import { FaChevronRight } from "react-icons/fa";
-import { useForm } from "react-hook-form";
 import { ArchetypeInterface } from "back-end/types/archetype";
+import { FiAlertTriangle } from "react-icons/fi";
 import { useAuth } from "@/services/auth";
-import { useAttributeSchema } from "@/services/features";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ArchetypeAttributesModal from "@/components/Archetype/ArchetypeAttributesModal";
-import useApi from "@/hooks/useApi";
 import ArchetypeResults from "@/components/Archetype/ArchetypeResults";
 import AttributeForm from "@/components/Archetype/AttributeForm";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Toggle from "@/components/Forms/Toggle";
+import { useArchetype } from "@/hooks/useArchetype";
+import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import styles from "./AssignmentTester.module.scss";
 
 export interface Props {
   feature: FeatureInterface;
+  version: number;
 }
 
-export default function AssignmentTester({ feature }: Props) {
+export default function AssignmentTester({ feature, version }: Props) {
   const [open, setOpen] = useState(false);
   const [formValues, setFormValues] = useState({});
   const [results, setResults] = useState<null | FeatureTestResult[]>(null);
   const [expandResults, setExpandResults] = useState<number[]>([]);
-  const [showSimulateForm, setShowSimulateForm] = useState<boolean | null>(
-    null
-  );
   const [
     openArchetypeModal,
     setOpenArchetypeModal,
   ] = useState<null | Partial<ArchetypeInterface>>(null);
+  const [skipRulesWithPrerequisites, setSkipRulesWithPrerequisites] = useState(
+    false
+  );
+
+  const { data, mutate: mutateData } = useArchetype({
+    feature,
+    version,
+    skipRulesWithPrerequisites,
+  });
 
   const { apiCall } = useAuth();
 
-  const { data, error, mutate } = useApi<{
-    status: number;
-    archetype: ArchetypeInterface[];
-    featureResults: Record<string, FeatureTestResult[]>;
-  }>(`/archetype/eval/${feature.id}`);
+  const hasPrerequisites = useMemo(() => {
+    if (feature?.prerequisites?.length) return true;
+    if (
+      Object.values(feature?.environmentSettings ?? {}).some((env) =>
+        env?.rules?.some((rule) => !!rule?.prerequisites?.length)
+      )
+    )
+      return true;
+    return false;
+  }, [feature]);
 
   const { hasCommercialFeature } = useUser();
   const hasArchetypeAccess = hasCommercialFeature("archetypes");
 
-  const attributeSchema = useAttributeSchema(true);
-
-  const orderedAttributes = useMemo(
-    () => [
-      ...attributeSchema.filter((o) => !o.archived),
-      ...attributeSchema.filter((o) => o.archived),
-    ],
-    [attributeSchema]
-  );
-
-  const attributesMap = new Map();
-  const defaultValues = orderedAttributes
-    .filter((o) => !o.archived)
-    .reduce((list, attr) => {
-      attributesMap.set(attr.property, attr);
-      const defaultValue = attr.datatype === "boolean" ? false : undefined;
-      return { ...list, [attr.property]: defaultValue };
-    }, {});
-
-  // eslint-disable-next-line
-  const attributeForm = useForm<any>({
-    defaultValues: defaultValues,
-  });
-
-  useEffect(() => {
-    mutate().then(() => {
-      //this mutate is needed to update the Archetype results when the feature rules change
-    });
-  }, [mutate, feature]);
-
   useEffect(() => {
     apiCall<{
       results: FeatureTestResult[];
-    }>(`/feature/${feature.id}/eval`, {
+    }>(`/feature/${feature.id}/${version}/eval`, {
       method: "POST",
-      body: JSON.stringify({ attributes: formValues }),
+      body: JSON.stringify({
+        attributes: formValues,
+        skipRulesWithPrerequisites,
+      }),
     })
       .then((data) => {
         setResults(data.results);
       })
       .catch((e) => console.error(e));
-  }, [formValues, apiCall, feature]);
+  }, [formValues, apiCall, feature, version, skipRulesWithPrerequisites]);
 
   const showResults = () => {
     if (!results) {
@@ -254,138 +240,141 @@ export default function AssignmentTester({ feature }: Props) {
     );
   };
 
-  if (hasArchetypeAccess) {
-    if (!data) {
-      return <div>Loading...</div>;
-    }
-    if (error) {
-      return null;
-    }
-  }
-
   return (
     <>
-      {!open ? (
-        <div className="appbox mb-4 p-3">
-          <div
-            className="d-flex flex-row align-items-center justify-content-between cursor-pointer"
-            onClick={() => setOpen(!open)}
-          >
-            <div>
-              Simulate how your rules will apply to users.{" "}
-              <Tooltip body="Enter attributes, like are set by your app via the SDK, and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
+      {hasPrerequisites && (
+        <div
+          className="d-flex justify-content-end position-relative mb-2"
+          style={{ marginTop: -30, zIndex: 1 }}
+        >
+          <div>
+            <div className="text-gray">
+              <span className="font-weight-bold">Prereq evaluation:</span>{" "}
+              <span>
+                Top-level: <span className="text-success">pass</span>.
+              </span>{" "}
+              <span>
+                Override rules:{" "}
+                {skipRulesWithPrerequisites ? (
+                  <span className="text-danger">fail</span>
+                ) : (
+                  <span className="text-success">pass</span>
+                )}
+                .
+              </span>
             </div>
-            <div className="cursor-pointer" onClick={() => setOpen(!open)}>
-              <FaChevronRight
-                style={{
-                  transform: `rotate(${open ? "90deg" : "0deg"})`,
-                }}
+            <div className="d-flex mt-1 align-items-center">
+              <div className="flex-1" />
+              <label
+                className="mb-1 mr-2 small"
+                htmlFor="skipRulesWithPrerequisites"
+              >
+                Skip rules with prerequisite targeting
+              </label>
+              <Toggle
+                id="skipRulesWithPrerequisites"
+                value={skipRulesWithPrerequisites}
+                setValue={(v) => setSkipRulesWithPrerequisites(v)}
               />
             </div>
           </div>
         </div>
-      ) : (
-        <>
-          <div style={{ position: "relative" }}>
-            <div
-              className="cursor-pointer"
-              onClick={() => setOpen(!open)}
-              style={{ position: "absolute", top: "-26px", right: "10px" }}
-            >
-              <FaChevronRight
-                style={{
-                  transform: `rotate(${open ? "90deg" : "0deg"})`,
-                }}
-              />
-            </div>
-          </div>
+      )}
+
+      <div>
+        {data && data?.archetype.length > 0 && (
+          <ArchetypeResults
+            feature={feature}
+            archetype={data.archetype}
+            featureResults={data.featureResults}
+            onChange={() => mutateData()}
+          />
+        )}
+      </div>
+
+      <div className="appbox p-3">
+        <div
+          className="d-flex flex-row align-items-center justify-content-between cursor-pointer"
+          onClick={() => {
+            setOpen(!open);
+          }}
+        >
           <div>
-            {data && data?.archetype.length > 0 && (
-              <ArchetypeResults
-                feature={feature}
-                archetype={data.archetype}
-                featureResults={data.featureResults}
-                onChange={async () => {
-                  await mutate();
-                }}
-              />
-            )}
+            Simulate how your rules will apply to users.{" "}
+            <Tooltip body="Enter attributes and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
           </div>
 
-          <div className="appbox p-3">
-            <div
-              className="d-flex flex-row align-items-center justify-content-between cursor-pointer"
-              onClick={() => {
-                if (data && data?.archetype.length > 0) {
-                  setShowSimulateForm(!showSimulateForm);
-                }
+          <div className="cursor-pointer">
+            <FaChevronRight
+              style={{
+                transform: `rotate(${open ? "90deg" : "0deg"})`,
               }}
-            >
-              <div>
-                Simulate how your rules will apply to users.{" "}
-                <Tooltip body="Enter attributes, like are set by your app via the SDK, and see how Growthbook would evaluate this feature for the different environments. Will use draft rules."></Tooltip>
-              </div>
-              {data && data?.archetype.length > 0 && (
-                <div className="cursor-pointer">
-                  <FaChevronRight
-                    style={{
-                      transform: `rotate(${
-                        (showSimulateForm === null &&
-                          !data?.archetype.length) ||
-                        showSimulateForm === true
-                          ? "90deg"
-                          : "0deg"
-                      })`,
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-            {((showSimulateForm === null && !data?.archetype.length) ||
-              showSimulateForm === true) && (
-              <div>
-                {" "}
-                <hr />
-                <div className="row">
-                  <div className="col-6">
-                    <AttributeForm
-                      onChange={(attrs) => {
-                        setFormValues(attrs);
-                      }}
-                    />
-                    <div className="mt-2">
-                      <PremiumTooltip commercialFeature="archetypes">
-                        <a
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setOpenArchetypeModal({
-                              attributes: JSON.stringify(formValues),
-                            });
-                          }}
-                          href="#"
-                          className="btn btn-outline-primary"
-                        >
-                          Save Archetype
-                        </a>
-                      </PremiumTooltip>
-                    </div>
-                  </div>
-                  <div className="mb-2 col-6" style={{ paddingTop: "32px" }}>
-                    <h4>Results</h4>
-                    {showResults()}
-                  </div>
-                </div>
-              </div>
-            )}
+            />
           </div>
-        </>
-      )}
+        </div>
+        {open && (
+          <div>
+            {" "}
+            <hr />
+            <div className="row">
+              <div className="col-6">
+                <AttributeForm
+                  onChange={(attrs) => {
+                    setFormValues(attrs);
+                  }}
+                />
+                <div className="mt-2">
+                  <PremiumTooltip commercialFeature="archetypes">
+                    <a
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setOpenArchetypeModal({
+                          attributes: JSON.stringify(formValues),
+                        });
+                      }}
+                      href="#"
+                      className="btn btn-outline-primary"
+                    >
+                      Save Archetype
+                    </a>
+                  </PremiumTooltip>
+                </div>
+              </div>
+              <div className="mb-2 col-6" style={{ paddingTop: "32px" }}>
+                <h4>
+                  Results{" "}
+                  <div className="text-warning float-right">
+                    <Tooltip
+                      body={
+                        <>
+                          These results use the JS SDK, which supports the V2
+                          hashing algorithm. If you use one of the older or
+                          unsupported SDKs, you may want to change the hashing
+                          algorithm of the experiment to v1 to ensure accurate
+                          results.
+                          <br />
+                          <br />
+                          The following SDK versions support V2 hashing:
+                          <MinSDKVersionsList capability="bucketingV2" />
+                        </>
+                      }
+                    >
+                      <FiAlertTriangle />
+                    </Tooltip>
+                  </div>
+                </h4>
+                {showResults()}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
       {openArchetypeModal && (
         <>
           {hasArchetypeAccess ? (
             <ArchetypeAttributesModal
               close={async () => {
-                await mutate();
+                mutateData();
                 setOpenArchetypeModal(null);
               }}
               initialValues={openArchetypeModal}

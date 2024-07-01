@@ -7,7 +7,6 @@ import { useRouter } from "next/router";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactTableModal from "@/components/FactTables/FactTableModal";
 import { GBAddCircle } from "@/components/Icons";
-import usePermissions from "@/hooks/usePermissions";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
@@ -20,6 +19,8 @@ import TagsFilter, {
 import SortedTags from "@/components/Tags/SortedTags";
 import ProjectBadges from "@/components/ProjectBadges";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import { OfficialBadge } from "@/components/Metrics/MetricName";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function FactTablesPage() {
   const {
@@ -31,7 +32,7 @@ export default function FactTablesPage() {
 
   const router = useRouter();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const [aboutOpen, setAboutOpen] = useLocalStorage("aboutFactTables", true);
 
@@ -56,7 +57,7 @@ export default function FactTablesPage() {
       )
     : factTables;
 
-  const canCreate = permissions.check("manageFactTables", project);
+  const canCreate = permissionsUtil.canViewCreateFactTableModal(project);
 
   const factTablesWithLabels = useAddComputedFields(
     filteredFactTables,
@@ -129,9 +130,9 @@ export default function FactTablesPage() {
                 body={
                   <>
                     <p>
-                      <strong>Coming Soon!</strong> GrowthBook will be able to
-                      calculate multiple metrics in a single database query when
-                      they share the same Fact Table.
+                      <strong>Enterprise-Only</strong> GrowthBook calculates
+                      multiple metrics in a single database query when they
+                      share the same Fact Table.
                     </p>
                     <p>
                       For warehouses like BigQuery that charge based on data
@@ -253,6 +254,7 @@ export default function FactTablesPage() {
                 >
                   <td>
                     <Link href={`/fact-tables/${f.id}`}>{f.name}</Link>
+                    <OfficialBadge type="fact table" managedBy={f.managedBy} />
                   </td>
                   <td>{f.datasourceName}</td>
                   <td>
@@ -261,11 +263,15 @@ export default function FactTablesPage() {
                   <td className="col-2">
                     {f.projects.length > 0 ? (
                       <ProjectBadges
+                        resourceType="fact table"
                         projectIds={f.projects}
                         className="badge-ellipsis short align-middle"
                       />
                     ) : (
-                      <ProjectBadges className="badge-ellipsis short align-middle" />
+                      <ProjectBadges
+                        resourceType="fact table"
+                        className="badge-ellipsis short align-middle"
+                      />
                     )}
                   </td>
                   <td>
@@ -277,7 +283,7 @@ export default function FactTablesPage() {
                   </td>
                   <td>{f.numMetrics}</td>
                   <td>{f.numFilters}</td>
-                  <td>{date(f.dateUpdated)}</td>
+                  <td>{f.dateUpdated ? date(f.dateUpdated) : null}</td>
                 </tr>
               ))}
 

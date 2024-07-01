@@ -1,17 +1,33 @@
-import useSWR from "swr";
-import { useAuth } from "../services/auth";
+import useSWR, { SWRConfiguration } from "swr";
+import { useAuth } from "@/services/auth";
 
-// eslint-disable-next-line
-export default function useApi<Response = any>(path: string | null) {
-  const { apiCall } = useAuth();
-  const { orgId } = useAuth();
+export interface UseApiOptions {
+  autoRevalidate?: boolean;
+  shouldRun?: () => boolean;
+  orgScoped?: boolean;
+}
+
+export default function useApi<Response = unknown>(
+  path: string,
+  { shouldRun, autoRevalidate = true, orgScoped = true }: UseApiOptions = {}
+) {
+  const { apiCall, orgId } = useAuth();
 
   // Scope the api request to the current organization
-  const key = path === null ? null : orgId + "::" + path;
+  const key = orgScoped ? orgId + "::" + path : path;
 
-  return useSWR<Response, Error>(key, async () =>
-    apiCall<Response>(path, {
-      method: "GET",
-    })
+  const allowed = shouldRun ? shouldRun() : true;
+
+  const config: SWRConfiguration = {};
+
+  if (!autoRevalidate) {
+    config.revalidateOnFocus = false;
+    config.revalidateOnReconnect = false;
+  }
+
+  return useSWR<Response, Error>(
+    allowed ? key : null,
+    async () => apiCall<Response>(path, { method: "GET" }),
+    config
   );
 }

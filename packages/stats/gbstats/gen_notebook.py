@@ -1,14 +1,14 @@
+from dataclasses import dataclass
 from .gbstats import (
-    analyze_metric_df,
-    detect_unknown_variations,
-    diff_for_daily_time_series,
-    get_metric_df,
-    reduce_dimensionality,
+    DataForStatsEngine,
+    filter_query_rows,
+    get_var_id_map,
+    process_analysis,
 )
-from gbstats.shared.constants import StatsEngine
+import pandas as pd
 import nbformat
 from nbformat import v4 as nbf
-from nbformat.v4.nbjson import from_dict
+from nbformat import from_dict
 
 
 def code_cell_df(df, source=""):
@@ -32,51 +32,42 @@ def code_cell_plain(source="", text=""):
     )
 
 
-def create_notebook(
-    url="",
-    hypothesis="",
-    name="",
-    dimension="",
-    var_id_map={},
-    var_names=[],
-    weights=[],
-    run_query="",
-    metrics=[],
-    stats_engine=StatsEngine.BAYESIAN,
-    engine_config={},
-):
+@dataclass
+class NotebookParams:
+    url: str
+    hypothesis: str
+    name: str
+    run_query: str
+
+
+def create_notebook(data: DataForStatsEngine, params: NotebookParams):
+    # parse settings
+    analysis = data.analyses[0]  # only one analysis for notebooks
+    var_id_map = get_var_id_map(analysis.var_ids)
+    gbstats_version: str = "0.8.0"
+
     summary_cols = [
         "dimension",
         "baseline_name",
         "baseline_users",
         "baseline_cr",
-        "baseline_risk",
     ]
-    for i in range(1, len(var_names)):
+    for i in range(1, len(analysis.var_names)):
         summary_cols.append(f"v{i}_name")
         summary_cols.append(f"v{i}_users")
         summary_cols.append(f"v{i}_cr")
         summary_cols.append(f"v{i}_expected")
         summary_cols.append(f"v{i}_ci")
-        if stats_engine == StatsEngine.BAYESIAN:
-            summary_cols.append(f"v{i}_risk")
+        if analysis.stats_engine == "bayesian":
             summary_cols.append(f"v{i}_prob_beat_baseline")
-        elif stats_engine == StatsEngine.FREQUENTIST:
-
+        elif analysis.stats_engine == "frequentist":
             summary_cols.append(f"v{i}_p_value")
 
-    time_series: str = (
-        dimension if dimension in ["pre:datedaily", "pre:datecumulative"] else ""
-    )
-    gbstats_version: str = "0.6.0" if time_series else "0.5.0"
-    additional_import_statement = (
-        ("    diff_for_daily_time_series,\n") if time_series else ""
-    )
     cells = [
         nbf.new_markdown_cell(
-            f"# {name}\n"
-            f"[View on GrowthBook]({url})\n\n"
-            f"**Hypothesis:** {hypothesis}"
+            f"# {params.name}\n"
+            f"[View on GrowthBook]({params.url})\n\n"
+            f"**Hypothesis:** {params.hypothesis}"
         ),
         nbf.new_markdown_cell("## Notebook Setup"),
         nbf.new_code_cell(
@@ -85,151 +76,97 @@ def create_notebook(
             "    import gbstats.utils\n"
             f"    gbstats.utils.check_gbstats_compatibility('{gbstats_version}')\n"
             "except ModuleNotFoundError:\n"
-            f"    raise ValueError('Upgrade gbstats to {gbstats_version} or later from PyPI using `pip install gbstats`')\n"
+            f"    raise ValueError('Upgrade gbstats to {gbstats_version} or later from PyPI using `pip install gbstats`')\n\n"
             "from gbstats.gbstats import (\n"
-            "    analyze_metric_df,\n"
-            "    detect_unknown_variations,\n"
-            f"{additional_import_statement}"
-            "    get_metric_df,\n"
-            "    reduce_dimensionality,\n"
+            "    filter_query_rows,\n"
+            "    process_analysis,\n"
+            "    AnalysisSettingsForStatsEngine,\n"
+            "    MetricSettingsForStatsEngine,\n"
             ")\n"
-            "from gbstats.shared.constants import StatsEngine\n\n"
+            "import pandas as pd\n\n"
             "# Mapping of variation id to index\n"
             f"var_id_map = {str(var_id_map)}\n\n"
-            "# Display names of variations\n"
-            f"var_names = {str(var_names)}\n\n"
-            "# Expected traffic split between variations\n"
-            f"weights = {str(weights)}\n"
-            "# Statistics engine to use\n"
-            f"stats_engine = {str(stats_engine)}\n"
-            "# Engine config\n"
-            f"engine_config = {str(engine_config)}\n"
+            "# Analysis settings\n"
+            f"analysis = {repr(analysis)}\n\n"
             f"# Columns to show in the result summary\n"
             f"summary_cols = {str(summary_cols)}"
         ),
-        nbf.new_code_cell("# User defined runQuery function\n" f"{run_query}"),
+        nbf.new_code_cell("# User defined runQuery function\n" f"{params.run_query}"),
     ]
 
-    for i, metric in enumerate(metrics):
-        name = metric["name"]
-        cells.append(nbf.new_markdown_cell(f"## Metric - {name}"))
-        cells.append(nbf.new_markdown_cell("### Query"))
-        sql = metric["sql"]
+    for i, query in enumerate(data.query_results):
+        metrics = [
+            data.metrics[m] if m in data.metrics else None for m in query.metrics
+        ]
+        if not any(metrics):
+            continue
+        cells.append(
+            nbf.new_markdown_cell(
+                f"## Query {i}\n\n"
+                f"Metric(s): {', '.join([m.name for m in metrics if m])}\n\n"
+            )
+        )
+        df = pd.DataFrame(query.rows)
+        query_prefix = f"q{i}"
         cells.append(
             code_cell_df(
-                df=metric["rows"],
+                df=df,
                 source=(
                     "# Get aggregate metric values per dimension/variation\n"
-                    f'm{i}_sql = """{sql}"""\n\n'
-                    f"m{i}_rows = runQuery(m{i}_sql)\n"
-                    f"display(m{i}_rows)"
+                    f'{query_prefix}_sql = """{query.sql}"""\n\n'
+                    f"{query_prefix}_rows = runQuery({query_prefix}_sql)\n"
+                    f"display({query_prefix}_rows)"
                 ),
             )
         )
-        if len(metric["rows"]) == 0:
-            cells.append(nbf.new_markdown_cell("No data for this metric"))
+
+        if len(df) == 0:
+            cells.append(nbf.new_markdown_cell("No data for these metrics"))
             continue
-
-        cells.append(nbf.new_markdown_cell("### Data Quality Checks / Preparation"))
-
-        if dimension == "pre:datedaily":
-            df = diff_for_daily_time_series(metric["rows"])
+        for j, metric in enumerate(metrics):
+            if not metric:
+                continue
+            cells.append(nbf.new_markdown_cell(f"### Metric - {metric.name}"))
+            metric_prefix = f"q{i}_m{j}"
+            rows = pd.DataFrame(filter_query_rows(query.rows, j))
             cells.append(
                 code_cell_df(
-                    df=df.sort_values(["variation", "dimension"]),
+                    df=rows,
                     source=(
-                        "# Diff values for daily time series\n"
-                        f"m{i}_diffed = diff_for_daily_time_series(m{i}_rows)\n"
-                        f'display(m{i}_diffed.sort_values(["variation", "dimension"]))'
+                        "# Process query to get rows for this metric\n"
+                        f"{metric_prefix}_rows = pd.DataFrame(filter_query_rows({query_prefix}_rows.to_dict('records'), {j}))\n"
+                        f"display({metric_prefix}_rows)"
                     ),
                 )
             )
-            metric_df_name = f"m{i}_diffed"
-            final_df_name = f"m{i}"
-        elif dimension == "pre:datecumulative":
-            df = metric["rows"].copy()
-            metric_df_name = f"m{i}_rows"
-            final_df_name = f"m{i}"
-        else:
-            df = metric["rows"].copy()
-            metric_df_name = f"m{i}_rows"
-            final_df_name = f"m{i}_reduced"
-
-        inverse = metric["inverse"]
-
-        unknown_var_ids = detect_unknown_variations(df, var_id_map)
-        cells.append(
-            code_cell_plain(
-                source=(
-                    "# Identify any variation ids returned from SQL that we aren't expecting\n"
-                    f"unknown_var_ids = detect_unknown_variations(\n"
-                    f"    rows={metric_df_name},\n"
-                    f"    var_id_map=var_id_map\n"
-                    f")\n"
-                    'print("Unexpected variation ids: ", unknown_var_ids)'
-                ),
-                text=("Unexpected variation ids:" + (str(unknown_var_ids))),
-            )
-        )
-
-        df_metric = get_metric_df(
-            rows=df,
-            var_id_map=var_id_map,
-            var_names=var_names,
-        )
-        cells.append(
-            code_cell_df(
-                df=df_metric,
-                source=(
-                    "# Process raw SQL rows into a usable dataframe for analysis\n"
-                    f"m{i} = get_metric_df(\n"
-                    f"    rows={metric_df_name},\n"
-                    f"    var_id_map=var_id_map,\n"
-                    f"    var_names=var_names,\n"
-                    f")\n"
-                    f"display(m{i})"
-                ),
-            )
-        )
-
-        if not time_series:
-            df_metric = reduce_dimensionality(df_metric, max=20)
             cells.append(
-                code_cell_df(
-                    df=df_metric,
+                code_cell_plain(
                     source=(
-                        "# If there are too many dimensions, merge the smaller ones together\n"
-                        f"m{i}_reduced = reduce_dimensionality(m{i}, max=20)\n"
-                        f"display(m{i}_reduced)"
+                        "# Metric Settings\n"
+                        f"{metric_prefix}_settings = {repr(metric)}"
                     ),
                 )
             )
+            cells.append(nbf.new_markdown_cell("#### Result"))
 
-        cells.append(nbf.new_markdown_cell("### Result"))
-
-        result = analyze_metric_df(
-            df=df_metric,
-            weights=weights,
-            inverse=inverse,
-            engine=stats_engine,
-            engine_config=engine_config,
-        )
-        cells.append(
-            code_cell_df(
-                df=result[summary_cols].T,
-                source=(
-                    "# Run the analysis and show a summary of results\n"
-                    f"m{i}_result = analyze_metric_df(\n"
-                    f"    df={final_df_name},\n"
-                    f"    weights=weights,\n"
-                    f"    inverse={inverse},\n"
-                    f"    engine=stats_engine,\n"
-                    f"    engine_config=engine_config,\n"
-                    f")\n"
-                    f"display(m{i}_result[summary_cols].T)"
-                ),
+            result = process_analysis(
+                rows=rows, metric=metric, analysis=analysis, var_id_map=var_id_map
             )
-        )
+            cells.append(
+                code_cell_df(
+                    df=result[summary_cols].T,
+                    source=(
+                        "# Run the analysis and show a summary of results\n"
+                        f"{metric_prefix}_result = process_analysis(\n"
+                        f"    rows={metric_prefix}_rows,\n"
+                        f"    metric={metric_prefix}_settings,\n"
+                        f"    analysis=analysis,\n"
+                        f"    var_id_map=var_id_map,\n"
+                        f")\n"
+                        f"display({metric_prefix}_result[summary_cols].T)"
+                    ),
+                )
+            )
 
     nb = nbf.new_notebook(
         metadata=from_dict(

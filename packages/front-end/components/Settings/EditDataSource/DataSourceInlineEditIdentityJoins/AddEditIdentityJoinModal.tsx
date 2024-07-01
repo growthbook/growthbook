@@ -1,14 +1,16 @@
-import React, { FC, useMemo } from "react";
+import React, { FC, useMemo, useState } from "react";
 import {
   DataSourceInterfaceWithParams,
   IdentityJoinQuery,
 } from "back-end/types/datasource";
 
 import { useForm } from "react-hook-form";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { validateSQL } from "@/services/datasources";
+import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
+import Code from "@/components/SyntaxHighlighting/Code";
 import { isDuplicateIdentityJoin } from "./utils";
 
 type AddEditIdentityJoinModalProps = {
@@ -30,10 +32,8 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
     dataSource.settings.userIdTypes,
   ]);
   const existingIdentityJoins = useMemo(
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    () => dataSource.settings.queries.identityJoins || [],
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    [dataSource.settings.queries.identityJoins]
+    () => dataSource.settings.queries?.identityJoins || [],
+    [dataSource.settings.queries?.identityJoins]
   );
 
   const defaultQuery = useMemo(() => {
@@ -45,6 +45,8 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
       "\nFROM my_table"
     );
   }, [identityTypes]);
+
+  const [sqlOpen, setSqlOpen] = useState(false);
 
   const form = useForm<IdentityJoinQuery>({
     defaultValues: {
@@ -102,61 +104,76 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
   }
 
   return (
-    <Modal
-      open={true}
-      submit={handleSubmit}
-      close={onCancel}
-      size="max"
-      header={modalTitle}
-      cta="Save"
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'boolean | ""' is not assignable to type 'boo... Remove this comment to see the full error message
-      ctaEnabled={saveEnabled}
-      autoFocusSelector="#id-modal-identify-joins-heading"
-    >
-      <h4 id="id-modal-identify-joins-heading">Identifier Join</h4>
-      <p>Queries that return a mapping between different identifier types</p>
+    <>
+      {sqlOpen && (
+        <EditSqlModal
+          close={() => setSqlOpen(false)}
+          datasourceId={dataSource.id}
+          requiredColumns={new Set(userEnteredIdentityJoinIds)}
+          value={userEnteredQuery}
+          save={async (sql) => form.setValue("query", sql)}
+        />
+      )}
+      <Modal
+        open={true}
+        submit={handleSubmit}
+        close={onCancel}
+        size="max"
+        header={modalTitle}
+        cta="Save"
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'boolean | ""' is not assignable to type 'boo... Remove this comment to see the full error message
+        ctaEnabled={saveEnabled}
+        autoFocusSelector="#id-modal-identify-joins-heading"
+      >
+        <h4 id="id-modal-identify-joins-heading">Identifier Join</h4>
+        <p>Queries that return a mapping between different identifier types</p>
 
-      <div className="row">
-        <div className="col-xs-12 col-md-6">
-          <MultiSelectField
-            label="Identifier Types"
-            value={userEnteredIdentityJoinIds}
-            onChange={(value) => {
-              form.setValue("ids", value);
-            }}
-            options={identityTypes.map((idType) => ({
-              value: idType.userIdType,
-              label: idType.userIdType,
-            }))}
-          />
+        <div className="row">
+          <div className="col-xs-12 col-md-6">
+            <MultiSelectField
+              label="Identifier Types"
+              value={userEnteredIdentityJoinIds}
+              onChange={(value) => {
+                form.setValue("ids", value);
+              }}
+              options={identityTypes.map((idType) => ({
+                value: idType.userIdType,
+                label: idType.userIdType,
+              }))}
+            />
 
-          <div>
-            {userEnteredIdentityJoinIds.length ? (
-              <>
-                <div className="pt-md-4">
-                  <strong>Required columns</strong>
-                </div>
-                <ul>
-                  {userEnteredIdentityJoinIds.map((id) => (
-                    <li key={id}>
-                      <code>{id}</code>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : null}
+            <div>
+              {userEnteredIdentityJoinIds.length ? (
+                <>
+                  <div className="pt-md-4">
+                    <strong>Required columns</strong>
+                  </div>
+                  <ul>
+                    {userEnteredIdentityJoinIds.map((id) => (
+                      <li key={id}>
+                        <code>{id}</code>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
+            </div>
+          </div>
+          <div className="col-xs-12 col-md-6">
+            <Code language="sql" code={userEnteredQuery} expandable={true} />
+            <button
+              className="btn btn-outline-primary"
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                setSqlOpen(true);
+              }}
+            >
+              Edit SQL <FaExternalLinkAlt />{" "}
+            </button>
           </div>
         </div>
-
-        <div className="col-xs-12 col-md-6">
-          <CodeTextArea
-            label="SQL Query"
-            language="sql"
-            value={userEnteredQuery}
-            setValue={(sql) => form.setValue("query", sql)}
-          />
-        </div>
-      </div>
-    </Modal>
+      </Modal>
+    </>
   );
 };

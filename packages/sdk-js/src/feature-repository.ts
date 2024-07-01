@@ -2,9 +2,11 @@ import {
   Attributes,
   CacheSettings,
   FeatureApiResponse,
+  FetchResponse,
   Helpers,
   Polyfills,
 } from "./types/growthbook";
+import { getPolyfills } from "./util";
 import type { GrowthBook } from ".";
 
 type CacheEntry = {
@@ -27,17 +29,18 @@ type ScopedChannel = {
 const cacheSettings: CacheSettings = {
   // Consider a fetch stale after 1 minute
   staleTTL: 1000 * 60,
+  // Max time to keep a fetch in cache (24 hours default)
+  maxAge: 1000 * 60 * 60 * 24,
   cacheKey: "gbFeaturesCache",
   backgroundSync: true,
   maxEntries: 10,
   disableIdleStreams: false,
   idleStreamInterval: 20000,
+  disableCache: false,
 };
-const polyfills: Polyfills = {
-  fetch: globalThis.fetch ? globalThis.fetch.bind(globalThis) : undefined,
-  SubtleCrypto: globalThis.crypto ? globalThis.crypto.subtle : undefined,
-  EventSource: globalThis.EventSource,
-};
+
+const polyfills = getPolyfills();
+
 export const helpers: Helpers = {
   fetchFeaturesCall: ({ host, clientKey, headers }) => {
     return (polyfills.fetch as typeof globalThis.fetch)(
@@ -101,7 +104,7 @@ try {
 const subscribedInstances: Map<string, Set<GrowthBook>> = new Map();
 let cacheInitialized = false;
 const cache: Map<string, CacheEntry> = new Map();
-const activeFetches: Map<string, Promise<FeatureApiResponse>> = new Map();
+const activeFetches: Map<string, Promise<FetchResponse>> = new Map();
 const streams: Map<string, ScopedChannel> = new Map();
 const supportsSSE: Set<string> = new Set();
 
@@ -124,25 +127,30 @@ export async function clearCache(): Promise<void> {
   await updatePersistentCache();
 }
 
-export async function refreshFeatures(
-  instance: GrowthBook,
-  timeout?: number,
-  skipCache?: boolean,
-  allowStale?: boolean,
-  updateInstance?: boolean,
-  backgroundSync?: boolean
-): Promise<void> {
+// Get or fetch features and refresh the SDK instance
+export async function refreshFeatures({
+  instance,
+  timeout,
+  skipCache,
+  allowStale,
+  backgroundSync,
+}: {
+  instance: GrowthBook;
+  timeout?: number;
+  skipCache?: boolean;
+  allowStale?: boolean;
+  backgroundSync?: boolean;
+}): Promise<FetchResponse> {
   if (!backgroundSync) {
     cacheSettings.backgroundSync = false;
   }
 
-  const data = await fetchFeaturesWithCache(
+  return fetchFeaturesWithCache({
     instance,
     allowStale,
     timeout,
-    skipCache
-  );
-  updateInstance && data && (await refreshInstance(instance, data));
+    skipCache,
+  });
 }
 
 // Subscribe a GrowthBook instance to feature changes
@@ -186,18 +194,34 @@ async function updatePersistentCache() {
   }
 }
 
-async function fetchFeaturesWithCache(
-  instance: GrowthBook,
-  allowStale?: boolean,
-  timeout?: number,
-  skipCache?: boolean
-): Promise<FeatureApiResponse | null> {
+// SWR wrapper for fetching features. May indirectly or directly start SSE streaming.
+async function fetchFeaturesWithCache({
+  instance,
+  allowStale,
+  timeout,
+  skipCache,
+}: {
+  instance: GrowthBook;
+  allowStale?: boolean;
+  timeout?: number;
+  skipCache?: boolean;
+}): Promise<FetchResponse> {
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
   const now = new Date();
+
+  const minStaleAt = new Date(
+    now.getTime() - cacheSettings.maxAge + cacheSettings.staleTTL
+  );
+
   await initializeCache();
-  const existing = cache.get(cacheKey);
-  if (existing && !skipCache && (allowStale || existing.staleAt > now)) {
+  const existing =
+    !cacheSettings.disableCache && !skipCache ? cache.get(cacheKey) : undefined;
+  if (
+    existing &&
+    (allowStale || existing.staleAt > now) &&
+    existing.staleAt > minStaleAt
+  ) {
     // Restore from cache whether SSE is supported
     if (existing.sse) supportsSSE.add(key);
 
@@ -209,9 +233,17 @@ async function fetchFeaturesWithCache(
     else {
       startAutoRefresh(instance);
     }
-    return existing.data;
+    return { data: existing.data, success: true, source: "cache" };
   } else {
-    return await promiseTimeout(fetchFeatures(instance), timeout);
+    const res = await promiseTimeout(fetchFeatures(instance), timeout);
+    return (
+      res || {
+        data: null,
+        success: false,
+        source: "timeout",
+        error: new Error("Timeout"),
+      }
+    );
   }
 }
 
@@ -251,11 +283,11 @@ function promiseTimeout<T>(
 ): Promise<T | null> {
   return new Promise((resolve) => {
     let resolved = false;
-    let timer: unknown;
+    let timer: NodeJS.Timeout | undefined;
     const finish = (data?: T) => {
       if (resolved) return;
       resolved = true;
-      timer && clearTimeout(timer as NodeJS.Timer);
+      timer && clearTimeout(timer);
       resolve(data || null);
     };
 
@@ -276,7 +308,7 @@ async function initializeCache(): Promise<void> {
       const value = await polyfills.localStorage.getItem(
         cacheSettings.cacheKey
       );
-      if (value) {
+      if (!cacheSettings.disableCache && value) {
         const parsed: [string, CacheEntry][] = JSON.parse(value);
         if (parsed && Array.isArray(parsed)) {
           parsed.forEach(([key, data]) => {
@@ -328,21 +360,25 @@ function onNewFeatureData(
   // If contents haven't changed, ignore the update, extend the stale TTL
   const version = data.dateUpdated || "";
   const staleAt = new Date(Date.now() + cacheSettings.staleTTL);
-  const existing = cache.get(cacheKey);
+  const existing = !cacheSettings.disableCache
+    ? cache.get(cacheKey)
+    : undefined;
   if (existing && version && existing.version === version) {
     existing.staleAt = staleAt;
     updatePersistentCache();
     return;
   }
 
-  // Update in-memory cache
-  cache.set(cacheKey, {
-    data,
-    version,
-    staleAt,
-    sse: supportsSSE.has(key),
-  });
-  cleanupCache();
+  if (!cacheSettings.disableCache) {
+    // Update in-memory cache
+    cache.set(cacheKey, {
+      data,
+      version,
+      staleAt,
+      sse: supportsSSE.has(key),
+    });
+    cleanupCache();
+  }
   // Update local storage (don't await this, just update asynchronously)
   updatePersistentCache();
 
@@ -353,28 +389,13 @@ function onNewFeatureData(
 
 async function refreshInstance(
   instance: GrowthBook,
-  data: FeatureApiResponse
+  data: FeatureApiResponse | null
 ): Promise<void> {
-  await (data.encryptedExperiments
-    ? instance.setEncryptedExperiments(
-        data.encryptedExperiments,
-        undefined,
-        polyfills.SubtleCrypto
-      )
-    : instance.setExperiments(data.experiments || instance.getExperiments()));
-
-  await (data.encryptedFeatures
-    ? instance.setEncryptedFeatures(
-        data.encryptedFeatures,
-        undefined,
-        polyfills.SubtleCrypto
-      )
-    : instance.setFeatures(data.features || instance.getFeatures()));
+  await instance.setPayload(data || instance.getPayload());
 }
 
-async function fetchFeatures(
-  instance: GrowthBook
-): Promise<FeatureApiResponse> {
+// Fetch the features payload from helper function or from in-mem injected payload
+async function fetchFeatures(instance: GrowthBook): Promise<FetchResponse> {
   const { apiHost, apiRequestHeaders } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
   const remoteEval = instance.isRemoteEval();
@@ -404,6 +425,9 @@ async function fetchFeatures(
     // TODO: auto-retry if status code indicates a temporary error
     promise = fetcher
       .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP error: ${res.status}`);
+        }
         if (res.headers.get("x-sse-support") === "enabled") {
           supportsSSE.add(key);
         }
@@ -413,7 +437,7 @@ async function fetchFeatures(
         onNewFeatureData(key, cacheKey, data);
         startAutoRefresh(instance);
         activeFetches.delete(cacheKey);
-        return data;
+        return { data, success: true, source: "network" as const };
       })
       .catch((e) => {
         process.env.NODE_ENV !== "production" &&
@@ -423,20 +447,33 @@ async function fetchFeatures(
             error: e ? e.message : null,
           });
         activeFetches.delete(cacheKey);
-        return Promise.resolve({});
+
+        return {
+          data: null,
+          source: "error" as const,
+          success: false,
+          error: e,
+        };
       });
     activeFetches.set(cacheKey, promise);
   }
-  return await promise;
+  return promise;
 }
 
-// Watch a feature endpoint for changes
-// Will prefer SSE if enabled, otherwise fall back to cron
-function startAutoRefresh(instance: GrowthBook): void {
+// Start SSE streaming, listens to feature payload changes and triggers a refresh or re-fetch
+export function startAutoRefresh(
+  instance: GrowthBook,
+  forceSSE: boolean = false
+): void {
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
   const { streamingHost, streamingHostRequestHeaders } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
+
+  if (forceSSE) {
+    supportsSSE.add(key);
+  }
+
   if (
     cacheSettings.backgroundSync &&
     supportsSSE.has(key) &&

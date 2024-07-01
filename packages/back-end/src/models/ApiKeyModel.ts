@@ -2,18 +2,20 @@ import crypto from "crypto";
 import { webcrypto } from "node:crypto";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import omit from "lodash/omit";
-import {
-  ApiKeyInterface,
-  PublishableApiKey,
-  SecretApiKey,
-} from "../../types/apikey";
+import { ApiKeyInterface, SecretApiKey } from "../../types/apikey";
 import {
   IS_MULTI_ORG,
   SECRET_API_KEY,
   SECRET_API_KEY_ROLE,
 } from "../util/secrets";
 import { roleForApiKey } from "../util/api-key.util";
+import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
+import {
+  ToInterface,
+  getCollection,
+  removeMongooseFields,
+} from "../util/mongo.util";
 import { findAllOrganizations } from "./OrganizationModel";
 
 const apiKeySchema = new mongoose.Schema({
@@ -25,7 +27,10 @@ const apiKeySchema = new mongoose.Schema({
   environment: String,
   project: String,
   description: String,
-  organization: String,
+  organization: {
+    type: String,
+    index: true,
+  },
   dateCreated: Date,
   encryptSDK: Boolean,
   encryptionKey: String,
@@ -40,21 +45,13 @@ const apiKeySchema = new mongoose.Schema({
   },
 });
 
-type ApiKeyDocument = mongoose.Document & ApiKeyInterface;
-
 const ApiKeyModel = mongoose.model<ApiKeyInterface>("ApiKey", apiKeySchema);
+const COLLECTION = "apikeys";
 
-const toInterface = (doc: ApiKeyDocument): ApiKeyInterface => {
-  const asJson = omit(
-    doc.toJSON<ApiKeyDocument>({ flattenMaps: true }),
-    ["__v", "_id"]
-  );
-  const role = roleForApiKey(asJson) || undefined;
-
-  return {
-    ...asJson,
-    role,
-  };
+const toInterface: ToInterface<ApiKeyInterface> = (doc) => {
+  const obj = removeMongooseFields(doc);
+  obj.role = roleForApiKey(obj) || undefined;
+  return obj;
 };
 
 export async function generateEncryptionKey(): Promise<string> {
@@ -275,16 +272,25 @@ export async function deleteApiKeyByKey(organization: string, key: string) {
 }
 
 export async function getApiKeyByIdOrKey(
-  organization: string,
+  context: ReqContext | ApiReqContext,
   id: string | undefined,
   key: string | undefined
 ): Promise<ApiKeyInterface | null> {
   if (!id && !key) return null;
 
+  const { org } = context;
+
   const doc = await ApiKeyModel.findOne(
-    id ? { organization, id } : { organization, key }
+    id ? { organization: org.id, id } : { organization: org.id, key }
   );
-  return doc ? toInterface(doc) : null;
+
+  if (!doc) return null;
+
+  const apiKey = toInterface(doc);
+
+  return context.permissions.canReadSingleProjectResource(apiKey.project)
+    ? apiKey
+    : null;
 }
 
 export async function getVisualEditorApiKey(
@@ -316,7 +322,7 @@ export async function lookupOrganizationByApiKey(
     }
   }
 
-  const doc = await ApiKeyModel.findOne({
+  const doc = await getCollection(COLLECTION).findOne({
     key,
   });
 
@@ -325,48 +331,37 @@ export async function lookupOrganizationByApiKey(
 }
 
 export async function getAllApiKeysByOrganization(
-  organization: string
+  context: ReqContext
 ): Promise<ApiKeyInterface[]> {
-  const docs: ApiKeyDocument[] = await ApiKeyModel.find(
-    {
-      organization,
-    },
-    { encryptionKey: 0 }
-  );
-  return docs.map((k) => {
+  const { org } = context;
+
+  const docs = await getCollection(COLLECTION)
+    .find({
+      organization: org.id,
+    })
+    .project({ encryptionKey: 0 })
+    .toArray();
+  const keys = docs.map((k) => {
     const json = toInterface(k);
     if (json.secret) {
       json.key = "";
     }
     return json;
   });
-}
 
-export async function getFirstPublishableApiKey(
-  organization: string,
-  environment: string
-): Promise<null | PublishableApiKey> {
-  const doc = await ApiKeyModel.findOne(
-    {
-      organization,
-      environment,
-      secret: {
-        $ne: true,
-      },
-    },
-    { encryptionKey: 0 }
-  );
-
-  if (!doc) return null;
-
-  return toInterface(doc) as PublishableApiKey;
+  return keys.filter((k) => {
+    return (
+      context.permissions.canReadSingleProjectResource(k.project) ||
+      k.userId === context.userId
+    );
+  });
 }
 
 export async function getUnredactedSecretKey(
   organization: string,
   id: string
 ): Promise<SecretApiKey | null> {
-  const doc = await ApiKeyModel.findOne({
+  const doc = await getCollection(COLLECTION).findOne({
     organization,
     id,
   });

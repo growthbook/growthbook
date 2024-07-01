@@ -7,17 +7,13 @@ import { getMetricValidator } from "../../validators/openapi";
 
 export const getMetric = createApiRequestHandler(getMetricValidator)(
   async (req): Promise<GetMetricResponse> => {
-    const metric = await getMetricById(
-      req.params.id,
-      req.organization.id,
-      false
-    );
+    const metric = await getMetricById(req.context, req.params.id, false);
     if (!metric) {
       throw new Error("Could not find metric with that id");
     }
 
     const datasource = metric.datasource
-      ? await getDataSourceById(metric.datasource, req.organization.id)
+      ? await getDataSourceById(req.context, metric.datasource)
       : null;
 
     return {

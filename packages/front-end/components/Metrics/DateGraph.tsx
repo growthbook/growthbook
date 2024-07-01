@@ -16,11 +16,11 @@ import {
 } from "@visx/tooltip";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ScaleLinear } from "d3-scale";
-import { getValidDate, date } from "shared/dates";
-import { formatConversionRate } from "@/services/metrics";
+import { date, getValidDate } from "shared/dates";
+import { getMetricFormatter } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
+import { PartialOn } from "@/types/utils";
 import styles from "./DateGraph.module.scss";
-type TooltipData = { x: number; y: number; d: Datapoint };
 
 interface Datapoint {
   d: Date | number;
@@ -29,6 +29,8 @@ interface Datapoint {
   c?: number; // count
   oor?: boolean; // out of range
 }
+
+type TooltipData = { x: number; y: number; d: Datapoint };
 
 function getDatapointFromDate(date: number, data: Datapoint[]) {
   // find the closest datapoint to the date
@@ -84,6 +86,8 @@ function getTooltipContents(
   displayCurrency?: string
 ) {
   if (!d || d.oor) return null;
+  const formatter = getMetricFormatter(type);
+  const formatterOptions = { currency: displayCurrency };
   return (
     <>
       {type === "binomial" ? (
@@ -97,22 +101,21 @@ function getTooltipContents(
         <>
           <div className={styles.val}>
             {method === "sum" ? `Σ` : `μ`}:{" "}
-            {formatConversionRate(type, d.v as number, displayCurrency)}
+            {formatter(d.v as number, formatterOptions)}
             {smoothBy === "week" && (
               <sub style={{ fontWeight: "normal", fontSize: 8 }}> smooth</sub>
             )}
           </div>
           {"s" in d && method === "avg" && (
             <div className={styles.secondary}>
-              {`σ`}: {formatConversionRate(type, d.s || 0, displayCurrency)}
+              {`σ`}: {formatter(d.s || 0, formatterOptions)}
               {smoothBy === "week" && (
                 <sub style={{ fontWeight: "normal", fontSize: 8 }}> smooth</sub>
               )}
             </div>
           )}
           <div className={styles.secondary}>
-            {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'number | undefined' is not assig... Remove this comment to see the full error message */}
-            <em>n</em>: {Math.round(d.c)}
+            <em>n</em>: {d.c && Math.round(d.c)}
           </div>
         </>
       )}
@@ -151,13 +154,20 @@ type ExperimentDisplayData = {
   };
 };
 
+// If status is draft, allow partial values, otherwise require everything.
+export type DraftExperiment = PartialOn<
+  ExperimentInterfaceStringDates,
+  "status",
+  "draft"
+>;
+
 interface DateGraphProps {
   type: MetricType;
   smoothBy?: "day" | "week";
   method?: "avg" | "sum";
   dates: Datapoint[];
   showStdDev?: boolean;
-  experiments?: Partial<ExperimentInterfaceStringDates>[];
+  experiments?: DraftExperiment[];
   height?: number;
   margin?: [number, number, number, number];
   onHover?: (ret: { d: number | null }) => void;
@@ -179,12 +189,14 @@ const DateGraph: FC<DateGraphProps> = ({
   const [marginTop, marginRight, marginBottom, marginLeft] = margin;
   const displayCurrency = useCurrency();
 
+  const formatter = getMetricFormatter(type);
+  const formatterOptions = { currency: displayCurrency };
+
   const data = useMemo(
     () =>
       dates.map((row, i) => {
         const key = getValidDate(row.d).getTime();
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-        let value = method === "avg" ? row.v : row.v * row.c;
+        let value = method === "avg" ? row.v : row.v * (row.c || 1);
         let stddev = method === "avg" ? row.s : 0;
         const count = row.c || 1;
 
@@ -193,12 +205,10 @@ const DateGraph: FC<DateGraphProps> = ({
           const windowedDates = dates.slice(Math.max(i - 6, 0), i + 1);
           const days = windowedDates.length;
           const sumValue = windowedDates.reduce((acc, cur) => {
-            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-            return acc + (method === "avg" ? cur.v : cur.v * cur.c);
+            return acc + (method === "avg" ? cur.v : cur.v * (cur.c || 1));
           }, 0);
           const sumStddev = windowedDates.reduce((acc, cur) => {
-            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-            return acc + (method === "avg" ? cur.s : 0);
+            return acc + (method === "avg" && cur.s ? cur.s : 0);
           }, 0);
           value = days ? sumValue / days : 0;
           stddev = days ? sumStddev / days : 0;
@@ -225,13 +235,16 @@ const DateGraph: FC<DateGraphProps> = ({
   const experimentDates: ExperimentDisplayData[] = [];
   const bands = new Map();
 
+  const [
+    highlightExp,
+    setHighlightExp,
+  ] = useState<null | ExperimentDisplayData>(null);
+
   if (experiments && experiments.length > 0) {
     experiments.forEach((e) => {
       if (e.status !== "draft") {
         const expLines: ExperimentDisplayData = {
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
           name: e.name,
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
           id: e.id,
           color: "rgb(136, 132, 216)",
           band: 0,
@@ -253,13 +266,11 @@ const DateGraph: FC<DateGraphProps> = ({
         if (e?.phases) {
           e?.phases.forEach((p) => {
             if (!expLines.dateStarted) expLines.dateStarted = p.dateStarted;
-            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-            else if (p.dateStarted < expLines.dateStarted) {
+            else if (p.dateStarted && p.dateStarted < expLines.dateStarted) {
               expLines.dateStarted = p.dateStarted;
             }
             if (!expLines.dateEnded) expLines.dateEnded = p.dateEnded;
-            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-            else if (p.dateEnded > expLines.dateEnded) {
+            else if (p.dateEnded && p.dateEnded > expLines.dateEnded) {
               expLines.dateEnded = p.dateEnded;
             }
           });
@@ -276,7 +287,8 @@ const DateGraph: FC<DateGraphProps> = ({
     });
     // get all the experiments in order of start date.
     experimentDates.sort((a, b) => {
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      if (!a.dateStarted || !b.dateStarted) return 0;
+
       return a.dateStarted > b.dateStarted ? 1 : -1;
     });
 
@@ -293,8 +305,7 @@ const DateGraph: FC<DateGraphProps> = ({
         } else {
           let fits = true;
           for (let i = 0; i < curBands.length; i++) {
-            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-            if (ed.dateStarted < curBands[i].dateEnded) {
+            if (ed.dateStarted && ed.dateStarted < curBands[i].dateEnded) {
               // it will not fit, there is an overlapping test.
               fits = false;
             }
@@ -370,14 +381,9 @@ const DateGraph: FC<DateGraphProps> = ({
     tooltipTop = 0,
   } = useTooltip<TooltipData>();
 
-  const [toolTipTimer, setToolTipTimer] = useState<null | ReturnType<
-    typeof setTimeout
-  >>(null);
-
-  const [
-    highlightExp,
-    setHighlightExp,
-  ] = useState<null | ExperimentDisplayData>(null);
+  const [toolTipTimer, setToolTipTimer] = useState<
+    undefined | ReturnType<typeof setTimeout>
+  >();
 
   useEffect(() => {
     if (!hoverDate) {
@@ -513,23 +519,24 @@ const DateGraph: FC<DateGraphProps> = ({
                           <rect
                             key={e.id}
                             fill={e.color}
-                            // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
-                            x={xScale(new Date(e.dateStarted).getTime())}
+                            x={
+                              e.dateStarted
+                                ? xScale(new Date(e.dateStarted).getTime())
+                                : 0
+                            }
                             y={0}
                             width={
-                              // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
-                              xScale(new Date(e.dateEnded).getTime()) -
-                              // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
-                              xScale(new Date(e.dateStarted).getTime())
+                              e.dateEnded && e.dateStarted
+                                ? xScale(new Date(e.dateEnded).getTime()) -
+                                  xScale(new Date(e.dateStarted).getTime())
+                                : 0
                             }
                             style={{ opacity: 0.15 }}
                             height={graphHeight}
                             onMouseOver={() => {
-                              // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
                               clearTimeout(toolTipTimer);
                             }}
                             onMouseLeave={() => {
-                              // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
                               clearTimeout(toolTipTimer);
                               setToolTipTimer(
                                 setTimeout(setHighlightExp, toolTipDelay, null)
@@ -589,8 +596,7 @@ const DateGraph: FC<DateGraphProps> = ({
                           y1={(d) => yScale(addStddev(d.v, d.s, 2, true))}
                           fill={"url(#stripe-pattern)"}
                           opacity={0.3}
-                          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(d: Datapoint, i: number) => boolean | undef... Remove this comment to see the full error message
-                          defined={(d, i) => d?.oor || data?.[i - 1]?.oor}
+                          defined={(d, i) => !!(d?.oor || data?.[i - 1]?.oor)}
                           curve={curveMonotoneX}
                         />
                         <AreaClosed
@@ -601,8 +607,7 @@ const DateGraph: FC<DateGraphProps> = ({
                           y1={(d) => yScale(addStddev(d.v, d.s, 1, true))}
                           fill={"url(#stripe-pattern)"}
                           opacity={0.3}
-                          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(d: Datapoint, i: number) => boolean | undef... Remove this comment to see the full error message
-                          defined={(d, i) => d?.oor || data?.[i - 1]?.oor}
+                          defined={(d, i) => !!(d?.oor || data?.[i - 1]?.oor)}
                           curve={curveMonotoneX}
                         />
                       </>
@@ -629,8 +634,7 @@ const DateGraph: FC<DateGraphProps> = ({
                     strokeDasharray={"2,5"}
                     strokeWidth={2}
                     curve={curveMonotoneX}
-                    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(d: Datapoint, i: number) => boolean | undef... Remove this comment to see the full error message
-                    defined={(d, i) => d?.oor || data?.[i - 1]?.oor}
+                    defined={(d, i) => !!(d?.oor || data?.[i - 1]?.oor)}
                   />
                 )}
 
@@ -666,7 +670,7 @@ const DateGraph: FC<DateGraphProps> = ({
                   tickFormat={(v) =>
                     type === "binomial"
                       ? (v as number).toLocaleString()
-                      : formatConversionRate(type, v as number, displayCurrency)
+                      : formatter(v as number, formatterOptions)
                   }
                 />
               </Group>
@@ -677,16 +681,16 @@ const DateGraph: FC<DateGraphProps> = ({
                 >
                   {experimentDates.map((e, i) => {
                     const rectWidth =
-                      // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
-                      xScale(new Date(e.dateEnded).getTime()) -
-                      // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
-                      xScale(new Date(e.dateStarted).getTime());
+                      e.dateEnded && e.dateStarted
+                        ? xScale(new Date(e.dateEnded).getTime()) -
+                          xScale(new Date(e.dateStarted).getTime())
+                        : 0;
                     e.tipPosition = {
                       top: height,
-                      left:
-                        // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
-                        xScale(new Date(e.dateStarted).getTime()) +
-                        Math.min(150, rectWidth / 2),
+                      left: e.dateStarted
+                        ? xScale(new Date(e.dateStarted).getTime()) +
+                          Math.min(150, rectWidth / 2)
+                        : 0,
                     };
 
                     // as this is loading, xScale may return negative numbers, which throws errors in <rect>.
@@ -695,21 +699,21 @@ const DateGraph: FC<DateGraphProps> = ({
                       <rect
                         key={i}
                         fill={e.color}
-                        // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
-                        x={xScale(new Date(e.dateStarted).getTime())}
-                        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                        y={e.band * (expBarHeight + expBarMargin)}
+                        x={
+                          e.dateStarted
+                            ? xScale(new Date(e.dateStarted).getTime())
+                            : 0
+                        }
+                        y={e.band ? e.band * (expBarHeight + expBarMargin) : 0}
                         width={rectWidth}
                         style={{ opacity: e.opacity }}
                         rx={4}
                         height={expBarHeight}
                         onMouseOver={() => {
-                          // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
                           clearTimeout(toolTipTimer);
                           setHighlightExp(e);
                         }}
                         onMouseLeave={() => {
-                          // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
                           clearTimeout(toolTipTimer);
                           setToolTipTimer(
                             setTimeout(setHighlightExp, toolTipDelay, null)
@@ -723,10 +727,8 @@ const DateGraph: FC<DateGraphProps> = ({
             </svg>
             {highlightExp && (
               <Tooltip
-                // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                top={highlightExp.tipPosition.top}
-                // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                left={highlightExp.tipPosition.left}
+                top={highlightExp.tipPosition?.top}
+                left={highlightExp.tipPosition?.left}
                 className={styles.tooltip}
                 style={{
                   position: "absolute",
@@ -734,11 +736,9 @@ const DateGraph: FC<DateGraphProps> = ({
                   zIndex: 9000,
                 }}
                 onMouseOver={() => {
-                  // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
                   clearTimeout(toolTipTimer);
                 }}
                 onMouseLeave={() => {
-                  // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
                   clearTimeout(toolTipTimer);
                   setToolTipTimer(
                     setTimeout(setHighlightExp, toolTipDelay, null)
@@ -749,19 +749,22 @@ const DateGraph: FC<DateGraphProps> = ({
                   style={{ color: "#fff", fontSize: "12px", maxWidth: "250px" }}
                 >
                   <p className="mb-1">
-                    <Link href={`/experiment/${highlightExp.id}`}>
-                      <a style={{ color: "#b3e8ff", fontSize: "12px" }}>
-                        <strong>{highlightExp.name}</strong>
-                      </a>
+                    <Link
+                      href={`/experiment/${highlightExp.id}`}
+                      style={{ color: "#b3e8ff", fontSize: "12px" }}
+                    >
+                      <strong>{highlightExp.name}</strong>
                     </Link>
                   </p>
                   <p className="mb-1">
-                    {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message */}
-                    {date(highlightExp.dateStarted)} -{" "}
-                    {highlightExp.status === "running"
+                    {highlightExp.dateStarted
+                      ? date(highlightExp.dateStarted)
+                      : ""}{" "}
+                    -{" "}
+                    {highlightExp.status === "running" ||
+                    !highlightExp.dateEnded
                       ? ""
-                      : // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-                        date(highlightExp.dateEnded)}
+                      : date(highlightExp.dateEnded)}
                   </p>
                   <p className="mb-1">
                     {highlightExp.status === "running" ? (
