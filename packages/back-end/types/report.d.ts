@@ -61,9 +61,10 @@ export interface ExperimentReportArgs {
   variations: ExperimentReportVariation[];
   coverage?: number;
   segment?: string;
-  metrics: string[];
+  goalMetrics: string[];
+  secondaryMetrics: string[];
   metricOverrides?: MetricOverride[];
-  guardrails?: string[];
+  guardrailMetrics: string[];
   activationMetric?: string;
   queryFilter?: string;
   skipPartialData?: boolean;
@@ -96,8 +97,16 @@ export interface ExperimentReportInterface extends ReportInterfaceBase {
 
 export type ReportInterface = ExperimentReportInterface;
 
-export type LegacyReportInterface = ReportInterface & {
-  args: ExperimentReportArgs & {
+export type LegacyReportInterface = Omit<ReportInterface, "args"> & {
+  args: Omit<
+    ExperimentReportArgs,
+    "goalMetrics" | "guardrailMetrics" | "secondaryMetrics"
+  > & {
     metricRegressionAdjustmentStatuses?: LegacyMetricRegressionAdjustmentStatus[];
+    metrics?: string[];
+    guardrails?: [];
+    goalMetrics?: string[];
+    guardrailMetrics?: string[];
+    secondaryMetrics?: string[];
   };
 };

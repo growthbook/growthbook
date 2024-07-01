@@ -6,6 +6,7 @@ import {
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { MetricInterface, MetricStats } from "back-end/types/metric";
 import { useForm } from "react-hook-form";
+import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -23,19 +24,17 @@ const ManualSnapshotForm: FC<{
   lastAnalysis?: ExperimentSnapshotAnalysis;
   phase: number;
 }> = ({ experiment, close, success, lastAnalysis, phase }) => {
-  const { metrics, getMetricById } = useDefinitions();
+  const { getMetricById } = useDefinitions();
   const { apiCall } = useAuth();
   const { getDatasourceById } = useDefinitions();
 
   const filteredMetrics: MetricInterface[] = [];
 
-  if (metrics) {
-    experiment.metrics.forEach((mid) => {
-      const m = metrics.filter((metric) => metric.id === mid)[0];
-      if (!m) return;
-      filteredMetrics.push(m);
-    });
-  }
+  getAllMetricIdsFromExperiment(experiment, false).forEach((mid) => {
+    const m = getMetricById(mid);
+    if (!m) return;
+    filteredMetrics.push(m);
+  });
 
   const isRatio = (metric: MetricInterface) => {
     if (!metric.denominator) return false;

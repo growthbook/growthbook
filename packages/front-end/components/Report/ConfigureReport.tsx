@@ -15,7 +15,10 @@ import { getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
 import { MetricInterface } from "back-end/types/metric";
 import { DifferenceType } from "@back-end/types/stats";
-import { getMetricSnapshotSettings } from "shared/experiments";
+import {
+  getAllMetricIdsFromExperiment,
+  getMetricSnapshotSettings,
+} from "shared/experiments";
 import { isDefined } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -28,9 +31,7 @@ import { GBCuped, GBSequential } from "@/components/Icons";
 import useApi from "@/hooks/useApi";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { trackReport } from "@/services/track";
-import MetricsSelector, {
-  MetricsSelectorTooltip,
-} from "@/components/Experiment/MetricsSelector";
+import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
@@ -39,6 +40,7 @@ import { AttributionModelTooltip } from "@/components/Experiment/AttributionMode
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 
 export default function ConfigureReport({
   report,
@@ -82,10 +84,10 @@ export default function ConfigureReport({
     "sequential-testing"
   );
 
-  const allExperimentMetricIds = uniq([
-    ...report.args.metrics,
-    ...(report.args.guardrails ?? []),
-  ]);
+  const allExperimentMetricIds = getAllMetricIdsFromExperiment(
+    report.args,
+    false
+  );
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
     getExperimentMetricById(m)
   );
@@ -333,41 +335,23 @@ export default function ConfigureReport({
         </div>
       </div>
 
-      <div className="form-group">
-        <label className="font-weight-bold mb-1">Goal Metrics</label>
-        <div className="mb-1">
-          <span className="font-italic">
-            Metrics you are trying to improve with this experiment.{" "}
-          </span>
-          <MetricsSelectorTooltip />
-        </div>
-        <MetricsSelector
-          selected={form.watch("metrics")}
-          onChange={(metrics) => form.setValue("metrics", metrics)}
-          datasource={report.args.datasource}
-          exposureQueryId={exposureQueryId}
-          project={project?.id}
-          includeFacts={true}
-        />
-      </div>
-      <div className="form-group">
-        <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-        <div className="mb-1">
-          <span className="font-italic">
-            Metrics you want to monitor, but are NOT specifically trying to
-            improve.{" "}
-          </span>
-          <MetricsSelectorTooltip />
-        </div>
-        <MetricsSelector
-          selected={form.watch("guardrails") ?? []}
-          onChange={(metrics) => form.setValue("guardrails", metrics)}
-          datasource={report.args.datasource}
-          exposureQueryId={exposureQueryId}
-          project={project?.id}
-          includeFacts={true}
-        />
-      </div>
+      <ExperimentMetricsSelector
+        datasource={report.args.datasource}
+        exposureQueryId={exposureQueryId}
+        project={project?.id}
+        goalMetrics={form.watch("goalMetrics")}
+        secondaryMetrics={form.watch("secondaryMetrics")}
+        guardrailMetrics={form.watch("guardrailMetrics")}
+        setGoalMetrics={(goalMetrics) =>
+          form.setValue("goalMetrics", goalMetrics)
+        }
+        setSecondaryMetrics={(secondaryMetrics) =>
+          form.setValue("secondaryMetrics", secondaryMetrics)
+        }
+        setGuardrailMetrics={(guardrailMetrics) =>
+          form.setValue("guardrailMetrics", guardrailMetrics)
+        }
+      />
       <DimensionChooser
         // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | null | undefined' is not assignable... Remove this comment to see the full error message
         value={form.watch("dimension")}

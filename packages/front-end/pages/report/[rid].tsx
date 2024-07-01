@@ -8,6 +8,7 @@ import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { IdeaInterface } from "back-end/types/idea";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
 import useApi from "@/hooks/useApi";
@@ -141,6 +142,11 @@ export default function ReportPage() {
   const sequentialTestingEnabled =
     hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled;
   const differenceType = report.args.differenceType ?? "relative";
+
+  const hasMetrics =
+    report.args.goalMetrics.length > 0 ||
+    report.args.secondaryMetrics.length > 0 ||
+    report.args.guardrailMetrics.length > 0;
 
   return (
     <>
@@ -407,10 +413,7 @@ export default function ReportPage() {
                     queryError={report.error}
                     results={report.results?.dimensions}
                     variations={variations}
-                    metrics={[
-                      ...report.args.metrics,
-                      ...(report.args.guardrails || []),
-                    ]}
+                    metrics={getAllMetricIdsFromExperiment(report.args, false)}
                     trackingKey={report.title}
                     project={experimentData?.experiment.project || ""}
                   />
@@ -426,7 +429,7 @@ export default function ReportPage() {
                   <strong>Error refreshing data: </strong> {refreshError}
                 </div>
               )}
-              {report.args.metrics.length === 0 && (
+              {!hasMetrics && (
                 <div className="alert alert-info">
                   Add at least 1 metric to view results.
                 </div>
@@ -435,7 +438,7 @@ export default function ReportPage() {
                 // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                 !report.results.unknownVariations?.length &&
                 queryStatusData.status !== "running" &&
-                report.args.metrics.length > 0 && (
+                hasMetrics && (
                   <div className="alert alert-info">
                     No data yet.{" "}
                     {report.results &&
@@ -456,10 +459,10 @@ export default function ReportPage() {
               report.args.dimension &&
               (report.args.dimension.substring(0, 8) === "pre:date" ? (
                 <DateResults
-                  metrics={report.args.metrics}
-                  guardrails={report.args.guardrails}
-                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                  results={report.results.dimensions}
+                  goalMetrics={report.args.goalMetrics}
+                  secondaryMetrics={report.args.secondaryMetrics}
+                  guardrailMetrics={report.args.guardrailMetrics}
+                  results={report.results?.dimensions || []}
                   seriestype={report.args.dimension}
                   variations={variations}
                   statsEngine={report.args.statsEngine}
@@ -468,16 +471,16 @@ export default function ReportPage() {
               ) : (
                 <BreakDownResults
                   isLatestPhase={true}
-                  metrics={report.args.metrics}
-                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MetricOverride[] | undefined' is not assigna... Remove this comment to see the full error message
-                  metricOverrides={report.args.metricOverrides}
+                  goalMetrics={report.args.goalMetrics}
+                  secondaryMetrics={report.args.secondaryMetrics}
+                  guardrailMetrics={report.args.guardrailMetrics}
+                  metricOverrides={report.args.metricOverrides || []}
                   reportDate={report.dateCreated}
                   results={report.results?.dimensions || []}
                   status={"stopped"}
                   startDate={getValidDate(report.args.startDate).toISOString()}
                   dimensionId={report.args.dimension}
                   activationMetric={report.args.activationMetric}
-                  guardrails={report.args.guardrails}
                   variations={variations}
                   key={report.args.dimension}
                   statsEngine={report.args.statsEngine || DEFAULT_STATS_ENGINE}
@@ -543,9 +546,10 @@ export default function ReportPage() {
                     ).toISOString()}
                     isLatestPhase={true}
                     status={"stopped"}
-                    metrics={report.args.metrics}
+                    goalMetrics={report.args.goalMetrics}
+                    secondaryMetrics={report.args.secondaryMetrics}
+                    guardrailMetrics={report.args.guardrailMetrics}
                     metricOverrides={report.args.metricOverrides ?? []}
-                    guardrails={report.args.guardrails}
                     id={report.id}
                     statsEngine={
                       report.args.statsEngine || DEFAULT_STATS_ENGINE

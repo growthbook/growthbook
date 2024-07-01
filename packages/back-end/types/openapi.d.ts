@@ -977,6 +977,17 @@ export interface components {
               loseRiskThreshold?: number;
             };
           })[];
+        secondaryMetrics: ({
+            metricId: string;
+            overrides: {
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
+              winRiskThreshold?: number;
+              loseRiskThreshold?: number;
+            };
+          })[];
         guardrails: ({
             metricId: string;
             overrides: {
@@ -1042,6 +1053,17 @@ export interface components {
             loseRiskThreshold?: number;
           };
         })[];
+      secondaryMetrics: ({
+          metricId: string;
+          overrides: {
+            delayHours?: number;
+            windowHours?: number;
+            /** @enum {string} */
+            window?: "conversion" | "lookback" | "";
+            winRiskThreshold?: number;
+            loseRiskThreshold?: number;
+          };
+        })[];
       guardrails: ({
           metricId: string;
           overrides: {
@@ -1089,6 +1111,17 @@ export interface components {
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         goals: ({
+            metricId: string;
+            overrides: {
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
+              winRiskThreshold?: number;
+              loseRiskThreshold?: number;
+            };
+          })[];
+        secondaryMetrics: ({
             metricId: string;
             overrides: {
               delayHours?: number;
@@ -3362,6 +3395,17 @@ export interface operations {
                         loseRiskThreshold?: number;
                       };
                     })[];
+                  secondaryMetrics: ({
+                      metricId: string;
+                      overrides: {
+                        delayHours?: number;
+                        windowHours?: number;
+                        /** @enum {string} */
+                        window?: "conversion" | "lookback" | "";
+                        winRiskThreshold?: number;
+                        loseRiskThreshold?: number;
+                      };
+                    })[];
                   guardrails: ({
                       metricId: string;
                       overrides: {
@@ -3425,6 +3469,7 @@ export interface operations {
           description?: string;
           tags?: (string)[];
           metrics?: (string)[];
+          secondaryMetrics?: (string)[];
           guardrailMetrics?: (string)[];
           /** @description Email of the person who owns this experiment */
           owner?: string;
@@ -3568,6 +3613,17 @@ export interface operations {
                       loseRiskThreshold?: number;
                     };
                   })[];
+                secondaryMetrics: ({
+                    metricId: string;
+                    overrides: {
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
                 guardrails: ({
                     metricId: string;
                     overrides: {
@@ -3690,6 +3746,17 @@ export interface operations {
                       loseRiskThreshold?: number;
                     };
                   })[];
+                secondaryMetrics: ({
+                    metricId: string;
+                    overrides: {
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
                 guardrails: ({
                     metricId: string;
                     overrides: {
@@ -3749,6 +3816,7 @@ export interface operations {
           description?: string;
           tags?: (string)[];
           metrics?: (string)[];
+          secondaryMetrics?: (string)[];
           guardrailMetrics?: (string)[];
           /** @description Email of the person who owns this experiment */
           owner?: string;
@@ -3892,6 +3960,17 @@ export interface operations {
                       loseRiskThreshold?: number;
                     };
                   })[];
+                secondaryMetrics: ({
+                    metricId: string;
+                    overrides: {
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
                 guardrails: ({
                     metricId: string;
                     overrides: {
@@ -3964,6 +4043,17 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 goals: ({
+                    metricId: string;
+                    overrides: {
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                secondaryMetrics: ({
                     metricId: string;
                     overrides: {
                       delayHours?: number;
@@ -4842,6 +4932,17 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 goals: ({
+                    metricId: string;
+                    overrides: {
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                secondaryMetrics: ({
                     metricId: string;
                     overrides: {
                       delayHours?: number;

@@ -135,6 +135,7 @@ export interface ExperimentSnapshotSettings {
   dimensions: DimensionForSnapshot[];
   metricSettings: MetricForSnapshot[];
   goalMetrics: string[];
+  secondaryMetrics: string[];
   guardrailMetrics: string[];
   activationMetric: string | null;
   defaultMetricPriorSettings: MetricPriorSettings;

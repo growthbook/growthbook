@@ -20,12 +20,14 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
-import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
+import { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
+import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 export interface EditMetricsFormInterface {
-  metrics: string[];
-  guardrails: string[];
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
   activationMetric: string;
   metricOverrides: MetricOverride[];
 }
@@ -143,8 +145,9 @@ const EditMetricsForm: FC<{
 
   const form = useForm<EditMetricsFormInterface>({
     defaultValues: {
-      metrics: experiment.metrics || [],
-      guardrails: experiment.guardrails || [],
+      goalMetrics: experiment.goalMetrics || [],
+      secondaryMetrics: experiment.secondaryMetrics || [],
+      guardrailMetrics: experiment.guardrailMetrics || [],
       activationMetric: experiment.activationMetric || "",
       metricOverrides: defaultMetricOverrides,
     },
@@ -180,43 +183,23 @@ const EditMetricsForm: FC<{
       })}
       cta="Save"
     >
-      <div className="form-group">
-        <label className="font-weight-bold mb-1">Goal Metrics</label>
-        <div className="mb-1">
-          <span className="font-italic">
-            Metrics you are trying to improve with this experiment.{" "}
-          </span>
-          <MetricsSelectorTooltip />
-        </div>
-        <MetricsSelector
-          selected={form.watch("metrics")}
-          onChange={(metrics) => form.setValue("metrics", metrics)}
-          datasource={experiment.datasource}
-          exposureQueryId={experiment.exposureQueryId}
-          project={experiment.project}
-          autoFocus={true}
-          includeFacts={true}
-        />
-      </div>
-
-      <div className="form-group">
-        <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-        <div className="mb-1">
-          <span className="font-italic">
-            Metrics you want to monitor, but are NOT specifically trying to
-            improve.{" "}
-          </span>
-          <MetricsSelectorTooltip />
-        </div>
-        <MetricsSelector
-          selected={form.watch("guardrails")}
-          onChange={(metrics) => form.setValue("guardrails", metrics)}
-          datasource={experiment.datasource}
-          exposureQueryId={experiment.exposureQueryId}
-          project={experiment.project}
-          includeFacts={true}
-        />
-      </div>
+      <ExperimentMetricsSelector
+        datasource={experiment.datasource}
+        exposureQueryId={experiment.exposureQueryId}
+        project={experiment.project}
+        goalMetrics={form.watch("goalMetrics")}
+        secondaryMetrics={form.watch("secondaryMetrics")}
+        guardrailMetrics={form.watch("guardrailMetrics")}
+        setGoalMetrics={(goalMetrics) =>
+          form.setValue("goalMetrics", goalMetrics)
+        }
+        setSecondaryMetrics={(secondaryMetrics) =>
+          form.setValue("secondaryMetrics", secondaryMetrics)
+        }
+        setGuardrailMetrics={(guardrailMetrics) =>
+          form.setValue("guardrailMetrics", guardrailMetrics)
+        }
+      />
 
       <div className="form-group">
         <label className="font-weight-bold mb-1">Activation Metric</label>

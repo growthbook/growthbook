@@ -174,12 +174,12 @@ const Presentation = ({
             {e?.experiment?.hypothesis
               ? "Hypothesis: " + e.experiment.hypothesis
               : ""}
-            {e?.experiment?.metrics && (
+            {e?.experiment?.goalMetrics && (
               <>
                 <br />
                 <span style={{ fontSize: "1rem" }}>
                   Primary metrics:{" "}
-                  {e?.experiment?.metrics
+                  {e?.experiment?.goalMetrics
                     .map((m) => getExperimentMetricById(m)?.name ?? m)
                     .join(", ")}
                 </span>
@@ -294,9 +294,10 @@ const Presentation = ({
               startDate={phase?.dateStarted ?? ""}
               isLatestPhase={snapshot.phase === experiment.phases.length - 1}
               status={experiment.status}
-              metrics={experiment.metrics}
+              goalMetrics={experiment.goalMetrics}
+              secondaryMetrics={experiment.secondaryMetrics}
+              guardrailMetrics={experiment.guardrailMetrics}
               metricOverrides={experiment.metricOverrides ?? []}
-              guardrails={experiment.guardrails}
               id={experiment.id}
               statsEngine={snapshot?.analyses[0]?.settings.statsEngine}
               pValueCorrection={orgSettings?.pValueCorrection}

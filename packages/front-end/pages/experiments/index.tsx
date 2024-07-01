@@ -6,6 +6,7 @@ import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
+import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
@@ -76,7 +77,7 @@ const ExperimentsPage = (): React.ReactElement => {
 
       return {
         ownerName: getUserDisplay(exp.owner, false) || "",
-        metricNames: exp.metrics
+        metricNames: exp.goalMetrics
           .map((m) => getExperimentMetricById(m)?.name)
           .filter(Boolean),
         projectId,
@@ -182,10 +183,9 @@ const ExperimentsPage = (): React.ReactElement => {
       feature: (item) => item.linkedFeatures || [],
       metric: (item) => [
         ...item.metricNames,
-        ...item.metrics,
-        ...(item.guardrails || []),
-        item.activationMetric,
+        ...getAllMetricIdsFromExperiment(item),
       ],
+      goal: (item) => [...item.metricNames, ...item.goalMetrics],
     },
     filterResults,
   });
