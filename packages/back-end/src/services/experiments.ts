@@ -1960,7 +1960,10 @@ export async function getSettingsForSnapshotMetrics(
 
   const metricMap = await getMetricMap(context);
 
-  const allExperimentMetricIds = getAllMetricIdsFromExperiment(experiment);
+  const allExperimentMetricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false
+  );
   const allExperimentMetrics = allExperimentMetricIds
     .map((id) => metricMap.get(id))
     .filter(isDefined);

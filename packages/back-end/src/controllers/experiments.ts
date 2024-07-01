@@ -712,15 +712,13 @@ export async function postExperiment(
   }
   // Validate that specified metrics exist and belong to the organization
   const oldMetricIds = getAllMetricIdsFromExperiment(experiment);
-  const metricIds = getAllMetricIdsFromExperiment(data);
-  if (metricIds.length) {
+  const newMetricIds = getAllMetricIdsFromExperiment(data).filter(
+    (m) => !oldMetricIds.includes(m)
+  );
+  if (newMetricIds.length) {
     const map = await getMetricMap(context);
-    for (let i = 0; i < metricIds.length; i++) {
-      // Only validate newly added metrics
-      if (oldMetricIds.includes(metricIds[i])) continue;
-
-      const metric = map.get(metricIds[i]);
-
+    for (let i = 0; i < newMetricIds.length; i++) {
+      const metric = map.get(newMetricIds[i]);
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
         if (
@@ -731,7 +729,7 @@ export async function postExperiment(
             status: 400,
             message:
               "Metrics must be tied to the same datasource as the experiment: " +
-              metricIds[i],
+              newMetricIds[i],
           });
           return;
         }
@@ -739,7 +737,7 @@ export async function postExperiment(
         // new metric that's not recognized...
         res.status(403).json({
           status: 403,
-          message: "Unknown metric: " + metricIds[i],
+          message: "Unknown metric: " + newMetricIds[i],
         });
         return;
       }
@@ -1806,7 +1804,7 @@ async function createExperimentSnapshot({
   const statsEngine = settings.statsEngine.value;
 
   const metricMap = await getMetricMap(context);
-  const metricIds = getAllMetricIdsFromExperiment(experiment);
+  const metricIds = getAllMetricIdsFromExperiment(experiment, false);
 
   const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
   const denominatorMetricIds = uniq<string>(

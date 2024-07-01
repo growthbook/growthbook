@@ -612,7 +612,6 @@ export function migrateReport(orig: LegacyReportInterface): ReportInterface {
   const {
     attributionModel,
     metricRegressionAdjustmentStatuses,
-    settingsForSnapshotMetrics,
     metrics,
     guardrails,
     ...otherArgs
@@ -631,7 +630,7 @@ export function migrateReport(orig: LegacyReportInterface): ReportInterface {
 
   if (
     metricRegressionAdjustmentStatuses &&
-    settingsForSnapshotMetrics === undefined
+    newArgs.settingsForSnapshotMetrics === undefined
   ) {
     newArgs.settingsForSnapshotMetrics = metricRegressionAdjustmentStatuses.map(
       (m) => ({
