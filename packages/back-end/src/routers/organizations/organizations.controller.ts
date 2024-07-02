@@ -49,7 +49,7 @@ import {
   getNonSensitiveParams,
   getSourceIntegrationObject,
 } from "../../services/datasource";
-import { updatePassword } from "../../services/users";
+import { getUserByEmail, updatePassword } from "../../services/users";
 import { getAllTags } from "../../models/TagModel";
 import {
   Invite,
@@ -79,6 +79,7 @@ import {
   sendPendingMemberEmail,
   sendNewOrgEmail,
   sendPendingMemberApprovalEmail,
+  sendOwnerEmailChangeEmail,
 } from "../../services/email";
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import { getAllSavedGroups } from "../../models/SavedGroupModel";
@@ -1275,9 +1276,16 @@ export async function putOrganization(
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { name, settings, connections, externalId, licenseKey } = req.body;
+  const {
+    name,
+    ownerEmail,
+    settings,
+    connections,
+    externalId,
+    licenseKey,
+  } = req.body;
 
-  if (connections || name) {
+  if (connections || name || ownerEmail) {
     if (!context.permissions.canManageOrgSettings()) {
       context.permissions.throwPermissionError();
     }
@@ -1325,6 +1333,32 @@ export async function putOrganization(
     if (name) {
       updates.name = name;
       orig.name = org.name;
+    }
+    if (ownerEmail && ownerEmail !== org.ownerEmail) {
+      const newDomain = ownerEmail.trim().split("@")[1];
+      const oldDomain = org.ownerEmail.split("@")[1];
+      if (newDomain !== oldDomain && IS_CLOUD) {
+        throw Error(
+          "Cannot change domains of the owner email. Please contact support or your account admin"
+        );
+      }
+      const newOwnerUser = await getUserByEmail(ownerEmail);
+      if (!newOwnerUser) {
+        throw Error("New owner does not have an account");
+      }
+      updates.ownerEmail = ownerEmail;
+      orig.ownerEmail = org.ownerEmail;
+      // send email to original owner and new owner alerting them of the change:
+      try {
+        await sendOwnerEmailChangeEmail(
+          req.email,
+          org.name,
+          org.ownerEmail,
+          ownerEmail
+        );
+      } catch (e) {
+        req.log.error(e, "Failed to send owner email change email");
+      }
     }
     if (externalId !== undefined) {
       updates.externalId = externalId;

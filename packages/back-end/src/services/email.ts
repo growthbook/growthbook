@@ -285,3 +285,31 @@ export async function sendStripeTrialWillEndEmail({
     text,
   });
 }
+
+export async function sendOwnerEmailChangeEmail(
+  email: string,
+  organization: string,
+  originalOwner: string,
+  newOwner: string
+) {
+  const html = nunjucks.render("owner-email-change.jinja", {
+    email,
+    organization,
+    originalOwner,
+    newOwner,
+  });
+
+  await sendMail({
+    html,
+    subject: `The owner for ${organization} on GrowthBook has changed`,
+    to: originalOwner,
+    text: `The owner for ${organization} on GrowthBook has been changed to ${newOwner} by ${email}`,
+  });
+
+  await sendMail({
+    html,
+    subject: `The owner for ${organization} on GrowthBook has changed`,
+    to: newOwner,
+    text: `The owner for ${organization} on GrowthBook has been changed to ${newOwner} by ${email}`,
+  });
+}

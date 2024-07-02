@@ -18,6 +18,7 @@ export default function OrganizationAndLicenseSettings({
       {editOpen && (
         <EditOrganizationModal
           name={org.name || ""}
+          ownerEmail={org.ownerEmail || ""}
           close={() => setEditOpen(false)}
           mutate={refreshOrg}
         />
