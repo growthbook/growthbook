@@ -22,7 +22,7 @@ You should run power analysis before your experiment starts, to determine how lo
 
 ## What is a minimum detectable effect, and how do I interpret it?
 
-Recall that your relative effect size (which we often refer to as simply the effect size), is the percentage improvement in your metric caused by your feature. For example, suppose that average revenue per customer under control is \$100, while under treatment you expect that it will be $102. This corresponds to a ($102-$100)/$100 = 2% effect size. Effect size is often referred to as lift.
+Recall that your relative effect size (which we often refer to as simply the effect size), is the percentage improvement in your metric caused by your feature. For example, suppose that average revenue per customer under control is \$100, while under treatment you expect that it will be \$102. This corresponds to a (\$102-\$100)/\$100 = 2% effect size. Effect size is often referred to as lift.
 
 Given the sample variance of your metric and the sample size, the minimum detectable effect (MDE) is the smallest effect size for which your power will be at least 80%.
 
@@ -64,7 +64,7 @@ You then input your effect sizes, which are the best guesses for your expected m
 
 ![metric and users input](/images/statistics/power_2.png)
 
-We provide guidance for effect size selection [here](#how-should-i-pick-my-effect-size). For our feature we anticpate a 2% improvement in retention. For retention, the conversion rate is 10%. This 10% number should come from an offline query that measures your conversion rate on your experimental population. We expect a 1% improvement in revenue, which has a mean of $0.10 and a standard deviation of $0.22 (as with conversion rate, the mean and standard deviation come from an offline query that you run on your population). We then submit our data.
+We provide guidance for effect size selection [here](#how-should-i-pick-my-effect-size). For our feature we anticpate a 2% improvement in retention. For retention, the conversion rate is 10%. This 10% number should come from an offline query that measures your conversion rate on your experimental population. We expect a 1% improvement in revenue, which has a mean of \$0.10 and a standard deviation of \$0.22 (as with conversion rate, the mean and standard deviation come from an offline query that you run on your population). We then submit our data.
 
 Now we can see the results!
 ![metric and users input](/images/statistics/power_3.png)
