@@ -80,6 +80,20 @@ export async function getAllFactTablesForOrganization(
     .filter((f) => context.permissions.canReadMultiProjectResource(f.projects));
 }
 
+export async function getFactTablesForDatasource(
+  context: ReqContext,
+  datasource: string
+): Promise<FactTableInterface[]> {
+  const docs = await FactTableModel.find({
+    organization: context.org.id,
+    datasource,
+  });
+
+  return docs
+    .map((doc) => toInterface(doc))
+    .filter((f) => context.permissions.canReadMultiProjectResource(f.projects));
+}
+
 export type FactTableMap = Map<string, FactTableInterface>;
 
 export async function getFactTableMap(
@@ -140,6 +154,30 @@ export async function createFactTable(
 
   const factTable = toInterface(doc);
   return factTable;
+}
+
+export async function createFactTables(
+  context: ReqContext,
+  factTables: Omit<
+    FactTableInterface,
+    "id" | "dateCreated" | "dateUpdated" | "organization" | "datasource"
+  >[],
+  datasource: string
+): Promise<FactTableInterface[]> {
+  const factTablesToCreate: FactTableInterface[] = factTables.map(
+    (factTable) => {
+      return {
+        ...factTable,
+        id: uniqid("ftb_"),
+        datasource,
+        organization: context.org.id,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+      };
+    }
+  );
+
+  return (await FactTableModel.insertMany(factTablesToCreate)).map(toInterface);
 }
 
 export async function updateFactTable(

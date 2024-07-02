@@ -43,6 +43,7 @@ export const entityEvents = {
   segment: ["create", "delete", "update"],
   archetype: ["created", "deleted", "updated"],
   team: ["create", "delete", "update"],
+  factTable: ["autocreate"],
 } as const;
 
 export type EntityEvents = typeof entityEvents;
