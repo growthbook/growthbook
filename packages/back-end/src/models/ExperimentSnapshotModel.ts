@@ -1,4 +1,4 @@
-import mongoose, { FilterQuery } from "mongoose";
+import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
 import {
   ExperimentSnapshotAnalysis,
@@ -199,17 +199,17 @@ export async function updateSnapshot({
   });
 }
 
-export async function addOrUpdateSnapshotAnalysis({
-  organization,
-  id,
-  analysis,
-  context,
-}: {
+export type AddOrUpdateSnapshotAnalysisParams = {
   organization: string;
   id: string;
   analysis: ExperimentSnapshotAnalysis;
   context: Context;
-}) {
+};
+
+export async function addOrUpdateSnapshotAnalysis(
+  params: AddOrUpdateSnapshotAnalysisParams
+) {
+  const { organization, id, analysis, context } = params;
   // looks for snapshots with this ID but WITHOUT these analysis settings
   const experimentSnapshotModel = await ExperimentSnapshotModel.updateOne(
     {
@@ -329,6 +329,66 @@ export async function getLatestSnapshot(
   }).exec();
 
   return all[0] ? toInterface(all[0]) : null;
+}
+
+// Gets latest snapshots per experiment-phase pair
+export async function getLatestSnapshotMultipleExperiments(
+  experimentPhaseMap: Map<string, number>,
+  dimension?: string,
+  withResults: boolean = true
+): Promise<ExperimentSnapshotInterface[]> {
+  const experimentPhasesToGet = new Map(experimentPhaseMap);
+  const query: FilterQuery<ExperimentSnapshotDocument> = {
+    experiment: { $in: Array.from(experimentPhasesToGet.keys()) },
+    dimension: dimension || null,
+    ...(withResults
+      ? {
+          $or: [
+            { status: "success" },
+            // get old snapshots if status field is missing
+            { results: { $exists: true, $type: "array", $ne: [] } },
+          ],
+        }
+      : {}),
+  };
+
+  const aggregatePipeline: PipelineStage[] = [
+    // find all snapshots for those experiments matching dimension and result status
+    { $match: query },
+    // sort so latest is first
+    { $sort: { dateCreated: -1 } },
+    // group by experiment-phase and call latest snapshot `latestSnapshot`
+    {
+      $group: {
+        _id: { experiment: "$experiment", phase: "$phase" },
+        latestSnapshot: { $first: "$$ROOT" },
+      },
+    },
+    // take latest snapshot and put it at the top level so we return an array of snapshots
+    {
+      $replaceRoot: { newRoot: "$latestSnapshot" },
+    },
+  ];
+
+  const all = await ExperimentSnapshotModel.aggregate<ExperimentSnapshotDocument>(
+    aggregatePipeline
+  ).exec();
+
+  const snapshots: ExperimentSnapshotInterface[] = [];
+  if (all[0]) {
+    // get interfaces matching the right phase
+    all.forEach((doc) => {
+      // aggregate returns document directly, no need for toJSON
+      const snapshot = migrateSnapshot(omit(doc, ["__v", "_id"]));
+      const desiredPhase = experimentPhaseMap.get(snapshot.experiment);
+      if (desiredPhase !== undefined && snapshot.phase === desiredPhase) {
+        snapshots.push(snapshot);
+        experimentPhasesToGet.delete(snapshot.experiment);
+      }
+    });
+  }
+
+  return snapshots;
 }
 
 export async function createExperimentSnapshotModel({

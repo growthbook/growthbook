@@ -4,7 +4,11 @@ import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { getAffectedEnvsForExperiment, isDefined } from "shared/util";
+import {
+  getAffectedEnvsForExperiment,
+  getSnapshotAnalysis,
+  isDefined,
+} from "shared/util";
 import { getAllMetricSettingsForSnapshot } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
@@ -12,8 +16,10 @@ import uniq from "lodash/uniq";
 import { DataSourceInterface } from "@back-end/types/datasource";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
+  SnapshotAnalysisParams,
   createManualSnapshot,
   createSnapshot,
+  createSnapshotAnalyses,
   createSnapshotAnalysis,
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
@@ -27,6 +33,7 @@ import {
   getAllExperiments,
   getExperimentById,
   getExperimentByTrackingKey,
+  getExperimentsByIds,
   getPastExperimentsByDatasource,
   hasArchivedExperiments,
   updateExperiment,
@@ -43,6 +50,7 @@ import {
   deleteSnapshotById,
   findSnapshotById,
   getLatestSnapshot,
+  getLatestSnapshotMultipleExperiments,
   updateSnapshot,
   updateSnapshotsOnPhaseDelete,
 } from "../models/ExperimentSnapshotModel";
@@ -301,29 +309,52 @@ export async function getExperiment(
 
 async function _getSnapshot(
   context: ReqContext | ApiReqContext,
-  id: string,
+  experiment: string,
   phase?: string,
   dimension?: string,
   withResults: boolean = true
 ) {
-  const experiment = await getExperimentById(context, id);
+  const experimentObj = await getExperimentById(context, experiment);
 
-  if (!experiment) {
+  if (!experimentObj) {
     throw new Error("Experiment not found");
   }
 
-  if (experiment.organization !== context.org.id) {
+  if (experimentObj.organization !== context.org.id) {
     throw new Error("You do not have access to view this experiment");
   }
 
   if (!phase) {
     // get the latest phase:
-    phase = String(experiment.phases.length - 1);
+    phase = String(experimentObj.phases.length - 1);
   }
 
   return await getLatestSnapshot(
-    experiment.id,
+    experimentObj.id,
     parseInt(phase),
+    dimension,
+    withResults
+  );
+}
+
+async function _getSnapshots(
+  context: ReqContext | ApiReqContext,
+  experiments: string[],
+  dimension?: string,
+  withResults: boolean = true
+): Promise<ExperimentSnapshotInterface[]> {
+  const experimentPhaseMap: Map<string, number> = new Map();
+  const experimentObjs = await getExperimentsByIds(context, experiments);
+  experimentObjs.forEach((e) => {
+    if (e.organization !== context.org.id) {
+      throw new Error("You do not have access to view this experiment");
+    }
+    // get the latest phase:
+    const phase = String(e.phases.length - 1);
+    experimentPhaseMap.set(e.id, parseInt(phase));
+  });
+  return await getLatestSnapshotMultipleExperiments(
+    experimentPhaseMap,
     dimension,
     withResults
   );
@@ -378,11 +409,11 @@ export async function postSnapshotNotebook(
 }
 
 export async function getSnapshots(
-  req: AuthRequest<unknown, unknown, { ids?: string }>,
+  req: AuthRequest<unknown, unknown, { experiments?: string }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
-  const idsString = (req.query?.ids as string) || "";
+  const idsString = (req.query?.experiments as string) || "";
   if (!idsString.length) {
     res.status(200).json({
       status: 200,
@@ -392,16 +423,11 @@ export async function getSnapshots(
   }
 
   const ids = idsString.split(",");
-
-  let snapshotsPromises: Promise<ExperimentSnapshotInterface | null>[] = [];
-  snapshotsPromises = ids.map(async (i) => {
-    return await _getSnapshot(context, i);
-  });
-  const snapshots = await Promise.all(snapshotsPromises);
+  const snapshots = await _getSnapshots(context, ids);
 
   res.status(200).json({
     status: 200,
-    snapshots: snapshots.filter((s) => !!s),
+    snapshots: snapshots,
   });
   return;
 }
@@ -1846,8 +1872,7 @@ async function createExperimentSnapshot({
     useCache,
     defaultAnalysisSettings: analysisSettings,
     additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
-      analysisSettings,
-      experiment
+      analysisSettings
     ),
     settingsForSnapshotMetrics,
     metricMap,
@@ -2076,6 +2101,79 @@ export async function postSnapshotAnalysis(
       message: e.message,
     });
   }
+}
+
+function addCoverageToSnapshotIfMissing(
+  snapshot: ExperimentSnapshotInterface,
+  experiment: ExperimentInterface,
+  phase?: number
+): ExperimentSnapshotInterface {
+  if (snapshot.settings.coverage === undefined) {
+    const latestPhase = experiment.phases.length - 1;
+    snapshot.settings.coverage =
+      experiment.phases[phase ?? latestPhase]?.coverage ?? 1;
+  }
+  return snapshot;
+}
+
+export async function postSnapshotsWithScaledImpactAnalysis(
+  req: AuthRequest<{
+    experiments: string[];
+  }>,
+  res: Response<{ status: 200 } | PrivateApiErrorResponse>
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { experiments } = req.body;
+  if (!experiments.length) {
+    res.status(200).json({
+      status: 200,
+    });
+    return;
+  }
+  const metricMap = await getMetricMap(context);
+
+  // get latest snapshot for latest phase without dimensions but with results
+  const snapshots = await _getSnapshots(context, experiments);
+
+  // Add snapshots missing scaled analysis to list to fetch
+  const experimentObjs = await getExperimentsByIds(context, experiments);
+  const snapshotAnalysesToCreate: SnapshotAnalysisParams[] = [];
+  snapshots.forEach((s) => {
+    const defaultAnalysis = getSnapshotAnalysis(s);
+    if (!defaultAnalysis) return;
+
+    const scaledImpactAnalysisSettings: ExperimentSnapshotAnalysisSettings = {
+      ...defaultAnalysis.settings,
+      differenceType: "scaled",
+    };
+    if (getSnapshotAnalysis(s, scaledImpactAnalysisSettings)) return;
+
+    const experiment = experimentObjs.find((e) => e.id === s.experiment);
+    if (!experiment) return;
+
+    addCoverageToSnapshotIfMissing(s, experiment);
+
+    snapshotAnalysesToCreate.push({
+      experiment: experiment,
+      organization: org,
+      analysisSettings: scaledImpactAnalysisSettings,
+      metricMap: metricMap,
+      snapshot: s,
+    });
+  });
+
+  if (snapshotAnalysesToCreate.length > 0) {
+    await createSnapshotAnalyses(snapshotAnalysesToCreate, context).catch(
+      (e) => {
+        req.log.error(e);
+      }
+    );
+  }
+  res.status(200).json({
+    status: 200,
+  });
+  return;
 }
 
 export async function deleteScreenshot(
