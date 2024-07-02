@@ -32,10 +32,13 @@ import {
   ExperimentReportResults,
   ExperimentReportVariation,
 } from "../../types/report";
+import { ReqContext } from "../../types/organization";
 import { checkSrm } from "../util/stats";
+import { promiseAllChunks } from "../util/promise";
 import { logger } from "../util/logger";
 import {
   ExperimentMetricAnalysisParams,
+  ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
   ExperimentSnapshotTraffic,
@@ -43,6 +46,7 @@ import {
   SnapshotSettingsVariation,
 } from "../../types/experiment-snapshot";
 import { QueryMap } from "../queryRunners/QueryRunner";
+import { updateSnapshotAnalysis } from "../models/ExperimentSnapshotModel";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "../integrations/SqlIntegration";
 import { applyMetricOverrides } from "../util/integration";
 
@@ -236,7 +240,7 @@ function createStatsEngineData(
   };
 }
 
-export async function analyzeSingleExperiment(
+export async function runSnapshotAnalysis(
   params: ExperimentMetricAnalysisParams
 ): Promise<ExperimentMetricAnalysis> {
   const result = (
@@ -436,43 +440,33 @@ export function getMetricsAndQueryDataForStatsEngine(
   };
 }
 
-export async function analyzeExperimentResults({
-  queryData,
-  analysisSettings,
-  snapshotSettings,
-  variationNames,
-  metricMap,
-}: {
-  queryData: QueryMap;
-  analysisSettings: ExperimentSnapshotAnalysisSettings[];
+export type ExperimentMetricAnalysisContext = {
   snapshotSettings: ExperimentSnapshotSettings;
-  variationNames: string[];
-  metricMap: Map<string, ExperimentMetricInterface>;
-}): Promise<ExperimentReportResults[]> {
-  const mdat = getMetricsAndQueryDataForStatsEngine(
-    queryData,
-    metricMap,
-    snapshotSettings
-  );
-  const { queryResults, metricSettings } = mdat;
-  let { unknownVariations } = mdat;
+  organization: string;
+  snapshot: string;
+};
 
-  const results = await analyzeSingleExperiment({
-    id: snapshotSettings.experimentId,
-    coverage: snapshotSettings.coverage ?? 1,
-    phaseLengthHours: Math.max(
-      hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
-      1
-    ),
-    variations: snapshotSettings.variations.map((v, i) => ({
-      ...v,
-      name: variationNames[i] || v.id,
-    })),
-    analyses: analysisSettings,
-    queryResults: queryResults,
-    metrics: metricSettings,
-  });
+export type ExperimentMetricAnalysisData = {
+  analysisObj: ExperimentSnapshotAnalysis;
+  unknownVariations: string[];
+};
 
+export type ExperimentAnalysisParamsContextData = {
+  params: ExperimentMetricAnalysisParams;
+  context: ExperimentMetricAnalysisContext;
+  data: ExperimentMetricAnalysisData;
+};
+
+function parseStatsEngineResult(
+  analysisSettings: ExperimentSnapshotAnalysisSettings[],
+  snapshotSettings: ExperimentSnapshotSettings,
+  queryResults: QueryResultsForStatsEngine[],
+  unknownVariations: string[],
+  result: ExperimentMetricAnalysis
+): ExperimentReportResults[] {
+  let unknownVariationsCopy = [...unknownVariations];
+
+  const experimentReportResults: ExperimentReportResults[] = [];
   // TODO fix for dimension slices and move to health query
   const multipleExposures = Math.max(
     ...queryResults.map(
@@ -481,18 +475,22 @@ export async function analyzeExperimentResults({
     )
   );
 
-  const ret: ExperimentReportResults[] = [];
   analysisSettings.forEach((_, i) => {
     const dimensionMap: Map<
       string,
       ExperimentReportResultDimension
     > = new Map();
-
-    results.forEach(({ metric, analyses }) => {
+    // TODO check for error
+    result.forEach(({ metric, analyses }) => {
+      // each result can have multiple analyses (a set of computations that
+      // use the same snapshot)
+      // we loop over the analyses requested and pull out the results for each one
       const result = analyses[i];
       if (!result) return;
 
-      unknownVariations = unknownVariations.concat(result.unknownVariations);
+      unknownVariationsCopy = unknownVariationsCopy.concat(
+        result.unknownVariations
+      );
 
       result.dimensions.forEach((row) => {
         const dim = dimensionMap.get(row.dimension) || {
@@ -534,15 +532,106 @@ export async function analyzeExperimentResults({
         );
       });
     }
-
-    ret.push({
+    experimentReportResults.push({
       multipleExposures,
-      unknownVariations: Array.from(new Set(unknownVariations)),
+      unknownVariations: Array.from(new Set(unknownVariationsCopy)),
       dimensions,
     });
   });
+  return experimentReportResults;
+}
 
-  return ret;
+export async function writeSnapshotAnalyses(
+  results: MultipleExperimentMetricAnalysis[],
+  paramsMap: Map<string, ExperimentAnalysisParamsContextData>,
+  context: ReqContext
+) {
+  const promises: (() => Promise<void>)[] = [];
+  results.map((result) => {
+    const params = paramsMap.get(result.id);
+    if (!params) return;
+
+    const { organization, snapshot, snapshotSettings } = params.context;
+    const { analyses, queryResults } = params.params;
+    const { analysisObj, unknownVariations } = params.data;
+
+    if (result.error) {
+      analysisObj.results = [];
+      analysisObj.status = "error";
+      analysisObj.error = result.error;
+    } else {
+      const experimentReportResults: ExperimentReportResults[] = parseStatsEngineResult(
+        analyses,
+        snapshotSettings,
+        queryResults,
+        unknownVariations,
+        result.results
+      );
+
+      analysisObj.results = experimentReportResults[0]?.dimensions || [];
+      analysisObj.status = "success";
+      analysisObj.error = undefined;
+    }
+
+    promises.push(async () =>
+      updateSnapshotAnalysis({
+        organization,
+        id: snapshot,
+        analysis: analysisObj,
+        context,
+      })
+    );
+  });
+  if (promises.length > 0) {
+    await promiseAllChunks(promises, 10);
+  }
+}
+
+export async function analyzeExperimentResults({
+  queryData,
+  analysisSettings,
+  snapshotSettings,
+  variationNames,
+  metricMap,
+}: {
+  queryData: QueryMap;
+  analysisSettings: ExperimentSnapshotAnalysisSettings[];
+  snapshotSettings: ExperimentSnapshotSettings;
+  variationNames: string[];
+  metricMap: Map<string, ExperimentMetricInterface>;
+}): Promise<ExperimentReportResults[]> {
+  const mdat = getMetricsAndQueryDataForStatsEngine(
+    queryData,
+    metricMap,
+    snapshotSettings
+  );
+  const { queryResults, metricSettings } = mdat;
+  const { unknownVariations } = mdat;
+
+  const params: ExperimentMetricAnalysisParams = {
+    id: snapshotSettings.experimentId,
+    coverage: snapshotSettings.coverage ?? 1,
+    phaseLengthHours: Math.max(
+      hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
+      1
+    ),
+    variations: snapshotSettings.variations.map((v, i) => ({
+      ...v,
+      name: variationNames[i] || v.id,
+    })),
+    analyses: analysisSettings,
+    queryResults: queryResults,
+    metrics: metricSettings,
+  };
+  const results = await runSnapshotAnalysis(params);
+
+  return parseStatsEngineResult(
+    analysisSettings,
+    snapshotSettings,
+    queryResults,
+    unknownVariations,
+    results
+  );
 }
 export function analyzeExperimentTraffic({
   rows,

@@ -2089,14 +2089,16 @@ export async function postSnapshotAnalysis(
   const metricMap = await getMetricMap(context);
 
   try {
-    await createSnapshotAnalysis({
-      experiment: experiment,
-      organization: org,
-      analysisSettings: analysisSettings,
-      metricMap: metricMap,
-      snapshot: snapshot,
-      context,
-    });
+    await createSnapshotAnalysis(
+      {
+        experiment: experiment,
+        organization: org,
+        analysisSettings: analysisSettings,
+        metricMap: metricMap,
+        snapshot: snapshot,
+      },
+      context
+    );
     res.status(200).json({
       status: 200,
     });
