@@ -62,7 +62,7 @@ const EditOrganizationModal: FC<{
       cta="Save"
     >
       <Field label="Organization Name" required {...form.register("name")} />
-      {existingEmails.length < 30 ? (
+      {existingEmails.length < 100 ? (
         <SelectField
           label="Owner Email"
           value={form.watch("ownerEmail")}
