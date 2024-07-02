@@ -21,7 +21,6 @@ import {
 } from "../services/datasource";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import { getQueriesByDatasource, getQueriesByIds } from "../models/QueryModel";
-import { findSegmentsByDataSource } from "../models/SegmentModel";
 import { findDimensionsByDataSource } from "../models/DimensionModel";
 import {
   createDataSource,
@@ -85,10 +84,8 @@ export async function deleteDataSource(
   }
 
   // Make sure there are no segments
-  const segments = await findSegmentsByDataSource(
-    datasource.id,
-    datasource.organization
-  );
+  const segments = await context.models.segments.getByDataSource(datasource.id);
+
   if (segments.length > 0) {
     throw new Error(
       "Error: Please delete all segments tied to this datasource first."
