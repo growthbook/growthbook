@@ -500,8 +500,7 @@ export interface SourceIntegrationInterface {
   getAutoFactTablesToCreate?: (
     schemaFormat: SchemaFormat,
     existingFactTables: FactTableInterface[],
-    datasourceId: string,
-    schema?: string
+    schema: string
   ) => Promise<AutoFactTableToCreate[]>;
   getAutoMetricsToCreate?: (
     schemaFormat: SchemaFormat,
