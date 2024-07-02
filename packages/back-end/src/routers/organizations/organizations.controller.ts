@@ -1329,13 +1329,7 @@ export async function putOrganization(
       orig.name = org.name;
     }
     if (ownerEmail && ownerEmail !== org.ownerEmail) {
-      const newDomain = ownerEmail.trim().split("@")[1];
-      const oldDomain = org.ownerEmail.split("@")[1];
-      if (newDomain !== oldDomain && IS_CLOUD) {
-        throw Error(
-          "Cannot change domains of the owner email. Please contact support or your account admin"
-        );
-      }
+      // the owner email is being changed
       const newOwnerUser = await getUserByEmail(ownerEmail);
       if (!newOwnerUser) {
         throw Error("New owner does not have an account");

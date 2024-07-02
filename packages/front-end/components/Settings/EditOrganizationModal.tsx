@@ -4,6 +4,8 @@ import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
+import { useUser } from "@/services/UserContext";
+import SelectField from "@/components/Forms/SelectField";
 
 const EditOrganizationModal: FC<{
   name: string;
@@ -12,7 +14,8 @@ const EditOrganizationModal: FC<{
   mutate: () => Promise<unknown>;
 }> = ({ close, mutate, name, ownerEmail }) => {
   const { apiCall, setOrgName } = useAuth();
-
+  const { users } = useUser();
+  const existingEmails = Array.from(users).map(([, user]) => user.email);
   const permissions = usePermissions();
   const canEditOwner = permissions.check("organizationSettings");
 
@@ -39,11 +42,9 @@ const EditOrganizationModal: FC<{
         if (!value?.ownerEmail || value.ownerEmail.trim() === "") {
           throw new Error("Owner email cannot be empty");
         } else {
-          const newDomain = value.ownerEmail.trim().split("@")[1];
-          const oldDomain = ownerEmail.trim().split("@")[1];
-          if (newDomain !== oldDomain) {
+          if (!existingEmails.includes(value.ownerEmail.trim())) {
             throw new Error(
-              "For account security, the owner email domain cannot be changed though the UI. Please contact support for help with account transfers."
+              "This email is not associated with any user in your organization"
             );
           }
         }
@@ -61,13 +62,29 @@ const EditOrganizationModal: FC<{
       cta="Save"
     >
       <Field label="Organization Name" required {...form.register("name")} />
-      <Field
-        label={"Owner Email"}
-        type="email"
-        {...form.register("ownerEmail")}
-        disabled={!canEditOwner}
-        title={canEditOwner ? "" : "Only admins can change this"}
-      />
+      {existingEmails.length < 30 ? (
+        <SelectField
+          label="Owner Email"
+          value={form.watch("ownerEmail")}
+          options={
+            existingEmails.map((e) => ({
+              value: e,
+              label: e,
+            })) ?? []
+          }
+          onChange={(value) => {
+            form.setValue("ownerEmail", value);
+          }}
+        />
+      ) : (
+        <Field
+          label="Owner Email"
+          type="email"
+          {...form.register("ownerEmail")}
+          disabled={!canEditOwner}
+          title={canEditOwner ? "" : "Only admins can change this"}
+        />
+      )}
     </Modal>
   );
 };

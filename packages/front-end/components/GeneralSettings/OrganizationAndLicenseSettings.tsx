@@ -1,9 +1,11 @@
 import { FaPencilAlt } from "react-icons/fa";
-import { useState } from "react";
+import React, { useState } from "react";
 import { OrganizationInterface } from "back-end/types/organization";
+import { FaTriangleExclamation } from "react-icons/fa6";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import { isCloud, isMultiOrg } from "@/services/env";
+import { useUser } from "@/services/UserContext";
 
 export default function OrganizationAndLicenseSettings({
   org,
@@ -13,6 +15,11 @@ export default function OrganizationAndLicenseSettings({
   refreshOrg: () => Promise<void>;
 }) {
   const [editOpen, setEditOpen] = useState(false);
+  const { users } = useUser();
+  const ownerEmailExists = !!Array.from(users).find(
+    (e) => e[1].email === org.ownerEmail
+  );
+
   return (
     <>
       {editOpen && (
@@ -45,8 +52,36 @@ export default function OrganizationAndLicenseSettings({
               </div>
             </div>
             <div className="form-group row">
-              <div className="col-sm-12">
-                <strong>Owner:</strong> {org.ownerEmail}
+              <div
+                className={`col-sm-12 ${
+                  !ownerEmailExists ? "text-danger" : ""
+                }`}
+                title={
+                  !ownerEmailExists
+                    ? "Owner email does not exist in the organization"
+                    : ""
+                }
+              >
+                <strong>Owner:</strong> {org.ownerEmail}{" "}
+                {!ownerEmailExists && (
+                  <span className="text-danger">
+                    <FaTriangleExclamation
+                      className=" ml-1"
+                      title="Owner email does not exist in the organization"
+                      style={{ marginTop: -3 }}
+                    />
+                  </span>
+                )}
+                <a
+                  href="#"
+                  className="pl-1"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setEditOpen(true);
+                  }}
+                >
+                  <FaPencilAlt />
+                </a>
               </div>
             </div>
             {!isCloud() && !isMultiOrg() && (
