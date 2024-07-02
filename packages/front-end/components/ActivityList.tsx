@@ -3,6 +3,7 @@ import { AuditInterface } from "back-end/types/audit";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import useApi from "@/hooks/useApi";
+import { useUser } from "@/services/UserContext";
 import LoadingOverlay from "./LoadingOverlay";
 import Avatar from "./Avatar/Avatar";
 //import { phaseSummary } from "@/services/utils";
@@ -21,6 +22,7 @@ const ActivityList: FC<{
     events: AuditInterface[];
     experiments: { id: string; name: string }[];
   }>("/activity");
+  const { users } = useUser();
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -39,6 +41,10 @@ const ActivityList: FC<{
     <div className="">
       <ul className="list-unstyled simple-divider pl-0 mb-0">
         {events.map((event) => {
+          let name = "API";
+          if ("id" in event.user) {
+            name = users.get(event.user.id)?.name ?? "";
+          }
           return (
             <li key={event.id} className="media d-flex w-100 hover-highlight">
               <Link
@@ -51,6 +57,7 @@ const ActivityList: FC<{
                       email={event.user.email}
                       className="mr-2 float-left"
                       size={24}
+                      name={name}
                     />
                   )}
                   <div className="d-flex flex-column flex-fill ">

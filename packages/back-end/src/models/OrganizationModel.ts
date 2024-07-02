@@ -15,6 +15,11 @@ import {
 import { upgradeOrganizationDoc } from "../util/migrations";
 import { ApiOrganization } from "../../types/openapi";
 import { IS_CLOUD } from "../util/secrets";
+import {
+  ToInterface,
+  getCollection,
+  removeMongooseFields,
+} from "../util/mongo.util";
 
 const baseMemberFields = {
   _id: false,
@@ -122,21 +127,21 @@ const organizationSchema = new mongoose.Schema({
     },
   },
   settings: {},
+  getStartedChecklistItems: [String],
   customRoles: {},
+  deactivatedRoles: [],
 });
 
 organizationSchema.index({ "members.id": 1 });
-
-type OrganizationDocument = mongoose.Document & OrganizationInterface;
 
 const OrganizationModel = mongoose.model<OrganizationInterface>(
   "Organization",
   organizationSchema
 );
+const COLLECTION = "organizations";
 
-function toInterface(doc: OrganizationDocument): OrganizationInterface {
-  return upgradeOrganizationDoc(doc.toJSON());
-}
+const toInterface: ToInterface<OrganizationInterface> = (doc) =>
+  upgradeOrganizationDoc(removeMongooseFields(doc));
 
 export async function createOrganization({
   email,
@@ -201,6 +206,7 @@ export async function createOrganization({
         { property: "utmContent", datatype: "string" },
       ],
     },
+    getStartedChecklistItems: [],
   });
   return toInterface(doc);
 }
@@ -236,7 +242,7 @@ export async function findAllOrganizations(
 }
 
 export async function findOrganizationById(id: string) {
-  const doc = await OrganizationModel.findOne({ id });
+  const doc = await getCollection(COLLECTION).findOne({ id });
   return doc ? toInterface(doc) : null;
 }
 
@@ -307,18 +313,20 @@ export async function getSelfHostedOrganization() {
 }
 
 export async function hasOrganization() {
-  const res = await OrganizationModel.findOne();
+  const res = await getCollection(COLLECTION).findOne();
   return !!res;
 }
 
 export async function findOrganizationsByMemberId(userId: string) {
-  const docs = await OrganizationModel.find({
-    members: {
-      $elemMatch: {
-        id: userId,
+  const docs = await getCollection(COLLECTION)
+    .find({
+      members: {
+        $elemMatch: {
+          id: userId,
+        },
       },
-    },
-  });
+    })
+    .toArray();
   return docs.map(toInterface);
 }
 
@@ -547,5 +555,55 @@ export async function removeCustomRole(
     throw new Error("Role not found");
   }
 
-  await updateOrganization(org.id, { customRoles: newCustomRoles });
+  const updates: Partial<OrganizationInterface> = {
+    customRoles: newCustomRoles,
+  };
+
+  if (org.deactivatedRoles?.includes(id)) {
+    updates.deactivatedRoles = org.deactivatedRoles.filter((r) => r !== id);
+  }
+
+  await updateOrganization(org.id, updates);
+}
+
+export async function deactivateRoleById(
+  org: OrganizationInterface,
+  id: string
+) {
+  if (
+    !RESERVED_ROLE_IDS.includes(id) &&
+    !org.customRoles?.some((role) => role.id === id)
+  ) {
+    throw new Error(`Unable to find role id ${id}`);
+  }
+
+  const deactivatedRoles = new Set<string>(org.deactivatedRoles);
+  deactivatedRoles.add(id);
+
+  await updateOrganization(org.id, {
+    deactivatedRoles: Array.from(deactivatedRoles),
+  });
+}
+
+export async function activateRoleById(org: OrganizationInterface, id: string) {
+  if (!org.deactivatedRoles || !org.deactivatedRoles?.includes(id)) {
+    throw new Error("Cannot activate a role that isn't deactivated");
+  }
+
+  const newDeactivatedRoles = org.deactivatedRoles.filter(
+    (role) => role !== id
+  );
+
+  await updateOrganization(org.id, { deactivatedRoles: newDeactivatedRoles });
+}
+
+export async function addGetStartedChecklistItem(id: string, item: string) {
+  await OrganizationModel.updateOne(
+    {
+      id,
+    },
+    {
+      $addToSet: { getStartedChecklistItems: item },
+    }
+  );
 }

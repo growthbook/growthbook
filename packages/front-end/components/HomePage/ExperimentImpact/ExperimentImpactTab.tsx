@@ -1,19 +1,19 @@
 import Link from "next/link";
 import React, { ReactElement } from "react";
-import { date } from "shared/dates";
-import { FaArrowDown, FaArrowUp, FaExclamationTriangle } from "react-icons/fa";
+import { FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
+import { date } from "shared/dates";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { ExperimentImpactData, ExperimentImpactType, NoExperimentsForImpactBanner, formatImpact } from "@/components/HomePage/ExperimentImpact/ExperimentImpact";
+import {
+  ExperimentImpactData,
+  ExperimentImpactType,
+  NoExperimentsForImpactBanner,
+  formatImpact,
+} from ".";
 
-export function ExperimentImpactTab({
-  experimentImpactData,
-  experimentImpactType,
-  formatter,
-  formatterOptions,
-}: {
+interface Props {
   experimentImpactData: ExperimentImpactData;
   experimentImpactType: ExperimentImpactType;
   formatter: (
@@ -21,7 +21,14 @@ export function ExperimentImpactTab({
     options?: Intl.NumberFormatOptions | undefined
   ) => string;
   formatterOptions: Intl.NumberFormatOptions;
-}) {
+}
+
+export default function ExperimentImpactTab({
+  experimentImpactData,
+  experimentImpactType,
+  formatter,
+  formatterOptions,
+}: Props) {
   const expRows: ReactElement[] = [];
   let anyNullImpact = false;
   experimentImpactData.experiments.forEach((e) => {

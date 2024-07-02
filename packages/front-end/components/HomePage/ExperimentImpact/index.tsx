@@ -1,32 +1,29 @@
-import Link from "next/link";
-import React, { ReactElement, useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import { FaArrowDown, FaArrowUp } from "react-icons/fa";
+import { MdInfoOutline } from "react-icons/md";
+import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { date, getValidDate } from "shared/dates";
+import { getValidDate } from "shared/dates";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
-import { FaArrowDown, FaArrowUp, FaExclamationTriangle } from "react-icons/fa";
-import { useForm } from "react-hook-form";
-import clsx from "clsx";
-import { MdInfoOutline } from "react-icons/md";
-import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
-import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
-import { useCurrency } from "@/hooks/useCurrency";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { useCurrency } from "@/hooks/useCurrency";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
+import MetricSelector from "@/components/Experiment/MetricSelector";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import Field from "@/components/Forms/Field";
+import Toggle from "@/components/Forms/Toggle";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
-import Field from "@/components/Forms/Field";
-import MetricSelector from "@/components/Experiment/MetricSelector";
-import LoadingSpinner from "@/components/LoadingSpinner";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import Toggle from "@/components/Forms/Toggle";
-import { ExperimentImpactTab } from "@/components/HomePage/ExperimentImpact/ExperimentImpactTab";
+import { jamesSteinAdjustment } from "./jamesSteinAdjustment";
+import ExperimentImpactTab from "./ExperimentImpactTab";
 
 export function NoExperimentsForImpactBanner() {
   return (

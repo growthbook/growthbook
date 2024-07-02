@@ -1,5 +1,19 @@
 # Changelog
 
+## **1.1.0** - July 1, 2024
+
+- Fix package.json ESM exports. Can now load the SDK in Astro and Node (with `type="module"`) without errors.
+- Support for larger saved groups (up to 1MB)
+  - New `$inGroup` and `$notInGroup` condition operators which check for membership of a given group ID
+  - New `savedGroups` and `encryptedSavedGroups` payload keys define the members for each saved group
+  - Optimization to prevent including a saved group's members multiple times in one payload
+
+## **1.0.1** - June 11, 2024
+
+- Small refactor to avoid circular dependency warning
+- Fix bug preventing multiple logical targeting operators at the same level (`$or`, `$and`, etc.)
+- Fix typings for timeouts (NodeJS.Timeout vs NodeJS.Timer)
+
 ## **1.0.0** - May 1, 2024
 
 - New `init` and `initSync` functions as a replacement for `loadFeatures`.

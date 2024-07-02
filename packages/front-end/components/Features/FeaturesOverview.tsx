@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   FaDraftingCompass,
   FaExchangeAlt,
@@ -11,7 +11,7 @@ import {
   FaLock,
   FaTimes,
 } from "react-icons/fa";
-import { ago, date } from "shared/dates";
+import { ago, datetime } from "shared/dates";
 import {
   autoMerge,
   checkIfRevisionNeedsReview,
@@ -71,6 +71,7 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import CopyRuleModal from "@/components/Features/CopyRuleModal";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -142,6 +143,10 @@ export default function FeaturesOverview({
     i: number;
     environment: string;
     defaultType?: string;
+  } | null>(null);
+  const [copyRuleModal, setCopyRuleModal] = useState<{
+    environment: string;
+    rules: FeatureRule[];
   } | null>(null);
   const [editCommentModel, setEditCommentModal] = useState(false);
 
@@ -949,7 +954,7 @@ export default function FeaturesOverview({
                 <span className="text-muted">Revision created by</span>{" "}
                 <AuditUser user={revision.createdBy} display="name" />{" "}
                 <span className="text-muted">on</span>{" "}
-                {date(revision.dateCreated)}
+                {datetime(revision.dateCreated)}
               </div>
               <div className="col-auto">
                 <span className="text-muted">Revision Comment:</span>{" "}
@@ -971,7 +976,7 @@ export default function FeaturesOverview({
               {revision.status === "published" && revision.datePublished && (
                 <div className="col-auto">
                   <span className="text-muted">Published on</span>{" "}
-                  {date(revision.datePublished)}
+                  {datetime(revision.datePublished)}
                 </div>
               )}
               {revision.status === "draft" && (
@@ -1045,6 +1050,7 @@ export default function FeaturesOverview({
                               feature={feature}
                               mutate={mutate}
                               setRuleModal={setRuleModal}
+                              setCopyRuleModal={setCopyRuleModal}
                               version={currentVersion}
                               setVersion={setVersion}
                               locked={isLocked}
@@ -1234,6 +1240,17 @@ export default function FeaturesOverview({
             version={currentVersion}
             setVersion={setVersion}
             revisions={revisions}
+          />
+        )}
+        {copyRuleModal !== null && (
+          <CopyRuleModal
+            feature={feature}
+            environment={copyRuleModal.environment}
+            version={currentVersion}
+            setVersion={setVersion}
+            rules={copyRuleModal.rules}
+            cancel={() => setCopyRuleModal(null)}
+            mutate={mutate}
           />
         )}
         {editProjectModal && (

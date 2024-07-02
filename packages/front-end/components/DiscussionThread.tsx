@@ -65,7 +65,7 @@ const DiscussionThread: FC<{
 
             return (
               <li className="media mb-3" key={i}>
-                <Avatar email={email} className="mr-2" />
+                <Avatar email={email} className="mr-2" name={name} />
                 <div className="media-body">
                   {edit === i ? (
                     <CommentForm

@@ -95,11 +95,13 @@ export interface Member extends MemberRoleWithProjects {
   lastLoginDate?: Date;
 }
 
-export interface ExpandedMember extends Member {
+export interface ExpandedMemberInfo {
   email: string;
   name: string;
   verified: boolean;
 }
+
+export type ExpandedMember = Member & ExpandedMemberInfo;
 
 export interface NorthStarMetric {
   //enabled: boolean;
@@ -122,6 +124,7 @@ export interface MetricDefaults {
 
 export interface Namespaces {
   name: string;
+  label: string;
   description: string;
   status: "active" | "inactive";
 }
@@ -279,8 +282,9 @@ export interface OrganizationInterface {
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
   messages?: OrganizationMessage[];
-
+  getStartedChecklistItems?: string[];
   customRoles?: Role[];
+  deactivatedRoles?: string[];
 }
 
 export type NamespaceUsage = Record<

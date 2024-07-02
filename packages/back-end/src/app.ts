@@ -120,7 +120,7 @@ if (SENTRY_DSN) {
   );
 }
 
-if (!process.env.NO_INIT) {
+if (!process.env.NO_INIT && process.env.NODE_ENV !== "test") {
   init();
 }
 
@@ -414,7 +414,6 @@ app.get(
   "/experiments/frequency/month/:num",
   experimentsController.getExperimentsFrequencyMonth
 );
-app.get("/experiments/snapshots/", experimentsController.getSnapshots);
 app.get(
   "/experiments/tracking-key",
   experimentsController.lookupExperimentByTrackingKey
@@ -429,6 +428,8 @@ app.get(
   experimentsController.getSnapshotWithDimension
 );
 app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
+
+app.get("/experiments/snapshots/", experimentsController.getSnapshots);
 app.post(
   "/experiments/snapshots/scaled/",
   experimentsController.postSnapshotsWithScaledImpactAnalysis

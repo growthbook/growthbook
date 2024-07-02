@@ -30,3 +30,4 @@ jobs:
       with:
         name: pr-${{ github.event.number }}-bttf
         timeout: 30m
+        scope: personal

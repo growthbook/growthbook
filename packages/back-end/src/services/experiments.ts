@@ -33,10 +33,11 @@ import {
 import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
 import { MetricPriorSettings } from "@back-end/types/fact-table";
+import { promiseAllChunks } from "../util/promise";
 import { updateExperiment } from "../models/ExperimentModel";
 import { Context } from "../models/BaseModel";
 import {
-  ExperimentMetricAnalysisParams,
+  ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -71,7 +72,6 @@ import {
   LinkedFeatureState,
 } from "../../types/experiment";
 import { findDimensionById } from "../models/DimensionModel";
-import { findSegmentById } from "../models/SegmentModel";
 import {
   DEFAULT_CONVERSION_WINDOW_HOURS,
   EXPERIMENT_REFRESH_FREQUENCY,
@@ -89,11 +89,7 @@ import {
   ApiExperimentResults,
   ApiMetric,
 } from "../../types/openapi";
-import {
-  ExperimentReportResultDimension,
-  ExperimentReportResults,
-  MetricSnapshotSettings,
-} from "../../types/report";
+import { MetricSnapshotSettings } from "../../types/report";
 import {
   postExperimentValidator,
   postMetricValidator,
@@ -101,7 +97,6 @@ import {
   updateExperimentValidator,
 } from "../validators/openapi";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { findProjectById } from "../models/ProjectModel";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
@@ -111,16 +106,18 @@ import { getFeaturesByIds } from "../models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel";
 import { ExperimentRefRule, FeatureRule } from "../../types/feature";
 import { ApiReqContext } from "../../types/api";
+import { ProjectInterface } from "../../types/project";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
   analyzeExperimentResults,
-  analyzeMultipleExperiments,
-  analyzeSingleExperiment,
   getMetricSettingsForStatsEngine,
   getMetricsAndQueryDataForStatsEngine,
+  runSnapshotAnalyses,
+  runSnapshotAnalysis,
+  writeSnapshotAnalyses,
 } from "./stats";
 import { getEnvironmentIdsFromOrg } from "./organizations";
 
@@ -166,7 +163,7 @@ export async function refreshMetric(
     let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
       segment =
-        (await findSegmentById(metric.segment, context.org.id)) || undefined;
+        (await context.models.segments.getById(metric.segment)) || undefined;
       if (!segment || segment.datasource !== metric.datasource) {
         throw new Error("Invalid user segment chosen");
       }
@@ -274,7 +271,7 @@ export async function getManualSnapshotData(
     });
   });
 
-  const result = await analyzeSingleExperiment({
+  const result = await runSnapshotAnalysis({
     id: experiment.id,
     variations: getReportVariations(experiment, phase),
     phaseLengthHours: Math.max(
@@ -674,22 +671,24 @@ export type SnapshotAnalysisParams = {
   snapshot: ExperimentSnapshotInterface;
 };
 
-export async function createMultipleSnapshotAnalysis(
+async function getSnapshotAnalyses(
   params: SnapshotAnalysisParams[],
   context: ReqContext
-): Promise<void> {
+) {
   const analysisParamsMap = new Map<
     string,
-    ExperimentMetricAnalysisParams & {
-      analysis: ExperimentSnapshotAnalysis;
-      unknownVariations: string[];
-      snapshotSettings: ExperimentSnapshotSettings;
-      organization: string;
-      snapshot: string;
-    }
+    ExperimentAnalysisParamsContextData
   >();
-  await params.forEach(
-    async (
+
+  // get queryMap for all snapshots
+  const queryMap = await getQueryMap(
+    context.org.id,
+    params.map((p) => p.snapshot.queries).flat()
+  );
+
+  const createAnalysisPromises: (() => Promise<void>)[] = [];
+  params.forEach(
+    (
       { experiment, organization, analysisSettings, metricMap, snapshot },
       i
     ) => {
@@ -718,19 +717,17 @@ export async function createMultipleSnapshotAnalysis(
         settings: analysisSettings,
         dateCreated: new Date(),
       };
-      // and analysis to mongo record if it does not exist, overwrite if it does
-      addOrUpdateSnapshotAnalysis({
-        organization: organization.id,
-        id: snapshot.id,
-        analysis,
-        context,
-      });
 
-      // Format data correctly
-      const queryMap: QueryMap = await getQueryMap(
-        organization.id,
-        snapshot.queries
+      // promise to add analysis to mongo record if it does not exist, overwrite if it does
+      createAnalysisPromises.push(() =>
+        addOrUpdateSnapshotAnalysis({
+          organization: organization.id,
+          id: snapshot.id,
+          analysis,
+          context,
+        })
       );
+
       const mdat = getMetricsAndQueryDataForStatsEngine(
         queryMap,
         metricMap,
@@ -741,144 +738,73 @@ export async function createMultipleSnapshotAnalysis(
       const { queryResults, metricSettings, unknownVariations } = mdat;
 
       analysisParamsMap.set(id, {
-        id,
-        coverage: snapshot.settings.coverage ?? 1,
-        phaseLengthHours: Math.max(
-          hoursBetween(snapshot.settings.startDate, snapshot.settings.endDate),
-          1
-        ),
-        variations: snapshot.settings.variations.map((v, i) => ({
-          ...v,
-          name: variationNames[i] || v.id,
-        })),
-        analyses: [analysisSettings],
-        queryResults: queryResults,
-        metrics: metricSettings,
-        // extra settings for multiple experiment approach
-        unknownVariations: unknownVariations,
-        snapshotSettings: snapshot.settings,
-        organization: organization.id,
-        snapshot: snapshot.id,
-        analysis: analysis,
+        params: {
+          id,
+          coverage: snapshot.settings.coverage ?? 1,
+          phaseLengthHours: Math.max(
+            hoursBetween(
+              snapshot.settings.startDate,
+              snapshot.settings.endDate
+            ),
+            1
+          ),
+          variations: snapshot.settings.variations.map((v, i) => ({
+            ...v,
+            name: variationNames[i] || v.id,
+          })),
+          analyses: [analysisSettings],
+          queryResults: queryResults,
+          metrics: metricSettings,
+        },
+        context: {
+          // extra settings for multiple experiment approach
+          snapshotSettings: snapshot.settings,
+          organization: organization.id,
+          snapshot: snapshot.id,
+        },
+        data: {
+          unknownVariations: unknownVariations,
+          analysisObj: analysis,
+        },
       });
     }
   );
 
-  const results = await analyzeMultipleExperiments(
-    Array.from(analysisParamsMap.values())
-  );
+  // write running snapshots to db
+  if (createAnalysisPromises.length > 0) {
+    await promiseAllChunks(createAnalysisPromises, 10);
+  }
 
-  results.map(async (result) => {
-    const analysisParams = analysisParamsMap.get(result.id);
-    if (!analysisParams) return;
-
-    const {
-      analysis,
-      analyses,
-      snapshotSettings,
-      queryResults,
-      organization,
-      snapshot,
-    } = analysisParams;
-    let { unknownVariations } = analysisParams;
-
-    // TODO fix for dimension slices and move to health query
-    const multipleExposures = Math.max(
-      ...queryResults.map(
-        (q) =>
-          q.rows.filter((r) => r.variation === "__multiple__")?.[0]?.users || 0
-      )
-    );
-
-    const experimentReportResults: ExperimentReportResults[] = [];
-    analyses.forEach((_, i) => {
-      const dimensionMap: Map<
-        string,
-        ExperimentReportResultDimension
-      > = new Map();
-      // TODO check for error
-      result.results.forEach(({ metric, analyses }) => {
-        const result = analyses[i];
-        if (!result) return;
-
-        unknownVariations = unknownVariations.concat(result.unknownVariations);
-
-        result.dimensions.forEach((row) => {
-          const dim = dimensionMap.get(row.dimension) || {
-            name: row.dimension,
-            srm: 1,
-            variations: [],
-          };
-
-          row.variations.forEach((v, i) => {
-            const data = dim.variations[i] || {
-              users: v.users,
-              metrics: {},
-            };
-            data.users = Math.max(data.users, v.users);
-            data.metrics[metric] = {
-              ...v,
-              buckets: [],
-            };
-            dim.variations[i] = data;
-          });
-
-          dimensionMap.set(row.dimension, dim);
-        });
-      });
-
-      const dimensions = Array.from(dimensionMap.values());
-      if (!dimensions.length) {
-        dimensions.push({
-          name: "All",
-          srm: 1,
-          variations: [],
-        });
-      } else {
-        dimensions.forEach((dimension) => {
-          // Calculate SRM
-          dimension.srm = checkSrm(
-            dimension.variations.map((v) => v.users),
-            snapshotSettings.variations.map((v) => v.weight)
-          );
-        });
-      }
-      experimentReportResults.push({
-        multipleExposures,
-        unknownVariations: Array.from(new Set(unknownVariations)),
-        dimensions,
-      });
-    });
-
-    if (result.error) {
-      analysis.results = [];
-      analysis.status = "error";
-      analysis.error = result.error;
-    } else {
-      analysis.results = experimentReportResults[0]?.dimensions || [];
-      analysis.status = "success";
-      analysis.error = undefined;
-    }
-
-    updateSnapshotAnalysis({ organization, id: snapshot, analysis, context });
-  });
+  return analysisParamsMap;
 }
 
-export async function createSnapshotAnalysis({
-  experiment,
-  organization,
-  analysisSettings,
-  metricMap,
-  snapshot,
-  context,
-}: {
-  experiment: ExperimentInterface;
-  organization: OrganizationInterface;
-  analysisSettings: ExperimentSnapshotAnalysisSettings;
-  metricMap: Map<string, ExperimentMetricInterface>;
-  snapshot: ExperimentSnapshotInterface;
-  context: Context;
-}): Promise<void> {
+export async function createSnapshotAnalyses(
+  params: SnapshotAnalysisParams[],
+  context: ReqContext
+): Promise<void> {
+  // creates snapshot analyses in mongo and gets analysis parameters
+  const analysisParamsMap = await getSnapshotAnalyses(params, context);
+
+  // calls stats engine to run analyses
+  const results = await runSnapshotAnalyses(
+    Array.from(analysisParamsMap.values()).map((v) => v.params)
+  );
+
+  // parses results and writes to mongo
+  await writeSnapshotAnalyses(results, analysisParamsMap, context);
+}
+
+export async function createSnapshotAnalysis(
+  params: SnapshotAnalysisParams,
+  context: Context
+): Promise<void> {
+  const {
+    snapshot,
+    analysisSettings,
+    organization,
+    experiment,
+    metricMap,
+  } = params;
   // check if analysis is possible
   if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
     throw new Error("Analysis not allowed with this snapshot");
@@ -961,10 +887,10 @@ export async function toExperimentApiInterface(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
 ): Promise<ApiExperiment> {
-  let project = null;
+  let project: ProjectInterface | null = null;
   const organization = context.org;
   if (experiment.project) {
-    project = await findProjectById(context, experiment.project);
+    project = await context.models.projects.getById(experiment.project);
   }
   const { settings: scopedSettings } = getScopedSettings({
     organization,

@@ -10,9 +10,7 @@ import SqlIntegration from "./SqlIntegration";
 type Row = any;
 
 export default class Presto extends SqlIntegration {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  params: PrestoConnectionParams;
+  params!: PrestoConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<PrestoConnectionParams>(

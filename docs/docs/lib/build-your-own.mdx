@@ -7,7 +7,7 @@ slug: build-your-own
 
 # Build Your Own SDK
 
-**Latest spec version: 0.6.0 [View Changelog](#changelog)**
+**Latest spec version: 0.7.0 [View Changelog](#changelog)**
 
 This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
 
@@ -446,15 +446,16 @@ There is only one public method `evalCondition` and everything else is a private
 
 ### public evalCondition(attributes: Attributes, condition: Condition): boolean
 
-This is the main function used to evaluate a condition.
+This is the main function used to evaluate a condition. It loops through the condition key/value pairs
+and checks each entry:
 
-1. If condition has a key `$or`, return `evalOr(attributes, condition["$or"])`
-2. If condition has a key `$nor`, return `!evalOr(attributes, condition["$nor"])`
-3. If condition has a key `$and`, return `evalAnd(attributes, condition["$and"])`
-4. If condition has a key `$not`, return `!evalCondition(attributes, condition["$not"])`
-5. Loop through the condition key/value pairs
-   1. If `evalConditionValue(value, getPath(attributes, key))` is false, break out of loop and return false
-6. Return true
+1. If condition key is `$or`, check if `evalOr(attributes, condition["$or"])` is false. If so, break out of the loop and return false
+2. If condition key is `$nor`, check if `!evalOr(attributes, condition["$nor"])` is false. If so, break out of the loop and return false
+3. If condition key is `$and`, check if `evalAnd(attributes, condition["$and"])` is false. If so, break out of the loop and return false
+4. If condition key is `$not`, check if `!evalCondition(attributes, condition["$not"])` is false. If so, break out of the loop and return false
+5. Otherwise, check if `evalConditionValue(value, getPath(attributes, key))` is false. If so, break out of the loop and return false
+
+If none of the entries failed their checks, `evalCondition` returns true
 
 ### private evalOr(attributes: Attributes, conditions: Condition[]): boolean
 
@@ -1116,6 +1117,7 @@ The cases.json file is an object. The keys are the function being tested, and th
   - condition
   - attributes
   - expected return value (boolean)
+  - definitions for Saved Groups referenced in the test case (object of keys: ID of list -> values: array of members)
 - **hash**
   - seed (string)
   - value to hash (string)
@@ -1236,3 +1238,10 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - Remove `versionCompare` test cases (these are now just included as part of `evalCondition`)
   - Tweak to `isIncludedInRollout` to handle an edge case when coverage is zero. Also added test case for this.
   - Add `id` property to feature rules (reserved for future use)
+- **v0.6.1** 2024-05-13
+  - Update logic in `evalCondition` to allow for and/or/not/nor operators to appear at the same level as other conditions
+  - Added test cases for multiple operators on the same level
+- **v0.7.0** 2024-06-25
+  - New Operators `$inGroup` and `$notInGroup` to check Saved Groups by reference
+  - Add argument to `evalCondition` for definition of Saved Groups
+  - Add test cases for `evalCondition`, `feature`, and `run` using the new operators
