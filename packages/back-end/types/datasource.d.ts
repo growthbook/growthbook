@@ -89,7 +89,7 @@ export interface SchemaInterface {
 
 export interface SchemaFormatConfig {
   userIdColumn: string;
-  filterColumns: string;
+  filterColumns: string[];
   anonymousIdColumn: string;
   trackedEventTableName: string;
   eventColumn: string;
