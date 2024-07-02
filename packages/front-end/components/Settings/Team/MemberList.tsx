@@ -17,6 +17,8 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useSearch } from "@/services/search";
+import Field from "@/components/Forms/Field";
 
 const MemberList: FC<{
   mutate: () => void;
@@ -60,6 +62,17 @@ const MemberList: FC<{
     a[1].name.localeCompare(b[1].name)
   );
 
+  const membersList: ExpandedMember[] =
+    members.map(([, member]) => {
+      return member;
+    }) || [];
+
+  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
+    items: membersList || [],
+    localStorageKey: "members",
+    defaultSortField: "name",
+    searchFields: ["name", "email"],
+  });
   return (
     <>
       {canInviteMembers && inviting && (
@@ -98,6 +111,13 @@ const MemberList: FC<{
           <div>
             <h5>Active Members{` (${users.size})`}</h5>
           </div>
+          <div className="ml-3">
+            <Field
+              placeholder="Search..."
+              type="search"
+              {...searchInputProps}
+            />
+          </div>
           <div className="flex-1" />
           <div>
             {canInviteMembers && (
@@ -117,10 +137,10 @@ const MemberList: FC<{
           <table className="table appbox gbtable">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Date Joined</th>
-                <th>Last Login</th>
+                <SortableTH field="name">Name</SortableTH>
+                <SortableTH field="email">Email</SortableTH>
+                <SortableTH field="dateCreated">Date Joined</SortableTH>
+                <SortableTH field="lastLoginDate">Last Login</SortableTH>
                 <th>{project ? "Project Role" : "Global Role"}</th>
                 {!project && <th>Project Roles</th>}
                 {environments.map((env) => (
@@ -130,13 +150,13 @@ const MemberList: FC<{
               </tr>
             </thead>
             <tbody>
-              {members.map(([id, member]) => {
+              {items.map((member) => {
                 const roleInfo =
                   (project &&
                     member.projectRoles?.find((r) => r.project === project)) ||
                   member;
                 return (
-                  <tr key={id}>
+                  <tr key={member.id}>
                     <td>{member.name}</td>
                     <td>
                       <div className="d-flex align-items-center">
@@ -242,6 +262,13 @@ const MemberList: FC<{
                   </tr>
                 );
               })}
+              {!items.length && isFiltered && (
+                <tr>
+                  <td colSpan={4} align={"center"}>
+                    No matching members found.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
