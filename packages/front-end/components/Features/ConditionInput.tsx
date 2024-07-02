@@ -8,6 +8,7 @@ import {
   FaPlusCircle,
 } from "react-icons/fa";
 import { RxLoop } from "react-icons/rx";
+import { format } from "date-fns";
 import {
   condToJson,
   jsonToConds,
@@ -232,19 +233,31 @@ export default function ConditionInput(props: Props) {
                     { label: "matches regex", value: "$regex" },
                     { label: "does not match regex", value: "$notRegex" },
                     {
-                      label: "is greater than",
+                      label:
+                        attribute.format === "date"
+                          ? "is after"
+                          : "is greater than",
                       value: attribute.format === "version" ? "$vgt" : "$gt",
                     },
                     {
-                      label: "is greater than or equal to",
+                      label:
+                        attribute.format === "date"
+                          ? "is after or on"
+                          : "is greater than or equal to",
                       value: attribute.format === "version" ? "$vgte" : "$gte",
                     },
                     {
-                      label: "is less than",
+                      label:
+                        attribute.format === "date"
+                          ? "is before"
+                          : "is less than",
                       value: attribute.format === "version" ? "$vlt" : "$lt",
                     },
                     {
-                      label: "is less than or equal to",
+                      label:
+                        attribute.format === "date"
+                          ? "is before or on"
+                          : "is less than or equal to",
                       value: attribute.format === "version" ? "$vlte" : "$lte",
                     },
                     { label: "is in the list", value: "$in" },
@@ -320,6 +333,12 @@ export default function ConditionInput(props: Props) {
                             newAttribute
                           );
                           newConds[i]["value"] = newConds[i]["value"] || "";
+                        }
+                        if (newAttribute?.format === "date") {
+                          newConds[i]["value"] = format(
+                            new Date(),
+                            "yyyy-MM-dd'T'HH:mm"
+                          );
                         }
                         setConds(newConds);
                       }}
@@ -419,6 +438,18 @@ export default function ConditionInput(props: Props) {
                       type="number"
                       step="any"
                       value={value}
+                      onChange={handleFieldChange}
+                      name="value"
+                      className={styles.matchingInput}
+                      containerClassName="col-sm-12 col-md mb-2"
+                      required
+                    />
+                  ) : ["string", "secureString"].includes(attribute.datatype) &&
+                    attribute.format === "date" &&
+                    !["$regex", "$notRegex"].includes(operator) ? (
+                    <Field
+                      type="datetime-local"
+                      value={format(new Date(value), "yyyy-MM-dd'T'HH:mm")}
                       onChange={handleFieldChange}
                       name="value"
                       className={styles.matchingInput}
