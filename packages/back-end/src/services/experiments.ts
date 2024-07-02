@@ -37,6 +37,7 @@ import { promiseAllChunks } from "../util/promise";
 import { updateExperiment } from "../models/ExperimentModel";
 import { Context } from "../models/BaseModel";
 import {
+  ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -109,7 +110,6 @@ import { ProjectInterface } from "../../types/project";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import {
-  ExperimentAnalysisParamsContextData,
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
   analyzeExperimentResults,

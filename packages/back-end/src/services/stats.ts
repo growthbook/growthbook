@@ -37,8 +37,8 @@ import { checkSrm } from "../util/stats";
 import { promiseAllChunks } from "../util/promise";
 import { logger } from "../util/logger";
 import {
+  ExperimentAnalysisParamsContextData,
   ExperimentMetricAnalysisParams,
-  ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
   ExperimentSnapshotTraffic,
@@ -440,23 +440,6 @@ export function getMetricsAndQueryDataForStatsEngine(
   };
 }
 
-export type ExperimentMetricAnalysisContext = {
-  snapshotSettings: ExperimentSnapshotSettings;
-  organization: string;
-  snapshot: string;
-};
-
-export type ExperimentMetricAnalysisData = {
-  analysisObj: ExperimentSnapshotAnalysis;
-  unknownVariations: string[];
-};
-
-export type ExperimentAnalysisParamsContextData = {
-  params: ExperimentMetricAnalysisParams;
-  context: ExperimentMetricAnalysisContext;
-  data: ExperimentMetricAnalysisData;
-};
-
 function parseStatsEngineResult(
   analysisSettings: ExperimentSnapshotAnalysisSettings[],
   snapshotSettings: ExperimentSnapshotSettings,
@@ -480,7 +463,6 @@ function parseStatsEngineResult(
       string,
       ExperimentReportResultDimension
     > = new Map();
-    // TODO check for error
     result.forEach(({ metric, analyses }) => {
       // each result can have multiple analyses (a set of computations that
       // use the same snapshot)
