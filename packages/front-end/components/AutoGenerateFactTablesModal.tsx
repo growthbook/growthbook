@@ -104,6 +104,7 @@ export default function AutoGenerateFactTableModal({
               return {
                 name: table.eventName,
                 sql: table.sql,
+                userIdTypes: table.userIdTypes,
               };
             }),
         }),
