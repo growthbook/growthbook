@@ -389,7 +389,7 @@ export default function AutoGenerateFactTableModal({
                 Learn More <FaExternalLinkAlt size={12} />
               </DocLink>
             </p>
-            <table className="table gbtable">
+            <table className="table gbtable" style={{ tableLayout: "fixed" }}>
               <thead>
                 <tr>
                   <th className="col-1">
@@ -495,7 +495,7 @@ export default function AutoGenerateFactTableModal({
                               "rgba(0, 0, 0, 0.06) 0px 2px 4px 0px inset",
                           }}
                         >
-                          <td colSpan={4}>
+                          <td colSpan={3}>
                             <SQLInputField
                               showPreview
                               userEnteredQuery={table.sql}

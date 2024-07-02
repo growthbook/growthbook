@@ -82,7 +82,6 @@ export default function Code({
   style['code[class*="language-"]'].fontSize = "0.85rem";
   style['code[class*="language-"]'].lineHeight = 1.5;
   style['code[class*="language-"]'].fontWeight = 600;
-  style['code[class*="language-"]'].textWrap = "wrap";
   const codeBackgrounds = {
     dark: "#212529",
     light: "#fff",
