@@ -7,11 +7,19 @@ import { EditDataSourcePipeline } from "./EditDataSourcePipeline";
 
 type DataSourcePipelineProps = DataSourceQueryEditingModalBaseProps;
 
-export function dataSourceSchemaName(dataSourceType: DataSourceType) {
+export function dataSourcePathNames(
+  dataSourceType: DataSourceType
+): { databaseName: string; schemaName: string } {
+  let databaseName = "database";
+  let schemaName = "schema";
   if (dataSourceType === "bigquery") {
-    return "dataset";
+    databaseName = "project";
+    schemaName = "dataset";
   }
-  return "schema";
+  if (dataSourceType === "databricks") {
+    databaseName = "catalog";
+  }
+  return { databaseName, schemaName };
 }
 
 export default function DataSourcePipeline({
@@ -62,17 +70,30 @@ export default function DataSourcePipeline({
         {pipelineSettings?.allowWriting && (
           <>
             <div className={`mb-2 ma-5`}>
-              {`Destination ${dataSourceSchemaName(dataSource.type)}: `}
+              {`Destination ${
+                dataSourcePathNames(dataSource.type).schemaName
+              }: `}
               {pipelineSettings?.writeDataset ? (
-                <code>{pipelineSettings.writeDataset}</code>
+                <code>{`${
+                  pipelineSettings?.writeDatabase
+                    ? pipelineSettings?.writeDatabase + "."
+                    : ""
+                }${pipelineSettings.writeDataset}`}</code>
               ) : (
                 <em className="text-muted">not specified</em>
               )}
             </div>
-            <div className={`mb-2 ma-5`}>
-              {"Retention of temporary units table (hours): "}
-              {pipelineSettings?.unitsTableRetentionHours ?? 24}
-            </div>
+            {dataSource.type === "databricks" ? (
+              <div className={`mb-2 ma-5`}>
+                {"Drop units table when analysis finishes (recommended): "}
+                {pipelineSettings?.unitsTableDeletion ? "Enabled" : "Disabled"}
+              </div>
+            ) : (
+              <div className={`mb-2 ma-5`}>
+                {"Retention of temporary units table (hours): "}
+                {pipelineSettings?.unitsTableRetentionHours ?? 24}
+              </div>
+            )}
           </>
         )}
       </div>

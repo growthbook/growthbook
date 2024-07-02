@@ -106,6 +106,8 @@ const WebhooksModal: FC<{
     <CodeTextArea
       label="Headers"
       language="json"
+      minLines={3}
+      maxLines={6}
       value={form.watch("headers")}
       setValue={(headers) => {
         validateHeaders(headers);
@@ -132,6 +134,7 @@ const WebhooksModal: FC<{
       autoCloseOnSubmit={false}
       ctaEnabled={validHeaders}
       cta={current.id ? "Update" : "Create"}
+      size="lg"
     >
       <Field label="Display Name" required {...form.register("name")} />
       <Field

@@ -1,0 +1,347 @@
+---
+title: Lambda@Edge Edge App & SDK
+description: GrowthBook SDK for Lambda@Edge
+sidebar_label: Lambda@Edge
+slug: lambda
+toc_max_heading_level: 5
+---
+
+import ExternalLink from '@site/src/components/ExternalLink';
+import Pill from '@site/src/components/Pill';
+
+# Lambda@Edge Edge App & SDK <Pill>alpha</Pill>
+
+:::caution alpha
+
+Our Lambda@Edge implementation is in **alpha**. If you experience any issues, let us know either on [Slack](https://slack.growthbook.io/) or [create an issue](https://github.com/growthbook/growthbook-proxy/issues).
+
+:::
+
+## Overview
+
+GrowthBook currently supports two levels of integration with most edge workers, including Lambda@Edge:
+
+1. Our turnkey Edge App
+
+   - Automatically run server-side or hybrid [Visual Experiments](/app/visual) without redraw flicker.
+   - Automatically run server-side or hybrid [URL Redirect Experiments](/app/url-redirects) without flicker or delay.
+   - Optionally inject the JavaScript SDK with hydrated payload, allowing the front-end to pick up where the edge left off without any extra network requests. We use an enhanced version of our [HTML Script Tag](/lib/script-tag) for this purpose.
+
+2. Support for edge apps using our JavaScript SDK
+
+## References
+
+- Our Lambda@Edge SDK repository, which supports the above use cases, is [here <ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-lambda)
+- You may find it useful to review our [JavaScript SDK](/lib/js). Many of the concepts which apply to both on-edge and injected frontend SDKs are based on our JS SDK.
+
+## Worker Configuration
+
+:::tip
+
+This tutorial assumes some familiarity with building and deploying AWS Lambda@Edge applications. You can get up to speed by following the AWS [Tutorial: Create a basic Lambda@Edge function <ExternalLink />](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-edge-how-it-works-tutorial.html) guide.
+
+Note that our Edge App responds directly to a `viewer-request` without forwarding to an origin; interaction with CloudFront is minimal (Step 2 in the AWS tutorial).
+
+:::
+
+You may either use our turnkey Edge App for Lambda@Edge or build your own app from scratch using our JavaScript SDK.
+
+## Turnkey Edge App
+
+Our Edge App runs as a smart proxy layer between your application and your end users. In absence of Visual or URL Redirect experiments, the Edge App will simply proxy the user request to your site and return the response, optionally injecting a fully-bootstrapped JavaScript SDK onto the rendered HTML page. If the request URL matches an Visual or URL Redirect experiment and the targeting conditions are satisfied, the Edge App may also perform one or more URL redirects behind the scenes (the public-facing URL does not change) and/or mutate the DOM for Visual Experiments.
+
+:::note URL Redirects on edge
+
+The Edge App defaults to running URL Redirect Experiments in the browser only. This is because edge redirects load a separate page's content without altering the URL. After the redirect, some sites may experience problems with loading assets or endpoints with relative paths.
+
+You can enable URL Redirects on edge by setting environment variable `RUN_URL_REDIRECT_EXPERIMENTS` ([see below](#environment-variables)).
+
+:::
+
+We will assume that you have a basic Lambda@Edge application set up, and that it is configured to respond to viewer requests. Note that our Edge App will not attempt to reach your CF cache nor origin and instead will fetch/proxy to your web server during the _viewer request / response_ lifecycle. Therefore a minimal CloudFront setup is advised.
+
+Once your application is set up, simply install the SDK and implement our custom request handler.
+
+### Install the SDK
+
+```bash npm2yarn
+npm install --save @growthbook/edge-lambda
+```
+
+### Implement the Edge App request handler
+
+A basic implementation of our Edge App only requires a few lines of code:
+
+```ts
+import { handleRequest } from "@growthbook/edge-lambda";
+
+export async function handler(event, ctx, callback) {
+  // Manually build your environment:
+  const env = buildEnv();
+
+  // Specify additional edge endpoint information:
+  env.host = "www.mysite.io";
+
+  // Uncomment for ease of testing locally - returns response instead of using callback():
+  // env.returnResponse = true;
+
+  handleRequest(event, callback, env);
+}
+
+function buildEnv() {
+  // todo: define environment variables here
+}
+```
+
+### Configure the Edge App
+
+Use a combination of environment variables and optional runtime configuration to add required fields and to customize the Edge App behavior.
+
+#### Environment variables
+
+Unfortunately Lambda@Edge does not have native support for environment variables. You will need to implement your own mechanism to build an `Env` environment (a TypeScript interface is exported in `"@growthbook/edge-lambda"`). You will need to inject your environment variables into the handler either directly into your codebase or at compile time. Our `buildEnv()` method is a placeholder for your preferred mechanism.
+
+:::tip Tip (for a subset of use cases)
+
+We do offer a utility function called `mapHeadersToConfigEnv(req, originType="custom", prefix="x-env-")` (exported from `"@growthbook/edge-lambda"`) that can build a valid `Env` environment from custom CF origin headers. However this is only useful if your app is set up to reach your origin server through CF (this is not the default behavior of our Edge App).
+
+:::
+
+Add these required fields, at minimum, to your environment variables:
+
+```typescript
+function buildEnv() {
+  return {
+    // required fields:
+    PROXY_TARGET: "https://internal.mysite.io",  // The non-edge URL to your website
+    GROWTHBOOK_API_HOST: "https://cdn.growthbook.io",
+    GROWTHBOOK_CLIENT_KEY: "sdk-abc123",
+    GROWTHBOOK_DECRYPTION_KEY: "key_abc123",  // Only include for encrypted SDK Connections
+  };
+}
+```
+
+You may want to further customize the app. Here is a list of common customization variables:
+
+```bash
+# Disable or change the rendering behavior of Visual Experiments:
+# ==========
+RUN_VISUAL_EDITOR_EXPERIMENTS="everywhere"|"edge"|"browser"|"skip"  # default: "everywhere"
+
+# URL Redirect Experiments are disabled on edge by default. Because the URL does not change, some sites
+# may experience problems with loading assets or endpoints with relative paths:
+# ==========
+RUN_URL_REDIRECT_EXPERIMENTS="everywhere"|"edge"|"browser"|"skip"  # default: "browser"
+RUN_CROSS_ORIGIN_URL_REDIRECT_EXPERIMENTS="everywhere"|"edge"|"browser"|"skip"  # default: "browser"
+# Mutate browser URL via window.history.replaceState() to reflect the new URL:
+INJECT_REDIRECT_URL_SCRIPT="true"  # default "true".
+
+# Do not inject a bootstrapped JavaScript SDK onto the page:
+# ==========
+DISABLE_INJECTIONS="true"  # default "false"
+
+
+# Customize the edge or injected browser SDK behavior:
+# ==========
+ENABLE_STREAMING="true"  # default "false". Streaming SSE updates on browser.
+ENABLE_STICKY_BUCKETING="true"  # default "false". Use cookie-based sticky bucketing on edge and browser.
+```
+
+#### Runtime configuration
+
+You may want to provide context to your edge app at runtime rather than using environment variables. For example, if you have additional [targeting attributes](/lib/js#attributes) available, you may inject them by modifying your request handler code:
+
+```ts
+import { handleRequest } from "@growthbook/edge-lambda";
+import { getCookies } from "./helpers";
+
+export async function handler(event, ctx, callback) {
+  const env = buildEnv();
+  env.host = "www.mysite.io";
+
+  // example getCookies method
+  const cookie = getCookies(event);
+  const config = {
+    attributes: {
+      userType: cookie["userId"] ? "logged in" : "anonymous"
+    }
+  };
+
+  handleRequest(event, callback, env, config);
+}
+```
+
+#### More customization options
+
+For a full list of customizations, view our vendor-agnostic [Edge Utility repository <ExternalLink />](https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils).
+
+### Tracking Experiment Views
+
+Running A/B tests requires a [tracking callback](/lib/js#experimentation-ab-testing). Our turnkey Edge App defaults to using built-in front-end tracking. The tracking call automatically integrates with Segment.io, GA4, and Google Tag Manager by using the mechanism outlined in our [HTML Script Tag](/lib/script-tag#tracking-experiment-views). In order to do this, the app keeps track of tracking calls triggered on edge and injects them into the front-end SDK to be automatically triggered on page load.
+
+You may wish to either customize front-end tracking or switch to edge tracking (or use both concurrently if running hybrid edge + front-end experiments).
+
+Why might you be interested in tracking on edge? Tracking on an edge or backend environment allows you to ensure the callback is fired before any differentiation across variations, eliminating experimental bias. While not eliminating this risk, the default injected front-end tracking introduced by our Edge App does reduce this risk relative to solely using a front-end SDK.
+
+To change the front-end tracking callback, set the `GROWTHBOOK_TRACKING_CALLBACK` to your custom tracking JS code:
+
+```bash
+# todo: replace with your own tracking library
+GROWTHBOOK_TRACKING_CALLBACK="(experiment, results) => { console.log('browser tracking callback', {experiment, results}); }"
+```
+
+To track on edge, you must inject your own tracking callback into the edge request handler code. Any experiments that run on edge will use the edge tracking callback and not the front-end callback (hybrid edge + front-end experiments being an exception):
+
+```ts
+import { handleRequest } from "@growthbook/edge-lambda";
+
+export async function handler(event, ctx, callback) {
+  const env = buildEnv();
+  env.host = "www.mysite.io";
+
+  const config = {
+    edgeTrackingCallback: (experiment, results) => {
+      // todo: replace with your tracking library
+      console.log('edge tracking callback', {experiment, results});
+    }
+  };
+
+  handleRequest(event, callback, env, config);
+}
+```
+
+### Targeting Attributes
+
+The following targeting attributes are set automatically by the Edge App.
+
+- `id` - creates a long-lived `gbuuid` cookie if it doesn't exist already
+- `url`
+- `path`
+- `host`
+- `query`
+- `pageTitle`
+- `deviceType` - either `mobile` or `desktop`
+- `browser` - one of `chrome`, `edge`, `firefox`, `safari`, or `unknown`
+- `utmSource`
+- `utmMedium`
+- `utmCampaign`
+- `utmTerm`
+- `utmContent`
+
+You can customize both the primary identifier name (`id`) and cookie name (`gbuuid`) by setting the `UUID_KEY` and `UUID_COOKIE_NAME` environment variables respectively.
+
+As shown in the [runtime configuration](#runtime-configuration) section above, you can also pass custom attributes via runtime config. You can also skip automatic attribute generation and rely solely on custom attributes by setting the environment variable `SKIP_AUTO_ATTRIBUTES="true"`.
+
+### Routing
+
+By default, the Edge App will process all `GET` requests (other HTTP verbs are proxied through without running through our app logic).
+
+It is generally preferable to configure your routing rules outside of our Edge App when possible. For instance, you may only want to invoke the Edge App at `https://yourdomain.io/landing-page`.
+
+There may be situations when you will need to provide finer-grained routing / URL targeting rules within our Edge App. You will need to include a JSON encoded string of route rules in your `ROUTES` environment variable.
+
+For instance, you may want to do a proxy pass-through (do not process) for `mysite.io/account/*` or `mysite.io/settings/*`. Your routes may look like this:
+
+```bash
+ROUTES='[{ "pattern":"mysite.io/account/*", "behavior":"proxy" }, { "pattern":"mysite.io/settings/*", "behavior":"proxy" }]'
+```
+
+A route uses the following interface, with many of the properties being optional:
+
+```ts
+{
+  pattern: string;
+  type?: "regex" | "simple";  // default: "simple"
+  behavior?: "intercept" | "proxy" | "error";  // default: "intercept"
+  includeFileExtensions?: boolean;  // Include requests to filenames like "*.jpg". default: false (pass-through).
+  statusCode?: number; // Alter the status code (default is 404 when using "error")
+  body?: string; // Alter the body (for setting an error message body)
+}
+```
+
+When multiple routes are included in your `ROUTES` array, only the first match is used.
+
+### Cookie Policy and GDPR
+
+By default, the Edge App will persist a random unique identifier in a first-party cookie named `gbuuid`. Its purpose is to provide a consistent user experience to your visitors by preventing them from being re-bucketed into different A/B test variations. It follows the same mechanism as discussed in our [HTML Script Tag docs](/lib/script-tag#cookie-policy-and-gdpr).
+
+#### Delay Storing the Cookie Until Consent is Granted
+
+If you must delay persisting the `gbuuid` cookie until a user consents, you can set the environment variable `NO_AUTO_COOKIES="true"`.
+
+This will still generate a UUID for the user, but will not persist it. That means, if the user refreshes the page, they will have a new random UUID generated.environment
+
+You have the option to manually persist this cookie at any time, for example when a user grants consent on your cookie banner. All you need to do is fire this custom event from javascript on the rendered page:
+
+```js
+document.dispatchEvent(new CustomEvent("growthbookpersist"));
+```
+
+:::note
+
+If you are using Sticky Bucketing, a persistent sticky bucket assignments cookie will automatically be generated. If you require user permission before writing cookies, you should:
+
+- Either do not enable Sticky Bucketing on edge (do not use `ENABLE_STICKY_BUCKETING`)
+- Or only enable Sticky Bucketing per each user via runtime configuration. (only pass `config.enableStickyBucketing: true` if user has consented — identifiable by checking for presence of the `gbuuid` cookie).
+
+:::
+
+## Manual SDK Integration on Edge
+
+You may be interested in building your own edge application using the GrowthBook SDK and not using our turnkey Edge App. Or you may want to do custom feature flagging on specific routes while running our Edge App on other routes.
+
+To use the GrowthBook on edge, simply include our standard [JavaScript SDK](/lib/js) (`@growthbook/growthbook` NPM package).
+
+```ts
+import { GrowthBook, setPolyfills } from "@growthbook/growthbook";
+
+export async function handler(event, ctx, callback) {
+  // 1. Init the GrowthBook SDK and choose an optional caching strategy
+
+  // A. Use the KV as a managed payload store to eliminate SDK requests to the GrowthBook API entirely.
+  // Requires setting up an SDK Webhook.
+  const payload = await getPayloadFromProvider(); // not implemented, build your own
+  const growthbook = new GrowthBook(gbContext);
+  await growthbook.init({ payload: payload });
+
+  // B. Or provide a KV cache layer so that the GrowthBook SDK doesn't need to make as many requests
+  // to the GrowthBook API. No SDK Webhook needed.
+  const localStoragePolyfill = getLocalStoragePolyfill(env); // not implemented, build your own
+  setPolyfills({ localStorage: localStoragePolyfill });
+  await growthbook.init();
+
+  // 2. Start feature flagging
+  if (growthbook.isOn("my-feature")) {
+    const resp = { status: "200", body: "<h1>foo</h1>" };
+    callback(null, resp);
+  } else {
+    const resp = { status: "200", body: "<h1>bar</h1>" };
+    callback(null, resp);
+  }
+}
+```
+
+## Payload Caching via edge datastore
+
+By default, the Edge App will make a network request to the GrowthBook API on each user request in order to fetch the current feature and experiment values. This is a blocking call that delays page delivery. There is an in-memory short-lived cache layer on this call, but it won't always protect you.
+
+If you have access to a distributed key-value store such as DynamoDB, you can likely overcome this problem. There are 2 levels of key-value integration available:
+
+1. You can either completely eliminate the blocking call to the GrowthBook API by implementing a GrowthBook-to-edge-keyval push model via **SDK Webhooks**.
+2. Alternatively, you can eliminate most of these network requests by using an edge key-val store as a just-in-time payload cache.
+
+You can also use these strategies in your own manual SDK integration.
+
+We are unable to offer specific guidance about how to configure or connect to your key-val store because there are many possible network configurations and data stores within an AWS edge application.
+
+### Configuring a SDK Webhook
+
+For key-val stored payloads (1), we eliminate network requests from edge to GrowthBook by using a GrowthBook SDK Webhook to push the SDK payload to the key-val store on change.
+
+1. Create an [SDK Webhook](/app/webhooks/sdk-webhooks) on the same SDK Connection that you are using for edge integration.
+2. Set the **Endpoint URL** to your key-val store's REST API endpoint, if available. You may need to build your own private Lambda endpoint to handle the webhook, in which case webhook verification may be important.
+
+3. Enable the **Send Payload** toggle.
+4. Change the **Method** to `PUT` (or whichever verb is required by your endpoint).
+
+Now whenever feature and experiment values change, your edge worker will have immediate access to the latest values. You can also test the webhook by using the "Test Webhook" button on the SDK Connection page.

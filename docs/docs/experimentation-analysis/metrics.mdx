@@ -5,6 +5,8 @@ sidebar_label: Metrics
 slug: /app/metrics
 ---
 
+import Anchor from '@site/src/components/Anchor'
+
 # Metrics
 
 Metrics are what your experiments are trying to improve (or at least not hurt). GrowthBook has a very flexible and powerful way to define metrics.
@@ -81,7 +83,7 @@ When we go to conduct experiment analysis, any `user_id` that has a conversion i
 
 #### SQL Templates
 
-We use {{[Handlebars](https://handlebarsjs.com/guide/#language-features)}} to compile the sql into what is actually called to your database. This allows you to create template metrics that can be copied and reused by changing the variable values associate with the metrics.
+We use \{\{[Handlebars](https://handlebarsjs.com/guide/#language-features)\}\} to compile the sql into what is actually called to your database. This allows you to create template metrics that can be copied and reused by changing the variable values associate with the metrics.
 
 You can use the following user configurable variables within SQL templates:
 
@@ -106,7 +108,7 @@ You can also use any of the in-built helper functions:
 - **replace [str]&nbsp;[pattern]&nbsp;[replacement]** - Replace all occurences of a regular expression with something else. ex. `{{replace "My%%%Database!" "\[^a-zA-Z\]" ""}}` compiles to `MyDatabase`
 - **snakecase [str]** - ex. `{{pascalcase "My database"}}` compiles to `my_database`.
 - **uppercase [str]** - ex. `{{uppercase "My database"}}` compiles to `MY DATABASE`.
-  <a id="dateformat"/>
+  <Anchor id="dateformat"/>
 - **date [date]&nbsp;[format]** - Format an ISO date according to this [format](https://date-fns.org/v2.29.3/docs/format), being careful not to mix up months (MM) and minutes (mm). ex. `{{date startDateISO "yyyyMMdd"}}` might compile to `20230130`. The most common codes are:
 
 <ul>
@@ -138,7 +140,7 @@ WHERE
 
 :::note
 
-The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use <code>'{{&nbsp;startDate&nbsp;}}'</code> instead of just <code>{{&nbsp;startDate&nbsp;}}</code>)
+The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use `'{{&nbsp;startDate&nbsp;}}'` instead of just `{{&nbsp;startDate&nbsp;}}`
 
 :::
 
@@ -277,15 +279,15 @@ Setting this to "decrease" basically inverts the "Chance to Beat Control" value 
 
 ### Capped Value
 
-Large outliers can have an outsized effect on experiment results. For example, if your normal revenue per user $40 and someone happens to make a $5000 order, whatever variation that person is in will be much more likely "win" any experiment because that one order is an outlier.
+Large outliers can have an outsized effect on experiment results. For example, if your normal revenue per user \$40 and someone happens to make a \$5000 order, whatever variation that person is in will be much more likely "win" any experiment because that one order is an outlier.
 
-Capping (also known as winsorization) works by ensuring that all aggregate unit (e.g. user) values are no more than some value. So in the above example, if the cap was $100, the $5000 purchase will still be counted, but the aggregated value for that user will be capped at $100 and will have a much smaller effect on the results. It will still give a boost to whatever variation the person is in, but it won't completely dominate all of the other orders and is unlikely to make a winner just on its own. Another way to think about this is that you are slightly biasing your results by truncating large values, but you are reducing variance to prevent the outsized effect of outliers.
+Capping (also known as winsorization) works by ensuring that all aggregate unit (e.g. user) values are no more than some value. So in the above example, if the cap was \$100, the \$5000 purchase will still be counted, but the aggregated value for that user will be capped at \$100 and will have a much smaller effect on the results. It will still give a boost to whatever variation the person is in, but it won't completely dominate all of the other orders and is unlikely to make a winner just on its own. Another way to think about this is that you are slightly biasing your results by truncating large values, but you are reducing variance to prevent the outsized effect of outliers.
 
 There are two ways to cap metric values in GrowthBook:
 
-**1. Absolute capping** - if set above zero, all aggregated user values will be capped at exactly this value. For example, if the cap is $100 on total revenue per user, then after we sum all of a users orders up, any user with an aggregate sum of greater than $100 will be set to $100.
+**1. Absolute capping** - if set above zero, all aggregated user values will be capped at exactly this value. For example, if the cap is \$100 on total revenue per user, then after we sum all of a users orders up, any user with an aggregate sum of greater than \$100 will be set to \$100.
 
-**2. Percentile capping** - when this is set to between 0 and 1, it uses that percentile to select a cap based on the data in your experiment so far. This cap is therefore specific to each experiment and specific to each analysis run in that experiment if new data has come in. It works like so: after we calculate the unit-level aggregate values for all units (e.g. users) during an experiment analysis, we find the specified percentile of these unit-level aggregates and then cap these aggregated values at this percentile. Using the above example, if you were to specify percentile capping with a value of `0.95`, then we find the 95th percentile of total revenue per users (say this turns out to be $135). We then cap those user-level aggregates at $135.
+**2. Percentile capping** - when this is set to between 0 and 1, it uses that percentile to select a cap based on the data in your experiment so far. This cap is therefore specific to each experiment and specific to each analysis run in that experiment if new data has come in. It works like so: after we calculate the unit-level aggregate values for all units (e.g. users) during an experiment analysis, we find the specified percentile of these unit-level aggregates and then cap these aggregated values at this percentile. Using the above example, if you were to specify percentile capping with a value of `0.95`, then we find the 95th percentile of total revenue per users (say this turns out to be \$135). We then cap those user-level aggregates at \$135.
 
 You can additionally choose to ignore zeros, which will compute the percentile without including any user aggregated zero values. This is useful if you have a lot of zero values and you don't want to have to fine tune the percentile to avoid setting the cap too low.
 
@@ -346,6 +348,16 @@ If you set the metric delay to something negative, say `-0.5` (30 minutes), you 
 Keep in mind, these two things are answering slightly different questions.
 `How much longer do people stay after viewing the experiment?` vs `How much longer is an average session that includes the experiment?`.
 The first question is more direct and often a more strict test of your hypothesis, but it may not be worth the extra running time.
+
+### Bayesian Priors
+
+Your organization can set default priors for Bayesian analyses that are used by all metrics.
+
+However, you can also set metric specific priors by opening the Edit Metric modal from the Metric page, clicking on Advanced Settings, and turning on the metric override. This will allow you to set a custom prior for that metric.
+
+Additionally, you can use experiment metric overrides to further customize these priors for each experiment.
+
+You can read more about Bayesian priors on [our statistical details page](/statistics/details).
 
 ## Auto Generate Metrics
 

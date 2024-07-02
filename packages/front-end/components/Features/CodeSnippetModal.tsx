@@ -35,9 +35,11 @@ function trimTrailingSlash(str: string): string {
 }
 
 export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
-  if (connection && connection.proxy.enabled && connection.proxy.host) {
+  if (connection && connection.proxy.enabled) {
     return trimTrailingSlash(
-      connection.proxy.hostExternal || connection.proxy.host
+      connection.proxy.hostExternal ||
+        connection.proxy.host ||
+        "https://proxy.yoursite.io"
     );
   }
 
@@ -114,9 +116,8 @@ export default function CodeSnippetModal({
     return null;
   }
 
-  const { docs, label } = languageMapping[language];
-  const hasProxy =
-    currentConnection.proxy.enabled && !!currentConnection.proxy.host;
+  const { docs, docLabel, label } = languageMapping[language];
+  const hasProxy = currentConnection.proxy.enabled;
   const apiHost = getApiBaseUrl(currentConnection);
   const clientKey = currentConnection.key;
   const featuresEndpoint = apiHost + "/api/features/" + clientKey;
@@ -243,7 +244,8 @@ export default function CodeSnippetModal({
           ) : (
             <p>
               Below is some starter code to integrate GrowthBook into your app.
-              Read the <DocLink docSection={docs}>{label} docs</DocLink> for
+              Read the{" "}
+              <DocLink docSection={docs}>{docLabel || label} docs</DocLink> for
               more details.
             </p>
           )}
@@ -256,7 +258,7 @@ export default function CodeSnippetModal({
                   setConfigOpen(!configOpen);
                 }}
               >
-                {label} Config Settings{" "}
+                {docLabel || label} Config Settings{" "}
                 {configOpen ? <FaAngleDown /> : <FaAngleRight />}
               </h4>
               {configOpen && (
@@ -379,7 +381,7 @@ export default function CodeSnippetModal({
             </div>
           )}
 
-          {language !== "other" && (
+          {!(language.match(/^edge-/) || language === "other") && (
             <div className="mb-3">
               <h4
                 className="cursor-pointer"
@@ -490,7 +492,7 @@ myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
             </div>
           )}
 
-          {language !== "other" && (
+          {!(language.match(/^edge-/) || language === "other") && (
             <div className="mb-3">
               <h4
                 className="cursor-pointer"

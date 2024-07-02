@@ -209,10 +209,16 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
     }),
   };
 
-  if (connection.proxy.enabled && connection.proxy.host) {
-    const res = await testProxyConnection(connection, false);
-    connection.proxy.connected = !res.error;
-    connection.proxy.version = res.version || "";
+  if (connection.proxy.enabled) {
+    if (connection.proxy.host) {
+      const res = await testProxyConnection(connection, false);
+      if (res) {
+        connection.proxy.connected = !res.error;
+        connection.proxy.version = res.version || "";
+      }
+    } else {
+      connection.proxy.connected = true;
+    }
   }
 
   const doc = await SDKConnectionModel.create(connection);
@@ -247,8 +253,14 @@ export async function editSDKConnection(
   const {
     proxyEnabled,
     proxyHost,
-    ...otherChanges
+    languages,
+    ...rest
   } = editSDKConnectionValidator.parse(updates);
+
+  const otherChanges = {
+    ...rest,
+    languages: languages as SDKLanguage[],
+  };
 
   let newProxy = {
     ...connection.proxy,
@@ -259,15 +271,21 @@ export async function editSDKConnection(
   if (proxyHost !== undefined && proxyHost !== connection.proxy.host) {
     newProxy.host = proxyHost;
 
-    const res = await testProxyConnection(
-      {
-        ...connection,
-        proxy: addEnvProxySettings(newProxy),
-      },
-      false
-    );
-    newProxy.connected = !res.error;
-    newProxy.version = res.version;
+    if (addEnvProxySettings(newProxy).host) {
+      const res = await testProxyConnection(
+        {
+          ...connection,
+          proxy: addEnvProxySettings(newProxy),
+        },
+        false
+      );
+      if (res) {
+        newProxy.connected = !res.error;
+        newProxy.version = res.version;
+      }
+    } else {
+      newProxy.connected = true;
+    }
   }
   newProxy = addEnvProxySettings(newProxy);
 
@@ -293,18 +311,20 @@ export async function editSDKConnection(
     }
   });
 
+  const fullChanges = {
+    ...otherChanges,
+    proxy: newProxy,
+    project: "",
+    dateUpdated: new Date(),
+  };
+
   await SDKConnectionModel.updateOne(
     {
       organization: connection.organization,
       id: connection.id,
     },
     {
-      $set: {
-        ...otherChanges,
-        proxy: newProxy,
-        project: "",
-        dateUpdated: new Date(),
-      },
+      $set: fullChanges,
     }
   );
 
@@ -319,6 +339,8 @@ export async function editSDKConnection(
       isUsingProxy
     );
   }
+
+  return { ...connection, ...fullChanges };
 }
 
 export async function deleteSDKConnectionById(
@@ -379,9 +401,9 @@ export async function clearProxyError(connection: SDKConnectionInterface) {
 export async function testProxyConnection(
   connection: SDKConnectionInterface,
   updateDB: boolean = true
-): Promise<ProxyTestResult> {
+): Promise<ProxyTestResult | undefined> {
   const proxy = connection.proxy;
-  if (!proxy || !proxy.enabled || !proxy.host) {
+  if (!proxy || !proxy.enabled) {
     return {
       status: 0,
       body: "",
@@ -389,6 +411,10 @@ export async function testProxyConnection(
       version: "",
       url: "",
     };
+  }
+
+  if (!proxy.host) {
+    return;
   }
 
   const url = proxy.host.replace(/\/*$/, "") + "/healthcheck";
@@ -454,7 +480,10 @@ export async function testProxyConnection(
     return {
       status: statusCode || 0,
       body: body || "",
-      error: e.message || "Failed to connect to Proxy server",
+      error:
+        e?.code === "ECONNREFUSED"
+          ? "Failed to connect to proxy server (ECONNREFUSED)"
+          : e.message || "Failed to connect to proxy server",
       version: "",
       url,
     };

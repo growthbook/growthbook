@@ -5,18 +5,23 @@ import mongoose, { FilterQuery } from "mongoose";
 import { Collection } from "mongodb";
 import omit from "lodash/omit";
 import { z } from "zod";
-import { isEqual, pick } from "lodash";
+import { isEqual, orderBy, pick } from "lodash";
+import { evalCondition } from "@growthbook/growthbook";
 import { ApiReqContext } from "../../types/api";
 import { ReqContext } from "../../types/organization";
-import { CreateProps, UpdateProps } from "../../types/models";
 import { logger } from "../util/logger";
-import { EventType } from "../../types/audit";
-import { EntityType } from "../types/Audit";
+import { EntityType, EventTypes, EventType } from "../types/Audit";
+import { AuditInterfaceTemplate } from "../../types/audit";
 import {
   auditDetailsCreate,
   auditDetailsDelete,
   auditDetailsUpdate,
 } from "../services/audit";
+import {
+  ForeignKeys,
+  ForeignRefs,
+  ForeignRefsCacheKeys,
+} from "../services/context";
 
 export type Context = ApiReqContext | ReqContext;
 
@@ -31,17 +36,79 @@ export const baseSchema = z
 
 export type BaseSchema = typeof baseSchema;
 
-export interface ModelConfig<T extends BaseSchema> {
+export type CreateProps<T extends object> = Omit<
+  T,
+  "id" | "organization" | "dateCreated" | "dateUpdated"
+> & { id?: string };
+
+export type CreateRawShape<T extends z.ZodRawShape> = {
+  [k in keyof Omit<
+    T,
+    "id" | "organization" | "dateCreated" | "dateUpdated"
+  >]: T[k];
+} & {
+  id: z.ZodOptional<z.ZodString>;
+};
+
+export type CreateZodObject<T> = T extends z.ZodObject<
+  infer RawShape,
+  infer UnknownKeysParam,
+  infer ZodTypeAny
+>
+  ? z.ZodObject<CreateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
+  : never;
+
+export const createSchema = <T extends BaseSchema>(schema: T) =>
+  (schema
+    .omit({
+      organization: true,
+      dateCreated: true,
+      dateUpdated: true,
+    })
+    .extend({ id: z.string().optional() })
+    .strict() as unknown) as CreateZodObject<T>;
+
+export type UpdateProps<T extends object> = Partial<
+  Omit<T, "id" | "organization" | "dateCreated" | "dateUpdated">
+>;
+
+export type UpdateRawShape<T extends z.ZodRawShape> = {
+  [k in keyof Omit<
+    T,
+    "id" | "organization" | "dateCreated" | "dateUpdated"
+  >]: z.ZodOptional<T[k]>;
+};
+
+export type UpdateZodObject<T> = T extends z.ZodObject<
+  infer RawShape,
+  infer UnknownKeysParam,
+  infer ZodTypeAny
+>
+  ? z.ZodObject<UpdateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
+  : never;
+
+const updateSchema = <T extends BaseSchema>(schema: T) =>
+  (schema
+    .omit({
+      organization: true,
+      dateCreated: true,
+      dateUpdated: true,
+    })
+    .partial()
+    .strict() as unknown) as UpdateZodObject<T>;
+
+type AuditLogConfig<Entity extends EntityType> = {
+  entity: Entity;
+  createEvent: EventTypes<Entity>;
+  updateEvent: EventTypes<Entity>;
+  deleteEvent: EventTypes<Entity>;
+};
+
+export interface ModelConfig<T extends BaseSchema, Entity extends EntityType> {
   schema: T;
   collectionName: string;
   idPrefix?: string;
-  auditLog: {
-    entity: EntityType;
-    createEvent: EventType;
-    updateEvent: EventType;
-    deleteEvent: EventType;
-  };
-  projectScoping: "none" | "single" | "multiple";
+  auditLog: AuditLogConfig<Entity>;
   globallyUniqueIds?: boolean;
   skipDateUpdatedFields?: (keyof z.infer<T>)[];
   readonlyFields?: (keyof z.infer<T>)[];
@@ -59,19 +126,33 @@ export interface ModelConfig<T extends BaseSchema> {
 // We only need to add indexes once at server start-up
 const indexesAdded: Set<string> = new Set();
 
-export abstract class BaseModel<T extends BaseSchema> {
+// Generic model class has everything but the actual data fetch implementation.
+// See BaseModel below for the class with explicit mongodb implementation.
+export abstract class BaseModel<
+  T extends BaseSchema,
+  E extends EntityType,
+  WriteOptions = never
+> {
+  public validator: T;
+  public createValidator: CreateZodObject<T>;
+  public updateValidator: UpdateZodObject<T>;
+
   protected context: Context;
+
   public constructor(context: Context) {
     this.context = context;
     this.config = this.getConfig();
+    this.validator = this.config.schema;
+    this.createValidator = createSchema(this.config.schema);
+    this.updateValidator = updateSchema(this.config.schema);
     this.addIndexes();
   }
 
   /***************
    * Required methods that MUST be overridden by subclasses
    ***************/
-  protected config: ModelConfig<T>;
-  protected abstract getConfig(): ModelConfig<T>;
+  protected config: ModelConfig<T, E>;
+  protected abstract getConfig(): ModelConfig<T, E>;
   protected abstract canRead(doc: z.infer<T>): boolean;
   protected abstract canCreate(doc: z.infer<T>): boolean;
   protected abstract canUpdate(
@@ -84,94 +165,162 @@ export abstract class BaseModel<T extends BaseSchema> {
   /***************
    * Optional methods that can be overridden by subclasses as needed
    ***************/
+  protected useConfigFile(): boolean {
+    return false;
+  }
+  protected getConfigDocuments(): z.infer<T>[] {
+    return [];
+  }
+  protected async filterByReadPermissions(
+    docs: z.infer<T>[]
+  ): Promise<z.infer<T>[]> {
+    await this.populateForeignRefs(docs);
+
+    const filtered: z.infer<T>[] = [];
+    for (const doc of docs) {
+      try {
+        if (this.canRead(doc)) {
+          filtered.push(doc);
+        }
+      } catch (e) {
+        // Ignore errors when trying to read, just remove it from the list
+      }
+    }
+    return filtered;
+  }
   protected migrate(legacyDoc: unknown): z.infer<T> {
     return legacyDoc as z.infer<T>;
   }
-  protected async customValidation(doc: z.infer<T>) {
+  protected async customValidation(
+    doc: z.infer<T>,
+    writeOptions?: WriteOptions
+  ) {
     // Do nothing by default
   }
-  protected async beforeCreate(doc: z.infer<T>) {
+  protected async beforeCreate(doc: z.infer<T>, writeOptions?: WriteOptions) {
     // Do nothing by default
   }
-  protected async afterCreate(doc: z.infer<T>) {
+  protected async afterCreate(doc: z.infer<T>, writeOptions?: WriteOptions) {
     // Do nothing by default
   }
   protected async beforeUpdate(
     existing: z.infer<T>,
     updates: UpdateProps<z.infer<T>>,
-    newDoc: z.infer<T>
+    newDoc: z.infer<T>,
+    writeOptions?: WriteOptions
   ) {
     // Do nothing by default
   }
   protected async afterUpdate(
     existing: z.infer<T>,
     updates: UpdateProps<z.infer<T>>,
-    newDoc: z.infer<T>
+    newDoc: z.infer<T>,
+    writeOptions?: WriteOptions
   ) {
     // Do nothing by default
   }
-  protected async beforeDelete(doc: z.infer<T>) {
+  protected async beforeDelete(doc: z.infer<T>, writeOptions?: WriteOptions) {
     // Do nothing by default
   }
-  protected async afterDelete(doc: z.infer<T>) {
+  protected async afterDelete(doc: z.infer<T>, writeOptions?: WriteOptions) {
     // Do nothing by default
+  }
+  protected async afterCreateOrUpdate(
+    doc: z.infer<T>,
+    writeOptions?: WriteOptions
+  ) {
+    // Do nothing by default
+  }
+
+  protected getForeignKeys(doc: z.infer<T>): ForeignKeys {
+    const keys: ForeignKeys = {};
+
+    // Experiment
+    const experiment = this.detectForeignKey(doc, [
+      "experiment",
+      "experimentId",
+    ]);
+    if (experiment) {
+      keys.experiment = experiment;
+    }
+
+    // Datasource
+    const datasource = this.detectForeignKey(doc, [
+      "datasource",
+      "datasourceId",
+    ]);
+    if (datasource) {
+      keys.datasource = datasource;
+    }
+
+    return keys;
   }
 
   /***************
    * Built-in public methods
    ***************/
   public getById(id: string) {
+    if (typeof id !== "string") {
+      throw new Error("Invalid id");
+    }
+    if (!id) return Promise.resolve(null);
+
     return this._findOne({ id });
   }
   public getByIds(ids: string[]) {
+    // Make sure ids is an array of strings
+    if (!Array.isArray(ids) || !ids.every((id) => typeof id === "string")) {
+      throw new Error("Invalid ids");
+    }
+    if (!ids.length) return Promise.resolve([]);
+
     return this._find({ id: { $in: ids } });
   }
   public getAll() {
     return this._find();
   }
-  public getAllByProject(project: string | undefined) {
-    if (this.config.projectScoping === "none") {
-      throw new Error("This model does not support projects");
-    }
-
-    // If the project is empty, return all
-    if (!project) return this._find();
-
-    return this._find(
-      this.config.projectScoping === "single"
-        ? { project }
-        : { projects: project }
-    );
-  }
-  public create(props: unknown | CreateProps<z.infer<T>>): Promise<z.infer<T>> {
-    return this._createOne(props);
+  public create(
+    props: CreateProps<z.infer<T>>,
+    writeOptions?: WriteOptions
+  ): Promise<z.infer<T>> {
+    return this._createOne(props, writeOptions);
   }
   public update(
     existing: z.infer<T>,
-    updates: unknown | UpdateProps<z.infer<T>>
+    updates: UpdateProps<z.infer<T>>,
+    writeOptions?: WriteOptions
   ): Promise<z.infer<T>> {
-    return this._updateOne(existing, updates);
+    return this._updateOne(existing, updates, { writeOptions });
   }
   public async updateById(
     id: string,
-    updates: unknown | UpdateProps<z.infer<T>>
+    updates: UpdateProps<z.infer<T>>,
+    writeOptions?: WriteOptions
   ): Promise<z.infer<T>> {
     const existing = await this.getById(id);
     if (!existing) {
-      throw new Error("Could not find fact metric");
+      throw new Error("Could not find resource to update");
     }
-    return this._updateOne(existing, updates);
+    return this._updateOne(existing, updates, { writeOptions });
   }
-  public delete(existing: z.infer<T>): Promise<void> {
-    return this._deleteOne(existing);
+  public async delete(
+    existing: z.infer<T>,
+    writeOptions?: WriteOptions
+  ): Promise<z.infer<T> | undefined> {
+    await this._deleteOne(existing, writeOptions);
+    return existing;
   }
-  public async deleteById(id: string): Promise<void> {
+  public async deleteById(
+    id: string,
+    writeOptions?: WriteOptions
+  ): Promise<z.infer<T> | undefined> {
     const existing = await this.getById(id);
     if (!existing) {
       // If it doesn't exist, maybe it was deleted already. No need to throw an error.
       return;
     }
-    return this._deleteOne(existing);
+    await this._deleteOne(existing, writeOptions);
+    return existing;
   }
 
   /***************
@@ -186,6 +335,7 @@ export abstract class BaseModel<T extends BaseSchema> {
       sort,
       limit,
       skip,
+      bypassReadPermissionChecks,
     }: {
       sort?: Partial<
         {
@@ -194,80 +344,88 @@ export abstract class BaseModel<T extends BaseSchema> {
       >;
       limit?: number;
       skip?: number;
+      bypassReadPermissionChecks?: boolean;
     } = {}
   ) {
     const queryWithOrg = {
-      organization: this.context.org.id,
       ...query,
+      organization: this.context.org.id,
     };
-    const cursor = this._dangerousGetCollection().find(queryWithOrg);
+    let rawDocs;
 
-    sort &&
-      cursor.sort(
-        sort as {
-          [key: string]: 1 | -1;
-        }
-      );
+    if (this.useConfigFile()) {
+      const docs =
+        this.getConfigDocuments().filter((doc) =>
+          evalCondition(doc, queryWithOrg)
+        ) || [];
 
-    // If there's no project field, we can apply the range filter in the query
-    // Otherwise, we need to apply it in code after we check read access
-    if (this.config.projectScoping === "none") {
-      if (skip) cursor.skip(skip);
-      if (limit) cursor.limit(limit);
+      sort &&
+        docs.sort((a, b) => {
+          for (const key in sort) {
+            const typedKey = key as keyof z.infer<T>;
+            const sortDir = sort[typedKey] as 1 | -1;
+
+            if (a[typedKey] < b[typedKey]) return -1 * sortDir;
+            if (a[typedKey] > b[typedKey]) return 1 * sortDir;
+          }
+          return 0;
+        });
+
+      rawDocs = docs;
+    } else {
+      const cursor = this._dangerousGetCollection().find(queryWithOrg);
+      sort &&
+        cursor.sort(
+          sort as {
+            [key: string]: 1 | -1;
+          }
+        );
+      rawDocs = await cursor.toArray();
     }
 
-    const docs: z.infer<T>[] = [];
-    let i = -1;
-    for await (const doc of cursor) {
-      const migrated = this.migrate(this._removeMongooseFields(doc));
+    if (!rawDocs.length) return [];
 
-      // Filter out any docs the user doesn't have access to read
-      if (this.config.projectScoping !== "none") {
-        if (!this.canRead(migrated)) {
-          continue;
-        }
+    const migrated = rawDocs.map((d) =>
+      this.migrate(this._removeMongooseFields(d))
+    );
+    const filtered = bypassReadPermissionChecks
+      ? migrated
+      : await this.filterByReadPermissions(migrated);
 
-        i++;
+    if (!skip && !limit) return filtered;
 
-        // Apply range filter (skip/limit)
-        if (skip && i < skip) continue;
-        if (limit && i >= (skip || 0) + limit) break;
-      }
-
-      docs.push(migrated);
-    }
-
-    return docs;
+    return filtered.slice(skip || 0, limit ? (skip || 0) + limit : undefined);
   }
 
   protected async _findOne(
     query: FilterQuery<Omit<z.infer<T>, "organization">>
   ) {
-    const doc = await this._dangerousGetCollection().findOne({
-      ...query,
-      organization: this.context.org.id,
-    });
+    const doc = this.useConfigFile()
+      ? this.getConfigDocuments().find((doc) =>
+          evalCondition(doc, { ...query, organization: this.context.org.id })
+        )
+      : await this._dangerousGetCollection().findOne({
+          ...query,
+          organization: this.context.org.id,
+        });
     if (!doc) return null;
 
     const migrated = this.migrate(this._removeMongooseFields(doc));
-    if (this.config.projectScoping !== "none") {
-      if (!this.canRead(migrated)) {
-        return null;
-      }
+
+    await this.populateForeignRefs([migrated]);
+    if (!this.canRead(migrated)) {
+      return null;
     }
 
     return migrated;
   }
 
-  protected async _createOne(rawData: unknown | CreateProps<z.infer<T>>) {
-    const props = this.config.schema
-      .omit({ organization: true, dateCreated: true, dateUpdated: true })
-      .partial({ id: true })
-      .parse(rawData) as CreateProps<z.infer<T>>;
+  protected async _createOne(
+    rawData: CreateProps<z.infer<T>>,
+    writeOptions?: WriteOptions
+  ) {
+    const props = this.createValidator.parse(rawData);
 
-    if (this.config.globallyUniqueIds && "id" in props) {
-      throw new Error("Cannot set a custom id for this model");
-    }
     if ("organization" in props) {
       throw new Error("Cannot set organization field");
     }
@@ -291,14 +449,21 @@ export abstract class BaseModel<T extends BaseSchema> {
       dateUpdated: new Date(),
     } as z.infer<T>;
 
+    await this.populateForeignRefs([doc]);
     if (!this.canCreate(doc)) {
       throw new Error("You do not have access to create this resource");
     }
 
-    await this._standardFieldValidation(doc);
-    await this.customValidation(doc);
+    await this.validateProjectFields(doc);
+    await this.customValidation(doc, writeOptions);
 
-    await this.beforeCreate(doc);
+    if (this.useConfigFile()) {
+      throw new Error(
+        `Cannot create - ${this.config.collectionName} are being managed by config.yml`
+      );
+    }
+
+    await this.beforeCreate(doc, writeOptions);
 
     await this._dangerousGetCollection().insertOne(doc);
 
@@ -312,7 +477,7 @@ export abstract class BaseModel<T extends BaseSchema> {
         },
         event: this.config.auditLog.createEvent,
         details: auditDetailsCreate(doc),
-      });
+      } as AuditInterfaceTemplate<E>);
     } catch (e) {
       this.context.logger.error(
         e,
@@ -320,7 +485,8 @@ export abstract class BaseModel<T extends BaseSchema> {
       );
     }
 
-    await this.afterCreate(doc);
+    await this.afterCreate(doc, writeOptions);
+    await this.afterCreateOrUpdate(doc, writeOptions);
 
     // Add tags if needed
     if ("tags" in doc && Array.isArray(doc.tags)) {
@@ -332,20 +498,13 @@ export abstract class BaseModel<T extends BaseSchema> {
 
   protected async _updateOne(
     doc: z.infer<T>,
-    rawUpdates: unknown | UpdateProps<z.infer<T>>,
+    updates: UpdateProps<z.infer<T>>,
     options?: {
       auditEvent?: EventType;
+      writeOptions?: WriteOptions;
     }
   ) {
-    let updates = this.config.schema
-      .omit({
-        organization: true,
-        dateCreated: true,
-        dateUpdated: true,
-        id: true,
-      })
-      .partial()
-      .parse(rawUpdates) as UpdateProps<z.infer<T>>;
+    updates = this.updateValidator.parse(updates);
 
     // Only consider updates that actually change the value
     const updatedFields = Object.entries(updates)
@@ -390,15 +549,23 @@ export abstract class BaseModel<T extends BaseSchema> {
 
     const newDoc = { ...doc, ...allUpdates } as z.infer<T>;
 
+    await this.populateForeignRefs([newDoc]);
+
     if (!this.canUpdate(doc, updates, newDoc)) {
       throw new Error("You do not have access to update this resource");
     }
 
-    await this._standardFieldValidation(updates as Partial<z.infer<T>>);
+    await this.validateProjectFields(updates as Partial<z.infer<T>>);
 
-    await this.beforeUpdate(doc, updates, newDoc);
+    if (this.useConfigFile()) {
+      throw new Error(
+        `Cannot update - ${this.config.collectionName} are being managed by config.yml`
+      );
+    }
 
-    await this.customValidation(newDoc);
+    await this.beforeUpdate(doc, updates, newDoc, options?.writeOptions);
+
+    await this.customValidation(newDoc, options?.writeOptions);
 
     await this._dangerousGetCollection().updateOne(
       {
@@ -424,7 +591,7 @@ export abstract class BaseModel<T extends BaseSchema> {
         },
         event: auditEvent,
         details: auditDetailsUpdate(doc, newDoc),
-      });
+      } as AuditInterfaceTemplate<E>);
     } catch (e) {
       this.context.logger.error(
         e,
@@ -432,7 +599,8 @@ export abstract class BaseModel<T extends BaseSchema> {
       );
     }
 
-    await this.afterUpdate(doc, updates, newDoc);
+    await this.afterUpdate(doc, updates, newDoc, options?.writeOptions);
+    await this.afterCreateOrUpdate(newDoc, options?.writeOptions);
 
     // Update tags if needed
     if ("tags" in newDoc && Array.isArray(newDoc.tags)) {
@@ -442,11 +610,17 @@ export abstract class BaseModel<T extends BaseSchema> {
     return newDoc;
   }
 
-  protected async _deleteOne(doc: z.infer<T>) {
+  protected async _deleteOne(doc: z.infer<T>, writeOptions?: WriteOptions) {
     if (!this.canDelete(doc)) {
       throw new Error("You do not have access to delete this resource");
     }
-    await this.beforeDelete(doc);
+
+    if (this.useConfigFile()) {
+      throw new Error(
+        `Cannot delete - ${this.config.collectionName} are being managed by config.yml`
+      );
+    }
+    await this.beforeDelete(doc, writeOptions);
     await this._dangerousGetCollection().deleteOne({
       organization: this.context.org.id,
       id: doc.id,
@@ -462,7 +636,7 @@ export abstract class BaseModel<T extends BaseSchema> {
         },
         event: this.config.auditLog.deleteEvent,
         details: auditDetailsDelete(doc),
-      });
+      } as AuditInterfaceTemplate<E>);
     } catch (e) {
       this.context.logger.error(
         e,
@@ -470,7 +644,53 @@ export abstract class BaseModel<T extends BaseSchema> {
       );
     }
 
-    await this.afterDelete(doc);
+    await this.afterDelete(doc, writeOptions);
+  }
+
+  protected detectForeignKey(
+    doc: z.infer<T>,
+    potentialFields: string[]
+  ): string | null {
+    for (const field of potentialFields) {
+      if (
+        field in doc &&
+        doc[field as keyof z.infer<T>] &&
+        typeof doc[field as keyof z.infer<T>] === "string"
+      ) {
+        return doc[field as keyof z.infer<T>] as string;
+      }
+    }
+    return null;
+  }
+
+  protected getForeignRefs(
+    doc: z.infer<T>,
+    throwIfMissing: boolean = true
+  ): ForeignRefs {
+    const refs = this.context.foreignRefs;
+    const keys = this.getForeignKeys(doc);
+
+    const result: ForeignRefs = {};
+    for (const refType in keys) {
+      const type = refType as keyof ForeignKeys;
+      if (!keys[type]) continue;
+      const value = refs[type]?.get(keys[type] || "");
+
+      if (!value) {
+        if (throwIfMissing) {
+          throw new Error(
+            `Could not find foreign ref for ${type}: ${keys[type]}`
+          );
+        } else {
+          continue;
+        }
+      }
+
+      // eslint-disable-next-line
+      result[type] = value as any;
+    }
+
+    return result;
   }
 
   private _collection: Collection | null = null;
@@ -484,10 +704,23 @@ export abstract class BaseModel<T extends BaseSchema> {
     return this._collection;
   }
 
-  /***************
-   * Private methods
-   ***************/
-  private addIndexes() {
+  protected async populateForeignRefs(docs: z.infer<T>[]) {
+    // Merge all docs foreign keys into a single object
+    const mergedKeys: ForeignRefsCacheKeys = {};
+
+    docs.forEach((doc) => {
+      const foreignKeys = this.getForeignKeys(doc);
+      Object.entries(foreignKeys).forEach(
+        ([type, id]: [keyof ForeignKeys, string]) => {
+          mergedKeys[type] = mergedKeys[type] || [];
+          mergedKeys[type]?.push(id);
+        }
+      );
+    });
+
+    await this.context.populateForeignRefs(mergedKeys);
+  }
+  protected addIndexes() {
     if (indexesAdded.has(this.config.collectionName)) return;
     indexesAdded.add(this.config.collectionName);
 
@@ -530,25 +763,29 @@ export abstract class BaseModel<T extends BaseSchema> {
     });
   }
 
-  private async _standardFieldValidation(obj: Partial<z.infer<T>>) {
-    // Validate common foreign key references
-    if (this.config.projectScoping === "single") {
-      if ("project" in obj && obj.project) {
-        const projects = await this.context.getProjects();
-        if (!projects.some((p) => p.id === obj.project)) {
-          throw new Error("Invalid project");
-        }
+  /***************
+   * Private methods
+   ***************/
+
+  // Make sure any project ids in this model point to actual projects
+  // This is only called when creating/updating to avoid breaking on read
+  private async validateProjectFields(obj: Partial<z.infer<T>>) {
+    // Resources with a single project
+    if ("project" in obj && obj.project && typeof obj.project === "string") {
+      const projects = await this.context.getProjects();
+      if (!projects.some((p) => p.id === obj.project)) {
+        throw new Error("Invalid project");
       }
-    } else if (this.config.projectScoping === "multiple") {
-      if ("projects" in obj && obj.projects && Array.isArray(obj.projects)) {
-        const projects = await this.context.getProjects();
-        if (
-          !obj.projects.every((p: string) =>
-            projects.some((proj) => proj.id === p)
-          )
-        ) {
-          throw new Error("Invalid project");
-        }
+    }
+    // Resources with multiple projects
+    else if ("projects" in obj && obj.projects && Array.isArray(obj.projects)) {
+      const projects = await this.context.getProjects();
+      if (
+        !obj.projects.every((p: string) =>
+          projects.some((proj) => proj.id === p)
+        )
+      ) {
+        throw new Error("Invalid project");
       }
     }
   }
@@ -559,10 +796,14 @@ export abstract class BaseModel<T extends BaseSchema> {
   }
 }
 
-export const MakeModelClass = <T extends BaseSchema>(
-  config: ModelConfig<T>
+export const MakeModelClass = <T extends BaseSchema, E extends EntityType>(
+  config: ModelConfig<T, E>
 ) => {
-  abstract class Model extends BaseModel<T> {
+  abstract class Model<WriteOptions = never> extends BaseModel<
+    T,
+    E,
+    WriteOptions
+  > {
     getConfig() {
       return config;
     }

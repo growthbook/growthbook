@@ -667,10 +667,14 @@ export default function ImportFromLaunchDarkly() {
 
   return (
     <div>
+      <h1>LaunchDarkly Importer</h1>
+      <p>
+        Import your existing projects, environments, and feature flags from the
+        LaunchDarkly API.
+      </p>
       <div className="appbox p-3">
         <div className="row">
           <div className="col">
-            <h2>Launch Darkly Importer</h2>
             <div className="row">
               <div className="col">
                 <Field

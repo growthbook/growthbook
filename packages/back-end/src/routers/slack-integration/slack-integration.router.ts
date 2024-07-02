@@ -2,7 +2,7 @@ import express from "express";
 import z from "zod";
 import { wrapController } from "../wrapController";
 import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
-import { notificationEventNames } from "../../events/base-types";
+import { zodNotificationEventNamesEnum } from "../../events/base-types";
 import * as rawSlackIntegrationController from "./slack-integration.controller";
 
 const router = express.Router();
@@ -34,7 +34,7 @@ router.post(
         description: z.string(),
         projects: z.array(z.string()),
         environments: z.array(z.string()),
-        events: z.array(z.enum(notificationEventNames)),
+        events: z.array(z.enum(zodNotificationEventNamesEnum)),
         tags: z.array(z.string()),
         slackAppId: z.string(),
         slackSigningKey: z.string(),
@@ -62,7 +62,7 @@ router.put(
         description: z.string(),
         projects: z.array(z.string()),
         environments: z.array(z.string()),
-        events: z.array(z.enum(notificationEventNames)),
+        events: z.array(z.enum(zodNotificationEventNamesEnum)),
         tags: z.array(z.string()),
         slackAppId: z.string(),
         slackSigningKey: z.string(),

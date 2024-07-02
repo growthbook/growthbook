@@ -42,7 +42,6 @@ import {
   VisualChangesetModel,
 } from "./VisualChangesetModel";
 import { getFeaturesByIds } from "./FeatureModel";
-import { findURLRedirects } from "./UrlRedirectModel";
 
 type FindOrganizationOptions = {
   experimentId: string;
@@ -263,7 +262,10 @@ export async function getExperimentById(
 
 export async function getAllExperiments(
   context: ReqContext | ApiReqContext,
-  project?: string
+  {
+    project,
+    includeArchived = false,
+  }: { project?: string; includeArchived?: boolean } = {}
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
@@ -273,7 +275,28 @@ export async function getAllExperiments(
     query.project = project;
   }
 
+  if (!includeArchived) {
+    query.archived = { $ne: true };
+  }
+
   return await findExperiments(context, query);
+}
+
+export async function hasArchivedExperiments(
+  context: ReqContext | ApiReqContext,
+  project?: string
+): Promise<boolean> {
+  const query: FilterQuery<ExperimentDocument> = {
+    organization: context.org.id,
+    archived: true,
+  };
+
+  if (project) {
+    query.project = project;
+  }
+
+  const e = await ExperimentModel.findOne(query);
+  return !!e;
 }
 
 export async function getExperimentByTrackingKey(
@@ -338,7 +361,7 @@ export async function createExperiment({
   if (!data.trackingKey) {
     // Try to generate a unique tracking key based on the experiment name
     let n = 1;
-    let found = null;
+    let found: null | string = null;
     while (n < 10 && !found) {
       const key = generateTrackingKey(data.name || data.id || "", n);
       if (!(await getExperimentByTrackingKey(context, key))) {
@@ -389,18 +412,23 @@ export async function updateExperiment({
   changes: Changeset;
   bypassWebhooks?: boolean;
 }): Promise<ExperimentInterface> {
+  // TODO: are there some changes where we don't want to update the dateUpdated?
+  const allChanges = { ...changes };
+  allChanges.dateUpdated = new Date();
+
   await ExperimentModel.updateOne(
     {
       id: experiment.id,
       organization: context.org.id,
     },
     {
-      $set: changes,
+      $set: allChanges,
     }
   );
 
-  const updated = { ...experiment, ...changes };
+  const updated = { ...experiment, ...allChanges };
 
+  // TODO: are there some changes where we want to skip calling this?
   await onExperimentUpdate({
     context,
     oldExperiment: experiment,
@@ -640,6 +668,8 @@ export async function deleteExperimentSegment(
       oldExperiment: previous,
       newExperiment: current,
       bypassWebhooks: true,
+    }).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on experiment update");
     });
   });
 }
@@ -934,14 +964,16 @@ export async function removeMetricFromExperiments(
   });
 
   // Log all the changes
-  each(oldExperiments, async (changeSet) => {
+  each(oldExperiments, (changeSet) => {
     const { previous, current } = changeSet;
     if (current && previous) {
-      await onExperimentUpdate({
+      onExperimentUpdate({
         context,
         oldExperiment: previous,
         newExperiment: current,
         bypassWebhooks: true,
+      }).catch((e) => {
+        logger.error(e, "Error refreshing SDK Payload on experiment update");
       });
     }
   });
@@ -998,6 +1030,8 @@ export async function addLinkedFeatureToExperiment(
       ...experiment,
       linkedFeatures: [...(experiment.linkedFeatures || []), featureId],
     },
+  }).catch((e) => {
+    logger.error(e, "Error refreshing SDK Payload on experiment update");
   });
 }
 
@@ -1036,6 +1070,8 @@ export async function removeLinkedFeatureFromExperiment(
         (f) => f !== featureId
       ),
     },
+  }).catch((e) => {
+    logger.error(e, "Error refreshing SDK Payload on experiment update");
   });
 }
 
@@ -1051,6 +1087,8 @@ function logAllChanges(
       context,
       oldExperiment: previous,
       newExperiment: current,
+    }).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on experiment update");
     });
   });
 }
@@ -1180,9 +1218,10 @@ export const getAllVisualExperiments = async (
   };
 
   return visualChangesets
-    .map((c) => ({
-      experiment: experimentMap.get(c.experiment),
+    .map<VisualExperiment>((c) => ({
+      experiment: experimentMap.get(c.experiment) as ExperimentInterface,
       visualChangeset: c,
+      type: "visual",
     }))
     .filter(_isValidVisualExperiment)
     .filter((e) => {
@@ -1207,7 +1246,7 @@ export const getAllURLRedirectExperiments = async (
   context: ReqContext | ApiReqContext,
   experimentMap: Map<string, ExperimentInterface>
 ): Promise<Array<URLRedirectExperiment>> => {
-  const redirects = await findURLRedirects(context.org.id);
+  const redirects = await context.models.urlRedirects.getAll();
 
   if (!redirects.length) return [];
 
@@ -1258,11 +1297,11 @@ export function getPayloadKeysForAllEnvs(
   return keys;
 }
 
-export const getPayloadKeys = (
+export function getPayloadKeys(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   linkedFeatures?: FeatureInterface[]
-): SDKPayloadKey[] => {
+): SDKPayloadKey[] {
   // If experiment is not included in the SDK payload
   if (!includeExperimentInPayload(experiment, linkedFeatures)) {
     return [];
@@ -1299,7 +1338,7 @@ export const getPayloadKeys = (
 
   // Otherwise, if no linked changes, there are no affected payload keys
   return [];
-};
+}
 
 const getExperimentChanges = (
   experiment: ExperimentInterface

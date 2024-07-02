@@ -212,6 +212,7 @@ try {
   throw Error(`webhooks in env file is malformed: ${error.message}`);
 }
 export const WEBHOOKS = webhooks;
+export const WEBHOOK_PROXY = process.env.WEBHOOK_PROXY || "";
 
 /**
  * Allows custom configuration of the trust proxy settings as

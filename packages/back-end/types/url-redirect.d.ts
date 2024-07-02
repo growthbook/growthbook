@@ -1,24 +1,13 @@
 import { z } from "zod";
 import {
-  createUrlRedirectValidator,
-  updateUrlRedirectValidator,
+  urlRedirectValidator,
+  destinationUrlValidator,
 } from "../src/routers/url-redirects/url-redirects.validators";
+import { CreateProps, UpdateProps } from "./models";
 
-export interface DestinationURL {
-  url: string;
-  variation: string;
-}
+export type DestinationURL = z.infer<typeof destinationUrlValidator>;
 
-export interface URLRedirectInterface {
-  id: string;
-  dateCreated: Date;
-  dateUpdated: Date;
-  organization: string;
-  experiment: string;
-  urlPattern: string;
-  destinationURLs: DestinationURL[];
-  persistQueryString: boolean;
-}
+export type URLRedirectInterface = z.infer<typeof urlRedirectValidator>;
 
-export type CreateURLRedirectProps = z.infer<typeof createUrlRedirectValidator>;
-export type UpdateURLRedirectProps = z.infer<typeof updateUrlRedirectValidator>;
+export type CreateURLRedirectProps = CreateProps<URLRedirectInterface>;
+export type UpdateURLRedirectProps = UpdateProps<URLRedirectInterface>;

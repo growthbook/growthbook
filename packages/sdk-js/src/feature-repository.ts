@@ -5,10 +5,9 @@ import {
   FetchResponse,
   Helpers,
   Polyfills,
-  PrefetchOptions,
 } from "./types/growthbook";
-import { GrowthBook } from "./GrowthBook";
 import { getPolyfills } from "./util";
+import type { GrowthBook } from ".";
 
 type CacheEntry = {
   data: FeatureApiResponse;
@@ -126,20 +125,6 @@ export async function clearCache(): Promise<void> {
   clearAutoRefresh();
   cacheInitialized = false;
   await updatePersistentCache();
-}
-
-export async function prefetchPayload(options: PrefetchOptions) {
-  // Create a temporary instance, just to fetch the payload
-  const instance = new GrowthBook(options);
-
-  await refreshFeatures({
-    instance,
-    skipCache: options.skipCache,
-    allowStale: false,
-    backgroundSync: options.streaming,
-  });
-
-  instance.destroy();
 }
 
 // Get or fetch features and refresh the SDK instance
@@ -298,11 +283,11 @@ function promiseTimeout<T>(
 ): Promise<T | null> {
   return new Promise((resolve) => {
     let resolved = false;
-    let timer: unknown;
+    let timer: NodeJS.Timeout | undefined;
     const finish = (data?: T) => {
       if (resolved) return;
       resolved = true;
-      timer && clearTimeout(timer as NodeJS.Timer);
+      timer && clearTimeout(timer);
       resolve(data || null);
     };
 

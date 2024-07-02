@@ -120,7 +120,7 @@ if (SENTRY_DSN) {
   );
 }
 
-if (!process.env.NO_INIT) {
+if (!process.env.NO_INIT && process.env.NODE_ENV !== "test") {
   init();
 }
 

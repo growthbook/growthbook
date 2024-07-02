@@ -24,6 +24,7 @@ export type Language =
   | "ruby"
   | "json"
   | "javascript"
+  | "typescript"
   | "tsx"
   | "html"
   | "css"
