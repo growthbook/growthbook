@@ -121,14 +121,14 @@ export default function ExperimentImpact({
 
   const form = useForm<ExperimentImpactFilters>({
     defaultValues: {
-      startDate: defaultStartDate.toISOString().substring(0, 16),
+      startDate: defaultStartDate.toISOString().substring(0, 10),
       endDate: "",
       projects: [],
       metric: settings.northStar?.metricIds?.[0] ?? "",
       adjusted: false,
     },
   });
-
+  console.log(form.watch("startDate"));
   const metric = form.watch("metric");
   const selectedProjects = form.watch("projects");
   const adjusted = form.watch("adjusted");
@@ -184,7 +184,7 @@ export default function ExperimentImpact({
     try {
       const { snapshots } = await apiCall<{
         snapshots: ExperimentSnapshotInterface[];
-      }>(`/experiments/snapshots/?ids=${queryIds}`, {
+      }>(`/experiments/snapshots/?experiments=${queryIds}`, {
         method: "GET",
       });
       setSnapshots(snapshots);
@@ -204,7 +204,7 @@ export default function ExperimentImpact({
         }>("/experiments/snapshots/scaled/", {
           method: "POST",
           body: JSON.stringify({
-            ids: ids,
+            experiments: ids,
           }),
         });
       } catch (error) {
@@ -292,9 +292,6 @@ export default function ExperimentImpact({
           ? "loser"
           : "other";
 
-      if (fitsFilters) {
-        console.dir(s, { depth: 3 });
-      }
       const ei: ExperimentWithImpact = {
         experiment: e,
         type: summary,
