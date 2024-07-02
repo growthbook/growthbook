@@ -18,6 +18,11 @@ import {
   getSavedGroupMap,
   refreshSDKPayloadCache,
 } from "../services/features";
+import {
+  auditDetailsCreate,
+  auditDetailsUpdate,
+  auditDetailsDelete,
+} from "../services/audit";
 import { upgradeFeatureInterface } from "../util/migrations";
 import { ReqContext } from "../../types/organization";
 import {
@@ -401,6 +406,12 @@ async function logFeatureUpdatedEvent(
       current: currentApiFeature,
       previous: previousApiFeature,
     },
+    auditData: {
+      id: current.id,
+      details: auditDetailsUpdate(previous, current, {
+        revision: current.version,
+      }),
+    },
     user: context.auditUser,
     projects: Array.from(
       new Set([previousApiFeature.project, currentApiFeature.project])
@@ -448,6 +459,10 @@ async function logFeatureCreatedEvent(
     data: {
       current: apiFeature,
     },
+    auditData: {
+      id: feature.id,
+      details: auditDetailsCreate(feature),
+    },
     projects: [apiFeature.project],
     tags: apiFeature.tags,
     environments: getApiFeatureEnabledEnvs(apiFeature),
@@ -488,6 +503,10 @@ async function logFeatureDeletedEvent(
     user: context.auditUser,
     data: {
       previous: apiFeature,
+    },
+    auditData: {
+      id: previousFeature.id,
+      details: auditDetailsDelete(previousFeature),
     },
     projects: [apiFeature.project],
     tags: apiFeature.tags,

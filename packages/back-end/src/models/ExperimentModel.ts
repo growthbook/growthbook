@@ -17,6 +17,11 @@ import {
   toExperimentApiInterface,
 } from "../services/experiments";
 import {
+  auditDetailsCreate,
+  auditDetailsUpdate,
+  auditDetailsDelete,
+} from "../services/audit";
+import {
   ExperimentCreatedNotificationEvent,
   ExperimentDeletedNotificationEvent,
   ExperimentUpdatedNotificationEvent,
@@ -753,6 +758,7 @@ const logExperimentCreated = async (
     data: {
       current: apiExperiment,
     },
+    auditData: { id: experiment.id, details: auditDetailsCreate(experiment) },
     projects: [apiExperiment.project],
     tags: apiExperiment.tags,
     environments: changedEnvs,
@@ -807,6 +813,10 @@ const logExperimentUpdated = async ({
     data: {
       previous: previousApiExperiment,
       current: currentApiExperiment,
+    },
+    auditData: {
+      id: current.id,
+      details: auditDetailsUpdate(previous, current),
     },
     projects: Array.from(
       new Set([previousApiExperiment.project, currentApiExperiment.project])
@@ -1127,6 +1137,7 @@ export const logExperimentDeleted = async (
     data: {
       previous: apiExperiment,
     },
+    auditData: { id: experiment.id, details: auditDetailsDelete(experiment) },
     projects: [apiExperiment.project],
     environments: changedEnvs,
     tags: apiExperiment.tags,
