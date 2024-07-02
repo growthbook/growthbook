@@ -199,17 +199,17 @@ export async function updateSnapshot({
   });
 }
 
-export async function addOrUpdateSnapshotAnalysis({
-  organization,
-  id,
-  analysis,
-  context,
-}: {
+export type AddOrUpdateSnapshotAnalysisParams = {
   organization: string;
   id: string;
   analysis: ExperimentSnapshotAnalysis;
   context: Context;
-}) {
+};
+
+export async function addOrUpdateSnapshotAnalysis(
+  params: AddOrUpdateSnapshotAnalysisParams
+) {
+  const { organization, id, analysis, context } = params;
   // looks for snapshots with this ID but WITHOUT these analysis settings
   const experimentSnapshotModel = await ExperimentSnapshotModel.updateOne(
     {
@@ -353,23 +353,27 @@ export async function getLatestSnapshotMultipleExperiments(
   };
 
   const aggregatePipeline: PipelineStage[] = [
+    // find all snapshots for those experiments matching dimension and result status
     { $match: query },
+    // sort so latest is first
     { $sort: { dateCreated: -1 } },
+    // group by experiment-phase and call latest snapshot `latestSnapshot`
     {
       $group: {
         _id: { experiment: "$experiment", phase: "$phase" },
         latestSnapshot: { $first: "$$ROOT" },
       },
     },
+    // take latest snapshot and put it at the top level so we return an array of snapshots
     {
       $replaceRoot: { newRoot: "$latestSnapshot" },
     },
   ];
 
-  // First try getting new snapshots that have a `status` field
   const all = await ExperimentSnapshotModel.aggregate<ExperimentSnapshotDocument>(
     aggregatePipeline
   ).exec();
+
   const snapshots: ExperimentSnapshotInterface[] = [];
   if (all[0]) {
     // get interfaces matching the right phase

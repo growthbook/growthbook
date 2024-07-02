@@ -18,8 +18,8 @@ import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   SnapshotAnalysisParams,
   createManualSnapshot,
-  createMultipleSnapshotAnalysis,
   createSnapshot,
+  createSnapshotAnalyses,
   createSnapshotAnalysis,
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
@@ -341,13 +341,13 @@ async function _getSnapshot(
 
 async function _getSnapshots(
   context: ReqContext | ApiReqContext,
-  experimentIds: string[],
+  experiments: string[],
   dimension?: string,
   withResults: boolean = true
 ): Promise<ExperimentSnapshotInterface[]> {
   const experimentPhaseMap: Map<string, number> = new Map();
-  const experiments = await getExperimentsByIds(context, experimentIds);
-  experiments.forEach((e) => {
+  const experimentObjs = await getExperimentsByIds(context, experiments);
+  experimentObjs.forEach((e) => {
     if (e.organization !== context.org.id) {
       throw new Error("You do not have access to view this experiment");
     }
@@ -2170,12 +2170,11 @@ export async function postSnapshotsWithScaledImpactAnalysis(
   });
 
   if (snapshotAnalysesToCreate.length > 0) {
-    await createMultipleSnapshotAnalysis(
-      snapshotAnalysesToCreate,
-      context
-    ).catch((e) => {
-      req.log.error(e);
-    });
+    await createSnapshotAnalyses(snapshotAnalysesToCreate, context).catch(
+      (e) => {
+        req.log.error(e);
+      }
+    );
   }
   res.status(200).json({
     status: 200,

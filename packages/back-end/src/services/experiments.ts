@@ -107,7 +107,10 @@ import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRu
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
 import { FactTableMap } from "../models/FactTableModel";
-import { StatsEngine } from "../../types/stats";
+import {
+  MultipleExperimentMetricAnalysis,
+  StatsEngine,
+} from "../../types/stats";
 import { getFeaturesByIds } from "../models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel";
 import { ExperimentRefRule, FeatureRule } from "../../types/feature";
@@ -118,10 +121,10 @@ import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
   analyzeExperimentResults,
-  analyzeMultipleExperiments,
   analyzeSingleExperiment,
   getMetricSettingsForStatsEngine,
   getMetricsAndQueryDataForStatsEngine,
+  runSnapshotAnalyses,
 } from "./stats";
 import { getEnvironmentIdsFromOrg } from "./organizations";
 
@@ -675,19 +678,21 @@ export type SnapshotAnalysisParams = {
   snapshot: ExperimentSnapshotInterface;
 };
 
-export async function createMultipleSnapshotAnalysis(
+export type ExperimentMetricAnalysisParamsMetadata = {
+  analysis: ExperimentSnapshotAnalysis;
+  unknownVariations: string[];
+  snapshotSettings: ExperimentSnapshotSettings;
+  organization: string;
+  snapshot: string;
+};
+
+async function getSnapshotAnalyses(
   params: SnapshotAnalysisParams[],
   context: ReqContext
-): Promise<void> {
+) {
   const analysisParamsMap = new Map<
     string,
-    ExperimentMetricAnalysisParams & {
-      analysis: ExperimentSnapshotAnalysis;
-      unknownVariations: string[];
-      snapshotSettings: ExperimentSnapshotSettings;
-      organization: string;
-      snapshot: string;
-    }
+    ExperimentMetricAnalysisParams & ExperimentMetricAnalysisParamsMetadata
   >();
 
   // get queryMap for all snapshots
@@ -695,6 +700,8 @@ export async function createMultipleSnapshotAnalysis(
     context.org.id,
     params.map((p) => p.snapshot.queries).flat()
   );
+
+  const createAnalysisPromises: (() => Promise<void>)[] = [];
   params.forEach(
     (
       { experiment, organization, analysisSettings, metricMap, snapshot },
@@ -725,13 +732,16 @@ export async function createMultipleSnapshotAnalysis(
         settings: analysisSettings,
         dateCreated: new Date(),
       };
-      // and analysis to mongo record if it does not exist, overwrite if it does
-      addOrUpdateSnapshotAnalysis({
-        organization: organization.id,
-        id: snapshot.id,
-        analysis,
-        context,
-      });
+
+      // promise to add analysis to mongo record if it does not exist, overwrite if it does
+      createAnalysisPromises.push(() =>
+        addOrUpdateSnapshotAnalysis({
+          organization: organization.id,
+          id: snapshot.id,
+          analysis,
+          context,
+        })
+      );
 
       const mdat = getMetricsAndQueryDataForStatsEngine(
         queryMap,
@@ -766,10 +776,22 @@ export async function createMultipleSnapshotAnalysis(
     }
   );
 
-  const results = await analyzeMultipleExperiments(
-    Array.from(analysisParamsMap.values())
-  );
+  // write running snapshots to db
+  if (createAnalysisPromises.length > 0) {
+    await promiseAllChunks(createAnalysisPromises, 10);
+  }
 
+  return analysisParamsMap;
+}
+
+async function parseSnapshotAnalyses(
+  results: MultipleExperimentMetricAnalysis[],
+  analysisParamsMap: Map<
+    string,
+    ExperimentMetricAnalysisParams & ExperimentMetricAnalysisParamsMetadata
+  >,
+  context: ReqContext
+) {
   const promises: (() => Promise<void>)[] = [];
   results.map((result) => {
     const analysisParams = analysisParamsMap.get(result.id);
@@ -871,8 +893,24 @@ export async function createMultipleSnapshotAnalysis(
     );
   });
   if (promises.length > 0) {
-    promiseAllChunks(promises, 10);
+    await promiseAllChunks(promises, 10);
   }
+}
+
+export async function createSnapshotAnalyses(
+  params: SnapshotAnalysisParams[],
+  context: ReqContext
+): Promise<void> {
+  // creates snapshot analyses in mongo and gets analysis parameters
+  const analysisParamsMap = await getSnapshotAnalyses(params, context);
+
+  // calls stats engine to run analyses
+  const results = await runSnapshotAnalyses(
+    Array.from(analysisParamsMap.values())
+  );
+
+  // parses results and writes to mongo
+  await parseSnapshotAnalyses(results, analysisParamsMap, context);
 }
 
 export async function createSnapshotAnalysis({

@@ -255,7 +255,7 @@ export async function analyzeSingleExperiment(
   return result.results;
 }
 
-export async function analyzeMultipleExperiments(
+export async function runSnapshotAnalyses(
   params: ExperimentMetricAnalysisParams[]
 ): Promise<MultipleExperimentMetricAnalysis[]> {
   const result = await runStatsEngine(
