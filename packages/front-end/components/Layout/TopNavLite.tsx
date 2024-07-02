@@ -6,7 +6,7 @@ import Button from "@/components/Button";
 import { ThemeToggler } from "./ThemeToggler/ThemeToggler";
 
 export default function TopNavLite() {
-  const { email, name } = useUser();
+  const { email, name, user } = useUser();
   return (
     <div className="navbar bg-white border-bottom">
       <Head>
@@ -29,14 +29,16 @@ export default function TopNavLite() {
         </div>
       )}
       <div>
-        <Button
-          onClick={async () => {
-            await safeLogout();
-          }}
-          color="danger"
-        >
-          Log Out
-        </Button>
+        {user && (
+          <Button
+            onClick={async () => {
+              await safeLogout();
+            }}
+            color="danger"
+          >
+            Log Out
+          </Button>
+        )}
       </div>
     </div>
   );

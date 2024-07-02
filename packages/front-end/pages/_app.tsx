@@ -112,7 +112,12 @@ function App({
         <AppearanceUIThemeProvider>
           <RadixTheme>
             {preAuth ? (
-              <Component {...pageProps} />
+              <div>
+                <TopNavLite />
+                <main className="container mt-5">
+                  <Component {...pageProps} />
+                </main>
+              </div>
             ) : (
               <PageHeadProvider>
                 <AuthProvider>
