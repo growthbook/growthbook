@@ -240,6 +240,7 @@ export interface AutoFactTableToCreate
   sql: string;
   shouldCreate: boolean;
   alreadyExists: boolean;
+  userIdTypes: string[];
 }
 
 export type AutoMetricToCreate = {
