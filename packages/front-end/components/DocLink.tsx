@@ -8,6 +8,7 @@ const docSections = {
   experimentResults: "/app/experiment-results",
   stickyBucketing: "/app/sticky-bucketing",
   metrics: "/app/metrics",
+  factTables: "/app/fact-tables",
   dimensions: "/app/dimensions",
   datasources: "/app/datasources",
   dashboard: "/app/experiment-configuration",
