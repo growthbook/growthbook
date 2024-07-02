@@ -40,6 +40,7 @@ export const entityEvents = {
   user: ["create", "update", "delete", "invite"],
   organization: ["create", "update", "delete"],
   savedGroup: ["created", "deleted", "updated"],
+  segment: ["create", "delete", "update"],
   archetype: ["created", "deleted", "updated"],
   team: ["create", "delete", "update"],
   factTable: ["autocreate"],
