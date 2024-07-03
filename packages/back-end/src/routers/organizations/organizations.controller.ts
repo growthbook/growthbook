@@ -49,7 +49,7 @@ import {
   getNonSensitiveParams,
   getSourceIntegrationObject,
 } from "../../services/datasource";
-import { getUserByEmail, updatePassword } from "../../services/users";
+import { updatePassword } from "../../services/users";
 import { getAllTags } from "../../models/TagModel";
 import {
   Invite,
@@ -112,7 +112,12 @@ import {
   getUnredactedSecretKey,
 } from "../../models/ApiKeyModel";
 import { getUserPermissions } from "../../util/organization.util";
-import { deleteUser, getUserById, getAllUsers } from "../../models/UserModel";
+import {
+  deleteUser,
+  getUserById,
+  getAllUsers,
+  getUserByEmail,
+} from "../../models/UserModel";
 import {
   getAllExperiments,
   getExperimentsForActivityFeed,
