@@ -39,6 +39,7 @@ import {
   editFeatureRule,
   getAllFeaturesWithLinkedExperiments,
   getFeature,
+  hasArchivedFeatures,
   migrateDraft,
   publishRevision,
   setDefaultValue,
@@ -1960,7 +1961,11 @@ export async function postFeatureArchive(
 }
 
 export async function getFeatures(
-  req: AuthRequest<unknown, unknown, { project?: string }>,
+  req: AuthRequest<
+    unknown,
+    unknown,
+    { project?: string; includeArchived?: boolean }
+  >,
   res: Response
 ) {
   const context = getContextFromReq(req);
@@ -1969,16 +1974,25 @@ export async function getFeatures(
   if (typeof req.query?.project === "string") {
     project = req.query.project;
   }
+  const includeArchived = !!req.query.includeArchived;
 
   const { features, experiments } = await getAllFeaturesWithLinkedExperiments(
     context,
-    project
+    {
+      project,
+      includeArchived,
+    }
   );
+
+  const hasArchived = includeArchived
+    ? features.some((f) => f.archived)
+    : await hasArchivedFeatures(context, project);
 
   res.status(200).json({
     status: 200,
     features,
     linkedExperiments: experiments,
+    hasArchived,
   });
 }
 

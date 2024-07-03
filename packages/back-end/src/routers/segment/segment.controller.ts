@@ -1,5 +1,4 @@
 import type { Response } from "express";
-import uniqid from "uniqid";
 import { FilterQuery } from "mongoose";
 import { z } from "zod";
 import { AuthRequest } from "../../types/AuthRequest";
@@ -21,6 +20,7 @@ import { SegmentInterface } from "../../../types/segment";
 import { ExperimentInterface } from "../../../types/experiment";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
 import { createSegmentValidator } from "./segment.validators";
+import uniqid from "uniqid";
 
 // region GET /segments
 
@@ -281,7 +281,7 @@ export const deleteSegment = async (
     throw new Error("Could not find segment");
   }
 
-  await context.models.segments.deleteById(id);
+  await context.models.segments.delete(segment);
 
   // delete references:
   // ideas:

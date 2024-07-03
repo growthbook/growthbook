@@ -23,9 +23,9 @@ import {
 } from "../models/OrganizationModel";
 import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
 import { AuthRequest } from "../types/AuthRequest";
-import { UserModel } from "../models/UserModel";
 import {
   ExpandedMember,
+  ExpandedMemberInfo,
   Invite,
   Member,
   MemberRoleInfo,
@@ -61,6 +61,7 @@ import { SegmentInterface } from "../../types/segment";
 import { getAllExperiments } from "../models/ExperimentModel";
 import { LegacyExperimentPhase } from "../../types/experiment";
 import { addTags } from "../models/TagModel";
+import { getUsersByIds } from "../models/UserModel";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -68,7 +69,6 @@ import {
 } from "./datasource";
 import { createMetric } from "./experiments";
 import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
-import { getUsersByIds } from "./users";
 import { ReqContextClass } from "./context";
 
 export {
@@ -135,9 +135,8 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
   });
 }
 
-export async function getConfidenceLevelsForOrg(id: string) {
-  const org = await getOrganizationById(id);
-  const ciUpper = org?.settings?.confidenceLevel || 0.95;
+export function getConfidenceLevelsForOrg(context: ReqContext) {
+  const ciUpper = context.org.settings?.confidenceLevel || 0.95;
   return {
     ciUpper,
     ciLower: 1 - ciUpper,
@@ -183,21 +182,6 @@ export function getNumberOfUniqueMembersAndInvites(
   const numInvites = new Set(organization.invites.map((i) => i.email)).size;
 
   return numMembers + numInvites;
-}
-
-export async function userHasAccess(
-  req: AuthRequest,
-  organization: string
-): Promise<boolean> {
-  if (req.superAdmin) return true;
-  if (req.organization?.id === organization) return true;
-  if (!req.userId) return false;
-
-  const doc = await getOrganizationById(organization);
-  if (doc && doc.members.map((m) => m.id).includes(req.userId)) {
-    return true;
-  }
-  return false;
 }
 
 export async function removeMember(
@@ -830,7 +814,7 @@ export async function importConfig(
             };
             delete updates.organization;
 
-            await context.models.segments.updateById(k, updates);
+            await context.models.segments.update(existing, updates);
           } else {
             await context.models.segments.create({
               ...s,
@@ -845,16 +829,11 @@ export async function importConfig(
   }
 }
 
-export async function getEmailFromUserId(userId: string) {
-  const u = await UserModel.findOne({ id: userId });
-  return u?.email || "";
-}
-
 export async function getExperimentOverrides(
   context: ReqContext | ApiReqContext,
   project?: string
 ) {
-  const experiments = await getAllExperiments(context, project);
+  const experiments = await getAllExperiments(context, { project });
   const overrides: Record<string, ExperimentOverride> = {};
   const expIdMapping: Record<string, { trackingKey: string }> = {};
 
@@ -1010,23 +989,77 @@ export async function findVerifiedOrgsForNewUser(email: string) {
   }
 }
 
-export async function expandOrgMembers(
-  members: Member[]
-): Promise<ExpandedMember[]> {
-  // Add email/name to the organization members array
-  const userInfo = await getUsersByIds(members.map((m) => m.id));
-  const expandedMembers: ExpandedMember[] = [];
-  userInfo.forEach(({ id, email, verified, name, _id }) => {
-    const memberInfo = members.find((m) => m.id === id);
-    if (!memberInfo) return;
-    expandedMembers.push({
-      email,
-      verified,
-      name: name || "",
-      ...memberInfo,
-      dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
-    });
+const expandedMemberInfoCache: Record<
+  string,
+  ExpandedMemberInfo & {
+    dateCreated?: Date;
+    e: number;
+  }
+> = {};
+const EXPANDED_MEMBER_CACHE_TTL = 1000 * 60 * 15; // 15 minutes
+
+// Garbage collection for cache (probably not needed)
+setInterval(() => {
+  const now = Date.now();
+  Object.keys(expandedMemberInfoCache).forEach((k) => {
+    if (expandedMemberInfoCache[k].e <= now) {
+      delete expandedMemberInfoCache[k];
+    }
   });
+}, EXPANDED_MEMBER_CACHE_TTL);
+
+// Add email/name to the organization members array
+export async function expandOrgMembers(
+  members: Member[],
+  currentUserId?: string
+): Promise<ExpandedMember[]> {
+  const expandedMembers: ExpandedMember[] = [];
+
+  // First look in cache
+  const now = Date.now();
+  const remainingMembers: Member[] = [];
+  members.forEach((m) => {
+    const cache = expandedMemberInfoCache[m.id];
+    if (cache && cache.e > now && m.id !== currentUserId) {
+      expandedMembers.push({
+        email: cache.email,
+        verified: cache.verified,
+        name: cache.name || "",
+        ...m,
+        dateCreated: m.dateCreated || cache.dateCreated,
+      });
+    } else {
+      remainingMembers.push(m);
+    }
+  });
+
+  if (remainingMembers.length > 0) {
+    const userInfo = await getUsersByIds(remainingMembers.map((m) => m.id));
+    userInfo.forEach(({ id, email, verified, name, dateCreated }) => {
+      const memberInfo = remainingMembers.find((m) => m.id === id);
+      if (!memberInfo) return;
+      expandedMembers.push({
+        email,
+        verified,
+        name: name || "",
+        ...memberInfo,
+        dateCreated: memberInfo.dateCreated || dateCreated,
+      });
+
+      expandedMemberInfoCache[id] = {
+        email,
+        verified,
+        name: name || "",
+        dateCreated: dateCreated,
+        e:
+          now +
+          EXPANDED_MEMBER_CACHE_TTL +
+          // Random jitter to avoid cache stampedes
+          Math.floor(Math.random() * EXPANDED_MEMBER_CACHE_TTL * 0.1),
+      };
+    });
+  }
+
   return expandedMembers;
 }
 

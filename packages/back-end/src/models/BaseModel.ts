@@ -457,6 +457,12 @@ export abstract class BaseModel<
     await this.validateProjectFields(doc);
     await this.customValidation(doc, writeOptions);
 
+    if (this.useConfigFile()) {
+      throw new Error(
+        `Cannot create - ${this.config.collectionName} are being managed by config.yml`
+      );
+    }
+
     await this.beforeCreate(doc, writeOptions);
 
     await this._dangerousGetCollection().insertOne(doc);
@@ -551,6 +557,12 @@ export abstract class BaseModel<
 
     await this.validateProjectFields(updates as Partial<z.infer<T>>);
 
+    if (this.useConfigFile()) {
+      throw new Error(
+        `Cannot update - ${this.config.collectionName} are being managed by config.yml`
+      );
+    }
+
     await this.beforeUpdate(doc, updates, newDoc, options?.writeOptions);
 
     await this.customValidation(newDoc, options?.writeOptions);
@@ -601,6 +613,12 @@ export abstract class BaseModel<
   protected async _deleteOne(doc: z.infer<T>, writeOptions?: WriteOptions) {
     if (!this.canDelete(doc)) {
       throw new Error("You do not have access to delete this resource");
+    }
+
+    if (this.useConfigFile()) {
+      throw new Error(
+        `Cannot delete - ${this.config.collectionName} are being managed by config.yml`
+      );
     }
     await this.beforeDelete(doc, writeOptions);
     await this._dangerousGetCollection().deleteOne({

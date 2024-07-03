@@ -41,7 +41,7 @@ export const segmentValidator = z
 // const baseSegmentSchema = z.object({
 //   id: z.string(),
 //   organization: z.string(),
-//   owner: z.string().default(""),
+//   owner: z.string().default(""),s
 //   datasource: z.string(),
 //   dateCreated: z.date(),
 //   dateUpdated: z.date(),

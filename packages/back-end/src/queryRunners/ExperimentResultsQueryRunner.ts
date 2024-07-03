@@ -172,9 +172,7 @@ export const startExperimentResultQueries = async (
   const metricMap = params.metricMap;
 
   const { org } = context;
-  const hasPipelineModeFeature = org
-    ? orgHasPremiumFeature(org, "pipeline-mode")
-    : false;
+  const hasPipelineModeFeature = orgHasPremiumFeature(org, "pipeline-mode");
 
   const activationMetric = snapshotSettings.activationMetric
     ? metricMap.get(snapshotSettings.activationMetric) ?? null
@@ -231,7 +229,7 @@ export const startExperimentResultQueries = async (
       : "";
 
   // Settings for health query
-  const runTrafficQuery = !dimensionObj && org?.settings?.runHealthTrafficQuery;
+  const runTrafficQuery = !dimensionObj && org.settings?.runHealthTrafficQuery;
   let dimensionsForTraffic: ExperimentDimension[] = [];
   if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
     dimensionsForTraffic = exposureQuery.dimensionMetadata
