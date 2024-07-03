@@ -2,7 +2,6 @@ import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { ReqContext } from "../../types/organization";
 import {
-  AutoFactTableSchemas,
   DataSourceInterface,
   DataSourceProperties,
   SchemaFormat,
