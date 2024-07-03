@@ -23,8 +23,8 @@ export default function TopNavLite() {
         <ThemeToggler />
       </div>
       {email && (
-        <div className="mr-2">
-          <Avatar email={email} size={26} name={name || ""} />{" "}
+        <div className="mr-4 d-flex">
+          <Avatar email={email} size={26} name={name || ""} className="mr-2" />{" "}
           <span className="d-none d-lg-inline">{email}</span>
         </div>
       )}
