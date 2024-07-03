@@ -13,7 +13,7 @@ const baseConnection: SDKConnectionInterface = {
   dateCreated: new Date(2020, 1, 5, 10, 0, 0),
   dateUpdated: new Date(2020, 1, 5, 10, 0, 0),
   languages: ["javascript"],
-  sdkVersion: "1.0.2",
+  sdkVersion: "1.1.0",
   environment: "production",
   projects: [],
   encryptPayload: false,
