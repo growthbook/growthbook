@@ -6,6 +6,7 @@ import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import { isCloud, isMultiOrg } from "@/services/env";
 import { useUser } from "@/services/UserContext";
+import usePermissions from "@/hooks/usePermissions";
 
 export default function OrganizationAndLicenseSettings({
   org,
@@ -15,6 +16,9 @@ export default function OrganizationAndLicenseSettings({
   refreshOrg: () => Promise<void>;
 }) {
   const [editOpen, setEditOpen] = useState(false);
+  const permissions = usePermissions();
+  // this check isn't strictly necessary, as we check permissions accessing the settings page, but it's a good to be safe
+  const canEdit = permissions.check("organizationSettings");
   const { users } = useUser();
   const ownerEmailExists = !!Array.from(users).find(
     (e) => e[1].email === org.ownerEmail
@@ -39,16 +43,18 @@ export default function OrganizationAndLicenseSettings({
             <div className="form-group row">
               <div className="col-sm-12">
                 <strong>Name: </strong> {org.name}{" "}
-                <a
-                  href="#"
-                  className="pl-1"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setEditOpen(true);
-                  }}
-                >
-                  <FaPencilAlt />
-                </a>
+                {canEdit && (
+                  <a
+                    href="#"
+                    className="pl-1"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setEditOpen(true);
+                    }}
+                  >
+                    <FaPencilAlt />
+                  </a>
+                )}
               </div>
             </div>
             <div className="form-group row">
@@ -72,16 +78,18 @@ export default function OrganizationAndLicenseSettings({
                     />
                   </span>
                 )}
-                <a
-                  href="#"
-                  className="pl-1"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setEditOpen(true);
-                  }}
-                >
-                  <FaPencilAlt />
-                </a>
+                {canEdit && (
+                  <a
+                    href="#"
+                    className="pl-1"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setEditOpen(true);
+                    }}
+                  >
+                    <FaPencilAlt />
+                  </a>
+                )}
               </div>
             </div>
             {!isCloud() && !isMultiOrg() && (

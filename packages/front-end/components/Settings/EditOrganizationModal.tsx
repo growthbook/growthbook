@@ -17,7 +17,7 @@ const EditOrganizationModal: FC<{
   const { users } = useUser();
   const existingEmails = Array.from(users).map(([, user]) => user.email);
   const permissions = usePermissions();
-  const canEditOwner = permissions.check("organizationSettings");
+  const canEdit = permissions.check("organizationSettings");
 
   const form = useForm({
     defaultValues: {
@@ -32,6 +32,11 @@ const EditOrganizationModal: FC<{
       open={true}
       close={close}
       submit={form.handleSubmit(async (value) => {
+        if (!canEdit) {
+          throw new Error(
+            "You do not have permissions to edit this organization"
+          );
+        }
         if (
           !value?.name ||
           value?.name.trim() === "" ||
@@ -61,7 +66,12 @@ const EditOrganizationModal: FC<{
       })}
       cta="Save"
     >
-      <Field label="Organization Name" required {...form.register("name")} />
+      <Field
+        label="Organization Name"
+        required
+        {...form.register("name")}
+        disabled={!canEdit}
+      />
       {existingEmails.length < 100 ? (
         <SelectField
           label="Owner Email"
@@ -72,6 +82,8 @@ const EditOrganizationModal: FC<{
               label: e,
             })) ?? []
           }
+          disabled={!canEdit}
+          title={canEdit ? "" : "Only admins can change this"}
           onChange={(value) => {
             form.setValue("ownerEmail", value);
           }}
@@ -81,8 +93,8 @@ const EditOrganizationModal: FC<{
           label="Owner Email"
           type="email"
           {...form.register("ownerEmail")}
-          disabled={!canEditOwner}
-          title={canEditOwner ? "" : "Only admins can change this"}
+          disabled={!canEdit}
+          title={canEdit ? "" : "Only admins can change this"}
         />
       )}
     </Modal>
