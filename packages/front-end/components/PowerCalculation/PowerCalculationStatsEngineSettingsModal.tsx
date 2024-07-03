@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioSelector from "@/components/Forms/RadioSelector";
 import { DocLink } from "@/components/DocLink";
 import Toggle from "@/components/Forms/Toggle";
@@ -53,11 +52,6 @@ export default function PowerCalculationStatsEngineSettingsModal({
           <span className="mr-auto font-weight-bold">
             Choose Statistical Engine
           </span>{" "}
-          <Tooltip
-            popperClassName="text-left"
-            body="The Beta version of the Power Calculator uses frequentist methods"
-            tipPosition="right"
-          />
         </label>
         <RadioSelector
           name="ruleType"

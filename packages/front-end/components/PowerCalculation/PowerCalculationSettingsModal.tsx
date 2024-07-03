@@ -150,7 +150,7 @@ const SelectStep = ({
           label,
           value,
         }))}
-        disabled={5 <= selectedMetrics.length}
+        isOptionDisabled={() => 5 <= selectedMetrics.length}
         onChange={(value: string[]) => {
           form.setValue(
             "metrics",
@@ -227,7 +227,7 @@ const InputField = ({
 }) => {
   const metrics = form.watch("metrics");
   const params = ensureAndReturn(metrics[metricId]);
-  const entryValue = params[entry];
+  const entryValue = isNaN(params[entry]) ? undefined : params[entry];
   const { title, tooltip, ...c } = config[entry];
 
   const isKeyInvalid = (() => {

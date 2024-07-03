@@ -356,7 +356,10 @@ const MinimumDetectableEffect = ({
                 {(() => {
                   const content = (
                     <>
-                      <div className="font-weight-bold">Week {idx + 1}</div>
+                      <div className="font-weight-bold">
+                        Week{` `}
+                        {idx + 1}
+                      </div>
                       <span className="small">
                         {numberFormatter(users)} Users
                       </span>
@@ -474,7 +477,10 @@ const PowerOverTime = ({
                 {(() => {
                   const content = (
                     <>
-                      <div className="font-weight-bold">Week {idx + 1}</div>
+                      <div className="font-weight-bold">
+                        Week{` `}
+                        {idx + 1}
+                      </div>
                       <span className="small">
                         {numberFormatter(users)} Users
                       </span>

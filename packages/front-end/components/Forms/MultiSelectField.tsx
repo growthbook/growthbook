@@ -73,6 +73,8 @@ const Input = (props: InputProps) => {
   return <components.Input onPaste={onPaste} {...props} />;
 };
 
+type Option = SingleValue | GroupedValue;
+
 const MultiSelectField: FC<
   Omit<
     FieldProps,
@@ -80,7 +82,7 @@ const MultiSelectField: FC<
   > & {
     value: string[];
     placeholder?: string;
-    options: (SingleValue | GroupedValue)[];
+    options: Option[];
     initialOption?: string;
     onChange: (value: string[]) => void;
     sort?: boolean;
@@ -93,6 +95,7 @@ const MultiSelectField: FC<
       meta: FormatOptionLabelMeta<SingleValue>
     ) => ReactNode;
     onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
+    isOptionDisabled?: (_: Option) => boolean;
   }
 > = ({
   value,
@@ -109,6 +112,7 @@ const MultiSelectField: FC<
   closeMenuOnSelect = false,
   formatOptionLabel,
   onPaste,
+  isOptionDisabled,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -167,6 +171,7 @@ const MultiSelectField: FC<
             // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(SingleValue | undefined)[]' is not assignab... Remove this comment to see the full error message
             value={selected}
             placeholder={initialOption ?? placeholder}
+            isOptionDisabled={isOptionDisabled}
             {...{ ...ReactSelectProps, ...mergeStyles }}
           />
         );
