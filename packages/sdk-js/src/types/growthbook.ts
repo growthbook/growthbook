@@ -235,6 +235,7 @@ export interface Context {
   antiFlicker?: boolean;
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
+  savedGroups?: SavedGroupsValues;
 }
 
 export type PrefetchOptions = Pick<
@@ -319,6 +320,8 @@ export type FeatureApiResponse = {
   encryptedFeatures?: string;
   experiments?: AutoExperiment[];
   encryptedExperiments?: string;
+  savedGroups?: SavedGroupsValues;
+  encryptedSavedGroups?: string;
 };
 
 // Alias
@@ -433,3 +436,5 @@ export interface StickyAssignmentsDocument {
   attributeValue: string;
   assignments: StickyAssignments;
 }
+
+export type SavedGroupsValues = Record<string, (string | number)[]>;

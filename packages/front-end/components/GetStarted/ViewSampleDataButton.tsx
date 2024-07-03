@@ -46,7 +46,7 @@ const ViewSampleDataButton = ({
         if (resource === "experiment") {
           router.push(`/experiment/${res.experimentId}`);
         } else {
-          router.push(`/feature/${demoFeatureId}`);
+          router.push(`/features/${demoFeatureId}`);
         }
       } else {
         throw new Error("Could not create sample experiment");

@@ -17,7 +17,7 @@
     "@dnd-kit/core": "^4.0.3",
     "@dnd-kit/sortable": "^5.1.0",
     "@floating-ui/react": "^0.25.4",
-    "@growthbook/growthbook-react": "^1.0.1",
+    "@growthbook/growthbook-react": "^1.1.0",
     "@jitsu/sdk-js": "^2.2.0",
     "@jukben/emoji-search": "^2.0.1",
     "@popperjs/core": "^2.11.5",
@@ -79,7 +79,7 @@
     "scim2-parse-filter": "^0.2.8",
     "shared": "0.0.1",
     "spectacle": "^9.7.2",
-    "swr": "^0.5.4",
+    "swr": "^2.2.5",
     "uniqid": "^5.3.0",
     "uuid": "^9.0.0",
     "zod": "^3.22.4"

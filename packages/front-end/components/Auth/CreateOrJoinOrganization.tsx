@@ -50,7 +50,9 @@ const CreateOrJoinOrganization: FC<{
       members: number;
       currentUserIsPending: boolean;
     }[];
-  }>(showMultiOrgSelfSelector() ? `/user/getRecommendedOrgs` : null);
+  }>(`/user/getRecommendedOrgs`, {
+    shouldRun: () => showMultiOrgSelfSelector(),
+  });
   const orgs = recommendedOrgsData?.organizations;
   const router = useRouter();
 

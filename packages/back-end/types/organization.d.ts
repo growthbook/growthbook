@@ -95,11 +95,13 @@ export interface Member extends MemberRoleWithProjects {
   lastLoginDate?: Date;
 }
 
-export interface ExpandedMember extends Member {
+export interface ExpandedMemberInfo {
   email: string;
   name: string;
   verified: boolean;
 }
+
+export type ExpandedMember = Member & ExpandedMemberInfo;
 
 export interface NorthStarMetric {
   //enabled: boolean;

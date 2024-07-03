@@ -13,7 +13,8 @@ import {
   APP_ORIGIN,
 } from "../util/secrets";
 import { OrganizationInterface } from "../../types/organization";
-import { getEmailFromUserId, getInviteUrl } from "./organizations";
+import { getEmailFromUserId } from "../models/UserModel";
+import { getInviteUrl } from "./organizations";
 
 export function isEmailEnabled(): boolean {
   return !!(EMAIL_ENABLED && EMAIL_HOST && EMAIL_PORT && EMAIL_FROM);
