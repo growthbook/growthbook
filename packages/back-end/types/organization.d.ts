@@ -99,6 +99,7 @@ export interface ExpandedMember extends Member {
   email: string;
   name: string;
   verified: boolean;
+  numTeams?: number;
 }
 
 export interface NorthStarMetric {

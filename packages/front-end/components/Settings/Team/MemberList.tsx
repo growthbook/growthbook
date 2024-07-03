@@ -39,10 +39,10 @@ const MemberList: FC<{
   const { apiCall } = useAuth();
   const { userId, users, organization } = useUser();
   const [roleModal, setRoleModal] = useState<string>("");
-  const [passwordResetModal, setPasswordResetModal] = useState<ExpandedMember>(
-    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
-    null
-  );
+  const [
+    passwordResetModal,
+    setPasswordResetModal,
+  ] = useState<ExpandedMember | null>(null);
   const { projects } = useDefinitions();
   const environments = useEnvironments();
 
@@ -64,9 +64,13 @@ const MemberList: FC<{
 
   const membersList: ExpandedMember[] =
     members.map(([, member]) => {
-      return member;
+      return {
+        ...member,
+        numTeams: member.teams?.length || 0,
+      } as ExpandedMember;
     }) || [];
 
+  //const hasTeams =
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: membersList || [],
     localStorageKey: "members",
@@ -100,7 +104,6 @@ const MemberList: FC<{
       )}
       {canEditRoles && passwordResetModal && (
         <AdminSetPasswordModal
-          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
           close={() => setPasswordResetModal(null)}
           member={passwordResetModal}
         />
@@ -146,6 +149,7 @@ const MemberList: FC<{
                 {environments.map((env) => (
                   <th key={env.id}>{env.id}</th>
                 ))}
+                <SortableTH field="numTeams">Teams</SortableTH>
                 <th style={{ width: 50 }} />
               </tr>
             </thead>
@@ -179,7 +183,7 @@ const MemberList: FC<{
                     </td>
                     <td>{roleInfo.role}</td>
                     {!project && (
-                      <td className="col-3">
+                      <td className="col-2">
                         {member.projectRoles?.map((pr) => {
                           const p = projects.find((p) => p.id === pr.project);
                           if (p?.name) {
@@ -216,6 +220,7 @@ const MemberList: FC<{
                         </td>
                       );
                     })}
+                    <td>{member.teams ? member.teams.length : 0}</td>
                     <td>
                       {canEditRoles && member.id !== userId && (
                         <>
