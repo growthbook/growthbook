@@ -11,6 +11,7 @@ declare module "presto-client" {
       secureProtocol: string;
       pfx?: string;
       rejectUnauthorized?: boolean;
+      servername?: string;
     };
     port: number;
     source: string;
@@ -24,13 +25,22 @@ declare module "presto-client" {
     custom_auth?: string;
     schema?: string;
     enableVerboseStateCallback?: boolean;
+    jsonParser?: {
+      parse: (data: any) => any;
+    };
+    engine?: string;
+    timeout?: number;
   }
 
   enum PrestoClientQueryStates {
+    WAITING_FOR_PREREQUISITES = "WAITING_FOR_PREREQUISITES",
     QUEUED = "QUEUED",
+    WAITING_FOR_RESOURCES = "WAITING_FOR_RESOURCES",
+    DISPATCHING = "DISPATCHING",
     PLANNING = "PLANNING",
     STARTING = "STARTING",
     RUNNING = "RUNNING",
+    FINISHING = "FINISHING",
     FINISHED = "FINISHED",
     CANCELED = "CANCELED",
     FAILED = "FAILED",
@@ -67,6 +77,7 @@ declare module "presto-client" {
     type: PrestoClientPrestoTypes;
   }
 
+
   type PrestoClientColumnDatum = [string, any];
 
   interface IPrestoClientExecuteOptions {
@@ -74,6 +85,9 @@ declare module "presto-client" {
     catalog: string;
     schema: string;
     timezone?: string;
+    user?: string;
+    prepares?: string[];
+    timeout?: null | number;
     info?: boolean;
     cancel?: () => boolean;
     state?: (error: any, query_id: string, stats: IPrestoClientStats) => void;
@@ -86,6 +100,7 @@ declare module "presto-client" {
     ) => void;
     success?: (error: any, stats: IPrestoClientStats) => void;
     error?: (error: any) => void;
+    callback?: (error: any, stats: IPrestoClientStats) => void;
   }
 
   class Client {

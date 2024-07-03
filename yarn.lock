@@ -12321,7 +12321,7 @@ fn.name@1.x.x:
   resolved "https://registry.npmjs.org/fn.name/-/fn.name-1.1.0.tgz"
   integrity sha512-GRnmB5gPyJpAhTQdSZTSp9uaPSvl09KoYcMQtsB9rQoOmzs9dH6ffeccH+Z+cv6P68Hu5bC6JjRh4Ah/mHSNRw==
 
-follow-redirects@^1.10.0, follow-redirects@^1.14.8, follow-redirects@^1.15.0, follow-redirects@^1.15.6:
+follow-redirects@^1.10.0, follow-redirects@^1.14.8, follow-redirects@^1.15.0, follow-redirects@^1.15.3, follow-redirects@^1.15.6:
   version "1.15.6"
   resolved "https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.15.6.tgz"
   integrity sha512-wWN62YITEaOpSK584EZXJafH1AGpO8RVgElfkuXbTOrPX4fIfOyEpW/CsiNd8JdYrAoOvafRTOEnvsO++qCqFA==
@@ -17482,10 +17482,12 @@ prelude-ls@~1.1.2:
   resolved "https://registry.npmjs.org/prelude-ls/-/prelude-ls-1.1.2.tgz"
   integrity sha512-ESF23V4SKG6lVSGZgYNpbsiaAkdab6ZgOxe52p7+Kid3W3u3bxR4Vfd/o21dmN7jSt0IwgZ4v5MUd26FEtXE9w==
 
-presto-client@^0.11.2:
-  version "0.11.2"
-  resolved "https://registry.npmjs.org/presto-client/-/presto-client-0.11.2.tgz"
-  integrity sha512-iqJhqFu92+8Z8I1DxS3eWYfT6Oc3yAWjMoHuNTGfSnerZXFSn1XKTvm9e+6o1UyK+LDPK86/KBuistc6Q7gGEQ==
+presto-client@^1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/presto-client/-/presto-client-1.1.0.tgz#cf0fe8a445db73c1e025256f5868fadaef4017a0"
+  integrity sha512-DOWEKp0eHP/x6Fupk5673vZND7OUxFtV9VUO9HMvf4DFzoWKTLMRAJ3o5/7Mgs5z9w5BEUKU88IZaume6LMelw==
+  dependencies:
+    follow-redirects "^1.15.3"
 
 prettier-linter-helpers@^1.0.0:
   version "1.0.0"

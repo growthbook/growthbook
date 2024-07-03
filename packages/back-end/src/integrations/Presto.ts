@@ -1,5 +1,6 @@
 /// <reference types="../../typings/presto-client" />
 import { Client, IPrestoClientOptions } from "presto-client";
+import { QueryStatistics } from "@back-end/types/query";
 import { decryptDataSourceParams } from "../services/datasource";
 import { PrestoConnectionParams } from "../../types/integrations/presto";
 import { FormatDialect } from "../util/sql";
@@ -58,6 +59,7 @@ export default class Presto extends SqlIntegration {
     return new Promise<QueryResponse>((resolve, reject) => {
       let cols: string[];
       const rows: Row[] = [];
+      const statistics: QueryStatistics = {};
 
       client.execute({
         query: sql,
@@ -70,7 +72,7 @@ export default class Presto extends SqlIntegration {
         error: (error) => {
           reject(error);
         },
-        data: (error, data) => {
+        data: (error, data, _, stats) => {
           if (error) return;
 
           data.forEach((d) => {
@@ -80,9 +82,15 @@ export default class Presto extends SqlIntegration {
             });
             rows.push(row);
           });
+
+          if (stats) {
+            statistics.executionDurationMs = Number(stats.wallTimeMillis);
+            statistics.bytesProcessed = Number(stats.processedBytes);
+            statistics.rowsProcessed = Number(stats.processedRows);
+          }
         },
         success: () => {
-          resolve({ rows: rows });
+          resolve({ rows: rows, statistics: statistics });
         },
       });
     });
