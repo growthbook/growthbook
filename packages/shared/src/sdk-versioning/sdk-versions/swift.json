@@ -36,6 +36,10 @@
       "version": "1.0.44"
     },
     {
+      "version": "1.0.43",
+      "capabilities": ["bucketingV2", "streaming"]
+    },
+    {
       "version": "1.0.38",
       "capabilities": ["semverTargeting"]
     },
