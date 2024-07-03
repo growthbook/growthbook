@@ -11,7 +11,7 @@ import { ScimError, ScimUser, ScimUserPostRequest } from "../../../types/scim";
 import {
   createUser as createNewUser,
   getUserByEmail,
-} from "../../services/users";
+} from "../../models/UserModel";
 
 export async function createUser(
   req: ScimUserPostRequest,
@@ -61,7 +61,7 @@ export async function createUser(
       let newUser = await getUserByEmail(userName);
 
       if (!newUser) {
-        newUser = await createNewUser(displayName, userName);
+        newUser = await createNewUser({ name: displayName, email: userName });
       }
 
       await addMemberToOrg({

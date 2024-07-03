@@ -18,6 +18,7 @@ import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Avatar from "@/components/Avatar/Avatar";
 import Code from "@/components/SyntaxHighlighting/Code";
+import { useUser } from "@/services/UserContext";
 
 export type MutateLog = {
   mutateLog: () => Promise<void>;
@@ -31,6 +32,7 @@ export interface Props {
 
 function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
   const [open, setOpen] = useState(false);
+  const { users } = useUser();
 
   let value = log.value;
   let valueContainsData = false;
@@ -63,6 +65,11 @@ function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
     "cursor-pointer ": !(!!comment || !valueContainsData),
   });
 
+  let name = "API";
+  if (log.user?.type === "dashboard") {
+    name = users.get(log.user.id)?.name ?? "";
+  }
+
   return (
     <div className={`appbox mb-0 ${first ? "" : "mt-3"} revision-log`}>
       <div
@@ -90,7 +97,7 @@ function RevisionLogRow({ log, first }: { log: RevisionLog; first: boolean }) {
         <div className="d-flex">
           {log.user?.type === "dashboard" && (
             <div className="mr-2">
-              <Avatar email={log.user.email} size={20} />
+              <Avatar email={log.user.email} size={20} name={name} />
             </div>
           )}
           <div>

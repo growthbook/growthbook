@@ -18,6 +18,7 @@ import {
 } from "react-sortable-hoc";
 import { arrayMove } from "@dnd-kit/sortable";
 import CreatableSelect from "react-select/creatable";
+import { isDefined } from "shared/util";
 import {
   GroupedValue,
   ReactSelectProps,
@@ -96,6 +97,7 @@ const MultiSelectField: FC<
     ) => ReactNode;
     onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
     isOptionDisabled?: (_: Option) => boolean;
+    noMenu?: boolean;
   }
 > = ({
   value,
@@ -113,10 +115,11 @@ const MultiSelectField: FC<
   formatOptionLabel,
   onPaste,
   isOptionDisabled,
+  noMenu,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
-  const selected = value.map((v) => map.get(v)).filter(Boolean);
+  const selected = value.map((v) => map.get(v)).filter(isDefined);
 
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
@@ -126,7 +129,6 @@ const MultiSelectField: FC<
   const onSortEnd: SortEndHandler = ({ oldIndex, newIndex }) => {
     onChange(
       arrayMove(
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         selected.map((v) => v.value),
         oldIndex,
         newIndex
@@ -165,10 +167,27 @@ const MultiSelectField: FC<
               MultiValueLabel: SortableMultiValueLabel,
               Option: OptionWithTitle,
               Input,
+              ...(creatable && noMenu
+                ? {
+                    Menu: () => null,
+                    DropdownIndicator: () => null,
+                    IndicatorSeparator: () => null,
+                  }
+                : {}),
             }}
+            {...(creatable && noMenu
+              ? {
+                  // Prevent multi-select from submitting if you type the same value twice
+                  onKeyDown: (e) => {
+                    const v = (e.target as HTMLInputElement).value;
+                    if (e.code === "Enter" && (!v || value.includes(v))) {
+                      e.preventDefault();
+                    }
+                  },
+                }
+              : {})}
             closeMenuOnSelect={closeMenuOnSelect}
             autoFocus={autoFocus}
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(SingleValue | undefined)[]' is not assignab... Remove this comment to see the full error message
             value={selected}
             placeholder={initialOption ?? placeholder}
             isOptionDisabled={isOptionDisabled}

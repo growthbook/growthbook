@@ -252,7 +252,10 @@ export default function SDKConnectionsList() {
                     <div className="d-flex flex-wrap">
                       {connection.languages.map((language) => (
                         <span className="mx-1" key={language}>
-                          <SDKLanguageLogo language={language} />
+                          <SDKLanguageLogo
+                            language={language}
+                            hideExtra={true}
+                          />
                         </span>
                       ))}
                     </div>

@@ -72,6 +72,48 @@ export default function App() {
 
 There are a few ways to use feature flags in GrowthBook:
 
+## OpenFeature Provider
+
+If you are using OpenFeature, we have created a [GrowthBook Provider](https://github.com/open-feature/js-sdk-contrib/tree/main/libs/providers/growthbook-client) that you can use client-side.
+Simply import our package and set `GrowthbookClientProvider` as the provider for your OpenFeature client.
+Similarly to using our SDK directly, you'll want to pass in GrowthBook `Context` into the new provider instance as well as any `InitOptions`.
+
+```js
+import { OpenFeature, OpenFeatureProvider, useFlag } from "@openfeature/react-sdk";
+import { GrowthBook, Context, InitOptions } from '@growthbook/growthbook';
+import { GrowthbookClientProvider } from '@openfeature/growthbook-client-provider';
+
+OpenFeature.setProvider(
+  new GrowthbookClientProvider(context, { streaming: true })
+);
+
+function Page() {
+  const { value: showNewMessage } = useFlag("new-message", true);
+
+  const gbContext: Context = {
+    apiHost: 'https://cdn.growthbook.io',
+    clientKey: 'sdk-abc123',
+    // Only required if you have feature encryption enabled in GrowthBook
+    decryptionKey: 'key_abc123',
+  };
+
+  return (
+    <div className='App'>
+      <header className='App-header'>
+        <div>OpenFeature Testing React App</div>
+      </header>
+      <p>
+        {showNewMessage ? (
+          <p>Welcome to this OpenFeature enabled React app!</p>
+        ) : (
+          <p>Welcome to this React app.</p>
+        )}
+      </p>
+    </div>
+  );
+}
+```
+
 #### Feature Hooks
 
 ```tsx

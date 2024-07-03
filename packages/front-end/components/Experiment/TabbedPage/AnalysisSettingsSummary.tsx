@@ -79,6 +79,11 @@ export default function AnalysisSettingsSummary({
     phase,
   } = useSnapshot();
 
+  const canEditAnalysisSettings = permissionsUtil.canUpdateExperiment(
+    experiment,
+    {}
+  );
+
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const [refreshError, setRefreshError] = useState("");
 
@@ -224,15 +229,20 @@ export default function AnalysisSettingsSummary({
       )}
       <div className="row align-items-center text-muted">
         <div className="col-auto">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              setAnalysisModal(true);
-            }}
-          >
-            <span className="text-dark">Analysis Settings</span> <GBEdit />
-          </a>
+          {canEditAnalysisSettings ? (
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setAnalysisModal(true);
+              }}
+            >
+              <span className="text-dark">Analysis Settings</span>
+              <GBEdit className="ml-2" />
+            </a>
+          ) : (
+            <span>Analysis Settings</span>
+          )}
         </div>
         {items.map((item, i) => (
           <Tooltip
@@ -486,7 +496,7 @@ export default function AnalysisSettingsSummary({
             queryError={snapshot?.error}
             supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
             hasData={hasData}
-            metrics={experiment.metrics}
+            metrics={[...experiment.metrics, ...(experiment.guardrails || [])]}
             results={analysis?.results}
             variations={variations}
             trackingKey={experiment.trackingKey}

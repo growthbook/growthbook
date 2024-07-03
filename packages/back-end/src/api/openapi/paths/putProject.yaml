@@ -1,0 +1,29 @@
+parameters:
+  - $ref: "../parameters.yaml#/id"
+tags:
+  - projects
+summary: Edit a single project
+operationId: putProject
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X PUT https://api.growthbook.io/api/v1/projects/proj_abc123 \
+        -d '{ "name": "My Subsidiary" }' \
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/PutProjectPayload.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - project
+          properties:
+            project:
+              $ref: "../schemas/Project.yaml"

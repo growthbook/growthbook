@@ -29,6 +29,28 @@ export default function RoleForm({
     action
   );
 
+  const validateInputs = (input: {
+    id: string;
+    description: string;
+    policies: Policy[];
+  }): boolean => {
+    if (!input.id.length) {
+      setError("Name field is required");
+      return false;
+    }
+
+    if (RESERVED_ROLE_IDS.includes(input.id)) {
+      setError("That role id is reserved and cannot be used");
+      return false;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(input.id)) {
+      setError("Name can only contain letters, numbers, and underscores.");
+      return false;
+    }
+    return true;
+  };
+
   const form = useForm<{
     id: string;
     description: string;
@@ -60,8 +82,10 @@ export default function RoleForm({
 
   const saveSettings = form.handleSubmit(async (currentValue) => {
     setError(null);
+
+    if (!validateInputs(currentValue)) return;
+
     try {
-      console.log("Hit save");
       if (status === "creating") {
         await apiCall("/custom-roles", {
           method: "POST",
@@ -93,8 +117,8 @@ export default function RoleForm({
           required
           autoFocus
           disabled={status !== "creating"}
-          autoComplete="company"
           maxLength={40}
+          currentLength={currentValue.id.length}
           placeholder="Name your Custom Role"
           labelClassName="font-weight-bold"
           {...form.register("id")}
@@ -112,6 +136,7 @@ export default function RoleForm({
         <Field
           label="Description"
           disabled={status === "viewing"}
+          currentLength={currentValue.description.length}
           placeholder="Briefly describe what this role will permit users to do"
           maxLength={100}
           labelClassName="font-weight-bold"

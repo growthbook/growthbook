@@ -382,6 +382,15 @@ export function upgradeFeatureInterface(
     newFeature.hasDrafts = true;
   }
 
+  if (newFeature.jsonSchema) {
+    newFeature.jsonSchema.schemaType =
+      newFeature.jsonSchema.schemaType || "schema";
+    newFeature.jsonSchema.simple = newFeature.jsonSchema.simple || {
+      type: "object",
+      fields: [],
+    };
+  }
+
   return newFeature;
 }
 
@@ -468,6 +477,14 @@ export function upgradeOrganizationDoc(
       m.role = legacyRoleMap[m.role];
     }
   });
+
+  // Make sure namespaces have labels- if it's missing, use the name
+  if (org?.settings?.namespaces?.length) {
+    org.settings.namespaces = org.settings.namespaces.map((ns) => ({
+      ...ns,
+      label: ns.label || ns.name,
+    }));
+  }
 
   return org;
 }

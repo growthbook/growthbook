@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { WebhookInterface } from "back-end/types/webhook";
-import { FaCheck, FaInfoCircle } from "react-icons/fa";
+import { FaCheck, FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
 import { ago } from "shared/dates";
 import { BsArrowRepeat } from "react-icons/bs";
 import { SDKConnectionInterface } from "@back-end/types/sdk-connection";
@@ -45,10 +45,17 @@ export default function SdkWebhooks({
     // only render table if there is data to show
     return data?.webhooks?.map((webhook) => (
       <tr key={webhook.name}>
-        <td>{webhook.name}</td>
-        <td>{webhook.endpoint}</td>
+        <td style={{ minWidth: 150 }}>{webhook.name}</td>
+        <td
+          style={{
+            wordBreak: "break-word",
+            overflowWrap: "anywhere",
+          }}
+        >
+          <code className="text-main small">{webhook.endpoint}</code>
+        </td>
         <td>{webhook.sendPayload ? "yes" : "no"}</td>
-        <td>
+        <td className="nowrap">
           {webhook.signingKey ? (
             <ClickToReveal
               valueWhenHidden="wk_abc123def456ghi789"
@@ -60,11 +67,25 @@ export default function SdkWebhooks({
         </td>
         <td>
           {webhook.error ? (
-            <span className="text-danger">
-              Error <Tooltip body={webhook.error} />
-            </span>
+            <>
+              <span className="text-danger">
+                <FaExclamationTriangle /> error
+              </span>
+              <Tooltip
+                className="ml-1"
+                innerClassName="pb-1"
+                usePortal={true}
+                body={
+                  <>
+                    <div className="alert alert-danger mt-2">
+                      {webhook.error}
+                    </div>
+                  </>
+                }
+              />
+            </>
           ) : webhook.lastSuccess ? (
-            <em>
+            <em className="small">
               <FaCheck className="text-success" /> {ago(webhook.lastSuccess)}
             </em>
           ) : (
@@ -73,8 +94,9 @@ export default function SdkWebhooks({
         </td>
         <td>
           <Button
-            color="link"
+            color="outline-primary"
             className="btn-sm"
+            style={{ width: 120 }}
             disabled={!canUpdateWebhook}
             onClick={async () => {
               await apiCall(`/sdk-webhooks/${webhook.id}/test`, {
@@ -175,13 +197,13 @@ export default function SdkWebhooks({
         <table className="table appbox gbtable mb-0">
           <thead>
             <tr>
-              <td>WEBHOOK</td>
-              <td>ENDPOINT</td>
-              <td>SEND PAYLOAD</td>
-              <td>SHARED SECRET</td>
-              <td>LAST SUCCESS</td>
-              <td>TEST WEBHOOK</td>
-              <td style={{ width: 50 }}></td>
+              <th>Webhook</th>
+              <th>Endpoint</th>
+              <th>Send Payload</th>
+              <th>Shared Secret</th>
+              <th>Last Success</th>
+              <th />
+              <th style={{ width: 50 }} />
             </tr>
           </thead>
           <tbody>{renderTableRows()}</tbody>

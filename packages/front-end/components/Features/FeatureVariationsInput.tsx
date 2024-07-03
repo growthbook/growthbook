@@ -1,4 +1,4 @@
-import { FeatureValueType } from "back-end/types/feature";
+import { FeatureInterface, FeatureValueType } from "back-end/types/feature";
 import React, { useState } from "react";
 import { FaInfoCircle } from "react-icons/fa";
 import {
@@ -37,6 +37,7 @@ export interface Props {
   disableVariations?: boolean;
   label?: string;
   customSplitOn?: boolean;
+  feature?: FeatureInterface;
 }
 
 export default function FeatureVariationsInput({
@@ -55,6 +56,7 @@ export default function FeatureVariationsInput({
   disableVariations = false,
   label,
   customSplitOn,
+  feature,
 }: Props) {
   const weights = variations.map((v) => v.weight);
   const isEqualWeights = weights.every((w) => w === weights[0]);
@@ -185,6 +187,7 @@ export default function FeatureVariationsInput({
                   customSplit={customSplit}
                   valueType={valueType}
                   valueAsId={valueAsId}
+                  feature={feature}
                 />
               ))}
             </SortableVariationsList>
