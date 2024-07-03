@@ -52,7 +52,7 @@ The following figure shows how the increased CI width in sequential analysis is 
   style={{ width: 450, margin: "0 auto" }}
 />
 
-We default to using 5,000, but the general advice is to set this parameter to the sample size you expect to get when you are most likely to make a decision on this experiment. Note, this number reflects the total sample size across the two variations you are comparing. If you have a 3 armed experiment and you want the smallest confidence intervals after 3,000 users in each arm, you should set the tuning parameter to 6,000 following the above logic.
+We default to using 5,000, but the general advice is to set this parameter to the sample size you expect to get when you are most likely to make a decision on this experiment. Note, this number reflects the total sample size across the two variations you are comparing. If you have an experiment with 3 variations, and you want the smallest confidence intervals after 3,000 users in each variation, you should set the tuning parameter to 6,000 following the above logic. This is because while the total number of users will be 9,000, there will be 6,000 total in each comparison of arms (e.g. A vs B, B vs C, and A vs C).
 
 Note that the tuning parameter should remain fixed for an experiment.
 
