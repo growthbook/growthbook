@@ -77,6 +77,7 @@ import { logger } from "../util/logger";
 import {
   FactFilterInterface,
   FactMetricInterface,
+  FactTableInterface,
   MetricQuantileSettings,
 } from "../../types/fact-table";
 import { applyMetricOverrides } from "../util/integration";
@@ -457,7 +458,11 @@ export default abstract class SqlIntegration
                 params.segment,
                 baseIdType,
                 idJoinMap,
-                params.factTableMap
+                params.factTableMap,
+                {
+                  startDate: metricStart,
+                  endDate: metricEnd || undefined,
+                }
               )}),`
             : ""
         }
@@ -3422,6 +3427,66 @@ AND event_name = '${eventName}'`,
     );
   }
 
+  //MKTODO: How can I refactor getFactTableCTE to work for metrics or fact segments
+  private getFactTableCTEForSegments({
+    factTable,
+    baseIdType,
+    idJoinMap,
+    sqlVars,
+  }: {
+    factTable: FactTableInterface;
+    baseIdType: string;
+    idJoinMap: Record<string, string>;
+    sqlVars: SQLVars;
+  }) {
+    // Determine if a join is required to match up id types
+    let join = "";
+    let userIdCol = "";
+    const userIdTypes = factTable.userIdTypes;
+    if (userIdTypes.includes(baseIdType)) {
+      userIdCol = baseIdType;
+    } else if (userIdTypes.length > 0) {
+      for (let i = 0; i < userIdTypes.length; i++) {
+        const userIdType: string = userIdTypes[i];
+        if (userIdType in idJoinMap) {
+          const metricUserIdCol = `m.${userIdType}`;
+          join = `JOIN ${idJoinMap[userIdType]} i ON (i.${userIdType} = ${metricUserIdCol})`;
+          userIdCol = `i.${baseIdType}`;
+          break;
+        }
+      }
+    }
+
+    // BQ datetime cast for SELECT statements (do not use for where)
+    const timestampDateTimeColumn = this.castUserDateCol("m.timestamp");
+
+    const sql = factTable.sql;
+    const where: string[] = [];
+
+    // Add a rough date filter to improve query performance
+    if (sqlVars?.startDate) {
+      where.push(`m.timestamp >= ${this.toTimestamp(sqlVars.startDate)}`);
+    }
+    if (sqlVars?.endDate) {
+      where.push(`m.timestamp <= ${this.toTimestamp(sqlVars.endDate)}`);
+    }
+
+    return compileSqlTemplate(
+      `-- Fact Table (${factTable.name})
+      SELECT
+        ${userIdCol} as ${baseIdType},
+        ${timestampDateTimeColumn} as timestamp,
+        ${factTable.columns.join(",\n")}
+      FROM(
+          ${sql}
+        ) m
+        ${join}
+        ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+    `,
+      sqlVars
+    );
+  }
+
   private getMetricCTE({
     metric,
     baseIdType,
@@ -3595,7 +3660,7 @@ AND event_name = '${eventName}'`,
     baseIdType: string,
     idJoinMap: Record<string, string>,
     factTableMap: FactTableMap,
-    sqlVars?: SQLVars
+    sqlVars: SQLVars
   ) {
     // replace template variables
     let segmentSql = "";
@@ -3607,7 +3672,17 @@ AND event_name = '${eventName}'`,
     }
     if (segment.factTableId) {
       const factTable = factTableMap.get(segment.factTableId);
-      segmentSql = factTable?.sql || "";
+
+      if (!factTable) {
+        throw new Error("Unknown fact table");
+      }
+
+      segmentSql = this.getFactTableCTEForSegments({
+        baseIdType,
+        idJoinMap,
+        factTable,
+        sqlVars,
+      });
 
       if (factTable?.sql && segment.filters?.length) {
         //TODO: Wrap this is a named function getFilterWhereClause or something
@@ -3623,7 +3698,7 @@ AND event_name = '${eventName}'`,
           }
         });
 
-        let whereClause = "";
+        let whereClause = "WHERE ";
 
         if (filterClauses.length) {
           filterClauses.forEach((filterClause, i) => {
@@ -3634,7 +3709,7 @@ AND event_name = '${eventName}'`,
             }
           });
 
-          return segmentSql + whereClause;
+          return `SELECT * FROM (\n${segmentSql}\n) t ` + whereClause;
         }
       }
     }
