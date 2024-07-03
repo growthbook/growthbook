@@ -19,7 +19,7 @@ import { getSavedGroupMessage } from "@/pages/saved-groups";
 import EditButton from "@/components/EditButton/EditButton";
 import Modal from "@/components/Modal";
 
-const NUM_PER_PAGE = 20;
+const NUM_PER_PAGE = 10;
 
 export default function EditSavedGroupPage() {
   const router = useRouter();
@@ -250,19 +250,24 @@ export default function EditSavedGroupPage() {
                         selected.size > 1 ? "s" : ""
                       }`}
                     />
-                    <span className="ml-2 mr-2">&middot;</span>
                   </>
                 )}
-                <div>Total Count: {values.length || 0}</div>
               </div>
-              <div
-                className="cursor-pointer text-color-primary"
-                onClick={() => setSortNewestFirst(!sortNewestFirst)}
-              >
-                <PiArrowsDownUp className="mr-1 lh-full align-middle" />
-                <span className="lh-full align-middle">
-                  {sortNewestFirst ? "Most" : "Least"} Recently Added
-                </span>
+              <div className="d-flex align-items-center">
+                {values.length > 0 && (
+                  <div className="mr-3">
+                    {start + 1}-{end} of {values.length || 0}
+                  </div>
+                )}
+                <div
+                  className="cursor-pointer text-color-primary"
+                  onClick={() => setSortNewestFirst(!sortNewestFirst)}
+                >
+                  <PiArrowsDownUp className="mr-1 lh-full align-middle" />
+                  <span className="lh-full align-middle">
+                    {sortNewestFirst ? "Newest" : "Oldest"}
+                  </span>
+                </div>
               </div>
             </div>
 
