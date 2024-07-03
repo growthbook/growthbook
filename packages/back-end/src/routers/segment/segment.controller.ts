@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import { FilterQuery } from "mongoose";
 import { z } from "zod";
+import uniqid from "uniqid";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getContextFromReq } from "../../services/organizations";
@@ -20,7 +21,6 @@ import { SegmentInterface } from "../../../types/segment";
 import { ExperimentInterface } from "../../../types/experiment";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
 import { createSegmentValidator } from "./segment.validators";
-import uniqid from "uniqid";
 
 // region GET /segments
 
