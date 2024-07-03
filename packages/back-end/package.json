@@ -67,7 +67,7 @@
     "errorhandler": "^1.5.1",
     "express": "^4.17.1",
     "express-async-handler": "^1.1.4",
-    "express-jwt": "^6.0.0",
+    "express-jwt": "^7.0.0",
     "express-rate-limit": "^6.6.0",
     "free-email-domains-typescript": "^1.0.9",
     "googleapis": "^59.0.0",
