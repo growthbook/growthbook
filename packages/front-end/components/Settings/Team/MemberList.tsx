@@ -70,7 +70,6 @@ const MemberList: FC<{
       } as ExpandedMember;
     }) || [];
 
-  //const hasTeams =
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: membersList || [],
     localStorageKey: "members",
@@ -220,7 +219,9 @@ const MemberList: FC<{
                         </td>
                       );
                     })}
+
                     <td>{member.teams ? member.teams.length : 0}</td>
+
                     <td>
                       {canEditRoles && member.id !== userId && (
                         <>
