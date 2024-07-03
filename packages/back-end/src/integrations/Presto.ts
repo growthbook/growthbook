@@ -31,15 +31,20 @@ export default class Presto extends SqlIntegration {
       host: this.params.host,
       port: this.params.port,
       user: "growthbook",
-      source: "nodejs-client",
-      basic_auth: {
-        user: this.params.username,
-        password: this.params.password,
-      },
+      source: this.params?.source || "growthbook",
       schema: this.params.schema,
       catalog: this.params.catalog,
       checkInterval: 500,
     };
+    if (!this.params?.authType || this.params?.authType === "basicAuth") {
+      configOptions.basic_auth = {
+        user: this.params.username || "",
+        password: this.params.password || "",
+      };
+    }
+    if (this.params?.authType === "customAuth") {
+      configOptions.custom_auth = this.params.customAuth || "";
+    }
     if (this.params?.ssl) {
       configOptions.ssl = {
         ca: this.params?.caCert,

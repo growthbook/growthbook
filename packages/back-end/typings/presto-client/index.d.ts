@@ -21,6 +21,7 @@ declare module "presto-client" {
       user: string;
       password: string;
     };
+    custom_auth?: string;
     schema?: string;
     enableVerboseStateCallback?: boolean;
   }
