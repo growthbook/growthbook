@@ -502,7 +502,6 @@ export interface SourceIntegrationInterface {
     schema: string
   ) => Promise<AutoFactTableToCreate[]>;
   getAutoMetricsToCreate?: (
-    schemaFormat: SchemaFormat,
     existingMetrics: MetricInterface[],
     schema?: string
   ) => Promise<AutoMetricTrackedEvent[]>;

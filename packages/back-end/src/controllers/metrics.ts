@@ -307,7 +307,6 @@ export async function getMetricsFromTrackedEvents(
     );
 
     const trackedEvents: AutoMetricTrackedEvent[] = await integration.getAutoMetricsToCreate(
-      integration.datasource.settings.schemaFormat,
       existingMetrics,
       schema
     );
