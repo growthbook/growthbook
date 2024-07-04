@@ -290,7 +290,10 @@ export async function fireSdkWebhook(
     }
 
     let payload = "";
-    if (webhook.sendPayload) {
+    const sendPayload =
+      webhook.httpMethod !== "GET" &&
+      ["standard", "sdkPayload"].includes(webhook.payloadFormat ?? "standard");
+    if (sendPayload) {
       const environmentDoc = webhookContext.org?.settings?.environments?.find(
         (e) => e.id === connection.environment
       );
@@ -406,7 +409,24 @@ export async function fireGlobalSdkWebhooks(
     const payload = JSON.stringify(defs);
 
     WEBHOOKS.forEach((webhook) => {
-      const { url, signingKey, method, headers, sendPayload } = webhook;
+      const {
+        url,
+        signingKey,
+        method,
+        headers,
+        sendPayload,
+        payloadFormat,
+      } = webhook;
+      let format = payloadFormat;
+      if (!format) {
+        if (method === "GET") {
+          format = "none";
+        } else if (sendPayload) {
+          format = "standard";
+        } else {
+          format = "standard-no-payload";
+        }
+      }
 
       const id = `global_${md5(url)}`;
       const w: WebhookInterface = {
@@ -416,7 +436,7 @@ export async function fireGlobalSdkWebhooks(
         httpMethod: method,
         headers:
           typeof headers !== "string" ? JSON.stringify(headers) : headers,
-        sendPayload: !!sendPayload,
+        payloadFormat: format,
         organization: context.org?.id,
         created: new Date(),
         error: "",
