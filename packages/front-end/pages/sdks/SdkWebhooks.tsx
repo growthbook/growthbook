@@ -17,6 +17,13 @@ import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 
+const payloadFormatLabels = {
+  standard: "Standard",
+  "standard-no-payload": "Standard (no SDK Payload)",
+  sdkPayload: "SDK Payload only",
+  none: "none",
+};
+
 export default function SdkWebhooks({
   connection,
 }: {
@@ -54,7 +61,10 @@ export default function SdkWebhooks({
         >
           <code className="text-main small">{webhook.endpoint}</code>
         </td>
-        <td>{webhook.sendPayload ? "yes" : "no"}</td>
+        <td className="small">{webhook.httpMethod}</td>
+        <td className="small">
+          {payloadFormatLabels?.[webhook?.payloadFormat ?? "standard"]}
+        </td>
         <td className="nowrap">
           {webhook.signingKey ? (
             <ClickToReveal
@@ -199,9 +209,10 @@ export default function SdkWebhooks({
             <tr>
               <th>Webhook</th>
               <th>Endpoint</th>
-              <th>Send Payload</th>
+              <th>Method</th>
+              <th style={{ width: 110 }}>Format</th>
               <th>Shared Secret</th>
-              <th>Last Success</th>
+              <th style={{ width: 125 }}>Last Success</th>
               <th />
               <th style={{ width: 50 }} />
             </tr>
