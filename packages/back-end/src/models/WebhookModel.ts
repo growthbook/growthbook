@@ -29,7 +29,9 @@ const webhookSchema = new mongoose.Schema({
     type: [String],
     index: true,
   },
+  /** @deprecated */
   sendPayload: Boolean,
+  payloadFormat: String,
   headers: String,
   httpMethod: String,
 });
@@ -39,7 +41,18 @@ type WebhookDocument = mongoose.Document & WebhookInterface;
 const WebhookModel = mongoose.model<WebhookInterface>("Webhook", webhookSchema);
 
 function toInterface(doc: WebhookDocument): WebhookInterface {
-  return omit(doc.toJSON<WebhookDocument>(), ["__v", "_id"]);
+  const oldDoc = doc.toJSON<WebhookDocument>();
+  const newDoc = omit(oldDoc, ["__v", "_id", "sendPayload"]);
+  if (!oldDoc.payloadFormat) {
+    if (oldDoc.httpMethod === "GET") {
+      newDoc.payloadFormat = "none";
+    } else if (oldDoc.sendPayload) {
+      newDoc.payloadFormat = "standard";
+    } else {
+      newDoc.payloadFormat = "standard-no-payload";
+    }
+  }
+  return newDoc;
 }
 
 export async function findAllSdkWebhooksByConnectionIds(
@@ -118,11 +131,13 @@ export async function setLastSdkWebhookError(
 
 export const updateSdkWebhookValidator = z
   .object({
-    endpoint: z.string().optional(),
-    headers: z.string().optional(),
-    httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PURGE"]).optional(),
     name: z.string().optional(),
-    sendPayload: z.boolean().optional(),
+    endpoint: z.string().optional(),
+    payloadFormat: z
+      .enum(["standard", "standard-no-payload", "sdkPayload", "none"])
+      .optional(),
+    httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PURGE"]).optional(),
+    headers: z.string().optional(),
   })
   .strict();
 export type UpdateSdkWebhookProps = z.infer<typeof updateSdkWebhookValidator>;
@@ -157,7 +172,9 @@ const createSdkWebhookValidator = z
   .object({
     name: z.string(),
     endpoint: z.string(),
-    sendPayload: z.boolean(),
+    payloadFormat: z
+      .enum(["standard", "standard-no-payload", "sdkPayload", "none"])
+      .optional(),
     httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PURGE"]),
     headers: z.string(),
   })

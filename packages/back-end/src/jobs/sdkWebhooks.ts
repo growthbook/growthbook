@@ -161,10 +161,14 @@ async function runWebhookFetch({
   const signingKey = webhook.signingKey;
   const headers = webhook.headers || "";
   const method = webhook.httpMethod || "POST";
-  const sendPayload = webhook.sendPayload;
+  // todo: better inference based on sendPayload
+  const payloadFormat = webhook.payloadFormat || "standard";
   const organizationId = webhook.organization;
   const requestTimeout = 30000;
   const maxContentSize = 1000;
+
+  const sendPayload =
+    method !== "GET" && ["standard", "sdkPayload"].includes(payloadFormat);
 
   const date = new Date();
   const signature = createHmac("sha256", signingKey)
@@ -172,18 +176,27 @@ async function runWebhookFetch({
     .digest("hex");
   const secret = `whsec_${signature}`;
   const webhookID = `msg_${md5(key + date.getTime()).substr(0, 16)}`;
-  const data = sendPayload ? { payload } : {};
 
   const timestamp = Math.floor(date.getTime() / 1000);
 
-  const body =
-    method === "GET"
-      ? undefined
-      : JSON.stringify({
-          type: "payload.changed",
-          timestamp: date.toISOString(),
-          data,
-        });
+  let body: string | undefined = undefined;
+
+  if (method !== "GET") {
+    if (payloadFormat === "standard") {
+      body = JSON.stringify({
+        type: "payload.changed",
+        timestamp: date.toISOString(),
+        data: { payload },
+      });
+    } else if (payloadFormat === "standard-no-payload") {
+      body = JSON.stringify({
+        type: "payload.changed",
+        timestamp: date.toISOString(),
+      });
+    } else if (payloadFormat === "sdkPayload") {
+      body = payload;
+    }
+  }
 
   const standardSignatureBody = `${webhookID}.${timestamp}.${body || ""}`;
   const standardSignature =

@@ -5,15 +5,17 @@ import {
   UpdateSdkWebhookProps,
   WebhookInterface,
   WebhookMethod,
+  WebhookPayloadFormat,
 } from "back-end/types/webhook";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
-import Toggle from "@/components/Forms/Toggle";
 import SelectField from "@/components/Forms/SelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
+import { DocLink } from "@/components/DocLink";
 
 const WebhooksModal: FC<{
   close: () => void;
@@ -26,8 +28,8 @@ const WebhooksModal: FC<{
   const [validHeaders, setValidHeaders] = useState(true);
 
   const methodTypes: WebhookMethod[] = [
-    "POST",
     "GET",
+    "POST",
     "PUT",
     "DELETE",
     "PURGE",
@@ -37,7 +39,8 @@ const WebhooksModal: FC<{
       name: current.name || "My Webhook",
       endpoint: current.endpoint || "",
       useSdkMode: true,
-      sendPayload: current?.sendPayload || false,
+      // todo: better inference based on sendPayload
+      payloadFormat: current?.payloadFormat || "standard",
       httpMethod: current?.httpMethod || "POST",
       headers: current?.headers || "{}",
       sdkid: sdkConnectionId,
@@ -64,11 +67,11 @@ const WebhooksModal: FC<{
 
     if (current.id) {
       const data: UpdateSdkWebhookProps = {
-        endpoint: value.endpoint,
-        headers: value.headers,
-        httpMethod: value.httpMethod,
         name: value.name,
-        sendPayload: value.sendPayload,
+        endpoint: value.endpoint,
+        httpMethod: value.httpMethod,
+        headers: value.headers,
+        payloadFormat: value.payloadFormat,
       };
 
       await apiCall(`/sdk-webhooks/${current.id}`, {
@@ -79,9 +82,9 @@ const WebhooksModal: FC<{
       const data: CreateSdkWebhookProps = {
         name: value.name,
         endpoint: value.endpoint,
-        sendPayload: value.sendPayload,
         httpMethod: value.httpMethod,
         headers: value.headers,
+        payloadFormat: value.payloadFormat,
       };
       await apiCall(`/sdk-connections/${sdkConnectionId}/webhooks`, {
         method: "POST",
@@ -169,15 +172,7 @@ const WebhooksModal: FC<{
           instead.
         </div>
       )}
-      <h4>Webhook Filter</h4>
-      <Toggle
-        id="sendPayload"
-        value={!!form.watch("sendPayload")}
-        setValue={(value) => {
-          form.setValue("sendPayload", value);
-        }}
-      />
-      <label htmlFor="sendPayload">Send Payload</label>
+
       <SelectField
         label="Method"
         required
@@ -187,8 +182,54 @@ const WebhooksModal: FC<{
           form.setValue("httpMethod", httpMethod)
         }
         options={methodTypes.map((e) => ({ label: e, value: e }))}
+        sort={false}
       />
+
       {headerJsonEditor()}
+
+      {form.watch("httpMethod") !== "GET" && (
+        <>
+          <SelectField
+            containerClassName="mb-1"
+            label="Payload Format"
+            value={form.watch("payloadFormat")}
+            onChange={(v: WebhookPayloadFormat) =>
+              form.setValue("payloadFormat", v)
+            }
+            options={[
+              { label: "Standard", value: "standard" },
+              {
+                label: "Standard (no SDK Payload)",
+                value: "standard-no-payload",
+              },
+              { label: "SDK Payload only", value: "sdkPayload" },
+              { label: "None", value: "none" },
+            ]}
+            formatOptionLabel={({ value, label }) => {
+              return (
+                <span>
+                  {label}
+                  {value === "standard" && (
+                    <span
+                      className="text-muted uppercase-title float-right position-relative"
+                      style={{ top: 3 }}
+                    >
+                      default
+                    </span>
+                  )}
+                </span>
+              );
+            }}
+            disabled={form.watch("httpMethod") === "GET"}
+            sort={false}
+          />
+          <div className="small">
+            <DocLink docSection="statisticsSequential">
+              Learn More <FaExternalLinkAlt />
+            </DocLink>
+          </div>
+        </>
+      )}
     </Modal>
   );
 };
