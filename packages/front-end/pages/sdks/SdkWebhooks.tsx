@@ -1,8 +1,12 @@
-import React, { useState } from "react";
+import React, { ReactElement, useState } from "react";
 import { WebhookInterface } from "back-end/types/webhook";
-import { FaCheck, FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
+import {
+  FaCheck,
+  FaExclamationTriangle,
+  FaInfoCircle,
+  FaPaperPlane,
+} from "react-icons/fa";
 import { ago } from "shared/dates";
-import { BsArrowRepeat } from "react-icons/bs";
 import { SDKConnectionInterface } from "@back-end/types/sdk-connection";
 import useApi from "@/hooks/useApi";
 import WebhooksModal from "@/components/Settings/WebhooksModal";
@@ -17,9 +21,15 @@ import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 
-const payloadFormatLabels = {
+const payloadFormatLabels: Record<string, string | ReactElement> = {
   standard: "Standard",
-  "standard-no-payload": "Standard (no SDK Payload)",
+  "standard-no-payload": (
+    <>
+      Standard
+      <br />
+      (no SDK Payload)
+    </>
+  ),
   sdkPayload: "SDK Payload only",
   none: "none",
 };
@@ -106,7 +116,7 @@ export default function SdkWebhooks({
           <Button
             color="outline-primary"
             className="btn-sm"
-            style={{ width: 120 }}
+            style={{ width: 80 }}
             disabled={!canUpdateWebhook}
             onClick={async () => {
               await apiCall(`/sdk-webhooks/${webhook.id}/test`, {
@@ -115,11 +125,12 @@ export default function SdkWebhooks({
               mutate();
             }}
           >
-            <BsArrowRepeat /> Test Webhook
+            <FaPaperPlane className="mr-1" />
+            Test
           </Button>
         </td>
-        <td>
-          <div className="col-auto">
+        <td className="px-0">
+          <div className="col-auto mr-1">
             <MoreMenu>
               {canUpdateWebhook ? (
                 <button
@@ -210,11 +221,11 @@ export default function SdkWebhooks({
               <th>Webhook</th>
               <th>Endpoint</th>
               <th>Method</th>
-              <th style={{ width: 110 }}>Format</th>
+              <th style={{ width: 130 }}>Format</th>
               <th>Shared Secret</th>
               <th style={{ width: 125 }}>Last Success</th>
               <th />
-              <th style={{ width: 50 }} />
+              <th className="px-0" style={{ width: 35 }} />
             </tr>
           </thead>
           <tbody>{renderTableRows()}</tbody>
