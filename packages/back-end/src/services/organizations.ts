@@ -58,11 +58,6 @@ import { DataSourceInterface } from "../../types/datasource";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 import { logger } from "../util/logger";
 import { SegmentInterface } from "../../types/segment";
-import {
-  createSegment,
-  findSegmentById,
-  updateSegment,
-} from "../models/SegmentModel";
 import { getAllExperiments } from "../models/ExperimentModel";
 import { LegacyExperimentPhase } from "../../types/experiment";
 import { addTags } from "../models/TagModel";
@@ -812,21 +807,18 @@ export async function importConfig(
         }
 
         try {
-          const existing = await findSegmentById(k, organization.id);
+          const existing = await context.models.segments.getById(k);
           if (existing) {
             const updates: Partial<SegmentInterface> = {
               ...s,
             };
             delete updates.organization;
 
-            await updateSegment(k, organization.id, updates);
+            await context.models.segments.update(existing, updates);
           } else {
-            await createSegment({
+            await context.models.segments.create({
               ...s,
               id: k,
-              dateCreated: new Date(),
-              dateUpdated: new Date(),
-              organization: organization.id,
             });
           }
         } catch (e) {

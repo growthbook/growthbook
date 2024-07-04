@@ -70,7 +70,6 @@ import {
   LinkedFeatureState,
 } from "../../types/experiment";
 import { findDimensionById } from "../models/DimensionModel";
-import { findSegmentById } from "../models/SegmentModel";
 import {
   DEFAULT_CONVERSION_WINDOW_HOURS,
   EXPERIMENT_REFRESH_FREQUENCY,
@@ -159,7 +158,7 @@ export async function refreshMetric(
     let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
       segment =
-        (await findSegmentById(metric.segment, context.org.id)) || undefined;
+        (await context.models.segments.getById(metric.segment)) || undefined;
       if (!segment || segment.datasource !== metric.datasource) {
         throw new Error("Invalid user segment chosen");
       }
