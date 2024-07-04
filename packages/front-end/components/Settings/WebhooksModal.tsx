@@ -224,7 +224,7 @@ const WebhooksModal: FC<{
             sort={false}
           />
           <div className="small">
-            <DocLink docSection="statisticsSequential">
+            <DocLink docSection="sdkWebhooks#payload-format">
               Learn More <FaExternalLinkAlt />
             </DocLink>
           </div>
