@@ -10,6 +10,7 @@ import {
   isFactMetric,
   isBinomialMetric,
   ExperimentMetricInterface,
+  getAllMetricIdsFromExperiment,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import {
@@ -138,10 +139,7 @@ export function getSnapshotSettingsFromReportArgs(
     stddev: DEFAULT_PROPER_PRIOR_STDDEV,
   };
   const snapshotSettings: ExperimentSnapshotSettings = {
-    metricSettings: args.goalMetrics
-      .concat(args.secondaryMetrics)
-      .concat(args.guardrailMetrics)
-      .concat(args.activationMetric ? [args.activationMetric] : [])
+    metricSettings: getAllMetricIdsFromExperiment(args)
       .map((m) =>
         getMetricForSnapshot(
           m,

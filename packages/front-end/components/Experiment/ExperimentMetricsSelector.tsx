@@ -50,8 +50,8 @@ export default function ExperimentMetricsSelector({
         <label className="font-weight-bold mb-1">Secondary Metrics</label>
         <div className="mb-1">
           <span className="font-italic">
-            Additional metrics you would like to improve, but not as the primary
-            objective.{" "}
+            Additional metrics to learn about experiment impacts, but not
+            primary objectives.
           </span>
           <MetricsSelectorTooltip />
         </div>

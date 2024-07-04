@@ -175,7 +175,7 @@ const CompactResults: FC<{
 
     if (!results || !results.variations || !ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
-      // TODO: Should we include secondary metrics here as well?
+      // Only include goals in calculation, not secondary or guardrails
       setAdjustedPValuesOnResults([results], goalMetrics, pValueCorrection);
       setAdjustedCIs([results], pValueThreshold);
     }
@@ -324,7 +324,6 @@ const CompactResults: FC<{
             tableRowAxis="metric"
             labelHeader="Secondary Metrics"
             editMetrics={editMetrics}
-            metricsAsGuardrails={false}
             statsEngine={statsEngine}
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}
@@ -360,7 +359,6 @@ const CompactResults: FC<{
             tableRowAxis="metric"
             labelHeader="Guardrail Metrics"
             editMetrics={editMetrics}
-            metricsAsGuardrails={true}
             statsEngine={statsEngine}
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}

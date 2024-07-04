@@ -116,7 +116,7 @@ const BreakDownResults: FC<{
   const tables = useMemo<TableDef[]>(() => {
     if (!ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
-      // TODO: Should we include secondary metrics here as well?
+      // Only include goals in calculation, not secondary or guardrails
       setAdjustedPValuesOnResults(results, goalMetrics, pValueCorrection);
       setAdjustedCIs(results, pValueThreshold);
     }

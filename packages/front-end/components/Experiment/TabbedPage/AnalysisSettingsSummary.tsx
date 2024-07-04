@@ -204,6 +204,18 @@ export default function AnalysisSettingsSummary({
               <em>none</em>
             )}
           </div>
+          <div className="mb-2 text-left">
+            <strong>Secondary Metrics:</strong>
+            {secondary.length > 0 ? (
+              <ul className=" ml-0 pl-3 mb-0">
+                {secondary.map((m, i) => (
+                  <li key={i}>{m}</li>
+                ))}
+              </ul>
+            ) : (
+              <em>none</em>
+            )}
+          </div>
           <div className="text-left">
             <strong>Guardrails:</strong>{" "}
             {guardrails.length > 0 ? (
