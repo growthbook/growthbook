@@ -179,10 +179,19 @@ async function runWebhookFetch({
 
   const timestamp = Math.floor(date.getTime() / 1000);
 
-  let body: string | undefined = undefined;
+  let body: string | undefined;
+  const standardBody = JSON.stringify({
+    type: "payload.changed",
+    timestamp: date.toISOString(),
+    data: { payload },
+  });
+  let invalidValue: never;
 
   if (method !== "GET") {
     switch (payloadFormat) {
+      case "none":
+        body = undefined;
+        break;
       case "standard-no-payload":
         body = JSON.stringify({
           type: "payload.changed",
@@ -193,12 +202,12 @@ async function runWebhookFetch({
         body = payload;
         break;
       case "standard":
+        body = standardBody;
+        break;
       default:
-        body = JSON.stringify({
-          type: "payload.changed",
-          timestamp: date.toISOString(),
-          data: { payload },
-        });
+        body = standardBody;
+        invalidValue = payloadFormat;
+        logger.error(`Invalid webhook payload format: ${invalidValue}`);
     }
   }
 
