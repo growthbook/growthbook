@@ -210,11 +210,10 @@ const SelectStep = ({
   );
 };
 
-const bayesianParams = [
-  "priorLiftMean",
-  "priorLiftStandardDeviation",
-  "proper",
-] as const;
+const frequentistParams = ["effectSize", "mean", "standardDeviation"];
+
+// proper is used to toggle the bayesian settings on/off
+const bayesianParams = ["priorLiftMean", "priorLiftStandardDeviation"];
 
 const InputField = ({
   entry,
@@ -320,14 +319,13 @@ const MetricParamsInput = ({
   const metrics = form.watch("metrics");
   // eslint-disable-next-line
   const { name, type: _type, ...params } = ensureAndReturn(metrics[metricId]);
-  const [showBayesian, setShowBayesian] = useState(false);
 
   return (
     <div className="card gsbox mb-3 p-3 mb-2 power-analysis-params">
       <div className="card-title uppercase-title mb-3">{name}</div>
       <div className="row">
         {Object.keys(params)
-          .filter((v) => !(bayesianParams as readonly string[]).includes(v))
+          .filter((v) => frequentistParams.includes(v))
           .map((entry: keyof Omit<MetricParams, "name" | "type">) => (
             <InputField
               key={`${name}-${entry}`}
@@ -342,19 +340,17 @@ const MetricParamsInput = ({
           <div className="row align-items-center h-100 mb-2">
             <div className="col-auto">
               <Toggle
-                id={`input-value-${metricId}-showBayesian`}
-                value={showBayesian}
-                setValue={setShowBayesian}
+                id={`input-value-${metricId}-proper`}
+                value={!!params.proper}
+                setValue={(v) => form.setValue(`metrics.${metricId}.proper`, v)}
               />
             </div>
             <div>Modify metric priors</div>
           </div>
           <div className="row">
-            {showBayesian &&
+            {params.proper &&
               Object.keys(params)
-                .filter((v) =>
-                  (bayesianParams as readonly string[]).includes(v)
-                )
+                .filter((v) => bayesianParams.includes(v))
                 .map((entry: keyof Omit<MetricParams, "name" | "type">) => (
                   <InputField
                     key={`${name}-${entry}`}
