@@ -43,6 +43,13 @@ export async function getSSOConnectionById(
   return doc ? toInterface(doc) : null;
 }
 
+export async function getAllSSOConnections(): Promise<
+  SSOConnectionInterface[]
+> {
+  const connections = await SSOConnectionModel.find();
+  return connections.map((c) => toInterface(c));
+}
+
 export async function getSSOConnectionByEmailDomain(
   emailDomain: string
 ): Promise<null | SSOConnectionInterface> {

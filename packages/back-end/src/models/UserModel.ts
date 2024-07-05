@@ -52,6 +52,40 @@ export async function getAllUsers(): Promise<UserInterface[]> {
   return users.map((u) => toInterface(u));
 }
 
+export async function getAllUsersFiltered(
+  page: number,
+  search?: string
+): Promise<UserInterface[]> {
+  const query: {
+    $or?: [{ name: unknown }, { email: string }];
+  } = {};
+  if (search) {
+    query["$or"] = [{ name: { $regex: search + ".*" } }, { email: search }];
+  }
+
+  const docs = await getCollection(COLLECTION)
+    .find(query)
+    .sort([["dateCreated", -1]])
+    .skip((page - 1) * 50)
+    .limit(50)
+    .toArray();
+
+  // return the user interface but filter out password hash
+  return docs
+    .map((u) => toInterface(u))
+    .map((u) => ({ ...u, passwordHash: "" }));
+}
+
+export async function getTotalNumUsers(search?: string): Promise<number> {
+  const query: {
+    $or?: [{ name: unknown }, { email: string }];
+  } = {};
+  if (search) {
+    query["$or"] = [{ name: { $regex: search + ".*" } }, { email: search }];
+  }
+  return await getCollection(COLLECTION).countDocuments(query);
+}
+
 export async function getUserById(id: string): Promise<UserInterface | null> {
   const user = await getCollection(COLLECTION).findOne({ id });
   return user ? toInterface(user) : null;

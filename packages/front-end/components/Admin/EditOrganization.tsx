@@ -2,6 +2,7 @@ import { useState, FC } from "react";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
+import Toggle from "@/components/Forms/Toggle";
 
 const EditOrganization: FC<{
   onEdit: () => void;
@@ -11,6 +12,8 @@ const EditOrganization: FC<{
   currentExternalId: string;
   currentLicenseKey: string;
   currentOwner: string;
+  currentDomain: string;
+  currentAutoApproveMembers: boolean;
 }> = ({
   onEdit,
   close,
@@ -19,11 +22,17 @@ const EditOrganization: FC<{
   currentExternalId,
   currentLicenseKey,
   currentOwner,
+  currentDomain,
+  currentAutoApproveMembers,
 }) => {
   const [name, setName] = useState(currentName);
   const [owner, setOwner] = useState(currentOwner);
   const [externalId, setExternalId] = useState(currentExternalId);
   const [licenseKey, setLicenseKey] = useState(currentLicenseKey);
+  const [verifiedDomain, setVerifiedDomain] = useState(currentDomain);
+  const [autoApproveMembers, setAutoApproveMembers] = useState(
+    currentAutoApproveMembers
+  );
 
   const { apiCall } = useAuth();
 
@@ -39,6 +48,8 @@ const EditOrganization: FC<{
         externalId,
         licenseKey,
         ownerEmail: owner,
+        verifiedDomain,
+        autoApproveMembers,
       }),
     });
     onEdit();
@@ -75,8 +86,7 @@ const EditOrganization: FC<{
           </div>
         ) : (
           <div className="mt-3">
-            External Id: Id used for the organization within your company
-            (optional)
+            External Id (optional)
             <input
               type="text"
               className="form-control"
@@ -84,6 +94,10 @@ const EditOrganization: FC<{
               minLength={3}
               onChange={(e) => setExternalId(e.target.value)}
             />
+            <span className="text-muted small">
+              This field can be used to identify the organization within your
+              company.
+            </span>
           </div>
         )}
         <div className="mt-3">
@@ -94,6 +108,28 @@ const EditOrganization: FC<{
             value={owner}
             required
             onChange={(e) => setOwner(e.target.value)}
+          />
+        </div>
+        <div className="mt-3">
+          Verified Domain
+          <input
+            type="text"
+            className="form-control"
+            value={verifiedDomain}
+            onChange={(e) => setVerifiedDomain(e.target.value)}
+          />
+          <span className="text-muted small">
+            This is used so new users can auto join this org by matching email
+            domain.
+          </span>
+        </div>
+        <div className="mt-3">
+          Auto approve members with email domain
+          <Toggle
+            className="ml-2"
+            id="autoApproveMembers"
+            value={autoApproveMembers}
+            setValue={setAutoApproveMembers}
           />
         </div>
       </div>
