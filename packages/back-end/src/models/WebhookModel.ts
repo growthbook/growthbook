@@ -3,7 +3,8 @@ import { omit } from "lodash";
 import uniqid from "uniqid";
 import md5 from "md5";
 import { z } from "zod";
-import { ReqContext } from "@back-end/types/organization";
+import { ReqContext } from "../../types/organization";
+import { migrateWebhookModel } from "../util/migrations";
 import { WebhookInterface } from "../../types/webhook";
 
 const webhookSchema = new mongoose.Schema({
@@ -41,18 +42,9 @@ type WebhookDocument = mongoose.Document & WebhookInterface;
 const WebhookModel = mongoose.model<WebhookInterface>("Webhook", webhookSchema);
 
 function toInterface(doc: WebhookDocument): WebhookInterface {
-  const oldDoc = doc.toJSON<WebhookDocument>();
-  const newDoc = omit(oldDoc, ["__v", "_id", "sendPayload"]);
-  if (!oldDoc.payloadFormat) {
-    if (oldDoc.httpMethod === "GET") {
-      newDoc.payloadFormat = "none";
-    } else if (oldDoc.sendPayload) {
-      newDoc.payloadFormat = "standard";
-    } else {
-      newDoc.payloadFormat = "standard-no-payload";
-    }
-  }
-  return newDoc;
+  return migrateWebhookModel(
+    omit(doc.toJSON<WebhookDocument>(), ["__v", "_id"])
+  );
 }
 
 export async function findAllSdkWebhooksByConnectionIds(

@@ -34,6 +34,7 @@ type SDKWebhookJob = Job<{
   webhookId: string;
   retryCount: number;
 }>;
+const sendPayloadFormats = ["standard", "sdkPayload"];
 
 const fireWebhooks = trackJob(
   SDK_WEBHOOKS_JOB_NAME,
@@ -161,14 +162,13 @@ async function runWebhookFetch({
   const signingKey = webhook.signingKey;
   const headers = webhook.headers || "";
   const method = webhook.httpMethod || "POST";
-  // todo: better inference based on sendPayload
   const payloadFormat = webhook.payloadFormat || "standard";
   const organizationId = webhook.organization;
   const requestTimeout = 30000;
   const maxContentSize = 1000;
 
   const sendPayload =
-    method !== "GET" && ["standard", "sdkPayload"].includes(payloadFormat);
+    method !== "GET" && sendPayloadFormats.includes(payloadFormat);
 
   const date = new Date();
   const signature = createHmac("sha256", signingKey)
@@ -292,7 +292,7 @@ export async function fireSdkWebhook(
     let payload = "";
     const sendPayload =
       webhook.httpMethod !== "GET" &&
-      ["standard", "sdkPayload"].includes(webhook.payloadFormat ?? "standard");
+      sendPayloadFormats.includes(webhook.payloadFormat ?? "standard");
     if (sendPayload) {
       const environmentDoc = webhookContext.org?.settings?.environments?.find(
         (e) => e.id === connection.environment

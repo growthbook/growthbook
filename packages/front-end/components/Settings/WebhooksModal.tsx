@@ -39,7 +39,6 @@ const WebhooksModal: FC<{
       name: current.name || "My Webhook",
       endpoint: current.endpoint || "",
       useSdkMode: true,
-      // todo: better inference based on sendPayload
       payloadFormat: current?.payloadFormat || "standard",
       httpMethod: current?.httpMethod || "POST",
       headers: current?.headers || "{}",
