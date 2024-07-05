@@ -200,6 +200,9 @@ const webhooksValidator = z.array(
       signingKey: z.string().optional(),
       method: z.enum(["GET", "POST", "PUT", "DELETE", "PURGE"]).optional(),
       sendPayload: z.boolean().optional(),
+      payloadFormat: z
+        .enum(["standard", "standard-no-payload", "sdkPayload", "none"])
+        .optional(),
     })
     .strict()
 );
