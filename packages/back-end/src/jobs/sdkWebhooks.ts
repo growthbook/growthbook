@@ -182,19 +182,23 @@ async function runWebhookFetch({
   let body: string | undefined = undefined;
 
   if (method !== "GET") {
-    if (payloadFormat === "standard") {
-      body = JSON.stringify({
-        type: "payload.changed",
-        timestamp: date.toISOString(),
-        data: { payload },
-      });
-    } else if (payloadFormat === "standard-no-payload") {
-      body = JSON.stringify({
-        type: "payload.changed",
-        timestamp: date.toISOString(),
-      });
-    } else if (payloadFormat === "sdkPayload") {
-      body = payload;
+    switch (payloadFormat) {
+      case "standard-no-payload":
+        body = JSON.stringify({
+          type: "payload.changed",
+          timestamp: date.toISOString(),
+        });
+        break;
+      case "sdkPayload":
+        body = payload;
+        break;
+      case "standard":
+      default:
+        body = JSON.stringify({
+          type: "payload.changed",
+          timestamp: date.toISOString(),
+          data: { payload },
+        });
     }
   }
 
