@@ -384,7 +384,7 @@ describe("backend", () => {
 
     let powerMultiple = [0.0, 0.0];
     let mdeMultiple = [1e5, 1e5];
-    let w0 = undefined;
+    let w0: number | undefined = undefined;
     const w1 = undefined;
     if (resultsTS.type === "success") {
       powerMultiple = resultsTS.weeks.reduce(
