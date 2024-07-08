@@ -123,7 +123,7 @@ export const config = checkConfig({
     defaultValue: false,
   },
   priorLiftMean: {
-    title: "Prior mean",
+    title: "Prior Mean",
     metricType: "all",
     type: "percent",
     tooltip: "Prior mean for the relative effect size.",
@@ -134,7 +134,7 @@ export const config = checkConfig({
     defaultValue: 0,
   },
   priorLiftStandardDeviation: {
-    title: "Prior standard deviation",
+    title: "Prior Standard Deviation",
     metricType: "all",
     type: "percent",
     tooltip: "Prior standard deviation for the relative effect size.",
