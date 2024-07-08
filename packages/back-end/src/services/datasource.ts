@@ -1,4 +1,5 @@
 import { AES, enc } from "crypto-js";
+import { ENCRYPTION_KEY } from "../util/secrets";
 import GoogleAnalytics from "../integrations/GoogleAnalytics";
 import Athena from "../integrations/Athena";
 import Presto from "../integrations/Presto";

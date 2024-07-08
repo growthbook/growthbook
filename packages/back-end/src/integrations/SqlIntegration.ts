@@ -752,7 +752,12 @@ export default abstract class SqlIntegration
     query: string,
     templateVariables?: TemplateVariables
   ): string {
-    return this.getTestQuery(query, templateVariables, 1);
+    return this.getTestQuery(
+      query,
+      templateVariables,
+      DEFAULT_TEST_QUERY_DAYS,
+      1
+    );
   }
 
   getTestQuery(
