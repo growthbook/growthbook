@@ -79,6 +79,7 @@ import {
   sendPendingMemberEmail,
   sendNewOrgEmail,
   sendPendingMemberApprovalEmail,
+  sendOwnerEmailChangeEmail,
 } from "../../services/email";
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import { getAllSavedGroups } from "../../models/SavedGroupModel";
@@ -111,7 +112,12 @@ import {
   getUnredactedSecretKey,
 } from "../../models/ApiKeyModel";
 import { getUserPermissions } from "../../util/organization.util";
-import { deleteUser, getUserById, getAllUsers } from "../../models/UserModel";
+import {
+  deleteUser,
+  getUserById,
+  getAllUsers,
+  getUserByEmail,
+} from "../../models/UserModel";
 import {
   getAllExperiments,
   getExperimentsForActivityFeed,
@@ -1275,9 +1281,16 @@ export async function putOrganization(
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { name, settings, connections, externalId, licenseKey } = req.body;
+  const {
+    name,
+    ownerEmail,
+    settings,
+    connections,
+    externalId,
+    licenseKey,
+  } = req.body;
 
-  if (connections || name) {
+  if (connections || name || ownerEmail) {
     if (!context.permissions.canManageOrgSettings()) {
       context.permissions.throwPermissionError();
     }
@@ -1325,6 +1338,26 @@ export async function putOrganization(
     if (name) {
       updates.name = name;
       orig.name = org.name;
+    }
+    if (ownerEmail && ownerEmail !== org.ownerEmail) {
+      // the owner email is being changed
+      const newOwnerUser = await getUserByEmail(ownerEmail);
+      if (!newOwnerUser) {
+        throw Error("New owner does not have an account");
+      }
+      updates.ownerEmail = ownerEmail;
+      orig.ownerEmail = org.ownerEmail;
+      // send email to original owner and new owner alerting them of the change:
+      try {
+        await sendOwnerEmailChangeEmail(
+          req.email,
+          org.name,
+          org.ownerEmail,
+          ownerEmail
+        );
+      } catch (e) {
+        req.log.error(e, "Failed to send owner email change email");
+      }
     }
     if (externalId !== undefined) {
       updates.externalId = externalId;

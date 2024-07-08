@@ -99,6 +99,7 @@ export interface ExpandedMemberInfo {
   email: string;
   name: string;
   verified: boolean;
+  numTeams?: number;
 }
 
 export type ExpandedMember = Member & ExpandedMemberInfo;
