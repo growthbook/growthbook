@@ -41,7 +41,7 @@ export default function DatasourceSettings() {
             />
           </div>
           <small className="form-text text-muted">
-            {`The number of days to look back when running test queries that have date filters. If
+            {`The number of days to look back when running test queries that have a date filters. Also used when validating fact table SQL. If
                 empty, uses default of ${DEFAULT_TEST_QUERY_DAYS} days.`}
           </small>
         </div>
