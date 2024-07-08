@@ -20,7 +20,8 @@ import { getCurrentEnabledState } from "./scheduleRules";
 function getSavedGroupCondition(
   groupId: string,
   groupMap: GroupMap,
-  include: boolean
+  include: boolean,
+  savedGroupReferencesEnabled?: boolean
 ): null | ConditionInterface {
   const group = groupMap.get(groupId);
   if (!group) return null;
@@ -36,6 +37,11 @@ function getSavedGroupCondition(
   }
 
   if (!group.attributeKey) return null;
+  if (!group.passByReferenceOnly || !savedGroupReferencesEnabled) {
+    return {
+      [group.attributeKey]: { [include ? "$in" : "$nin"]: group.values || [] },
+    };
+  }
 
   return {
     [group.attributeKey]: { [include ? "$inGroup" : "$notInGroup"]: groupId },
@@ -45,7 +51,8 @@ function getSavedGroupCondition(
 export function getParsedCondition(
   groupMap: GroupMap,
   condition?: string,
-  savedGroups?: SavedGroupTargeting[]
+  savedGroups?: SavedGroupTargeting[],
+  savedGroupReferencesEnabled?: boolean
 ) {
   const conditions: ConditionInterface[] = [];
   if (condition && condition !== "{}") {
@@ -75,7 +82,12 @@ export function getParsedCondition(
       // Add each group as a separate top-level AND
       if (match === "all") {
         groupIds.forEach((groupId) => {
-          const cond = getSavedGroupCondition(groupId, groupMap, true);
+          const cond = getSavedGroupCondition(
+            groupId,
+            groupMap,
+            true,
+            savedGroupReferencesEnabled
+          );
           if (cond) conditions.push(cond);
         });
       }
@@ -83,7 +95,12 @@ export function getParsedCondition(
       else if (match === "any") {
         const ors: ConditionInterface[] = [];
         groupIds.forEach((groupId) => {
-          const cond = getSavedGroupCondition(groupId, groupMap, true);
+          const cond = getSavedGroupCondition(
+            groupId,
+            groupMap,
+            true,
+            savedGroupReferencesEnabled
+          );
           if (cond) ors.push(cond);
         });
 
@@ -99,7 +116,12 @@ export function getParsedCondition(
       // Add each group as a separate top-level AND with a NOT condition
       else if (match === "none") {
         groupIds.forEach((groupId) => {
-          const cond = getSavedGroupCondition(groupId, groupMap, false);
+          const cond = getSavedGroupCondition(
+            groupId,
+            groupMap,
+            false,
+            savedGroupReferencesEnabled
+          );
           if (cond) conditions.push(cond);
         });
       }
@@ -311,6 +333,7 @@ export function getFeatureDefinition({
   experimentMap,
   revision,
   returnRuleId = false,
+  savedGroupReferencesEnabled,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -318,6 +341,7 @@ export function getFeatureDefinition({
   experimentMap: Map<string, ExperimentInterface>;
   revision?: FeatureRevisionInterface;
   returnRuleId?: boolean;
+  savedGroupReferencesEnabled?: boolean;
 }): FeatureDefinitionWithProject | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -337,7 +361,12 @@ export function getFeatureDefinition({
   // convert prerequisites to force rules:
   const prerequisiteRules = (feature.prerequisites ?? [])
     ?.map((p) => {
-      const condition = getParsedCondition(groupMap, p.condition);
+      const condition = getParsedCondition(
+        groupMap,
+        p.condition,
+        undefined,
+        savedGroupReferencesEnabled
+      );
       if (!condition) return null;
       return {
         parentConditions: [
@@ -379,7 +408,8 @@ export function getFeatureDefinition({
           const condition = getParsedCondition(
             groupMap,
             phase.condition,
-            phase.savedGroups
+            phase.savedGroups,
+            savedGroupReferencesEnabled
           );
           if (condition) {
             rule.condition = condition;
@@ -457,7 +487,8 @@ export function getFeatureDefinition({
         const condition = getParsedCondition(
           groupMap,
           r.condition,
-          r.savedGroups
+          r.savedGroups,
+          savedGroupReferencesEnabled
         );
         if (condition) {
           rule.condition = condition;
@@ -465,7 +496,12 @@ export function getFeatureDefinition({
 
         const prerequisites = (r?.prerequisites ?? [])
           ?.map((p) => {
-            const condition = getParsedCondition(groupMap, p.condition);
+            const condition = getParsedCondition(
+              groupMap,
+              p.condition,
+              undefined,
+              savedGroupReferencesEnabled
+            );
             if (!condition) return null;
             return {
               id: p.id,

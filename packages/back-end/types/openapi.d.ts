@@ -906,6 +906,7 @@ export interface components {
       sseEnabled?: boolean;
       hashSecureAttributes?: boolean;
       remoteEvalEnabled?: boolean;
+      savedGroupReferencesEnabled?: boolean;
     };
     Experiment: {
       id: string;
@@ -1285,6 +1286,8 @@ export interface components {
       /** @description When type = 'list', this is the list of values for the attribute key */
       values?: (string)[];
       description?: string;
+      /** @description Whether the saved group must be referenced by ID rather than its list of members for performance reasons */
+      passByReferenceOnly?: boolean;
     };
     Organization: {
       /** @description The Growthbook unique identifier for the organization */
@@ -3008,6 +3011,7 @@ export interface operations {
                 sseEnabled?: boolean;
                 hashSecureAttributes?: boolean;
                 remoteEvalEnabled?: boolean;
+                savedGroupReferencesEnabled?: boolean;
               })[];
           } & {
             limit: number;
@@ -3040,6 +3044,7 @@ export interface operations {
           proxyHost?: string;
           hashSecureAttributes?: boolean;
           remoteEvalEnabled?: boolean;
+          savedGroupReferencesEnabled?: boolean;
         };
       };
     };
@@ -3074,6 +3079,7 @@ export interface operations {
               sseEnabled?: boolean;
               hashSecureAttributes?: boolean;
               remoteEvalEnabled?: boolean;
+              savedGroupReferencesEnabled?: boolean;
             };
           };
         };
@@ -3119,6 +3125,7 @@ export interface operations {
               sseEnabled?: boolean;
               hashSecureAttributes?: boolean;
               remoteEvalEnabled?: boolean;
+              savedGroupReferencesEnabled?: boolean;
             };
           };
         };
@@ -3150,6 +3157,7 @@ export interface operations {
           proxyHost?: string;
           hashSecureAttributes?: boolean;
           remoteEvalEnabled?: boolean;
+          savedGroupReferencesEnabled?: boolean;
         };
       };
     };
@@ -3184,6 +3192,7 @@ export interface operations {
               sseEnabled?: boolean;
               hashSecureAttributes?: boolean;
               remoteEvalEnabled?: boolean;
+              savedGroupReferencesEnabled?: boolean;
             };
           };
         };
@@ -5114,6 +5123,8 @@ export interface operations {
                 /** @description When type = 'list', this is the list of values for the attribute key */
                 values?: (string)[];
                 description?: string;
+                /** @description Whether the saved group must be referenced by ID rather than its list of members for performance reasons */
+                passByReferenceOnly?: boolean;
               })[];
           }) & {
             limit: number;
@@ -5171,6 +5182,8 @@ export interface operations {
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
               description?: string;
+              /** @description Whether the saved group must be referenced by ID rather than its list of members for performance reasons */
+              passByReferenceOnly?: boolean;
             };
           };
         };
@@ -5206,6 +5219,8 @@ export interface operations {
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
               description?: string;
+              /** @description Whether the saved group must be referenced by ID rather than its list of members for performance reasons */
+              passByReferenceOnly?: boolean;
             };
           };
         };
@@ -5255,6 +5270,8 @@ export interface operations {
               /** @description When type = 'list', this is the list of values for the attribute key */
               values?: (string)[];
               description?: string;
+              /** @description Whether the saved group must be referenced by ID rather than its list of members for performance reasons */
+              passByReferenceOnly?: boolean;
             };
           };
         };

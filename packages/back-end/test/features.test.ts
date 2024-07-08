@@ -47,15 +47,46 @@ describe("getParsedCondition", () => {
     groupMap.clear();
     groupMap.set("a", {
       type: "list",
+      passByReferenceOnly: true,
       values: ["0", "1"],
       attributeKey: "id_a",
     });
-    groupMap.set("b", { type: "list", values: ["2"], attributeKey: "id_b" });
-    groupMap.set("c", { type: "list", values: ["3"], attributeKey: "id_c" });
-    groupMap.set("d", { type: "list", values: ["4"], attributeKey: "id_d" });
-    groupMap.set("e", { type: "list", values: ["5"], attributeKey: "id_e" });
-    groupMap.set("f", { type: "list", values: ["6"], attributeKey: "id_f" });
-    groupMap.set("empty", { type: "list", values: [], attributeKey: "empty" });
+    groupMap.set("b", {
+      type: "list",
+      passByReferenceOnly: true,
+      values: ["2"],
+      attributeKey: "id_b",
+    });
+    groupMap.set("c", {
+      type: "list",
+      passByReferenceOnly: true,
+      values: ["3"],
+      attributeKey: "id_c",
+    });
+    groupMap.set("d", {
+      type: "list",
+      passByReferenceOnly: true,
+      values: ["4"],
+      attributeKey: "id_d",
+    });
+    groupMap.set("e", {
+      type: "list",
+      passByReferenceOnly: true,
+      values: ["5"],
+      attributeKey: "id_e",
+    });
+    groupMap.set("f", {
+      type: "list",
+      passByReferenceOnly: true,
+      values: ["6"],
+      attributeKey: "id_f",
+    });
+    groupMap.set("empty", {
+      type: "list",
+      passByReferenceOnly: true,
+      values: [],
+      attributeKey: "empty",
+    });
 
     // No condition or saved group
     expect(getParsedCondition(groupMap, "", [])).toBeUndefined();
@@ -75,7 +106,8 @@ describe("getParsedCondition", () => {
       getParsedCondition(
         groupMap,
         JSON.stringify({ id: { $inGroup: "a" } }),
-        []
+        [],
+        true
       )
     ).toEqual({
       id: { $inGroup: "a" },
@@ -83,39 +115,58 @@ describe("getParsedCondition", () => {
 
     // Single saved group
     expect(
-      getParsedCondition(groupMap, "", [{ match: "any", ids: ["a"] }])
+      getParsedCondition(groupMap, "", [{ match: "any", ids: ["a"] }], true)
     ).toEqual({
       id_a: {
         $inGroup: "a",
       },
     });
 
+    // Single saved group without savedGroupReferences support
+    expect(
+      getParsedCondition(groupMap, "", [{ match: "any", ids: ["a"] }], false)
+    ).toEqual({
+      id_a: {
+        $in: ["0", "1"],
+      },
+    });
+
     // Only 1 valid saved group
     expect(
-      getParsedCondition(groupMap, "", [
-        { match: "any", ids: ["b", "empty", "g"] },
-        { match: "all", ids: ["g", "empty"] },
-      ])
+      getParsedCondition(
+        groupMap,
+        "",
+        [
+          { match: "any", ids: ["b", "empty", "g"] },
+          { match: "all", ids: ["g", "empty"] },
+        ],
+        true
+      )
     ).toEqual({
       id_b: { $inGroup: "b" },
     });
 
     // Condition + a bunch of saved groups
     expect(
-      getParsedCondition(groupMap, JSON.stringify({ country: "US" }), [
-        {
-          match: "all",
-          ids: ["a", "b", "x"],
-        },
-        {
-          match: "any",
-          ids: ["c", "d"],
-        },
-        {
-          match: "none",
-          ids: ["e", "f"],
-        },
-      ])
+      getParsedCondition(
+        groupMap,
+        JSON.stringify({ country: "US" }),
+        [
+          {
+            match: "all",
+            ids: ["a", "b", "x"],
+          },
+          {
+            match: "any",
+            ids: ["c", "d"],
+          },
+          {
+            match: "none",
+            ids: ["e", "f"],
+          },
+        ],
+        true
+      )
     ).toEqual({
       $and: [
         // Attribute targeting
@@ -182,13 +233,16 @@ describe("getParsedCondition", () => {
     });
     groupMap.set("e", {
       type: "list",
+      passByReferenceOnly: true,
     });
     groupMap.set("f", {
       type: "list",
+      passByReferenceOnly: true,
       attributeKey: "a",
     });
     groupMap.set("g", {
       type: "list",
+      passByReferenceOnly: true,
       attributeKey: "",
       values: ["a"],
     });

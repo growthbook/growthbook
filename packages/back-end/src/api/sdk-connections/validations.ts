@@ -9,6 +9,7 @@ const capabilityParams = [
   ["remoteEval", "remoteEvalEnabled"],
   ["visualEditor", "includeVisualExperiments"],
   ["redirects", "includeRedirectExperiments"],
+  ["savedGroupReferences", "savedGroupsReferencesEnabled"],
 ] as const;
 
 type CababilitiesParamKey = typeof capabilityParams[number][1];

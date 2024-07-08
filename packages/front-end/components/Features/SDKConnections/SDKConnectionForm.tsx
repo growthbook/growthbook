@@ -135,6 +135,8 @@ export default function SDKConnectionForm({
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
+      savedGroupReferencesEnabled:
+        initialValue.savedGroupReferencesEnabled ?? false,
     },
   });
 
@@ -1043,6 +1045,30 @@ export default function SDKConnectionForm({
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        )}
+
+        {currentSdkCapabilities.includes("savedGroupReferences") && (
+          <div className="mt-5">
+            <label>Saved Groups</label>
+            <div className="mt-2">
+              <div className="mb-4 d-flex align-items-center">
+                <Toggle
+                  id="big-saved-groups-toggle"
+                  value={form.watch("savedGroupReferencesEnabled")}
+                  setValue={(val) =>
+                    form.setValue("savedGroupReferencesEnabled", val)
+                  }
+                />
+                <label
+                  className="ml-2 mb-0 cursor-pointer"
+                  htmlFor="big-saved-groups-toggle"
+                >
+                  Enable <strong>Large Saved Groups</strong> (
+                  <DocLink docSection="savedGroups">docs</DocLink>)
+                </label>
+              </div>
             </div>
           </div>
         )}

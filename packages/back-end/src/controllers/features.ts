@@ -133,6 +133,7 @@ export async function getPayloadParamsFromApiKey(
   includeRedirectExperiments?: boolean;
   hashSecureAttributes?: boolean;
   remoteEvalEnabled?: boolean;
+  savedGroupReferencesEnabled?: boolean;
 }> {
   // SDK Connection key
   if (key.match(/^sdk-/)) {
@@ -163,6 +164,7 @@ export async function getPayloadParamsFromApiKey(
       includeRedirectExperiments: connection.includeRedirectExperiments,
       hashSecureAttributes: connection.hashSecureAttributes,
       remoteEvalEnabled: connection.remoteEvalEnabled,
+      savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
     };
   }
   // Old, legacy API Key
@@ -225,6 +227,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       includeRedirectExperiments,
       hashSecureAttributes,
       remoteEvalEnabled,
+      savedGroupReferencesEnabled,
     } = await getPayloadParamsFromApiKey(key, req);
 
     const context = await getContextForAgendaJobByOrgId(organization);
@@ -255,6 +258,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       includeExperimentNames,
       includeRedirectExperiments,
       hashSecureAttributes,
+      savedGroupReferencesEnabled,
     });
 
     // The default is Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)

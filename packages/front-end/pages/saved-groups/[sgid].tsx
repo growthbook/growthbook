@@ -54,6 +54,9 @@ export default function EditSavedGroupPage() {
   ] = useState<null | Partial<SavedGroupInterface>>(null);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [passByReferenceOnly, setPassByReferenceOnly] = useState(
+    savedGroup?.passByReferenceOnly || false
+  );
 
   const mutateValues = useCallback(
     (newValues: string[]) => {
@@ -115,10 +118,13 @@ export default function EditSavedGroupPage() {
         submit={async () => {
           await apiCall(`/saved-groups/${savedGroup.id}/add-members`, {
             method: "POST",
-            body: JSON.stringify({ members: membersToAdd }),
+            body: JSON.stringify({
+              members: membersToAdd,
+              passByReferenceOnly,
+            }),
           });
-          const newValues = values.concat(membersToAdd);
-          mutateValues(newValues);
+          const newValues = new Set([...values, ...membersToAdd]);
+          mutateValues([...newValues]);
           setMembersToAdd([]);
         }}
       >
@@ -129,8 +135,10 @@ export default function EditSavedGroupPage() {
           </div>
           <IdListMemberInput
             values={membersToAdd}
-            setValues={(newValues) => setMembersToAdd(newValues)}
             attributeKey={savedGroup.attributeKey || "ID"}
+            setValues={(newValues) => setMembersToAdd(newValues)}
+            passByReferenceOnly={savedGroup.passByReferenceOnly || false}
+            setPassByReferenceOnly={setPassByReferenceOnly}
           />
         </>
       </Modal>

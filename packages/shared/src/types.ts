@@ -3,7 +3,10 @@ export type SavedGroupsValues = Record<string, (string | number)[]>;
 
 export type GroupMap = Map<
   string,
-  Pick<SavedGroupInterface, "type" | "condition" | "attributeKey"> & {
+  Pick<
+    SavedGroupInterface,
+    "type" | "condition" | "attributeKey" | "passByReferenceOnly"
+  > & {
     values?: (string | number)[];
   }
 >;
@@ -20,5 +23,6 @@ export interface SavedGroupInterface {
   dateUpdated: Date;
   dateCreated: Date;
   description?: string;
+  passByReferenceOnly?: boolean;
 }
 export type SavedGroupType = "condition" | "list";
