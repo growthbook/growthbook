@@ -348,16 +348,15 @@ For key-val stored payloads (1), we eliminate network requests from edge to Grow
 
 1. Create an [SDK Webhook](/app/webhooks/sdk-webhooks) on the same SDK Connection that you are using for edge integration.
 2. Set the **Endpoint URL** to your key-val provider's REST API endpoint. However, not all edge vendors will have a public REST endpoint for setting the key-val cache. You may need to build your own endpoint to handle the webhook, in which case webhook verification may be important.
-
-3. Enable the **Send Payload** toggle.
-4. Change the **Method** to `PUT` (or whichever verb is required by your vendor or endpoint).
-5. Add any vendor-specific authorization headers and/or and content-type headers. This may not be required depending on your specific vendor:
+3. Change the **Method** to `PUT` (or whichever verb is required by your vendor or endpoint).
+4. Add any vendor-specific authorization headers. This may not be required depending on your specific vendor:
 
 ```json
 {
-  "Authorization": "Bearer YOUR_REST_API_TOKEN",
-  "Content-Type": "application/json"
+  "Authorization": "Bearer YOUR_REST_API_TOKEN"
 }
 ```
+
+5. Set the **Payload format** to "SDK Payload only".
 
 Now whenever feature and experiment values change, your edge worker will have immediate access to the latest values. You can also test the webhook by using the "Test Webhook" button on the SDK Connection page.

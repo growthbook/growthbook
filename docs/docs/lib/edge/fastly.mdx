@@ -414,15 +414,15 @@ For KV stored payloads (1), we eliminate network requests from edge to GrowthBoo
 https://api.fastly.com/resources/stores/kv/{store_id}/keys/gb_payload
 ```
 
-3. Enable the **Send Payload** toggle.
-4. Change the **Method** to `PUT`.
-5. Add appropriate authorization and content-type headers:
+3. Change the **Method** to `PUT`.
+4. Add appropriate authorization header:
 
 ```json
 {
-  "Fastly-Key": "YOUR_FASTLY_REST_API_TOKEN",
-  "Content-Type": "application/json"
+  "Fastly-Key": "YOUR_FASTLY_REST_API_TOKEN"
 }
 ```
+
+5. Set the **Payload format** to "SDK Payload only".
 
 Now whenever feature and experiment values change, your Fastly worker will have immediate access to the latest values. You can also test the webhook by using the "Test Webhook" button on the SDK Connection page.

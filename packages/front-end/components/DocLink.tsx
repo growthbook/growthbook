@@ -14,6 +14,7 @@ const docSections = {
   api: "/app/api",
   eventWebhooks: "/app/webhooks/event-webhooks",
   sdkWebhooks: "/app/webhooks/sdk-webhooks",
+  "sdkWebhooks#payload-format": "/app/webhooks/sdk-webhooks#payload-format",
   //DataSourceType
   athena: "/app/datasources#aws-athena",
   mixpanel: "/guide/mixpanel",
