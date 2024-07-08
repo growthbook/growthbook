@@ -4,14 +4,19 @@ import {
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
+import { validateAndFixCondition } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
 import { getEqualWeights } from "@/services/utils";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
-import FeatureVariationsInput from "../Features/FeatureVariationsInput";
-import ConditionInput from "../Features/ConditionInput";
-import NamespaceSelector from "../Features/NamespaceSelector";
+import { useIncrementer } from "@/hooks/useIncrementer";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
+import ConditionInput from "@/components/Features/ConditionInput";
+import NamespaceSelector from "@/components/Features/NamespaceSelector";
+import SavedGroupTargetingField, {
+  validateSavedGroupTargeting,
+} from "@/components/Features/SavedGroupTargetingField";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -34,11 +39,13 @@ const NewPhaseForm: FC<{
         getEqualWeights(experiment.variations.length),
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
-      condition: "",
+      condition: prevPhase.condition || "",
+      savedGroups: prevPhase.savedGroups || [],
+      seed: prevPhase.seed || "",
       namespace: {
-        enabled: false,
-        name: "",
-        range: [0, 0.5],
+        enabled: prevPhase.namespace?.enabled || false,
+        name: prevPhase.namespace?.name || "",
+        range: prevPhase.namespace?.range || [0, 0.5],
       },
     },
   });
@@ -54,23 +61,31 @@ const NewPhaseForm: FC<{
   );
   const isValid = totalWeights > 0.99 && totalWeights < 1.01;
 
+  const [conditionKey, forceConditionRender] = useIncrementer();
+
   const submit = form.handleSubmit(async (value) => {
     if (!isValid) throw new Error("Variation weights must sum to 1");
 
-    const body = {
-      ...value,
-    };
+    validateSavedGroupTargeting(value.savedGroups);
+
+    validateAndFixCondition(value.condition, (condition) => {
+      form.setValue("condition", condition);
+      forceConditionRender();
+    });
 
     await apiCall<{ status: number; message?: string }>(
       `/experiment/${experiment.id}/phase`,
       {
         method: "POST",
-        body: JSON.stringify(body),
+        body: JSON.stringify(value),
       }
     );
     mutate();
     refreshWatching();
   });
+
+  const hasLinkedChanges =
+    !!experiment.linkedFeatures?.length || experiment.hasVisualChangesets;
 
   return (
     <Modal
@@ -82,6 +97,12 @@ const NewPhaseForm: FC<{
       closeCta="Cancel"
       size="lg"
     >
+      {hasLinkedChanges && experiment.status !== "stopped" && (
+        <div className="alert alert-warning">
+          <strong>Warning:</strong> Starting a new phase will immediately affect
+          all linked Feature Flags and Visual Changes.
+        </div>
+      )}
       <div className="row">
         <Field
           label="Name"
@@ -90,28 +111,37 @@ const NewPhaseForm: FC<{
           {...form.register("name")}
         />
       </div>
-      <div className="row">
-        {!firstPhase && (
-          <Field
-            containerClassName="col-12"
-            label="Reason for Starting New Phase"
-            textarea
-            {...form.register("reason")}
-            placeholder="(optional)"
-          />
-        )}
+      {!firstPhase && (
         <Field
-          containerClassName="col-12"
+          label="Reason for Starting New Phase"
+          textarea
+          {...form.register("reason")}
+          placeholder="(optional)"
+        />
+      )}
+      {!hasLinkedChanges && (
+        <Field
           label="Start Time (UTC)"
           type="datetime-local"
           {...form.register("dateStarted")}
         />
-      </div>
+      )}
 
-      <ConditionInput
-        defaultValue={form.watch("condition")}
-        onChange={(condition) => form.setValue("condition", condition)}
-      />
+      {hasLinkedChanges && (
+        <SavedGroupTargetingField
+          value={form.watch("savedGroups") || []}
+          setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
+        />
+      )}
+
+      {hasLinkedChanges && (
+        <ConditionInput
+          defaultValue={form.watch("condition")}
+          onChange={(condition) => form.setValue("condition", condition)}
+          key={conditionKey}
+          project={experiment.project || ""}
+        />
+      )}
 
       <FeatureVariationsInput
         valueType={"string"}
@@ -132,13 +162,15 @@ const NewPhaseForm: FC<{
           }) || []
         }
         showPreview={false}
+        hideCoverage={!hasLinkedChanges}
       />
-
-      <NamespaceSelector
-        form={form}
-        featureId={experiment.trackingKey}
-        trackingKey={experiment.trackingKey}
-      />
+      {hasLinkedChanges && (
+        <NamespaceSelector
+          form={form}
+          featureId={experiment.trackingKey}
+          trackingKey={experiment.trackingKey}
+        />
+      )}
     </Modal>
   );
 };

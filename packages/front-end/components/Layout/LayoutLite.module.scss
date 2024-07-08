@@ -1,6 +1,6 @@
 @import "../../styles/colors.scss";
 $sidebarwidth: 240px;
-$expandedwidth: 280px;
+$expandedwidth: 240px;
 
 .sidebar {
   background-color: $dark-purple;
@@ -11,7 +11,7 @@ $expandedwidth: 280px;
   transition: all 0.5s cubic-bezier(0.685, 0.0473, 0.346, 1);
   position: fixed;
   color: #fff;
-  z-index: 900;
+  z-index: 1000;
   overflow: auto;
 }
 .sidebarlogo {

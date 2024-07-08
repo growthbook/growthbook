@@ -3,8 +3,8 @@ import { HexColorPicker } from "react-colorful";
 import React from "react";
 import { TagInterface } from "back-end/types/tag";
 import { useAuth } from "@/services/auth";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
 import styles from "./TagsModal.module.scss";
 import Tag from "./Tag";
 
@@ -42,6 +42,7 @@ export default function TagsModal({
     <Modal
       open={true}
       close={close}
+      cta={existing?.id ? "Save Changes" : "Create Tag"}
       header={existing?.id ? `Edit Tag: ${existing.id}` : "Create Tag"}
       submit={form.handleSubmit(async (value) => {
         await apiCall(`/tag`, {

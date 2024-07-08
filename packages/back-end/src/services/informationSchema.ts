@@ -11,6 +11,8 @@ import { updateDataSource } from "../models/DataSourceModel";
 import { removeDeletedInformationSchemaTables } from "../models/InformationSchemaTablesModel";
 import { queueUpdateStaleInformationSchemaTable } from "../jobs/updateStaleInformationSchemaTable";
 import { promiseAllChunks } from "../util/promise";
+import { ApiReqContext } from "../../types/api";
+import { ReqContext } from "../../types/organization";
 import { getSourceIntegrationObject } from "./datasource";
 
 export function getRecentlyDeletedTables(
@@ -31,9 +33,15 @@ export function getRecentlyDeletedTables(
         (updatedSchemaRecord) =>
           updatedSchemaRecord.schemaName === schema.schemaName
       );
+      if (!schema.tables) return;
       schema.tables.forEach((table) => {
         // If this table has an id, then it exists in the informationSchemaTables collection
-        if (table.id) {
+        if (
+          table.id &&
+          updatedInformationSchema?.[correspondingIndex]?.schemas?.[
+            correspondingSchemaIndex
+          ]?.tables
+        ) {
           const correspondingTableIndex = updatedInformationSchema[
             correspondingIndex
           ].schemas[correspondingSchemaIndex].tables.findIndex(
@@ -49,6 +57,7 @@ export function getRecentlyDeletedTables(
       });
     });
   });
+
   return deletedTableIds;
 }
 
@@ -92,32 +101,25 @@ export async function mergeStaleInformationSchemaWithUpdate(
       }
       if (!schema.tables) return;
       schema.tables.forEach((table) => {
-        const correspondingTableIndex = staleInformationSchema[
-          correspondingIndex
-        ].schemas[correspondingSchemaIndex].tables.findIndex(
+        const staleInformationSchemaTables =
+          staleInformationSchema[correspondingIndex].schemas[
+            correspondingSchemaIndex
+          ]?.tables || [];
+        const correspondingTableIndex = staleInformationSchemaTables.findIndex(
           (staleTableRecord) => staleTableRecord.tableName === table.tableName
         );
 
-        if (correspondingTableIndex > -1) {
-          table.dateCreated =
-            staleInformationSchema[correspondingIndex].schemas[
-              correspondingSchemaIndex
-            ].tables[correspondingTableIndex].dateCreated;
-          table.id =
-            staleInformationSchema[correspondingIndex].schemas[
-              correspondingSchemaIndex
-            ].tables[correspondingTableIndex].id;
-          if (
-            table.numOfColumns ===
-            staleInformationSchema[correspondingIndex].schemas[
-              correspondingSchemaIndex
-            ].tables[correspondingTableIndex].numOfColumns
-          ) {
+        if (
+          correspondingTableIndex > -1 &&
+          staleInformationSchemaTables[correspondingTableIndex]
+        ) {
+          const correspondingTable =
+            staleInformationSchemaTables[correspondingTableIndex];
+          table.dateCreated = correspondingTable.dateCreated;
+          table.id = correspondingTable.id;
+          if (table.numOfColumns === correspondingTable.numOfColumns) {
             // If the number of columns hasn't changed, then we should set the dateUpdated to the stale date.
-            table.dateUpdated =
-              staleInformationSchema[correspondingIndex].schemas[
-                correspondingSchemaIndex
-              ].tables[correspondingTableIndex].dateUpdated;
+            table.dateUpdated = correspondingTable.dateUpdated;
           } else {
             if (table.id) {
               // If numOfColumns has changed & the table has an id, then it needs to be updated.
@@ -139,6 +141,7 @@ export async function mergeStaleInformationSchemaWithUpdate(
 }
 
 export async function fetchTableData(
+  context: ReqContext,
   datasource: DataSourceInterface,
   informationSchema: InformationSchemaInterface,
   tableId: string
@@ -149,7 +152,11 @@ export async function fetchTableData(
   tableSchema: string;
   tableName: string;
 }> {
-  const integration = getSourceIntegrationObject(datasource);
+  if (!context.permissions.canRunSchemaQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource);
 
   if (!integration.getTableData) {
     throw new Error("Table data not supported for this data source");
@@ -160,6 +167,7 @@ export async function fetchTableData(
   let tableName = "";
   informationSchema.databases.forEach((database) => {
     database.schemas.forEach((schema) => {
+      if (!schema.tables) return;
       schema.tables.forEach((table) => {
         if (table.id === tableId) {
           databaseName = database.databaseName;
@@ -188,12 +196,17 @@ export async function fetchTableData(
 }
 
 export async function generateInformationSchema(
+  context: ReqContext,
   datasource: DataSourceInterface
 ): Promise<{
   informationSchema: InformationSchema[];
   refreshMS: number;
 }> {
-  const integration = getSourceIntegrationObject(datasource);
+  if (!context.permissions.canRunSchemaQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource);
 
   if (!integration.getInformationSchema) {
     throw new Error("Information schema not supported for this data source");
@@ -210,18 +223,18 @@ export async function generateInformationSchema(
 }
 
 export async function initializeDatasourceInformationSchema(
-  datasource: DataSourceInterface,
-  organization: string
+  context: ReqContext | ApiReqContext,
+  datasource: DataSourceInterface
 ): Promise<void> {
   // Create an empty informationSchema
   const emptyInformationSchema = await createInformationSchema(
     [],
-    organization,
+    context.org.id,
     datasource.id
   );
 
   // Update the datasource with the informationSchemaId
-  await updateDataSource(datasource.id, organization, {
+  await updateDataSource(context, datasource, {
     settings: {
       ...datasource.settings,
       informationSchemaId: emptyInformationSchema.id,
@@ -229,11 +242,12 @@ export async function initializeDatasourceInformationSchema(
   });
 
   const { informationSchema, refreshMS } = await generateInformationSchema(
+    context,
     datasource
   );
 
   // Update the empty informationSchema record with the actual informationSchema
-  await updateInformationSchemaById(organization, emptyInformationSchema.id, {
+  await updateInformationSchemaById(context.org.id, emptyInformationSchema.id, {
     ...emptyInformationSchema,
     databases: informationSchema,
     status: "COMPLETE",
@@ -242,12 +256,12 @@ export async function initializeDatasourceInformationSchema(
 }
 
 export async function updateDatasourceInformationSchema(
+  context: ReqContext,
   datasource: DataSourceInterface,
-  organization: string,
   informationSchema: InformationSchemaInterface
 ): Promise<void> {
   // Reset the informationSchema to remove any errors and change status to "PENDING"
-  await updateInformationSchemaById(organization, informationSchema.id, {
+  await updateInformationSchemaById(context.org.id, informationSchema.id, {
     status: "PENDING",
     error: null,
   });
@@ -255,12 +269,12 @@ export async function updateDatasourceInformationSchema(
   const {
     informationSchema: updatedInformationSchema,
     refreshMS,
-  } = await generateInformationSchema(datasource);
+  } = await generateInformationSchema(context, datasource);
 
   const mergedInformationSchema = await mergeStaleInformationSchemaWithUpdate(
     informationSchema.databases,
     updatedInformationSchema,
-    organization
+    context.org.id
   );
 
   const tablesToDelete = await getRecentlyDeletedTables(
@@ -270,13 +284,13 @@ export async function updateDatasourceInformationSchema(
 
   if (tablesToDelete.length > 0) {
     await removeDeletedInformationSchemaTables(
-      organization,
+      context.org.id,
       informationSchema.id,
       tablesToDelete
     );
   }
 
-  await updateInformationSchemaById(organization, informationSchema.id, {
+  await updateInformationSchemaById(context.org.id, informationSchema.id, {
     ...informationSchema,
     databases: mergedInformationSchema,
     status: "COMPLETE",

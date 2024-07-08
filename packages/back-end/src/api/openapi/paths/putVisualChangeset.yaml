@@ -8,9 +8,8 @@ x-codeSamples:
   - lang: "cURL"
     source: |
       curl -XPUT https://api.growthbook.io/api/v1/visual-changesets/vc_123abc
-        -u secret_abc123DEF456 \
-        -H "Content-Type: application/json" \
-                                           -d '{"editorUrl": "https://docs.growthbook.io", "urlPatterns":"[{ ... }]"}'
+        -d '{"editorUrl": "https://docs.growthbook.io", "urlPatterns":"[{ ... }]"}' \
+        -u secret_abc123DEF456:
 responses:
   "200":
     content:
@@ -19,6 +18,9 @@ responses:
           type: object
           required:
             - nModified
+            - visualChangeset
           properties:
             nModified:
               type: number
+            visualChangeset:
+              $ref: "../schemas/VisualChangeset.yaml"

@@ -1,0 +1,67 @@
+{
+  "versions": [
+    {
+      "version": "1.1.0",
+      "capabilities": ["savedGroupReferences"]
+    },
+    {
+      "version": "1.0.1"
+    },
+    {
+      "version": "1.0.0"
+    },
+    {
+      "version": "0.26.0",
+      "capabilities": ["redirects"]
+    },
+    {
+      "version": "0.25.0"
+    },
+    {
+      "version": "0.24.0",
+      "capabilities": ["prerequisites"]
+    },
+    {
+      "version": "0.23.0"
+    },
+    {
+      "version": "0.22.0",
+      "capabilities": ["stickyBucketing"]
+    },
+    {
+      "version": "0.21.0"
+    },
+    {
+      "version": "0.20.0",
+      "capabilities": ["visualEditorDragDrop"]
+    },
+    {
+      "version": "0.19.0",
+      "capabilities": ["remoteEval"]
+    },
+    {
+      "version": "0.17.0",
+      "capabilities": ["semverTargeting", "visualEditorJS"]
+    },
+    {
+      "version": "0.14.0",
+      "capabilities": ["visualEditor"]
+    },
+    {
+      "version": "0.13.0",
+      "capabilities": ["bucketingV2"]
+    },
+    {
+      "version": "0.11.0",
+      "capabilities": ["streaming"]
+    },
+    {
+      "version": "0.10.1",
+      "capabilities": ["encryption"]
+    },
+    {
+      "version": "0.0.0",
+      "capabilities": ["looseUnmarshalling"]
+    }
+  ]
+}

@@ -2,11 +2,11 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import { FaFileExport } from "react-icons/fa";
 import { Parser } from "json2csv";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { ExperimentTableRow, getRisk } from "@/services/experiments";
+import { ExperimentTableRow, getRiskByVariation } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 
 type CsvRow = {
@@ -22,8 +22,11 @@ type CsvRow = {
   chanceToBeatControl?: number | null;
   percentChange?: number | null;
   percentChangePValue?: number | null;
+  percentChangePValueAdjusted?: number | null;
   percentChangeCILower?: number | null;
   percentChangeCIUpper?: number | null;
+  percentChangeCILowerAdjusted?: number | null;
+  percentChangeCIUpperAdjusted?: number | null;
 };
 
 export default function ResultsDownloadButton({
@@ -39,7 +42,7 @@ export default function ResultsDownloadButton({
   trackingKey?: string;
   dimension?: string;
 }) {
-  const { getMetricById, getDimensionById, ready } = useDefinitions();
+  const { getExperimentMetricById, getDimensionById, ready } = useDefinitions();
   const { metricDefaults } = useOrganizationMetricDefaults();
 
   const dimensionName = dimension
@@ -48,7 +51,7 @@ export default function ResultsDownloadButton({
       dimension
     : null;
 
-  const getRows = () => {
+  const getRows = useCallback(() => {
     const csvRows: CsvRow[] = [];
 
     if (!variations || !ready) return [];
@@ -63,11 +66,12 @@ export default function ResultsDownloadButton({
     resultsCopy.forEach((result) => {
       metrics?.forEach((m) => {
         result.variations.forEach((variation, index) => {
-          const metric = getMetricById(m);
+          const metric = getExperimentMetricById(m);
           if (!metric) return;
           const row: ExperimentTableRow = {
             label: metric.name,
             metric: metric,
+            metricOverrideFields: [],
             rowClass: metric?.inverse ? "inverse" : "",
             variations: result.variations.map((v) => {
               return v.metrics[m];
@@ -75,7 +79,11 @@ export default function ResultsDownloadButton({
           };
           const stats = variation.metrics[m];
           if (!stats) return;
-          const { relativeRisk } = getRisk(index, row, metricDefaults);
+          const { relativeRisk } = getRiskByVariation(
+            index,
+            row,
+            metricDefaults
+          );
           csvRows.push({
             ...(dimensionName && { [dimensionName]: result.name }),
             metric: metric?.name,
@@ -88,14 +96,26 @@ export default function ResultsDownloadButton({
             chanceToBeatControl: stats.chanceToWin ?? null,
             percentChange: stats.expected || null,
             percentChangePValue: stats.pValue ?? null,
+            percentChangePValueAdjusted: stats.pValueAdjusted ?? null,
             percentChangeCILower: stats.ci?.[0] || null,
             percentChangeCIUpper: stats.ci?.[1] || null,
+            percentChangeCILowerAdjusted: stats.ciAdjusted?.[0] ?? null,
+            percentChangeCIUpperAdjusted: stats.ciAdjusted?.[1] ?? null,
           });
         });
       });
     });
     return csvRows;
-  };
+  }, [
+    dimension,
+    dimensionName,
+    getExperimentMetricById,
+    metricDefaults,
+    metrics,
+    ready,
+    results,
+    variations,
+  ]);
 
   const href = useMemo(() => {
     try {
@@ -111,7 +131,7 @@ export default function ResultsDownloadButton({
       console.error(e);
       return "";
     }
-  }, [results, ready, variations, dimension]);
+  }, [getRows]);
 
   if (!href) return null;
 

@@ -2,9 +2,10 @@ import React, { useState, ReactNode, useContext } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
   ExperimentSnapshotAnalysis,
+  ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
-import { getSnapshotAnalysis } from "@/../shared/util";
+import { getSnapshotAnalysis } from "shared/util";
 import useApi from "@/hooks/useApi";
 
 const snapshotContext = React.createContext<{
@@ -16,8 +17,13 @@ const snapshotContext = React.createContext<{
   mutateSnapshot: () => void;
   phase: number;
   dimension: string;
+  analysisSettings?: ExperimentSnapshotAnalysisSettings | null;
   setPhase: (phase: number) => void;
   setDimension: (dimension: string) => void;
+  setAnalysisSettings: (
+    analysisSettings: ExperimentSnapshotAnalysisSettings | null
+  ) => void;
+  loading?: boolean;
   error?: Error;
 }>({
   phase: 0,
@@ -26,6 +32,9 @@ const snapshotContext = React.createContext<{
     // do nothing
   },
   setDimension: () => {
+    // do nothing
+  },
+  setAnalysisSettings: () => {
     // do nothing
   },
   mutateSnapshot: () => {
@@ -43,7 +52,7 @@ export default function SnapshotProvider({
   const [phase, setPhase] = useState(experiment.phases?.length - 1 || 0);
   const [dimension, setDimension] = useState("");
 
-  const { data, error, mutate } = useApi<{
+  const { data, error, isValidating, mutate } = useApi<{
     snapshot: ExperimentSnapshotInterface;
     latest?: ExperimentSnapshotInterface;
   }>(
@@ -51,6 +60,12 @@ export default function SnapshotProvider({
       (dimension ? "/" + dimension : "")
   );
 
+  const defaultAnalysisSettings = data?.snapshot
+    ? getSnapshotAnalysis(data?.snapshot)?.settings
+    : null;
+  const [analysisSettings, setAnalysisSettings] = useState(
+    defaultAnalysisSettings
+  );
   return (
     <snapshotContext.Provider
       value={{
@@ -58,17 +73,20 @@ export default function SnapshotProvider({
         snapshot: data?.snapshot,
         latest: data?.latest,
         analysis: data?.snapshot
-          ? getSnapshotAnalysis(data?.snapshot) ?? undefined
+          ? getSnapshotAnalysis(data?.snapshot, analysisSettings) ?? undefined
           : undefined,
         latestAnalysis: data?.latest
-          ? getSnapshotAnalysis(data?.latest) ?? undefined
+          ? getSnapshotAnalysis(data?.latest, analysisSettings) ?? undefined
           : undefined,
         mutateSnapshot: mutate,
         phase,
         dimension,
+        analysisSettings,
         setPhase,
         setDimension,
+        setAnalysisSettings,
         error,
+        loading: isValidating,
       }}
     >
       {children}

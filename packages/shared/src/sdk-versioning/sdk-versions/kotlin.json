@@ -1,0 +1,40 @@
+{
+  "versions": [
+    { "version": "1.1.60" },
+    { "version": "1.1.59" },
+    { "version": "1.1.58" },
+    { "version": "1.1.57" },
+    { "version": "1.1.56" },
+    { "version": "1.1.55" },
+    { "version": "1.1.54" },
+    { "version": "1.1.53" },
+    { "version": "1.1.51" },
+    {
+      "version": "1.1.50",
+      "capabilities": ["remoteEval", "streaming"]
+    },
+    {
+      "version": "1.1.44",
+      "capabilities": ["prerequisites", "stickyBucketing"]
+    },
+    {
+      "version": "1.1.43"
+    },
+    {
+      "version": "1.1.38",
+      "capabilities": ["bucketingV2"]
+    },
+    {
+      "version": "1.1.31",
+      "capabilities": ["semverTargeting"]
+    },
+    {
+      "version": "1.1.23",
+      "capabilities": ["encryption"]
+    },
+    {
+      "version": "0.0.0",
+      "capabilities": ["looseUnmarshalling"]
+    }
+  ]
+}

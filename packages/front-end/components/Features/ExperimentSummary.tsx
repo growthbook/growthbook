@@ -8,8 +8,9 @@ import {
   getVariationColor,
 } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
-import NewExperimentForm from "../Experiment/NewExperimentForm";
-import Modal from "../Modal";
+import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import Modal from "@/components/Modal";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 
@@ -29,6 +30,7 @@ export default function ExperimentSummary({
 }) {
   const { namespace, coverage, values, hashAttribute, trackingKey } = rule;
   const type = feature.valueType;
+  const { namespaces: allNamespaces } = useOrgSettings();
 
   const { datasources, metrics } = useDefinitions();
   const [newExpModal, setNewExpModal] = useState(false);
@@ -40,8 +42,7 @@ export default function ExperimentSummary({
   const namespaceRange = hasNamespace
     ? namespace.range[1] - namespace.range[0]
     : 1;
-  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-  const effectiveCoverage = namespaceRange * coverage;
+  const effectiveCoverage = namespaceRange * (coverage ?? 1);
 
   return (
     <div>
@@ -52,8 +53,7 @@ export default function ExperimentSummary({
           isImport={true}
           fromFeature={true}
           msg="We couldn't find an analysis yet for that feature. Create a new one now."
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Partial<ExperimentInterfaceStringDates> | nu... Remove this comment to see the full error message
-          initialValue={expDefinition}
+          initialValue={expDefinition || undefined}
         />
       )}
       {experimentInstructions && (
@@ -75,8 +75,9 @@ export default function ExperimentSummary({
                   href={`/experiments/?featureExperiment=${encodeURIComponent(
                     JSON.stringify(expDefinition)
                   )}`}
+                  className="btn btn-primary"
                 >
-                  <a className="btn btn-primary">Set up experiments</a>
+                  Set up experiments
                 </Link>
               </div>
             </div>
@@ -106,7 +107,8 @@ export default function ExperimentSummary({
               {" "}
               <span>in the namespace </span>
               <span className="mr-1 border px-2 py-1 bg-light rounded">
-                {namespace.name}
+                {allNamespaces?.find((n) => n.name === namespace.name)?.label ||
+                  namespace.name}
               </span>
             </>
           )}
@@ -129,8 +131,7 @@ export default function ExperimentSummary({
               </span>{" "}
               of the namespace and{" "}
               <span className="border px-2 py-1 bg-light rounded">
-                {/* @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call. */}
-                {percentFormatter.format(coverage)}
+                {percentFormatter.format(coverage ?? 1)}
               </span>
               <span> exposure)</span>
             </>
@@ -208,8 +209,11 @@ export default function ExperimentSummary({
         </div>
         <div className="col-auto">
           {experiment ? (
-            <Link href={`/experiment/${experiment.id}#results`}>
-              <a className="btn btn-outline-primary">View results</a>
+            <Link
+              href={`/experiment/${experiment.id}#results`}
+              className="btn btn-outline-primary"
+            >
+              View results
             </Link>
           ) : datasources.length > 0 && metrics.length > 0 ? (
             <a

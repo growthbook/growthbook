@@ -6,16 +6,18 @@ import {
 import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPencilAlt, FaPlus } from "react-icons/fa";
 import { useRouter } from "next/router";
-import { checkDatasourceProjectPermissions } from "@/services/datasources";
+import { BsGear } from "react-icons/bs";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
-import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import Button from "@/components/Button";
+import { UpdateDimensionMetadataModal } from "@/components/Settings/EditDataSource/DimensionMetadata/UpdateDimensionMetadata";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
-
+type UIMode = "view" | "edit" | "add" | "dimension";
 export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> = ({
   dataSource,
   onSave,
@@ -30,20 +32,14 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     ).fill(true);
   }
 
-  const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
+  const [uiMode, setUiMode] = useState<UIMode>("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
   const [openIndexes, setOpenIndexes] = useState<boolean[]>(
     intitialOpenIndexes
   );
 
-  const permissions = usePermissions();
-  canEdit =
-    canEdit &&
-    checkDatasourceProjectPermissions(
-      dataSource,
-      permissions,
-      "editDatasourceSettings"
-    );
+  const permissionsUtil = usePermissionsUtil();
+  canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
   const handleExpandCollapseForIndex = useCallback(
     (index) => () => {
@@ -63,10 +59,8 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   }, [onCancel]);
 
   const experimentExposureQueries = useMemo(
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    () => dataSource.settings?.queries.exposure || [],
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    [dataSource.settings?.queries.exposure]
+    () => dataSource.settings?.queries?.exposure || [],
+    [dataSource.settings?.queries?.exposure]
   );
 
   const handleAdd = useCallback(() => {
@@ -74,10 +68,10 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     setEditingIndex(experimentExposureQueries.length);
   }, [experimentExposureQueries]);
 
-  const handleActionEditClicked = useCallback(
-    (idx: number) => () => {
+  const handleActionClicked = useCallback(
+    (idx: number, uiMode: UIMode) => async () => {
       setEditingIndex(idx);
-      setUiMode("edit");
+      setUiMode(uiMode);
     },
     []
   );
@@ -100,6 +94,19 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
       // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       copy.settings.queries.exposure[idx] = exposureQuery;
       await onSave(copy);
+    },
+    [dataSource, onSave]
+  );
+
+  const [validatingQuery, setValidatingQuery] = useState(false);
+
+  const handleValidate = useCallback(
+    () => async () => {
+      const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+      setValidatingQuery(true);
+      // Resaving the document as-is will automatically revalidate any queries in error state
+      await onSave(copy);
+      setValidatingQuery(false);
     },
     [dataSource, onSave]
   );
@@ -174,21 +181,57 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                     )}
                   </div>
                 </div>
+                {query.error && (
+                  <div
+                    className="alert alert-danger"
+                    style={{ marginTop: "1rem" }}
+                  >
+                    This query had an error with it the last time it ran:{" "}
+                    <div className="font-weight-bold">{query.error}</div>
+                    <div style={{ marginTop: "1rem" }}>
+                      <Button
+                        onClick={handleValidate()}
+                        loading={validatingQuery}
+                      >
+                        Check it again.
+                      </Button>
+                      {canEdit && (
+                        <Button
+                          onClick={handleActionClicked(idx, "edit")}
+                          style={{ marginLeft: "1rem" }}
+                        >
+                          Edit it now.
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* endregion Title Bar */}
 
               {/* region Actions*/}
 
-              <div className="d-flex align-items-center">
+              <div
+                className="d-flex align-items-center"
+                style={{ height: "fit-content" }}
+              >
                 {canEdit && (
                   <MoreMenu>
                     <button
                       className="dropdown-item py-2"
-                      onClick={handleActionEditClicked(idx)}
+                      onClick={handleActionClicked(idx, "edit")}
                     >
-                      <FaPencilAlt className="mr-2" /> Edit
+                      <FaPencilAlt className="mr-2" /> Edit Query
                     </button>
+                    {query.dimensions.length > 0 ? (
+                      <button
+                        className="dropdown-item py-2"
+                        onClick={handleActionClicked(idx, "dimension")}
+                      >
+                        <BsGear className="mr-2" /> Configure Dimensions
+                      </button>
+                    ) : null}
 
                     <DeleteButton
                       onClick={handleActionDeleteClicked(idx)}
@@ -242,6 +285,15 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
           mode={uiMode}
           onSave={handleSave(editingIndex)}
           onCancel={handleCancel}
+        />
+      ) : null}
+
+      {uiMode === "dimension" ? (
+        <UpdateDimensionMetadataModal
+          exposureQuery={experimentExposureQueries[editingIndex]}
+          dataSource={dataSource}
+          close={() => setUiMode("view")}
+          onSave={handleSave(editingIndex)}
         />
       ) : null}
 

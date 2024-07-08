@@ -1,4 +1,4 @@
-import { ReactNode, FC, ReactElement, useState } from "react";
+import { ReactNode, FC, ReactElement } from "react";
 import LoadingOverlay from "@/components/LoadingOverlay";
 
 type WelcomeFrameProps = {
@@ -11,12 +11,10 @@ const WelcomeFrame: FC<WelcomeFrameProps> = ({
   children,
   loading: loadingState,
 }) => {
-  const [loading] = useState(loadingState);
-
   return (
     <>
       <div className="welcome container-fluid">
-        {loading && <LoadingOverlay />}
+        {loadingState && <LoadingOverlay />}
         <div className="row full-height align-items-stretch d-flex flex-fill d-flex justify-content-start">
           <div className="col-sm-5 intro-side ">
             <div className="ghosted-logo"></div>

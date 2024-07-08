@@ -5,8 +5,8 @@ import {
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import SelectField from "@/components/Forms/SelectField";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -24,6 +24,9 @@ export default function EditStatusModal({ experiment, close, mutate }: Props) {
   });
   const { apiCall } = useAuth();
 
+  const hasLinkedChanges =
+    !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
+
   return (
     <Modal
       header={"Change Experiment Status"}
@@ -37,6 +40,12 @@ export default function EditStatusModal({ experiment, close, mutate }: Props) {
         mutate();
       })}
     >
+      {hasLinkedChanges && (
+        <div className="alert alert-danger">
+          <strong>Warning:</strong> Changes you make here will immediately
+          affect any linked Feature Flags or Visual Changes.
+        </div>
+      )}
       <SelectField
         label="Status"
         options={[

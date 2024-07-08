@@ -1,0 +1,23 @@
+{
+  "versions": [
+    {
+      "version": "1.0.2"
+    },
+    {
+      "version": "1.0.0",
+      "capabilities": [
+        "encryption",
+        "streaming",
+        "bucketingV2",
+        "semverTargeting"
+      ]
+    },
+    {
+      "version": "0.2.0"
+    },
+    {
+      "version": "0.0.0",
+      "capabilities": ["looseUnmarshalling"]
+    }
+  ]
+}

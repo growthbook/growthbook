@@ -1,15 +1,15 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { MemberRoleWithProjects } from "back-end/types/organization";
-import Link from "next/link";
+import { getDefaultRole } from "shared/permissions";
 import track from "@/services/track";
-import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
-import useOrgSettings from "@/hooks/useOrgSettings";
+import StringArrayField from "@/components/Forms/StringArrayField";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
-import UpgradeModal from "../UpgradeModal";
+import { isCloud } from "@/services/env";
 import RoleSelector from "./RoleSelector";
 import InviteModalSubscriptionInfo from "./InviteModalSubscriptionInfo";
 
@@ -22,21 +22,17 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   mutate,
   close,
 }) => {
-  const { defaultRole } = useOrgSettings();
-  const { accountPlan } = useUser();
+  const { license, seatsInUse, organization } = useUser();
 
   const form = useForm<{
-    email: string;
+    email: string[];
     roleInfo: MemberRoleWithProjects;
   }>({
     defaultValues: {
-      email: "",
+      email: [],
       roleInfo: {
-        role: "admin",
-        limitAccessByEnvironment: false,
-        environments: [],
         projectRoles: [],
-        ...defaultRole,
+        ...getDefaultRole(organization),
       },
     },
   });
@@ -51,27 +47,17 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     activeAndInvitedUsers,
   } = useStripeSubscription();
   const [showUpgradeModal, setShowUpgradeModal] = useState(
-    canSubscribe && activeAndInvitedUsers >= freeSeats
+    isCloud() && canSubscribe && activeAndInvitedUsers >= freeSeats
       ? "Whoops! You reached your free seat limit."
       : ""
   );
 
+  const [showContactSupport, setShowContactSupport] = useState(
+    license && license.hardCap && license.seats <= seatsInUse
+  );
+
   // Hit their free limit and needs to upgrade to invite more team members
   if (showUpgradeModal) {
-    // The <UpgradeModal> won't actually render for these plans, so show a generic modal instead
-    if (["pro", "pro_sso", "enterprise"].includes(accountPlan ?? "")) {
-      return (
-        <Modal open={true} close={close} size="md">
-          <div className="text-center my-3">
-            <div className="strong">{showUpgradeModal}</div>
-            <div className="mt-3">
-              To upgrade, please visit the{" "}
-              <Link href="/settings/billing">billing</Link> page.
-            </div>
-          </div>
-        </Modal>
-      );
-    }
     return (
       <UpgradeModal
         close={close}
@@ -81,18 +67,47 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     );
   }
 
-  const onSubmit = form.handleSubmit(async (value) => {
-    const inviteArr = value.email.split(",");
+  // Hit a hard cap and needs to contact sales to increase the number of seats on their license
+  if (showContactSupport) {
+    return (
+      <Modal open={true} close={close} size="md" header={"Reached seat limit"}>
+        <div className="my-3">
+          Whoops! You reached the seat limit on your license. To increase your
+          number of seats, please contact{" "}
+          <a href="mailto:sales@growthbook.io" target="_blank" rel="noreferrer">
+            sales@growthbook.io
+          </a>
+          .
+        </div>
+      </Modal>
+    );
+  }
 
-    if (canSubscribe && activeAndInvitedUsers + inviteArr.length > freeSeats) {
+  const onSubmit = form.handleSubmit(async (value) => {
+    const { email: emails } = value;
+
+    if (
+      isCloud() &&
+      canSubscribe &&
+      activeAndInvitedUsers + value.email.length > freeSeats
+    ) {
       setShowUpgradeModal("Whoops! You reached your free seat limit.");
+      return;
+    }
+
+    if (
+      license &&
+      license.hardCap &&
+      license.seats < seatsInUse + value.email.length
+    ) {
+      setShowContactSupport(true);
       return;
     }
 
     const failed: InviteResult[] = [];
     const succeeded: InviteResult[] = [];
 
-    for (const email of inviteArr) {
+    for (const email of emails) {
       const resp = await apiCall<{
         emailSent: boolean;
         inviteUrl: string;
@@ -101,7 +116,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       }>(`/invite`, {
         method: "POST",
         body: JSON.stringify({
-          email: email,
+          email,
           ...value.roleInfo,
         }),
       });
@@ -133,20 +148,16 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       header="Invite Member"
       open={true}
       cta="Invite"
+      size="lg"
       closeCta={
-        successfulInvites.length > 0 || failedInvites.length > 0
-          ? "Close"
-          : "Cancel"
+        successfulInvites.length || failedInvites.length ? "Close" : "Cancel"
       }
       autoCloseOnSubmit={false}
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '((e?: BaseSyntheticEvent<object, any, any> |... Remove this comment to see the full error message
       submit={
-        successfulInvites.length > 0 || failedInvites.length > 0
-          ? null
-          : onSubmit
+        successfulInvites.length || failedInvites.length ? undefined : onSubmit
       }
     >
-      {successfulInvites.length > 0 || failedInvites.length > 0 ? (
+      {successfulInvites.length || failedInvites.length ? (
         <>
           {successfulInvites.length === 1 && (
             <div className="alert alert-success" role="alert">
@@ -210,13 +221,24 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
         </>
       ) : (
         <>
-          <Field
-            label="Email Address"
+          <StringArrayField
             required
+            label="Email Address"
+            value={form.watch("email")}
+            onChange={(emails) => {
+              // check for multiple values
+              const parsedEmails: string[] = [];
+              emails.forEach((em) => {
+                parsedEmails.push(
+                  ...em.split(/[\s,]/g).filter((e) => e.trim().length > 0)
+                );
+              });
+              // dedup:
+              const dedupedEmails = [...new Set(parsedEmails)];
+              form.setValue("email", dedupedEmails);
+            }}
+            helpText="Enter a list of emails to invite multiple members at once."
             type="email"
-            multiple={true}
-            helpText="Enter a comma separated list of emails to invite multiple members at once."
-            {...form.register("email")}
           />
           <RoleSelector
             value={form.watch("roleInfo")}

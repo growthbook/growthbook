@@ -1,33 +1,36 @@
-get:
-  summary: Get all sdk connections
-  tags:
-    - sdk-connections
-  parameters:
-  - $ref: "../parameters.yaml#/limit"
-  - $ref: "../parameters.yaml#/offset"
-  - $ref: "../parameters.yaml#/projectId"
-  - name: withProxy
-    in: query
-    schema:
-      type: string
-  operationId: listSdkConnections
-  x-codeSamples:
-    - lang: 'cURL'
-      source: |
-        curl https://api.growthbook.io/api/v1/sdk-connections \
-          -u secret_abc123DEF456:
-  responses:
-    "200":
-      content:
-        application/json:
-          schema:
-            allOf:
-              - type: object
-                required:
-                  - sdkConnections
-                properties:
-                  connections:
-                    type: array
-                    items:
-                      $ref: "../schemas/SdkConnection.yaml"
-              - $ref: "../schemas/PaginationFields.yaml"
+summary: Get all sdk connections
+tags:
+  - sdk-connections
+parameters:
+- $ref: "../parameters.yaml#/limit"
+- $ref: "../parameters.yaml#/offset"
+- $ref: "../parameters.yaml#/projectId"
+- name: withProxy
+  in: query
+  schema:
+    type: string
+- name: multiOrg
+  in: query
+  schema:
+    type: string
+operationId: listSdkConnections
+x-codeSamples:
+  - lang: 'cURL'
+    source: |
+      curl https://api.growthbook.io/api/v1/sdk-connections \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          allOf:
+            - type: object
+              required:
+                - sdkConnections
+              properties:
+                connections:
+                  type: array
+                  items:
+                    $ref: "../schemas/SdkConnection.yaml"
+            - $ref: "../schemas/PaginationFields.yaml"

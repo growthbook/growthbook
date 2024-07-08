@@ -2,6 +2,7 @@ import clsx from "clsx";
 import { ReactElement } from "react";
 import { FaCheck } from "react-icons/fa";
 import { FiArrowRight } from "react-icons/fi";
+import Button from "@/components/Button";
 
 export type Props = {
   current: boolean;
@@ -10,12 +11,13 @@ export type Props = {
   title: string;
   text: string | ReactElement;
   hideCTA?: boolean;
-  onClick: (finished: boolean) => void;
+  onClick: (finished: boolean) => void | Promise<void>;
   cta: string;
   finishedCTA: string;
   className?: string;
   imageLeft: boolean;
   permissionsError?: boolean;
+  noActiveBorder?: boolean;
 };
 
 export default function GetStartedStep({
@@ -30,6 +32,7 @@ export default function GetStartedStep({
   finishedCTA,
   imageLeft,
   className = "",
+  noActiveBorder = false,
   permissionsError = false,
 }: Props) {
   const imgEl = (
@@ -46,7 +49,7 @@ export default function GetStartedStep({
   return (
     <div
       className={clsx("card-body extra-padding", className, {
-        "active-step": current,
+        "active-step": current && !noActiveBorder,
         "step-done": finished,
       })}
     >
@@ -68,26 +71,23 @@ export default function GetStartedStep({
               permissions to complete this step.
             </div>
           )}
-          <a
-            className={clsx(`action-link mr-3`, {
-              "btn btn-outline-primary": finished,
-              "btn btn-primary": !finished && current,
-              "non-active-step": !finished && !current,
-              "d-none": permissionsError || (!finished && hideCTA),
+          <Button
+            color={finished ? "outline-primary" : current ? "primary" : "link"}
+            className={clsx("action-link mr-3", {
+              "d-none": !finished && hideCTA,
             })}
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
+            disabled={permissionsError}
+            onClick={async () => {
               if (permissionsError) return;
               if (finished) {
-                onClick(true);
+                await onClick(true);
               } else if (!hideCTA) {
-                onClick(false);
+                await onClick(false);
               }
             }}
           >
             {finished ? finishedCTA : cta} <FiArrowRight />
-          </a>
+          </Button>
         </div>
         {!imageLeft && imgEl}
       </div>

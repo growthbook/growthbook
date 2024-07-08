@@ -35,7 +35,7 @@ const LayoutLite = (): React.ReactElement => {
         </div>
       </div>
 
-      <TopNav showNotices={false} />
+      <TopNav showNotices={false} pageTitle="" />
     </>
   );
 };

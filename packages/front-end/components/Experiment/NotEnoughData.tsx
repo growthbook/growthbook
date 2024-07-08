@@ -1,58 +1,82 @@
 import { formatDistance } from "date-fns";
-import { ExperimentStatus } from "back-end/types/experiment";
-import { getValidDate } from "shared/dates";
+import { CSSProperties } from "react";
+import clsx from "clsx";
+import { RowResults } from "@/services/experiments";
+
+const numberFormatter = Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 0,
+});
 
 export default function NotEnoughData({
-  phaseStart,
-  snapshotCreated,
-  experimentStatus,
-  isLatestPhase,
-  minSampleSize,
-  variationValue,
-  baselineValue,
+  rowResults,
+  showTimeRemaining = false,
+  showPercentComplete = false,
+  noStyle = false,
+  style,
 }: {
-  snapshotCreated: Date;
-  phaseStart: string;
-  experimentStatus: ExperimentStatus;
-  isLatestPhase: boolean;
-  minSampleSize: number;
-  variationValue: number;
-  baselineValue: number;
+  rowResults: RowResults;
+  showTimeRemaining?: boolean;
+  showPercentComplete?: boolean;
+  noStyle?: boolean;
+  style?: CSSProperties;
 }) {
-  const percentComplete = Math.min(
-    Math.max(variationValue, baselineValue) / minSampleSize
-  );
-
-  const snapshotCreatedTime = getValidDate(snapshotCreated).getTime();
-
-  const msRemaining =
-    percentComplete > 0.1
-      ? ((snapshotCreatedTime - getValidDate(phaseStart).getTime()) *
-          (1 - percentComplete)) /
-          percentComplete -
-        (Date.now() - snapshotCreatedTime)
-      : null;
-
-  const showTimeRemaining =
-    msRemaining !== null && isLatestPhase && experimentStatus === "running";
+  const numerator = rowResults.enoughDataMeta.percentCompleteNumerator;
+  const denominator = rowResults.enoughDataMeta.percentCompleteDenominator;
 
   return (
-    <div>
-      <div className="mb-1">
-        <div className="badge badge-pill badge-secondary">not enough data</div>
+    <div className="not-enough-data" style={style}>
+      <div>
+        <div
+          className="font-weight-normal main-text"
+          style={noStyle ? {} : { fontSize: "10.5px", lineHeight: "14px" }}
+        >
+          not enough data
+        </div>
       </div>
-      {showTimeRemaining && (
-        <small className="text-muted">
-          {msRemaining > 0 ? (
+      {showTimeRemaining && rowResults.enoughDataMeta.showTimeRemaining && (
+        <div
+          className={clsx("text-muted time-remaining", { small: !noStyle })}
+          style={noStyle ? {} : { fontSize: "10.5px", lineHeight: "12px" }}
+        >
+          {(rowResults.enoughDataMeta.timeRemainingMs ?? 0) > 0 ? (
             <>
-              <span className="nowrap">{formatDistance(0, msRemaining)}</span>{" "}
+              <span className="nowrap">
+                {formatDistance(
+                  0,
+                  rowResults.enoughDataMeta.timeRemainingMs ?? 0
+                )}
+              </span>{" "}
               left
             </>
           ) : (
             "try updating now"
           )}
-        </small>
+        </div>
       )}
+      {showPercentComplete ? (
+        <div
+          className={clsx("text-muted percent-complete", { small: !noStyle })}
+        >
+          <span className="percent-complete-numerator">
+            {numberFormatter.format(numerator)}
+          </span>{" "}
+          /&nbsp;
+          <span className="percent-complete-denominator">
+            {numberFormatter.format(denominator)}
+          </span>
+          <span className="percent-complete-percent ml-1">
+            (
+            {percentFormatter.format(rowResults.enoughDataMeta.percentComplete)}
+            )
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -5,9 +5,15 @@ sidebar_label: Metrics
 slug: /app/metrics
 ---
 
+import Anchor from '@site/src/components/Anchor'
+
 # Metrics
 
 Metrics are what your experiments are trying to improve (or at least not hurt). GrowthBook has a very flexible and powerful way to define metrics.
+
+:::info
+There's a brand new way to define metrics in GrowthBook using **Fact Tables**. [Check out the docs](/app/fact-tables)
+:::
 
 ## Conversion Types
 
@@ -23,7 +29,7 @@ Metrics can have different units and statistical distributions. Below are the on
 For experiment analysis, each of these metric types uses some aggregation (often defaulting to `SUM`) per user and then takes an average with respect to the total number of users. In the case of SQL metrics, the only meaningful difference between count, duration, and revenue is how we render the units in the metric and experiment results pages.
 
 :::note
-Revenue Metrics are displayed in USD by default. You can change your display currency under **Settings** > **General** > **Metric Settings**
+Revenue Metrics are displayed in USD by default. You can change your display currency under **Settings** → **General** → **Metric Settings**
 :::
 
 ## Query settings
@@ -75,39 +81,66 @@ Binomial metrics don't need a `value` column (the existence of a row means the u
 
 When we go to conduct experiment analysis, any `user_id` that has a conversion in the appropriate time window will be counted as a `1`, while all other users will be counted as a `0`. Then we can compute the proportion of users in an experiment variation who converted.
 
-#### SQL Template Variables
+#### SQL Templates
 
-Within your queries, there are several placeholder variables you can use. These will be replaced with strings before being run. This can be useful for giving hints to SQL optimization engines to improve query performance.
+We use \{\{[Handlebars](https://handlebarsjs.com/guide/#language-features)\}\} to compile the sql into what is actually called to your database. This allows you to create template metrics that can be copied and reused by changing the variable values associate with the metrics.
 
-The variables are:
+You can use the following user configurable variables within SQL templates:
 
-- **startDate** - `YYYY-MM-DD HH:mm:ss` of the earliest data that needs to be included
-- **startYear** - Just the `YYYY` of the startDate
-- **startMonth** - Just the `MM` of the startDate
-- **startDay** - Just the `DD` of the startDate
-- **startDateUnix** - Unix timestamp of the startDate (seconds since Jan 1, 1970)
-- **endDate** - `YYYY-MM-DD HH:mm:ss` of the latest data that needs to be included
-- **endYear** - Just the `YYYY` of the endDate
-- **endMonth** - Just the `MM` of the endDate
-- **endDay** - Just the `DD` of the endDate
-- **endDateUnix** - Unix timestamp of the endDate (seconds since Jan 1, 1970)
+- **eventName** - The event name associated with this metric. This can then be referenced in your sql template as `{{eventName}}`. Depending upon how your data is structured you can then incorporate it as part of the table name, if each event has its own table, or as part of a where clause limiting the rows returned to where a certain column equals the eventName.
+- **valueColumn** - The column in your datawarehouse table with the metric data. This can then be referenced in your sql template as `{{valueColumn}}`. For example you might have `{{valueColumn}} as value` to extract out the value from the table.
+
+You can also use any of the in-built variables that Growthbook automatically sets:
+
+- **startDate** - `yyyy-MM-dd HH:mm:ss` of the earliest data that needs to be included
+- **startDateISO** - `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` of the startDate in ISO format. This can then be used with the `date` helper to achieve whatever [format](#dateformat) you like (ex. `{{date startDateISO "yyyyMMdd"}}`)
+- **endDate** - `yyyy-MM-dd HH:mm:ss` of the latest data that needs to be included
+- **endDateISO** - `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` of the endDate in ISO format. This can then be used with the `date` helper to achieve whatever [format](#dateformat) you like (ex. `{{date endDateISO "yyyyMMdd"}}`)
 - **experimentId** - Either a specific experiment id OR `%` if you should include all experiments
 
-For example:
+You can also use any of the in-built helper functions:
+
+- **camelcase [str]** - ex. `{{camelcase "My database"}}` compiles to `myDatabase`.
+- **dotcase [str]** - ex. `{{dotcase "My database"}}` compiles to `my.database`.
+- **kebabcase [str]** - ex. `{{kebabcase "My database"}}` compiles to `my-database`.
+- **lowercase [str]** - ex. `{{lowercase "My database"}}` compiles to `my database`.
+- **pascalcase [str]** - ex. `{{pascalcase "My database"}}` compiles to `MyDatabase`.
+- **replace [str]&nbsp;[pattern]&nbsp;[replacement]** - Replace all occurences of a regular expression with something else. ex. `{{replace "My%%%Database!" "\[^a-zA-Z\]" ""}}` compiles to `MyDatabase`
+- **snakecase [str]** - ex. `{{pascalcase "My database"}}` compiles to `my_database`.
+- **uppercase [str]** - ex. `{{uppercase "My database"}}` compiles to `MY DATABASE`.
+  <Anchor id="dateformat"/>
+- **date [date]&nbsp;[format]** - Format an ISO date according to this [format](https://date-fns.org/v2.29.3/docs/format), being careful not to mix up months (MM) and minutes (mm). ex. `{{date startDateISO "yyyyMMdd"}}` might compile to `20230130`. The most common codes are:
+
+<ul>
+
+| code | meaning   |
+| ---- | --------- |
+| yyyy | year      |
+| MM   | month     |
+| dd   | day       |
+| HH   | hour      |
+| mm   | minutes   |
+| ss   | seconds   |
+| t    | timestamp |
+
+</ul>
+
+For example you could have the following reusable sql template that could be used for many metrics, with only needing to change the valueColumn and eventName variables that will appear within the UI form:
 
 ```sql
 SELECT
   user_id as user_id,
-  received_at as timestamp
+  received_at as timestamp,
+  {{valueColumn}} as value
 FROM
-  registrations
+  database.{{snakecase eventName}}
 WHERE
   received_at BETWEEN '{{ startDate }}' AND '{{ endDate }}'
 ```
 
 :::note
 
-The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use `'{{ startDate }}'` instead of just `{{ startDate }}`)
+The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use `'{{&nbsp;startDate&nbsp;}}'` instead of just `{{&nbsp;startDate&nbsp;}}`
 
 :::
 
@@ -137,6 +170,10 @@ For example, if you want to look at the Average Order Value (AOV), what you're r
 
 1. `Orders per User` - selects the count of orders for each user
 2. `AOV` - selects total revenue per user and picks `Orders per User` as the denominator.
+
+##### Quantile Metrics
+
+[Quantile Metrics](/statistics/quantile) are available only as Fact Tables, as described [here](/app/fact-tables).
 
 ### 2. Javascript (Mixpanel only)
 
@@ -242,48 +279,85 @@ Setting this to "decrease" basically inverts the "Chance to Beat Control" value 
 
 ### Capped Value
 
-Large outliers can have an outsized effect on experiment results. For example, if your normal revenue per user $40 and someone happens to make a $5000 order, whatever variation that person is in will be much more likely "win" any experiment because that one order is an outlier.
+Large outliers can have an outsized effect on experiment results. For example, if your normal revenue per user \$40 and someone happens to make a \$5000 order, whatever variation that person is in will be much more likely "win" any experiment because that one order is an outlier.
 
-Capping (also known as winsorization) works by ensuring that all aggregate unit (e.g. user) values are no more than some value. So in the above example, if the cap was $100, the $5000 purchase will still be counted, but the aggregated value for that user will be capped at $100 and will have a much smaller effect on the results. It will still give a boost to whatever variation the person is in, but it won't completely dominate all of the other orders and is unlikely to make a winner just on its own. Another way to think about this is that you are slightly biasing your results by truncating large values, but you are reducing variance to prevent the outsized effect of outliers.
+Capping (also known as winsorization) works by ensuring that all aggregate unit (e.g. user) values are no more than some value. So in the above example, if the cap was \$100, the \$5000 purchase will still be counted, but the aggregated value for that user will be capped at \$100 and will have a much smaller effect on the results. It will still give a boost to whatever variation the person is in, but it won't completely dominate all of the other orders and is unlikely to make a winner just on its own. Another way to think about this is that you are slightly biasing your results by truncating large values, but you are reducing variance to prevent the outsized effect of outliers.
 
 There are two ways to cap metric values in GrowthBook:
 
-**1. Absolute capping** - if set above zero, all aggregated user values will be capped at exactly this value. For example, if the cap is $100 on total revenue per user, then after we sum all of a users orders up, any user with an aggregate sum of greater than $100 will be set to $100.
+**1. Absolute capping** - if set above zero, all aggregated user values will be capped at exactly this value. For example, if the cap is \$100 on total revenue per user, then after we sum all of a users orders up, any user with an aggregate sum of greater than \$100 will be set to \$100.
 
-**2. Percentile capping** - when this is set to between 0 and 1, it uses that percentile to select a cap based on the data in your experiment so far. This cap is therefore specific to each experiment and specific to each analysis run in that experiment if new data has come in. It works like so: after we calculate the unit-level aggregate values for all units (e.g. users) during an experiment analysis, we find the specified percentile of these unit-level aggregates and then cap these aggregated values at this percentile. Using the above example, if you were to specify percentile capping with a value of `0.95`, then we find the 95th percentile of total revenue per users (say this turns out to be $135). We then cap those user-level aggregates at $135.
+**2. Percentile capping** - when this is set to between 0 and 1, it uses that percentile to select a cap based on the data in your experiment so far. This cap is therefore specific to each experiment and specific to each analysis run in that experiment if new data has come in. It works like so: after we calculate the unit-level aggregate values for all units (e.g. users) during an experiment analysis, we find the specified percentile of these unit-level aggregates and then cap these aggregated values at this percentile. Using the above example, if you were to specify percentile capping with a value of `0.95`, then we find the 95th percentile of total revenue per users (say this turns out to be \$135). We then cap those user-level aggregates at \$135.
+
+You can additionally choose to ignore zeros, which will compute the percentile without including any user aggregated zero values. This is useful if you have a lot of zero values and you don't want to have to fine tune the percentile to avoid setting the cap too low.
 
 Because the percentile cap depends on the data in your experiment, it can be different from experiment to experiment, or even analysis to analysis. To find out what value was actually used for capping you can do the following: on the Experiment Results tab, click the three dot menu in the top right and select "View Queries". Each percentile capped metric will have a column with the `main_cap_value` that was used to cap that metric and represents the computed percentile of unit-level aggregate values.
 
-### Conversion Delay
+### Metric Windows
 
-Conversions within the first X hours of being put into an experiment are ignored (default = `0`). This is useful for metrics like "day 2 retention". In that case, if your underlying table reports whether a user is retained on any given day, you could set a conversion delay to `24` hours.
+When used in an experiment, we only consider rows of a Metric where the timestamp is greater than or equal to the first time the user was exposed to the experiment. In other words, if someone purchases something before seeing your experiment, it won't be included in the analysis. This behavior is ideal for the vast majority of metrics, but you can change it with the Metric Delay setting if desired (see below).
 
-#### Negative conversion delays
+There are three window settings one can use to configure the metric date window. Each of them defines the lower and upper date range of the metric to use for each user:
 
-The conversion delay can also be negative to include some conversions **before** a user is put into an experiment. For example, a value of `-2` would mean conversions up to 2 hours before will be included. You might be wondering when this would ever be useful.
+- **None** (default)
+  - Lower bound: user's first exposure plus the metric delay
+  - Upper bound: experiment end date
+- **Conversion Window**
+  - Lower bound: user's first exposure plus the metric delay
+  - Upper bound: the lower bound + the length of the conversion window
+- **Lookback Window**
+  - Lower bound: the experiment end date minus the lookback window OR the user's first exposure plus the metric delay, whichever is later
+  - Upper bound: experiment end date
+
+Here's a graphical representation of these three window types for a hypothetical User 1:
+![Metric Windows](/images/metric-windows.png)
+
+Here's a second example for a hypothetical User 2, who joins the experiment late. Notice that the conversion window can extend beyond the experiment end date.
+
+![Metric Windows (User 2)](/images/metric-windows-user-2.png)
+
+Why might you choose one window over another?
+
+**None** - The simplest. Use all data available. This is useful for using as much data associated with users in your experiment and will combine any behavior that is right after experiment exposure as well as long run behavior within the experiment time frame.
+
+**Conversion window** - Conversion windows allow you to only look at events that are tied to the first exposure to an experiment. This can help if, for example, you are tracking purchases and you only want to measure the effect of an experiment in a checkout flow on purchases made soon after seeing that checkout flow. Using a conversion window can reduce the noise from user behavior not related to an experiment. However, if you set the window too short, you may not capture users that return a few days later and were influenced by the experiment.
+
+**Lookback window** - Lookback windows are good for capturing long run impacts of an experiment on regular behavior like user log ins or page views. They have two main advantages:
+
+(1) You can mitigate the novelty effect of an experiment; if you are testing a new recommendation algorithm, at first users may react a certain way to the experiment, but eventually they may adjust and so may their behavior. In these cases, you may just want to look at the last 14 days of an experiment.
+
+(2) Lookback windows help you focus on the long run effects of an experiment. Much of experimentation is about building a better product; by focusing on impact of an experiment after it has been live for a week or two, you may get a better picture of the long run impact of launching the experiment.
+
+Larger companies who measure long run logged in behavior want to ensure their experiments have lasting effects and often rely on lookback windows to make shipping decisions However, lookback windows may not be right if you are testing a feature on logged-out or anonymous users and are measuring simple purchase conversions or something similar. In these cases, you might end up with many logged-out users who, in the long run, simply have no metric data associated with them.
+
+### Metric Delay
+
+Conversions within the first X hours of being put into an experiment are ignored (default = `0`). This is useful for metrics like "day 2 retention". In that case, if your underlying table reports whether a user is retained on any given day, you could set a metric delay to `24` hours.
+
+#### Negative metric delays
+
+The metric delay can also be negative to include some conversions **before** a user is put into an experiment. For example, a value of `-2` would mean conversions up to 2 hours before will be included. You might be wondering when this would ever be useful.
 
 Imagine the average person stays on your site for 60 seconds and your experiment can trigger at any time.
 
 If you just look at the average time spent after the experiment, the numbers will lose a lot of meaning. A value of `20 seconds` might be horrible if it happened to someone after only 5 seconds on your site since they are staying a lot less time than average. But, that same `20 seconds` might be great if it happened to someone after 55 seconds since their visit is a lot longer than usual.
 Over time, these things will average out and you can eventually see patterns, but you need an enormous amount of data to get to that point.
 
-If you set the conversion delay to something negative, say `-0.5` (30 minutes), you can reduce the amount of data you need to see patterns. For example, you may see your average go from 60 seconds to 65 seconds.
+If you set the metric delay to something negative, say `-0.5` (30 minutes), you can reduce the amount of data you need to see patterns. For example, you may see your average go from 60 seconds to 65 seconds.
 
 Keep in mind, these two things are answering slightly different questions.
 `How much longer do people stay after viewing the experiment?` vs `How much longer is an average session that includes the experiment?`.
 The first question is more direct and often a more strict test of your hypothesis, but it may not be worth the extra running time.
 
-### Conversion Window
+### Bayesian Priors
 
-The number of hours the user has to convert after the conversion delay (default = `72`). Any conversions that happens after this time will be ignored. As always there's a tradeoff here.
+Your organization can set default priors for Bayesian analyses that are used by all metrics.
 
-The lower you set this, the more you can be sure that your experiment directly contributed to the metric conversion. For example, a user who views your new checkout page and then completes the purchase right away is a much stronger signal than someone viewing your checkout page and then finally completing the purchase 7 days later.
+However, you can also set metric specific priors by opening the Edit Metric modal from the Metric page, clicking on Advanced Settings, and turning on the metric override. This will allow you to set a custom prior for that metric.
 
-However, setting this too low can exclude valid conversions. In the above example, maybe your new checkout page is more memorable and makes people more likely to return later. With a short conversion window you wouldn't be able to capture this data.
+Additionally, you can use experiment metric overrides to further customize these priors for each experiment.
 
-If you are using the "First Exposure" attribution model, then we build this conversion window from the first exposure each user has to an experiment. Because it is possible that each user has multiple rows (one for each exposure) in the experiment assignment source, we use the earliest row (measured by `timestamp` in the experiment assignment source) as the basis from which to build the first conversion window.
-
-If you use the "Experiment Duration" attribution model, we effectively ignore the conversion window setting. In this case, we still respect the conversion _delay_ from a user's first experiment exposure timestamp, but we aggregate all metric values/conversions after the conversion delay.
+You can read more about Bayesian priors on [our statistical details page](/statistics/details).
 
 ## Auto Generate Metrics
 
@@ -299,25 +373,26 @@ When querying your datasource to identify unique events, we're currently only lo
 
 - Segment
 - Rudderstack
+- Google Analytics 4 (GA4)
 
 ## Examples
 
-Let's walk through some examples of creating binomial, count, and retention metrics with GrowthBook. For all of the metrics below, let's pretend we have some table called `purchases`, which has one row per purchase that a user makes. For each row we have the following columns:
+Let's walk through some examples of creating binomial, count, and retention metrics with GrowthBook. For all of the metrics below, let's pretend we have some table called `events`, which has one row per event tracked to your warehouse. For each row we have the following columns:
 
 - `user_id` - the id of the user
-- `timestamp` - the time the purchase was made
-- `items` - the number of items they purchased
-- `cost` - the total value of the items they purchased
+- `timestamp` - the time the event was counted
+- `event_name` - the name of the event, we'll focus on 'purchase' as a key event types
+- `value` - the total value of the event, in this case the total value of a purchase
 
 From this table, we can build many different metrics:
 
-| Name                | Metric Type     | SQL                                                      | Aggregation   | Denominator         | Conversion Delay |
-| ------------------- | --------------- | -------------------------------------------------------- | ------------- | ------------------- | ---------------- |
-| Any Purchase        | Binomial        | SELECT user_id, timestamp FROM purchases                 | n/a           |                     | 0                |
-| Items Purchased     | Count           | SELECT user_id, timestamp, items as value FROM purchases | default (SUM) |                     | 0                |
-| Number of Purchases | Count           | SELECT user_id, timestamp, 1 as value FROM purchases     | default (SUM) |                     | 0                |
-| Order Value         | Revenue         | SELECT user_id, timestamp, cost as value FROM purchases  | default (SUM) |                     | 0                |
-| Average Order Value | Revenue (ratio) | SELECT user_id, timestamp, cost as value FROM purchases  | default (SUM) | Number of Purchases | 0                |
-| 7-Day Retention     | Binomial        | SELECT user_id, timestamp FROM purchases                 | n/a           |                     | 24\*7=144 hours  |
+| Name                 | Metric Type     | SQL                                                                             | Aggregation   | Denominator         | Metric Delay    | Metric Window     |
+| -------------------- | --------------- | ------------------------------------------------------------------------------- | ------------- | ------------------- | --------------- | ----------------- |
+| Any Purchase         | Binomial        | SELECT user_id, timestamp FROM events WHERE event_name = 'purchase'             | n/a           |                     | 0               |                   |
+| Number of Purchases  | Count           | SELECT user_id, timestamp, 1 as value FROM events WHERE event_name = 'purchase' | default (SUM) |                     | 0               |                   |
+| Order Value          | Revenue         | SELECT user_id, timestamp, value FROM events WHERE event_name = 'purchase'      | default (SUM) |                     | 0               |                   |
+| Average Order Value  | Revenue (ratio) | SELECT user_id, timestamp, value FROM events WHERE event_name = 'purchase'      | default (SUM) | Number of Purchases | 0               |                   |
+| 7-Day Retention      | Binomial        | SELECT user_id, timestamp FROM events                                           | n/a           |                     | 24\*7=144 hours |                   |
+| Active User Last 14d | Binomial        | SELECT user_id, timestamp FROM events                                           | n/a           |                     | 0               | Lookback - 14 day |
 
-If you wanted to only count purchases and purchase values made in the 72 hours after a user's first exposure to an experiment, then you could set the conversion window to 72 hours. If you wanted to just count any user who made a purchase any time after experiment exposure and before the end of the experiment, you don't need to increase the conversion window. Instead, you can simply change the Attribution Model to "Experiment Duration" in the experiment settings.
+If you wanted to only count purchases and purchase values made in the 72 hours after a user's first exposure to an experiment, then you could set the metric window to a conversion window of 72 hours. If you wanted to just count any user who made a purchase any time after experiment exposure, then set the metric window to none.

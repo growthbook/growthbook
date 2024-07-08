@@ -10,356 +10,173 @@ slug: google-tag-manager-and-growthbook
 Now customers who are familiar with feature management using Google Tag Manager (GTM), yet may lack the engineering resources or capability to implement changes in their codebase, may easily use GrowthBook with GTM to power their AB tests. This setup is commonly used by marketing teams and CRO agencies.
 
 :::note
-GrowthBook also offers a [visual editor](https://docs.growthbook.io/app/visual) for lightweight, no-code UI changes.
+GrowthBook also offers a [visual editor](https://docs.growthbook.io/app/visual) for lightweight, no-code UI changes. This approach is compatible with GTM and the examples provided on this page as long you enable the "Include Visual Experiments" toggle within your SDK Connection.
 :::
 
-In this guide, we will assume familiarity with the GTM platform. We also assume the ability to apply a unique user ID via Google Analytics (`client_id`), cookies, etc; as well as the ability to track events (GA or otherwise).
+In this guide, we will assume familiarity with the GTM platform.
 
-## Choosing a strategy: performance vs flexibility
+## Create an SDK Connection within GrowthBook
 
-There are two strategies that we can use to implement AB tests with GrowthBook via GTM.
+First, you need to add a new SDK Connection within GrowthBook. Choose the "Generic HTML" option when setting this up.
 
-The first strategy is the most performant but requires us to hard-code all of our experiments and their rulesets instead of referencing feature flags. While this can lead to some inflexibility in controlling targeting post-launch, the upside is that we avoid an extra network call to GrowthBook to fetch feature flags. This leads to less noticeable flicker between our initial page render and the DOM changes we apply after the GrowthBook SDK loads. In this strategy, each time you need to change your experiments or targeting rules, you'll need to modify the code snippet and publish a new GTM version.
+After you create the connection, you will be shown a script tag that contains your unique client id. Copy this script tag since you will need it for the following step.
 
-The second strategy gives us the flexibility of using feature flags, but comes with a page render speed tax. Using this method, we implement a single code snippet that needs to be updated whenever we need to instrument new on-page variations for experiements, which are associated with feature flags. Our code snippet will query GrowthBook for all feature flags, which would typically reference AB test experiments and their rulesets, and will automatically evaluate these feature flags for us. However, we need to make a network request to the GrowthBook app to fetch these features, and this happens client-side while the page is loading. By the time we receive a server response and can apply DOM changes, there may be a noticeable flicker while re-rendering.
+## Creating a GTM tag for the GrowthBook SDK
 
-:::note
-If neither of these strategies seem ideal, we'd encourage you to pursue a traditional GrowthBook implementation without GTM, preferably with back-end or hybrid feature flag evaluation. See our [SDK documentation](https://docs.growthbook.io/lib/) for more information.
-:::
+Next, create a new tag in your desired GTM workspace. We will choose "Custom HTML" as the tag type. We can give it the name "GrowthBook SDK" or similar. Also, be sure to set the firing triggers to target the specific pages where we need to instrument our feature changes and experiments (or just choose "All Pages").
 
-## Basic setup
+Paste in the script tag from your SDK Connection in the previous step. It will look something like the following. Refer to our [Script Tag SDK docs](/lib/script-tag) for more info.
 
-Regardless of which of the above strategies you've chosen, in order to implement GrowthBook AB Tests you'll first need to inject the GrowthBook Javascript SDK using a GTM Tag. You'll also need to pass some basic information along to the SDK in order to use it.
-
-### Creating a GTM tag for the GrowthBook SDK
-
-First, create a new tag in your desired workspace. We will choose "Custom HTML" as the tag type. We can give it the name "GrowthBook SDK" or similar. Also, be sure to set the firing triggers to target the specific pages where we need to instrument our feature changes and experiments (or just choose "All Pages").
-
-Next, paste in the script below to load the GrowthBook JavaScript SDK; then save the tag:
-
-```js
-<script id="growthbook-sdk" src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/index.min.js" defer></script>
+```html
+<script async
+  data-client-key="YOUR_CLIENT_KEY_HERE"
+  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
+></script>
 ```
 
 To publish the SDK tag, submit our workspace changes (the blue "Submit" button on the top of the GTM application), Then ensure "Publish and Create version" is selected and click the blue "Publish" button – or use whichever GTM release strategy you are already using.
 
-## Initializing the SDK
+### Use Feature Flags
 
-To actually use the GrowthBook SDK on our pages to control on-page features with AB tests, we'll need to create another code snippet and load it through GTM. While you can certainly add the snippet to your existing tag (the GrowthBook SDK tag we created above), you may find it cleaner to add another Custom HTML tag and give it a name such as "GrowthBook Implementation" Be sure to set the firing triggers in the same way as you did above.
+This step is optional. If you are planning to mainly use the Visual Editor to implement experiments, you can skip ahead to the next section.
 
-In the subsequent sections, we will learn how to fill in the SDK parameters such as our own `apiHost`, `clientKey`, `attributes`, and `trackingCallback`. For now, insert the following code into your tag:
+To use feature flags, create another "Custom HTML" tag in your workspace, with a name like "GrowthBook Feature Flags" and set the firing trigger to the page you want to run this on.
+
+You can use the following example as a starting point:
 
 ```html
 <script>
-  (function() {
-    // Wait for the SDK to load before starting GrowthBook
-    if (window.growthbook) {
-      startGrowthbook();
+// Wait for the GrowthBook SDK to load before running
+window.growthbook_queue = window.growthbook_queue || [];
+window.growthbook_queue.push((gb) => {
+  // Function that uses feature flags to make changes to the page
+  const applyFeatureFlags = () => {
+    if(gb.isOn("dark-mode")) {
+      document.documentElement.classList.add("dark");
     } else {
-      document.querySelector("#growthbook-sdk").addEventListener("load", startGrowthbook);
+      document.documentElement.classList.remove("dark");
     }
+  }
 
-    function startGrowthbook() {
-      if (!window.growthbook) return;
-      var gb = new growthbook.GrowthBook({
-        apiHost: "https://cdn.growthbook.io",
-        clientKey: "sdk-abcd1234",
-        // TODO: Add decryptionKey if using encryption
-        attributes: {
-          id: "u1234" // TODO: Read user/device id from a cookie/datalayer
-        },
-        trackingCallback: function(experiment, result) {
-          // TODO: track experiment impression
-        }
-      });
-
-      // TODO: Instrument DOM with AB test logic
-    }
-  })();
+  // Call your function initially plus whenever new data is received
+  applyFeatureFlags();
+  document.addEventListener("growthbookdata", applyFeatureFlags)
+});
 </script>
 ```
 
-Let's have a look at the SDK constructor code above, specifically the parameters defined within this block:
+The above example shows using a single feature flag called `dark-mode` and using it to modify the class name of the `<html>` element. Replace the contents of the `applyFeatureFlags` function with your own logic.
 
-```js
-var gb = new growthbook.GrowthBook({
-  apiHost: "https://cdn.growthbook.io",
-  // etc...
-});
-```
+You can add multiple tags like this if needed, each with their own triggering logic.
 
-Here, we will need to add pass in SDK connection parameters, user attributes, and any tracking callback functions. We will talk through each of these.
+## Tracking via DataLayer and GTM
 
-### Connection parameters
+The GrowthBook SDK implementation above will send an event to the DataLayer that looks like the following whenever the user views an experiment:
 
-Let's first pass in our SDK connection parameters. To find them, you will need to find your SDK in the GrowthBook app (in **Features > SDKs**), and select "Javascript" for implementation instructions. Here you will see values for `apiHost`, `clientKey`, and in some cases `decryptionKey`. (Note: if you've decided to use Strategy 2 - page speed, you won't actually need to include these connection parameters.)
-
-### User attributes
-
-We also need to define any relevant user attributes, most importantly the `id`. If you have any other user attributes available that affect your experiment targeting, also add them to the `attributes` object here.
-
-Let's talk about the user ID specifically, since it's crucial for running AB tests wherein individuals are deterministically bucketed into experiment variations. Skip ahead if you already have a good way to retrieve a unique user ID.
-
-#### User id from your website
-
-Chances are your website has an internal userId associated with the user's session. If you are able to obtain this ID in JavaScript, use this value for your GrowthBook user attributes. For example, the userId may be assigned to all rendered pages via something like this (PHP template, although your site may use an entirely different server configuration):
-
-```html
-<script>
-  var myWebsiteUserId = "<?= $_SESSION['userId']; ?>";
-</script>
-```
-
-You could then assign this value to your GrowthBook user attributes:
-
-```js
-attributes: {
-  id: myWebsiteUserId
+```json
+{
+  "event": "experiment_viewed",
+  "experiment_id": "...",
+  "variation_id": "..."
 }
 ```
 
-Alternatively, you could potentially pull the userId out of your site's session cookie, if available. A sample PHP-based session system might have a JavaScript lookup like this:
+This event can be forwarded on to your analytics tool of choice. The following steps show an example of sending this to Google Analytics v4:
 
-```html
-<script>
-  var sessionCookie = document.cookie.match(/PHPSESSID=([^;]+)/);
-  var myWebsiteUserId = sessionCookie
-    ? decodeURIComponent(sessionCookie[1]).match(/userId=([^&]+)/)[1]
-    : null;
-</script>
-```
+### Step 1: Add a new Tag
 
-#### User id from Google Analytics
+![Step 1](/images/guides/gtm-ga4-1.png)
 
-For organizations using GTM, Google Analytics is also commonly used (which GrowthBook plays nicely with via a BigQuery integration), although there is certainly no requirement that you also use GA with GrowthBook. With this configuration, it's often common to see a client_id or user_id associated with GA.
+Click “Tag Configuration”
 
-#### GA4
+![Step 2](/images/guides/gtm-ga4-2.png)
 
-You may be interested in getting the client_id (a unique identifier for users and their device) to represent a single user. This is available out of the box with GA4. The "proper" way to retrieve it in JavaScript would look like this (where `G-XXXXXX` is your GA4 property ID):
+Choose “Google Analytics”
 
-```js
-var clientId = "";
-gtag('get', 'G-XXXXXX', 'client_id', function(cid) {
-  clientId = cid;
-});
-```
+![Step 3](/images/guides/gtm-ga4-3.png)
 
-However since this is an asynchronous lookup, we need to make sure that clientId is available before we create the GrowthBook SDK instance. The simplest way to do this is to nest the SDK instantiation inside your gtag callback function. For example:
+Then, choose “Google Analytics: GA4 Event”
 
-```js
-gtag('get', 'G-XXXXXX', 'client_id', function(cid) {
-  var gb = new growthbook.GrowthBook({
-    apiHost: "https://cdn.growthbook.io",
-    clientKey: "sdk-abcd1234",
-    attributes: {
-      id: cid
-    },
-    // etc...
-  });
+### Step 2: Start Configuring the Tag
 
-  // TODO: Instrument DOM with AB test logic
-});
-```
+You will be presented with the following screen:
 
-...or you could use async/await or promises to prevent additional nesting.
+![Step 4](/images/guides/gtm-ga4-4.png)
 
-:::tip
-In some cases where `gtag()` is not yet defined at the time in which we invoke it, we may need to force our GrowthBook snippet to load after GA has successfully loaded. You may be able to use `window.onload()` to ensure GA has loaded before the SDK is instantiated (although GA loaded through GTM can sometimes complicate this). Alternatively, you can use a GTM trigger such as "Window Loaded" to ensure that the GrowthBook SDK is loaded after GA has loaded.
+Fill out the following fields:
 
-All of these delays, however, can cause render flickering and should be avoided if possible. You might consider loading GA outside of GTM. You could even load GA and GrowthBook in parallel, wrap each load inside its own promise, and use `Promise.all()` to ensure both are loaded before the SDK is instantiated. Specifics will vary depending on your site's configuration, but hopefully this provides some ideas.
+- Measurement ID: Your GA4 measurement id (find it in the GA4 admin settings)
+- Event Name: `experiment_viewed`
 
-In some situations, `gtag()` may never become defined. You can use your browser's developer tools / JavaScript console to confirm this by typing `window.tag`. If undefined, you may need to manually define it — either on your page or in a GTM custom HTML tag — using JavaScript. For example:
+Also, add 2 parameters, but only fill out the name. Leave the value empty for now
 
-```js
-window.gtag = window.gtag || function() { dataLayer.push(arguments); };
-```
+- `experiment_id`
+- `variation_id`
 
-:::
+![Step 5](/images/guides/gtm-ga4-5.png)
 
-You may have a custom user ID (website-generated perhaps) that you'd like to propagate through GA4. In this case, you'll want to ensure that this user ID has been pushed to the dataLayer (GA4's local data store). For example:
+### Step 3: Add Variables for Experiment and Variation Ids
 
-```js
-dataLayer.push({
-  'user_id': myWebsiteUserId
-});
-```
+These steps will be repeated for both the `experiment_id` and `variation_id` parameters. We will start with `experiment_id`:
 
-Then, to get the user id from GA4 into our GrowthBook user attributes, we can modify our SDK code snippet:
+Click the [+] icon in the Value input for `experiment_id`
 
-```js
-gtag('get', 'G-XXXXXX', 'user_id', function(uid) {
-  var gb = new growthbook.GrowthBook({
-    apiHost: "https://cdn.growthbook.io",
-    clientKey: "sdk-abcd1234",
-    attributes: {
-      id: uid
-    },
-    // etc...
-  });
+![Step 6](/images/guides/gtm-ga4-6.png)
 
-  // TODO: Instrument DOM with AB test logic
-});
-```
+Click the blue “+” in the top right corner to add a new variable
 
-#### GA (Universal Analytics)
+![Step 7](/images/guides/gtm-ga4-7.png)
 
-Prior to GA4, the mechanism to fetch our client_id is slightly different. A few different ways to deal with this are via a lookup using the GA API:
+Click on “Variable Configuration”:
 
-```js
-attributes: {
-  id: ga.getAll()[0].get('clientId')
-}
-```
+![Step 8](/images/guides/gtm-ga4-8.png)
 
-...or by extracting the ID from the cookie:
+Select “Data Layer Variable” and enter `experiment_id` as the Data Layer Variable Name.
 
-```js
-attributes: {
-  id: document.cookie.match(/_ga=(.+?);/)[1].split('.').slice(-2).join('.')
-}
-```
+Also, add a descriptive name for your variable in the top left where it says “Untitled Variable” (”Experiment Id” shown below)
 
-### Tracking callback
+![Step 9](/images/guides/gtm-ga4-9.png)
 
-We may be interested in defining an analytics tracking event in order to track AB test impressions. This is not required for GrowthBook to function correctly, but is often of interest for 3rd party analytics purposes.
+Click the blue “Save” button.
 
-If you already have tracking events set up, insert them into our code snippet. Here's a contrived example:
+**Repeat the above steps for the `variation_id` variable**
 
-```js
-trackingCallback: function(experiment, result) {
-  TrackingAgent.track("experiment_viewed", {
-    experiment_id: experiment.key,
-    variation_id: result.variationId,
-    userId: myWebsiteUserId, // or perhaps client_id from gtag('get', 'client_id', ...)
-  });
-}
-```
+### Step 4: Add a Trigger
 
-Or if you are using Google Analytics (GA4) for event tracking, it may look something like this:
+You should be left with the following configuration. Add a descriptive name in the top left for your tag if you haven’t already - “GA4 - Experiment Viewed Event” shown here.
 
-```js
-trackingCallback: function(experiment, result) {
-  gtag("event", "experiment_viewed", {
-    event_category: "experiment",
-    experiment_id: experiment.key,
-    variation_id: result.variationId,
-  });
-}
-```
+![Step 10](/images/guides/gtm-ga4-10.png)
 
-Note the omission of `client_id`, as this is typically included by default in GA events.
+Click the “Triggering” section
 
-We're now ready to start implementing our AB test rendering logic. Let's return to the two aforementioned implementation strategies...
+![Step 11](/images/guides/gtm-ga4-11.png)
 
-## Strategy 1: Page speed optimized, inline experiments
+Click the blue “+” in the top right to add a new trigger. Enter a descriptive name in the top left (”Experiment Viewed Event” shown here)
 
-Recall that in this strategy, we define our experiments and their rulesets inline. This avoids an extra network request via `gb.loadFeatures()`, which introduces an additional delay. Avoiding this lookup ensures any render flickering is minimized.
+![Step 12](/images/guides/gtm-ga4-12.png)
 
-Let's get started with our test instrumentation. We'll consider a hypothetical landing page where there are 2 features that need to be changed on the DOM based on feature flag settings: a large button (#button1) which we can optionally turn green, and a sticky banner (#banner1) which we can alter with custom text.
+Click “Trigger Configuration”
 
-Find the section of our snippet above beginning with `// TODO: Instrument DOM with AB test logic`. We will replace this comment with a snippet that will fetch the feature flag definitions and then apply test-specific DOM changes. Our earlier code snippet now becomes:
+![Step 13](/images/guides/gtm-ga4-13.png)
 
-```html
-<script>
-  (function() {
-    // Wait for the SDK to load before starting GrowthBook
-    if (window.growthbook) {
-      startGrowthbook();
-    } else {
-      document.querySelector("#growthbook-sdk").addEventListener("load", startGrowthbook);
-    }
+Click “Custom Event”:
 
-    function startGrowthbook() {
-      if (!window.growthbook) return;
-      var gb = new growthbook.GrowthBook({
-        attributes: {
-          id: "u1234" // TODO: Read user/device id from a cookie/datalayer
-        },
-        trackingCallback: function(experiment, result) {
-          // TODO: track experiment impression
-        }
-      });
+![Step 14](/images/guides/gtm-ga4-14.png)
 
-      // 2-way inline test
-      var result1 = gb.run({
-        key: "button-experiment",
-        variations: ["control", "green-button"],
-        weights: [0.5, 0.5], // Traffic split between the variations
-        coverage: 1.0  // What percent of overall traffic to include (0.0 to 1.0)
-      });
-      if (result1.value === "green-button") {
-        document.querySelector("#button-1").classList.add("green");
-      }
+Enter `experiment_viewed` as the Event name and click the blue “Save” button.
 
-      // 3-way inline test
-      var result2 = gb.run({
-        key: "banner-experiment",
-        variations: ["A", "B", "C"],
-        weights: [0.5, 0.25, 0.25],
-        coverage: 1.0
-      });
-      if (result2.value === "B") {
-        document.querySelector("banner1").innerHTML = "Click here in the next 24 hours";
-      } else if (result2.value === "C") {
-        document.querySelector("banner1").innerHTML = "Click here before this offer expires";
-      }
-    }
-  })();
-</script>
-```
+Below is the end result of your tag configuration. Click the blue “Save” button to finish.
 
-Note that we have needed to define the properties of both our `button-experiment` and `banner-experiment` inline. Although less flexible than using feature flags defined in GrowthBook, this approach is performant and relatively easy to implement. The `gb.run()` call, which evaluates a feature flag to determine which AB test variant a user belongs to, is evaluated on the client side and does not make a network call.
+![Step 15](/images/guides/gtm-ga4-15.png)
 
-## Strategy 2: Flexible feature flags, less performant
+### Step 5: Publish Your Changes
 
-Recall that our second strategy allows us the flexibility of referencing feature flags and their targeting rules, which we may modify in the GrowthBook app without pushing an update to our GTM tag, even after the test has launched. Also recall that this strategy comes with additional page flickering while we await feature flag definitions from the GrowthBook app before rendering our variations.
+Finally, publish your changes in Google Tag Manager and you’re done!
 
-In this scenario, our updated code snippet would look something like this:
+## Viewing Results
 
-```html
-<script>
-  (function() {
-    // Wait for the SDK to load before starting GrowthBook
-    if (window.growthbook) {
-      startGrowthbook();
-    } else {
-      document.querySelector("#growthbook-sdk").addEventListener("load", startGrowthbook);
-    }
+Once your analytics tool is successfully tracking your experiment events, the next step is to connect GrowthBook to your data warehouse and view results.
 
-    function startGrowthbook() {
-      if (!window.growthbook) return;
-      var gb = new growthbook.GrowthBook({
-        apiHost: "https://cdn.growthbook.io",
-        clientKey: "sdk-abcd1234",
-        // TODO: Add decryptionKey if using encryption
-        attributes: {
-          id: "u1234" // TODO: Read user/device id from a cookie/datalayer
-        },
-        trackingCallback: function(experiment, result) {
-          // TODO: track experiment impression
-        }
-      });
+If you are using Google Analytics v4, we have a dedicated guide for [Connecting GrowthBook to GA4 with BigQuery](/guide/GA4-google-analytics).
 
-      gb.loadFeatures().then(function() {
-
-        // 2-way test using a boolean feature flag
-        if (gb.isOn("green-button")) {
-          document.querySelector("#button-1").classList.add("green");
-        }
-
-        // Multiple variations using a string feature flag
-        var value = gb.getFeatureValue("my-string-feature");
-        if (value === "B") {
-          document.querySelector("banner1").innerHTML = "Click here in the next 24 hours";
-        } else if (value === "C") {
-          document.querySelector("banner1").innerHTML = "Click here before this offer expires";
-        }
-      });
-    }
-  })();
-</script>
-```
-
-Here, we are instrumenting two different tests. First is our button (`button-1`) which is modified by a 2-way AB test (control and one variant). It uses a boolean flag (`green-button`) to toggle a CSS class. Second is our sticky banner (`banner-1`) which is modified by a 3-way test. It uses a string flag (`my-string-feature`), with values representing different test variations, to alter the text of our banner.
-
-Notice that we need to call `gb.loadFeatures()` and wait for the return from the GrowthBook app before actually implementing our AB test's render logic. This delay is responsible for some render flickering while switching from a control to a variant for our tests.
+For other analytics tools, refer to our general guide on [Connecting to your Data Warehouse](/warehouses).

@@ -1,3 +1,6 @@
+import { isEqual } from "lodash";
+import { validateCondition } from "shared/util";
+import { logger } from "../../util/logger";
 import { UpdateSavedGroupResponse } from "../../../types/openapi";
 import {
   getSavedGroupById,
@@ -6,13 +9,18 @@ import {
 } from "../../models/SavedGroupModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { updateSavedGroupValidator } from "../../validators/openapi";
+import { savedGroupUpdated } from "../../services/savedGroups";
+import { UpdateSavedGroupProps } from "../../../types/saved-group";
 
 export const updateSavedGroup = createApiRequestHandler(
   updateSavedGroupValidator
 )(
   async (req): Promise<UpdateSavedGroupResponse> => {
-    const { name, values } = req.body;
-    let { owner } = req.body;
+    if (!req.context.permissions.canUpdateSavedGroup()) {
+      req.context.permissions.throwPermissionError();
+    }
+
+    const { name, values, condition, owner } = req.body;
 
     const { id } = req.params;
 
@@ -22,27 +30,64 @@ export const updateSavedGroup = createApiRequestHandler(
       throw new Error(`Unable to locate the saved-group: ${id}`);
     }
 
-    if (!values && !name && typeof owner === "undefined") {
-      throw new Error(
-        'You must pass in at least one of the following: "values", "name", "owner".'
-      );
+    // Sanity check to make sure arguments match the saved group type
+    if (savedGroup.type === "condition" && values && values.length > 0) {
+      throw new Error("Cannot specify values for condition groups");
+    }
+    if (savedGroup.type === "list" && condition && condition !== "{}") {
+      throw new Error("Cannot specify a condition for list groups");
     }
 
-    if (typeof owner === "string") {
-      owner = owner ? owner : "";
-    } else {
-      owner = savedGroup.owner;
+    const fieldsToUpdate: UpdateSavedGroupProps = {};
+
+    if (typeof name !== "undefined" && name !== savedGroup.groupName) {
+      fieldsToUpdate.groupName = name;
+    }
+    if (typeof owner !== "undefined" && owner !== savedGroup.owner) {
+      fieldsToUpdate.owner = owner;
+    }
+    if (
+      savedGroup.type === "list" &&
+      values &&
+      !isEqual(values, savedGroup.values)
+    ) {
+      fieldsToUpdate.values = values;
+    }
+    if (
+      savedGroup.type === "condition" &&
+      condition &&
+      condition !== savedGroup.condition
+    ) {
+      const conditionRes = validateCondition(condition);
+      if (!conditionRes.success) {
+        throw new Error(conditionRes.error);
+      }
+      if (conditionRes.empty) {
+        throw new Error("Condition cannot be empty");
+      }
+
+      fieldsToUpdate.condition = condition;
+    }
+
+    // If there are no changes, return early
+    if (Object.keys(fieldsToUpdate).length === 0) {
+      return {
+        savedGroup: toSavedGroupApiInterface(savedGroup),
+      };
     }
 
     const updatedSavedGroup = await updateSavedGroupById(
       id,
       req.organization.id,
-      {
-        values: values ? values : savedGroup.values,
-        groupName: name ? name : savedGroup.groupName,
-        owner,
-      }
+      fieldsToUpdate
     );
+
+    // If the values or key change, we need to invalidate cached feature rules
+    if (fieldsToUpdate.values || fieldsToUpdate.condition) {
+      savedGroupUpdated(req.context, savedGroup.id).catch((e) => {
+        logger.error(e, "Error refreshing SDK Payload on saved group update");
+      });
+    }
 
     return {
       savedGroup: toSavedGroupApiInterface({

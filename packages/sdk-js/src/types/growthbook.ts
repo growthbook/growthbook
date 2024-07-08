@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { GrowthBook } from "..";
-import { ConditionInterface } from "./mongrule";
+import type { GrowthBook, StickyBucketService } from "..";
+import { ConditionInterface, ParentConditionInterface } from "./mongrule";
 
 declare global {
   interface Window {
@@ -18,12 +18,17 @@ export type VariationMeta = {
 export type FeatureRule<T = any> = {
   id?: string;
   condition?: ConditionInterface;
+  parentConditions?: ParentConditionInterface[];
   force?: T;
   variations?: T[];
   weights?: number[];
   key?: string;
   hashAttribute?: string;
+  fallbackAttribute?: string;
   hashVersion?: number;
+  disableStickyBucketing?: boolean;
+  bucketVersion?: number;
+  minBucketVersion?: number;
   range?: VariationRange;
   coverage?: number;
   /** @deprecated */
@@ -50,7 +55,9 @@ export type FeatureResultSource =
   | "defaultValue"
   | "force"
   | "override"
-  | "experiment";
+  | "experiment"
+  | "prerequisite"
+  | "cyclicPrerequisite";
 
 export interface FeatureResult<T = any> {
   value: T | null;
@@ -85,14 +92,20 @@ export type Experiment<T> = {
   urlPatterns?: UrlTarget[];
   weights?: number[];
   condition?: ConditionInterface;
+  parentConditions?: ParentConditionInterface[];
   coverage?: number;
   include?: () => boolean;
   /** @deprecated */
   namespace?: [string, number, number];
   force?: number;
   hashAttribute?: string;
+  fallbackAttribute?: string;
   hashVersion?: number;
+  disableStickyBucketing?: boolean;
+  bucketVersion?: number;
+  minBucketVersion?: number;
   active?: boolean;
+  persistQueryString?: boolean;
   /** @deprecated */
   status?: ExperimentStatus;
   /** @deprecated */
@@ -101,7 +114,10 @@ export type Experiment<T> = {
   groups?: string[];
 };
 
-export type AutoExperiment = Experiment<AutoExperimentVariation> & {
+export type AutoExperimentChangeType = "redirect" | "visual" | "unknown";
+
+export type AutoExperiment<T = AutoExperimentVariation> = Experiment<T> & {
+  changeId?: string;
   // If true, require the experiment to be manually triggered
   manual?: boolean;
 };
@@ -125,12 +141,12 @@ export interface Result<T> {
   name?: string;
   bucket?: number;
   passthrough?: boolean;
-
   inExperiment: boolean;
   hashUsed?: boolean;
   hashAttribute: string;
   hashValue: string;
   featureId: string | null;
+  stickyBucketUsed?: boolean;
 }
 
 export type Attributes = Record<string, any>;
@@ -140,6 +156,24 @@ export type RealtimeUsageData = {
   on: boolean;
 };
 
+export interface TrackingData {
+  experiment: Experiment<any>;
+  result: Result<any>;
+}
+
+export type TrackingCallback = (
+  experiment: Experiment<any>,
+  result: Result<any>
+) => void;
+
+export type NavigateCallback = (url: string) => void | Promise<void>;
+
+export type ApplyDomChangesCallback = (
+  changes: AutoExperimentVariation
+) => () => void;
+
+export type RenderFunction = () => void;
+
 export interface Context {
   enabled?: boolean;
   attributes?: Attributes;
@@ -147,29 +181,75 @@ export interface Context {
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
   forcedVariations?: Record<string, number>;
+  blockedChangeIds?: string[];
+  disableVisualExperiments?: boolean;
+  disableJsInjection?: boolean;
+  jsInjectionNonce?: string;
+  disableUrlRedirectExperiments?: boolean;
+  disableCrossOriginUrlRedirectExperiments?: boolean;
+  disableExperimentsOnLoad?: boolean;
+  stickyBucketAssignmentDocs?: Record<
+    StickyAttributeKey,
+    StickyAssignmentsDocument
+  >;
+  stickyBucketIdentifierAttributes?: string[];
+  stickyBucketService?: StickyBucketService;
+  debug?: boolean;
   log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
+  /** @deprecated */
+  backgroundSync?: boolean;
+  /** @deprecated */
+  subscribeToChanges?: boolean;
   enableDevMode?: boolean;
-  /* @deprecated */
+  disableCache?: boolean;
+  /** @deprecated */
   disableDevTools?: boolean;
-  trackingCallback?: (experiment: Experiment<any>, result: Result<any>) => void;
+  trackingCallback?: TrackingCallback;
   onFeatureUsage?: (key: string, result: FeatureResult<any>) => void;
+  /** @deprecated */
   realtimeKey?: string;
+  /** @deprecated */
   realtimeInterval?: number;
-  /* @deprecated */
+  cacheKeyAttributes?: (keyof Attributes)[];
+  /** @deprecated */
   user?: {
     id?: string;
     anonId?: string;
     [key: string]: string | undefined;
   };
-  /* @deprecated */
+  /** @deprecated */
   overrides?: Record<string, ExperimentOverride>;
-  /* @deprecated */
+  /** @deprecated */
   groups?: Record<string, boolean>;
   apiHost?: string;
+  streamingHost?: string;
+  apiHostRequestHeaders?: Record<string, string>;
+  streamingHostRequestHeaders?: Record<string, string>;
   clientKey?: string;
+  renderer?: null | RenderFunction;
   decryptionKey?: string;
+  remoteEval?: boolean;
+  navigate?: NavigateCallback;
+  navigateDelay?: number;
+  antiFlicker?: boolean;
+  antiFlickerTimeout?: number;
+  applyDomChangesCallback?: ApplyDomChangesCallback;
+  savedGroups?: SavedGroupsValues;
 }
+
+export type PrefetchOptions = Pick<
+  Context,
+  | "decryptionKey"
+  | "apiHost"
+  | "apiHostRequestHeaders"
+  | "streamingHost"
+  | "streamingHostRequestHeaders"
+> & {
+  clientKey: string;
+  streaming?: boolean;
+  skipCache?: boolean;
+};
 
 export type SubscriptionFunction = (
   experiment: Experiment<any>,
@@ -178,12 +258,29 @@ export type SubscriptionFunction = (
 
 export type VariationRange = [number, number];
 
+export interface InitResponse {
+  // If a payload was set
+  success: boolean;
+  // Where the payload came from, if set
+  source: "init" | "cache" | "network" | "error" | "timeout";
+  // If the payload could not be set (success = false), this will hold the fetch error
+  error?: Error;
+}
+
+export interface FetchResponse {
+  data: FeatureApiResponse | null;
+  success: boolean;
+  source: "cache" | "network" | "error" | "timeout";
+  error?: Error;
+}
+
 export type JSONValue =
   | null
   | number
   | string
   | boolean
   | Array<JSONValue>
+  | Record<string, unknown>
   | { [key: string]: JSONValue };
 
 export type WidenPrimitives<T> = T extends string
@@ -193,6 +290,11 @@ export type WidenPrimitives<T> = T extends string
   : T extends boolean
   ? boolean
   : T;
+
+export type FeatureEvalContext = {
+  id?: string;
+  evaluatedFeatures: Set<string>;
+};
 
 export type DOMMutation = {
   selector: string;
@@ -207,6 +309,7 @@ export type AutoExperimentVariation = {
   domMutations?: DOMMutation[];
   css?: string;
   js?: string;
+  urlRedirect?: string;
 };
 
 export type FeatureDefinitions = Record<string, FeatureDefinition>;
@@ -217,7 +320,12 @@ export type FeatureApiResponse = {
   encryptedFeatures?: string;
   experiments?: AutoExperiment[];
   encryptedExperiments?: string;
+  savedGroups?: SavedGroupsValues;
+  encryptedSavedGroups?: string;
 };
+
+// Alias
+export type GrowthBookPayload = FeatureApiResponse;
 
 // Polyfills required for non-standard browser environments (ReactNative, Node, etc.)
 // These are typed as `any` since polyfills like `node-fetch` are not 100% compatible with native types
@@ -231,6 +339,41 @@ export type Polyfills = {
   localStorage?: LocalStorageCompat;
 };
 
+export type Helpers = {
+  fetchFeaturesCall: ({
+    host,
+    clientKey,
+    headers,
+  }: {
+    host: string;
+    clientKey: string;
+    headers?: Record<string, string>;
+  }) => Promise<Response>;
+  fetchRemoteEvalCall: ({
+    host,
+    clientKey,
+    payload,
+    headers,
+  }: {
+    host: string;
+    clientKey: string;
+    // eslint-disable-next-line
+    payload: any;
+    headers?: Record<string, string>;
+  }) => Promise<Response>;
+  eventSourceCall: ({
+    host,
+    clientKey,
+    headers,
+  }: {
+    host: string;
+    clientKey: string;
+    headers?: Record<string, string>;
+  }) => EventSource;
+  startIdleListener: () => (() => void) | void;
+  stopIdleListener: () => void;
+};
+
 export interface LocalStorageCompat {
   getItem(key: string): string | null | Promise<string | null>;
   setItem(key: string, value: string): void | Promise<void>;
@@ -240,13 +383,30 @@ export type CacheSettings = {
   backgroundSync: boolean;
   cacheKey: string;
   staleTTL: number;
+  maxAge: number;
+  maxEntries: number;
+  disableIdleStreams: boolean;
+  idleStreamInterval: number;
+  disableCache: boolean;
 };
 
 export type ApiHost = string;
 export type ClientKey = string;
-export type RepositoryKey = `${ApiHost}||${ClientKey}`;
+
+export type InitOptions = {
+  timeout?: number;
+  skipCache?: boolean;
+  payload?: FeatureApiResponse;
+  streaming?: boolean;
+};
+
+export type InitSyncOptions = {
+  payload: FeatureApiResponse;
+  streaming?: boolean;
+};
 
 export type LoadFeaturesOptions = {
+  /** @deprecated */
   autoRefresh?: boolean;
   timeout?: number;
   skipCache?: boolean;
@@ -267,3 +427,14 @@ export interface Filter {
   // Only include these resulting ranges
   ranges: VariationRange[];
 }
+
+export type StickyAttributeKey = string; // `${attributeName}||${attributeValue}`
+export type StickyExperimentKey = string; // `${experimentId}__{version}`
+export type StickyAssignments = Record<StickyExperimentKey, string>;
+export interface StickyAssignmentsDocument {
+  attributeName: string;
+  attributeValue: string;
+  assignments: StickyAssignments;
+}
+
+export type SavedGroupsValues = Record<string, (string | number)[]>;

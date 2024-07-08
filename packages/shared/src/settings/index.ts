@@ -53,11 +53,17 @@ export const resolvers: Record<
     }
   ),
   defaultRole: genDefaultResolver("defaultRole"),
-  statsEngine: genDefaultResolver("statsEngine", {
-    project: "settings.statsEngine",
-    // experiment: true,
-    report: true,
-  }),
+  statsEngine: genDefaultResolver(
+    "statsEngine",
+    {
+      project: "settings.statsEngine",
+      experiment: true,
+      report: true,
+    },
+    {
+      bypassEmpty: true,
+    }
+  ),
   pValueThreshold: genDefaultResolver("pValueThreshold", {
     project: "settings.pValueThreshold",
     experiment: true,
@@ -71,12 +77,17 @@ export const resolvers: Record<
     experiment: true,
     report: true,
   }),
-  conversionDelayHours: genMetricOverrideResolver("conversionDelayHours"),
-  conversionWindowHours: genMetricOverrideResolver("conversionWindowHours"),
+  delayHours: genMetricOverrideResolver("delayHours"),
+  windowType: genMetricOverrideResolver("windowType"),
+  windowHours: genMetricOverrideResolver("windowHours"),
   winRisk: genMetricOverrideResolver("winRisk"),
   loseRisk: genMetricOverrideResolver("loseRisk"),
   secureAttributeSalt: genDefaultResolver("secureAttributeSalt"),
   killswitchConfirmation: genDefaultResolver("killswitchConfirmation"),
+  requireReviews: genDefaultResolver("requireReviews"),
+  featureKeyExample: genDefaultResolver("featureKeyExample"),
+  featureRegexValidator: genDefaultResolver("featureRegexValidator"),
+  // TODO prior resolvers
 };
 
 const scopeSettings = (
@@ -118,20 +129,15 @@ const normalizeInputSettings = (
 
   for (const key in baseSettings) {
     scopedSettings[key as keyof Settings] = {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error - todo: we need to figure out how to resolve the type
       value:
         inputSettings[key as keyof Settings] ??
         baseSettings[key as keyof Settings],
       meta: {
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-expect-error
         reason: "org-level setting applied",
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-expect-error
         scopeApplied: "organization",
       },
-    };
+      // eslint-disable-next-line
+    } as any;
   }
 
   return scopedSettings;

@@ -3,14 +3,15 @@ import Link from "next/link";
 import { PresentationInterface } from "back-end/types/presentation";
 import { FaPlus } from "react-icons/fa";
 import { date } from "shared/dates";
-import useApi from "../hooks/useApi";
-import LoadingOverlay from "../components/LoadingOverlay";
-import ShareModal from "../components/Share/ShareModal";
-import ConfirmModal from "../components/ConfirmModal";
-import { useAuth } from "../services/auth";
-import Modal from "../components/Modal";
-import CopyToClipboard from "../components/CopyToClipboard";
-import { useUser } from "../services/UserContext";
+import useApi from "@/hooks/useApi";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import ShareModal from "@/components/Share/ShareModal";
+import ConfirmModal from "@/components/ConfirmModal";
+import { useAuth } from "@/services/auth";
+import Modal from "@/components/Modal";
+import CopyToClipboard from "@/components/CopyToClipboard";
+import { useUser } from "@/services/UserContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const PresentationPage = (): React.ReactElement => {
   const [openNewPresentationModal, setOpenNewPresentationModal] = useState(
@@ -29,8 +30,13 @@ const PresentationPage = (): React.ReactElement => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const { getUserDisplay, permissions } = useUser();
+  const { getUserDisplay } = useUser();
+  const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
+
+  const canCreatePresentation = permissionsUtil.canCreatePresentation();
+  const canDeletePresentation = permissionsUtil.canDeletePresentation();
+  const canEditPresentation = permissionsUtil.canUpdatePresentation();
 
   const { data: p, error: error, mutate } = useApi<{
     presentations: PresentationInterface[];
@@ -61,7 +67,7 @@ const PresentationPage = (): React.ReactElement => {
           suggest tweaks and follow-up variations.
         </p>
 
-        {permissions.createPresentations && (
+        {canCreatePresentation && (
           <button
             className="btn btn-success btn-lg"
             onClick={() => {
@@ -151,73 +157,69 @@ const PresentationPage = (): React.ReactElement => {
                 </div>
               </div>
               <div className="">
-                {permissions.createPresentations && (
-                  <>
-                    <div
-                      className="delete delete-right"
-                      style={{ lineHeight: "36px" }}
-                      onClick={() => {
-                        deleteConfirm(pres.id);
-                      }}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        width="24"
-                      >
-                        <path d="M0 0h24v24H0V0z" fill="none" />
-                        <path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z" />
-                      </svg>
-                    </div>
-                    <div
-                      className="edit edit-right"
-                      style={{ lineHeight: "36px" }}
-                      onClick={() => {
-                        setSpecificPresentation(pres);
-                        setOpenEditPresentationModal(true);
-                      }}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        width="24"
-                      >
-                        <path d="M0 0h24v24H0V0z" fill="none" />
-                        <path d="M14.06 9.02l.92.92L5.92 19H5v-.92l9.06-9.06M17.66 3c-.25 0-.51.1-.7.29l-1.83 1.83 3.75 3.75 1.83-1.83c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.71-.29zm-3.6 3.19L3 17.25V21h3.75L17.81 9.94l-3.75-3.75z" />
-                      </svg>
-                    </div>
-                  </>
-                )}
-                <Link href={`/present/${pres.id}`}>
-                  <a
-                    className="btn btn-primary mr-3"
-                    target="_blank"
-                    rel="noreferrer"
+                {canDeletePresentation ? (
+                  <div
+                    className="delete delete-right"
+                    style={{ lineHeight: "36px" }}
+                    onClick={() => {
+                      deleteConfirm(pres.id);
+                    }}
                   >
-                    Present
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      fill="#fff"
-                      height="22"
+                      height="24"
                       viewBox="0 0 24 24"
-                      width="22"
+                      width="24"
                     >
-                      <path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18c.62-.39.62-1.29 0-1.69L9.54 5.98C8.87 5.55 8 6.03 8 6.82z" />
+                      <path d="M0 0h24v24H0V0z" fill="none" />
+                      <path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z" />
                     </svg>
-                  </a>
+                  </div>
+                ) : null}
+                {canEditPresentation ? (
+                  <div
+                    className="edit edit-right"
+                    style={{ lineHeight: "36px" }}
+                    onClick={() => {
+                      setSpecificPresentation(pres);
+                      setOpenEditPresentationModal(true);
+                    }}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      width="24"
+                    >
+                      <path d="M0 0h24v24H0V0z" fill="none" />
+                      <path d="M14.06 9.02l.92.92L5.92 19H5v-.92l9.06-9.06M17.66 3c-.25 0-.51.1-.7.29l-1.83 1.83 3.75 3.75 1.83-1.83c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.71-.29zm-3.6 3.19L3 17.25V21h3.75L17.81 9.94l-3.75-3.75z" />
+                    </svg>
+                  </div>
+                ) : null}
+                <Link
+                  href={`/present/${pres.id}`}
+                  className="btn btn-primary mr-3"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Present
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="#fff"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    width="22"
+                  >
+                    <path d="M8 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18c.62-.39.62-1.29 0-1.69L9.54 5.98C8.87 5.55 8 6.03 8 6.82z" />
+                  </svg>
                 </Link>
                 <Link
                   href={`/present/${pres.id}?exportMode=true&printMode=true`}
+                  className="btn btn-outline-primary mr-3"
+                  target="_blank"
+                  rel="noreferrer"
                 >
-                  <a
-                    className="btn btn-outline-primary mr-3"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Print view
-                  </a>
+                  Print view
                 </Link>
                 <a
                   className="btn btn-outline-primary mr-3"
@@ -242,7 +244,7 @@ const PresentationPage = (): React.ReactElement => {
       <div className="container-fluid pagecontents pt-4 shares learnings">
         <div className=" mb-3">
           <div className="share-list mb-3">{presList}</div>
-          {permissions.createPresentations && (
+          {canCreatePresentation && (
             <button
               className="btn btn-primary"
               onClick={() => {

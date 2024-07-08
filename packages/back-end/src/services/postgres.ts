@@ -1,13 +1,14 @@
 import { Client, ClientConfig } from "pg";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import { logger } from "../util/logger";
+import { QueryResponse } from "../types/Integration";
 
-export function runPostgresQuery<T>(
+export function runPostgresQuery(
   conn: PostgresConnectionParams,
   sql: string,
   values: string[] = []
-): Promise<T[]> {
-  return new Promise<T[]>((resolve, reject) => {
+): Promise<QueryResponse> {
+  return new Promise<QueryResponse>((resolve, reject) => {
     let ssl: false | ClientConfig["ssl"] = false;
     if (conn.ssl === true || conn.ssl === "true") {
       ssl = {
@@ -45,7 +46,7 @@ export function runPostgresQuery<T>(
         } catch (e) {
           logger.warn(e, "Postgres query failed");
         }
-        resolve(res.rows);
+        resolve({ rows: res.rows });
       })
       .catch((e) => {
         reject(e);

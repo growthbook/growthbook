@@ -5,11 +5,9 @@ sidebar_label: Mixpanel
 slug: mixpanel
 ---
 
-:::caution
+:::tip
 
-Using Mixpanel as a direct datasource is not advised and has been placed in maintenance mode. This is because because Mixpanel has placed JQL, their query language, in [maintenance mode](https://developer.mixpanel.com/reference/jql-overview) themselves. Therefore, our integration is limited and may unexpectedly break as they wind down support for JQL.
-
-In order to ensure long term compatibility with GrowthBook and to receive the full set of features available in GrowthBook, we suggest you set up an export to a data warehouse following [Mixpanel's documentation](https://developer.mixpanel.com/reference/raw-data-export-api) and then use that separate data warehouse (e.g. Snowflake, BigQuery) as your Data Source in GrowthBook.
+You can find a more detailed walk through for setting up Mixpanel [here](/guide/mixpanel)
 
 :::
 
@@ -20,5 +18,3 @@ To add the datasource in GrowthBook, you will need:
 1.  The service account username
 2.  The service account secret
 3.  Your project id (found on the Project Settings Overview page)
-
-You can find a more detailed walkthrough for setting up Mixpanel as your Event Tracker [here](/guide/mixpanel)

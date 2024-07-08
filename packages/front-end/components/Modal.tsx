@@ -3,8 +3,8 @@ import {
   useRef,
   useEffect,
   useState,
-  ReactElement,
   ReactNode,
+  CSSProperties,
 } from "react";
 import clsx from "clsx";
 import LoadingOverlay from "./LoadingOverlay";
@@ -13,16 +13,18 @@ import Tooltip from "./Tooltip/Tooltip";
 import { DocLink, DocSection } from "./DocLink";
 
 type ModalProps = {
-  header?: "logo" | string | ReactElement | boolean;
+  header?: "logo" | string | ReactNode | boolean;
   open: boolean;
   className?: string;
   submitColor?: string;
-  cta?: string;
-  closeCta?: string;
+  cta?: string | ReactNode;
+  closeCta?: string | ReactNode;
+  includeCloseCta?: boolean;
   ctaEnabled?: boolean;
   disabledMessage?: string;
   docSection?: DocSection;
   error?: string;
+  loading?: boolean;
   size?: "md" | "lg" | "max" | "fill";
   sizeY?: "max" | "fill";
   inline?: boolean;
@@ -32,21 +34,28 @@ type ModalProps = {
   solidOverlay?: boolean;
   close?: () => void;
   submit?: () => void | Promise<void>;
-  secondaryCTA?: ReactElement;
+  fullWidthSubmit?: boolean;
+  secondaryCTA?: ReactNode;
+  tertiaryCTA?: ReactNode;
   successMessage?: string;
   children: ReactNode;
   bodyClassName?: string;
+  formRef?: React.RefObject<HTMLFormElement>;
+  customValidation?: () => Promise<boolean> | boolean;
+  increasedElevation?: boolean;
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
   children,
   close,
   submit,
+  fullWidthSubmit = false,
   submitColor = "primary",
   open = true,
   cta = "Submit",
   ctaEnabled = true,
   closeCta = "Cancel",
+  includeCloseCta = true,
   disabledMessage,
   inline = false,
   size = "md",
@@ -58,9 +67,14 @@ const Modal: FC<ModalProps> = ({
   autoFocusSelector = "input:not(:disabled),textarea:not(:disabled),select:not(:disabled)",
   solidOverlay = false,
   error: externalError,
+  loading: externalLoading,
   secondaryCTA,
+  tertiaryCTA,
   successMessage,
   bodyClassName = "",
+  formRef,
+  customValidation,
+  increasedElevation,
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +87,10 @@ const Modal: FC<ModalProps> = ({
   useEffect(() => {
     setError(externalError || null);
   }, [externalError]);
+
+  useEffect(() => {
+    setLoading(externalLoading || false);
+  }, [externalLoading]);
 
   const bodyRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -153,7 +171,9 @@ const Modal: FC<ModalProps> = ({
       <div
         className={`modal-body ${bodyClassName}`}
         ref={bodyRef}
-        style={overflowAuto ? { overflowY: "auto" } : {}}
+        style={
+          overflowAuto ? { overflowY: "auto", scrollBehavior: "smooth" } : {}
+        }
       >
         {isSuccess ? (
           <div className="alert alert-success">{successMessage}</div>
@@ -161,7 +181,7 @@ const Modal: FC<ModalProps> = ({
           children
         )}
       </div>
-      {submit || close ? (
+      {submit || secondaryCTA || (close && includeCloseCta) ? (
         <div className="modal-footer">
           {error && (
             <div className="alert alert-danger mr-auto">
@@ -179,9 +199,12 @@ const Modal: FC<ModalProps> = ({
               body={disabledMessage || ""}
               shouldDisplay={!ctaEnabled && !!disabledMessage}
               tipPosition="top"
+              className={fullWidthSubmit ? "w-100" : ""}
             >
               <button
-                className={`btn btn-${ctaEnabled ? submitColor : "secondary"}`}
+                className={`btn btn-${submitColor} ${
+                  fullWidthSubmit ? "w-100" : ""
+                }`}
                 type="submit"
                 disabled={!ctaEnabled}
               >
@@ -191,7 +214,7 @@ const Modal: FC<ModalProps> = ({
           ) : (
             ""
           )}
-          {close && (
+          {close && includeCloseCta ? (
             <button
               className="btn btn-link"
               onClick={(e) => {
@@ -201,19 +224,22 @@ const Modal: FC<ModalProps> = ({
             >
               {isSuccess && successMessage ? "Close" : closeCta}
             </button>
-          )}
+          ) : null}
+          {tertiaryCTA}
         </div>
-      ) : (
-        ""
-      )}
+      ) : null}
     </div>
   );
 
-  const overlayStyle = solidOverlay
+  const overlayStyle: CSSProperties = solidOverlay
     ? {
         opacity: 1,
       }
     : {};
+
+  if (increasedElevation) {
+    overlayStyle.zIndex = 1500;
+  }
 
   const modalHtml = (
     <div
@@ -221,7 +247,7 @@ const Modal: FC<ModalProps> = ({
       style={{
         display: open ? "block" : "none",
         position: inline ? "relative" : undefined,
-        zIndex: inline ? 1 : undefined,
+        zIndex: inline ? 1 : increasedElevation ? 1550 : undefined,
       }}
     >
       <div
@@ -236,11 +262,20 @@ const Modal: FC<ModalProps> = ({
       >
         {submit && !isSuccess ? (
           <form
+            ref={formRef}
             onSubmit={async (e) => {
               e.preventDefault();
+              e.stopPropagation();
               if (loading) return;
               setError(null);
               setLoading(true);
+              if (customValidation) {
+                const resp = await customValidation();
+                if (resp === false) {
+                  setLoading(false);
+                  return;
+                }
+              }
               try {
                 await submit();
 

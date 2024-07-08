@@ -7,6 +7,7 @@ import {
 } from "../../types/organization";
 import { AuditInterface } from "../../types/audit";
 import { SSOConnectionInterface } from "../../types/sso-connection";
+import { TeamInterface } from "../../types/team";
 
 export type PermissionFunctions = {
   checkPermissions(permission: GlobalPermission): void;
@@ -33,9 +34,12 @@ export type AuthRequest<
   loginMethod?: SSOConnectionInterface;
   authSubject?: string;
   name?: string;
-  admin?: boolean;
+  superAdmin?: boolean;
   organization?: OrganizationInterface;
-  audit: (data: Partial<AuditInterface>) => Promise<void>;
+  teams: TeamInterface[];
+  audit: (
+    data: Omit<AuditInterface, "organization" | "id" | "user" | "dateCreated">
+  ) => Promise<void>;
 } & PermissionFunctions;
 
 export type ResponseWithStatusAndError<T = unknown> = Response<

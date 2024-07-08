@@ -1,11 +1,11 @@
-import { ago } from "@/../shared/dates";
+import { ago } from "shared/dates";
 import { cloneDeep } from "lodash";
 import { useState } from "react";
-import { TrackedEventData } from "@/../back-end/src/types/Integration";
-import Tooltip from "../Tooltip/Tooltip";
-import Toggle from "../Forms/Toggle";
-import Button from "../Button";
-import SQLInputField from "../SQLInputField";
+import { TrackedEventData } from "@back-end/src/types/Integration";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Toggle from "@/components/Forms/Toggle";
+import Button from "@/components/Button";
+import SQLInputField from "@/components/SQLInputField";
 
 type Props = {
   event: TrackedEventData;

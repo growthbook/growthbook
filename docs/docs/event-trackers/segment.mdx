@@ -5,7 +5,69 @@ sidebar_label: Segment
 slug: segment
 ---
 
-import MissingEventTrackerDocs from './missing-event-tracker-docs.mdx'
-const { title, description, sidebar_label, slug } = frontMatter
+# Configuring GrowthBook to work with Segment
 
-<MissingEventTrackerDocs eventTracker="Segment" slug={slug} />
+GrowthBook supports Segment as an event source for easily adding A/B testing to your application. This document is a
+how-to guide for setting up Segment with your application, connecting Segment to BigQuery and then connecting
+GrowthBook to this data.
+
+## 1. Setup Segment
+
+If you have already set up Segment, you can skip this step. Segment allows you to send events from your application to
+any data destination, and supports most data warehouse.
+
+## 2. Add Exposure Tracking Event
+
+To track when a user is exposed to an experiment from the client side, you'll want to add a Segment event call to your `trackingCallback` function. This function is called when a user is exposed to an experiment, and is passed the experiment name and variation name.
+
+```js
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  trackingCallback: (experiment, result) => {
+    // Example using Segment
+    analytics.track("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
+  }
+});
+```
+
+## 3. Connect GrowthBook to Your Warehouse
+
+Now that we have data flowing into a data warehouse, we need to have GrowthBook connect to it. It
+is best practice to create another service account for GrowthBook to connect to your data warehouse.
+
+<img
+  src="/images/new-data-sources-modal.png"
+  alt="Choose Segment data schema"
+  style={{ width: 500, margin: "0 auto" }}
+/>
+
+After choosing Segment you'll be presented with a connection window to connect to your data warehouses. Enter the connection credentials for your data warehouse.
+
+When successfully connected, you'll be redirected to the data source page. GrowthBook
+will automatically create the experiment exposure query which is need to determine which user saw which experiment variation.
+Depending on your needs, you may still need to adjust these queries - for instance if you're tracking both
+`anonymous_id` and `user_id`, you'll need to add the `user_id` query.
+
+## 3. Add Metrics
+
+GrowthBook needs to know what metrics you want to use in your experiments, and how to query this data from BigQuery.
+This step depends on your needs as an organization. Keep in mind that metric queries will be generic, returning all
+users who do an event, but will be joined to the experiment exposure information when determining the impact of
+experiment results.
+
+Metrics are added from the Analysis → Metrics menu.
+
+<img
+  src="/images/guides/metrics-addmetric.png"
+  alt="Choose Segment data schema"
+  style={{ width: 500, margin: "0 auto 20px" }}
+/>
+
+<img
+  src="/images/guides/metrics-metricoverview.png"
+  alt="Choose Segment data schema"
+/>

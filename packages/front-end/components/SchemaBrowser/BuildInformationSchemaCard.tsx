@@ -1,32 +1,14 @@
-import { useState } from "react";
-import { useAuth } from "@/services/auth";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function BuildInformationSchemaCard({
-  datasourceId,
-  setFetching,
+  refreshOrCreateInfoSchema,
+  canRunQueries,
+  error,
 }: {
-  datasourceId: string;
-  setFetching: (fetching: boolean) => void;
+  refreshOrCreateInfoSchema: (type: "PUT" | "POST") => void;
+  canRunQueries: boolean;
+  error: string | null;
 }) {
-  const [error, setError] = useState<null | string>(null);
-  const { apiCall } = useAuth();
-
-  async function onClick() {
-    setError(null);
-    try {
-      await apiCall<{
-        status: number;
-        message?: string;
-      }>(`/datasource/${datasourceId}/schema`, {
-        method: "POST",
-      });
-      setFetching(true);
-    } catch (e) {
-      setFetching(false);
-      setError(e.message);
-    }
-  }
-
   return (
     <div>
       <div className="alert alert-info">
@@ -36,15 +18,21 @@ export default function BuildInformationSchemaCard({
             into what tables and columns are available in the datasource.
           </span>
         </div>
-        <button
-          className="mt-2 btn btn-primary"
-          onClick={async (e) => {
-            e.preventDefault();
-            onClick();
-          }}
+        <Tooltip
+          body="You do not have permission to generate an information schema for this datasource."
+          shouldDisplay={!canRunQueries}
         >
-          Generate Information Schema
-        </button>
+          <button
+            disabled={!canRunQueries}
+            className="mt-2 btn btn-primary"
+            onClick={async (e) => {
+              e.preventDefault();
+              refreshOrCreateInfoSchema("POST");
+            }}
+          >
+            Generate Information Schema
+          </button>
+        </Tooltip>
       </div>
       {error && <div className="alert alert-danger">{error}</div>}
     </div>

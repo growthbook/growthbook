@@ -22,7 +22,7 @@ We would love to help you get started with GrowthBook. You can [meet with us](ht
 ### Quick Links
 
 <div className="row is-multiline">
-    <div className="col col--4">
+    <div className="col col--6">
         <ButtonCard
             to={'/overview'}
             title="How it works"
@@ -31,28 +31,18 @@ We would love to help you get started with GrowthBook. You can [meet with us](ht
             color="default"
         ></ButtonCard>
     </div>
-        <div className="col col--4">
-            <ButtonCard
-                to={'/self-host'}
-                title="Self-Host"
-                description="Learn about running GrowthBook on your own infrastructure"
-                style={{ height: '100%' }}
-            ></ButtonCard>
-        </div>
-    <div className="col col--4">
-        <ButtonCard
-            to={'/lib'}
-            title="SDK Docs"
-            description="Learn about the GrowthBook SDKs"
-            style={{ height: '100%' }}
-            color="default"
-        ></ButtonCard>
-    </div>
+  <div className="col col--6">
+    <ButtonCard
+      to={'/quick-start'}
+      title="Quick Start"
+      description="Get GrowthBook running in 10 minutes"
+      style={{ height: '100%' }}
+    ></ButtonCard>
+  </div>
   <div className="col margin-top--md">
     <ButtonCard
-      aLink={true}
-      to={'/open-guide-to-ab-testing.v1.0.pdf'}
-      title="Get our open source guide to successful A/B testing"
+      to={'/using'}
+      title="Get our open source guide to successful A/B testing and using GrowthBook"
       description="This guide outlines everything you need to know as you scale up experimentation at your company. It covers everything from foundational knowledge (“what is an A/B test?”) to advanced topics and common mistakes."
       style={{ height: '100%' }}
       color="default"
@@ -67,15 +57,19 @@ They do this in part because they want to run these systems on their own infrast
 
 GrowthBook gives data, engineering, and product teams the power of a customizable platform without needing to build it yourself.
 
-We believe that **feature flagging** is the best way to deploy features and easily adopt an experimentation culture.
+- We believe that **feature flagging** is the best way to release features and **A/B testing** is the best way to measure features impact.
 
-We believe A/B testing should sit on top of your **existing data and metrics**, wherever they live and however they are defined.
+- We believe A/B testing should sit on top of your **existing data and metrics**, wherever they live and however they are defined.
 
-We believe in **data transparency**. You can export results as a Jupyter notebook and our Bayesian stats engine is developed out in the open on [GitHub](https://github.com/growthbook/growthbook/tree/main/packages/stats).
+- We believe in **data transparency**. You view all SQL behind every query, can export results as a Jupyter notebook, and view our stats engines on [GitHub](https://github.com/growthbook/growthbook/tree/main/packages/stats).
 
-We are fanatical about **performance**. Our [SDKs](/lib) are crazy fast and light-weight and evaluate everything locally with no network requests.
+- We are fanatical about **performance**. Our [SDKs](/lib) are crazy fast and light-weight and evaluate everything locally with no network requests.
 
-We believe good ideas come from everywhere. GrowthBook gives you feature flags so its easy to **test everything** and make experimentation part of your process.
+- We believe in **open source**. GrowthBook is open source and free to use. You can run it on your own infrastructure or use our hosted version.
+
+- We believe in **privacy & security**. We don't collect any data about your users, and you can run GrowthBook on your own infrastructure.
+
+- We believe good ideas come from everywhere. GrowthBook gives you feature flags so its easy to **test everything** and make experimentation part of your process.
 
 ## Documentation
 

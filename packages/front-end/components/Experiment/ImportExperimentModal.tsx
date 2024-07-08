@@ -1,8 +1,11 @@
 import { FC, useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
-import Modal from "../Modal";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import Modal from "@/components/Modal";
+import SelectField from "@/components/Forms/SelectField";
 import ImportExperimentList from "./ImportExperimentList";
 import NewExperimentForm from "./NewExperimentForm";
 
@@ -19,25 +22,40 @@ const ImportExperimentModal: FC<{
   source,
   fromFeature = false,
 }) => {
-  const { datasources } = useDefinitions();
+  const settings = useOrgSettings();
+  const { datasources, project } = useDefinitions();
   const [
     selected,
     setSelected,
   ] = useState<null | Partial<ExperimentInterfaceStringDates>>(
     initialValue ?? null
   );
+  const [error, setError] = useState<string | null>(null);
   const [importModal, setImportModal] = useState<boolean>(importMode);
   const [datasourceId, setDatasourceId] = useState(() => {
-    if (!datasources) return null;
-    return (
-      datasources.filter((d) => d?.properties?.pastExperiments)?.[0]?.id ?? null
-    );
+    const validDatasources = datasources
+      .filter((d) => d.properties?.pastExperiments)
+      .filter((d) => isProjectListValidForProject(d.projects, project));
+
+    if (!validDatasources?.length) return null;
+
+    if (settings?.defaultDataSource) {
+      const ds = validDatasources.find(
+        (d) => d.id === settings.defaultDataSource
+      );
+      if (ds) {
+        return ds.id;
+      }
+    }
+
+    return validDatasources[0].id;
   });
   const [importId, setImportId] = useState<string | null>(null);
 
   const { apiCall } = useAuth();
 
   const getImportId = async () => {
+    setError(null);
     if (datasourceId) {
       try {
         const res = await apiCall<{ id: string }>("/experiments/import", {
@@ -50,6 +68,9 @@ const ImportExperimentModal: FC<{
           setImportId(res.id);
         }
       } catch (e) {
+        setError(
+          e.message ?? "An error occurred. Please refresh and try again."
+        );
         console.error(e);
       }
     }
@@ -100,6 +121,17 @@ const ImportExperimentModal: FC<{
           importId={importId}
         />
       )}
+      {error ? (
+        <>
+          <div className="alert alert-danger">{error}</div>
+          <SelectField
+            label="Choose a Data Source"
+            value={datasourceId}
+            onChange={(value) => setDatasourceId(value)}
+            options={datasources.map((d) => ({ label: d.name, value: d.id }))}
+          />
+        </>
+      ) : null}
     </Modal>
   );
 };

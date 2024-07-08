@@ -1,0 +1,75 @@
+# Experimentation Best Practices
+
+## Running experiments
+
+### Running Your First Experiment
+
+When you’ve finished integrating your experimentation platform (which for GrowthBook, is adding the
+SDK to your code), it’s time to start running an experiment. We suggest that you first an A/A test to
+validate your experimentation implementation is correctly splitting traffic, and producing statistically
+valid results.
+
+### Sample Sizes
+
+Understanding experiment power and MDE are important to predict how many samples are required.
+There are numerous online calculators that can be used to help you predict the sample size. Typical
+rule of thumb for the lowest number of samples required is that you want at least 100 conversion
+events per variation. So for example if you have a registration page which has a 10% conversion rate,
+and you have a 2 way (A and B) experiment that is looking to improve the member registrations, you
+will want to expose the experiment to at least 2,000 people (1000 per variation).
+
+### Test Duration
+
+Due to the natural variability in traffic day to day and hour to hour, experimentation teams will often set
+a minimum test duration within which a test cannot be called. This helps you avoid optimizing a product
+for just the users that happen to visit when the test is started. For example, if the weekend traffic of
+your product is different from the traffic during the week, if you started a test on Friday and ended it on
+Monday, you may not get a complete picture of the impact your changes have to your weekday traffic.
+Typical test durations are 1 to 2 weeks, and usually care needs to be taken over holidays.
+
+You may also find that a test would need to run for a month or more to get the power required for the
+experiment. Very long running tests can be hard to justify as you have to keep the variations of the
+experiment unchanged for duration, and this may limit your team's velocity towards potentially higher
+impact changes.
+
+### Interaction Effects and Mutual Exclusion
+
+When you start having the ability to run a lot of A/B tests, it can be tempting to not want to run tests in
+parallel in case they have interaction effects (see above). For example you may want to test a change in the CTA
+button on your purchase page, and also test changing the price. It can be difficult to figure out if any
+two tests will meaningfully interact, and many will run the tests in serial in an abundance of caution.
+
+However, meaningful interactions are actually quite rare, and keeping a higher rate of experimentation
+is usually more beneficial. You can run analysis after the experiments to see if there were any
+interaction effects which would change your conclusions (GrowthBook is working on an integrated solution for
+this). If you need to run mutually exclusive tests, you can use GrowthBook’s [namespace](/features/rules#namespaces) feature.
+
+### Experimentation Frequency
+
+Having a high frequency of A/B testing is important for running a success experimentation program.
+The main reasons why experimentation frequency is important are:
+
+**Maximizing chances**: Since success rates are typically low for any given experiment, and large changes
+are even more rare, by having a high frequency of A/B testing you are maximizing your chance of
+having impactful experiments.
+
+**Continuous improvement**: A high frequency of A/B testing allows you to continuously improve your
+website or application. By testing small changes frequently, you can quickly identify and implement
+changes that improve user experience, engagement, and conversion rates.
+
+**Adaptability**: A high frequency of A/B testing allows you to quickly adapt to changes in user behavior,
+market trends, or other external factors that may impact your website or application. By testing
+frequently, you can identify and respond to these changes more quickly, ensuring that your site or app
+remains relevant and effective.
+
+**Avoiding stagnation**: A high frequency of A/B testing can help you avoid stagnation and complacency.
+By continually testing and experimenting, you can avoid falling into a rut or becoming overly attached
+to a specific design or strategy, and instead remain open to new ideas and approaches.
+
+:::tip Quote
+
+**_&#8220;If you want to have good ideas you must have many ideas. Most of them will be wrong, and what you have to learn is which ones to throw away.&#8221;_**
+
+<div style={{textAlign: 'right', marginTop: '1rem'}}>- Linus Pauling</div>
+
+:::

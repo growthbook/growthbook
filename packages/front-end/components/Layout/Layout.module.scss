@@ -1,6 +1,6 @@
 @import "../../styles/colors.scss";
 $sidebarwidth: 240px;
-$expandedwidth: 280px;
+$expandedwidth: 240px;
 $collapsedSidebarwidth: 70px;
 $topbarheight: 60px;
 
@@ -15,8 +15,7 @@ $topbarheight: 60px;
   color: #fff;
   overflow: hidden;
   overflow-y: auto;
-  font-family: Poppins, sans-serif;
-  z-index: 990;
+  z-index: 1000;
 }
 .sidebarlogo {
   padding: 8px 20px 8px;
@@ -64,7 +63,7 @@ $topbarheight: 60px;
     width: $expandedwidth;
     left: -$expandedwidth;
     padding-top: 60px;
-    z-index: 900;
+    z-index: 1000;
   }
   .sidebaropen {
     left: 0;

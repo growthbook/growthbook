@@ -18,7 +18,7 @@ import { StatsEngine } from "back-end/types/stats";
 import { pValueFormatter } from "@/services/experiments";
 import styles from "./ExperimentDateGraph.module.scss";
 
-interface DataPointVariation {
+export interface DataPointVariation {
   v: number;
   v_formatted: string;
   users?: number; // used for uplift plot tooltips
@@ -33,11 +33,12 @@ export interface ExperimentDateGraphDataPoint {
   variations: DataPointVariation[];
 }
 export interface ExperimentDateGraphProps {
-  yaxis: "users" | "uplift";
+  yaxis: "users" | "effect";
   variationNames: string[];
   label: string;
   datapoints: ExperimentDateGraphDataPoint[];
-  tickFormat: (v: number) => string;
+  formatter: (value: number, options?: Intl.NumberFormatOptions) => string;
+  formatterOptions?: Intl.NumberFormatOptions;
   statsEngine?: StatsEngine;
   hasStats?: boolean;
 }
@@ -53,7 +54,7 @@ type TooltipData = {
   x: number;
   y: number[];
   d: ExperimentDateGraphDataPoint;
-  yaxis: "users" | "uplift";
+  yaxis: "users" | "effect";
 };
 
 const height = 220;
@@ -64,6 +65,8 @@ const getTooltipContents = (
   data: TooltipData,
   variationNames: string[],
   statsEngine: StatsEngine,
+  formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
+  formatterOptions?: Intl.NumberFormatOptions,
   hasStats: boolean = true
 ) => {
   const { d, yaxis } = data;
@@ -71,7 +74,7 @@ const getTooltipContents = (
     <>
       <table
         className={`table-condensed ${styles.table} ${
-          yaxis !== "uplift" && "mt-1"
+          yaxis !== "effect" && "mt-1"
         }`}
       >
         <thead>
@@ -79,10 +82,10 @@ const getTooltipContents = (
             <td></td>
             <td>Users</td>
 
-            {yaxis === "uplift" && (
+            {yaxis === "effect" && (
               <>
                 <td>Value</td>
-                <td>Uplift</td>
+                <td>Change</td>
                 {hasStats && (
                   <>
                     <td>CI</td>
@@ -109,7 +112,7 @@ const getTooltipContents = (
                   {v}
                 </td>
                 {yaxis === "users" && <td>{d.variations[i].v_formatted}</td>}
-                {yaxis === "uplift" && (
+                {yaxis === "effect" && (
                   <>
                     <td>{d.variations[i].users}</td>
                     <td>{d.variations[i].v_formatted}</td>
@@ -117,7 +120,7 @@ const getTooltipContents = (
                       {i > 0 && (
                         <>
                           {((variation.up ?? 0) > 0 ? "+" : "") +
-                            percentFormatter.format(variation.up ?? 0)}
+                            formatter(variation.up ?? 0, formatterOptions)}
                         </>
                       )}
                     </td>
@@ -127,9 +130,15 @@ const getTooltipContents = (
                           {i > 0 && (
                             <>
                               [
-                              {percentFormatter.format(variation?.ci?.[0] ?? 0)}
+                              {formatter(
+                                variation?.ci?.[0] ?? 0,
+                                formatterOptions
+                              )}
                               ,{" "}
-                              {percentFormatter.format(variation?.ci?.[1] ?? 0)}
+                              {formatter(
+                                variation?.ci?.[1] ?? 0,
+                                formatterOptions
+                              )}
                               ]
                             </>
                           )}
@@ -166,7 +175,7 @@ const getTooltipData = (
   datapoints: ExperimentDateGraphDataPoint[],
   yScale: ScaleLinear<number, number, never>,
   xScale,
-  yaxis: "users" | "uplift"
+  yaxis: "users" | "effect"
 ): TooltipData => {
   const innerWidth =
     width - margin[1] - margin[3] + width / datapoints.length - 1;
@@ -183,11 +192,11 @@ const getTooltipData = (
   return { x, y, d, yaxis };
 };
 
-const getYVal = (variation: DataPointVariation, yaxis: "users" | "uplift") => {
+const getYVal = (variation: DataPointVariation, yaxis: "users" | "effect") => {
   switch (yaxis) {
     case "users":
       return variation.v;
-    case "uplift":
+    case "effect":
       return variation.up ?? 0;
     default:
       return variation.v;
@@ -199,7 +208,8 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   datapoints,
   variationNames,
   label,
-  tickFormat,
+  formatter,
+  formatterOptions,
   statsEngine = "bayesian",
   hasStats = true,
 }) => {
@@ -325,6 +335,8 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   tooltipData,
                   variationNames,
                   statsEngine,
+                  formatter,
+                  formatterOptions,
                   hasStats
                 )}
               </TooltipWithBounds>
@@ -357,7 +369,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
               {tooltipOpen && (
                 <>
                   {variationNames.map((v, i) => {
-                    if (yaxis === "uplift" && i === 0) {
+                    if (yaxis === "effect" && i === 0) {
                       return;
                     }
                     // Render a dot at the current x location for each variation
@@ -376,20 +388,6 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                     className={styles.crosshair}
                     style={{ transform: `translateX(${tooltipLeft}px)` }}
                   />
-                  {/*{tooltipData && (*/}
-                  {/*  <TooltipWithBounds*/}
-                  {/*    left={tooltipLeft}*/}
-                  {/*    top={tooltipTop}*/}
-                  {/*    className={styles.tooltip}*/}
-                  {/*    unstyled={true}*/}
-                  {/*  >*/}
-                  {/*    {getTooltipContents(*/}
-                  {/*      tooltipData,*/}
-                  {/*      variationNames,*/}
-                  {/*      statsEngine*/}
-                  {/*    )}*/}
-                  {/*  </TooltipWithBounds>*/}
-                  {/*)}*/}
                 </>
               )}
             </div>
@@ -410,8 +408,8 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 />
 
                 {variationNames.map((v, i) => {
-                  if (yaxis === "uplift" && i === 0) {
-                    return;
+                  if (yaxis === "effect" && i === 0) {
+                    return <></>;
                   }
                   // Render a shaded area for error bars for each variation if defined
                   return (
@@ -433,8 +431,8 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 })}
 
                 {variationNames.map((v, i) => {
-                  if (yaxis === "uplift" && i === 0) {
-                    return;
+                  if (yaxis === "effect" && i === 0) {
+                    return <></>;
                   }
                   // Render the actual line chart for each variation
                   return (
@@ -467,7 +465,8 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 <AxisLeft
                   scale={yScale}
                   numTicks={numYTicks}
-                  tickFormat={(v) => tickFormat(v as number)}
+                  labelOffset={50}
+                  tickFormat={(v) => formatter(v as number, formatterOptions)}
                   tickLabelProps={() => ({
                     fill: "var(--text-color-table)",
                     fontSize: 11,

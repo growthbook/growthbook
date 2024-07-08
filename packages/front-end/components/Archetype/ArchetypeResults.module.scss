@@ -1,0 +1,58 @@
+@import "../../styles/colors.scss";
+
+.closeButton {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 0 10px;
+  cursor: pointer;
+  color: var(--alert-danger-color);
+}
+.expandedRow {
+  background-color: rgb(192, 214, 234, 0.13);
+}
+.cellExpanded {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0) 98%,
+    var(--form-switch-background) 98%,
+    var(--form-switch-background) 100%
+  );
+  position: relative;
+  font-weight: bold;
+}
+.valueCell {
+}
+.rowExpanded {
+}
+.tooltiplog {
+}
+.resultsBox {
+  background-color: var(--surface-background-color);
+  min-height: 140px;
+
+  .resultsHeader {
+    text-align: center;
+  }
+  .resultsExpand {
+    background-color: rgb(192, 214, 234, 0.2);
+    color: var(--alert-success-color);
+    text-align: center;
+    width: 100%;
+  }
+  .resultsTable {
+    width: 100%;
+    th {
+      font-weight: 400;
+    }
+    td {
+      font-weight: bold;
+      width: 50%;
+      padding: 6px 0;
+    }
+  }
+}
+.disabledResult {
+  opacity: 0.6;
+}

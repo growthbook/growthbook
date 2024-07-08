@@ -60,6 +60,9 @@ tags:
   - name: projects
     x-displayName: Projects
     description: Projects are used to organize your feature flags and experiments
+  - name: environments
+    x-displayName: Environments
+    description: 'GrowthBook comes with one environment by default (production), but you can add as many as you need. When used with feature flags, you can enable/disable feature flags on a per-environment basis.'
   - name: features
     x-displayName: Feature Flags
     description: Control your feature flags programatically
@@ -87,12 +90,27 @@ tags:
   - name: saved-groups
     x-displayName: Saved Groups
     description: Defined sets of attribute values which can be used with feature rules for targeting features at particular users.
+  - name: organizations
+    x-displayName: Organizations
+    description: Organizations are used for multi-org deployments where different teams can run their own isolated feature flags and experiments. These endpoints are only via a super-admin's Personal Access Token.
+  - name: fact-tables
+    x-displayName: Fact Tables
+    description: Fact Tables describe the shape of your data warehouse tables
+  - name: fact-metrics
+    x-displayName: Fact Metrics
+    description: Fact Metrics are metrics built on top of Fact Table definitions
+  - name: code-references
+    x-displayName: Code References
+    description: 'Intended for use with our code reference CI utility, [`gb-find-code-refs`](https://github.com/growthbook/gb-find-code-refs).'
   - name: DataSource_model
     x-displayName: DataSource
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
   - name: Dimension_model
     x-displayName: Dimension
     description: <SchemaDefinition schemaRef="#/components/schemas/Dimension" />
+  - name: Environment_model
+    x-displayName: Environment
+    description: <SchemaDefinition schemaRef="#/components/schemas/Environment" />
   - name: Experiment_model
     x-displayName: Experiment
     description: <SchemaDefinition schemaRef="#/components/schemas/Experiment" />
@@ -105,6 +123,15 @@ tags:
   - name: ExperimentResults_model
     x-displayName: ExperimentResults
     description: <SchemaDefinition schemaRef="#/components/schemas/ExperimentResults" />
+  - name: FactMetric_model
+    x-displayName: FactMetric
+    description: <SchemaDefinition schemaRef="#/components/schemas/FactMetric" />
+  - name: FactTable_model
+    x-displayName: FactTable
+    description: <SchemaDefinition schemaRef="#/components/schemas/FactTable" />
+  - name: FactTableFilter_model
+    x-displayName: FactTableFilter
+    description: <SchemaDefinition schemaRef="#/components/schemas/FactTableFilter" />
   - name: Feature_model
     x-displayName: Feature
     description: <SchemaDefinition schemaRef="#/components/schemas/Feature" />
@@ -114,6 +141,9 @@ tags:
   - name: FeatureEnvironment_model
     x-displayName: FeatureEnvironment
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureEnvironment" />
+  - name: FeatureExperimentRefRule_model
+    x-displayName: FeatureExperimentRefRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureExperimentRefRule" />
   - name: FeatureExperimentRule_model
     x-displayName: FeatureExperimentRule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureExperimentRule" />
@@ -129,6 +159,9 @@ tags:
   - name: Metric_model
     x-displayName: Metric
     description: <SchemaDefinition schemaRef="#/components/schemas/Metric" />
+  - name: Organization_model
+    x-displayName: Organization
+    description: <SchemaDefinition schemaRef="#/components/schemas/Organization" />
   - name: PaginationFields_model
     x-displayName: PaginationFields
     description: <SchemaDefinition schemaRef="#/components/schemas/PaginationFields" />
@@ -181,10 +214,230 @@ paths:
                         items:
                           $ref: '#/components/schemas/Feature'
                   - $ref: '#/components/schemas/PaginationFields'
+    post:
+      summary: Create a single feature
+      parameters: []
+      tags:
+        - features
+      operationId: postFeature
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/features \
+              -d '{ "id": "test-01", "description": "A cool feature", ... }'
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - owner
+                - valueType
+                - defaultValue
+              properties:
+                id:
+                  type: string
+                  minLength: 1
+                  description: 'A unique key name for the feature. Feature keys can only include letters, numbers, hyphens, and underscores.'
+                archived:
+                  type: boolean
+                description:
+                  type: string
+                  description: Description of the feature
+                owner:
+                  type: string
+                  description: Email of the person who owns this experiment
+                project:
+                  type: string
+                  description: An associated project ID
+                valueType:
+                  type: string
+                  description: The data type of the feature payload. Boolean by default.
+                  enum:
+                    - boolean
+                    - string
+                    - number
+                    - json
+                defaultValue:
+                  description: Default value when feature is enabled. Type must match `valueType`.
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  description: List of associated tags
+                environments:
+                  type: object
+                  description: A dictionary of environments that are enabled for this feature. Keys supply the names of environments. Environments belong to organization and are not specified will be disabled by default.
+                  additionalProperties:
+                    type: object
+                    required:
+                      - enabled
+                      - rules
+                    properties:
+                      enabled:
+                        type: boolean
+                      rules:
+                        type: array
+                        items:
+                          anyOf:
+                            - type: object
+                              required:
+                                - type
+                                - value
+                              properties:
+                                description:
+                                  type: string
+                                condition:
+                                  type: string
+                                  description: Applied to everyone by default.
+                                savedGroupTargeting:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - matchType
+                                      - savedGroups
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
+                                id:
+                                  type: string
+                                enabled:
+                                  type: boolean
+                                  description: Enabled by default
+                                type:
+                                  type: string
+                                  enum:
+                                    - force
+                                value:
+                                  type: string
+                            - type: object
+                              required:
+                                - type
+                                - value
+                                - coverage
+                                - hashAttribute
+                              properties:
+                                description:
+                                  type: string
+                                condition:
+                                  type: string
+                                  description: Applied to everyone by default.
+                                savedGroupTargeting:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - matchType
+                                      - savedGroups
+                                    properties:
+                                      matchType:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - any
+                                          - none
+                                      savedGroups:
+                                        type: array
+                                        items:
+                                          type: string
+                                id:
+                                  type: string
+                                enabled:
+                                  type: boolean
+                                  description: Enabled by default
+                                type:
+                                  type: string
+                                  enum:
+                                    - rollout
+                                value:
+                                  type: string
+                                coverage:
+                                  type: number
+                                  description: Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.
+                                hashAttribute:
+                                  type: string
+                            - type: object
+                              required:
+                                - type
+                                - variations
+                                - experimentId
+                              properties:
+                                description:
+                                  type: string
+                                id:
+                                  type: string
+                                enabled:
+                                  type: boolean
+                                  description: Enabled by default
+                                type:
+                                  type: string
+                                  enum:
+                                    - experiment-ref
+                                condition:
+                                  type: string
+                                variations:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required:
+                                      - value
+                                      - variationId
+                                    properties:
+                                      value:
+                                        type: string
+                                      variationId:
+                                        type: string
+                                experimentId:
+                                  type: string
+                      definition:
+                        type: string
+                        description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
+                      draft:
+                        type: object
+                        description: Use to write draft changes without publishing them.
+                        required:
+                          - rules
+                        properties:
+                          enabled:
+                            type: boolean
+                          rules:
+                            type: array
+                            items:
+                              $ref: '#/paths/~1features/post/requestBody/content/application~1json/schema/properties/environments/additionalProperties/properties/rules/items'
+                          definition:
+                            type: string
+                            description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
+                jsonSchema:
+                  type: string
+                  description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - feature
+                properties:
+                  feature:
+                    $ref: '#/components/schemas/Feature'
   '/features/{id}':
-    parameters:
-      - $ref: '#/components/parameters/id'
     get:
+      parameters:
+        - $ref: '#/components/parameters/id'
       summary: Get a single feature
       tags:
         - features
@@ -194,6 +447,61 @@ paths:
           source: |
             curl https://api.growthbook.io/api/v1/features/my_feature \
               -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - feature
+                properties:
+                  feature:
+                    $ref: '#/components/schemas/Feature'
+    post:
+      summary: Partially update a feature
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - features
+      operationId: updateFeature
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/features/test-01 \
+              -d '{ "description": "A cool feature flag", ... }'
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description:
+                  type: string
+                  description: Description of the feature
+                archived:
+                  type: boolean
+                project:
+                  type: string
+                  description: An associated project ID
+                owner:
+                  type: string
+                defaultValue:
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  description: List of associated tags. Will override tags completely with submitted list
+                environments:
+                  type: object
+                  additionalProperties:
+                    $ref: '#/paths/~1features/post/requestBody/content/application~1json/schema/properties/environments/additionalProperties'
+                jsonSchema:
+                  type: string
+                  description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
       responses:
         '200':
           content:
@@ -217,9 +525,8 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/features/my-feature/toggle \
-              -u secret_abc123DEF456: \
-              -d "environments[production]"=false \
-              -d reason="Kill switch activated"
+              -d '{ "reason": "Kill switch activated", "environments": { "production": false } }' \
+              -u secret_abc123DEF456:
       requestBody:
         required: true
         content:
@@ -255,6 +562,27 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/Feature'
+  /feature-keys:
+    get:
+      summary: Get list of feature keys
+      tags:
+        - features
+      parameters:
+        - $ref: '#/components/parameters/projectId'
+      operationId: getFeatureKeys
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/feature-keys?projectId=prj_5l652 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
   /projects:
     get:
       summary: Get all projects
@@ -284,10 +612,53 @@ paths:
                         items:
                           $ref: '#/components/schemas/Project'
                   - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - projects
+      summary: Create a single project
+      operationId: postProject
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/projects \
+              -d '{"name":"My Project", "description": "Super cool project"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                settings:
+                  description: Project settings.
+                  type: object
+                  properties:
+                    statsEngine:
+                      description: Stats engine.
+                      type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - project
+                properties:
+                  project:
+                    $ref: '#/components/schemas/Project'
   '/projects/{id}':
-    parameters:
-      - $ref: '#/components/parameters/id'
     get:
+      parameters:
+        - $ref: '#/components/parameters/id'
       summary: Get a single project
       tags:
         - projects
@@ -308,6 +679,75 @@ paths:
                 properties:
                   project:
                     $ref: '#/components/schemas/Project'
+    put:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - projects
+      summary: Edit a single project
+      operationId: putProject
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X PUT https://api.growthbook.io/api/v1/projects/proj_abc123 \
+              -d '{ "name": "My Subsidiary" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  description: Project name.
+                  type: string
+                description:
+                  description: Project description.
+                  type: string
+                settings:
+                  description: Project settings.
+                  type: object
+                  properties:
+                    statsEngine:
+                      description: Stats engine.
+                      type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - project
+                properties:
+                  project:
+                    $ref: '#/components/schemas/Project'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - projects
+      summary: Deletes a single project
+      operationId: deleteProject
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/projects/prj__123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - project
+                properties:
+                  deletedId:
+                    type: string
+                    description: The ID of the deleted project
+                    example: prj__123abc
   /dimensions:
     get:
       summary: Get all dimensions
@@ -429,6 +869,10 @@ paths:
           in: query
           schema:
             type: string
+        - name: multiOrg
+          in: query
+          schema:
+            type: string
       operationId: listSdkConnections
       x-codeSamples:
         - lang: cURL
@@ -450,10 +894,73 @@ paths:
                         items:
                           $ref: '#/components/schemas/SdkConnection'
                   - $ref: '#/components/schemas/PaginationFields'
+    post:
+      summary: Create a single sdk connection
+      tags:
+        - sdk-connections
+      operationId: postSdkConnection
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/sdk-connections \
+              -d '{ name: "new-connection", ... }'
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - language
+                - environment
+              properties:
+                name:
+                  type: string
+                language:
+                  type: string
+                sdkVersion:
+                  type: string
+                environment:
+                  type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+                encryptPayload:
+                  type: boolean
+                includeVisualExperiments:
+                  type: boolean
+                includeDraftExperiments:
+                  type: boolean
+                includeExperimentNames:
+                  type: boolean
+                includeRedirectExperiments:
+                  type: boolean
+                proxyEnabled:
+                  type: boolean
+                proxyHost:
+                  type: string
+                hashSecureAttributes:
+                  type: boolean
+                remoteEvalEnabled:
+                  type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - sdkConnection
+                properties:
+                  sdkConnection:
+                    $ref: '#/components/schemas/SdkConnection'
   '/sdk-connections/{id}':
-    parameters:
-      - $ref: '#/components/parameters/id'
     get:
+      parameters:
+        - $ref: '#/components/parameters/id'
       summary: Get a single sdk connection
       tags:
         - sdk-connections
@@ -474,6 +981,90 @@ paths:
                 properties:
                   sdkConnection:
                     $ref: '#/components/schemas/SdkConnection'
+    put:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      summary: Update a single sdk connection
+      tags:
+        - sdk-connections
+      operationId: putSdkConnection
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X PUT https://api.growthbook.io/api/v1/sdk-connections/connection_id \
+              -d '{ name: "new-connection", ... }'
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                language:
+                  type: string
+                sdkVersion:
+                  type: string
+                environment:
+                  type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+                encryptPayload:
+                  type: boolean
+                includeVisualExperiments:
+                  type: boolean
+                includeDraftExperiments:
+                  type: boolean
+                includeExperimentNames:
+                  type: boolean
+                includeRedirectExperiments:
+                  type: boolean
+                proxyEnabled:
+                  type: boolean
+                proxyHost:
+                  type: string
+                hashSecureAttributes:
+                  type: boolean
+                remoteEvalEnabled:
+                  type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - sdkConnection
+                properties:
+                  sdkConnection:
+                    $ref: '#/components/schemas/SdkConnection'
+    delete:
+      summary: Deletes a single SDK connection
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - sdk-connection
+      operationId: deleteSdkConnection
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/sdk-connections/connection_id \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
   /data-sources:
     get:
       summary: Get all data sources
@@ -574,7 +1165,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/experiments \
-              -d '{ name: "test_experiment", "owner": "weijie.ou@example.com" ... }'
+              -d '{"name": "test_experiment", "owner": "weijie.ou@example.com", ...}'
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -585,7 +1176,6 @@ paths:
               required:
                 - name
                 - variations
-                - owner
                 - datasourceId
                 - trackingKey
                 - assignmentQueryId
@@ -618,6 +1208,10 @@ paths:
                   type: array
                   items:
                     type: string
+                guardrailMetrics:
+                  type: array
+                  items:
+                    type: string
                 owner:
                   type: string
                   description: Email of the person who owns this experiment
@@ -633,10 +1227,38 @@ paths:
                   type: boolean
                 hashAttribute:
                   type: string
+                fallbackAttribute:
+                  type: string
+                hashVersion:
+                  type: number
+                  enum:
+                    - 1
+                    - 2
+                disableStickyBucketing:
+                  type: boolean;
+                bucketVersion:
+                  type: number
+                minBucketVersion:
+                  type: number
                 releasedVariationId:
                   type: string
                 excludeFromPayload:
                   type: boolean
+                inProgressConversions:
+                  type: string
+                  enum:
+                    - loose
+                    - strict
+                attributionModel:
+                  type: string
+                  enum:
+                    - firstExposure
+                    - experimentDuration
+                statsEngine:
+                  type: string
+                  enum:
+                    - bayesian
+                    - frequentist
                 variations:
                   type: array
                   minItems: 2
@@ -681,10 +1303,10 @@ paths:
                         type: string
                       dateStarted:
                         type: string
-                        format: date
+                        format: date-time
                       dateEnded:
                         type: string
-                        format: date
+                        format: date-time
                       reasonForStopping:
                         type: string
                       seed:
@@ -725,6 +1347,24 @@ paths:
                         type: string
                       condition:
                         type: string
+                      savedGroupTargeting:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - matchType
+                            - savedGroups
+                          properties:
+                            matchType:
+                              type: string
+                              enum:
+                                - all
+                                - any
+                                - none
+                            savedGroups:
+                              type: array
+                              items:
+                                type: string
                       variationWeights:
                         type: array
                         items:
@@ -775,7 +1415,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/experiments/exp_1234 \
-              -d '{ name: "test_experiment", "owner": "weijie.ou@example.com" ... }'
+              -d '{ "name": "test_experiment", "owner": "weijie.ou@example.com", ... }' \
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -808,6 +1448,10 @@ paths:
                   type: array
                   items:
                     type: string
+                guardrailMetrics:
+                  type: array
+                  items:
+                    type: string
                 owner:
                   type: string
                   description: Email of the person who owns this experiment
@@ -823,10 +1467,38 @@ paths:
                   type: boolean
                 hashAttribute:
                   type: string
+                fallbackAttribute:
+                  type: string
+                hashVersion:
+                  type: number
+                  enum:
+                    - 1
+                    - 2
+                disableStickyBucketing:
+                  type: boolean;
+                bucketVersion:
+                  type: number
+                minBucketVersion:
+                  type: number
                 releasedVariationId:
                   type: string
                 excludeFromPayload:
                   type: boolean
+                inProgressConversions:
+                  type: string
+                  enum:
+                    - loose
+                    - strict
+                attributionModel:
+                  type: string
+                  enum:
+                    - firstExposure
+                    - experimentDuration
+                statsEngine:
+                  type: string
+                  enum:
+                    - bayesian
+                    - frequentist
                 variations:
                   type: array
                   minItems: 2
@@ -871,10 +1543,10 @@ paths:
                         type: string
                       dateStarted:
                         type: string
-                        format: date
+                        format: date-time
                       dateEnded:
                         type: string
-                        format: date
+                        format: date-time
                       reasonForStopping:
                         type: string
                       seed:
@@ -915,6 +1587,24 @@ paths:
                         type: string
                       condition:
                         type: string
+                      savedGroupTargeting:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - matchType
+                            - savedGroups
+                          properties:
+                            matchType:
+                              type: string
+                              enum:
+                                - all
+                                - any
+                                - none
+                            savedGroups:
+                              type: array
+                              items:
+                                type: string
                       variationWeights:
                         type: array
                         items:
@@ -1004,7 +1694,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/metrics \
-              -d '{ datasourceId: "ds_abc123", ... }'
+              -d '{ "datasourceId": "ds_abc123", ... }'
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -1020,6 +1710,12 @@ paths:
                 datasourceId:
                   type: string
                   description: 'ID for the [DataSource](#tag/DataSource_model)'
+                managedBy:
+                  type: string
+                  description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  enum:
+                    - ''
+                    - api
                 owner:
                   type: string
                   description: Name of the person who owns this metric
@@ -1058,28 +1754,97 @@ paths:
                       enum:
                         - increase
                         - decrease
+                    cappingSettings:
+                      description: Controls how outliers are handled
+                      type: object
+                      required:
+                        - type
+                      properties:
+                        type:
+                          type: string
+                          nullable: true
+                          enum:
+                            - none
+                            - absolute
+                            - percentile
+                        value:
+                          type: number
+                          description: 'When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).'
+                        ignoreZeros:
+                          type: boolean
+                          description: 'If true and capping is `percentile`, zeros will be ignored when calculating the percentile.'
                     cap:
                       type: number
                       deprecated: true
-                      description: '(deprecated, use capping and capValue fields instead) This should be non-negative'
+                      description: '(deprecated, use cappingSettings instead) This should be non-negative'
                       minimum: 0
                     capping:
                       type: string
                       nullable: true
-                      description: 'Used in conjunction with `capValue` to set the capping (winsorization). Do not specify or set to null for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/>  If `behavior.capping` is non-null, you must specify `behavior.capValue`.'
+                      deprecated: true
+                      description: '(deprecated, use cappingSettings instead) Used in conjunction with `capValue` to set the capping (winsorization). Do not specify or set to null for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/>  If `behavior.capping` is non-null, you must specify `behavior.capValue`.'
                       enum:
                         - absolute
                         - percentile
                     capValue:
                       type: number
-                      description: This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`.
+                      deprecated: true
+                      description: '(deprecated, use cappingSettings instead) This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`.'
                       minimum: 0
+                    windowSettings:
+                      type: object
+                      description: Controls the conversion window for the metric
+                      required:
+                        - type
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - none
+                            - conversion
+                            - lookback
+                        delayHours:
+                          type: number
+                          description: Wait this many hours after experiment exposure before counting conversions
+                        windowValue:
+                          type: number
+                        windowUnit:
+                          type: string
+                          enum:
+                            - hours
+                            - days
+                            - weeks
                     conversionWindowStart:
                       type: number
+                      deprecated: true
                       description: 'The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
                     conversionWindowEnd:
                       type: number
+                      deprecated: true
                       description: 'The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                    priorSettings:
+                      type: object
+                      description: 'Controls the bayesian prior for the metric. If omitted, organization defaults will be used.'
+                      required:
+                        - override
+                        - proper
+                        - mean
+                        - stddev
+                      properties:
+                        override:
+                          type: boolean
+                          description: 'If false, the organization default settings will be used instead of the other settings in this object'
+                        proper:
+                          type: boolean
+                          description: 'If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.'
+                        mean:
+                          type: number
+                          description: The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)
+                        stddev:
+                          type: number
+                          description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
+                          minimum: 0
+                          exclusiveMinimum: true
                     riskThresholdSuccess:
                       type: number
                       description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
@@ -1233,9 +1998,8 @@ paths:
         - lang: cURL
           source: |
             curl -XPUT https://api.growthbook.io/api/v1/metrics/met_123abc \
-              -u secret_abc123DEF456 \
-              -H "Content-Type: application/json" \
-              -d '{"name": "net revenue", "description":"revenue minus lacroix spend"}'
+              -d '{"name": "net revenue", "description":"revenue minus lacroix spend"}' \
+              -u secret_abc123DEF456:
       requestBody:
         required: true
         content:
@@ -1243,6 +2007,12 @@ paths:
             schema:
               type: object
               properties:
+                managedBy:
+                  type: string
+                  description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  enum:
+                    - ''
+                    - api
                 owner:
                   type: string
                   description: Name of the person who owns this metric
@@ -1281,23 +2051,97 @@ paths:
                       enum:
                         - increase
                         - decrease
+                    cappingSettings:
+                      description: Controls how outliers are handled
+                      type: object
+                      required:
+                        - type
+                      properties:
+                        type:
+                          type: string
+                          nullable: true
+                          enum:
+                            - none
+                            - absolute
+                            - percentile
+                        value:
+                          type: number
+                          description: 'When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).'
+                        ignoreZeros:
+                          type: boolean
+                          description: 'If true and capping is `percentile`, zeros will be ignored when calculating the percentile.'
+                    cap:
+                      type: number
+                      deprecated: true
+                      description: '(deprecated, use cappingSettings instead) This should be non-negative'
+                      minimum: 0
                     capping:
                       type: string
                       nullable: true
-                      description: 'Used in conjunction with `capValue` to set the capping (winsorization). Set to null to turn capping off. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/> If `behavior.capping` is non-null, you must specify `behavior.capValue`.'
+                      deprecated: true
+                      description: '(deprecated, use cappingSettings instead) Used in conjunction with `capValue` to set the capping (winsorization). Do not specify or set to null for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/>  If `behavior.capping` is non-null, you must specify `behavior.capValue`.'
                       enum:
                         - absolute
                         - percentile
                     capValue:
                       type: number
-                      description: This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`.
+                      deprecated: true
+                      description: '(deprecated, use cappingSettings instead) This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`.'
                       minimum: 0
+                    windowSettings:
+                      type: object
+                      description: Controls the conversion window for the metric
+                      required:
+                        - type
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - none
+                            - conversion
+                            - lookback
+                        delayHours:
+                          type: number
+                          description: Wait this many hours after experiment exposure before counting conversions
+                        windowValue:
+                          type: number
+                        windowUnit:
+                          type: string
+                          enum:
+                            - hours
+                            - days
+                            - weeks
                     conversionWindowStart:
                       type: number
+                      deprecated: true
                       description: 'The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
                     conversionWindowEnd:
                       type: number
+                      deprecated: true
                       description: 'The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                    priorSettings:
+                      type: object
+                      description: 'Controls the bayesian prior for the metric. If omitted, organization defaults will be used.'
+                      required:
+                        - override
+                        - proper
+                        - mean
+                        - stddev
+                      properties:
+                        override:
+                          type: boolean
+                          description: 'If false, the organization default settings will be used instead of the other settings in this object'
+                        proper:
+                          type: boolean
+                          description: 'If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.'
+                        mean:
+                          type: number
+                          description: The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)
+                        stddev:
+                          type: number
+                          description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
+                          minimum: 0
+                          exclusiveMinimum: true
                     riskThresholdSuccess:
                       type: number
                       description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
@@ -1504,9 +2348,8 @@ paths:
         - lang: cURL
           source: |
             curl -XPUT https://api.growthbook.io/api/v1/visual-changesets/vc_123abc
-              -u secret_abc123DEF456 \
-              -H "Content-Type: application/json" \
-                                                 -d '{"editorUrl": "https://docs.growthbook.io", "urlPatterns":"[{ ... }]"}'
+              -d '{"editorUrl": "https://docs.growthbook.io", "urlPatterns":"[{ ... }]"}' \
+              -u secret_abc123DEF456:
       responses:
         '200':
           content:
@@ -1515,9 +2358,12 @@ paths:
                 type: object
                 required:
                   - nModified
+                  - visualChangeset
                 properties:
                   nModified:
                     type: number
+                  visualChangeset:
+                    $ref: '#/components/schemas/VisualChangeset'
   '/visual-changesets/{id}/visual-change':
     parameters:
       - $ref: '#/components/parameters/id'
@@ -1530,9 +2376,8 @@ paths:
         - lang: cURL
           source: |
             curl -XPOST https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change \
-              -u secret_abc123DEF456 \
-              -H "Content-Type: application/json" \
-              -d '{"variation": "v_123abc", "domMutations":"[]"}'
+              -d '{"variation": "v_123abc", "domMutations":"[]"}' \
+              -u secret_abc123DEF456:
       responses:
         '200':
           content:
@@ -1557,9 +2402,8 @@ paths:
         - lang: cURL
           source: |
             curl -XPUT https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change/vch_abc123 \
-              -u secret_abc123DEF456 \
-              -H "Content-Type: application/json" \
-              -d '{"variation": "v_123abc", "domMutations":"[]"}'
+              -d '{"variation": "v_123abc", "domMutations":"[]"}' \
+              -u secret_abc123DEF456:
       responses:
         '200':
           content:
@@ -1609,10 +2453,9 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: |
-            curl -X POST https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
-              -H "Content-Type: application/json" \
-              -u secret_abc123DEF456: \
-              -d '{"name": "interal-users", "values": ["userId-123", "userId-345", "userId-678"], "attributeKey": "userId", "owner": ""}'
+            curl -X POST https://api.growthbook.io/api/v1/saved-groups \
+              -d '{"name": "interal-users", "values": ["userId-123", "userId-345", "userId-678"], "attributeKey": "userId", "owner": ""}' \
+              -u secret_abc123DEF456:
       requestBody:
         required: true
         content:
@@ -1621,20 +2464,27 @@ paths:
               type: object
               required:
                 - name
-                - values
-                - attributeKey
               properties:
                 name:
                   type: string
                   description: The display name of the Saved Group
+                type:
+                  type: string
+                  enum:
+                    - condition
+                    - list
+                  description: The type of Saved Group (inferred from other arguments if missing)
+                condition:
+                  type: string
+                  description: 'When type = ''condition'', this is the JSON-encoded condition for the group'
+                attributeKey:
+                  type: string
+                  description: 'When type = ''list'', this is the attribute key the group is based on'
                 values:
                   type: array
                   items:
                     type: string
-                  description: 'An array of values to target (Ex: a list of userIds).'
-                attributeKey:
-                  type: string
-                  description: 'The parameter you want to target users with. Ex: userId, orgId, ...'
+                  description: 'When type = ''list'', this is the list of values for the attribute key'
                 owner:
                   type: string
                   description: 'The person or team that owns this Saved Group. If no owner, you can pass an empty string.'
@@ -1684,9 +2534,8 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
-              -H "Content-Type: application/json" \
-              -u secret_abc123DEF456: \
-              -d '{"values": [ "userId-123", "userId-345" ]}'
+              -d '{"values": [ "userId-123", "userId-345" ]}' \
+              -u secret_abc123DEF456:
       requestBody:
         required: true
         content:
@@ -1698,11 +2547,14 @@ paths:
                 name:
                   type: string
                   description: The display name of the Saved Group
+                condition:
+                  type: string
+                  description: 'When type = ''condition'', this is the JSON-encoded condition for the group'
                 values:
                   type: array
                   items:
                     type: string
-                  description: 'An array of values to target (Ex: a list of userIds).'
+                  description: 'When type = ''list'', this is the list of values for the attribute key'
                 owner:
                   type: string
                   description: 'The person or team that owns this Saved Group. If no owner, you can pass an empty string.'
@@ -1740,6 +2592,1309 @@ paths:
                 properties:
                   deletedId:
                     type: string
+  /organizations:
+    get:
+      summary: Get all organizations (only for super admins on multi-org Enterprise Plan only)
+      tags:
+        - organizations
+      parameters:
+        - name: search
+          in: query
+          description: 'Search string to search organization names, owner emails, and external ids by'
+          schema:
+            type: string
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      operationId: listOrganizations
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/organizations \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - organizations
+                    properties:
+                      organizations:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Organization'
+                  - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - organizations
+      summary: Create a single organization (only for super admins on multi-org Enterprise Plan only)
+      operationId: postOrganization
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/organizations \
+              -d '{ "name": "My Subsidiary" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: The name of the organization
+                externalId:
+                  type: string
+                  description: An optional identifier that you use within your company for the organization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - organization
+                properties:
+                  organization:
+                    $ref: '#/components/schemas/Organization'
+  '/organizations/{id}':
+    put:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - organizations
+      summary: Edit a single organization (only for super admins on multi-org Enterprise Plan only)
+      operationId: putOrganization
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X PUT https://api.growthbook.io/api/v1/organizations/org_abc123 \
+              -d '{ "name": "My Subsidiary", "externalId": "subsidiary-123" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: The name of the organization
+                externalId:
+                  type: string
+                  description: An optional identifier that you use within your company for the organization
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - organization
+                properties:
+                  organization:
+                    $ref: '#/components/schemas/Organization'
+  /environments:
+    get:
+      summary: Get the organization's environments
+      tags:
+        - environments
+      operationId: listEnvironments
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/environments \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - environments
+                    properties:
+                      environments:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Environment'
+    post:
+      tags:
+        - environments
+      summary: Create a new environment
+      operationId: postEnvironment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/environments \
+               -d '{"id": "new-env", "description": "My new environment" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: string
+                  description: The ID of the new environment
+                description:
+                  type: string
+                  description: The description of the new environment
+                toggleOnList:
+                  type: bool
+                  description: Show toggle on feature list
+                defaultState:
+                  type: bool
+                  description: Default state for new features
+                projects:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - environment
+                properties:
+                  environment:
+                    $ref: '#/components/schemas/Environment'
+  '/environments/${id}':
+    put:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - environments
+      summary: Update an environment
+      operationId: putEnvironment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X PUT https://api.growthbook.io/api/v1/environments/env-id \
+               -d '{ "description": "My updated environment" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description:
+                  type: string
+                  description: The description of the new environment
+                toggleOnList:
+                  type: boolean
+                  description: Show toggle on feature list
+                defaultState:
+                  type: boolean
+                  description: Default state for new features
+                projects:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - environment
+                properties:
+                  environment:
+                    $ref: '#/components/schemas/Environment'
+    delete:
+      summary: Deletes a single environment
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - environments
+      operationId: deleteEnvironment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/enviromnents/env-id \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
+  /fact-tables:
+    get:
+      summary: Get all fact tables
+      tags:
+        - fact-tables
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/datasourceId'
+        - $ref: '#/components/parameters/projectId'
+      operationId: listFactTables
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/fact-tables \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - factTables
+                    properties:
+                      factTables:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FactTable'
+                  - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - fact-tables
+      summary: Create a single fact table
+      operationId: postFactTable
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/fact-tables \
+              -d '{"name":"Orders", "datasource":"ds_abc123", "userIdTypes":["id"], "sql":"SELECT * FROM orders"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - datasource
+                - userIdTypes
+                - sql
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  description: Description of the fact table
+                owner:
+                  type: string
+                  description: The person who is responsible for this fact table
+                projects:
+                  type: array
+                  items:
+                    type: string
+                  description: List of associated project ids
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  description: List of associated tags
+                datasource:
+                  type: string
+                  description: The datasource id
+                userIdTypes:
+                  type: array
+                  items:
+                    type: string
+                  description: 'List of identifier columns in this table. For example, "id" or "anonymous_id"'
+                sql:
+                  type: string
+                  description: The SQL query for this fact table
+                managedBy:
+                  type: string
+                  description: Set this to "api" to disable editing in the GrowthBook UI
+                  enum:
+                    - ''
+                    - api
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factTable
+                properties:
+                  factTable:
+                    $ref: '#/components/schemas/FactTable'
+  '/fact-tables/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - fact-tables
+      summary: Get a single fact table
+      operationId: getFactTable
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/fact-tables/ftb_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factTable
+                properties:
+                  factTable:
+                    $ref: '#/components/schemas/FactTable'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - fact-tables
+      summary: Update a single fact table
+      operationId: updateFactTable
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/fact-tables/ftb_abc123 \
+              -d '{"name": "New Fact Table Name"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  description: Description of the fact table
+                owner:
+                  type: string
+                  description: The person who is responsible for this fact table
+                projects:
+                  type: array
+                  items:
+                    type: string
+                  description: List of associated project ids
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  description: List of associated tags
+                userIdTypes:
+                  type: array
+                  items:
+                    type: string
+                  description: 'List of identifier columns in this table. For example, "id" or "anonymous_id"'
+                sql:
+                  type: string
+                  description: The SQL query for this fact table
+                managedBy:
+                  type: string
+                  description: Set this to "api" to disable editing in the GrowthBook UI
+                  enum:
+                    - ''
+                    - api
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factTable
+                properties:
+                  factTable:
+                    $ref: '#/components/schemas/FactTable'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - fact-tables
+      summary: Deletes a single fact table
+      operationId: deleteFactTable
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/fact-tables/ftb_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
+                    description: The ID of the deleted fact table
+                    example: ftb_123abc
+  '/fact-tables/{factTableId}/filters':
+    get:
+      summary: Get all filters for a fact table
+      tags:
+        - fact-tables
+      parameters:
+        - $ref: '#/components/parameters/factTableId'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      operationId: listFactTableFilters
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/fact-tables/ftb_123abc/filters \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - factTableFilters
+                    properties:
+                      factTableFilters:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FactTableFilter'
+                  - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/factTableId'
+      tags:
+        - fact-tables
+      summary: Create a single fact table filter
+      operationId: postFactTableFilter
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/fact-tables/ftb_123abc/filters \
+              -d '{"name":"High Value Order", "value":"amount>100"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - value
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  description: Description of the fact table filter
+                value:
+                  type: string
+                  description: The SQL expression for this filter.
+                  example: country = 'US'
+                managedBy:
+                  type: string
+                  description: 'Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api"'
+                  enum:
+                    - ''
+                    - api
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factTableFilter
+                properties:
+                  factTableFilter:
+                    $ref: '#/components/schemas/FactTableFilter'
+  '/fact-tables/{factTableId}/filters/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/factTableId'
+        - $ref: '#/components/parameters/id'
+      tags:
+        - fact-tables
+      summary: Get a single fact filter
+      operationId: getFactTableFilter
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/fact-tables/ftb_123abc/filters/flt_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factTableFilter
+                properties:
+                  factTableFilter:
+                    $ref: '#/components/schemas/FactTableFilter'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/factTableId'
+        - $ref: '#/components/parameters/id'
+      tags:
+        - fact-tables
+      summary: Update a single fact table filter
+      operationId: updateFactTableFilter
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/fact-tables/ftb_abc123/filters/flt_123abc \
+              -d '{"value": "amount > 50"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  description: Description of the fact table filter
+                value:
+                  type: string
+                  description: The SQL expression for this filter.
+                  example: country = 'US'
+                managedBy:
+                  type: string
+                  description: 'Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api"'
+                  enum:
+                    - ''
+                    - api
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factTableFilter
+                properties:
+                  factTableFilter:
+                    $ref: '#/components/schemas/FactTableFilter'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/factTableId'
+        - $ref: '#/components/parameters/id'
+      tags:
+        - fact-tables
+      summary: Deletes a single fact table filter
+      operationId: deleteFactTableFilter
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/fact-tables/ftb_123abc/filter/flt_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
+                    description: The ID of the deleted fact filter
+                    example: flt_123abc
+  /fact-metrics:
+    get:
+      summary: Get all fact metrics
+      tags:
+        - fact-metrics
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/datasourceId'
+        - $ref: '#/components/parameters/projectId'
+        - name: factTableId
+          in: query
+          description: 'Filter by Fact Table Id (for ratio metrics, we only look at the numerator)'
+          schema:
+            type: string
+      operationId: listFactMetrics
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/fact-metrics \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - factMetrics
+                    properties:
+                      factMetrics:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FactMetric'
+                  - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - fact-metrics
+      summary: Create a single fact metric
+      operationId: postFactMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/fact-metrics \
+              -d '{"name":"Purchased", "datasource":"ds_abc123", "metricType":"proportion", "numerator":{"factTableId":"ftb_abc123","column":"$$distinctUsers","filters":[]}}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - metricType
+                - numerator
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                owner:
+                  type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                metricType:
+                  type: string
+                  enum:
+                    - proportion
+                    - mean
+                    - quantile
+                    - ratio
+                numerator:
+                  type: object
+                  required:
+                    - factTableId
+                  properties:
+                    factTableId:
+                      type: string
+                    column:
+                      type: string
+                      description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                    filters:
+                      type: array
+                      description: Array of Fact Table Filter Ids
+                      items:
+                        type: string
+                denominator:
+                  description: Only when metricType is 'ratio'
+                  type: object
+                  required:
+                    - factTableId
+                    - column
+                  properties:
+                    factTableId:
+                      type: string
+                    column:
+                      type: string
+                      description: 'The column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                    filters:
+                      type: array
+                      description: Array of Fact Table Filter Ids
+                      items:
+                        type: string
+                inverse:
+                  type: boolean
+                  description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
+                quantileSettings:
+                  description: Controls the settings for quantile metrics (mandatory if metricType is "quantile")
+                  type: object
+                  required:
+                    - type
+                    - quantile
+                    - ignoreZeros
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - event
+                        - unit
+                      description: Whether the quantile is over unit aggregations or raw event values
+                    ignoreZeros:
+                      type: boolean
+                      description: 'If true, zero values will be ignored when calculating the quantile'
+                    quantile:
+                      type: number
+                      description: The quantile value (from 0.001 to 0.999)
+                      multipleOf: 0.001
+                      minimum: 0.001
+                      maximum: 0.999
+                cappingSettings:
+                  description: Controls how outliers are handled
+                  type: object
+                  required:
+                    - type
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - none
+                        - absolute
+                        - percentile
+                    value:
+                      type: number
+                      description: 'When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).'
+                    ignoreZeros:
+                      type: boolean
+                      description: 'If true and capping is `percentile`, zeros will be ignored when calculating the percentile.'
+                windowSettings:
+                  type: object
+                  description: Controls the conversion window for the metric
+                  required:
+                    - type
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - none
+                        - conversion
+                        - lookback
+                    delayHours:
+                      type: number
+                      description: Wait this many hours after experiment exposure before counting conversions
+                    windowValue:
+                      type: number
+                    windowUnit:
+                      type: string
+                      enum:
+                        - hours
+                        - days
+                        - weeks
+                priorSettings:
+                  type: object
+                  description: 'Controls the bayesian prior for the metric. If omitted, organization defaults will be used.'
+                  required:
+                    - override
+                    - proper
+                    - mean
+                    - stddev
+                  properties:
+                    override:
+                      type: boolean
+                      description: 'If false, the organization default settings will be used instead of the other settings in this object'
+                    proper:
+                      type: boolean
+                      description: 'If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.'
+                    mean:
+                      type: number
+                      description: The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)
+                    stddev:
+                      type: number
+                      description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
+                      minimum: 0
+                      exclusiveMinimum: true
+                regressionAdjustmentSettings:
+                  type: object
+                  description: Controls the regression adjustment (CUPED) settings for the metric
+                  required:
+                    - override
+                  properties:
+                    override:
+                      type: boolean
+                      description: 'If false, the organization default settings will be used'
+                    enabled:
+                      type: boolean
+                      description: Controls whether or not regression adjustment is applied to the metric
+                    days:
+                      type: number
+                      description: Number of pre-exposure days to use for the regression adjustment
+                riskThresholdSuccess:
+                  type: number
+                  description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
+                  minimum: 0
+                riskThresholdDanger:
+                  type: number
+                  description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
+                  minimum: 0
+                minPercentChange:
+                  type: number
+                  description: 'Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)'
+                  minimum: 0
+                maxPercentChange:
+                  type: number
+                  description: 'Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)'
+                  minimum: 0
+                minSampleSize:
+                  type: number
+                  minimum: 0
+                managedBy:
+                  type: string
+                  description: Set this to "api" to disable editing in the GrowthBook UI
+                  enum:
+                    - ''
+                    - api
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factMetric
+                properties:
+                  factMetric:
+                    $ref: '#/components/schemas/FactMetric'
+  '/fact-metrics/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - fact-metrics
+      summary: Get a single fact metric
+      operationId: getFactMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/fact-metrics/fact__123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factMetric
+                properties:
+                  factMetric:
+                    $ref: '#/components/schemas/FactMetric'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - fact-metrics
+      summary: Update a single fact metric
+      operationId: updateFactMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/fact-metrics/fact__123abc \
+              -d '{"hasConversionWindow": false}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                owner:
+                  type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                metricType:
+                  type: string
+                  enum:
+                    - proportion
+                    - mean
+                    - quantile
+                    - ratio
+                numerator:
+                  type: object
+                  required:
+                    - factTableId
+                  properties:
+                    factTableId:
+                      type: string
+                    column:
+                      type: string
+                      description: 'Must be empty for proportion metrics. Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                    filters:
+                      type: array
+                      description: Array of Fact Table Filter Ids
+                      items:
+                        type: string
+                denominator:
+                  description: Only when metricType is 'ratio'
+                  type: object
+                  required:
+                    - factTableId
+                    - column
+                  properties:
+                    factTableId:
+                      type: string
+                    column:
+                      type: string
+                      description: 'Otherwise, the column name or one of the special values: ''$$distinctUsers'' or ''$$count'''
+                    filters:
+                      type: array
+                      description: Array of Fact Table Filter Ids
+                      items:
+                        type: string
+                inverse:
+                  type: boolean
+                  description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
+                quantileSettings:
+                  description: Controls the settings for quantile metrics (mandatory if metricType is "quantile")
+                  type: object
+                  required:
+                    - type
+                    - quantile
+                    - ignoreZeros
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - event
+                        - unit
+                      description: Whether the quantile is over unit aggregations or raw event values
+                    ignoreZeros:
+                      type: boolean
+                      description: 'If true, zero values will be ignored when calculating the quantile'
+                    quantile:
+                      type: number
+                      description: The quantile value (from 0.001 to 0.999)
+                      multipleOf: 0.001
+                      minimum: 0.001
+                      maximum: 0.999
+                cappingSettings:
+                  description: Controls how outliers are handled
+                  type: object
+                  required:
+                    - type
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - none
+                        - absolute
+                        - percentile
+                    value:
+                      type: number
+                      description: 'When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).'
+                    ignoreZeros:
+                      type: boolean
+                      description: 'If true and capping is `percentile`, zeros will be ignored when calculating the percentile.'
+                windowSettings:
+                  type: object
+                  description: Controls the conversion window for the metric
+                  required:
+                    - type
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - none
+                        - conversion
+                        - lookback
+                    delayHours:
+                      type: number
+                      description: Wait this many hours after experiment exposure before counting conversions
+                    windowValue:
+                      type: number
+                    windowUnit:
+                      type: string
+                      enum:
+                        - hours
+                        - days
+                        - weeks
+                  priorSettings:
+                    type: object
+                    description: 'Controls the bayesian prior for the metric. If omitted, organization defaults will be used.'
+                    required:
+                      - override
+                      - proper
+                      - mean
+                      - stddev
+                    properties:
+                      override:
+                        type: boolean
+                        description: 'If false, the organization default settings will be used instead of the other settings in this object'
+                      proper:
+                        type: boolean
+                        description: 'If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.'
+                      mean:
+                        type: number
+                        description: The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)
+                      stddev:
+                        type: number
+                        description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
+                        minimum: 0
+                        exclusiveMinimum: true
+                regressionAdjustmentSettings:
+                  type: object
+                  description: Controls the regression adjustment (CUPED) settings for the metric
+                  required:
+                    - override
+                  properties:
+                    override:
+                      type: boolean
+                      description: 'If false, the organization default settings will be used'
+                    enabled:
+                      type: boolean
+                      description: Controls whether or not regression adjustment is applied to the metric
+                    days:
+                      type: number
+                      description: Number of pre-exposure days to use for the regression adjustment
+                riskThresholdSuccess:
+                  type: number
+                  description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
+                  minimum: 0
+                riskThresholdDanger:
+                  type: number
+                  description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
+                  minimum: 0
+                minPercentChange:
+                  type: number
+                  description: 'Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)'
+                  minimum: 0
+                maxPercentChange:
+                  type: number
+                  description: 'Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)'
+                  minimum: 0
+                minSampleSize:
+                  type: number
+                  minimum: 0
+                managedBy:
+                  type: string
+                  description: Set this to "api" to disable editing in the GrowthBook UI
+                  enum:
+                    - ''
+                    - api
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factMetric
+                properties:
+                  factMetric:
+                    $ref: '#/components/schemas/FactMetric'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - fact-metrics
+      summary: Deletes a single fact metric
+      operationId: deleteFactMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/fact-metrics/fact__123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - factMetric
+                properties:
+                  deletedId:
+                    type: string
+                    description: The ID of the deleted fact metric
+                    example: fact__123abc
+  /bulk-import/facts:
+    post:
+      parameters: []
+      tags:
+        - fact-tables
+      summary: 'Bulk import fact tables, filters, and metrics'
+      operationId: postBulkImportFacts
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/bulk-import/facts \
+              -d '{"factTables":[], "factTableFilters":[], "factMetrics":[]}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                factTables:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - id
+                      - data
+                    properties:
+                      id:
+                        type: string
+                      data:
+                        $ref: '#/paths/~1fact-tables/post/requestBody/content/application~1json/schema'
+                factTableFilters:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - factTableId
+                      - id
+                      - data
+                    properties:
+                      factTableId:
+                        type: string
+                      id:
+                        type: string
+                      data:
+                        $ref: '#/paths/~1fact-tables~1%7BfactTableId%7D~1filters/post/requestBody/content/application~1json/schema'
+                factMetrics:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - id
+                      - data
+                    properties:
+                      id:
+                        type: string
+                      data:
+                        $ref: '#/paths/~1fact-metrics/post/requestBody/content/application~1json/schema'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - factTablesAdded
+                  - factTablesUpdated
+                  - factTableFiltersAdded
+                  - factTableFiltersUpdated
+                  - factMetricsAdded
+                  - factMetricsUpdated
+                properties:
+                  success:
+                    type: boolean
+                  factTablesAdded:
+                    type: integer
+                  factTablesUpdated:
+                    type: integer
+                  factTableFiltersAdded:
+                    type: integer
+                  factTableFiltersUpdated:
+                    type: integer
+                  factMetricsAdded:
+                    type: integer
+                  factMetricsUpdated:
+                    type: integer
+  /code-refs:
+    post:
+      tags:
+        - code-references
+      summary: Submit list of code references
+      operationId: postCodeRefs
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/code-refs \
+              -d '{ "startingLineNumber": 16, "lines": "...", "flagKey": "..." }' \
+              -u secret_abc123DEF456
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - branch
+                - repoName
+                - refs
+              properties:
+                branch:
+                  type: string
+                repoName:
+                  type: string
+                refs:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - filePath
+                      - startingLineNumber
+                      - lines
+                      - flagKey
+                      - contentHash
+                    properties:
+                      filePath:
+                        type: string
+                      startingLineNumber:
+                        type: integer
+                      lines:
+                        type: string
+                      flagKey:
+                        type: string
+                      contentHash:
+                        type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  featuresUpdated:
+                    type: array
+                    items:
+                      type: string
 components:
   parameters:
     id:
@@ -1765,6 +3920,7 @@ components:
       schema:
         type: integer
         min: 0
+        default: 0
     projectId:
       name: projectId
       in: query
@@ -1784,6 +3940,37 @@ components:
       description: Specify a specific visual change
       schema:
         type: string
+    factTableId:
+      name: factTableId
+      in: path
+      required: true
+      description: Specify a specific fact table
+      schema:
+        type: string
+    repo:
+      name: repo
+      in: query
+      required: true
+      description: Fully qualified name of repo either in GitHub or some other version control platform.
+      schema:
+        type: string
+    branch:
+      name: branch
+      in: query
+      required: true
+      description: Name of branch for git repo.
+      schema:
+        type: string
+    platform:
+      name: platform
+      in: query
+      description: Name of versino control platform like GitHub or Gitlab.
+      schema:
+        type: string
+        enum:
+          - github
+          - gitlab
+          - bitbucket
   schemas:
     PaginationFields:
       type: object
@@ -1841,6 +4028,7 @@ components:
       type: object
       required:
         - id
+        - managedBy
         - dateCreated
         - dateUpdated
         - owner
@@ -1855,6 +4043,13 @@ components:
       properties:
         id:
           type: string
+        managedBy:
+          type: string
+          description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere.'
+          enum:
+            - ''
+            - api
+            - config
         dateCreated:
           type: string
         dateUpdated:
@@ -1888,8 +4083,7 @@ components:
           type: object
           required:
             - goal
-            - conversionWindowStart
-            - conversionWindowEnd
+            - windowSettings
             - riskThresholdSuccess
             - riskThresholdDanger
             - minPercentChange
@@ -1901,20 +4095,87 @@ components:
               enum:
                 - increase
                 - decrease
+            cappingSettings:
+              description: Controls how outliers are handled
+              type: object
+              required:
+                - type
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - none
+                    - absolute
+                    - percentile
+                value:
+                  type: number
+                  description: 'When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).'
+                ignoreZeros:
+                  type: boolean
+                  description: 'If true and capping is `percentile`, zeros will be ignored when calculating the percentile.'
             cap:
               type: number
+              deprecated: true
             capping:
               type: string
               nullable: true
+              deprecated: true
               enum:
                 - absolute
                 - percentile
             capValue:
               type: number
+              deprecated: true
+            windowSettings:
+              type: object
+              description: Controls the conversion window for the metric
+              required:
+                - type
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - none
+                    - conversion
+                    - lookback
+                delayHours:
+                  type: number
+                  description: Wait this many hours after experiment exposure before counting conversions
+                windowValue:
+                  type: number
+                windowUnit:
+                  type: string
+                  enum:
+                    - hours
+                    - days
+                    - weeks
+            priorSettings:
+              type: object
+              description: Controls the bayesian prior for the metric.
+              required:
+                - override
+                - proper
+                - mean
+                - stddev
+              properties:
+                override:
+                  type: boolean
+                  description: 'If false, the organization default settings will be used instead of the other settings in this object'
+                proper:
+                  type: boolean
+                  description: 'If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.'
+                mean:
+                  type: number
+                  description: The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)
+                stddev:
+                  type: number
+                  description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
             conversionWindowStart:
               type: number
+              deprecated: true
             conversionWindowEnd:
               type: number
+              deprecated: true
             riskThresholdSuccess:
               type: number
             riskThresholdDanger:
@@ -2039,6 +4300,27 @@ components:
           properties:
             statsEngine:
               type: string
+    Environment:
+      type: object
+      required:
+        - id
+        - description
+        - toggleOnList
+        - defaultState
+        - projects
+      properties:
+        id:
+          type: string
+        description:
+          type: string
+        toggleOnList:
+          type: boolean
+        defaultState:
+          type: boolean
+        projects:
+          type: array
+          items:
+            type: string
     Segment:
       type: object
       required:
@@ -2116,6 +4398,18 @@ components:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/FeatureEnvironment'
+        prerequisites:
+          type: array
+          items:
+            type: object
+            required:
+              - parentId
+              - parentCondition
+            properties:
+              parentId:
+                type: string
+              parentCondition:
+                type: string
         revision:
           type: object
           required:
@@ -2174,6 +4468,14 @@ components:
         - $ref: '#/components/schemas/FeatureForceRule'
         - $ref: '#/components/schemas/FeatureRolloutRule'
         - $ref: '#/components/schemas/FeatureExperimentRule'
+        - $ref: '#/components/schemas/FeatureExperimentRefRule'
+      discriminator:
+        propertyName: type
+        mapping:
+          force: '#/components/schemas/FeatureForceRule'
+          rollout: '#/components/schemas/FeatureRolloutRule'
+          experiment: '#/components/schemas/FeatureExperimentRule'
+          experiment-ref: '#/components/schemas/FeatureExperimentRefRule'
     FeatureDefinition:
       type: object
       required:
@@ -2241,12 +4543,32 @@ components:
           type: string
         condition:
           type: string
+        savedGroupTargeting:
+          type: array
+          items:
+            type: object
+            required:
+              - matchType
+              - savedGroups
+            properties:
+              matchType:
+                type: string
+                enum:
+                  - all
+                  - any
+                  - none
+              savedGroups:
+                type: array
+                items:
+                  type: string
         id:
           type: string
         enabled:
           type: boolean
         type:
           type: string
+          enum:
+            - force
         value:
           type: string
     FeatureRolloutRule:
@@ -2265,12 +4587,32 @@ components:
           type: string
         condition:
           type: string
+        savedGroupTargeting:
+          type: array
+          items:
+            type: object
+            required:
+              - matchType
+              - savedGroups
+            properties:
+              matchType:
+                type: string
+                enum:
+                  - all
+                  - any
+                  - none
+              savedGroups:
+                type: array
+                items:
+                  type: string
         id:
           type: string
         enabled:
           type: boolean
         type:
           type: string
+          enum:
+            - rollout
         value:
           type: string
         coverage:
@@ -2296,10 +4638,20 @@ components:
           type: boolean
         type:
           type: string
+          enum:
+            - experiment
         trackingKey:
           type: string
         hashAttribute:
           type: string
+        fallbackAttribute:
+          type: string
+        disableStickyBucketing:
+          type: boolean;
+        bucketVersion:
+          type: number
+        minBucketVersion:
+          type: number
         namespace:
           type: obect
           required:
@@ -2333,6 +4685,42 @@ components:
                 type: number
               name:
                 type: string
+    FeatureExperimentRefRule:
+      type: object
+      required:
+        - description
+        - id
+        - enabled
+        - type
+        - variations
+        - experimentId
+      properties:
+        description:
+          type: string
+        id:
+          type: string
+        enabled:
+          type: boolean
+        type:
+          type: string
+          enum:
+            - experiment-ref
+        condition:
+          type: string
+        variations:
+          type: array
+          items:
+            type: object
+            required:
+              - value
+              - variationId
+            properties:
+              value:
+                type: string
+              variationId:
+                type: string
+        experimentId:
+          type: string
     SdkConnection:
       type: object
       required:
@@ -2340,6 +4728,7 @@ components:
         - dateCreated
         - dateUpdated
         - name
+        - organization
         - languages
         - environment
         - project
@@ -2360,14 +4749,23 @@ components:
           format: date-time
         name:
           type: string
+        organization:
+          type: string
         languages:
           type: array
           items:
             type: string
+        sdkVersion:
+          type: string
         environment:
           type: string
         project:
+          description: Use 'projects' instead. This is only for backwards compatibility and contains the first project only.
           type: string
+        projects:
+          type: array
+          items:
+            type: string
         encryptPayload:
           type: boolean
         encryptionKey:
@@ -2377,6 +4775,8 @@ components:
         includeDraftExperiments:
           type: boolean
         includeExperimentNames:
+          type: boolean
+        includeRedirectExperiments:
           type: boolean
         key:
           type: string
@@ -2390,6 +4790,8 @@ components:
           type: boolean
         hashSecureAttributes:
           type: boolean
+        remoteEvalEnabled:
+          type: boolean
     Experiment:
       type: object
       required:
@@ -2401,6 +4803,7 @@ components:
         - hypothesis
         - description
         - hashAttribute
+        - hashVersion
         - tags
         - owner
         - archived
@@ -2440,6 +4843,19 @@ components:
           type: boolean
         hashAttribute:
           type: string
+        fallbackAttribute:
+          type: string
+        hashVersion:
+          type: number
+          enum:
+            - 1
+            - 2
+        disableStickyBucketing:
+          type: boolean;
+        bucketVersion:
+          type: number
+        minBucketVersion:
+          type: number
         variations:
           type: array
           items:
@@ -2476,6 +4892,7 @@ components:
               - coverage
               - trafficSplit
               - targetingCondition
+              - savedGroups
             properties:
               name:
                 type: string
@@ -2515,6 +4932,24 @@ components:
                     rangeEnd: number
               targetingCondition:
                 type: string
+              savedGroupTargeting:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - matchType
+                    - savedGroups
+                  properties:
+                    matchType:
+                      type: string
+                      enum:
+                        - all
+                        - any
+                        - none
+                    savedGroups:
+                      type: array
+                      items:
+                        type: string
         settings:
           $ref: '#/components/schemas/ExperimentAnalysisSettings'
         resultSummary:
@@ -2547,10 +4982,16 @@ components:
         overrides:
           type: object
           properties:
-            conversionWindowStart:
+            delayHours:
               type: number
-            conversionWindowEnd:
+            windowHours:
               type: number
+            window:
+              type: string
+              enum:
+                - conversion
+                - lookback
+                - ''
             winRiskThreshold:
               type: number
             loseRiskThreshold:
@@ -2683,6 +5124,8 @@ components:
                         properties:
                           variationId:
                             type: string
+                          users:
+                            type: number
                           analyses:
                             type: array
                             items:
@@ -2943,11 +5386,15 @@ components:
         - dateCreated
         - dateUpdated
         - name
-        - attributeKey
-        - values
+        - type
       properties:
         id:
           type: string
+        type:
+          type: string
+          enum:
+            - condition
+            - list
         dateCreated:
           type: string
           format: date-time
@@ -2958,12 +5405,327 @@ components:
           type: string
         owner:
           type: string
+        condition:
+          description: 'When type = ''condition'', this is the JSON-encoded condition for the group'
+          type: string
         attributeKey:
+          description: 'When type = ''list'', this is the attribute key the group is based on'
           type: string
         values:
+          description: 'When type = ''list'', this is the list of values for the attribute key'
           type: array
           items:
             type: string
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The Growthbook unique identifier for the organization
+        externalId:
+          type: string
+          description: An optional identifier that you use within your company for the organization
+        dateCreated:
+          type: string
+          format: date-time
+          description: The date the organization was created
+        name:
+          type: string
+          description: The name of the organization
+        ownerEmail:
+          type: string
+          description: The email address of the organization owner
+    FactTable:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - owner
+        - projects
+        - tags
+        - datasource
+        - userIdTypes
+        - sql
+        - managedBy
+        - dateCreated
+        - dateUpdated
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        owner:
+          type: string
+        projects:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        datasource:
+          type: string
+        userIdTypes:
+          type: array
+          items:
+            type: string
+        sql:
+          type: string
+        managedBy:
+          type: string
+          description: 'Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere.'
+          enum:
+            - ''
+            - api
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+    FactTableFilter:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - value
+        - managedBy
+        - dateCreated
+        - dateUpdated
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        value:
+          type: string
+        managedBy:
+          type: string
+          description: 'Where this fact table filter must be managed from. If not set (empty string), it can be managed from anywhere.'
+          enum:
+            - ''
+            - api
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+    FactMetric:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - owner
+        - projects
+        - tags
+        - datasource
+        - metricType
+        - numerator
+        - inverse
+        - cappingSettings
+        - windowSettings
+        - priorSettings
+        - regressionAdjustmentSettings
+        - riskThresholdSuccess
+        - riskThresholdDanger
+        - minPercentChange
+        - maxPercentChange
+        - minSampleSize
+        - managedBy
+        - dateCreated
+        - dateUpdated
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        owner:
+          type: string
+        projects:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        datasource:
+          type: string
+        metricType:
+          type: string
+          enum:
+            - proportion
+            - mean
+            - quantile
+            - ratio
+        numerator:
+          type: object
+          required:
+            - factTableId
+            - column
+            - filters
+          properties:
+            factTableId:
+              type: string
+            column:
+              type: string
+            filters:
+              type: array
+              description: Array of Fact Table Filter Ids
+              items:
+                type: string
+        denominator:
+          type: object
+          required:
+            - factTableId
+            - column
+            - filters
+          properties:
+            factTableId:
+              type: string
+            column:
+              type: string
+            filters:
+              type: array
+              description: Array of Fact Table Filter Ids
+              items:
+                type: string
+        inverse:
+          type: boolean
+          description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
+        quantileSettings:
+          description: Controls the settings for quantile metrics (mandatory if metricType is "quantile")
+          type: object
+          required:
+            - type
+            - quantile
+            - ignoreZeros
+          properties:
+            type:
+              type: string
+              enum:
+                - event
+                - unit
+              description: Whether the quantile is over unit aggregations or raw event values
+            ignoreZeros:
+              type: boolean
+              description: 'If true, zero values will be ignored when calculating the quantile'
+            quantile:
+              type: number
+              description: The quantile value (from 0.001 to 0.999)
+              multipleOf: 0.001
+              minimum: 0.001
+              maximum: 0.999
+        cappingSettings:
+          description: Controls how outliers are handled
+          type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum:
+                - none
+                - absolute
+                - percentile
+            value:
+              type: number
+              description: 'When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).'
+            ignoreZeros:
+              type: boolean
+              description: 'If true and capping is `percentile`, zeros will be ignored when calculating the percentile.'
+        windowSettings:
+          type: object
+          description: Controls the conversion window for the metric
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum:
+                - none
+                - conversion
+                - lookback
+            delayHours:
+              type: number
+              description: Wait this many hours after experiment exposure before counting conversions
+            windowValue:
+              type: number
+            windowUnit:
+              type: string
+              enum:
+                - hours
+                - days
+                - weeks
+          priorSettings:
+            type: object
+            description: Controls the bayesian prior for the metric
+            required:
+              - override
+              - proper
+              - mean
+              - stddev
+            properties:
+              override:
+                type: boolean
+                description: 'If false, the organization default settings will be used instead of the other settings in this object'
+              proper:
+                type: boolean
+                description: 'If true, the `mean` and `stddev` will be used, otherwise we will use an improper flat prior.'
+              mean:
+                type: number
+                description: The mean of the prior distribution of relative effects in proportion terms (e.g. 0.01 is 1%)
+              stddev:
+                type: number
+                description: Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.
+        regressionAdjustmentSettings:
+          type: object
+          description: Controls the regression adjustment (CUPED) settings for the metric
+          required:
+            - override
+          properties:
+            override:
+              type: boolean
+              description: 'If false, the organization default settings will be used'
+            enabled:
+              type: boolean
+              description: Controls whether or not regresion adjustment is applied to the metric
+            days:
+              type: number
+              description: Number of pre-exposure days to use for the regression adjustment
+        riskThresholdSuccess:
+          type: number
+        riskThresholdDanger:
+          type: number
+        minPercentChange:
+          type: number
+        maxPercentChange:
+          type: number
+        minSampleSize:
+          type: number
+        managedBy:
+          type: string
+          description: 'Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere.'
+          enum:
+            - ''
+            - api
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
   securitySchemes:
     bearerAuth:
       type: http
@@ -3001,6 +5763,7 @@ x-tagGroups:
   - name: Endpoints
     tags:
       - projects
+      - environments
       - features
       - data-sources
       - metrics
@@ -3010,22 +5773,32 @@ x-tagGroups:
       - sdk-connections
       - visual-changesets
       - saved-groups
+      - organizations
+      - fact-tables
+      - fact-metrics
+      - code-references
   - name: Models
     tags:
       - DataSource_model
       - Dimension_model
+      - Environment_model
       - Experiment_model
       - ExperimentAnalysisSettings_model
       - ExperimentMetric_model
       - ExperimentResults_model
+      - FactMetric_model
+      - FactTable_model
+      - FactTableFilter_model
       - Feature_model
       - FeatureDefinition_model
       - FeatureEnvironment_model
+      - FeatureExperimentRefRule_model
       - FeatureExperimentRule_model
       - FeatureForceRule_model
       - FeatureRolloutRule_model
       - FeatureRule_model
       - Metric_model
+      - Organization_model
       - PaginationFields_model
       - Project_model
       - SavedGroup_model

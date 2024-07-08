@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import {
   DndContext,
   DragOverlay,
@@ -18,27 +18,37 @@ import {
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import { getRules, isRuleFullyCovered } from "@/services/features";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { Rule, SortableRule } from "./Rule";
 
 export default function RuleList({
   feature,
   mutate,
-  experiments,
   environment,
   setRuleModal,
+  setCopyRuleModal,
+  version,
+  setVersion,
+  locked,
+  experimentsMap,
 }: {
   feature: FeatureInterface;
-  experiments: Record<string, ExperimentInterfaceStringDates>;
   environment: string;
   mutate: () => void;
-  setRuleModal: ({ environment: string, i: number }) => void;
+  setRuleModal: (rule: { environment: string; i: number }) => void;
+  setCopyRuleModal: (args: {
+    environment: string;
+    rules: FeatureRule[];
+  }) => void;
+  version: number;
+  setVersion: (version: number) => void;
+  locked: boolean;
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
 }) {
   const { apiCall } = useAuth();
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
-  const [activeId, setActiveId] = useState<string>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [items, setItems] = useState(getRules(feature, environment));
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   useEffect(() => {
     setItems(getRules(feature, environment));
@@ -80,8 +90,9 @@ export default function RuleList({
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
   const canEdit =
-    permissions.check("manageFeatures", feature.project) &&
-    permissions.check("createFeatureDrafts", feature.project);
+    !locked &&
+    permissionsUtil.canViewFeatureModal(feature.project) &&
+    permissionsUtil.canManageFeatureDrafts(feature);
 
   return (
     <DndContext
@@ -89,15 +100,12 @@ export default function RuleList({
       collisionDetection={closestCenter}
       onDragEnd={async ({ active, over }) => {
         if (!canEdit) {
-          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
           setActiveId(null);
           return;
         }
 
-        // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
-        if (active.id !== over.id) {
+        if (over && active.id !== over.id) {
           const oldIndex = getRuleIndex(active.id);
-          // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
           const newIndex = getRuleIndex(over.id);
 
           if (oldIndex === -1 || newIndex === -1) return;
@@ -105,17 +113,20 @@ export default function RuleList({
           const newRules = arrayMove(items, oldIndex, newIndex);
 
           setItems(newRules);
-          await apiCall(`/feature/${feature.id}/reorder`, {
-            method: "POST",
-            body: JSON.stringify({
-              environment,
-              from: oldIndex,
-              to: newIndex,
-            }),
-          });
-          mutate();
+          const res = await apiCall<{ version: number }>(
+            `/feature/${feature.id}/${version}/reorder`,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                environment,
+                from: oldIndex,
+                to: newIndex,
+              }),
+            }
+          );
+          await mutate();
+          res.version && setVersion(res.version);
         }
-        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
         setActiveId(null);
       }}
       onDragStart={({ active }) => {
@@ -134,23 +145,30 @@ export default function RuleList({
             rule={rule}
             feature={feature}
             mutate={mutate}
-            experiments={experiments}
             setRuleModal={setRuleModal}
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'boolean | u... Remove this comment to see the full error message
-            unreachable={unreachableIndex && i >= unreachableIndex}
+            setCopyRuleModal={setCopyRuleModal}
+            unreachable={!!unreachableIndex && i >= unreachableIndex}
+            version={version}
+            setVersion={setVersion}
+            locked={locked}
+            experimentsMap={experimentsMap}
           />
         ))}
       </SortableContext>
       <DragOverlay>
         {activeRule ? (
           <Rule
-            i={getRuleIndex(activeId)}
+            i={getRuleIndex(activeId as string)}
             environment={environment}
             rule={activeRule}
             feature={feature}
             mutate={mutate}
-            experiments={experiments}
             setRuleModal={setRuleModal}
+            setCopyRuleModal={setCopyRuleModal}
+            version={version}
+            setVersion={setVersion}
+            locked={locked}
+            experimentsMap={experimentsMap}
           />
         ) : null}
       </DragOverlay>

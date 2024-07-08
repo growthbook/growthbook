@@ -1,12 +1,14 @@
 import { ApiExperiment, ApiFeature } from "../../types/openapi";
-import { NotificationEventPayload } from "./base-types";
+import { IfEqual } from "../util/types";
+import { ExperimentWarningNotificationPayload } from "../types/ExperimentNotification";
+import { NotificationEventName, NotificationEventPayload } from "./base-types";
 import { UserLoginAuditableProperties } from "./event-types";
 
 // region User
 
 export type UserLoginNotificationEvent = NotificationEventPayload<
-  "user.login",
   "user",
+  "user.login",
   {
     current: UserLoginAuditableProperties;
   }
@@ -17,16 +19,16 @@ export type UserLoginNotificationEvent = NotificationEventPayload<
 // region Feature
 
 export type FeatureCreatedNotificationEvent = NotificationEventPayload<
-  "feature.created",
   "feature",
+  "feature.created",
   {
     current: ApiFeature;
   }
 >;
 
 export type FeatureUpdatedNotificationEvent = NotificationEventPayload<
-  "feature.updated",
   "feature",
+  "feature.updated",
   {
     current: ApiFeature;
     previous: ApiFeature;
@@ -34,8 +36,8 @@ export type FeatureUpdatedNotificationEvent = NotificationEventPayload<
 >;
 
 export type FeatureDeletedNotificationEvent = NotificationEventPayload<
-  "feature.deleted",
   "feature",
+  "feature.deleted",
   {
     previous: ApiFeature;
   }
@@ -46,16 +48,16 @@ export type FeatureDeletedNotificationEvent = NotificationEventPayload<
 // region Experiment
 
 export type ExperimentCreatedNotificationEvent = NotificationEventPayload<
-  "experiment.created",
   "experiment",
+  "experiment.created",
   {
     current: ApiExperiment;
   }
 >;
 
 export type ExperimentUpdatedNotificationEvent = NotificationEventPayload<
-  "experiment.updated",
   "experiment",
+  "experiment.updated",
   {
     current: ApiExperiment;
     previous: ApiExperiment;
@@ -63,11 +65,29 @@ export type ExperimentUpdatedNotificationEvent = NotificationEventPayload<
 >;
 
 export type ExperimentDeletedNotificationEvent = NotificationEventPayload<
-  "experiment.deleted",
   "experiment",
+  "experiment.deleted",
   {
     previous: ApiExperiment;
   }
+>;
+
+export type ExperimentInfoNotificationEvent = NotificationEventPayload<
+  "experiment",
+  "experiment.info",
+  null
+>;
+
+export type ExperimentWarningNotificationEvent = NotificationEventPayload<
+  "experiment",
+  "experiment.warning",
+  ExperimentWarningNotificationPayload
+>;
+
+export type WebhookTestEvent = NotificationEventPayload<
+  "webhook",
+  "webhook.test",
+  { webhookId: string }
 >;
 
 // endregion Experiment
@@ -75,11 +95,21 @@ export type ExperimentDeletedNotificationEvent = NotificationEventPayload<
 /**
  * All supported event types in the database
  */
-export type NotificationEvent =
+type AllNotificationEvent =
   | UserLoginNotificationEvent
   | FeatureCreatedNotificationEvent
   | FeatureUpdatedNotificationEvent
   | FeatureDeletedNotificationEvent
   | ExperimentCreatedNotificationEvent
   | ExperimentUpdatedNotificationEvent
-  | ExperimentDeletedNotificationEvent;
+  | ExperimentDeletedNotificationEvent
+  | ExperimentInfoNotificationEvent
+  | ExperimentWarningNotificationEvent
+  | WebhookTestEvent;
+
+// Make sure we have a payload for each type of event
+type NotificationEvent = IfEqual<
+  NotificationEventName,
+  AllNotificationEvent["event"],
+  AllNotificationEvent
+>;

@@ -2,13 +2,16 @@ import { useRouter } from "next/router";
 import { useState } from "react";
 import { FeatureInterface } from "back-end/types/feature";
 import { FaChrome } from "react-icons/fa";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import FeatureModal from "../Features/FeatureModal";
-import { DocLink } from "../DocLink";
-import InitialSDKConnectionForm from "../Features/SDKConnections/InitialSDKConnectionForm";
+import { useUser } from "@/services/UserContext";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import FeatureModal from "@/components/Features/FeatureModal";
+import { DocLink } from "@/components/DocLink";
+import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import GetStartedStep from "./GetStartedStep";
 import DocumentationLinksSidebar from "./DocumentationLinksSidebar";
 
@@ -19,12 +22,24 @@ export interface Props {
 export default function FeaturesGetStarted({ features }: Props) {
   const settings = useOrgSettings();
   const router = useRouter();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
+
+  const { organization } = useUser();
+  const demoProjectId = getDemoDatasourceProjectIdForOrganization(
+    organization?.id || ""
+  );
+
+  const { data } = useSDKConnections();
+  const connections = data?.connections || [];
+  const hasActiveConnection =
+    connections.some((c) => c.connected) || !!settings?.sdkInstructionsViewed;
+
+  const hasFeatures = features.some((f) => f.project !== demoProjectId);
 
   let step = -1;
-  if (!settings?.sdkInstructionsViewed) {
+  if (!hasActiveConnection) {
     step = 1;
-  } else if (!features.length) {
+  } else if (!hasFeatures) {
     step = 2;
   }
 
@@ -39,9 +54,7 @@ export default function FeaturesGetStarted({ features }: Props) {
         <FeatureModal
           close={() => setModalOpen(false)}
           onSuccess={async (feature) => {
-            const url = `/features/${feature.id}${
-              features.length > 0 ? "" : "?first"
-            }`;
+            const url = `/features/${feature.id}${hasFeatures ? "" : "?first"}`;
             await router.push(url);
           }}
         />
@@ -50,6 +63,11 @@ export default function FeaturesGetStarted({ features }: Props) {
         <InitialSDKConnectionForm
           close={() => setCodeModalOpen(false)}
           feature={features[0]}
+          includeCheck={true}
+          cta="Check Connection"
+          goToNextStep={() => {
+            setCodeModalOpen(false);
+          }}
         />
       )}
       <div className="row getstarted mb-3">
@@ -57,8 +75,7 @@ export default function FeaturesGetStarted({ features }: Props) {
           <div className={`card gsbox`} style={{ overflow: "hidden" }}>
             <GetStartedStep
               current={step === 1}
-              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'boolean | undefined' is not assignable to ty... Remove this comment to see the full error message
-              finished={settings?.sdkInstructionsViewed}
+              finished={hasActiveConnection}
               className="border-top"
               image="/images/coding-icon.svg"
               title="1. Install our SDK"
@@ -66,7 +83,7 @@ export default function FeaturesGetStarted({ features }: Props) {
               cta="View instructions"
               finishedCTA="View instructions"
               imageLeft={false}
-              permissionsError={!permissions.check("manageFeatures", project)}
+              permissionsError={!permissionsUtil.canViewFeatureModal(project)}
               onClick={(finished) => {
                 setCodeModalOpen(true);
                 if (!finished) {
@@ -78,7 +95,7 @@ export default function FeaturesGetStarted({ features }: Props) {
             />
             <GetStartedStep
               current={step === 2}
-              finished={features.length > 0}
+              finished={hasFeatures}
               className="border-top"
               image="/images/feature-icon.svg"
               title="2. Add your first feature"
@@ -86,7 +103,7 @@ export default function FeaturesGetStarted({ features }: Props) {
               cta="Add first feature"
               finishedCTA="Add a feature"
               imageLeft={true}
-              permissionsError={!permissions.check("manageFeatures", project)}
+              permissionsError={!permissionsUtil.canViewFeatureModal(project)}
               onClick={(finished) => {
                 setModalOpen(true);
                 if (!finished) {

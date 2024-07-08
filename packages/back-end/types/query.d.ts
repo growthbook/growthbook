@@ -1,6 +1,21 @@
 import { QueryLanguage } from "./datasource";
 
-export type QueryStatus = "running" | "failed" | "succeeded";
+export type QueryStatus =
+  | "queued"
+  | "running"
+  | "failed"
+  | "partially-succeeded"
+  | "succeeded";
+
+export type QueryStatistics = {
+  executionDurationMs?: number;
+  totalSlotMs?: number;
+  rowsProcessed?: number;
+  bytesProcessed?: number;
+  bytesBilled?: number;
+  warehouseCachedResult?: boolean;
+  partitionsUsed?: boolean;
+};
 
 export type QueryPointer = {
   query: string;
@@ -8,6 +23,18 @@ export type QueryPointer = {
   name: string;
 };
 export type Queries = QueryPointer[];
+
+export type QueryType =
+  | ""
+  | "pastExperiment"
+  | "metricAnalysis"
+  | "experimentMetric"
+  | "dimensionSlices"
+  | "experimentUnits"
+  | "experimentDropUnitsTable"
+  | "experimentResults"
+  | "experimentTraffic"
+  | "experimentMultiMetric";
 
 export interface QueryInterface {
   id: string;
@@ -17,11 +44,17 @@ export interface QueryInterface {
   query: string;
   status: QueryStatus;
   createdAt: Date;
-  startedAt: Date;
+  startedAt?: Date;
   finishedAt?: Date;
   heartbeat: Date;
   // eslint-disable-next-line
   result?: Record<string, any>;
-  rawResult?: Record<string, number | string | boolean>[];
+  queryType?: QueryType;
+  rawResult?: Record<string, number | string | boolean | object>[];
   error?: string;
+  dependencies?: string[]; // must succeed before running query
+  runAtEnd?: boolean; // only run when all other queries in model finish
+  cachedQueryUsed?: string;
+  statistics?: QueryStatistics;
+  externalId?: string;
 }

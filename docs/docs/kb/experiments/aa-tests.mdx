@@ -1,0 +1,75 @@
+---
+title: A/A Testing in GrowthBook
+description: A/A Testing in GrowthBook
+sidebar_label: A/A Testing
+slug: aa-tests
+---
+
+## What is an A/A Test?
+
+A/A tests are a form of A/B test where there is no difference between variations (each "variation" is labeled as "A"). They are used to test whether your experimentation set up and methodology is working as expected.
+
+Users who are placed into your A/A test receive the same user experience regardless of which variation they view. Thus, you'll expect to see almost identical results for each "variation" since all users are viewing the same thing. This helps to ensure that you've integrated the GrowthBook SDK correctly, that traffic is flowing as expected, and that your Metrics are defined properly, all _before_ you begin experimenting on features that matter!
+
+Because all users get the same user experience, any variation in traffic flows or Metric values can be attributed either to errors in your experiment or SDK setup, or to random chance. Metric variations in A/A tests are covered in more detail below.
+
+## When should I run an A/A test in GrowthBook?
+
+There are two scenarios in which it is a good idea to run an A/A test:
+
+**You've set up a new SDK connection.** Once your SDK is connected and you configure the trackingCallback method, you can validate that the experiment data is being sent correctly to your data warehouse.
+
+**There are changes to any part of the GrowthBook integration**, such as changes to your data warehouse, the tracking libraries (Google Analytics [GA4], Segment, Amplitude, etc.), or changes to the GrowthBook-related code within your application.
+
+## How do I run an A/A test in GrowthBook?
+
+An A/A test is run just as an A/B test would be run. Follow the usual instructions for creating an experiment and ensure the "variations" are serving _the same values_.
+
+The feature for your A/A test will look something like this:
+
+![A/A Feature Rule](/images/aa-feature-rule.png)
+
+Then, start your experiment just as you would any other experiment. Wait until it has been live for a few hours or days, depending on how much traffic you get, then take a look at the results.
+
+## What problems can an A/A test reveal?
+
+A/A tests are a low-risk approach to help ensure that your experiment is set up correctly.
+
+### Problem: No traffic, incorrect metric values, or SRM errors (imbalanced traffic)
+
+For these errors, check our [troubleshooting guide](/kb/experiments/troubleshooting-experiments).
+
+### Problem: Metrics show statistically significant lifts in the A/A test
+
+One goal of an A/A test is to confirm that all of the Metrics appear balanced across the two variations. In an ideal world, there would be no statistically significant Metric movements between the two variations, because if everything is set up correctly the two variations should have produced identical results (or nearly so, due to random chance).
+
+It's important to remember the uncertainty that underpins all experiments. In order to state that an experiment is a "winner" without collecting data forever, we often accept some level of uncertainty when declaring that a Metric is clearly positive or clearly negative.
+
+The default level of uncertainty that is used in GrowthBook's Bayesian statistics engine is:
+
+:::note
+
+The probability of a variation being higher or lower than the baseline is greater than 95% or less than 5%.
+
+:::
+
+This means that some percentage of the time, your variations will be identical but still yield statistically significant effects.
+
+In other words, about 10% of the time, you may see a statistically significant effect in an A/A Metric even if the test is set up correctly. You can lower this value by lowering the "Chance to Win Threshold" in your Organization settings, but that just means it will also take longer for actual A/B experiments to reach a significance level.
+
+So, how do we use this information about statistical significance?
+
+- If you have an A/A test with 10 Metrics that are different from one another, and 7 of them are different in a statistically significant way, and the differences are large (e.g. not 96% chance to win, but 99.9+), then you can plausibly state that something is wrong and you may want to dig into your set up. Use the general solutions in the trouble shooting guide as hints for where to begin looking for errors.
+- If you have an A/A test with 10 Metrics and 1 of them is statistically significant, or even 2 of them, then this is very plausibly due to chance and likely can be ignored and deemed a successful A/A test. You can restart your A/A test with re-randomization to confirm this if you want to. You should see a similar number of metrics reaching statistical significance, and they should not always be the same ones.
+- Things get more complicated when you have 10 Metrics and 3-4 of them show statistically significant differences. In these cases, you should consider whether the Metrics are related to one another. If you have three "purchase" Metrics that are highly correlated with one another, then it's plausible that one "unlucky" draw caused this statistical significance and the A/A test is working fine. In this situation, you should consider restarting your A/A test to confirm this theory. If all three Metrics are quite different from one another, then it's stronger evidence that something may be wrong in your set up.
+
+## Restarting an A/A test
+
+If you found some issues with your set up and want to re-run your A/A test, or if you had a Metrics imbalance that you are still uncertain about, you should usually restart the A/A test and run it again.
+
+The easiest way to do this while still guaranteeing you have a clean test is to use the "Make Changes" flow in the A/A experiment page.
+
+Use this flow to "Start a New Phase" and make sure you "re-randomize traffic" to ensure that users returning to your test will be re-randomized into variations.
+
+![New Phase](/images/new-phase.png)
+![New Phase, Re-Randomize](/images/new-phase-rerandomize.png)

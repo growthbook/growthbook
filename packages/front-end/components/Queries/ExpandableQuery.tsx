@@ -1,10 +1,20 @@
 import { FC } from "react";
 import { QueryInterface } from "back-end/types/query";
 import { formatDistanceStrict } from "date-fns";
-import { FaCircle, FaExclamationTriangle, FaCheck } from "react-icons/fa";
+import {
+  FaCircle,
+  FaExclamationTriangle,
+  FaCheck,
+  FaSquare,
+} from "react-icons/fa";
 import clsx from "clsx";
 import { getValidDate } from "shared/dates";
-import Code from "../SyntaxHighlighting/Code";
+import { isFactMetricId } from "shared/experiments";
+import { FaBoltLightning } from "react-icons/fa6";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Code from "@/components/SyntaxHighlighting/Code";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import QueryStatsRow from "./QueryStatsRow";
 
 const ExpandableQuery: FC<{
   query: QueryInterface;
@@ -19,21 +29,54 @@ const ExpandableQuery: FC<{
     }
   }
 
+  const { getFactMetricById } = useDefinitions();
+
   return (
     <div className="mb-4">
-      <h4>
-        {query.status === "running" && <FaCircle className="text-info mr-2" />}
+      <h4 className="d-flex align-items-top">
+        {query.status === "running" && (
+          <FaCircle className="text-info mr-2" title="Running" />
+        )}
+        {query.status === "queued" && (
+          <FaSquare className="text-secondary mr-2" title="Queued" />
+        )}
         {query.status === "failed" && (
-          <FaExclamationTriangle className="text-danger mr-2" />
+          <FaExclamationTriangle className="text-danger mr-2" title="Failed" />
         )}
         {query.status === "succeeded" && (
-          <FaCheck className="text-success mr-2" />
+          <FaCheck className="text-success mr-2" title="Succeeded" />
         )}
-        {title}
+        <div className="mr-1">{title}</div>
         <span style={{ fontWeight: "normal" }}>
           {title && " - "}
           Query {i + 1} of {total}
         </span>
+        {query.queryType === "experimentMultiMetric" && (
+          <div className="ml-auto">
+            <Tooltip
+              body={
+                <>
+                  <h5>Fact Table Query Optimization</h5>
+                  <p>
+                    Multiple metrics in the same Fact Table are being combined
+                    into a single query, which is much faster and more
+                    efficient.
+                  </p>
+                  <p>
+                    This is a new feature, so please report any issues you
+                    encounter. You can disable this optimization under{" "}
+                    <strong>Settings</strong> -&gt; <strong>General</strong>{" "}
+                    -&gt; <strong>Experiment Settings</strong>.
+                  </p>
+                </>
+              }
+            >
+              <span className="badge badge-warning">
+                <FaBoltLightning /> Optimized
+              </span>
+            </Tooltip>
+          </div>
+        )}
       </h4>
       <Code language={query.language} code={query.query} expandable={true} />
       {query.error && (
@@ -66,6 +109,23 @@ const ExpandableQuery: FC<{
                         <th>{i}</th>
                         {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                         {Object.keys(query.rawResult[0]).map((k) => {
+                          const val = row[k];
+                          if (typeof val === "string" && isFactMetricId(val)) {
+                            const factMetric = getFactMetricById(val);
+                            if (factMetric) {
+                              return (
+                                <td key={k}>
+                                  <span
+                                    className="badge badge-secondary"
+                                    title={val}
+                                  >
+                                    {factMetric?.name || val}
+                                  </span>
+                                </td>
+                              );
+                            }
+                          }
+
                           return (
                             <td key={k}>
                               {JSON.stringify(row[k]) ?? (
@@ -88,22 +148,50 @@ const ExpandableQuery: FC<{
         </>
       )}
       {query.status === "succeeded" && (
-        <small>
-          <em>
-            Took{" "}
-            {formatDistanceStrict(
-              getValidDate(query.startedAt),
-              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | undefined' is not assigna... Remove this comment to see the full error message
-              getValidDate(query.finishedAt)
-            )}
-          </em>
-        </small>
+        <div>
+          {query.statistics ? (
+            <QueryStatsRow queries={[query]} />
+          ) : (
+            <div className="row">
+              <div className="col-auto mb-2">
+                <em>Total time</em>:{" "}
+                <strong>
+                  {formatDistanceStrict(
+                    getValidDate(query.startedAt),
+                    getValidDate(query.finishedAt)
+                  )}
+                </strong>
+              </div>
+            </div>
+          )}
+        </div>
       )}
       {query.status === "running" && (
-        <div className="alert alert-info">
+        <>
+          <div className="alert alert-info">
+            <em>
+              Running for{" "}
+              {formatDistanceStrict(getValidDate(query.startedAt), new Date())}
+            </em>
+            {query.dependencies?.length && !query.cachedQueryUsed ? (
+              <div>
+                <em>
+                  Was queued for{" "}
+                  {formatDistanceStrict(
+                    getValidDate(query.createdAt),
+                    getValidDate(query.startedAt)
+                  )}
+                </em>
+              </div>
+            ) : null}
+          </div>
+        </>
+      )}
+      {query.status === "queued" && (
+        <div className="alert alert-secondary">
           <em>
-            Running for{" "}
-            {formatDistanceStrict(getValidDate(query.startedAt), new Date())}
+            Queued for{" "}
+            {formatDistanceStrict(getValidDate(query.createdAt), new Date())}
           </em>
         </div>
       )}

@@ -11,6 +11,17 @@ This guide walks you through using GrowthBook with Google Analytics 4 (GA4) for 
 this, connecting GA4 to BigQuery, connecting GrowthBook to BigQuery, and then configuring GrowthBook to track correctly
 with GA4.
 
+:::info
+
+You can watch a video version of this guide, largely focused on Google Optimize replacement, here:
+
+<div style={{"max-width": "500px", "margin": "auto"}}>
+  <div style={{ "position": "relative", "padding-bottom": "56.25%", "height": 0, "max-height": "300px"}} >
+    <iframe style={{"position": "absolute", "top": 0, "left": 0, width: "100%", "height": "100%"}} src="https://www.youtube.com/embed/w8MBaBqcVZI?si=ZwioZRXQ7ftPY6hp" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+  </div>
+</div>
+:::
+
 ## Configuring GrowthBook to use Google Analytics GA4 as a data source
 
 GrowthBook connects to Google Analytics (GA4) via BigQuery. This process is straight forward, and outlined below.
@@ -110,9 +121,16 @@ And then your BigQuery link will show up on the listing page:
   style={{ width: 900, margin: "0 auto 10px auto" }}
 />
 
+:::note
+
+If you are loading Google Analytics via Google Tag Manager (GTM), you may need to add the custom event to GTM to ensure
+the data is passed to GA4 from the datalayer. You can add the custom event by following this [section from the GTM guide](/guide/google-tag-manager-and-growthbook#tracking-via-datalayer-and-gtm).
+
+:::
+
 ### 3. Configure BigQuery for GrowthBook
 
-You'll need to give GrowthBook some permissions to your BigQuery project so that we can access the data. We have created a guide just for this, which you can find [here](https://docs.growthbook.io/guide/bigquery)
+You'll need to give GrowthBook permissions to your BigQuery project so that we can access the data. We have created a guide just for this, which you can find [here](https://docs.growthbook.io/guide/bigquery)
 
 ### 4. Connect GrowthBook to BigQuery
 
@@ -140,111 +158,24 @@ data depending on the way you are tracking your experiments (see the **_tracking
 
 :::
 
-Once connected, you'll be able to add any additional metrics or dimensions, and then you can use your GA4 data for your
+Once connected, you can add any additional metrics or dimensions, and then you can use your GA4 data for your
 experiments. You can use all your existing events and tracking- GrowthBook only requires one additional tracking call
 when a user is exposed to an experiment.
 
 ## Running experiments with GrowthBook and GA4
 
-With the data source connected, you can use the GrowthBook SDK run A/B tests. The SDK lets you run experiments where the
-variations are defined in code, and controlled from UI. Once implemented, the SDK will do the random assignments and send
-the experiment exposure event to GA4 based on the settings in the GrowthBook UI.
+With the data source connected, you can integrate the GrowthBook SDK into your application to run A/B tests. Once implemented, the SDK will do the random assignments and send the experiment exposure event to GA4 based on the settings in the GrowthBook UI.
 
 :::info
 
-We do have a visual editor for creating experiments, but it is meant for simple experiments. Experiments that are more
-complex are best created with a change in the code.
+We do have a visual editor for creating experiments as part of our Pro plan. Our visual editor is meant for simple
+experiments. Experiments that are more complex are best created by writing code with feature flags.
 
 :::
 
 ### SDK integration for GA4
 
-You can follow the guides on SDK integration for any of our supported languages [here](http://localhost:3200/lib/). The
-only special case for GA4 is getting the **user Id** and/or **Client ID** attribute, and adjusting the `trackingCallback` to
-send the experiment exposure event to GA4.
-
-#### Using GA's Client ID
-
-GA generates a **Client ID** (sometimes called a device Id) for each visitor, and then stores this unique ID in a cookie
-(\_ga). There are a few ways to grab this Id from your code. Here are a few ways with Javascript:
-
-```js
-gtag('get', 'G-[your google property id]', 'client_id', (clientId) => {
-  console.log(clientId)
-});
-```
-
-or
-
-```js
-const clientId = document.cookie.match(/_ga=(.+?);/)[1].split('.').slice(-2).join(".")
-```
-
-You can read more about getting this ID [here](https://stackoverflow.com/questions/20053949/how-to-get-the-google-analytics-client-id)
-
-#### Using a User ID
-
-If you have a custom **User Id** already, you can use this with GA4 instead (or as well) as the **Client Id**.
-You can read Google's official instructions on how to pass a custom **User Id** [here](https://developers.google.com/analytics/devguides/collection/ga4/user-id?client_type=gtag).
-
-:::info
-
-A **User Id** in this case would be something you pass to GA4, not something GA4 generates for you. You can use this ID throughout your GA4 reports.
-
-:::
-
-#### Passing Attributes to the SDK
-
-Once you have your **Client ID** and/or **User Id**, you can pass it to the GrowthBook SDK when you initialize it. For example:
-
-```js
-const gb = new GrowthBook({
-  apiHost: "https://cdn.growthbook.io",
-  clientKey: "sdk-abc123",
-  // Enable easier debugging during development
-  enableDevMode: true,
-  // Targeting attributes
-  attributes: {
-    clientId: clientId,
-    userId: userId,
-    country: "US",
-    ...
-  }
-});
-```
-
-And then these id's can be used from the GrowthBook UI to target your experiments. You can add the attributes to the UI from the **_Features -> Attributes_** page.
-
-#### Tracking experiment exposure
-
-The only additional event required is when a user is exposed to an experiment. This is done by adding a GA4 custom event from inside the `trackingCallback` method. For example:
-
-```js
-const gb = new GrowthBook({
-  apiHost: "https://cdn.growthbook.io",
-  clientKey: "sdk-abc123",
-  // Targeting attributes
-  attributes: {
-    clientId: gaUserId,
-    userId: userId,
-    country: country,
-    ...
-  },
-  trackingCallback: (experiment, result) => {
-    // track using GA4
-    if ("gtag" in window) {
-      window.gtag("event", "experiment_viewed", {
-        event_category: "experiment",
-        experiment_id: experiment.key,
-        variation_id: result.variationId,
-        ...
-      });
-    } else {
-      console.log("no gtag");
-    }
-  },
-});
-```
+The easiest and recommended way to integrate GrowthBook is by using our [Script Tag SDK](/lib/script-tag). This SDK will work out-of-the-box with GA4 without any configuration required.
 
 :::note
 

@@ -1,35 +1,37 @@
 import { ToggleFeatureResponse } from "../../../types/openapi";
+import { getExperimentMapForFeature } from "../../models/ExperimentModel";
 import {
   getFeature,
   toggleMultipleEnvironments,
 } from "../../models/FeatureModel";
 import { auditDetailsUpdate } from "../../services/audit";
 import { getApiFeatureObj, getSavedGroupMap } from "../../services/features";
-import { getEnvironments } from "../../services/organizations";
+import { getEnvironmentIdsFromOrg } from "../../services/organizations";
 import { createApiRequestHandler } from "../../util/handler";
 import { toggleFeatureValidator } from "../../validators/openapi";
 
 export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
   async (req): Promise<ToggleFeatureResponse> => {
-    const feature = await getFeature(req.organization.id, req.params.id);
+    const feature = await getFeature(req.context, req.params.id);
     if (!feature) {
       throw new Error("Could not find a feature with that key");
     }
 
-    const environmentIds = new Set(
-      getEnvironments(req.organization).map((e) => e.id)
-    );
+    const environmentIds = getEnvironmentIdsFromOrg(req.organization);
 
-    req.checkPermissions("manageFeatures", feature.project);
-    req.checkPermissions(
-      "publishFeatures",
-      feature.project,
-      Object.keys(req.body.environments)
-    );
+    if (
+      !req.context.permissions.canUpdateFeature(feature, {}) ||
+      !req.context.permissions.canPublishFeature(
+        feature,
+        Object.keys(req.body.environments)
+      )
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
 
     const toggles: Record<string, boolean> = {};
     Object.keys(req.body.environments).forEach((env) => {
-      if (!environmentIds.has(env)) {
+      if (!environmentIds.includes(env)) {
         throw new Error(`Unknown environment: '${env}'`);
       }
 
@@ -38,8 +40,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
     });
 
     const updatedFeature = await toggleMultipleEnvironments(
-      req.organization,
-      req.eventAudit,
+      req.context,
       feature,
       toggles
     );
@@ -57,8 +58,17 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
     }
 
     const groupMap = await getSavedGroupMap(req.organization);
+    const experimentMap = await getExperimentMapForFeature(
+      req.context,
+      updatedFeature.id
+    );
     return {
-      feature: getApiFeatureObj(updatedFeature, req.organization, groupMap),
+      feature: getApiFeatureObj({
+        feature: updatedFeature,
+        organization: req.organization,
+        groupMap,
+        experimentMap,
+      }),
     };
   }
 );

@@ -6,10 +6,9 @@ operationId: postSavedGroup
 x-codeSamples:
   - lang: "cURL"
     source: |
-      curl -X POST https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
-        -H "Content-Type: application/json" \
-        -u secret_abc123DEF456: \
-        -d '{"name": "interal-users", "values": ["userId-123", "userId-345", "userId-678"], "attributeKey": "userId", "owner": ""}'
+      curl -X POST https://api.growthbook.io/api/v1/saved-groups \
+        -d '{"name": "interal-users", "values": ["userId-123", "userId-345", "userId-678"], "attributeKey": "userId", "owner": ""}' \
+        -u secret_abc123DEF456:
 requestBody:
   required: true
   content:
@@ -18,20 +17,27 @@ requestBody:
         type: object
         required:
           - name
-          - values
-          - attributeKey
         properties:
           name:
             type: string
             description: The display name of the Saved Group
+          type:
+            type: string
+            enum:
+              - condition
+              - list
+            description: The type of Saved Group (inferred from other arguments if missing)
+          condition:
+            type: string
+            description: "When type = 'condition', this is the JSON-encoded condition for the group"
+          attributeKey:
+            type: string
+            description: "When type = 'list', this is the attribute key the group is based on"
           values:
             type: array
             items:
               type: string
-            description: "An array of values to target (Ex: a list of userIds)."
-          attributeKey:
-            type: string
-            description: "The parameter you want to target users with. Ex: userId, orgId, ..."
+            description: "When type = 'list', this is the list of values for the attribute key"
           owner:
             type: string
             description: "The person or team that owns this Saved Group. If no owner, you can pass an empty string."

@@ -2,12 +2,11 @@ import { MssqlConnectionParams } from "../../types/integrations/mssql";
 import { decryptDataSourceParams } from "../services/datasource";
 import { FormatDialect } from "../util/sql";
 import { findOrCreateConnection } from "../util/mssqlPoolManager";
+import { QueryResponse } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Mssql extends SqlIntegration {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  params: MssqlConnectionParams;
+  params!: MssqlConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<MssqlConnectionParams>(
@@ -20,23 +19,24 @@ export default class Mssql extends SqlIntegration {
   getSensitiveParamKeys(): string[] {
     return ["password"];
   }
-  async runQuery(sqlStr: string) {
-    const conn = await findOrCreateConnection(this.datasource, {
+  async runQuery(sqlStr: string): Promise<QueryResponse> {
+    const conn = await findOrCreateConnection(this.datasource.id, {
       server: this.params.server,
       port: parseInt(this.params.port + "", 10),
       user: this.params.user,
       password: this.params.password,
       database: this.params.database,
+      requestTimeout: (this.params.requestTimeout ?? 0) * 1000,
       options: this.params.options,
     });
 
     const results = await conn.request().query(sqlStr);
-    return results.recordset;
+    return { rows: results.recordset };
   }
 
   // MS SQL Server doesn't support the LIMIT keyword, so we have to use the TOP or OFFSET and FETCH keywords instead.
   // (and OFFSET/FETCH only work when there is an ORDER BY clause)
-  selectSampleRows(table: string, limit: number): string {
+  selectStarLimit(table: string, limit: number): string {
     return `SELECT TOP ${limit} * FROM ${table}`;
   }
 
@@ -52,9 +52,6 @@ export default class Mssql extends SqlIntegration {
     //return `DATETRUNC(day, ${col})`; <- this is only supported in SQL Server 2022 preview.
     return `cast(${col} as DATE)`;
   }
-  stddev(col: string) {
-    return `STDEV(${col})`;
-  }
   ensureFloat(col: string): string {
     return `CAST(${col} as FLOAT)`;
   }
@@ -67,16 +64,8 @@ export default class Mssql extends SqlIntegration {
   formatDateTimeString(col: string): string {
     return `CONVERT(VARCHAR(25), ${col}, 121)`;
   }
-  percentileCapSelectClause(
-    capPercentile: number,
-    metricTable: string
-  ): string {
-    return `
-      SELECT 
-        APPROX_PERCENTILE_CONT(${capPercentile}) WITHIN GROUP (ORDER BY value) AS cap_value
-      FROM ${metricTable}
-      WHERE value IS NOT NULL
-    `;
+  approxQuantile(value: string, quantile: string | number): string {
+    return `APPROX_PERCENTILE_CONT(${quantile}) WITHIN GROUP (ORDER BY ${value})`;
   }
   getDefaultDatabase() {
     return this.params.database;

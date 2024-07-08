@@ -21,16 +21,16 @@ export const getVisualChangeset = createApiRequestHandler(
     );
 
     if (!visualChangeset) {
-      throw new Error("Could not find visualChangeset with that id");
+      throw new Error("Could not find visualChangeset with given ID");
     }
 
     const experiment =
       includeExperiment > 0
-        ? await getExperimentById(organization.id, visualChangeset.experiment)
+        ? await getExperimentById(req.context, visualChangeset.experiment)
         : null;
 
     const apiExperiment = experiment
-      ? await toExperimentApiInterface(organization, experiment)
+      ? await toExperimentApiInterface(req.context, experiment)
       : null;
 
     return {

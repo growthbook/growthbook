@@ -3,8 +3,8 @@ import { useState } from "react";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
 import { date } from "shared/dates";
 import { phaseSummary } from "@/services/utils";
-import ConditionDisplay from "../Features/ConditionDisplay";
-import { GBEdit } from "../Icons";
+import ConditionDisplay from "@/components/Features/ConditionDisplay";
+import { GBEdit } from "@/components/Icons";
 
 export interface Props {
   i: number;
@@ -28,7 +28,7 @@ export default function ExpandablePhaseSummary({ i, phase, editPhase }: Props) {
   return (
     <div className={i ? "border-top" : ""}>
       <a
-        className="d-flex text-dark p-3"
+        className={`d-flex text-dark ${i ? "pt-3" : ""} px-3 pb-3`}
         href="#"
         onClick={(e) => {
           e.preventDefault();

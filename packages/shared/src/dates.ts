@@ -1,7 +1,9 @@
 import format from "date-fns/format";
 import formatDistance from "date-fns/formatDistance";
 import differenceInDays from "date-fns/differenceInDays";
+import differenceInHours from "date-fns/differenceInHours";
 import addMonths from "date-fns/addMonths";
+import formatRelative from "date-fns/formatRelative";
 
 export function date(date: string | Date): string {
   if (!date) return "";
@@ -10,6 +12,10 @@ export function date(date: string | Date): string {
 export function datetime(date: string | Date): string {
   if (!date) return "";
   return format(getValidDate(date), "PPp");
+}
+export function relativeDate(date: string | Date): string {
+  if (!date) return "";
+  return formatRelative(getValidDate(date), new Date());
 }
 export function ago(date: string | Date): string {
   if (!date) return "";
@@ -26,6 +32,9 @@ export function monthYear(date: string | Date): string {
 }
 export function daysBetween(start: string | Date, end: string | Date): number {
   return differenceInDays(getValidDate(end), getValidDate(start));
+}
+export function hoursBetween(start: string | Date, end: string | Date): number {
+  return differenceInHours(getValidDate(end), getValidDate(start));
 }
 
 // returns of the format ["'2022-01-05'", "'2022-01-06'"] for
@@ -48,7 +57,7 @@ export function dateStringArrayBetweenDates(
 }
 
 export function getValidDate(
-  dateStr: string | Date | null | number,
+  dateStr: string | Date | null | number | undefined,
   fallback?: Date
 ): Date {
   fallback = fallback || new Date();
@@ -60,4 +69,17 @@ export function getValidDate(
     return fallback;
   }
   return d;
+}
+/**
+ * This function will offset the time passed in
+ * to show its "true" time eg if you pass in
+ * `12/04/2023` if will show `12/04/2023`
+ * even if the user is in pacific time
+ *
+ */
+export function getValidDateOffsetByUTC(
+  ...params: Parameters<typeof getValidDate>
+): Date {
+  const date = getValidDate(...params);
+  return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
 }

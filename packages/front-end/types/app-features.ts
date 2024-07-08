@@ -31,4 +31,16 @@ export type AppFeatures = {
   "remote-evaluation": boolean;
   "import-from-x": boolean;
   "demo-datasource": boolean;
+  "new-experiment-rule": boolean;
+  "visual-editor-ai-enabled": boolean;
+  "team-permissions-enabled": boolean;
+  "ff-approval-flow": boolean;
+  "gbdemo-checkout-layout": string;
+  "datasource-pipeline-mode": boolean;
+  "fact-tables": boolean;
+  "health-tab": boolean;
+  "github-integration": boolean;
+  "pylon-config": Record<string, unknown>;
+  "no-access-role-type": boolean;
+  "quantile-metrics": boolean;
 };

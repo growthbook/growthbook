@@ -22,102 +22,116 @@ export function useConfigJson({
 }: Props) {
   return useMemo(() => {
     const config: {
-      organization?: {
-        settings?: OrganizationSettings;
+      organization: {
+        settings: OrganizationSettings;
       };
       datasources?: Record<string, Partial<DataSourceInterfaceWithParams>>;
       metrics?: Record<string, Partial<MetricInterface>>;
       dimensions?: Record<string, Partial<DimensionInterface>>;
       segments?: Record<string, Partial<SegmentInterface>>;
-    } = {};
-
-    config.organization = {
-      settings,
+    } = {
+      organization: { settings },
     };
 
     const datasourceIds: string[] = [];
-    if (datasources.length) config.datasources = {};
+    if (datasources.length) {
+      config.datasources = datasources.reduce((datasources, d) => {
+        datasourceIds.push(d.id);
 
-    datasources.forEach((d) => {
-      datasourceIds.push(d.id);
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      config.datasources[d.id] = {
-        type: d.type,
-        name: d.name,
-        params: d.params,
-        settings: d.settings,
-      } as Partial<DataSourceInterfaceWithParams>;
-    });
+        return {
+          ...datasources,
+          [d.id]: {
+            type: d.type,
+            name: d.name,
+            params: d.params,
+            settings: d.settings,
+          } as Partial<DataSourceInterfaceWithParams>,
+        };
+      }, {});
+    }
 
-    if (segments?.length) config.segments = {};
-    segments?.forEach((s) => {
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      config.segments[s.id] = {
-        name: s.name,
-        datasource: s.datasource,
-        owner: s.owner,
-        sql: s.sql,
-        userIdType: s.userIdType,
-      } as Partial<SegmentInterface>;
-    });
+    if (segments?.length) {
+      config.segments = segments?.reduce(
+        (segments, s) => ({
+          ...segments,
+          [s.id]: {
+            name: s.name,
+            datasource: s.datasource,
+            owner: s.owner,
+            sql: s.sql,
+            userIdType: s.userIdType,
+          } as Partial<SegmentInterface>,
+        }),
+        {}
+      );
+    }
 
-    if (metrics.length) config.metrics = {};
-    metrics.forEach((m) => {
-      if (m.datasource && !datasourceIds.includes(m.datasource)) return;
-      const met: Partial<MetricInterface> = {
-        type: m.type,
-        name: m.name,
-      };
+    if (metrics.length) {
+      config.metrics = metrics.reduce((metrics, m) => {
+        if (m.datasource && !datasourceIds.includes(m.datasource))
+          return metrics;
 
-      const fields: (keyof MetricInterface)[] = [
-        "datasource",
-        "description",
-        "ignoreNulls",
-        "inverse",
-        "capping",
-        "capValue",
-        "conversionWindowHours",
-        "conversionDelayHours",
-        "loseRisk",
-        "winRisk",
-        "maxPercentChange",
-        "minPercentChange",
-        "minSampleSize",
-        "userIdTypes",
-        "tags",
-        "denominator",
-        "conditions",
-        "sql",
-        "queryFormat",
-        "timestampColumn",
-        "userIdColumns",
-        "table",
-        "column",
-      ];
+        const met: Partial<MetricInterface> = {
+          type: m.type,
+          name: m.name,
+        };
 
-      fields.forEach((f) => {
-        const v = m[f];
-        if (!v) return;
-        if (Array.isArray(v) && !v.length) return;
-        // eslint-disable-next-line
-        (met[f] as any) = v;
-      });
+        const fields: (keyof MetricInterface)[] = [
+          "datasource",
+          "description",
+          "ignoreNulls",
+          "inverse",
+          "aggregation",
+          "cappingSettings",
+          "windowSettings",
+          "regressionAdjustmentOverride",
+          "regressionAdjustmentEnabled",
+          "regressionAdjustmentDays",
+          "loseRisk",
+          "winRisk",
+          "maxPercentChange",
+          "minPercentChange",
+          "minSampleSize",
+          "userIdTypes",
+          "tags",
+          "denominator",
+          "conditions",
+          "sql",
+          "queryFormat",
+          "timestampColumn",
+          "userIdColumns",
+          "table",
+          "column",
+        ];
 
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      config.metrics[m.id] = met;
-    });
+        fields.forEach((f) => {
+          const v = m[f];
+          if (!v) return;
+          if (Array.isArray(v) && !v.length) return;
+          // eslint-disable-next-line
+          (met[f] as any) = v;
+        });
 
-    if (dimensions.length) config.dimensions = {};
-    dimensions.forEach((d) => {
-      if (d.datasource && !datasourceIds.includes(d.datasource)) return;
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      config.dimensions[d.id] = {
-        name: d.name,
-        datasource: d.datasource,
-        sql: d.sql,
-        userIdType: d.userIdType || "user_id",
-      };
-    });
+        return { ...metrics, [m.id]: met };
+      }, {});
+    }
+
+    if (dimensions.length) {
+      config.dimensions = dimensions.reduce((dimensions, d) => {
+        if (d.datasource && !datasourceIds.includes(d.datasource))
+          return dimensions;
+
+        return {
+          ...dimensions,
+          [d.id]: {
+            name: d.name,
+            datasource: d.datasource,
+            sql: d.sql,
+            userIdType: d.userIdType || "user_id",
+          },
+        };
+      }, {});
+    }
 
     return config;
   }, [metrics, dimensions, datasources, settings, segments]);

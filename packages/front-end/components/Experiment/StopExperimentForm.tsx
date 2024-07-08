@@ -4,14 +4,15 @@ import {
   ExperimentResultsType,
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
+import { experimentHasLinkedChanges } from "shared/util";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import SelectField from "@/components/Forms/SelectField";
-import Modal from "../Modal";
-import MarkdownInput from "../Markdown/MarkdownInput";
-import Field from "../Forms/Field";
-import Toggle from "../Forms/Toggle";
-import { DocLink } from "../DocLink";
+import Modal from "@/components/Modal";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import Field from "@/components/Forms/Field";
+import Toggle from "@/components/Forms/Toggle";
+import { DocLink } from "@/components/DocLink";
 
 const StopExperimentForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -153,45 +154,56 @@ const StopExperimentForm: FC<{
           />
         )}
       </div>
-      {experiment.hasVisualChangesets && (
-        <div className="row">
-          <div className="form-group col">
-            <label>Enable Temporary Rollout</label>
+      {experimentHasLinkedChanges(experiment) && (
+        <>
+          <div className="row">
+            <div className="form-group col">
+              <label>Enable Temporary Rollout</label>
 
-            <div>
-              <Toggle
-                id="excludeFromPayload"
-                value={!form.watch("excludeFromPayload")}
-                setValue={(includeInPayload) => {
-                  form.setValue("excludeFromPayload", !includeInPayload);
+              <div>
+                <Toggle
+                  id="excludeFromPayload"
+                  value={!form.watch("excludeFromPayload")}
+                  setValue={(includeInPayload) => {
+                    form.setValue("excludeFromPayload", !includeInPayload);
+                  }}
+                />
+              </div>
+
+              <small className="form-text text-muted">
+                Keep the experiment running until you can implement the changes
+                in code.{" "}
+                <DocLink docSection="temporaryRollout">Learn more</DocLink>
+              </small>
+            </div>
+          </div>
+          {!form.watch("excludeFromPayload") ? (
+            <div className="row">
+              <SelectField
+                label="Variation to Release"
+                containerClassName="col"
+                value={form.watch("releasedVariationId")}
+                onChange={(v) => {
+                  form.setValue("releasedVariationId", v);
                 }}
+                helpText="Send 100% of experiment traffic to this variation"
+                placeholder="Pick one..."
+                required
+                options={experiment.variations.map((v) => {
+                  return { value: v.id, label: v.name };
+                })}
               />
             </div>
+          ) : form.watch("results") === "won" ? (
+            <div className="alert alert-info">
+              If you don&apos;t enable a Temporary Rollout, all experiment
+              traffic will immediately revert to the default control experience
+              when you submit this form.
+            </div>
+          ) : null}
+        </>
+      )}
 
-            <small className="form-text text-muted">
-              Keep the experiment running until you can implement the changes in
-              code. <DocLink docSection="temporaryRollout">Learn more</DocLink>
-            </small>
-          </div>
-        </div>
-      )}
-      {!form.watch("excludeFromPayload") && experiment.hasVisualChangesets && (
-        <div className="row">
-          <SelectField
-            label="Variation to Release"
-            containerClassName="col"
-            value={form.watch("releasedVariationId")}
-            onChange={(v) => {
-              form.setValue("releasedVariationId", v);
-            }}
-            helpText="Send 100% of experiment traffic to this variation"
-            initialOption="None"
-            options={experiment.variations.map((v) => {
-              return { value: v.id, label: v.name };
-            })}
-          />
-        </div>
-      )}
       <div className="row">
         <div className="form-group col-lg">
           <label>Additional Analysis or Details</label>{" "}

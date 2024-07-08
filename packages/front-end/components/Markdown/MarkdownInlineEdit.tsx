@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { GBEdit } from "../Icons";
-import HeaderWithEdit from "../Layout/HeaderWithEdit";
-import LoadingOverlay from "../LoadingOverlay";
+import { GBEdit } from "@/components/Icons";
+import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "./Markdown";
 import MarkdownInput from "./MarkdownInput";
 

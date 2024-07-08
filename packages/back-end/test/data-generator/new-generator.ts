@@ -1,12 +1,8 @@
-/// <reference types="../../typings/jstat" />
 import fs from "fs";
 import { GrowthBook } from "@growthbook/growthbook";
-import { jStat } from "jstat";
-
-// TODO: set seeds to enable replicable data
-
-const NUM_USERS = 10000;
-const OUTPUT_DIR = "/tmp/csv";
+import normalSample from "@stdlib/random/base/normal";
+import { addDays } from "date-fns";
+import parseArgs from "minimist";
 
 type TableData = {
   userId: string;
@@ -37,16 +33,32 @@ type EventTableData = TableData & {
   event: string;
 };
 
-const userRetention: Record<string, number> = {};
+interface DataTables {
+  pageViews: PageViewTableData[];
+  sessions: SessionTableData[];
+  experimentViews: ExperimentTableData[];
+  purchases: PurchaseTableData[];
+  events: EventTableData[];
+  userRetention: Record<string, number>;
+}
 
-// use fixed startDate so that integration tests can filter reliably
-const startDate = new Date();
-startDate.setDate(startDate.getDate() - 90);
-function getDateRangeCondition(start: number, end: number) {
-  const s = new Date(startDate);
-  const e = new Date(startDate);
-  s.setDate(s.getDate() + start);
-  e.setDate(e.getDate() + end);
+interface SimulatorData {
+  dataTables: DataTables;
+  messyData: boolean;
+  expKeyPrefix: string;
+  startDate: Date;
+  currentDate: Date;
+  runLengthDays: number;
+}
+
+function getDateRangeCondition(
+  startDate: Date,
+  dateLength: number,
+  startPct: number,
+  endPct: number
+) {
+  const s = addDays(new Date(startDate), startPct * dateLength);
+  const e = addDays(new Date(startDate), endPct * dateLength);
 
   return {
     date: {
@@ -56,57 +68,56 @@ function getDateRangeCondition(start: number, end: number) {
   };
 }
 
-const currentDate = new Date(startDate);
-
-function setRandomTime() {
+function setRandomTime(currentDate: Date) {
   currentDate.setHours(Math.floor(Math.random() * 12));
   currentDate.setMinutes(Math.floor(Math.random() * 50));
   currentDate.setSeconds(0);
 }
 
-function advanceTime(max = 61) {
+function advanceTime(currentDate: Date, max = 61) {
   const seconds = normalInt(1, max);
   currentDate.setSeconds(currentDate.getSeconds() + seconds);
 }
 
-const experimentViews: ExperimentTableData[] = [];
 function trackExperiment(
   data: Omit<ExperimentTableData, "experimentId" | "variationId">,
   result: { inExperiment: boolean; variationId: number },
-  experimentId: string
+  experimentId: string,
+  sim: SimulatorData
 ) {
   if (!result.inExperiment) return;
-  experimentViews.push({
+  sim.dataTables.experimentViews.push({
     ...data,
-    experimentId,
+    experimentId: sim.expKeyPrefix.concat("", experimentId),
     variationId: result.variationId,
-    timestamp: getTimestamp(),
+    timestamp: getTimestamp(sim.currentDate),
   });
 }
 
-const events: EventTableData[] = [];
-function trackEvent(data: Omit<EventTableData, "event">, event: string) {
-  events.push({
+function trackEvent(
+  data: Omit<EventTableData, "event">,
+  event: string,
+  sim: SimulatorData
+) {
+  sim.dataTables.events.push({
     value: 0,
     ...data,
     event,
-    timestamp: getTimestamp(),
+    timestamp: getTimestamp(sim.currentDate),
   });
 }
 
-const purchases: PurchaseTableData[] = [];
-function trackPurchase(data: PurchaseTableData) {
-  purchases.push({
+function trackPurchase(data: PurchaseTableData, sim: SimulatorData) {
+  sim.dataTables.purchases.push({
     ...data,
-    timestamp: getTimestamp(),
+    timestamp: getTimestamp(sim.currentDate),
   });
 }
 
-const pageViews: PageViewTableData[] = [];
-function trackPageView(data: PageViewTableData) {
-  pageViews.push({
+function trackPageView(data: PageViewTableData, sim: SimulatorData) {
+  sim.dataTables.pageViews.push({
     ...data,
-    timestamp: getTimestamp(),
+    timestamp: getTimestamp(sim.currentDate),
   });
 }
 
@@ -131,10 +142,13 @@ function getBrowser(): string {
 }
 
 function normalInt(min: number, max: number): number {
+  if (max < min) throw "Invalid value!";
+  if (min === max) return min;
+
   const mean = (max - min) / 2 + min;
   const stddev = (max - min) / 3;
 
-  const x = Math.round(jStat.normal.sample(mean, stddev));
+  const x = Math.round(normalSample(mean, stddev));
   if (x < min) return min;
   if (x > max) return max;
   return x;
@@ -148,12 +162,15 @@ function getCountry(userId: number): string {
   return "AU";
 }
 
-function viewHomepage(data: TableData, gb: GrowthBook) {
+function viewHomepage(data: TableData, gb: GrowthBook, sim: SimulatorData) {
   // Land on home page
-  trackPageView({
-    ...data,
-    path: "/",
-  });
+  trackPageView(
+    {
+      ...data,
+      path: "/",
+    },
+    sim
+  );
   // Homepage CTA experiment (no change to behavior)
   trackExperiment(
     data,
@@ -165,66 +182,82 @@ function viewHomepage(data: TableData, gb: GrowthBook) {
         browser: "Safari",
       },
     }),
-    "homepage-nav-ios"
+    "homepage-nav-ios",
+    sim
   );
 
-  advanceTime(30);
+  advanceTime(sim.currentDate, 30);
 
   // Only some users open the navigation
   if (Math.random() < 0.5) {
-    trackEvent(data, "Open Nav");
+    trackEvent(data, "Open Nav", sim);
   }
 
   // And some perform a search
   const searched = Math.random() < 0.8;
   if (searched) {
-    trackEvent(data, "Search");
+    trackEvent(data, "Search", sim);
   }
 
-  advanceTime(30);
+  advanceTime(sim.currentDate, 30);
 
   return !searched;
 }
 
-function viewSearchResults(data: TableData, gb: GrowthBook) {
-  trackPageView({
-    ...data,
-    path: "/search",
-  });
+function viewSearchResults(
+  data: TableData,
+  gb: GrowthBook,
+  sim: SimulatorData
+) {
+  trackPageView(
+    {
+      ...data,
+      path: "/search",
+    },
+    sim
+  );
   // A/B test on the search order (mixed, less people sorting manually, but more bounces)
   const res = gb.run({
     key: "results-order",
     // Bounce rate
     variations: [0.15, 0.12],
-    condition: getDateRangeCondition(5, 35),
+    condition: getDateRangeCondition(
+      sim.startDate,
+      sim.runLengthDays,
+      0.05,
+      0.35
+    ),
   });
-  trackExperiment(data, res, "results-order");
-  advanceTime(20);
+  trackExperiment(data, res, "results-order", sim);
+  advanceTime(sim.currentDate, 20);
 
   // Some people sort manually (depends on experiment variation)
   if (Math.random() < Math.pow(res.value, 2) * 5) {
-    trackEvent(data, "Sort Results");
+    trackEvent(data, "Sort Results", sim);
   }
 
   // Bounce rate also depends on variation
   return Math.random() < 0.3 - res.value;
 }
 
-function viewItemPage(data: TableData, gb: GrowthBook) {
+function viewItemPage(data: TableData, gb: GrowthBook, sim: SimulatorData) {
   // Id corresponds to price
   const itemId = Math.floor(Math.random() * 10 + 1);
-  trackPageView({
-    ...data,
-    path: `/item/${itemId}`,
-  });
+  trackPageView(
+    {
+      ...data,
+      path: `/item/${itemId}`,
+    },
+    sim
+  );
   // A/B test price display (loser, fewer qty purchased)
   let res = gb.run({
     key: "price-display",
     // Max qty purchased
-    variations: [7, 5],
-    condition: getDateRangeCondition(30, 60),
+    variations: [2, 1],
+    condition: getDateRangeCondition(sim.startDate, sim.runLengthDays, 0, 0.9),
   });
-  trackExperiment(data, res, "price-display");
+  trackExperiment(data, res, "price-display", sim);
   const qty = normalInt(1, res.value);
   const amount = qty * itemId;
 
@@ -232,17 +265,23 @@ function viewItemPage(data: TableData, gb: GrowthBook) {
   res = gb.run({
     key: "add-to-cart-cta",
     variations: [0.3, 0.36],
-    condition: getDateRangeCondition(45, 75),
+    condition: getDateRangeCondition(
+      sim.startDate,
+      sim.runLengthDays,
+      0.45,
+      0.75
+    ),
   });
 
-  advanceTime(20);
+  advanceTime(sim.currentDate, 20);
   if (Math.random() < res.value) {
     trackEvent(
       {
         ...data,
         value: amount,
       },
-      "Add to Cart"
+      "Add to Cart",
+      sim
     );
     return {
       itemId,
@@ -260,34 +299,38 @@ function viewItemPage(data: TableData, gb: GrowthBook) {
   };
 }
 
-function viewCheckout(data: TableData, gb: GrowthBook) {
-  trackPageView({
-    ...data,
-    path: `/checkout`,
-  });
+function viewCheckout(data: TableData, gb: GrowthBook, sim: SimulatorData) {
+  trackPageView(
+    {
+      ...data,
+      path: `/checkout`,
+    },
+    sim
+  );
   // A/B test checkout layout (variation 1 is worse, 2 is better)
   const res = gb.run({
     key: "checkout-layout",
     // Bounce rate
     variations: [0.3, 0.4, 0.25],
-    condition: getDateRangeCondition(50, 100),
+    condition: getDateRangeCondition(sim.startDate, sim.runLengthDays, 0, 1),
   });
-  trackExperiment(data, res, "checkout-layout");
+  trackExperiment(data, res, "checkout-layout", sim);
   // add second "error" exposure with different value
   // for 10% of users. Used to test multiple exposures.
-  if (Math.random() < 0.1) {
+  if (sim.messyData && Math.random() < 0.1) {
     trackExperiment(
       data,
       { inExperiment: true, variationId: 0 },
-      "checkout-layout"
+      "checkout-layout",
+      sim
     );
   }
-  advanceTime(30);
+  advanceTime(sim.currentDate, 30);
 
   // add activation metric that the checkout layout actually loads
   // (and is unaffected by experiment, which otherwise would cause bias)
   if (Math.random() < 0.9) {
-    trackEvent(data, "Cart Loaded");
+    trackEvent(data, "Cart Loaded", sim);
     return Math.random() < res.value;
   }
   // bounce all those not activated
@@ -297,49 +340,61 @@ function viewCheckout(data: TableData, gb: GrowthBook) {
 function purchase(
   data: TableData,
   gb: GrowthBook,
+  sim: SimulatorData,
   qty: number,
   price: number | null
 ) {
-  trackPageView({
-    ...data,
-    path: `/success`,
-  });
+  trackPageView(
+    {
+      ...data,
+      path: `/success`,
+    },
+    sim
+  );
   // Pretend we gift people items randomly and the price is then 0, but
   // we set it to NULL (just as a way to simulate NULL values in data)
-  if (Math.random() < 0.15) {
+  if (sim.messyData && Math.random() < 0.15) {
     price = null;
   }
-  trackPurchase({
-    ...data,
-    qty: qty,
-    amount: price,
-  });
-  advanceTime(30);
+  trackPurchase(
+    {
+      ...data,
+      qty: qty,
+      amount: price,
+    },
+    sim
+  );
+  advanceTime(sim.currentDate, 30);
 
   // A/B test confirmation email (winner, improved retention)
   const res = gb.run({
     key: "confirmation-email",
     // How much retention is gained (out of 100)
     variations: [5, 10],
-    condition: getDateRangeCondition(70, 90),
+    condition: getDateRangeCondition(
+      sim.startDate,
+      sim.runLengthDays,
+      0.7,
+      0.9
+    ),
   });
-  trackExperiment(data, res, "confirmation-email");
-  userRetention[parseInt(data.userId)] += normalInt(
+  trackExperiment(data, res, "confirmation-email", sim);
+  sim.dataTables.userRetention[parseInt(data.userId)] += normalInt(
     res.value - 10,
     res.value + 10
   );
 }
 
-function getTimestamp() {
+function getTimestamp(currentDate: Date) {
   return currentDate.toISOString().substring(0, 19).replace("T", " ");
 }
 
-const sessions: SessionTableData[] = [];
 async function simulateSession(
   userId: number,
-  anonymousId: string
+  anonymousId: string,
+  sim: SimulatorData
 ): Promise<Omit<SessionTableData, "duration" | "pages">> {
-  setRandomTime();
+  setRandomTime(sim.currentDate);
   const browser = getBrowser();
   const commonData = {
     userId: userId + "",
@@ -354,23 +409,23 @@ async function simulateSession(
   };
   const sessionData: Omit<SessionTableData, "duration" | "pages"> = {
     ...commonData,
-    sessionStart: getTimestamp(),
+    sessionStart: getTimestamp(sim.currentDate),
   };
 
   const gb = new GrowthBook({
     attributes: {
       id: userId,
       anonId: eventData.anonymousId,
-      date: currentDate.toISOString().substring(0, 10),
+      date: sim.currentDate.toISOString().substring(0, 10),
       browser: eventData.browser,
       country: eventData.country,
     },
   });
 
-  let bounce = viewHomepage(eventData, gb);
+  let bounce = viewHomepage(eventData, gb, sim);
   if (bounce) return sessionData;
 
-  bounce = viewSearchResults(eventData, gb);
+  bounce = viewSearchResults(eventData, gb, sim);
   if (bounce) return sessionData;
 
   // Views a couple items
@@ -380,64 +435,74 @@ async function simulateSession(
   const res = gb.run({
     key: "recommended-items",
     variations: [4, 4.2, 4.4],
-    condition: getDateRangeCondition(20, 50),
+    condition: getDateRangeCondition(
+      sim.startDate,
+      sim.runLengthDays,
+      0.2,
+      0.5
+    ),
   });
   const itemsViewed = normalInt(1, res.value);
   for (let i = 0; i < itemsViewed; i++) {
-    const item = viewItemPage(eventData, gb);
+    const item = viewItemPage(eventData, gb, sim);
     qty += item.qty;
     price += item.amount;
   }
   if (!qty) return sessionData;
 
-  bounce = viewCheckout(eventData, gb);
+  bounce = viewCheckout(eventData, gb, sim);
   if (bounce) return sessionData;
 
-  purchase(eventData, gb, qty, price);
+  purchase(eventData, gb, sim, qty, price);
 
   return sessionData;
 }
 
 const anonymousIds: Record<string, string> = {};
-async function simulate() {
-  for (let i = 0; i < 90; i++) {
-    for (let j = 0; j < NUM_USERS; j++) {
+async function simulate(sim: SimulatorData, numUsers: number) {
+  for (let i = 0; i < sim.runLengthDays; i++) {
+    for (let j = 0; j < numUsers; j++) {
       // Space out people's starting days
-      const firstDay = (j / NUM_USERS) * 60;
+      const firstDay = (j / numUsers) * (sim.runLengthDays - 30);
       if (i < firstDay) continue;
 
       // If user is retained
       const r = Math.random() * 800;
-      if (!(j in userRetention)) {
-        userRetention[j] = 100;
+      if (!(j in sim.dataTables.userRetention)) {
+        sim.dataTables.userRetention[j] = 100;
       }
-      if (r >= userRetention[j]) continue;
+      if (r >= sim.dataTables.userRetention[j]) continue;
 
       // Small chance of clearing cookies
       if (!anonymousIds[j] || Math.random() < 0.05) {
         anonymousIds[j] = j + "__" + Math.random() + "";
       }
 
-      const startingPageviews = pageViews.length;
-      const data = await simulateSession(j, anonymousIds[j]);
+      const startingPageviews = sim.dataTables.pageViews.length;
+      const data = await simulateSession(j, anonymousIds[j], sim);
       const duration = Math.round(
-        (currentDate.getTime() - new Date(data.sessionStart + "Z").getTime()) /
+        (sim.currentDate.getTime() -
+          new Date(data.sessionStart + "Z").getTime()) /
           1000
       );
-      sessions.push({
+      sim.dataTables.sessions.push({
         ...data,
-        pages: pageViews.length - startingPageviews,
+        pages: sim.dataTables.pageViews.length - startingPageviews,
         duration,
       });
 
-      userRetention[j] -= normalInt(20, 40);
+      sim.dataTables.userRetention[j] -= normalInt(20, 40);
     }
-    currentDate.setDate(currentDate.getDate() + 1);
+    sim.currentDate = addDays(sim.currentDate, 1);
   }
 }
 
-function writeCSV(objs: Record<string, unknown>[], filename: string) {
-  const path = OUTPUT_DIR + "/" + filename;
+function writeCSV(
+  objs: Record<string, unknown>[],
+  output_dir: string,
+  filename: string
+) {
+  const path = output_dir + "/" + filename;
   const firstRow = objs.shift();
   if (!firstRow) return;
   const rows: string[][] = [];
@@ -454,31 +519,112 @@ function writeCSV(objs: Record<string, unknown>[], filename: string) {
   fs.writeFileSync(path, contents);
 }
 
-console.log("Generating dummy data...");
-simulate().then(async () => {
-  const sortDate = (a: TableData, b: TableData) =>
-    a.timestamp.localeCompare(b.timestamp);
+function generateAndWriteData({
+  startDate,
+  runLengthDays,
+  outputDir,
+  numUsers,
+  messyData,
+  expKeyPrefix,
+}: {
+  startDate: Date;
+  runLengthDays: number;
+  outputDir: string;
+  numUsers: number;
+  messyData: boolean;
+  expKeyPrefix: string;
+}) {
+  const sim: SimulatorData = {
+    dataTables: {
+      pageViews: [],
+      sessions: [],
+      experimentViews: [],
+      purchases: [],
+      events: [],
+      userRetention: {},
+    },
+    messyData: messyData,
+    expKeyPrefix: expKeyPrefix,
+    startDate: startDate,
+    currentDate: new Date(startDate),
+    runLengthDays: runLengthDays,
+  };
 
-  sessions.sort((a, b) => a.sessionStart.localeCompare(b.sessionStart));
-  pageViews.sort(sortDate);
-  experimentViews.sort(sortDate);
-  purchases.sort(sortDate);
-  events.sort(sortDate);
+  simulate(sim, numUsers).then(async () => {
+    const sortDate = (a: TableData, b: TableData) =>
+      a.timestamp.localeCompare(b.timestamp);
 
-  console.log({
-    users: NUM_USERS,
-    sessions: sessions.length,
-    pageViews: pageViews.length,
-    experiments: experimentViews.length,
-    purchases: purchases.length,
-    events: events.length,
+    sim.dataTables.sessions.sort((a, b) =>
+      a.sessionStart.localeCompare(b.sessionStart)
+    );
+    sim.dataTables.pageViews.sort(sortDate);
+    sim.dataTables.experimentViews.sort(sortDate);
+    sim.dataTables.purchases.sort(sortDate);
+    sim.dataTables.events.sort(sortDate);
+
+    console.log({
+      users: numUsers,
+      sessions: sim.dataTables.sessions.length,
+      pageViews: sim.dataTables.pageViews.length,
+      experiments: sim.dataTables.experimentViews.length,
+      purchases: sim.dataTables.purchases.length,
+      events: sim.dataTables.events.length,
+    });
+
+    console.log(`Writing CSVs to '${outputDir}'...`);
+    fs.mkdirSync(outputDir, { recursive: true });
+    writeCSV(sim.dataTables.sessions, outputDir, "sessions.csv");
+    writeCSV(sim.dataTables.pageViews, outputDir, "pageViews.csv");
+    writeCSV(sim.dataTables.experimentViews, outputDir, "experimentViews.csv");
+    writeCSV(sim.dataTables.purchases, outputDir, "purchases.csv");
+    writeCSV(sim.dataTables.events, outputDir, "events.csv");
   });
+}
 
-  console.log(`Writing CSVs to '${OUTPUT_DIR}'...`);
-  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-  writeCSV(sessions, "sessions.csv");
-  writeCSV(pageViews, "pageViews.csv");
-  writeCSV(experimentViews, "experimentViews.csv");
-  writeCSV(purchases, "purchases.csv");
-  writeCSV(events, "events.csv");
+const {
+  days: daysArg,
+  "start-date": startDateArg,
+  "user-count": userCountArg,
+  "csv-dir": csvDirArg,
+  "messy-data": messyDataArg,
+  "key-prefix": keyPrefixArg,
+} = parseArgs(process.argv.slice(2), {
+  string: [
+    "days",
+    "start-date",
+    "user-count",
+    "csv-dir",
+    "messy-data",
+    "key-prefix",
+  ],
+  default: {
+    days: "60",
+    "user-count": "10000",
+    "csv-dir": "/tmp/csv",
+    "messy-data": "true",
+    "key-prefix": "",
+  },
 });
+
+const runLengthDays = Number(daysArg);
+const numUsers = Number(userCountArg);
+
+const startDate = (() => {
+  if (startDateArg) return new Date(startDateArg);
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - runLengthDays);
+  return startDate;
+})();
+
+const params = {
+  startDate,
+  runLengthDays,
+  outputDir: csvDirArg,
+  numUsers,
+  messyData: !!messyDataArg,
+  expKeyPrefix: keyPrefixArg,
+};
+
+console.log(`Generation params: ${JSON.stringify(params, null, 2)}`);
+console.log("Generating dummy data: ...");
+generateAndWriteData(params);

@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
-import { getOrgFromReq } from "../../services/organizations";
+import { getContextFromReq } from "../../services/organizations";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
 import { getLatestEventsForOrganization } from "../../models/EventModel";
 import { DataExportFileResponse } from "../../../types/data-exports";
@@ -20,9 +20,12 @@ export const getDataExportForEvents = async (
     EventAuditUserForResponseLocals
   >
 ) => {
-  req.checkPermissions("viewEvents");
+  const context = getContextFromReq(req);
+  const { org } = context;
 
-  const { org } = getOrgFromReq(req);
+  if (!context.permissions.canViewAuditLogs()) {
+    context.permissions.throwPermissionError();
+  }
 
   if (!orgHasPremiumFeature(org, "audit-logging")) {
     return res.status(403).json({

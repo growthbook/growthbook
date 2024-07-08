@@ -15,8 +15,7 @@ const Carousel: FC<{
   deleteImage?: (i: number) => Promise<void>;
   children: ReactNode;
   maxChildHeight?: number;
-  newUi?: boolean;
-}> = ({ children, deleteImage, maxChildHeight, newUi }) => {
+}> = ({ children, deleteImage, maxChildHeight }) => {
   const [active, setActive] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -38,19 +37,20 @@ const Carousel: FC<{
   if (modalOpen) {
     const orig = Children.toArray(children)[current];
     if (orig && isValidElement(orig)) {
-      currentChild = cloneElement(orig, {
+      currentChild = cloneElement(orig as ReactElement<HTMLDivElement>, {
         style: { ...orig.props.style, height: "100%" },
       });
     }
   }
 
   return (
-    <div className={clsx("carousel slide my-2", { "carousel-clean": newUi })}>
+    <div className="carousel slide my-2">
       {modalOpen && currentChild && (
         <Modal
           open={true}
           header={"Screenshot"}
           close={() => setModalOpen(false)}
+          bodyClassName="d-flex justify-content-center align-items-center"
           size="max"
           sizeY="max"
         >
@@ -72,9 +72,7 @@ const Carousel: FC<{
           )}
         </Modal>
       )}
-      <div
-        className={clsx("carousel-inner", { "carousel-inner-clean": newUi })}
-      >
+      <div className="carousel-inner">
         {Children.map(children, (child, i) => {
           if (!isValidElement(child)) return null;
           return (
@@ -93,7 +91,6 @@ const Carousel: FC<{
       {current > 0 ? (
         <a
           className="carousel-control-prev"
-          href="#"
           role="button"
           onClick={(e) => {
             e.preventDefault();
@@ -112,7 +109,6 @@ const Carousel: FC<{
       {current < num - 1 ? (
         <a
           className="carousel-control-next"
-          href="#"
           role="button"
           onClick={(e) => {
             e.preventDefault();

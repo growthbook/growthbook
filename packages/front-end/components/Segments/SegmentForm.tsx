@@ -2,6 +2,7 @@ import { FC, useMemo, useState } from "react";
 import { SegmentInterface } from "back-end/types/segment";
 import { useForm } from "react-hook-form";
 import { FaExternalLinkAlt } from "react-icons/fa";
+import { isProjectListValidForProject } from "shared/util";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { validateSQL } from "@/services/datasources";
@@ -9,8 +10,8 @@ import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import useMembers from "@/hooks/useMembers";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import EditSqlModal from "../SchemaBrowser/EditSqlModal";
-import Code from "../SyntaxHighlighting/Code";
+import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
+import Code from "@/components/SyntaxHighlighting/Code";
 
 export type CursorData = {
   row: number;
@@ -28,8 +29,15 @@ const SegmentForm: FC<{
     datasources,
     getDatasourceById,
     mutateDefinitions,
+    project,
   } = useDefinitions();
-  const filteredDatasources = datasources.filter((d) => d.properties?.segments);
+  const filteredDatasources = datasources
+    .filter((d) => d.properties?.segments)
+    .filter(
+      (d) =>
+        d.id === current.datasource ||
+        isProjectListValidForProject(d.projects, project)
+    );
   const form = useForm({
     defaultValues: {
       name: current.name || "",
@@ -38,6 +46,7 @@ const SegmentForm: FC<{
         (current.id ? current.datasource : filteredDatasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
       owner: current.owner || "",
+      description: current.description || "",
     },
   });
   const [sqlOpen, setSqlOpen] = useState(false);
@@ -91,6 +100,7 @@ const SegmentForm: FC<{
           comboBox
           {...form.register("owner")}
         />
+        <Field label="Description" {...form.register("description")} textarea />
         <SelectField
           label="Data Source"
           required
@@ -103,8 +113,7 @@ const SegmentForm: FC<{
           }))}
           className="portal-overflow-ellipsis"
         />
-        {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-        {datasource?.properties.userIds && (
+        {datasource?.properties?.userIds && (
           <SelectField
             label="Identifier Type"
             required

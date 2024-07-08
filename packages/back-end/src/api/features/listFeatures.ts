@@ -1,29 +1,38 @@
 import { ListFeaturesResponse } from "../../../types/openapi";
+import { getAllPayloadExperiments } from "../../models/ExperimentModel";
 import { getAllFeatures } from "../../models/FeatureModel";
 import { getApiFeatureObj, getSavedGroupMap } from "../../services/features";
-import {
-  applyFilter,
-  applyPagination,
-  createApiRequestHandler,
-} from "../../util/handler";
+import { applyPagination, createApiRequestHandler } from "../../util/handler";
 import { listFeaturesValidator } from "../../validators/openapi";
 
 export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
   async (req): Promise<ListFeaturesResponse> => {
-    const features = await getAllFeatures(req.organization.id);
+    const features = await getAllFeatures(req.context, {
+      project: req.query.projectId,
+      includeArchived: true,
+    });
     const groupMap = await getSavedGroupMap(req.organization);
+    const experimentMap = await getAllPayloadExperiments(
+      req.context,
+      req.query.projectId
+    );
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
-      features
-        .filter((feature) => applyFilter(req.query.projectId, feature.project))
-        .sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime()),
+      features.sort(
+        (a, b) => a.dateCreated.getTime() - b.dateCreated.getTime()
+      ),
       req.query
     );
 
     return {
       features: filtered.map((feature) =>
-        getApiFeatureObj(feature, req.organization, groupMap)
+        getApiFeatureObj({
+          feature,
+          organization: req.organization,
+          groupMap,
+          experimentMap,
+        })
       ),
       ...returnFields,
     };

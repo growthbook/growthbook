@@ -2,32 +2,48 @@ import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React, { forwardRef } from "react";
-import { FaArrowsAlt, FaExclamationTriangle } from "react-icons/fa";
+import {
+  FaArrowsAlt,
+  FaExclamationTriangle,
+  FaExternalLinkAlt,
+} from "react-icons/fa";
+import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { filterEnvironmentsByFeature } from "shared/dist/util";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getRules, useEnvironments } from "@/services/features";
-import usePermissions from "@/hooks/usePermissions";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "../Button";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import MoreMenu from "../Dropdown/MoreMenu";
+import Button from "@/components/Button";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 import ExperimentSummary from "./ExperimentSummary";
 import RuleStatusPill from "./RuleStatusPill";
+import ExperimentRefSummary, {
+  isExperimentRefRuleSkipped,
+} from "./ExperimentRefSummary";
 
 interface SortableProps {
   i: number;
   rule: FeatureRule;
   feature: FeatureInterface;
   environment: string;
-  experiments: Record<string, ExperimentInterfaceStringDates>;
   mutate: () => void;
-  setRuleModal: ({ environment: string, i: number }) => void;
+  setRuleModal: (args: { environment: string; i: number }) => void;
+  setCopyRuleModal: (args: {
+    environment: string;
+    rules: FeatureRule[];
+  }) => void;
   unreachable?: boolean;
+  version: number;
+  setVersion: (version: number) => void;
+  locked: boolean;
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
 }
 
 type RuleProps = SortableProps &
@@ -44,25 +60,37 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       feature,
       environment,
       setRuleModal,
+      setCopyRuleModal,
       mutate,
       handle,
-      experiments,
       unreachable,
+      version,
+      setVersion,
+      locked,
+      experimentsMap,
       ...props
     },
     ref
   ) => {
     const { apiCall } = useAuth();
+
+    const allEnvironments = useEnvironments();
+    const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+
     const title =
       rule.description ||
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
+
+    const linkedExperiment =
+      rule.type === "experiment-ref" && experimentsMap.get(rule.experimentId);
+
     const rules = getRules(feature, environment);
-    const environments = useEnvironments();
-    const permissions = usePermissions();
+    const permissionsUtil = usePermissionsUtil();
 
     const canEdit =
-      permissions.check("manageFeatures", feature.project) &&
-      permissions.check("createFeatureDrafts", feature.project);
+      !locked &&
+      permissionsUtil.canViewFeatureModal(feature.project) &&
+      permissionsUtil.canManageFeatureDrafts(feature);
 
     const upcomingScheduleRule = getUpcomingScheduleRule(rule);
 
@@ -74,7 +102,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const ruleDisabled =
       scheduleCompletedAndDisabled ||
       upcomingScheduleRule?.enabled ||
+      (linkedExperiment && isExperimentRefRuleSkipped(linkedExperiment)) ||
       !rule.enabled;
+
+    const hasCondition =
+      (rule.condition && rule.condition !== "{}") ||
+      !!rule.savedGroups?.length ||
+      !!rule.prerequisites?.length;
 
     return (
       <div
@@ -86,35 +120,39 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       >
         <div className="d-flex mb-2 align-items-center">
           <div>
-            <div
-              className="text-light border rounded-circle"
-              style={{
-                width: 28,
-                height: 28,
-                lineHeight: "28px",
-                textAlign: "center",
-                background: "#7C45EA",
-                fontWeight: "bold",
-                opacity: ruleDisabled ? 0.5 : 1,
-              }}
-            >
-              {i + 1}
-            </div>
-          </div>
-          <div
-            style={{
-              flex: 1,
-              opacity: ruleDisabled ? 0.5 : 1,
-            }}
-            className="mx-2"
-          >
-            {title}
-            {unreachable ? (
-              <Tooltip
-                body={
-                  "A rule above this one will serve to 100% of the traffic, and this rule will never be reached."
-                }
+            <Tooltip body={ruleDisabled ? "This rule will be skipped" : ""}>
+              <div
+                className={`text-light border rounded-circle text-center font-weight-bold ${
+                  ruleDisabled ? "bg-secondary" : "bg-purple"
+                }`}
+                style={{
+                  width: 28,
+                  height: 28,
+                  lineHeight: "28px",
+                }}
               >
+                {i + 1}
+              </div>
+            </Tooltip>
+          </div>
+          <div className="flex-1 mx-2">
+            {linkedExperiment ? (
+              <div>
+                Experiment:{" "}
+                <strong className="mr-3">{linkedExperiment.name}</strong>{" "}
+                <Link href={`/experiment/${linkedExperiment.id}`}>
+                  View Experiment{" "}
+                  <FaExternalLinkAlt
+                    className="small ml-1 position-relative"
+                    style={{ top: "-1px" }}
+                  />
+                </Link>
+              </div>
+            ) : (
+              title
+            )}
+            {unreachable && !ruleDisabled ? (
+              <Tooltip body="A rule above this one will serve to 100% of the traffic, and this rule will never be reached.">
                 <span className="ml-2 font-italic bg-secondary text-light border px-2 rounded d-inline-block">
                   {" "}
                   <FaExclamationTriangle className="text-warning" /> This rule
@@ -126,8 +164,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           <RuleStatusPill
             rule={rule}
             upcomingScheduleRule={upcomingScheduleRule}
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | boolean | undefined' is not assigna... Remove this comment to see the full error message
-            scheduleCompletedAndDisabled={scheduleCompletedAndDisabled}
+            scheduleCompletedAndDisabled={!!scheduleCompletedAndDisabled}
+            linkedExperiment={linkedExperiment || undefined}
           />
           {rules.length > 1 && canEdit && (
             <div
@@ -165,48 +203,37 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         type: rule.type,
                       }
                     );
-                    await apiCall(`/feature/${feature.id}/rule`, {
-                      method: "PUT",
-                      body: JSON.stringify({
-                        environment,
-                        rule: {
-                          ...rule,
-                          enabled: !rule.enabled,
-                        },
-                        i,
-                      }),
-                    });
-                    mutate();
+                    const res = await apiCall<{ version: number }>(
+                      `/feature/${feature.id}/${version}/rule`,
+                      {
+                        method: "PUT",
+                        body: JSON.stringify({
+                          environment,
+                          rule: {
+                            ...rule,
+                            enabled: !rule.enabled,
+                          },
+                          i,
+                        }),
+                      }
+                    );
+                    await mutate();
+                    res.version && setVersion(res.version);
                   }}
                 >
                   {rule.enabled ? "Disable" : "Enable"}
                 </Button>
-                {environments
-                  .filter((e) => e.id !== environment)
-                  .map((en) => (
-                    <Button
-                      key={en.id}
-                      color=""
-                      className="dropdown-item"
-                      onClick={async () => {
-                        await apiCall(`/feature/${feature.id}/rule`, {
-                          method: "POST",
-                          body: JSON.stringify({
-                            environment: en.id,
-                            rule: { ...rule, id: "" },
-                          }),
-                        });
-                        track("Clone Feature Rule", {
-                          ruleIndex: i,
-                          environment,
-                          type: rule.type,
-                        });
-                        mutate();
-                      }}
-                    >
-                      Copy to {en.id}
-                    </Button>
-                  ))}
+                {environments.length > 1 && (
+                  <Button
+                    color=""
+                    className="dropdown-item"
+                    onClick={() => {
+                      setCopyRuleModal({ environment, rules: [rule] });
+                    }}
+                  >
+                    Copy rule to environment(s)
+                  </Button>
+                )}
                 <DeleteButton
                   className="dropdown-item"
                   displayName="Rule"
@@ -218,14 +245,18 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       environment,
                       type: rule.type,
                     });
-                    await apiCall(`/feature/${feature.id}/rule`, {
-                      method: "DELETE",
-                      body: JSON.stringify({
-                        environment,
-                        i,
-                      }),
-                    });
-                    mutate();
+                    const res = await apiCall<{ version: number }>(
+                      `/feature/${feature.id}/${version}/rule`,
+                      {
+                        method: "DELETE",
+                        body: JSON.stringify({
+                          environment,
+                          i,
+                        }),
+                      }
+                    );
+                    await mutate();
+                    res.version && setVersion(res.version);
                   }}
                 />
               </MoreMenu>
@@ -235,19 +266,22 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         <div className="d-flex">
           <div
             style={{
-              flex: 1,
               maxWidth: "100%",
-              opacity: ruleDisabled ? 0.5 : 1,
+              opacity: ruleDisabled ? 0.4 : 1,
             }}
-            className="pt-1 position-relative"
+            className="flex-1 pt-1 position-relative"
           >
-            {rule.condition && rule.condition !== "{}" && (
+            {hasCondition && rule.type !== "experiment-ref" && (
               <div className="row mb-3 align-items-top">
-                <div className="col-auto">
+                <div className="col-auto d-flex align-items-center">
                   <strong>IF</strong>
                 </div>
                 <div className="col">
-                  <ConditionDisplay condition={rule.condition} />
+                  <ConditionDisplay
+                    condition={rule.condition || ""}
+                    savedGroups={rule.savedGroups}
+                    prerequisites={rule.prerequisites}
+                  />
                 </div>
               </div>
             )}
@@ -265,7 +299,16 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             {rule.type === "experiment" && (
               <ExperimentSummary
                 feature={feature}
-                experiment={experiments[rule.trackingKey || feature.id]}
+                experiment={Array.from(experimentsMap.values()).find(
+                  (exp) => exp.trackingKey === (rule.trackingKey || feature.id)
+                )}
+                rule={rule}
+              />
+            )}
+            {rule.type === "experiment-ref" && (
+              <ExperimentRefSummary
+                feature={feature}
+                experiment={experimentsMap.get(rule.experimentId)}
                 rule={rule}
               />
             )}

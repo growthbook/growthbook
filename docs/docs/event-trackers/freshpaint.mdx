@@ -5,7 +5,32 @@ sidebar_label: Freshpaint
 slug: freshpaint
 ---
 
-import MissingEventTrackerDocs from './missing-event-tracker-docs.mdx'
-const { title, description, sidebar_label, slug } = frontMatter
+import DefaultInstructions from './_default-event-instructions.mdx'
+export const { title, description, sidebar_label, slug } = frontMatter
 
-<MissingEventTrackerDocs eventTracker="Freshpaint" slug={slug} />
+# Freshpaint Event Tracker
+
+## Event Tracker Setup
+
+For JS, you can track the experiment exposure events by adding the following code the `trackingCallback` in the GrowthBook SDK.
+
+```js
+ trackingCallback: (experiment, result) => {
+    freshpaint.track('Experiment Viewed', {experimentId: experiment.key, variantId: result.key});
+ }
+```
+
+## Data Source Setup
+
+Freshpaint does not support direct data access, instead, to work with GrowthBook, you'll need to export your data to a
+data warehouse. You can read about the supported data destinations [here](https://documentation.freshpaint.io/destinations/warehouses).
+Freshpaint lets you export to BigQuery, Databricks, Postgres, Redshift, and Snowflake.
+
+:::note
+
+GrowthBook will attempt automatically create SQL queries for Freshpaint, but this may require adjustments. General
+instructions for setting up SQL sources are below. If you need any help, [reach out to us](https://slack.growthbook.io) and we can help
+
+:::
+
+<DefaultInstructions eventTracker="Freshpaint" slug={slug} />

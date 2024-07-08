@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import React, { Suspense, useState } from "react";
+import React, { ReactElement, Suspense, useState } from "react";
 import { FaCompressAlt, FaExpandAlt } from "react-icons/fa";
 import cloneDeep from "lodash/cloneDeep";
 import dynamic from "next/dynamic";
@@ -24,6 +24,7 @@ export type Language =
   | "ruby"
   | "json"
   | "javascript"
+  | "typescript"
   | "tsx"
   | "html"
   | "css"
@@ -37,7 +38,8 @@ export type Language =
   | "xml"
   | "dart"
   | "csharp"
-  | "java";
+  | "java"
+  | "elixir";
 
 const LanguageDisplay: Record<string, string> = {
   sh: "Terminal",
@@ -53,13 +55,19 @@ export default function Code({
   expandable = false,
   containerClassName,
   filename,
+  errorLine,
+  highlightLine,
+  startingLineNumber,
 }: {
   code: string;
   language: Language;
   className?: string;
   expandable?: boolean;
   containerClassName?: string;
-  filename?: string;
+  filename?: string | ReactElement;
+  errorLine?: number;
+  highlightLine?: number;
+  startingLineNumber?: number;
 }) {
   language = language || "none";
   if (language === "sh") language = "bash";
@@ -158,6 +166,36 @@ export default function Code({
           style={style}
           className={clsx("rounded-bottom", className)}
           showLineNumbers={true}
+          startingLineNumber={startingLineNumber ?? 1}
+          {...(errorLine
+            ? {
+                wrapLines: true,
+                lineProps: (
+                  lineNumber: number
+                ): React.HTMLProps<HTMLElement> => {
+                  const style: React.CSSProperties = {};
+                  if (errorLine && lineNumber === errorLine) {
+                    style.textDecoration = "underline wavy red";
+                    style.textUnderlineOffset = "0.2em";
+                  }
+                  return { style };
+                },
+              }
+            : {})}
+          {...(highlightLine
+            ? {
+                wrapLines: true,
+                lineProps: (
+                  lineNumber: number
+                ): React.HTMLProps<HTMLElement> => {
+                  const style: React.CSSProperties = {};
+                  if (highlightLine && lineNumber === highlightLine) {
+                    style.backgroundColor = "rgba(255, 255, 0, 0.2)";
+                  }
+                  return { style };
+                },
+              }
+            : {})}
         >
           {code}
         </Prism>

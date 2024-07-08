@@ -23,9 +23,9 @@ router.post(
 );
 
 router.delete(
-  "/:id",
+  "/",
   validateRequestMiddleware({
-    params: z
+    body: z
       .object({
         id: z.string(),
       })

@@ -4,7 +4,9 @@ export interface UserInterface {
   email: string;
   verified: boolean;
   passwordHash?: string;
-  admin: boolean;
+  superAdmin: boolean;
+  minTokenDate?: Date;
+  dateCreated?: Date;
 }
 
 export interface UserRef {

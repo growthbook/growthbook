@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useUser } from "../services/UserContext";
+import { useUser } from "@/services/UserContext";
 
 export default function useMembers() {
   const { users } = useUser();

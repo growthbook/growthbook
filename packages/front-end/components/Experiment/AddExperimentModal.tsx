@@ -1,11 +1,11 @@
-import { FC, useState } from "react";
+import { FC, ReactElement, useState } from "react";
 import { IconType } from "react-icons";
 import { GoBeaker, GoGraph } from "react-icons/go";
 import clsx from "clsx";
 import track from "@/services/track";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Modal from "../Modal";
+import Modal from "@/components/Modal";
 import styles from "./AddExperimentModal.module.scss";
 import ImportExperimentModal from "./ImportExperimentModal";
 import NewExperimentForm from "./NewExperimentForm";
@@ -14,7 +14,7 @@ type CTA = {
   Icon: IconType;
   onClick: () => void;
   cta: string;
-  description: string;
+  description: string | ReactElement;
   enabled: boolean;
 };
 
@@ -52,10 +52,9 @@ const AddExperimentModal: FC<{
 }> = ({ onClose, source }) => {
   const { project } = useDefinitions();
 
-  const permissions = usePermissions();
-  const hasRunExperimentsPermission = permissions.check(
-    "runExperiments",
-    project,
+  const permissionsUtil = usePermissionsUtil();
+  const hasRunExperimentsPermission = permissionsUtil.canRunExperiment(
+    { project },
     []
   );
 
@@ -75,8 +74,13 @@ const AddExperimentModal: FC<{
     },
     {
       cta: "Design a New Experiment",
-      description:
-        "Use our Visual Editor to build and run a brand new front-end experiment",
+      description: (
+        <>
+          Build and run a brand new experiment using{" "}
+          <strong>Feature Flags</strong>, our <strong>Visual Editor</strong>, or{" "}
+          <strong>URL Redirects</strong>
+        </>
+      ),
       Icon: GoBeaker,
       onClick: () => {
         setMode("new");

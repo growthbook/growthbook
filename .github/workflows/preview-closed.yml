@@ -3,6 +3,14 @@ on:
   pull_request:
     types:
       - closed
+    branches:
+      - main
+    paths:
+      - "packages/**"
+      - "!**.md"
+      - "yarn.lock"
+      - "Dockerfile"
+      - ".dockerignore"
 
 jobs:
   closed:

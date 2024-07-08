@@ -4,10 +4,10 @@ import { format } from "date-fns";
 import { format as formatTimeZone } from "date-fns-tz";
 import React, { useEffect, useState } from "react";
 import { useUser } from "@/services/UserContext";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import Toggle from "../Forms/Toggle";
-import UpgradeLabel from "../Marketing/UpgradeLabel";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import Toggle from "@/components/Forms/Toggle";
+import UpgradeLabel from "@/components/Marketing/UpgradeLabel";
 import styles from "./ScheduleInputs.module.scss";
 
 interface Props {
@@ -16,6 +16,7 @@ interface Props {
   setShowUpgradeModal: (value: boolean) => void;
   scheduleToggleEnabled: boolean;
   setScheduleToggleEnabled: (value: boolean) => void;
+  title?: string;
 }
 
 export default function ScheduleInputs(props: Props) {
@@ -33,8 +34,8 @@ export default function ScheduleInputs(props: Props) {
     return date instanceof Date && !isNaN(date.valueOf());
   }
 
-  const onChange = (value: string, property: string, i: number) => {
-    if (!dateIsValid(new Date(value))) {
+  const onChange = (value: string | null, property: string, i: number) => {
+    if (value && !dateIsValid(new Date(value))) {
       return;
     }
     const newRules = [...rules];
@@ -48,7 +49,10 @@ export default function ScheduleInputs(props: Props) {
         showUpgradeModal={() => props.setShowUpgradeModal(true)}
         commercialFeature="schedule-feature-flag"
         upgradeMessage="enable feature flag scheduling"
-        labelText="Add scheduling to automatically enable/disable an override rule."
+        labelText={
+          props.title ??
+          "Add scheduling to automatically enable/disable an override rule"
+        }
       />
       <div className="pb-2">
         <Toggle
@@ -102,7 +106,6 @@ export default function ScheduleInputs(props: Props) {
                           0
                         );
                       } else {
-                        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
                         onChange(null, "timestamp", 0);
                       }
                     }}
@@ -155,7 +158,6 @@ export default function ScheduleInputs(props: Props) {
                           1
                         );
                       } else {
-                        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
                         onChange(null, "timestamp", 1);
                       }
                     }}
@@ -177,9 +179,9 @@ export default function ScheduleInputs(props: Props) {
                         onChange={(e) => {
                           setDateErrors("");
                           if (
+                            rules[0].timestamp &&
                             new Date(e.target.value) <
-                            // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
-                            new Date(rules[0].timestamp)
+                              new Date(rules[0].timestamp)
                           ) {
                             setDateErrors(
                               "End date must be greater than the previous rule date."

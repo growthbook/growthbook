@@ -13,13 +13,17 @@ export type Props = Omit<
 > & {
   value: string[];
   onChange: (value: string[]) => void;
+  delimiters?: string[];
 };
+
+const DEFAULT_DELIMITERS = ["Enter", "Tab", " ", ","];
 
 export default function StringArrayField({
   value,
   onChange,
   autoFocus,
   disabled,
+  delimiters = DEFAULT_DELIMITERS,
   placeholder,
   ...otherProps
 }: Props) {
@@ -27,6 +31,16 @@ export default function StringArrayField({
 
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
+
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (!inputValue) return;
+
+    if (delimiters.includes(event.key)) {
+      event.preventDefault();
+      onChange([...value, inputValue]);
+      setInputValue("");
+    }
+  };
 
   return (
     <Field
@@ -47,18 +61,7 @@ export default function StringArrayField({
             getOptionValue={(option) => option}
             onChange={(val) => onChange(val as string[])}
             onInputChange={(val) => setInputValue(val)}
-            onKeyDown={(event) => {
-              if (!inputValue) return;
-              switch (event.key) {
-                case "Enter":
-                case "Tab":
-                case " ":
-                case ",":
-                  onChange([...value, inputValue]);
-                  setInputValue("");
-                  event.preventDefault();
-              }
-            }}
+            onKeyDown={(event) => handleKeyDown(event)}
             onBlur={() => {
               if (!inputValue) return;
               onChange([...value, inputValue]);

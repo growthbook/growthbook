@@ -4,10 +4,12 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
+import { ImTable2 } from "react-icons/im";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatTrafficSplit } from "@/services/utils";
-import Tooltip from "../Tooltip/Tooltip";
-import { SRM_THRESHOLD } from "./SRMWarning";
+import { useUser } from "@/services/UserContext";
+import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -24,26 +26,31 @@ const UsersTable: FC<{
     return getDimensionById(dimensionId)?.name || "Dimension";
   }, [getDimensionById, dimensionId]);
 
-  const hasSrm = (results || []).find((row) => row.srm < SRM_THRESHOLD);
+  const { settings } = useUser();
+  const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
+
+  const hasSrm = (results || []).find((row) => row.srm < srmThreshold);
 
   if (!hasSrm && !expand) {
     return (
-      <div>
+      <div className="mt-3">
         <a
-          href="#"
+          role="button"
+          className="btn-link"
           onClick={(e) => {
             e.preventDefault();
             setExpand(true);
           }}
         >
           Show traffic allocation
+          <ImTable2 className="ml-1" />
         </a>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="mt-3">
       <h2>
         Users{" "}
         {!hasSrm && (
@@ -103,7 +110,7 @@ const UsersTable: FC<{
                   1
                 )}
               </td>
-              {r.srm < SRM_THRESHOLD ? (
+              {r.srm < srmThreshold ? (
                 <td className="bg-danger text-light">
                   <FaExclamationTriangle className="mr-1" />
                   {(r.srm || 0).toFixed(6)}
@@ -115,7 +122,6 @@ const UsersTable: FC<{
           ))}
         </tbody>
       </table>
-      <h2>Metrics</h2>
     </div>
   );
 };

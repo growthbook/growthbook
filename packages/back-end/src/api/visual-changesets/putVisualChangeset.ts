@@ -1,7 +1,9 @@
 import { PutVisualChangesetResponse } from "../../../types/openapi";
+import { VisualChangesetInterface } from "../../../types/visual-changeset";
 import { getExperimentById } from "../../models/ExperimentModel";
 import {
   findVisualChangesetById,
+  toVisualChangesetApiInterface,
   updateVisualChangeset,
 } from "../../models/VisualChangesetModel";
 import { createApiRequestHandler } from "../../util/handler";
@@ -20,20 +22,38 @@ export const putVisualChangeset = createApiRequestHandler(
     }
 
     const experiment = await getExperimentById(
-      req.organization.id,
+      req.context,
       visualChangeset.experiment
     );
+
+    if (!experiment) {
+      throw new Error("Experiment not found");
+    }
+
+    if (!req.context.permissions.canUpdateVisualChange(experiment)) {
+      req.context.permissions.throwPermissionError();
+    }
 
     const res = await updateVisualChangeset({
       visualChangeset,
       experiment,
-      organization: req.organization,
+      context: req.context,
       updates: req.body,
-      user: req.eventAudit,
     });
+
+    const updatedVisualChangeset = await findVisualChangesetById(
+      req.params.id,
+      req.organization.id
+    );
 
     return {
       nModified: res.nModified,
+      visualChangeset: updatedVisualChangeset
+        ? toVisualChangesetApiInterface(updatedVisualChangeset)
+        : {
+            ...toVisualChangesetApiInterface(visualChangeset),
+            ...(req.body as Partial<VisualChangesetInterface>),
+          },
     };
   }
 );

@@ -1,0 +1,186 @@
+---
+title: Running Experiments on GrowthBook
+description: Understanding the ways to run experiments with GrowthBook
+sidebar_label: Running Experiments
+slug: experiments
+---
+
+# Running Experiments on GrowthBook
+
+GrowthBook has a few different ways to run experiments or AB tests depending on your needs. This guide will walk you
+through the different ways of running experiments on GrowthBook.
+
+## Server Side and Mobile Experiments
+
+Server-side A/B testing, also known as backend or server-side experimentation, is a technique used in software
+development and web applications to test measure the impact of any code changes or new features. The changes may impact
+both the user interface and the backend of the application, but the decision about what version to serve a user is
+decided on the server. This has a number of advantages over client side experiments, specifically, that it allows you to
+run very complex tests that may involve a lot of different parts of the code, and span multiple parts of your
+application. It also avoids any issues with flickering that can happen with client side testing.
+
+### Feature Flag Experiments
+
+With GrowthBook, the easiest way to do server-side testing is by using feature flags. Each feature flag has conditional
+logic ([rules](/features/rules)) which controls how a feature should be shown, and if a feature should be shown as part
+of an experiment. GrowthBook also lets you target any feature or rule based on the
+[targeting attributes](/features/targeting) you define. With GrowthBook, you can add an experiment rule to a feature that will
+randomly assign the users based on some hashing attribute into one of your experiment variations. You can read more about
+feature flag experiment rules [here](/features/rules), or more details on running an [experiment with feature flags](/feature-flag-experiments).
+
+### Inline Experiments
+
+You can also run server-side experiments by using inline experiments directly with our SDK. This requires no 3rd party
+requests, as the experiment conditions and settings can be written directly into the code. How you implement in-line
+experiments depends on the SDK language you're using, you can read more about this from our [SDKs pages](/lib).
+
+## Client Side (Browser) Experiments
+
+Client-side A/B testing, also known as frontend or client-side experimentation, is a way to test visual changes to your
+application. The server returns the same code to all users, and the experiment assignments and variations are handled by
+the client, typically in [Javascript](/lib/js) or [React](/lib/react).
+
+When the client loads your application, our SDK will check to see if the user should be part of any experiments, and if
+so, assign them and the client code will serve that variations treatment to them. GrowthBook's client side SDKs can
+handle all of this for you, and you can also serve client-side A/B test via our feature flags, or using our visual editor.
+
+Client-side A/B tests are great for testing visual changes to your application, but they do have some drawbacks. One of
+the most common issues is caused by the delay in loading the specific variation to a user, which may cause a flash or
+flickering as the experiment loads. This can be reduced by using inline-experiments, or by moving the GrowthBook SDK
+code higher in the code so it loads at the same time or before the page. Sometimes the hashing attribute may not be
+available until your tracking software has loaded, and you may need to use a custom tracking id.
+
+### Feature Flags
+
+GrowthBook's feature flags can work just as well from the client/browser as it does server side. The feature flag's
+conditional logic ([rules](/features/rules)) controls how a feature should be shown, and if a feature should be shown as part
+of an experiment. The same targeting and override rules apply exactly the same to client-side experimentation.
+
+### Inline Experiments
+
+Just like with inline server-side experiments, you can run experiments inline on the client. This requires no 3rd party
+requests, as the experiment conditions and settings can be written directly into the code, and processed by the SDK.
+How you implement in-line experiments depends on the SDK language you're using, you can read more about this from our
+[SDKs pages](/lib).
+
+### Visual Editor (WYSIWYG) Experiments
+
+GrowthBook has a visual editor for running experiments on the front-end of your website without requiring any code
+changes. Our visual editor uses the same client-side SDK used for feature flags and A/B testing.
+
+## API / ML Experiments
+
+GrowthBook's SDKs works well with anywhere code can run, and as such you can use it in the API or when running machine
+learning models. And, with our deterministic hashing method for assignment, you can even be sure users get assigned the
+same variation across your platform without needing to store state from GrowthBook.
+
+## Custom Assignment or 3rd Party Experiments
+
+GrowthBook is a modular platform and can be used for experiment analysis if you are using custom assignment code or another
+experimentation system for randomization of users into variations. As long as the exposure/assignment information is available from
+within your data warehouse, you can use GrowthBook to analyse the results of your experiments.
+
+## How GrowthBook Assigns Users to Experiments
+
+GrowthBook uses a consistent hashing algorithm to assign users to experiments. This means that the same user will always
+get the same variation given the same experiment settings (experiment key, and user hashing id). This is useful
+because it means that you can run experiments across multiple pages, or even multiple applications, and the user will
+always get the same variation. It also means that GrowthBook stores no state, and requires no additional cookies.
+It's important to note that none of these implies that GrowthBook exposes a mechanism known as sticky-bucketing. It's all
+about the consistent evaluation of variations based on the particular experiment settings.
+
+## Best Practices
+
+:::tip Info
+
+<a href="/open-guide-to-ab-testing.v1.0.pdf" target="_blank" class="btn btn-primary" style={{margin: "-20px 0 -5px 20px", float: "right"}}>
+  <img src="/images/guides/open-guide-to-ab-testing.png" alt="open guide book" style={{width:"200px"}} />
+</a>
+
+This is a subset of some of the information you can find about running experiments in our [Open Guide to AB Testing](/open-guide-to-ab-testing.v1.0.pdf).
+
+<div style={{clear: "both"}}></div>
+
+:::
+
+### Running A/A Tests
+
+An A/A test is the same as an A/B test, but each variation has no actual difference in the application. This lets you
+test out that your systems are working correctly, as you should see no significant differences between the variations.
+We suggest that you first an A/A test to validate your experimentation implementation is correctly splitting traffic, and
+producing statistically valid results.
+
+### When to Expose Users to Experiments
+
+When running an experiment it is best if you can only expose users as close to the actual treatment exposure as
+possible. This means that if you're testing something like new signup flow, you don't expose all users, including those
+who never open that window. Including users who did not see the treatment will increase the noise and reduce the ability
+to detect any differences.
+
+If assignment is unavoidably separated from exposure, you can use an activation metric to filter out these un-exposed
+users from the analysis.
+
+### Avoiding Flickering
+
+Flickering with front end or client-side A/B tests is an artifact from all client-side A/B testing tools. This is caused
+by a delay in loading the specific variation for a user, which may cause a flash or flickering as the experiment loads. This
+can be reduced by using inline-experiments, or by moving the GrowthBook SDK code higher in the code file, or using server
+side A/B tests.
+
+There are a few other ways to reduce flickering that some platforms utilize. One common "flicker free" technique is to
+load a white overlay, or just hide parts of the page, as the page loads. The result is that users cannot see any flickering that may
+be happening beneath the overlay as the variations are loaded.
+
+### Sample Size
+
+Understanding experiment power and MDE are important to predict how many samples are required.
+There are numerous online calculators that can be used to help you predict the sample size. Typical
+rule of thumb for the lowest number of samples required is that you want at least 200 conversion
+events per variation. So for example if you have a registration page which has a 10% conversion rate,
+and you have a 2 way (A and B) experiment that is looking to improve the member registrations, you
+will want to expose the experiment to at least 4,000 people (2000 per variation).
+
+### Test Duration
+
+Due to the natural variability in traffic day to day and hour to hour, experimentation teams will often set
+a minimum test duration within which a test cannot be called. This helps you avoid optimizing a product
+for just the users that happen to visit when the test is started. For example, if the weekend traffic of
+your product is different from the traffic during the week, if you started a test on Friday and ended it on
+Monday, you may not get a complete picture of the impact your changes have to your weekday traffic.
+
+Typical test durations are 1 to 2 weeks, and usually care needs to be taken over holidays.
+You may also find that a test would need to run for a month or more to get the power required for the
+experiment. Very long running tests can be hard to justify as you have to keep the variations of the
+experiment unchanged for duration, and this may limit your team's velocity towards potentially higher
+impact changes.
+
+### Interaction Effects and Mutual Exclusion
+
+When you start having the ability to run a lot of A/B tests, you may start worrying about how tests running in parallel
+may interact and effect the other results. For example you may want to test a change in the CTA
+button on your purchase page, and also test changing the price. It can be difficult to figure out if any
+two tests will meaningfully interact, and many will run the tests in serial in an abundance of caution.
+
+However, meaningful interactions are actually quite rare, and keeping a higher rate of experimentation
+is usually more beneficial. You can run analysis after the experiments to see if there were any
+interaction effects which would change your conclusions. If you need to run mutually exclusive tests,
+you can use GrowthBook’s namespace feature.
+
+### Experimentation Frequency
+
+Having a high frequency of A/B testing is important for running a success experimentation program.
+The main reasons why experimentation frequency is important are:
+
+- **Maximizing chances**: Since success rates are typically low for any given experiment, and large changes
+  are even more rare, by having a high frequency of A/B testing you are maximizing your chance of
+  having impactful experiments.
+- **Continuous improvement**: A high frequency of A/B testing allows you to continuously improve your
+  website or application. By testing small changes frequently, you can quickly identify and implement
+  changes that improve user experience, engagement, and conversion rates.
+- **Adaptability**: A high frequency of A/B testing allows you to quickly adapt to changes in user behavior,
+  market trends, or other external factors that may impact your website or application. By testing
+  frequently, you can identify and respond to these changes more quickly, ensuring that your site or app
+  remains relevant and effective.
+- **Avoiding stagnation**: A high frequency of A/B testing can help you avoid stagnation and complacency.
+  By continually testing and experimenting, you can avoid falling into a rut or becoming overly attached
+  to a specific design or strategy, and instead remain open to new ideas and approaches.

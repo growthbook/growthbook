@@ -1,0 +1,187 @@
+[
+  {
+    "id": "fact_nonbinom__purchased_items",
+    "metricType": "mean",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "qty",
+      "filters": []
+    }
+  },
+  {
+    "id": "fact_nonbinom__purchased_items_regressionadjusted",
+    "metricType": "mean",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "qty",
+      "filters": []
+    },
+    "regressionAdjustmentDays": 4,
+    "regressionAdjustmentEnabled": true
+  },
+  {
+    "id": "fact_nonbinom_null__purchased_value",
+    "metricType": "mean",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "amount",
+      "filters": []
+    }
+  },
+  {
+    "id": "fact_quantile__purchased_value_event",
+    "metricType": "quantile",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "amount",
+      "filters": []
+    },
+    "quantileSettings": {
+      "type": "event",
+      "quantile": 0.9,
+      "ignoreZeros": false
+    }
+  },
+  {
+    "id": "fact_quantile__purchased_value_unit",
+    "metricType": "quantile",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "amount",
+      "filters": []
+    },
+    "quantileSettings": {
+      "type": "unit",
+      "quantile": 0.9,
+      "ignoreZeros": false
+    }
+  },
+  {
+    "id": "fact_quantile__purchased_value_event_ignoreZeros",
+    "metricType": "quantile",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "amount",
+      "filters": []
+    },
+    "quantileSettings": {
+      "type": "event",
+      "quantile": 0.9,
+      "ignoreZeros": true
+    }
+  },
+  {
+    "id": "fact_quantile__purchased_value_unit_ignoreZeros",
+    "metricType": "quantile",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "amount",
+      "filters": []
+    },
+    "quantileSettings": {
+      "type": "unit",
+      "quantile": 0.9,
+      "ignoreZeros": true
+    }
+  },
+  {
+    "id": "fact_nonbinom_null__purchased_value_regressionadjusted",
+    "metricType": "mean",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "amount",
+      "filters": []
+    },
+    "regressionAdjustmentDays": 4,
+    "regressionAdjustmentEnabled": true
+  },
+  {
+    "id": "fact_nonbinom_null__purchased_value_pctilecap",
+    "metricType": "mean",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "amount",
+      "filters": []
+    },
+    "cappingSettings": {
+      "type": "percentile",
+      "value": 0.9
+    }
+  },
+  {
+    "id": "fact_nonbinom_null__purchased_value_pctilecapignorezeros",
+    "metricType": "mean",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "amount",
+      "filters": []
+    },
+    "cappingSettings": {
+      "type": "percentile",
+      "value": 0.9,
+      "ignoreZeros": true
+    }
+  },
+  {
+    "id": "fact_binomial__any_item_in_cart",
+    "metricType": "proportion",
+    "numerator": {
+      "factTableId": "events",
+      "column": "$$count",
+      "filters": ["events.add"]
+    }
+  },
+  {
+    "id": "fact_binomial__any_item_in_cart_regressionadjusted",
+    "metricType": "proportion",
+    "numerator": {
+      "factTableId": "events",
+      "column": "$$count",
+      "filters": ["events.add"]
+    },
+    "regressionAdjustmentDays": 4,
+    "regressionAdjustmentEnabled": true
+  },
+  {
+    "id": "fact_ratio_binom_binom__any_purchase_over_any_item_in_cart",
+    "metricType": "ratio",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "$$count",
+      "filters": []
+    },
+    "denominator": {
+      "factTableId": "events",
+      "column": "$$count",
+      "filters": ["events.add"]
+    }
+  },
+  {
+    "id": "fact_ratio_nonbinom_binom__purchased_value_over_any_item_in_cart",
+    "metricType": "ratio",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "amount",
+      "filters": []
+    },
+    "denominator": {
+      "factTableId": "events",
+      "column": "$$count",
+      "filters": ["events.add"]
+    }
+  },
+  {
+    "id": "fact_ratio_nonbinom_nonbinom__purchased_value_over_purchased_items",
+    "metricType": "ratio",
+    "numerator": {
+      "factTableId": "orders",
+      "column": "amount",
+      "filters": []
+    },
+    "denominator": {
+      "factTableId": "orders",
+      "column": "qty",
+      "filters": []
+    }
+  }
+]

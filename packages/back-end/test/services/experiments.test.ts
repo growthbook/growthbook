@@ -763,9 +763,12 @@ describe("experiments utils", () => {
           },
           behavior: {
             goal: "decrease",
-            conversionWindowStart: 10,
-            conversionWindowEnd: 50,
-            cap: 1337,
+            windowSettings: {
+              type: "lookback",
+              windowUnit: "days",
+              windowValue: 33,
+              delayHours: 5,
+            },
             riskThresholdSuccess: 5,
             riskThresholdDanger: 0.5,
             minPercentChange: 1,
@@ -815,108 +818,18 @@ describe("experiments utils", () => {
         expect(result.minPercentChange).toEqual(1);
         expect(result.maxPercentChange).toEqual(50);
         expect(result.minSampleSize).toEqual(200);
-        expect(result.capping).toEqual("absolute");
-        expect(result.capValue).toEqual(1337);
-        expect(result.conversionWindowHours).toEqual(40);
-        expect(result.conversionDelayHours).toEqual(10);
+        expect(result.cappingSettings.type).toEqual("");
+        expect(result.cappingSettings.value).toEqual(0);
+        expect(result.windowSettings.type).toEqual("lookback");
+        expect(result.windowSettings.windowValue).toEqual(33);
+        expect(result.windowSettings.windowUnit).toEqual("days");
+        expect(result.windowSettings.delayHours).toEqual(5);
         expect(result.column).toEqual("signed_up");
       });
-    });
 
-    describe("mixpanel datasource", () => {
-      const datasource: Pick<DataSourceInterface, "type"> = {
-        type: "mixpanel",
-      };
-      const organization: OrganizationInterface = {
-        id: "org_abc123",
-        url: "",
-        dateCreated: new Date(),
-        name: "Acme Donuts",
-        ownerEmail: "acme@acme-donuts.net",
-        members: [],
-        invites: [],
-      };
-
-      it("with minimum payload, should create a MetricInterface from a postMetric payload", () => {
+      it("should handle deprecated fields when building a MetricInterface from a postMetric payload", () => {
         const input: z.infer<typeof postMetricValidator.bodySchema> = {
           datasourceId: "ds_abc123",
-          mixpanel: {
-            eventName: "viewed_signup",
-            eventValue: "did_view",
-            userAggregation: "sum(values)",
-            conditions: [],
-          },
-          name: "My Cool Metric",
-          type: "count",
-        };
-
-        const result = postMetricApiPayloadToMetricInterface(
-          input,
-          organization,
-          datasource
-        );
-
-        expect(result.aggregation).toEqual("sum(values)");
-        expect(result.conditions).toEqual([]);
-        expect(result.datasource).toEqual("ds_abc123");
-        expect(result.denominator).toBe(undefined);
-        expect(result.description).toEqual("");
-        expect(result.ignoreNulls).toEqual(false);
-        expect(result.inverse).toEqual(false);
-        expect(result.name).toEqual("My Cool Metric");
-        expect(result.organization).toEqual("org_abc123");
-        expect(result.owner).toEqual("");
-        expect(result.projects).toEqual([]);
-        expect(result.tags).toEqual([]);
-        expect(result.queries).toEqual([]);
-        expect(result.queryFormat).toEqual(undefined);
-        expect(result.runStarted).toEqual(null);
-        expect(result.sql).toEqual(undefined);
-        expect(result.type).toEqual("count");
-        expect(result.userIdTypes).toEqual(undefined);
-      });
-    });
-  });
-
-  describe("putMetricApiPayloadToMetricInterface", () => {
-    describe("SQL datasource", () => {
-      it("with minimum payload, should create a MetricInterface from a putMetric payload", () => {
-        const input: z.infer<typeof putMetricValidator.bodySchema> = {
-          sql: {
-            identifierTypes: ["user_id"],
-            conversionSQL: "select * from foo",
-            userAggregationSQL: "sum(values)",
-          },
-          name: "My Updated Metric",
-          type: "binomial",
-        };
-
-        const result = putMetricApiPayloadToMetricInterface(input);
-
-        console.log("DEBUG result", result);
-
-        expect(result.aggregation).toEqual("sum(values)");
-        expect(result.conditions).toBe(undefined);
-        expect(result.datasource).toBe(undefined);
-        expect(result.denominator).toBe(undefined);
-        expect(result.description).toBe(undefined);
-        expect(result.ignoreNulls).toBe(undefined);
-        expect(result.inverse).toBe(undefined);
-        expect(result.name).toEqual("My Updated Metric");
-        expect(result.organization).toBe(undefined);
-        expect(result.owner).toBe(undefined);
-        expect(result.projects).toBe(undefined);
-        expect(result.tags).toBe(undefined);
-        expect(result.queries).toBe(undefined);
-        expect(result.queryFormat).toEqual("sql");
-        expect(result.runStarted).toBe(undefined);
-        expect(result.sql).toEqual("select * from foo");
-        expect(result.type).toEqual("binomial");
-        expect(result.userIdTypes).toEqual(["user_id"]);
-      });
-
-      it("with a full payload, should create a MetricInterface from a putMetric payload", () => {
-        const input: z.infer<typeof putMetricValidator.bodySchema> = {
           tags: ["checkout"],
           projects: ["proj_abc987"],
           sqlBuilder: {
@@ -941,125 +854,269 @@ describe("experiments utils", () => {
             goal: "decrease",
             conversionWindowStart: 10,
             conversionWindowEnd: 50,
-            capping: "absolute",
-            capValue: 1337,
+            cap: 1337,
             riskThresholdSuccess: 5,
             riskThresholdDanger: 0.5,
             minPercentChange: 1,
             maxPercentChange: 50,
             minSampleSize: 200,
           },
-          name: "My Updated Metric",
+          name: "My Cool Metric",
           description: "This is a metric with lots of fields",
           type: "count",
         };
 
-        const result = putMetricApiPayloadToMetricInterface(input);
-
-        expect(result.aggregation).toEqual(undefined);
-        expect(result.conditions).toEqual([
-          {
-            column: "signed_up",
-            operator: "=",
-            value: "true",
-          },
-        ]);
-        expect(result.datasource).toBe(undefined);
-        expect(result.denominator).toBe(undefined);
-        expect(result.description).toEqual(
-          "This is a metric with lots of fields"
+        const result = postMetricApiPayloadToMetricInterface(
+          input,
+          organization,
+          datasource
         );
-        expect(result.ignoreNulls).toBe(undefined);
-        expect(result.inverse).toEqual(true);
-        expect(result.name).toEqual("My Updated Metric");
-        expect(result.organization).toBe(undefined);
-        expect(result.owner).toBe(undefined);
-        expect(result.queries).toBe(undefined);
-        expect(result.queryFormat).toEqual("builder");
-        expect(result.runStarted).toBe(undefined);
-        expect(result.sql).toEqual(undefined);
-        expect(result.type).toEqual("count");
-        expect(result.userIdTypes).toEqual(undefined);
-        // More fields
-        expect(result.projects).toEqual(["proj_abc987"]);
-        expect(result.tags).toEqual(["checkout"]);
-        expect(result.winRisk).toEqual(5);
-        expect(result.loseRisk).toEqual(0.5);
-        expect(result.minPercentChange).toEqual(1);
-        expect(result.maxPercentChange).toEqual(50);
-        expect(result.minSampleSize).toEqual(200);
-        expect(result.capping).toEqual("absolute");
-        expect(result.capValue).toEqual(1337);
-        expect(result.conversionWindowHours).toEqual(40);
-        expect(result.conversionDelayHours).toEqual(10);
-        expect(result.column).toEqual("signed_up");
+
+        expect(result.cappingSettings.type).toEqual("absolute");
+        expect(result.cappingSettings.value).toEqual(1337);
+        expect(result.windowSettings.type).toEqual("conversion");
+        expect(result.windowSettings.windowValue).toEqual(40);
+        expect(result.windowSettings.windowUnit).toEqual("hours");
+        expect(result.windowSettings.delayHours).toEqual(10);
       });
     });
+  });
 
-    describe("mixpanel datasource", () => {
-      it("with minimum payload, should create a MetricInterface from a putMetric payload", () => {
-        const input: z.infer<typeof putMetricValidator.bodySchema> = {
-          mixpanel: {
-            eventName: "viewed_signup",
-            eventValue: "did_view",
-            userAggregation: "sum(values)",
-            conditions: [],
-          },
-          name: "My Cool Metric",
-          type: "count",
-        };
+  describe("mixpanel datasource", () => {
+    const datasource: Pick<DataSourceInterface, "type"> = {
+      type: "mixpanel",
+    };
+    const organization: OrganizationInterface = {
+      id: "org_abc123",
+      url: "",
+      dateCreated: new Date(),
+      name: "Acme Donuts",
+      ownerEmail: "acme@acme-donuts.net",
+      members: [],
+      invites: [],
+    };
 
-        const result = putMetricApiPayloadToMetricInterface(input);
+    it("with minimum payload, should create a MetricInterface from a postMetric payload", () => {
+      const input: z.infer<typeof postMetricValidator.bodySchema> = {
+        datasourceId: "ds_abc123",
+        mixpanel: {
+          eventName: "viewed_signup",
+          eventValue: "did_view",
+          userAggregation: "sum(values)",
+          conditions: [],
+        },
+        name: "My Cool Metric",
+        type: "count",
+      };
 
-        expect(result.aggregation).toEqual("sum(values)");
-        expect(result.conditions).toEqual([]);
-        expect(result.datasource).toBe(undefined);
-        expect(result.denominator).toBe(undefined);
-        expect(result.description).toBe(undefined);
-        expect(result.ignoreNulls).toBe(undefined);
-        expect(result.inverse).toBe(undefined);
-        expect(result.name).toEqual("My Cool Metric");
-        expect(result.organization).toBe(undefined);
-        expect(result.owner).toBe(undefined);
-        expect(result.projects).toBe(undefined);
-        expect(result.tags).toBe(undefined);
-        expect(result.queries).toBe(undefined);
-        expect(result.queryFormat).toBe(undefined);
-        expect(result.runStarted).toBe(undefined);
-        expect(result.sql).toBe(undefined);
-        expect(result.type).toEqual("count");
-        expect(result.userIdTypes).toEqual(undefined);
-      });
+      const result = postMetricApiPayloadToMetricInterface(
+        input,
+        organization,
+        datasource
+      );
+
+      expect(result.aggregation).toEqual("sum(values)");
+      expect(result.conditions).toEqual([]);
+      expect(result.datasource).toEqual("ds_abc123");
+      expect(result.denominator).toBe(undefined);
+      expect(result.description).toEqual("");
+      expect(result.ignoreNulls).toEqual(false);
+      expect(result.inverse).toEqual(false);
+      expect(result.name).toEqual("My Cool Metric");
+      expect(result.organization).toEqual("org_abc123");
+      expect(result.owner).toEqual("");
+      expect(result.projects).toEqual([]);
+      expect(result.tags).toEqual([]);
+      expect(result.queries).toEqual([]);
+      expect(result.queryFormat).toEqual(undefined);
+      expect(result.runStarted).toEqual(null);
+      expect(result.sql).toEqual(undefined);
+      expect(result.type).toEqual("count");
+      expect(result.userIdTypes).toEqual(undefined);
+    });
+  });
+});
+
+describe("putMetricApiPayloadToMetricInterface", () => {
+  describe("SQL datasource", () => {
+    it("with minimum payload, should create a MetricInterface from a putMetric payload", () => {
+      const input: z.infer<typeof putMetricValidator.bodySchema> = {
+        sql: {
+          identifierTypes: ["user_id"],
+          conversionSQL: "select * from foo",
+          userAggregationSQL: "sum(values)",
+        },
+        name: "My Updated Metric",
+        type: "binomial",
+      };
+
+      const result = putMetricApiPayloadToMetricInterface(input);
+
+      expect(result.aggregation).toEqual("sum(values)");
+      expect(result.conditions).toBe(undefined);
+      expect(result.datasource).toBe(undefined);
+      expect(result.denominator).toBe(undefined);
+      expect(result.description).toBe(undefined);
+      expect(result.ignoreNulls).toBe(undefined);
+      expect(result.inverse).toBe(undefined);
+      expect(result.name).toEqual("My Updated Metric");
+      expect(result.organization).toBe(undefined);
+      expect(result.owner).toBe(undefined);
+      expect(result.projects).toBe(undefined);
+      expect(result.tags).toBe(undefined);
+      expect(result.queries).toBe(undefined);
+      expect(result.queryFormat).toEqual("sql");
+      expect(result.runStarted).toBe(undefined);
+      expect(result.sql).toEqual("select * from foo");
+      expect(result.type).toEqual("binomial");
+      expect(result.userIdTypes).toEqual(["user_id"]);
     });
 
-    describe("no specified datasource", () => {
-      it("with minimum payload, should create a MetricInterface from a putMetric payload", () => {
-        const input: z.infer<typeof putMetricValidator.bodySchema> = {
-          name: "My Cool Metric",
-          type: "count",
-        };
+    it("with a full payload, should create a MetricInterface from a putMetric payload", () => {
+      const input: z.infer<typeof putMetricValidator.bodySchema> = {
+        tags: ["checkout"],
+        projects: ["proj_abc987"],
+        sqlBuilder: {
+          tableName: "users",
+          timestampColumnName: "created_at",
+          valueColumnName: "signed_up",
+          conditions: [
+            {
+              value: "true",
+              operator: "=",
+              column: "signed_up",
+            },
+          ],
+          identifierTypeColumns: [
+            {
+              columnName: "id",
+              identifierType: "string",
+            },
+          ],
+        },
+        behavior: {
+          goal: "decrease",
+          conversionWindowStart: 10,
+          conversionWindowEnd: 50,
+          capping: "absolute",
+          capValue: 1337,
+          riskThresholdSuccess: 5,
+          riskThresholdDanger: 0.5,
+          minPercentChange: 1,
+          maxPercentChange: 50,
+          minSampleSize: 200,
+        },
+        name: "My Updated Metric",
+        description: "This is a metric with lots of fields",
+        type: "count",
+      };
 
-        const result = putMetricApiPayloadToMetricInterface(input);
+      const result = putMetricApiPayloadToMetricInterface(input);
 
-        expect(result.aggregation).toBe(undefined);
-        expect(result.conditions).toBe(undefined);
-        expect(result.datasource).toBe(undefined);
-        expect(result.denominator).toBe(undefined);
-        expect(result.description).toBe(undefined);
-        expect(result.ignoreNulls).toBe(undefined);
-        expect(result.inverse).toBe(undefined);
-        expect(result.name).toEqual("My Cool Metric");
-        expect(result.organization).toBe(undefined);
-        expect(result.owner).toBe(undefined);
-        expect(result.projects).toBe(undefined);
-        expect(result.tags).toBe(undefined);
-        expect(result.queries).toBe(undefined);
-        expect(result.queryFormat).toBe(undefined);
-        expect(result.runStarted).toBe(undefined);
-        expect(result.sql).toBe(undefined);
-        expect(result.type).toEqual("count");
-        expect(result.userIdTypes).toEqual(undefined);
-      });
+      expect(result.aggregation).toEqual(undefined);
+      expect(result.conditions).toEqual([
+        {
+          column: "signed_up",
+          operator: "=",
+          value: "true",
+        },
+      ]);
+      expect(result.datasource).toBe(undefined);
+      expect(result.denominator).toBe(undefined);
+      expect(result.description).toEqual(
+        "This is a metric with lots of fields"
+      );
+      expect(result.ignoreNulls).toBe(undefined);
+      expect(result.inverse).toEqual(true);
+      expect(result.name).toEqual("My Updated Metric");
+      expect(result.organization).toBe(undefined);
+      expect(result.owner).toBe(undefined);
+      expect(result.queries).toBe(undefined);
+      expect(result.queryFormat).toEqual("builder");
+      expect(result.runStarted).toBe(undefined);
+      expect(result.sql).toEqual(undefined);
+      expect(result.type).toEqual("count");
+      expect(result.userIdTypes).toEqual(undefined);
+      // More fields
+      expect(result.projects).toEqual(["proj_abc987"]);
+      expect(result.tags).toEqual(["checkout"]);
+      expect(result.winRisk).toEqual(5);
+      expect(result.loseRisk).toEqual(0.5);
+      expect(result.minPercentChange).toEqual(1);
+      expect(result.maxPercentChange).toEqual(50);
+      expect(result.minSampleSize).toEqual(200);
+      expect(result.cappingSettings?.type).toEqual("absolute");
+      expect(result.cappingSettings?.value).toEqual(1337);
+      expect(result.windowSettings?.windowValue).toEqual(40);
+      expect(result.windowSettings?.windowUnit).toEqual("hours");
+      expect(result.windowSettings?.delayHours).toEqual(10);
+      expect(result.column).toEqual("signed_up");
+    });
+  });
+
+  describe("mixpanel datasource", () => {
+    it("with minimum payload, should create a MetricInterface from a putMetric payload", () => {
+      const input: z.infer<typeof putMetricValidator.bodySchema> = {
+        mixpanel: {
+          eventName: "viewed_signup",
+          eventValue: "did_view",
+          userAggregation: "sum(values)",
+          conditions: [],
+        },
+        name: "My Cool Metric",
+        type: "count",
+      };
+
+      const result = putMetricApiPayloadToMetricInterface(input);
+
+      expect(result.aggregation).toEqual("sum(values)");
+      expect(result.conditions).toEqual([]);
+      expect(result.datasource).toBe(undefined);
+      expect(result.denominator).toBe(undefined);
+      expect(result.description).toBe(undefined);
+      expect(result.ignoreNulls).toBe(undefined);
+      expect(result.inverse).toBe(undefined);
+      expect(result.name).toEqual("My Cool Metric");
+      expect(result.organization).toBe(undefined);
+      expect(result.owner).toBe(undefined);
+      expect(result.projects).toBe(undefined);
+      expect(result.tags).toBe(undefined);
+      expect(result.queries).toBe(undefined);
+      expect(result.queryFormat).toBe(undefined);
+      expect(result.runStarted).toBe(undefined);
+      expect(result.sql).toBe(undefined);
+      expect(result.type).toEqual("count");
+      expect(result.userIdTypes).toEqual(undefined);
+    });
+  });
+
+  describe("no specified datasource", () => {
+    it("with minimum payload, should create a MetricInterface from a putMetric payload", () => {
+      const input: z.infer<typeof putMetricValidator.bodySchema> = {
+        name: "My Cool Metric",
+        type: "count",
+      };
+
+      const result = putMetricApiPayloadToMetricInterface(input);
+
+      expect(result.aggregation).toBe(undefined);
+      expect(result.conditions).toBe(undefined);
+      expect(result.datasource).toBe(undefined);
+      expect(result.denominator).toBe(undefined);
+      expect(result.description).toBe(undefined);
+      expect(result.ignoreNulls).toBe(undefined);
+      expect(result.inverse).toBe(undefined);
+      expect(result.name).toEqual("My Cool Metric");
+      expect(result.organization).toBe(undefined);
+      expect(result.owner).toBe(undefined);
+      expect(result.projects).toBe(undefined);
+      expect(result.tags).toBe(undefined);
+      expect(result.queries).toBe(undefined);
+      expect(result.queryFormat).toBe(undefined);
+      expect(result.runStarted).toBe(undefined);
+      expect(result.sql).toBe(undefined);
+      expect(result.type).toEqual("count");
+      expect(result.userIdTypes).toEqual(undefined);
     });
   });
 });

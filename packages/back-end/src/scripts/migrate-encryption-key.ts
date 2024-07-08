@@ -7,6 +7,7 @@ import { usingFileConfig } from "../init/config";
 import { ENCRYPTION_KEY, IS_CLOUD } from "../util/secrets";
 import { init } from "../init";
 import { encryptParams } from "../services/datasource";
+import { getContextForAgendaJobByOrgId } from "../services/organizations";
 
 const [oldEncryptionKey] = process.argv.slice(2);
 if (IS_CLOUD) {
@@ -35,6 +36,7 @@ async function run() {
   const allDatasources = await _dangerousGetAllDatasources();
   for (let i = 0; i < allDatasources.length; i++) {
     const ds = allDatasources[i];
+    const context = await getContextForAgendaJobByOrgId(ds.organization);
     const params = ds.params;
     if (!params) continue;
 
@@ -47,7 +49,7 @@ async function run() {
         `- Decrypted '${ds.name}' (${ds.id}), re-encrypting with new key and saving...`
       );
       // Update the data source
-      await updateDataSource(ds.id, ds.organization, {
+      await updateDataSource(context, ds, {
         params: encryptParams(parsed),
       });
     } catch (e) {

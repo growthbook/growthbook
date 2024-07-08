@@ -19,6 +19,7 @@ router.post(
         userIdType: z.string(),
         name: z.string(),
         sql: z.string(),
+        description: z.string(),
         owner: z.string().optional(), // This is required even though it's not being used
       })
       .strict(),
@@ -41,6 +42,7 @@ router.put(
         name: z.string(),
         sql: z.string(),
         owner: z.string(),
+        description: z.string(),
       })
       .strict(),
   }),

@@ -10,9 +10,10 @@ import {
   DataSourceSettings,
 } from "back-end/types/datasource";
 import { useForm } from "react-hook-form";
-import cloneDeep from "lodash/cloneDeep";
-import { MetricType } from "@/../back-end/types/metric";
-import { TrackedEventData } from "@/../back-end/src/types/Integration";
+import { MetricType } from "@back-end/types/metric";
+import clsx from "clsx";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
+import { useRouter } from "next/router";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getInitialSettings } from "@/services/datasources";
@@ -23,18 +24,14 @@ import {
 } from "@/services/eventSchema";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import usePermissions from "@/hooks/usePermissions";
-import { hasFileConfig } from "@/services/env";
-import SelectField from "../Forms/SelectField";
-import Field from "../Forms/Field";
-import Modal from "../Modal";
-import { GBCircleArrowLeft } from "../Icons";
-import Button from "../Button";
-import { DocLink } from "../DocLink";
-import Tooltip from "../Tooltip/Tooltip";
+import SelectField from "@/components/Forms/SelectField";
+import Field from "@/components/Forms/Field";
+import Modal from "@/components/Modal";
+import { GBCircleArrowLeft } from "@/components/Icons";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
-import AutoMetricCard from "./AutoMetricCard";
+import styles from "./NewDataSourceForm.module.scss";
 
 const NewDataSourceForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;
@@ -42,7 +39,7 @@ const NewDataSourceForm: FC<{
   source: string;
   onCancel?: () => void;
   onSuccess: (id: string) => Promise<void>;
-  importSampleData?: (source: string) => Promise<void>;
+  showImportSampleData: boolean;
   inline?: boolean;
   secondaryCTA?: ReactElement;
 }> = ({
@@ -51,12 +48,12 @@ const NewDataSourceForm: FC<{
   onCancel,
   source,
   existing,
-  importSampleData,
+  showImportSampleData,
   inline,
   secondaryCTA,
 }) => {
   const {
-    projects,
+    projects: allProjects,
     project,
     getDatasourceById,
     mutateDefinitions,
@@ -66,13 +63,11 @@ const NewDataSourceForm: FC<{
   const [dataSourceId, setDataSourceId] = useState<string | null>(
     data?.id || null
   );
-  const [autoMetricError, setAutoMetricError] = useState("");
   const [possibleTypes, setPossibleTypes] = useState(
     dataSourceConnections.map((d) => d.type)
   );
-  const [trackedEvents, setTrackedEvents] = useState<TrackedEventData[]>([]);
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const [datasource, setDatasource] = useState<
     Partial<DataSourceInterfaceWithParams>
@@ -128,6 +123,8 @@ const NewDataSourceForm: FC<{
   const selectedSchema = schemasMap.get(schema) || {
     value: "custom",
     label: "Custom",
+    intro:
+      "To create a custom data source select the data warehouse where your events are stored and enter the necessary credentials to grant GrowthBook read-only access.",
   };
   useEffect(() => {
     track("View Datasource Form", {
@@ -136,27 +133,18 @@ const NewDataSourceForm: FC<{
     });
   }, [source]);
 
-  useEffect(() => {
-    const updatedMetricsToCreate: {
-      name: string;
-      sql: string;
-      type: MetricType;
-    }[] = [];
-    trackedEvents.forEach((event: TrackedEventData) => {
-      event.metricsToCreate.forEach((metric) => {
-        if (metric.shouldCreate) {
-          updatedMetricsToCreate.push({
-            name: metric.name,
-            type: metric.type,
-            sql: metric.sql,
-          });
-        }
-      });
-    });
-    form.setValue("metricsToCreate", updatedMetricsToCreate);
-  }, [form, trackedEvents]);
+  const { apiCall, orgId } = useAuth();
 
-  const { apiCall } = useAuth();
+  const router = useRouter();
+
+  // Filter out demo datasource from available projects
+  const projects = allProjects.filter(
+    (p) =>
+      !isDemoDatasourceProject({
+        projectId: p.id,
+        organizationId: orgId || "",
+      })
+  );
 
   if (!datasource) {
     return null;
@@ -165,7 +153,7 @@ const NewDataSourceForm: FC<{
   let ctaEnabled = true;
   let disabledMessage = null;
 
-  if (!permissions.check("createDatasources", project)) {
+  if (!permissionsUtil.canViewCreateDataSourceModal(project)) {
     ctaEnabled = false;
     // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '"You don't have permission to create data so... Remove this comment to see the full error message
     disabledMessage = "You don't have permission to create data sources.";
@@ -253,7 +241,10 @@ const NewDataSourceForm: FC<{
 
     const newVal = {
       ...datasource,
-      settings,
+      settings: {
+        ...settings,
+        schemaOptions: form.watch("settings.schemaOptions"),
+      },
       metricsToCreate: form.watch("metricsToCreate"),
     };
     setDatasource(newVal as Partial<DataSourceInterfaceWithParams>);
@@ -287,6 +278,22 @@ const NewDataSourceForm: FC<{
     });
   };
 
+  const handleCustomSetup = () => {
+    setSchema("custom");
+    setDatasource({
+      name: "My Datasource",
+      settings: {},
+      projects: project ? [project] : [],
+    });
+    // no options for custom:
+    form.setValue(`settings.schemaOptions`, {});
+
+    // set to all possible types:
+    setPossibleTypes(dataSourceConnections.map((o) => o.type));
+    // jump to next step
+    setStep(2);
+  };
+
   const setSchemaSettings = (s: eventSchema) => {
     setSchema(s.value);
     form.setValue("settings.schemaFormat", s.value);
@@ -295,13 +302,10 @@ const NewDataSourceForm: FC<{
       source,
       newDatasourceForm: true,
     });
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    if (s.types.length === 1) {
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+    if (s.types?.length === 1) {
       const data = dataSourcesMap.get(s.types[0]);
       setDatasource({
         ...datasource,
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         type: s.types[0],
         name: `${s.label}`,
         params: data.default,
@@ -325,15 +329,15 @@ const NewDataSourceForm: FC<{
   };
 
   const hasStep2 = !!selectedSchema?.options;
-  const isFinalStep = step === 2 || (!hasStep2 && step === 1);
-  const updateSettingsRequired = isFinalStep && dataSourceId && step !== 1;
+  const isFinalStep = step === 3 || (!hasStep2 && step === 2);
+  const updateSettingsRequired = isFinalStep && dataSourceId && step !== 2;
 
   const submit =
     step === 0
       ? null
-      : form.handleSubmit(async (data) => {
+      : form.handleSubmit(async () => {
           let newDataId = dataSourceId;
-          if (step === 1) {
+          if (step === 2) {
             // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
             newDataId = await saveDataConnection();
           }
@@ -341,22 +345,6 @@ const NewDataSourceForm: FC<{
             await updateSettings();
           }
           if (isFinalStep) {
-            if (trackedEvents.length > 0) {
-              track("Generating Auto Metrics For User", {
-                autoMetricsCreated: {
-                  countMetrics: data.metricsToCreate.filter(
-                    (m) => m.type === "count"
-                  ).length,
-                  binomialMetrics: data.metricsToCreate.filter(
-                    (m) => m.type === "binomial"
-                  ).length,
-                },
-                source,
-                type: datasource.type,
-                dataSourceId,
-                schema: schema,
-              });
-            }
             // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | null' is not assignable... Remove this comment to see the full error message
             await onSuccess(newDataId);
             onCancel && onCancel();
@@ -369,69 +357,70 @@ const NewDataSourceForm: FC<{
   if (step === 0) {
     stepContents = (
       <div>
-        <h4>Popular Event Sources</h4>
         <p>
-          GrowthBook does not store a copy of your data, and instead queries
-          your existing analytics infrastructure. GrowthBook has built-in
-          support for a number of popular event sources.
+          GrowthBook is warehouse native, which means we don&apos;t store a copy
+          of your data and instead run <code>read-only</code> SELECT queries on
+          your existing analytics infrastructure. These queries return the
+          aggregated statistics necessary to analyze experiments, ensuring your
+          data remains securely stored and unmodified.
         </p>
-        <EventSourceList
-          onSelect={(s) => {
-            setSchemaSettings(s);
-            // jump to next step
-            setStep(1);
-          }}
-        />
-        <div className="my-2">
-          <strong style={{ fontSize: "1.2em" }}>Don&apos;t see yours?</strong>
-        </div>
-        <div className={`row`}>
-          <div className="col-4">
-            <a
-              className={`btn btn-light-hover btn-outline-${
-                "custom" === schema ? "selected" : "primary"
-              } mb-3 py-3`}
+        <div>
+          <h4>Choose Your Setup</h4>
+          <div className="d-flex flex-wrap">
+            <div
+              className={clsx(
+                styles.ctaContainer,
+                !showImportSampleData && "w-50"
+              )}
+              onClick={() => setStep(1)}
+            >
+              <div className={styles.ctaButton}>
+                <div>
+                  <h3 className={styles.ctaText}>Guided Setup</h3>
+                  <p>
+                    Tell us what tool you use for event tracking in your app and
+                    we&apos;ll guide you through the rest
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div
+              className={clsx(
+                styles.ctaContainer,
+                !showImportSampleData && "w-50"
+              )}
               onClick={(e) => {
                 e.preventDefault();
-                setSchema("custom");
-                setDatasource({
-                  name: "My Datasource",
-                  settings: {},
-                  projects: project ? [project] : [],
-                });
-                // no options for custom:
-                form.setValue(`settings.schemaOptions`, {});
-
-                // set to all possible types:
-                setPossibleTypes(dataSourceConnections.map((o) => o.type));
-                // jump to next step
-                setStep(1);
+                handleCustomSetup();
               }}
             >
-              <h4>Use Custom Source</h4>
-              <p className="mb-0 text-dark">
-                Manually configure your data schema and analytics queries.
-              </p>
-            </a>
-          </div>
-          {importSampleData && (
-            <div className="col-4">
-              <a
-                className={`btn btn-light-hover btn-outline-${
-                  "custom" === schema ? "selected" : "primary"
-                } mb-3 py-3 ml-auto`}
-                onClick={async (e) => {
+              <div className={styles.ctaButton}>
+                <div>
+                  <h3 className={styles.ctaText}>Manual Setup</h3>
+                  <p>
+                    Connect to your data warehouse and manually configure
+                    GrowthBook with SQL queries
+                  </p>
+                </div>
+              </div>
+            </div>
+            {showImportSampleData && (
+              <div
+                className={styles.ctaContainer}
+                onClick={(e) => {
                   e.preventDefault();
-                  await importSampleData("new data source form");
+                  router.push("/demo-datasource-project");
                 }}
               >
-                <h4>Use Sample Dataset</h4>
-                <p className="mb-0 text-dark">
-                  Explore GrowthBook with a pre-loaded sample dataset.
-                </p>
-              </a>
-            </div>
-          )}
+                <div className={styles.ctaButton}>
+                  <h3 className={styles.ctaText}>Use Sample Dataset</h3>
+                  <p className="mb-0 text-dark">
+                    Explore GrowthBook with a pre-loaded sample dataset.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
         {secondaryCTA && (
           <div className="col-12 text-center">{secondaryCTA}</div>
@@ -441,13 +430,50 @@ const NewDataSourceForm: FC<{
   } else if (step === 1) {
     stepContents = (
       <div>
-        <div className="mb-2">
+        <div className="mb-3">
           <a
             href="#"
             onClick={(e) => {
               e.preventDefault();
               setLastError("");
-              setStep(0);
+              setStep(step - 1);
+            }}
+          >
+            <span style={{ position: "relative", top: "-1px" }}>
+              <GBCircleArrowLeft />
+            </span>{" "}
+            Back
+          </a>
+        </div>
+        <h4>Select Your Event Tracker</h4>
+        <p>
+          GrowthBook has built-in support for a number of popular event tracking
+          systems. Don&apos;t see yours listed? GrowthBook can work with
+          virtually any type of data with a custom integration.
+        </p>
+        <EventSourceList
+          onSelect={(s) => {
+            if (s.value === "custom") {
+              handleCustomSetup();
+            } else {
+              setSchemaSettings(s);
+              // jump to next step
+              setStep(2);
+            }
+          }}
+        />
+      </div>
+    );
+  } else if (step === 2) {
+    stepContents = (
+      <div>
+        <div className="mb-3">
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setLastError("");
+              selectedSchema.value === "custom" ? setStep(0) : setStep(1);
             }}
           >
             <span style={{ position: "relative", top: "-1px" }}>
@@ -460,8 +486,19 @@ const NewDataSourceForm: FC<{
         {selectedSchema && selectedSchema.intro && (
           <div className="mb-4">{selectedSchema.intro}</div>
         )}
+        <div className="form-group">
+          <label>Name</label>
+          <input
+            type="text"
+            className="form-control"
+            name="name"
+            required
+            onChange={onChange}
+            value={datasource.name}
+          />
+        </div>
         <SelectField
-          label="Data Source Type"
+          label="Select the data warehouse where your event data is stored"
           // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
           value={datasource.type}
           onChange={(value) => {
@@ -499,17 +536,6 @@ const NewDataSourceForm: FC<{
             })}
         />
         <div className="form-group">
-          <label>Display Name</label>
-          <input
-            type="text"
-            className="form-control"
-            name="name"
-            required
-            onChange={onChange}
-            value={datasource.name}
-          />
-        </div>
-        <div className="form-group">
           <label>Description</label>
           <textarea
             className="form-control"
@@ -531,7 +557,6 @@ const NewDataSourceForm: FC<{
             />
           </div>
         )}
-        {/* @ts-expect-error TS(2786) If you come across this, please fix it!: 'ConnectionSettings' cannot be used as a JSX compo... Remove this comment to see the full error message */}
         <ConnectionSettings
           datasource={datasource}
           existing={existing}
@@ -548,7 +573,7 @@ const NewDataSourceForm: FC<{
             href="#"
             onClick={(e) => {
               e.preventDefault();
-              setStep(1);
+              setStep(2);
             }}
           >
             <span style={{ position: "relative", top: "-1px" }}>
@@ -590,174 +615,18 @@ const NewDataSourceForm: FC<{
               />
             </div>
           ))}
-          {datasourceSupportsAutoGeneratedMetrics && !hasFileConfig() && (
-            <div className="form-group">
-              <h3 className="py-2">
-                Generate Metrics Automatically
-                <span className="badge badge-purple text-uppercase ml-2 mb-0">
-                  New!
-                </span>
-              </h3>
-              {trackedEvents.length === 0 ? (
-                <div className="alert alert-info d-flex justify-content-between align-items-center">
-                  <div className="pr-4">
-                    {`With ${
-                      schemasMap.get(schema).label
-                    }, we may be able to automatically generate metrics from your tracked events, `}
-                    <strong>
-                      saving you and your team valuable time. (It&apos;s Free)
-                    </strong>
-                  </div>
-                  <div>
-                    <Button
-                      onClick={async () => {
-                        setAutoMetricError("");
-                        try {
-                          track("Generate Auto Metrics CTA Clicked", {
-                            source,
-                            type: datasource.type,
-                            dataSourceId,
-                            schema: schema,
-                            newDatasourceForm: true,
-                          });
-                          const res = await apiCall<{
-                            trackedEvents: TrackedEventData[];
-                            message?: string;
-                          }>(`/metrics/tracked-events/${dataSourceId}`);
-                          if (res.message) {
-                            track("Generate Auto Metrics Error", {
-                              error: res.message,
-                              source,
-                              type: datasource.type,
-                              dataSourceId,
-                              schema: schema,
-                              newDatasourceForm: true,
-                            });
-                            setAutoMetricError(res.message);
-                            return;
-                          }
-                          // Before we setMetricsToCreate, we need to add a "shouldCreate" boolean property to each metric
-                          res.trackedEvents.forEach(
-                            (event: TrackedEventData) => {
-                              event.metricsToCreate.forEach((metric) => {
-                                metric.shouldCreate = true;
-                              });
-                            }
-                          );
-                          setTrackedEvents(res.trackedEvents);
-                        } catch (e) {
-                          track("Generate Auto Metrics Error", {
-                            error: e.message,
-                            source,
-                            type: datasource.type,
-                            dataSourceId,
-                            schema: schema,
-                            newDatasourceForm: true,
-                          });
-                          setAutoMetricError(e.message);
-                        }
-                      }}
-                      color="warning"
-                      className="font-weight-bold"
-                    >
-                      See What Metrics We Can Create
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <p>
-                    {`These are the tracked events we found from ${
-                      schemasMap.get(schema)?.label || ""
-                    } in your connected warehouse. We can use these events to automatically
-                    generate the following metrics for you. And don't worry, you can always edit and remove these
-                    metrics at anytime after they're created. `}
-                    <DocLink docSection={"metrics"}>
-                      Click here to learn more about GrowthBook Metrics.
-                    </DocLink>
-                  </p>
-                  {trackedEvents.length > 0 && (
-                    <>
-                      <div className="d-flex justify-content-end">
-                        <Button
-                          color="link"
-                          onClick={async () => {
-                            const updates: TrackedEventData[] = cloneDeep(
-                              trackedEvents
-                            );
-                            updates.forEach((event) => {
-                              event.metricsToCreate.forEach((metric) => {
-                                metric.shouldCreate = true;
-                              });
-                            });
-                            setTrackedEvents(updates);
-                          }}
-                        >
-                          Check All
-                        </Button>
-                        <Button
-                          color="link"
-                          onClick={async () => {
-                            const updates: TrackedEventData[] = cloneDeep(
-                              trackedEvents
-                            );
-                            updates.forEach((event) => {
-                              event.metricsToCreate.forEach((metric) => {
-                                metric.shouldCreate = false;
-                              });
-                            });
-                            setTrackedEvents(updates);
-                          }}
-                        >
-                          Uncheck All
-                        </Button>
-                      </div>
-                      <table className="appbox table experiment-table gbtable">
-                        <thead>
-                          <tr>
-                            <th>Event Name</th>
-                            <th className="text-center">Count</th>
-                            <th className="text-center">
-                              <Tooltip body="Binomial metrics are simple yes/no conversions (E.G. Created Account)">
-                                Create Binomial Metric
-                              </Tooltip>
-                            </th>
-                            <th className="text-center">
-                              {" "}
-                              <Tooltip body="Count metrics sum conversion values per user (E.G. Pages per Visit)">
-                                Create Count Metric
-                              </Tooltip>
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {trackedEvents.map((event, i) => {
-                            return (
-                              <AutoMetricCard
-                                key={`${event}-${i}`}
-                                event={event}
-                                trackedEvents={trackedEvents}
-                                setTrackedEvents={setTrackedEvents}
-                                form={form}
-                                i={i}
-                                dataSourceId={dataSourceId || ""}
-                              />
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-          {autoMetricError && (
-            <div className="alert alert-danger">{autoMetricError}</div>
-          )}
         </div>
       </div>
     );
+  }
+
+  // Disabling the CTA if the user hasn't input a data set to call attention to the "Test Connection" button
+  if (
+    step == 2 &&
+    datasource.type === "bigquery" &&
+    !datasource.params?.defaultDataset
+  ) {
+    ctaEnabled = false;
   }
 
   return (
@@ -771,7 +640,7 @@ const NewDataSourceForm: FC<{
       // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => Promise<void>) | null' is not assigna... Remove this comment to see the full error message
       submit={submit}
       autoCloseOnSubmit={false}
-      cta={isFinalStep ? (step === 2 ? "Finish" : "Save") : "Next"}
+      cta={isFinalStep ? (step === 3 ? "Finish" : "Save") : "Next"}
       closeCta="Cancel"
       size="lg"
       error={lastError}

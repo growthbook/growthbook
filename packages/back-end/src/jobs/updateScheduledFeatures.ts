@@ -5,7 +5,7 @@ import {
   updateFeature,
 } from "../models/FeatureModel";
 import { getNextScheduledUpdate } from "../services/features";
-import { getOrganizationById } from "../services/organizations";
+import { getContextForAgendaJobByOrgId } from "../services/organizations";
 import { logger } from "../util/logger";
 
 type UpdateSingleFeatureJob = Job<{
@@ -64,22 +64,22 @@ export default async function (agenda: Agenda) {
 async function updateSingleFeature(job: UpdateSingleFeatureJob) {
   const featureId = job.attrs.data?.featureId;
   const organization = job.attrs.data?.organization;
-  if (!featureId) return;
+  if (!featureId || !organization) return;
 
-  const org = await getOrganizationById(organization);
-  if (!org) return;
+  const context = await getContextForAgendaJobByOrgId(organization);
 
-  const feature = await getFeature(organization, featureId);
+  const feature = await getFeature(context, featureId);
   if (!feature) return;
 
   try {
     // Recalculate the feature's new nextScheduledUpdate
     const nextScheduledUpdate = getNextScheduledUpdate(
-      feature.environmentSettings || {}
+      feature.environmentSettings || {},
+      context.environments
     );
 
     // Update the feature in Mongo
-    await updateFeature(org, null, feature, {
+    await updateFeature(context, feature, {
       nextScheduledUpdate: nextScheduledUpdate,
     });
   } catch (e) {

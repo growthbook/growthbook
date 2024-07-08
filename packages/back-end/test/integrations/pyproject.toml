@@ -4,7 +4,6 @@ version = "0.1.0"
 description = "Simple python package to manage dependencies for integration-query-runner.py"
 authors = ["Luke Sonnet <luke@growthbook.io>"]
 readme = "README.md"
-packages = [{include = "integration_query_runner"}]
 
 [tool.poetry.dependencies]
 python = "^3.8"
@@ -17,6 +16,9 @@ python-dotenv = "^0.21.1"
 sqlfluff = "^1.4.5"
 snowflake-connector-python = "^3.0.0"
 databricks-sql-connector = "^2.3.0"
+clickhouse-connect = "^0.6.23"
+redshift-connector = "^2.0.918"
+pyodbc = "^5.0.1"
 
 [tool.poetry.dev-dependencies]
 black = "22.3.0"

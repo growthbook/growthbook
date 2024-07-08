@@ -7,9 +7,10 @@ import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Toggle from "@/components/Forms/Toggle";
-import Modal from "../Modal";
-import MetricsSelector from "../Experiment/MetricsSelector";
-import Field from "../Forms/Field";
+import Modal from "@/components/Modal";
+import MetricsSelector from "@/components/Experiment/MetricsSelector";
+import Field from "@/components/Forms/Field";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import NorthStarMetricDisplay from "./NorthStarMetricDisplay";
 
 const NorthStar: FC<{
@@ -17,8 +18,9 @@ const NorthStar: FC<{
 }> = ({ experiments }) => {
   const { apiCall } = useAuth();
 
-  const { permissions, refreshOrganization } = useUser();
+  const { refreshOrganization } = useUser();
   const settings = useOrgSettings();
+  const permissionsUtil = usePermissionsUtil();
 
   const smoothByStorageKey = `northstar_metrics_smoothBy`;
   const [smoothBy, setSmoothBy] = useLocalStorage<"day" | "week">(
@@ -35,10 +37,6 @@ const NorthStar: FC<{
   useEffect(() => {
     if (settings.northStar?.metricIds) {
       form.setValue("metrics", settings.northStar?.metricIds || []);
-      // form.setValue(
-      //   "window",
-      //   settings.northStar?.window || ""
-      // );
       form.setValue("title", settings.northStar?.title || "");
     }
   }, [settings.northStar]);
@@ -63,20 +61,23 @@ const NorthStar: FC<{
   return (
     <>
       {hasNorthStar && (
-        <div
-          className="list-group activity-box mb-3"
-          style={{ position: "relative" }}
-        >
-          {permissions.manageNorthStarMetric && (
+        <div className="list-group activity-box mb-3 position-relative">
+          {permissionsUtil.canManageNorthStarMetric() && (
             <a
-              className="cursor-pointer"
-              style={{ position: "absolute", top: "10px", right: "10px" }}
+              role="button"
+              className="p-1"
+              style={{
+                position: "absolute",
+                top: "10px",
+                right: "10px",
+                zIndex: 1,
+              }}
               onClick={(e) => {
                 e.preventDefault();
                 setOpenNorthStarModal(true);
               }}
             >
-              <BsGear />
+              <BsGear size={16} />
             </a>
           )}
           <div className="row">
@@ -147,7 +148,7 @@ const NorthStar: FC<{
             await apiCall("/organization", {
               method: "PUT",
               body: JSON.stringify({
-                settings: newSettings,
+                settings: { northStar: newSettings.northStar },
               }),
             });
             await refreshOrganization();

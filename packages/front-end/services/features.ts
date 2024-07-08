@@ -1,11 +1,13 @@
 import { useEffect, useMemo } from "react";
 import {
+  Environment,
   NamespaceUsage,
   SDKAttributeFormat,
   SDKAttributeSchema,
   SDKAttributeType,
 } from "back-end/types/organization";
 import {
+  ExperimentRefRule,
   ExperimentRule,
   ExperimentValue,
   FeatureInterface,
@@ -17,14 +19,19 @@ import {
 import stringify from "json-stringify-pretty-compact";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureUsageRecords } from "back-end/types/realtime";
-import dJSON from "dirty-json";
 import cloneDeep from "lodash/cloneDeep";
-import Ajv from "ajv";
-import { generateVariationId } from "shared/util";
+import {
+  generateVariationId,
+  validateAndFixCondition,
+  validateFeatureValue,
+} from "shared/util";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import isEqual from "lodash/isEqual";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import useOrgSettings from "../hooks/useOrgSettings";
-import useApi from "../hooks/useApi";
+import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import useApi from "@/hooks/useApi";
 import { useDefinitions } from "./DefinitionsContext";
 
 export { generateVariationId } from "shared/util";
@@ -45,43 +52,11 @@ export interface AttributeData {
   format?: SDKAttributeFormat;
 }
 
-export function validateFeatureValue(
-  feature: FeatureInterface,
-  value: string,
-  label: string
-): string {
-  const type = feature.valueType;
-  const prefix = label ? label + ": " : "";
-  if (type === "boolean") {
-    if (!["true", "false"].includes(value)) {
-      return value ? "true" : "false";
-    }
-  } else if (type === "number") {
-    if (!value.match(/^-?[0-9]+(\.[0-9]+)?$/)) {
-      throw new Error(prefix + "Must be a valid number");
-    }
-  } else if (type === "json") {
-    let parsedValue;
-    try {
-      parsedValue = JSON.parse(value);
-    } catch (e) {
-      // If the JSON is invalid, try to parse it with 'dirty-json' instead
-      try {
-        parsedValue = dJSON.parse(value);
-      } catch (e) {
-        throw new Error(prefix + e.message);
-      }
-    }
-    // validate with JSON schema if set and enabled
-    const { valid, errors } = validateJSONFeatureValue(parsedValue, feature);
-    if (!valid) {
-      throw new Error(prefix + errors.join(", "));
-    }
-    return stringify(parsedValue);
-  }
-
-  return value;
-}
+export type NewExperimentRefRule = {
+  type: "experiment-ref-new";
+  name: string;
+  autoStart: boolean;
+} & Omit<ExperimentRule, "type">;
 
 export function useEnvironmentState() {
   const [state, setState] = useLocalStorage("currentEnvironment", "dev");
@@ -104,11 +79,13 @@ export function useEnvironments() {
         id: "dev",
         description: "",
         toggleOnList: true,
+        projects: [],
       },
       {
         id: "production",
         description: "",
         toggleOnList: true,
+        projects: [],
       },
     ];
   }
@@ -116,88 +93,13 @@ export function useEnvironments() {
   return environments;
 }
 export function getRules(feature: FeatureInterface, environment: string) {
-  if (feature.draft?.active && feature.draft.rules?.[environment]) {
-    return feature.draft.rules[environment];
-  }
   return feature?.environmentSettings?.[environment]?.rules ?? [];
 }
 export function getFeatureDefaultValue(feature: FeatureInterface) {
-  if (feature.draft?.active && "defaultValue" in feature.draft) {
-    return feature.draft.defaultValue ?? "";
-  }
   return feature.defaultValue ?? "";
 }
-
-export function getValidation(feature: FeatureInterface) {
-  try {
-    const jsonSchema = feature?.jsonSchema?.schema
-      ? JSON.parse(feature?.jsonSchema?.schema)
-      : null;
-    const validationEnabled = jsonSchema ? feature?.jsonSchema?.enabled : false;
-    const schemaDateUpdated = feature?.jsonSchema?.date;
-    return { jsonSchema, validationEnabled, schemaDateUpdated };
-  } catch (e) {
-    // log an error?
-    return {
-      jsonSchema: null,
-      validationEnabled: false,
-      schemaDateUpdated: null,
-    };
-  }
-}
-
-export function validateJSONFeatureValue(value, feature) {
-  const { jsonSchema, validationEnabled } = getValidation(feature);
-  if (!validationEnabled) {
-    return { valid: true, enabled: validationEnabled, errors: [] };
-  }
-  try {
-    const ajv = new Ajv();
-    const validate = ajv.compile(jsonSchema);
-    let parsedValue;
-    if (typeof value === "string") {
-      try {
-        parsedValue = JSON.parse(value);
-      } catch (e) {
-        // If the JSON is invalid, try to parse it with 'dirty-json' instead
-        try {
-          parsedValue = dJSON.parse(value);
-        } catch (e) {
-          return {
-            valid: false,
-            enabled: validationEnabled,
-            errors: [e.message],
-          };
-        }
-      }
-    } else {
-      parsedValue = value;
-    }
-
-    return {
-      valid: validate(parsedValue),
-      enabled: validationEnabled,
-      errors:
-        validate?.errors?.map((v) => {
-          let prefix = "";
-          if (v.schemaPath) {
-            console.log(v.schemaPath);
-            const matched = v.schemaPath.match(/^#\/([^/]*)\/?(.*)/);
-            console.log(matched);
-            if (matched && matched.length > 2) {
-              if (matched[1] === "required") {
-                prefix = "Missing required field: ";
-              } else if (matched[1] === "properties" && matched[2]) {
-                prefix = "Invalid value for field: " + matched[2] + " ";
-              }
-            }
-          }
-          return prefix + v.message;
-        }) ?? [],
-    };
-  } catch (e) {
-    return { valid: false, enabled: validationEnabled, errors: [e.message] };
-  }
+export function getPrerequisites(feature: FeatureInterface) {
+  return feature.prerequisites ?? [];
 }
 
 export function roundVariationWeight(num: number): number {
@@ -261,20 +163,32 @@ export function findGaps(
   return gaps;
 }
 
-export function useFeaturesList(withProject = true) {
+export function useFeaturesList(withProject = true, includeArchived = false) {
   const { project } = useDefinitions();
 
-  const url = withProject ? `/feature?project=${project || ""}` : "/feature";
+  const qs = new URLSearchParams();
+  if (withProject) {
+    qs.set("project", project);
+  }
+  if (includeArchived) {
+    qs.set("includeArchived", "true");
+  }
+
+  const url = `/feature?${qs.toString()}`;
 
   const { data, error, mutate } = useApi<{
     features: FeatureInterface[];
+    linkedExperiments: ExperimentInterfaceStringDates[];
+    hasArchived: boolean;
   }>(url);
 
   return {
     features: data?.features || [],
+    experiments: data?.linkedExperiments || [],
     loading: !data,
     error,
     mutate,
+    hasArchived: data?.hasArchived || false,
   };
 }
 
@@ -293,14 +207,25 @@ export function getVariationColor(i: number) {
   return colors[i % colors.length];
 }
 
-export function useAttributeSchema(showArchived = false) {
+export function useAttributeSchema(
+  showArchived = false,
+  projectFilter?: string
+) {
   const attributeSchema = useOrgSettings().attributeSchema || [];
+
+  const filteredAttributeSchema = attributeSchema.filter((attribute) => {
+    return (
+      !projectFilter ||
+      !attribute.projects?.length ||
+      attribute.projects.includes(projectFilter)
+    );
+  });
   return useMemo(() => {
     if (!showArchived) {
-      return attributeSchema.filter((s) => !s.archived);
+      return filteredAttributeSchema.filter((s) => !s.archived);
     }
-    return attributeSchema;
-  }, [attributeSchema, showArchived]);
+    return filteredAttributeSchema;
+  }, [attributeSchema, showArchived, projectFilter]);
 }
 
 export function validateFeatureRule(
@@ -309,14 +234,22 @@ export function validateFeatureRule(
 ): null | FeatureRule {
   let hasChanges = false;
   const ruleCopy = cloneDeep(rule);
+
+  validateSavedGroupTargeting(rule.savedGroups);
+
   if (rule.condition) {
-    try {
-      const res = JSON.parse(rule.condition);
-      if (!res || typeof res !== "object") {
-        throw new Error("Condition is invalid");
-      }
-    } catch (e) {
-      throw new Error("Condition is invalid: " + e.message);
+    validateAndFixCondition(
+      rule.condition,
+      (condition) => {
+        hasChanges = true;
+        ruleCopy.condition = condition;
+      },
+      false
+    );
+  }
+  if (rule.prerequisites) {
+    if (rule.prerequisites.some((p) => !p.id)) {
+      throw new Error("Cannot have empty prerequisites");
     }
   }
   if (rule.type === "force") {
@@ -357,6 +290,18 @@ export function validateFeatureRule(
         `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`
       );
     }
+  } else if (rule.type === "experiment-ref") {
+    rule.variations.forEach((v, i) => {
+      const newValue = validateFeatureValue(
+        feature,
+        v.value,
+        "Variation #" + i
+      );
+      if (newValue !== v.value) {
+        hasChanges = true;
+        (ruleCopy as ExperimentRefRule).variations[i].value = newValue;
+      }
+    });
   } else {
     const newValue = validateFeatureValue(
       feature,
@@ -376,8 +321,12 @@ export function validateFeatureRule(
   return hasChanges ? ruleCopy : null;
 }
 
-export function getEnabledEnvironments(feature: FeatureInterface) {
+export function getEnabledEnvironments(
+  feature: FeatureInterface,
+  environments: Environment[]
+) {
   return Object.keys(feature.environmentSettings ?? {}).filter((env) => {
+    if (!environments.some((e) => e.id === env)) return false;
     return !!feature.environmentSettings?.[env]?.enabled;
   });
 }
@@ -400,13 +349,30 @@ export function getDefaultValue(valueType: FeatureValueType): string {
     return "1";
   }
   if (valueType === "string") {
-    return "foo";
+    return "OFF"; // Default Values should be the OFF State to match most platforms.
   }
   if (valueType === "json") {
     return "{}";
   }
   return "";
 }
+
+export function getAffectedRevisionEnvs(
+  liveFeature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  environments: Environment[]
+): string[] {
+  const enabledEnvs = getEnabledEnvironments(liveFeature, environments);
+  if (revision.defaultValue !== liveFeature.defaultValue) return enabledEnvs;
+
+  return enabledEnvs.filter((env) => {
+    const liveRules = liveFeature.environmentSettings?.[env]?.rules || [];
+    const revisionRules = revision.rules?.[env] || [];
+
+    return !isEqual(liveRules, revisionRules);
+  });
+}
+
 export function getDefaultVariationValue(defaultValue: string) {
   const map: Record<string, string> = {
     true: "false",
@@ -427,11 +393,10 @@ export function getDefaultRuleValue({
   defaultValue: string;
   attributeSchema?: SDKAttributeSchema;
   ruleType: string;
-}): FeatureRule {
-  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-  const hashAttributes = attributeSchema
-    .filter((a) => a.hashAttribute)
-    .map((a) => a.property);
+}): FeatureRule | NewExperimentRefRule {
+  const hashAttributes =
+    attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
+    [];
   const hashAttribute = hashAttributes.includes("id")
     ? "id"
     : hashAttributes[0] || "id";
@@ -499,32 +464,90 @@ export function getDefaultRuleValue({
       ],
     };
   }
-
-  const firstAttr = attributeSchema?.[0];
-  const condition = firstAttr
-    ? JSON.stringify({
-        [firstAttr.property]: firstAttr.datatype === "boolean" ? "true" : "",
-      })
-    : "";
-
-  return {
-    type: "force",
-    description: "",
-    id: "",
-    value,
-    enabled: true,
-    condition,
-    scheduleRules: [
-      {
-        enabled: true,
-        timestamp: null,
-      },
-      {
+  if (ruleType === "experiment-ref") {
+    return {
+      type: "experiment-ref",
+      description: "",
+      experimentId: "",
+      id: "",
+      variations: [],
+      condition: "",
+      enabled: true,
+      scheduleRules: [
+        {
+          enabled: true,
+          timestamp: null,
+        },
+        {
+          enabled: false,
+          timestamp: null,
+        },
+      ],
+    };
+  }
+  if (ruleType === "experiment-ref-new") {
+    return {
+      type: "experiment-ref-new",
+      description: "",
+      name: "",
+      autoStart: true,
+      id: "",
+      condition: "",
+      enabled: true,
+      hashAttribute,
+      trackingKey: "",
+      values: [
+        {
+          value: defaultValue,
+          weight: 0.5,
+          name: "",
+        },
+        {
+          value: value,
+          weight: 0.5,
+          name: "",
+        },
+      ],
+      coverage: 1,
+      namespace: {
         enabled: false,
-        timestamp: null,
+        name: "",
+        range: [0, 0.5],
       },
-    ],
-  };
+      scheduleRules: [
+        {
+          enabled: true,
+          timestamp: null,
+        },
+        {
+          enabled: false,
+          timestamp: null,
+        },
+      ],
+    };
+  }
+  if (ruleType === "force" || !ruleType) {
+    return {
+      type: "force",
+      description: "",
+      id: "",
+      value,
+      enabled: true,
+      condition: "",
+      savedGroups: [],
+      scheduleRules: [
+        {
+          enabled: true,
+          timestamp: null,
+        },
+        {
+          enabled: false,
+          timestamp: null,
+        },
+      ],
+    };
+  }
+  throw new Error("Unknown Rule Type: " + ruleType);
 }
 
 export function isRuleFullyCovered(rule: FeatureRule): boolean {
@@ -541,19 +564,29 @@ export function isRuleFullyCovered(rule: FeatureRule): boolean {
     upcomingScheduleRule?.enabled ||
     !rule.enabled;
 
+  if (rule?.prerequisites?.length) {
+    return false;
+  }
+
   // rollouts and experiments at 100%:
   if (
     (rule.type === "rollout" || rule.type === "experiment") &&
     rule.coverage === 1 &&
     rule.enabled === true &&
-    rule.condition === "{}" &&
+    (!rule.condition || rule.condition === "{}") &&
+    !rule.savedGroups?.length &&
     !ruleDisabled
   ) {
     return true;
   }
 
   // force rule at 100%: (doesn't have coverage)
-  return rule.type === "force" && rule.condition === "{}" && !ruleDisabled;
+  return (
+    rule.type === "force" &&
+    rule.condition === "{}" &&
+    !rule.savedGroups?.length &&
+    !ruleDisabled
+  );
 }
 
 export function jsonToConds(
@@ -602,6 +635,10 @@ export function jsonToConds(
         const v = value[operator];
 
         if (operator === "$in" || operator === "$nin") {
+          if (v.some((str) => typeof str === "string" && str.includes(","))) {
+            valid = false;
+            return;
+          }
           return conds.push({
             field,
             operator,
@@ -809,8 +846,10 @@ function getAttributeDataType(type: SDKAttributeType) {
   return "number";
 }
 
-export function useAttributeMap(): Map<string, AttributeData> {
-  const attributeSchema = useAttributeSchema(true);
+export function useAttributeMap(
+  projectFilter?: string
+): Map<string, AttributeData> {
+  const attributeSchema = useAttributeSchema(true, projectFilter);
 
   return useMemo(() => {
     if (!attributeSchema.length) {
@@ -873,10 +912,12 @@ export function getExperimentDefinitionFromFeature(
         name: "Main",
         reason: "",
         dateStarted: new Date().toISOString(),
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-        condition: expRule.condition,
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'NamespaceValue | undefined' is not assignabl... Remove this comment to see the full error message
-        namespace: expRule.namespace,
+        condition: expRule.condition || "",
+        namespace: expRule.namespace || {
+          enabled: false,
+          name: "",
+          range: [0, 0],
+        },
         seed: trackingKey,
       },
     ],
@@ -889,9 +930,10 @@ export function useRealtimeData(
   mock = false,
   update = false
 ): { usage: FeatureUsageRecords; usageDomain: [number, number] } {
-  const { data, mutate } = useApi<{
-    usage: FeatureUsageRecords;
-  }>(`/usage/features`);
+  const { data, mutate } = useApi<{ usage: FeatureUsageRecords }>(
+    `/usage/features`,
+    { shouldRun: () => !!update }
+  );
 
   // Mock data
   const usage = useMemo(() => {
@@ -955,10 +997,12 @@ export function genDuplicatedKey({ id }: FeatureInterface) {
     // Take the '_4' out of 'feature_a_4'
     const numSuffix = id.match(/_[\d]+$/)?.[0];
     // Store 'feature_a' from 'feature_a_4'
-    const keyRoot = numSuffix ? id.substr(0, id.length - numSuffix.length) : id;
+    const keyRoot = numSuffix
+      ? id.substring(0, id.length - numSuffix.length)
+      : id;
     // Parse the 4 (number) out of '_4' (string)
-    // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
-    const num = (numSuffix ? parseInt(numSuffix.match(/[\d]+/)[0]) : 0) + 1;
+    const num =
+      (numSuffix ? parseInt(numSuffix.match(/[\d]+/)?.[0] || "0") : 0) + 1;
 
     return `${keyRoot}_${num}`;
   } catch (e) {

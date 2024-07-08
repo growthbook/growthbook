@@ -1,0 +1,42 @@
+@import "../../styles/colors.scss";
+
+.resultsBox {
+  background-color: var(--surface-background-color);
+
+  .resultsHeader {
+    text-align: center;
+    background-image: linear-gradient(rgb(255 255 255/5%) 0 0);
+  }
+  .resultsExpand {
+    background-color: rgb(192, 214, 234, 0.2);
+    color: var(--alert-success-color);
+    text-align: center;
+    width: 100%;
+  }
+  .resultsTable {
+    width: 100%;
+    th {
+      font-weight: 400;
+    }
+    td {
+      font-weight: bold;
+      width: 50%;
+      padding: 6px 0;
+    }
+  }
+}
+.disabledResult {
+  opacity: 0.6;
+}
+.attributeBox {
+  background-color: var(--surface-background-color);
+  max-height: 520px;
+  overflow-y: auto;
+
+  .attrHeader {
+    background-color: var(--surface-background-color);
+  }
+  .disabled {
+    opacity: 0.4;
+  }
+}

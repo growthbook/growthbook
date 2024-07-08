@@ -1,11 +1,21 @@
 import mongoose, { FilterQuery } from "mongoose";
 import omit from "lodash/omit";
 import {
+  ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
 } from "../../types/experiment-snapshot";
 import { migrateSnapshot } from "../util/migrations";
+import { notifyExperimentChange } from "../services/experimentNotifications";
 import { queriesSchema } from "./QueryModel";
+import { Context } from "./BaseModel";
+
+const experimentSnapshotTrafficObject = {
+  _id: false,
+  name: String,
+  srm: Number,
+  variationUnits: [Number],
+};
 
 const experimentSnapshotSchema = new mongoose.Schema({
   id: {
@@ -76,6 +86,18 @@ const experimentSnapshotSchema = new mongoose.Schema({
       ],
     },
   ],
+  health: {
+    _id: false,
+    traffic: {
+      _id: false,
+      overall: experimentSnapshotTrafficObject,
+      dimension: {
+        type: Map,
+        of: [experimentSnapshotTrafficObject],
+      },
+      error: String,
+    },
+  },
   hasRawQueries: Boolean,
   queryFilter: String,
   segment: String,
@@ -100,7 +122,7 @@ experimentSnapshotSchema.index({
   dateCreated: -1,
 });
 
-type ExperimentSnapshotDocument = mongoose.Document &
+export type ExperimentSnapshotDocument = mongoose.Document &
   LegacyExperimentSnapshotInterface;
 
 const ExperimentSnapshotModel = mongoose.model<LegacyExperimentSnapshotInterface>(
@@ -144,11 +166,17 @@ export async function updateSnapshotsOnPhaseDelete(
   );
 }
 
-export async function updateSnapshot(
-  organization: string,
-  id: string,
-  updates: Partial<ExperimentSnapshotInterface>
-) {
+export async function updateSnapshot({
+  organization,
+  id,
+  updates,
+  context,
+}: {
+  organization: string;
+  id: string;
+  updates: Partial<ExperimentSnapshotInterface>;
+  context: Context;
+}) {
   await ExperimentSnapshotModel.updateOne(
     {
       organization,
@@ -158,6 +186,80 @@ export async function updateSnapshot(
       $set: updates,
     }
   );
+
+  const experimentSnapshotModel = await ExperimentSnapshotModel.findOne({
+    id,
+    organization,
+  });
+  if (!experimentSnapshotModel) throw "Internal error";
+
+  await notifyExperimentChange({
+    context,
+    snapshot: experimentSnapshotModel,
+  });
+}
+
+export async function addOrUpdateSnapshotAnalysis({
+  organization,
+  id,
+  analysis,
+  context,
+}: {
+  organization: string;
+  id: string;
+  analysis: ExperimentSnapshotAnalysis;
+  context: Context;
+}) {
+  // looks for snapshots with this ID but WITHOUT these analysis settings
+  const experimentSnapshotModel = await ExperimentSnapshotModel.updateOne(
+    {
+      organization,
+      id,
+      "analyses.settings": { $ne: analysis.settings },
+    },
+    {
+      $push: { analyses: analysis },
+    }
+  );
+  // if analysis already exist, no documents will be returned by above query
+  // so instead find and update existing analysis in DB
+  if (experimentSnapshotModel.matchedCount === 0) {
+    await updateSnapshotAnalysis({ organization, id, analysis, context });
+  }
+}
+
+export async function updateSnapshotAnalysis({
+  organization,
+  id,
+  analysis,
+  context,
+}: {
+  organization: string;
+  id: string;
+  analysis: ExperimentSnapshotAnalysis;
+  context: Context;
+}) {
+  await ExperimentSnapshotModel.updateOne(
+    {
+      organization,
+      id,
+      "analyses.settings": analysis.settings,
+    },
+    {
+      $set: { "analyses.$": analysis },
+    }
+  );
+
+  const experimentSnapshotModel = await ExperimentSnapshotModel.findOne({
+    id,
+    organization,
+  });
+  if (!experimentSnapshotModel) throw "Internal error";
+
+  await notifyExperimentChange({
+    context,
+    snapshot: experimentSnapshotModel,
+  });
 }
 
 export async function deleteSnapshotById(organization: string, id: string) {
@@ -229,9 +331,20 @@ export async function getLatestSnapshot(
   return all[0] ? toInterface(all[0]) : null;
 }
 
-export async function createExperimentSnapshotModel(
-  data: ExperimentSnapshotInterface
-): Promise<ExperimentSnapshotInterface> {
+export async function createExperimentSnapshotModel({
+  data,
+  context,
+}: {
+  data: ExperimentSnapshotInterface;
+  context: Context;
+}): Promise<ExperimentSnapshotInterface> {
   const created = await ExperimentSnapshotModel.create(data);
+
+  await notifyExperimentChange({ context, snapshot: created });
+
   return toInterface(created);
 }
+
+export const getDefaultAnalysisResults = (
+  snapshot: ExperimentSnapshotDocument
+) => snapshot.results?.[0];

@@ -17,6 +17,8 @@ import track from "@/services/track";
 import Modal from "@/components/Modal";
 import ConnectionSettings from "@/components/Settings/ConnectionSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { ensureAndReturn } from "@/types/utils";
+import EditSchemaOptions from "./EditSchemaOptions";
 
 const typeOptions = dataSourceConnections;
 
@@ -44,9 +46,8 @@ const DataSourceForm: FC<{
   const { projects } = useDefinitions();
   const [dirty, setDirty] = useState(false);
   const [datasource, setDatasource] = useState<
-    Partial<DataSourceInterfaceWithParams>
-    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
-  >(null);
+    Partial<DataSourceInterfaceWithParams> | undefined
+  >();
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
@@ -81,7 +82,7 @@ const DataSourceForm: FC<{
       let id = data.id;
 
       // Update
-      if (data.id) {
+      if (id) {
         const res = await apiCall<{ status: number; message: string }>(
           `/datasource/${data.id}`,
           {
@@ -100,8 +101,10 @@ const DataSourceForm: FC<{
           body: JSON.stringify({
             ...datasource,
             settings: {
-              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'PostgresConnectionParams | Athen... Remove this comment to see the full error message
-              ...getInitialSettings("custom", datasource.params),
+              ...getInitialSettings(
+                "custom",
+                ensureAndReturn(datasource.params)
+              ),
               ...(datasource.settings || {}),
             },
           }),
@@ -114,7 +117,6 @@ const DataSourceForm: FC<{
       }
 
       setDirty(false);
-      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
       await onSuccess(id);
     } catch (e) {
       track("Data Source Form Error", {
@@ -180,8 +182,7 @@ const DataSourceForm: FC<{
       )}
       <SelectField
         label="Data Source Type"
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-        value={datasource.type}
+        value={datasource.type || typeOptions[0].type}
         onChange={(value) => {
           const option = typeOptions.filter((o) => o.type === value)[0];
           if (!option) return;
@@ -249,11 +250,15 @@ const DataSourceForm: FC<{
           />
         </div>
       )}
-      {/* @ts-expect-error TS(2786) If you come across this, please fix it!: 'ConnectionSettings' cannot be used as a JSX compo... Remove this comment to see the full error message */}
       <ConnectionSettings
         datasource={datasource}
         existing={existing}
         hasError={hasError}
+        setDatasource={setDatasource}
+        setDirty={setDirty}
+      />
+      <EditSchemaOptions
+        datasource={datasource}
         setDatasource={setDatasource}
         setDirty={setDirty}
       />

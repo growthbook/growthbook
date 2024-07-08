@@ -1,13 +1,14 @@
 import { FC, useState } from "react";
 import { FaEye } from "react-icons/fa";
-import { useAuth } from "../services/auth";
-import { useWatching } from "../services/WatchProvider";
+import { useAuth } from "@/services/auth";
+import { useWatching } from "@/services/WatchProvider";
 
 const WatchButton: FC<{
   item: string;
   itemType: "feature" | "experiment";
   type?: "button" | "icon" | "link";
-}> = ({ item, itemType, type = "button" }) => {
+  className?: string;
+}> = ({ item, itemType, type = "button", className }) => {
   const {
     watchedExperiments,
     watchedFeatures,
@@ -34,6 +35,10 @@ const WatchButton: FC<{
   }
   if (loading) {
     classNames += " disabled";
+  }
+
+  if (className) {
+    classNames += " " + className;
   }
 
   return (

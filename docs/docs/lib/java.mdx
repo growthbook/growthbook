@@ -103,10 +103,10 @@ For complete examples, see the [Examples](#code-examples) section below.
 
 #### Features
 
-The features JSON is equivalent to the `features` property that is returned from the SDK Endpoint for the specified environment. You can find your endpoint on the [Environments &rarr; SDK Endpoints page <ExternalLink/>](https://app.growthbook.io/environments).
+The features JSON is equivalent to the `features` property that is returned from the SDK Connection endpoint.
 
 - You can read more [about features here](/app/features)
-- You can see an [example features JSON here](/app/api#the-sdk-endpoint)
+- You can see an [example features JSON here](/app/api#sdk-connection-endpoints)
 
 #### Attributes
 
@@ -279,9 +279,21 @@ For more references, see the [Examples](#code-examples) below.
 
 #### Cacheing and refreshing behaviour
 
+As of version 0.9.0, there are 2 refresh strategies available.
+
+##### Stale While Revalidate
+
+This is the default strategy but can be explicitly stated by passing `FeatureRefreshStrategy.STALE_WHILE_REVALIDATE` as the refresh strategy option to the `GBFeaturesRepository` builder or constructor.
+
 The `GBFeaturesRepository` will automatically refresh the features when the features become stale. Features are considered stale every 60 seconds. This amount is configurable with the `ttlSeconds` option.
 
 When you fetch features and they are considered stale, the stale features are returned from the `getFeaturesJson()` method and a network call to refresh the features is enqueued asynchronously. When that request succeeds, the features are updated with the newest features, and the next call to `getFeaturesJson()` will return the refreshed features.
+
+##### Server-Sent Events
+
+This is a new strategy that can be enabled by passing `FeatureRefreshStrategy.SERVER_SENT_EVENTS` as the refresh strategy option to the `GBFeaturesRepository` builder or constructor.
+
+If you're using [GrowthBook Cloud <ExternalLink/>](https://app.growthbook.io), this is ready for you to use. If you are self-hosting, you will need to set up the [GrowthBook Proxy](/self-host/proxy) to enable it.
 
 ## Overriding Feature Values
 

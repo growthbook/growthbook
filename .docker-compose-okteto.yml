@@ -18,6 +18,8 @@ services:
       - API_HOST=https://growthbook-3100-${OKTETO_NAMESPACE}.growthbook.okteto.dev
       - JWT_SECRET=${JWT_SECRET}
       - IS_CLOUD=true
+      - IS_MULTI_ORG=true
+      - ALLOW_SELF_ORG_CREATION=true
       - SSO_CONFIG=${SSO_CONFIG}
       - DISABLE_TELEMETRY=debug
     volumes:

@@ -1,7 +1,7 @@
 import { FC, ChangeEventHandler } from "react";
 import { MssqlConnectionParams } from "back-end/types/integrations/mssql";
-import Toggle from "../Forms/Toggle";
-import Tooltip from "../Tooltip/Tooltip";
+import Toggle from "@/components/Forms/Toggle";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import HostWarning from "./HostWarning";
 
 const MssqlForm: FC<{
@@ -15,8 +15,7 @@ const MssqlForm: FC<{
   return (
     <>
       <HostWarning
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-        host={params.server}
+        host={params.server ?? ""}
         setHost={(host) => {
           setParams({
             server: host,
@@ -81,6 +80,21 @@ const MssqlForm: FC<{
           />
         </div>
         <div className="form-group col-md-12">
+          <label>Request Timeout</label>
+          <input
+            type="number"
+            className="form-control"
+            name="requestTimeout"
+            value={params.requestTimeout || ""}
+            onChange={onParamChange}
+            placeholder="(optional - in seconds. If empty, it will be disabled)"
+          />
+          <div className="form-text text-muted small">
+            The number of seconds before a request is considered failed. The
+            connection default is 15 seconds. Set to 0 to disable timeout.
+          </div>
+        </div>
+        <div className="form-group col-md-12">
           <label>Default Schema</label>
           <input
             type="text"
@@ -102,8 +116,7 @@ const MssqlForm: FC<{
             <Toggle
               id="trust-server-cert"
               label="Trust server certificate"
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-              value={params.options.trustServerCertificate === true}
+              value={params.options?.trustServerCertificate === true}
               setValue={(value) => {
                 const opt = {
                   ...params.options,
@@ -122,8 +135,7 @@ const MssqlForm: FC<{
             <Toggle
               id="encryption"
               label="Enable encryption"
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-              value={params.options.encrypt === true}
+              value={params.options?.encrypt === true}
               setValue={(value) => {
                 const opt = { ...params.options, encrypt: value };
                 setParams({

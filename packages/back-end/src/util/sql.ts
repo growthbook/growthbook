@@ -1,22 +1,13 @@
 import { format as sqlFormat, FormatOptions } from "sql-formatter";
+import Handlebars from "handlebars";
+import { SQLVars } from "../../types/sql";
+import { FactTableColumnType } from "../../types/fact-table";
+import { helpers } from "./handlebarsHelpers";
 
-function getBaseIdType(objects: string[][], forcedBaseIdType?: string) {
-  // If a specific id type is already chosen as the base, return it
-  if (forcedBaseIdType) return forcedBaseIdType;
-
-  // Count how many objects use each id type
-  const counts: Record<string, number> = {};
-  objects.forEach((types) => {
-    types.forEach((type) => {
-      if (!type) return;
-      counts[type] = counts[type] || 0;
-      counts[type]++;
-    });
-  });
-
-  // Sort to find the most used id type and set it as the baseIdType
-  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
-}
+// Register all the helpers from handlebarsHelpers
+Object.keys(helpers).forEach((helperName) => {
+  Handlebars.registerHelper(helperName, helpers[helperName]);
+});
 
 export function getBaseIdTypeAndJoins(
   objects: string[][],
@@ -28,19 +19,35 @@ export function getBaseIdTypeAndJoins(
     .filter((ids) => ids.length > 0)
     .sort((a, b) => a.length - b.length);
 
-  // Determine which id type to use as the base
-  const baseIdType = getBaseIdType(objects, forcedBaseIdType);
+  // Count how many objects use each id type
+  const counts: Record<string, number> = {};
+  objects.forEach((types) => {
+    types.forEach((type) => {
+      if (!type) return;
+      counts[type] = counts[type] || 0;
+      counts[type]++;
+    });
+  });
 
-  // Determine the required joins
-  // TODO: optimize this to always choose the minimum possible number of joins
+  const idTypesSortedByFrequency = Object.entries(counts).sort(
+    (a, b) => b[1] - a[1]
+  );
+
+  // use most frequent ID as base type, unless forcedBaseIdType is passed
+  const baseIdType = forcedBaseIdType || idTypesSortedByFrequency[0]?.[0] || "";
+
   const joinsRequired: Set<string> = new Set();
   sorted.forEach((types) => {
     // Object supports the base type already
     if (types.includes(baseIdType)) return;
     // Object supports one of the join types already
     if (types.filter((type) => joinsRequired.has(type)).length > 0) return;
-    // Need to join to a new id type
-    joinsRequired.add(types[0]);
+
+    // Add id type that is most frequent to help minimize N joins needed
+    joinsRequired.add(
+      idTypesSortedByFrequency.find((x) => types.includes(x[0]))?.[0] ||
+        types[0]
+    );
   });
 
   return {
@@ -49,15 +56,14 @@ export function getBaseIdTypeAndJoins(
   };
 }
 
-// Replace vars in SQL queries (e.g. '{{startDate}}')
-export type SQLVars = {
-  startDate: Date;
-  endDate?: Date;
-  experimentId?: string;
-};
-export function replaceSQLVars(
+function usesTemplateVariable(sql: string, variableName: string) {
+  return sql.match(new RegExp(`{{[^}]*${variableName}`, "g"));
+}
+
+// Compile sql template with handlebars, replacing vars (e.g. '{{startDate}}') and evaluating helpers (e.g. '{{camelcase eventName}}')
+export function compileSqlTemplate(
   sql: string,
-  { startDate, endDate, experimentId }: SQLVars
+  { startDate, endDate, experimentId, templateVariables }: SQLVars
 ) {
   // If there's no end date, use a near future date by default
   // We want to use at least 24 hours in the future in case of timezone issues
@@ -83,11 +89,13 @@ export function replaceSQLVars(
 
   const replacements: Record<string, string> = {
     startDateUnix: "" + Math.floor(startDate.getTime() / 1000),
+    startDateISO: startDate.toISOString(),
     startDate: startDate.toISOString().substr(0, 19).replace("T", " "),
     startYear: startDate.toISOString().substr(0, 4),
     startMonth: startDate.toISOString().substr(5, 2),
     startDay: startDate.toISOString().substr(8, 2),
     endDateUnix: "" + Math.floor(endDate.getTime() / 1000),
+    endDateISO: endDate.toISOString(),
     endDate: endDate.toISOString().substr(0, 19).replace("T", " "),
     endYear: endDate.toISOString().substr(0, 4),
     endMonth: endDate.toISOString().substr(5, 2),
@@ -95,12 +103,63 @@ export function replaceSQLVars(
     experimentId,
   };
 
-  Object.keys(replacements).forEach((key) => {
-    const re = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g");
-    sql = sql.replace(re, replacements[key]);
-  });
+  if (templateVariables?.eventName) {
+    replacements.eventName = templateVariables.eventName;
+  } else if (usesTemplateVariable(sql, "eventName")) {
+    throw new Error(
+      "Error compiling SQL template: You must set eventName first."
+    );
+  }
 
-  return sql;
+  if (templateVariables?.valueColumn) {
+    replacements.valueColumn = templateVariables.valueColumn;
+  } else if (usesTemplateVariable(sql, "valueColumn")) {
+    throw new Error(
+      "Error compiling SQL template: You must set valueColumn first."
+    );
+  }
+
+  try {
+    // TODO: Do sql escaping instead of html escaping for any new replacements
+    const template = Handlebars.compile(sql, {
+      strict: true,
+      noEscape: true,
+      knownHelpers: Object.keys(helpers).reduce((acc, helperName) => {
+        acc[helperName] = true;
+        return acc;
+      }, {} as Record<string, true>),
+      knownHelpersOnly: true,
+    });
+    return template(replacements);
+  } catch (e) {
+    if (e.message.includes("eventName")) {
+      throw new Error(
+        "Error compiling SQL template: You must set eventName first."
+      );
+    }
+    if (e.message.includes("valueColumn")) {
+      throw new Error(
+        "Error compiling SQL template: You must set valueColumn first."
+      );
+    }
+    if (e.message.includes("not defined in [object Object]")) {
+      const variableName = e.message.match(/"(.+?)"/)[1];
+      throw new Error(
+        `Unknown variable: ${variableName}. Available variables: ${Object.keys(
+          replacements
+        ).join(", ")}`
+      );
+    }
+    if (e.message.includes("unknown helper")) {
+      const helperName = e.message.match(/unknown helper (\w*)/)[1];
+      throw new Error(
+        `Unknown helper: ${helperName}. Available helpers: ${Object.keys(
+          helpers
+        ).join(", ")}`
+      );
+    }
+    throw new Error(`Error compiling SQL template: ${e.message}`);
+  }
 }
 
 export type FormatDialect = FormatOptions["language"] | "";
@@ -114,6 +173,17 @@ export function format(sql: string, dialect?: FormatDialect) {
   } catch (e) {
     return sql;
   }
+}
+
+// used to support different server locations (e.g. for ClickHouse)
+export function getHost(
+  url: string | undefined,
+  port: number
+): string | undefined {
+  if (!url) return undefined;
+  const host = new URL(!url.match(/^https?/) ? `http://${url}` : url);
+  if (!host.port && port) host.port = port + "";
+  return host.origin;
 }
 
 // Recursively create list of metric denominators in order
@@ -137,4 +207,43 @@ export function expandDenominatorMetrics(
 // replace COUNT(*) with COUNT(${col}) to prevent counting null rows in some locations
 export function replaceCountStar(aggregation: string, col: string) {
   return aggregation.replace(/count\(\s*\*\s*\)/gi, `COUNT(${col})`);
+}
+
+export function determineColumnTypes(
+  rows: Record<string, unknown>[]
+): { column: string; datatype: FactTableColumnType }[] {
+  if (!rows || !rows[0]) return [];
+  const cols = Object.keys(rows[0]);
+
+  const columns: { column: string; datatype: FactTableColumnType }[] = [];
+  cols.forEach((col) => {
+    const testValue = rows
+      .map((row) => row[col])
+      .filter((val) => val !== null && val !== undefined)[0];
+
+    if (testValue !== undefined) {
+      columns.push({
+        column: col,
+        datatype:
+          typeof testValue === "string"
+            ? testValue.match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}($|[ T])/)
+              ? "date"
+              : "string"
+            : typeof testValue === "number"
+            ? "number"
+            : typeof testValue === "boolean"
+            ? "boolean"
+            : testValue && testValue instanceof Date
+            ? "date"
+            : "other",
+      });
+    } else {
+      columns.push({
+        column: col,
+        datatype: "",
+      });
+    }
+  });
+
+  return columns;
 }

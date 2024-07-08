@@ -21,6 +21,7 @@ offset:
   schema:
     type: integer
     min: 0
+    default: 0
 projectId:
   name: projectId
   in: query
@@ -40,3 +41,34 @@ visualChangeId:
   description: Specify a specific visual change
   schema:
     type: string
+factTableId:
+  name: factTableId
+  in: path
+  required: true
+  description: Specify a specific fact table
+  schema:
+    type: string
+repo:
+  name: repo
+  in: query
+  required: true
+  description: Fully qualified name of repo either in GitHub or some other version control platform.
+  schema:
+    type: string
+branch:
+  name: branch
+  in: query
+  required: true
+  description: Name of branch for git repo.
+  schema:
+    type: string
+platform:
+  name: platform
+  in: query
+  description: Name of versino control platform like GitHub or Gitlab.
+  schema:
+    type: string
+    enum:
+      - github
+      - gitlab
+      - bitbucket

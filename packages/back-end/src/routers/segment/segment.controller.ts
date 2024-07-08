@@ -1,22 +1,14 @@
 import type { Response } from "express";
-import uniqid from "uniqid";
 import { FilterQuery } from "mongoose";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
-import { getOrgFromReq } from "../../services/organizations";
-import {
-  createSegment,
-  deleteSegmentById,
-  findSegmentById,
-  findSegmentsByOrganization,
-  updateSegment,
-} from "../../models/SegmentModel";
+import { getContextFromReq } from "../../services/organizations";
 import { getDataSourceById } from "../../models/DataSourceModel";
 import { getIdeasByQuery } from "../../services/ideas";
 import { IdeaDocument, IdeaModel } from "../../models/IdeasModel";
 import {
   getMetricsUsingSegment,
-  updateMetricsByQuery,
+  removeSegmentFromAllMetrics,
 } from "../../models/MetricModel";
 import {
   deleteExperimentSegment,
@@ -46,8 +38,8 @@ export const getSegments = async (
   req: GetSegmentsRequest,
   res: Response<GetSegmentsResponse, EventAuditUserForResponseLocals>
 ) => {
-  const { org } = getOrgFromReq(req);
-  const segments = await findSegmentsByOrganization(org.id);
+  const context = getContextFromReq(req);
+  const segments = await context.models.segments.getAll();
   res.status(200).json({
     status: 200,
     segments,
@@ -83,16 +75,14 @@ export const getSegmentUsage = async (
   res: Response<GetSegmentUsageResponse, EventAuditUserForResponseLocals>
 ) => {
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
-  const segment = await findSegmentById(id, org.id);
+  const segment = await context.models.segments.getById(id);
 
   if (!segment) {
     throw new Error("Could not find segment");
   }
-
-  // segments are used in a few places:
-  // ideas (impact estimate)
   const query: FilterQuery<IdeaDocument> = {
     organization: org.id,
     "estimateParams.segment": id,
@@ -100,10 +90,10 @@ export const getSegmentUsage = async (
   const ideas = await getIdeasByQuery(query);
 
   // metricSchema
-  const metrics = await getMetricsUsingSegment(id, org.id);
+  const metrics = await getMetricsUsingSegment(context, id);
 
   // experiments:
-  const experiments = await getExperimentsUsingSegment(id, org.id);
+  const experiments = await getExperimentsUsingSegment(context, id);
 
   res.status(200).json({
     ideas,
@@ -121,8 +111,10 @@ export const getSegmentUsage = async (
 type CreateSegmentRequest = AuthRequest<{
   datasource: string;
   userIdType: string;
+  owner: string;
   name: string;
   sql: string;
+  description: string;
 }>;
 
 type CreateSegmentResponse = {
@@ -143,27 +135,25 @@ export const postSegment = async (
     EventAuditUserForResponseLocals
   >
 ) => {
-  req.checkPermissions("createSegments");
+  const { datasource, name, sql, userIdType, description, owner } = req.body;
 
-  const { datasource, name, sql, userIdType } = req.body;
+  const context = getContextFromReq(req);
+  if (!context.permissions.canCreateSegment()) {
+    context.permissions.throwPermissionError();
+  }
 
-  const { org, userName } = getOrgFromReq(req);
-
-  const datasourceDoc = await getDataSourceById(datasource, org.id);
+  const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
 
-  const doc = await createSegment({
-    owner: userName,
+  const doc = await context.models.segments.create({
+    owner: owner || "",
     datasource,
     userIdType,
     name,
     sql,
-    id: uniqid("seg_"),
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    organization: org.id,
+    description,
   });
 
   res.status(200).json({
@@ -183,6 +173,7 @@ type PutSegmentRequest = AuthRequest<
     name: string;
     sql: string;
     owner: string;
+    description: string;
   },
   { id: string }
 >;
@@ -204,12 +195,14 @@ export const putSegment = async (
     EventAuditUserForResponseLocals
   >
 ) => {
-  req.checkPermissions("createSegments");
-
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  if (!context.permissions.canUpdateSegment()) {
+    context.permissions.throwPermissionError();
+  }
+  const { org } = context;
 
-  const segment = await findSegmentById(id, org.id);
+  const segment = await context.models.segments.getById(id);
 
   if (!segment) {
     throw new Error("Could not find segment");
@@ -218,20 +211,20 @@ export const putSegment = async (
     throw new Error("You don't have access to that segment");
   }
 
-  const { datasource, name, sql, userIdType, owner } = req.body;
+  const { datasource, name, sql, userIdType, owner, description } = req.body;
 
-  const datasourceDoc = await getDataSourceById(datasource, org.id);
+  const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
 
-  await updateSegment(id, org.id, {
+  await context.models.segments.updateById(id, {
     datasource,
     userIdType,
     name,
     owner,
     sql,
-    dateUpdated: new Date(),
+    description,
   });
 
   res.status(200).json({
@@ -259,17 +252,21 @@ export const deleteSegment = async (
   req: DeleteSegmentRequest,
   res: Response<DeleteSegmentResponse, EventAuditUserForResponseLocals>
 ) => {
-  req.checkPermissions("createSegments");
-
   const { id } = req.params;
-  const { org } = getOrgFromReq(req);
-  const segment = await findSegmentById(id, org.id);
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canDeleteSegment()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
+  const segment = await context.models.segments.getById(id);
 
   if (!segment) {
     throw new Error("Could not find segment");
   }
 
-  await deleteSegmentById(id, org.id);
+  await context.models.segments.delete(segment);
 
   // delete references:
   // ideas:
@@ -287,17 +284,9 @@ export const deleteSegment = async (
   }
 
   // metrics
-  const metrics = await getMetricsUsingSegment(id, org.id);
-  if (metrics.length > 0) {
-    // as update metric query will fail if they are using a config file,
-    // we want to allow for deleting if there are no metrics with this segment.
-    await updateMetricsByQuery(
-      { organization: org.id, segment: id },
-      { segment: "" }
-    );
-  }
+  await removeSegmentFromAllMetrics(org.id, id);
 
-  await deleteExperimentSegment(org, res.locals.eventAudit, id);
+  await deleteExperimentSegment(context, id);
 
   res.status(200).json({
     status: 200,

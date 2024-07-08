@@ -2,7 +2,6 @@ type: object
 required:
   - name
   - variations
-  - owner
   - datasourceId
   - trackingKey
   - assignmentQueryId
@@ -35,6 +34,10 @@ properties:
     type: array
     items:
       type: string
+  guardrailMetrics:
+    type: array
+    items:
+      type: string
   owner:
     type: string
     description: Email of the person who owns this experiment
@@ -50,10 +53,36 @@ properties:
     type: boolean
   hashAttribute:
     type: string
+  fallbackAttribute:
+    type: string
+  hashVersion:
+    type: number
+    enum: [1, 2]
+  disableStickyBucketing:
+    type: boolean;
+  bucketVersion:
+    type: number
+  minBucketVersion:
+    type: number
   releasedVariationId:
     type: string
   excludeFromPayload:
     type: boolean
+  inProgressConversions:
+    type: string
+    enum:
+      - loose
+      - strict
+  attributionModel:
+    type: string
+    enum:
+      - firstExposure
+      - experimentDuration
+  statsEngine:
+    type: string
+    enum:
+      - bayesian
+      - frequentist
   variations:
     type: array
     minItems: 2
@@ -98,10 +127,10 @@ properties:
           type: string
         dateStarted:
           type: string
-          format: date
+          format: date-time
         dateEnded:
           type: string
-          format: date
+          format: date-time
         reasonForStopping:
           type: string
         seed:
@@ -142,6 +171,25 @@ properties:
           type: string
         condition:
           type: string
+        savedGroupTargeting:
+          type: array
+          items:
+            type: object
+            required:
+              - matchType
+              - savedGroups
+            properties:
+              matchType:
+                type: string
+                enum:
+                  - "all"
+                  - "any"
+                  - "none"
+              savedGroups:
+                type: array
+                items:
+                  type: string
+
         variationWeights:
           type: array
           items:

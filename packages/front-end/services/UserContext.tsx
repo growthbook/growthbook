@@ -1,17 +1,23 @@
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { ApiKeyInterface } from "back-end/types/apikey";
+import { TeamInterface } from "back-end/types/team";
 import {
   EnvScopedPermission,
   GlobalPermission,
-  MemberRole,
   ExpandedMember,
   OrganizationInterface,
   OrganizationSettings,
   Permission,
   Role,
   ProjectScopedPermission,
+  UserPermissions,
+  SubscriptionQuote,
 } from "back-end/types/organization";
-import type { AccountPlan, CommercialFeature, LicenseData } from "enterprise";
+import type {
+  AccountPlan,
+  CommercialFeature,
+  LicenseInterface,
+} from "enterprise";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { useRouter } from "next/router";
 import {
@@ -24,35 +30,56 @@ import {
   useState,
 } from "react";
 import * as Sentry from "@sentry/react";
-import { isCloud, isSentryEnabled } from "@/services/env";
+import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
+import {
+  Permissions,
+  getDefaultRole,
+  userHasPermission,
+} from "shared/permissions";
+import { isCloud, isMultiOrg, isSentryEnabled } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
 import track from "@/services/track";
 import { AppFeatures } from "@/types/app-features";
+import { sha256 } from "@/services/utils";
 
 type OrgSettingsResponse = {
   organization: OrganizationInterface;
   members: ExpandedMember[];
+  seatsInUse: number;
   roles: Role[];
   apiKeys: ApiKeyInterface[];
   enterpriseSSO: SSOConnectionInterface | null;
   accountPlan: AccountPlan;
+  effectiveAccountPlan: AccountPlan;
+  licenseError: string;
   commercialFeatures: CommercialFeature[];
+  license: LicenseInterface;
   licenseKey?: string;
+  currentUserPermissions: UserPermissions;
+  teams: TeamInterface[];
+  watching: {
+    experiments: string[];
+    features: string[];
+  };
 };
 
 export interface PermissionFunctions {
   check(permission: GlobalPermission): boolean;
   check(
     permission: EnvScopedPermission,
-    project: string | undefined,
+    project: string[] | string | undefined,
     envs: string[]
   ): boolean;
   check(
     permission: ProjectScopedPermission,
-    project: string | undefined
+    project: string[] | string | undefined
   ): boolean;
 }
+
+export type Team = Omit<TeamInterface, "members"> & {
+  members?: ExpandedMember[];
+};
 
 export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   createDimensions: false,
@@ -63,22 +90,25 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   manageNamespaces: false,
   manageNorthStarMetric: false,
   manageSavedGroups: false,
+  manageArchetype: false,
   manageTags: false,
-  manageTargetingAttributes: false,
   manageTeam: false,
-  manageWebhooks: false,
+  manageEventWebhooks: false,
   manageIntegrations: false,
   organizationSettings: false,
-  superDelete: false,
-  viewEvents: false,
+  superDeleteReport: false,
+  viewAuditLog: false,
+  readData: false,
+  manageCustomRoles: false,
 };
 
 export interface UserContextValue {
+  ready?: boolean;
   userId?: string;
   name?: string;
   email?: string;
-  admin?: boolean;
-  license?: LicenseData;
+  superAdmin?: boolean;
+  license?: LicenseInterface;
   user?: ExpandedMember;
   users: Map<string, ExpandedMember>;
   getUserDisplay: (id: string, fallback?: boolean) => string;
@@ -88,12 +118,22 @@ export interface UserContextValue {
   settings: OrganizationSettings;
   enterpriseSSO?: SSOConnectionInterface;
   accountPlan?: AccountPlan;
+  effectiveAccountPlan?: AccountPlan;
+  licenseError: string;
   commercialFeatures: CommercialFeature[];
   apiKeys: ApiKeyInterface[];
   organization: Partial<OrganizationInterface>;
+  seatsInUse: number;
   roles: Role[];
+  teams?: Team[];
   error?: string;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
+  permissionsUtil: Permissions;
+  quote: SubscriptionQuote | null;
+  watching: {
+    experiments: string[];
+    features: string[];
+  };
 }
 
 interface UserResponse {
@@ -102,9 +142,9 @@ interface UserResponse {
   userName: string;
   email: string;
   verified: boolean;
-  admin: boolean;
+  superAdmin: boolean;
   organizations?: UserOrganizations;
-  license?: LicenseData;
+  currentUserPermissions: UserPermissions;
 }
 
 export const UserContext = createContext<UserContextValue>({
@@ -122,7 +162,26 @@ export const UserContext = createContext<UserContextValue>({
   },
   apiKeys: [],
   organization: {},
+  licenseError: "",
+  seatsInUse: 0,
+  teams: [],
   hasCommercialFeature: () => false,
+  permissionsUtil: new Permissions(
+    {
+      global: {
+        permissions: {},
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    },
+    false
+  ),
+  quote: null,
+  watching: {
+    experiments: [],
+    features: [],
+  },
 });
 
 export function useUser() {
@@ -132,47 +191,47 @@ export function useUser() {
 let currentUser: null | {
   id: string;
   org: string;
-  role: MemberRole;
+  role: string;
 } = null;
 export function getCurrentUser() {
   return currentUser;
 }
 
-export function getPermissionsByRole(
-  role: MemberRole,
-  roles: Role[]
-): Set<Permission> {
-  return new Set<Permission>(
-    roles.find((r) => r.id === role)?.permissions || []
-  );
-}
-
 export function UserContextProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated, apiCall, orgId, setOrganizations } = useAuth();
+  const { isAuthenticated, orgId, setOrganizations } = useAuth();
 
-  const [data, setData] = useState<null | UserResponse>(null);
-  const [error, setError] = useState("");
+  const { data, mutate: mutateUser, error } = useApi<UserResponse>(`/user`, {
+    shouldRun: () => isAuthenticated,
+    orgScoped: false,
+  });
+
+  const updateUser = useCallback(async () => {
+    await mutateUser();
+  }, [mutateUser]);
+
   const router = useRouter();
 
   const {
     data: currentOrg,
     mutate: refreshOrganization,
-  } = useApi<OrgSettingsResponse>(isAuthenticated ? `/organization` : null);
+    error: orgLoadingError,
+  } = useApi<OrgSettingsResponse>(`/organization`, {
+    shouldRun: () => !!orgId,
+  });
 
-  const updateUser = useCallback(async () => {
-    try {
-      const res = await apiCall<UserResponse>("/user", {
-        method: "GET",
-      });
-      setData(res);
-      if (res.organizations) {
-        // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
-        setOrganizations(res.organizations);
-      }
-    } catch (e) {
-      setError(e.message);
+  const [hashedOrganizationId, setHashedOrganizationId] = useState<string>("");
+  useEffect(() => {
+    const id = currentOrg?.organization?.id || "";
+    sha256(GROWTHBOOK_SECURE_ATTRIBUTE_SALT + id).then((hashedOrgId) => {
+      setHashedOrganizationId(hashedOrgId);
+    });
+  }, [currentOrg?.organization?.id]);
+
+  useEffect(() => {
+    if (data?.organizations && setOrganizations) {
+      setOrganizations(data.organizations);
     }
-  }, [apiCall, setOrganizations]);
+  }, [data, setOrganizations]);
 
   const users = useMemo(() => {
     const userMap = new Map<string, ExpandedMember>();
@@ -184,8 +243,23 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     return userMap;
   }, [currentOrg?.members]);
 
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  let user = users.get(data?.userId);
+  const teams = useMemo(() => {
+    return currentOrg?.teams.map((team) => {
+      const hydratedMembers = team.members?.reduce<ExpandedMember[]>(
+        (res, member) => {
+          const user = users.get(member);
+          if (user) {
+            res.push(user);
+          }
+          return res;
+        },
+        []
+      );
+      return { ...team, members: hydratedMembers };
+    });
+  }, [currentOrg?.teams, users]);
+
+  let user = users.get(data?.userId || "");
   if (!user && data) {
     user = {
       email: data.email,
@@ -194,84 +268,49 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       environments: [],
       limitAccessByEnvironment: false,
       name: data.userName,
-      role: data.admin ? "admin" : "readonly",
+      role: data.superAdmin ? "admin" : "readonly",
       projectRoles: [],
     };
   }
-  const role =
-    (data?.admin && "admin") ||
-    (user?.role ?? currentOrg?.organization?.settings?.defaultRole?.role);
 
-  // Build out permissions object for backwards-compatible `permissions.manageTeams` style usage
-  const permissionsObj: Record<GlobalPermission, boolean> = {
-    ...DEFAULT_PERMISSIONS,
-  };
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'MemberRole | undefined' is not a... Remove this comment to see the full error message
-  getPermissionsByRole(role, currentOrg?.roles || []).forEach((p) => {
-    permissionsObj[p] = true;
-  });
+  const role =
+    (data?.superAdmin && "admin") ||
+    (user?.role ?? getDefaultRole(currentOrg?.organization || {}).role);
 
   // Update current user data for telemetry data
   useEffect(() => {
     currentUser = {
       org: orgId || "",
       id: data?.userId || "",
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MemberRole | undefined' is not assignable to... Remove this comment to see the full error message
-      role: role,
+      role: role || "",
     };
   }, [orgId, data?.userId, role]);
 
-  // Refresh organization data when switching orgs
   useEffect(() => {
-    if (orgId) {
-      void refreshOrganization();
+    if (orgId && data?.userId) {
       track("Organization Loaded");
     }
-  }, [orgId, refreshOrganization]);
-
-  // Once authenticated, get userId, orgId from API
-  useEffect(() => {
-    if (!isAuthenticated) {
-      return;
-    }
-    void updateUser();
-  }, [isAuthenticated, updateUser]);
-
-  // Refresh user and org after loading license
-  useEffect(() => {
-    if (orgId) {
-      void refreshOrganization();
-    }
-    if (isAuthenticated) {
-      void updateUser();
-    }
-  }, [
-    orgId,
-    isAuthenticated,
-    currentOrg?.organization?.licenseKey,
-    refreshOrganization,
-    updateUser,
-  ]);
+  }, [orgId, data?.userId]);
 
   // Update growthbook tarageting attributes
   const growthbook = useGrowthBook<AppFeatures>();
   useEffect(() => {
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    growthbook.setAttributes({
+    growthbook?.setAttributes({
       id: data?.userId || "",
       name: data?.userName || "",
-      admin: data?.admin || false,
+      superAdmin: data?.superAdmin || false,
       company: currentOrg?.organization?.name || "",
-      organizationId: currentOrg?.organization?.id || "",
+      organizationId: hashedOrganizationId,
       userAgent: window.navigator.userAgent,
       url: router?.pathname || "",
       cloud: isCloud(),
+      multiOrg: isMultiOrg(),
       accountPlan: currentOrg?.accountPlan || "unknown",
-      hasLicenseKey: !!data?.license,
+      hasLicenseKey: !!currentOrg?.organization?.licenseKey,
       freeSeats: currentOrg?.organization?.freeSeats || 3,
       discountCode: currentOrg?.organization?.discountCode || "",
     });
-  }, [data, currentOrg, router?.pathname, growthbook]);
+  }, [data, currentOrg, hashedOrganizationId, router?.pathname, growthbook]);
 
   useEffect(() => {
     if (!data?.email) return;
@@ -289,83 +328,128 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const permissionsCheck = useCallback(
     (
       permission: Permission,
-      project?: string | undefined,
+      project?: string[] | string,
       envs?: string[]
     ): boolean => {
-      // Get the role based on the project (if specified)
-      // Fall back to the user's global role
-      const projectRole =
-        (project && user?.projectRoles?.find((r) => r.project === project)) ||
-        user;
-
-      // Missing role entirely, deny access
-      if (!projectRole) {
+      if (!currentOrg?.currentUserPermissions || !currentOrg || !data?.userId)
         return false;
-      }
 
-      // Admin role always has permission
-      if (projectRole.role === "admin") return true;
-
-      const permissions = getPermissionsByRole(
-        projectRole.role,
-        currentOrg?.roles || []
+      return userHasPermission(
+        data.superAdmin || false,
+        currentOrg.currentUserPermissions,
+        permission,
+        project,
+        envs ? [...envs] : undefined
       );
-
-      // Missing permission
-      if (!permissions.has(permission)) {
-        return false;
-      }
-
-      // If it's an environment-scoped permission and the user's role has limited access
-      if (envs && projectRole.limitAccessByEnvironment) {
-        for (let i = 0; i < envs.length; i++) {
-          if (!projectRole.environments.includes(envs[i])) {
-            return false;
-          }
-        }
-      }
-
-      // If it got through all the above checks, the user has permission
-      return true;
     },
-    [currentOrg?.roles, user]
+    [currentOrg, data?.superAdmin, data?.userId]
   );
+
+  const permissions = useMemo(() => {
+    // Build out permissions object for backwards-compatible `permissions.manageTeams` style usage
+    const permissions: Record<GlobalPermission, boolean> = {
+      ...DEFAULT_PERMISSIONS,
+    };
+
+    for (const permission in permissions) {
+      permissions[permission] =
+        currentOrg?.currentUserPermissions?.global.permissions[permission] ||
+        false;
+    }
+
+    return {
+      ...permissions,
+      check: permissionsCheck,
+    };
+  }, [
+    currentOrg?.currentUserPermissions?.global.permissions,
+    permissionsCheck,
+  ]);
+
+  const permissionsUtil = useMemo(() => {
+    return new Permissions(
+      currentOrg?.currentUserPermissions || {
+        global: {
+          permissions: {},
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      },
+      data?.superAdmin || false
+    );
+  }, [currentOrg?.currentUserPermissions, data?.superAdmin]);
+
+  const getUserDisplay = useCallback(
+    (id: string, fallback = true) => {
+      const u = users.get(id);
+      if (!u && fallback) return id;
+      return u?.name || u?.email || "";
+    },
+    [users]
+  );
+
+  // Get a quote for upgrading
+  const { data: quoteData, mutate: mutateQuote } = useApi<{
+    quote: SubscriptionQuote;
+  }>(`/subscription/quote`, {
+    shouldRun: () =>
+      !!currentOrg?.organization &&
+      isAuthenticated &&
+      !!orgId &&
+      permissionsUtil.canManageBilling(),
+    autoRevalidate: false,
+  });
+  const freeSeats = currentOrg?.organization?.freeSeats || 3;
+  useEffect(() => {
+    mutateQuote();
+  }, [freeSeats, mutateQuote]);
+
+  const quote = quoteData?.quote || null;
+
+  const watching = useMemo(() => {
+    return {
+      experiments: currentOrg?.watching?.experiments || [],
+      features: currentOrg?.watching?.features || [],
+    };
+  }, [currentOrg]);
+
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (data) setReady(true);
+  }, [data]);
 
   return (
     <UserContext.Provider
       value={{
+        ready: ready,
         userId: data?.userId,
         name: data?.userName,
         email: data?.email,
-        admin: data?.admin,
+        superAdmin: data?.superAdmin,
         updateUser,
         user,
         users,
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(id: string, fallback?: boolean | undefined)... Remove this comment to see the full error message
-        getUserDisplay: (id, fallback = true) => {
-          const u = users.get(id);
-          if (!u && fallback) return id;
-          return u?.name || u?.email;
-        },
-        refreshOrganization: async () => {
-          await refreshOrganization();
-        },
+        getUserDisplay: getUserDisplay,
+        refreshOrganization: refreshOrganization as () => Promise<void>,
         roles: currentOrg?.roles || [],
-        permissions: {
-          ...permissionsObj,
-          check: permissionsCheck,
-        },
+        permissions,
+        permissionsUtil,
         settings: currentOrg?.organization?.settings || {},
-        license: data?.license,
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'SSOConnectionInterface | null | undefined' i... Remove this comment to see the full error message
-        enterpriseSSO: currentOrg?.enterpriseSSO,
+        license: currentOrg?.license,
+        enterpriseSSO: currentOrg?.enterpriseSSO || undefined,
         accountPlan: currentOrg?.accountPlan,
+        effectiveAccountPlan: currentOrg?.effectiveAccountPlan,
+        licenseError: currentOrg?.licenseError || "",
         commercialFeatures: currentOrg?.commercialFeatures || [],
         apiKeys: currentOrg?.apiKeys || [],
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'OrganizationInterface | undefined' is not as... Remove this comment to see the full error message
-        organization: currentOrg?.organization,
-        error,
+        organization: currentOrg?.organization || {},
+        seatsInUse: currentOrg?.seatsInUse || 0,
+        teams,
+        error: error?.message || orgLoadingError?.message,
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
+        quote: quote,
+        watching: watching,
       }}
     >
       {children}

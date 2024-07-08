@@ -4,6 +4,7 @@ import {
   getEnabledEnvironments,
   getFeatureDefinition,
   getJSONValue,
+  getParsedCondition,
   getSDKPayloadKeysByDiff,
   replaceSavedGroupsInCondition,
   roundVariationWeight,
@@ -12,8 +13,11 @@ import { getCurrentEnabledState } from "../src/util/scheduleRules";
 import { FeatureInterface, ScheduleRule } from "../types/feature";
 import { hashStrings } from "../src/services/features";
 import { SDKAttributeSchema } from "../types/organization";
+import { ExperimentInterface } from "../types/experiment";
+import { GroupMap } from "../types/saved-group";
 
-const groupMap = new Map();
+const groupMap: GroupMap = new Map();
+const experimentMap = new Map();
 
 const baseFeature: FeatureInterface = {
   id: "feature",
@@ -25,6 +29,7 @@ const baseFeature: FeatureInterface = {
   valueType: "boolean" as const,
   archived: false,
   description: "",
+  version: 1,
   environmentSettings: {
     dev: {
       enabled: true,
@@ -36,6 +41,281 @@ const baseFeature: FeatureInterface = {
     },
   },
 };
+
+describe("getParsedCondition", () => {
+  it("compiles correctly", () => {
+    groupMap.clear();
+    groupMap.set("a", {
+      type: "list",
+      values: ["0", "1"],
+      attributeKey: "id_a",
+    });
+    groupMap.set("b", { type: "list", values: ["2"], attributeKey: "id_b" });
+    groupMap.set("c", { type: "list", values: ["3"], attributeKey: "id_c" });
+    groupMap.set("d", { type: "list", values: ["4"], attributeKey: "id_d" });
+    groupMap.set("e", { type: "list", values: ["5"], attributeKey: "id_e" });
+    groupMap.set("f", { type: "list", values: ["6"], attributeKey: "id_f" });
+    groupMap.set("empty", { type: "list", values: [], attributeKey: "empty" });
+
+    // No condition or saved group
+    expect(getParsedCondition(groupMap, "", [])).toBeUndefined();
+
+    // Single empty saved group
+    expect(
+      getParsedCondition(groupMap, "", [{ match: "any", ids: ["empty"] }])
+    ).toBeUndefined();
+
+    // No saved groups
+    expect(
+      getParsedCondition(groupMap, JSON.stringify({ country: "US" }), [])
+    ).toEqual({ country: "US" });
+
+    // Saved group in condition
+    expect(
+      getParsedCondition(
+        groupMap,
+        JSON.stringify({ id: { $inGroup: "a" } }),
+        []
+      )
+    ).toEqual({
+      id: { $in: ["0", "1"] },
+    });
+
+    // Single saved group
+    expect(
+      getParsedCondition(groupMap, "", [{ match: "any", ids: ["a"] }])
+    ).toEqual({
+      id_a: {
+        $in: ["0", "1"],
+      },
+    });
+
+    // Only 1 valid saved group
+    expect(
+      getParsedCondition(groupMap, "", [
+        { match: "any", ids: ["b", "empty", "g"] },
+        { match: "all", ids: ["g", "empty"] },
+      ])
+    ).toEqual({
+      id_b: { $in: ["2"] },
+    });
+
+    // Condition + a bunch of saved groups
+    expect(
+      getParsedCondition(groupMap, JSON.stringify({ country: "US" }), [
+        {
+          match: "all",
+          ids: ["a", "b", "x"],
+        },
+        {
+          match: "any",
+          ids: ["c", "d"],
+        },
+        {
+          match: "none",
+          ids: ["e", "f"],
+        },
+      ])
+    ).toEqual({
+      $and: [
+        // Attribute targeting
+        { country: "US" },
+        // ALL
+        {
+          id_a: {
+            $in: ["0", "1"],
+          },
+        },
+        {
+          id_b: {
+            $in: ["2"],
+          },
+        },
+        // ANY
+        {
+          $or: [
+            {
+              id_c: {
+                $in: ["3"],
+              },
+            },
+            {
+              id_d: {
+                $in: ["4"],
+              },
+            },
+          ],
+        },
+        // NONE
+        {
+          id_e: {
+            $nin: ["5"],
+          },
+        },
+        {
+          id_f: {
+            $nin: ["6"],
+          },
+        },
+      ],
+    });
+
+    groupMap.clear();
+  });
+
+  it("ignores empty condition groups", () => {
+    groupMap.clear();
+    groupMap.set("a", {
+      condition: "{}",
+      type: "condition",
+    });
+    groupMap.set("b", {
+      condition: "",
+      type: "condition",
+    });
+    groupMap.set("c", {
+      type: "condition",
+    });
+    groupMap.set("d", {
+      condition: "{broken",
+      type: "condition",
+    });
+    groupMap.set("e", {
+      type: "list",
+    });
+    groupMap.set("f", {
+      type: "list",
+      attributeKey: "a",
+    });
+    groupMap.set("g", {
+      type: "list",
+      attributeKey: "",
+      values: ["a"],
+    });
+    groupMap.set("h", {
+      condition: JSON.stringify({ id: 1 }),
+      type: "condition",
+    });
+
+    expect(
+      getParsedCondition(groupMap, "", [
+        {
+          match: "all",
+          ids: ["a", "b", "c", "d", "e", "f", "g", "h"],
+        },
+        {
+          match: "any",
+          ids: ["a", "b", "c", "d", "e", "f", "g"],
+        },
+        {
+          match: "none",
+          ids: ["a", "b", "c", "d", "e", "f", "g"],
+        },
+      ])
+    ).toEqual({
+      id: 1,
+    });
+
+    expect(
+      getParsedCondition(groupMap, "", [
+        {
+          match: "all",
+          ids: ["a", "b", "c", "d", "e", "f", "g"],
+        },
+        {
+          match: "any",
+          ids: ["a", "b", "c", "d", "e", "f", "g"],
+        },
+        {
+          match: "none",
+          ids: ["a", "b", "c", "d", "e", "f", "g"],
+        },
+      ])
+    ).toEqual(undefined);
+
+    groupMap.clear();
+  });
+
+  it("works with condition groups", () => {
+    groupMap.clear();
+    groupMap.set("a", {
+      condition: JSON.stringify({
+        $groups: {
+          $elemMatch: { $eq: "group_a" },
+        },
+      }),
+      type: "condition",
+    });
+    groupMap.set("b", {
+      condition: JSON.stringify({
+        $groups: {
+          $elemMatch: { $eq: "group_b" },
+        },
+      }),
+      type: "condition",
+    });
+
+    expect(
+      getParsedCondition(groupMap, "", [
+        {
+          match: "all",
+          ids: ["a", "b"],
+        },
+        {
+          match: "any",
+          ids: ["a", "b"],
+        },
+        {
+          match: "none",
+          ids: ["a", "b"],
+        },
+      ])
+    ).toEqual({
+      $and: [
+        {
+          $groups: {
+            $elemMatch: { $eq: "group_a" },
+          },
+        },
+        {
+          $groups: {
+            $elemMatch: { $eq: "group_b" },
+          },
+        },
+        {
+          $or: [
+            {
+              $groups: {
+                $elemMatch: { $eq: "group_a" },
+              },
+            },
+            {
+              $groups: {
+                $elemMatch: { $eq: "group_b" },
+              },
+            },
+          ],
+        },
+        {
+          $not: {
+            $groups: {
+              $elemMatch: { $eq: "group_a" },
+            },
+          },
+        },
+        {
+          $not: {
+            $groups: {
+              $elemMatch: { $eq: "group_b" },
+            },
+          },
+        },
+      ],
+    });
+
+    groupMap.clear();
+  });
+});
 
 describe("replaceSavedGroupsInCondition", () => {
   it("does not format condition that doesn't contain $inGroup", () => {
@@ -49,7 +329,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("replaces the $inGroup and groupId with $in and the array of IDs", () => {
     const ids = ["123", "345", "678", "910"];
     const groupId = "grp_exl5jgrdl8bzy4x4";
-    groupMap.set(groupId, ids);
+    groupMap.set(groupId, { values: ids, attributeKey: "id", type: "list" });
 
     const rawCondition = JSON.stringify({ id: { $inGroup: groupId } });
 
@@ -61,7 +341,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("replaces the $notInGroup and groupId with $nin and the array of IDs", () => {
     const ids = ["123", "345", "678", "910"];
     const groupId = "grp_exl5jgrdl8bzy4x4";
-    groupMap.set(groupId, ids);
+    groupMap.set(groupId, { values: ids, attributeKey: "id", type: "list" });
 
     const rawCondition = JSON.stringify({ id: { $notInGroup: groupId } });
 
@@ -73,7 +353,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("should replace the $in operator in and if the group.attributeKey is a number, the output array should be numbers", () => {
     const ids = [1, 2, 3, 4];
     const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, ids);
+    groupMap.set(groupId, { values: ids, attributeKey: "id", type: "list" });
 
     const rawCondition = JSON.stringify({ number: { $inGroup: groupId } });
 
@@ -85,7 +365,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("should replace the $in operator in more complex conditions correctly", () => {
     const ids = [1, 2, 3, 4];
     const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, ids);
+    groupMap.set(groupId, { values: ids, attributeKey: "id", type: "list" });
 
     const rawCondition = JSON.stringify({
       number: { $inGroup: groupId },
@@ -101,7 +381,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("should correctly replace the $in operator in advanced mode conditions", () => {
     const ids = [1, 2, 3, 4];
     const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, ids);
+    groupMap.set(groupId, { values: ids, attributeKey: "id", type: "list" });
 
     const rawCondition = JSON.stringify({
       $and: [
@@ -122,11 +402,11 @@ describe("replaceSavedGroupsInCondition", () => {
   it("handle extra whitespace and spaces correctly", () => {
     const ids = ["123", "345", "678", "910"];
     const groupId = "grp_exl5jgrdl8bzy4x4";
-    groupMap.set(groupId, ids);
+    groupMap.set(groupId, { values: ids, attributeKey: "id", type: "list" });
 
-  /* eslint-disable */
-  const rawCondition =
-    '{"id":{   "$inGroup"           :            "grp_exl5jgrdl8bzy4x4"   }}';
+    /* eslint-disable */
+    const rawCondition =
+      '{"id":{   "$inGroup"           :            "grp_exl5jgrdl8bzy4x4"   }}';
     /* eslint-enable */
 
     expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
@@ -137,10 +417,10 @@ describe("replaceSavedGroupsInCondition", () => {
   it("handle extra newlines and spaces correctly", () => {
     const ids = ["123", "345", "678", "910"];
     const groupId = "grp_exl5jgrdl8bzy4x4";
-    groupMap.set(groupId, ids);
+    groupMap.set(groupId, { values: ids, attributeKey: "id", type: "list" });
 
-  /* eslint-disable */
-  const rawCondition = `{"id":{"$notInGroup"
+    /* eslint-disable */
+    const rawCondition = `{"id":{"$notInGroup"
        :
              "grp_exl5jgrdl8bzy4x4"
     }}`;
@@ -154,7 +434,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("should replace the $in operator and add an empty array if groupId doesn't exist", () => {
     const ids = ["1", "2", "3", "4"];
     const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, ids);
+    groupMap.set(groupId, { values: ids, attributeKey: "id", type: "list" });
 
     const rawCondition = JSON.stringify({
       number: { $inGroup: "invalid-groupId" },
@@ -168,7 +448,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("should NOT replace $inGroup text if it appears in a string somewhere randomly", () => {
     const ids = ["1", "2", "3", "4"];
     const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, ids);
+    groupMap.set(groupId, { values: ids, attributeKey: "id", type: "list" });
 
     const rawCondition = JSON.stringify({
       number: { $eq: "$inGroup" },
@@ -182,7 +462,7 @@ describe("replaceSavedGroupsInCondition", () => {
   it("should NOT replace someone hand writes a condition with $inGroup: false", () => {
     const ids = ["1", "2", "3", "4"];
     const groupId = "grp_exl5jijgl8c3n0qt";
-    groupMap.set(groupId, ids);
+    groupMap.set(groupId, { values: ids, attributeKey: "id", type: "list" });
 
     const rawCondition = JSON.stringify({
       number: { $inGroup: false },
@@ -528,13 +808,18 @@ describe("Detecting Feature Changes", () => {
       },
     ];
 
-    expect(getEnabledEnvironments(feature)).toEqual(
-      new Set(["dev", "production"])
+    expect(
+      getEnabledEnvironments(feature, ["dev", "production", "test"])
+    ).toEqual(new Set(["dev", "production"]));
+
+    expect(getEnabledEnvironments(feature, ["dev", "test"])).toEqual(
+      new Set(["dev"])
     );
 
     expect(
       getEnabledEnvironments(
         feature,
+        ["dev", "production", "test"],
         (rule) => rule.type === "force" && rule.value === "true"
       )
     ).toEqual(new Set(["dev"]));
@@ -542,16 +827,20 @@ describe("Detecting Feature Changes", () => {
     expect(
       getEnabledEnvironments(
         feature,
+        ["dev", "production", "test"],
         (rule) => rule.type === "force" && rule.value === "false"
       )
     ).toEqual(new Set(["production"]));
 
     feature.environmentSettings.dev.enabled = false;
-    expect(getEnabledEnvironments(feature)).toEqual(new Set(["production"]));
+    expect(
+      getEnabledEnvironments(feature, ["dev", "production", "test"])
+    ).toEqual(new Set(["production"]));
 
     expect(
       getEnabledEnvironments(
         feature,
+        ["dev", "production", "test"],
         (rule) => rule.type === "force" && rule.value === "true"
       )
     ).toEqual(new Set([]));
@@ -562,7 +851,9 @@ describe("Detecting Feature Changes", () => {
     const feature2 = cloneDeep(baseFeature);
     const changedFeatures = [feature1, feature2];
 
-    expect(getAffectedSDKPayloadKeys(changedFeatures)).toEqual([
+    expect(
+      getAffectedSDKPayloadKeys(changedFeatures, ["dev", "production", "test"])
+    ).toEqual([
       {
         project: "",
         environment: "dev",
@@ -580,7 +871,9 @@ describe("Detecting Feature Changes", () => {
     feature2.project = "p2";
     feature2.environmentSettings.production.enabled = false;
 
-    expect(getAffectedSDKPayloadKeys(changedFeatures)).toEqual([
+    expect(
+      getAffectedSDKPayloadKeys(changedFeatures, ["dev", "production", "test"])
+    ).toEqual([
       {
         project: "",
         environment: "production",
@@ -604,33 +897,36 @@ describe("Detecting Feature Changes", () => {
     const feature = cloneDeep(baseFeature);
     const updatedFeature = cloneDeep(baseFeature);
 
-    expect(getSDKPayloadKeysByDiff(feature, updatedFeature)).toEqual([]);
+    expect(
+      getSDKPayloadKeysByDiff(feature, updatedFeature, [
+        "dev",
+        "production",
+        "test",
+      ])
+    ).toEqual([]);
 
     updatedFeature.description = "New description";
-    updatedFeature.draft = {
-      active: true,
-    };
     updatedFeature.owner = "new owner";
     updatedFeature.tags = ["a"];
-    updatedFeature.revision = {
-      comment: "",
-      date: new Date(),
-      publishedBy: {
-        email: "",
-        id: "",
-        name: "",
-      },
-      version: 1,
-    };
     updatedFeature.dateUpdated = new Date();
 
-    expect(getSDKPayloadKeysByDiff(feature, updatedFeature)).toEqual([]);
+    expect(
+      getSDKPayloadKeysByDiff(feature, updatedFeature, [
+        "dev",
+        "production",
+        "test",
+      ])
+    ).toEqual([]);
 
     expect(
-      getSDKPayloadKeysByDiff(feature, {
-        ...updatedFeature,
-        defaultValue: "false",
-      })
+      getSDKPayloadKeysByDiff(
+        feature,
+        {
+          ...updatedFeature,
+          defaultValue: "false",
+        },
+        ["dev", "production", "test"]
+      )
     ).toEqual([
       {
         project: "",
@@ -642,10 +938,14 @@ describe("Detecting Feature Changes", () => {
       },
     ]);
     expect(
-      getSDKPayloadKeysByDiff(feature, {
-        ...updatedFeature,
-        archived: true,
-      })
+      getSDKPayloadKeysByDiff(
+        feature,
+        {
+          ...updatedFeature,
+          archived: true,
+        },
+        ["dev", "production", "test"]
+      )
     ).toEqual([
       {
         project: "",
@@ -657,10 +957,14 @@ describe("Detecting Feature Changes", () => {
       },
     ]);
     expect(
-      getSDKPayloadKeysByDiff(feature, {
-        ...updatedFeature,
-        nextScheduledUpdate: new Date(),
-      })
+      getSDKPayloadKeysByDiff(
+        feature,
+        {
+          ...updatedFeature,
+          nextScheduledUpdate: new Date(),
+        },
+        ["dev", "production", "test"]
+      )
     ).toEqual([
       {
         project: "",
@@ -672,10 +976,14 @@ describe("Detecting Feature Changes", () => {
       },
     ]);
     expect(
-      getSDKPayloadKeysByDiff(feature, {
-        ...updatedFeature,
-        project: "p2",
-      })
+      getSDKPayloadKeysByDiff(
+        feature,
+        {
+          ...updatedFeature,
+          project: "p2",
+        },
+        ["dev", "production", "test"]
+      )
     ).toEqual([
       {
         project: "",
@@ -696,7 +1004,13 @@ describe("Detecting Feature Changes", () => {
     ]);
 
     updatedFeature.environmentSettings.dev.enabled = false;
-    expect(getSDKPayloadKeysByDiff(feature, updatedFeature)).toEqual([
+    expect(
+      getSDKPayloadKeysByDiff(feature, updatedFeature, [
+        "dev",
+        "production",
+        "test",
+      ])
+    ).toEqual([
       {
         project: "",
         environment: "dev",
@@ -720,7 +1034,8 @@ describe("Changes are ignored when archived or disabled", () => {
         ...updatedFeature,
         archived: true,
         project: "43280943fjdskalfja",
-      }
+      },
+      ["dev", "production", "test"]
     )
   ).toEqual([]);
 
@@ -735,7 +1050,13 @@ describe("Changes are ignored when archived or disabled", () => {
       value: "true",
     },
   ];
-  expect(getSDKPayloadKeysByDiff(feature, updatedFeature)).toEqual([]);
+  expect(
+    getSDKPayloadKeysByDiff(feature, updatedFeature, [
+      "dev",
+      "production",
+      "test",
+    ])
+  ).toEqual([]);
 });
 
 describe("SDK Payloads", () => {
@@ -758,6 +1079,191 @@ describe("SDK Payloads", () => {
     expect(getJSONValue("json", '{"foo": 1}')).toEqual({ foo: 1 });
   });
 
+  it("Uses linked experiments to build feature definitions", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "experiment-ref",
+        experimentId: "exp_123",
+        description: "",
+        id: "abc",
+        enabled: true,
+        variations: [
+          {
+            variationId: "v0",
+            value: "false",
+          },
+          {
+            variationId: "v1",
+            value: "true",
+          },
+        ],
+      },
+    ];
+
+    const exp: ExperimentInterface = {
+      archived: false,
+      autoAssign: false,
+      implementation: "code",
+      autoSnapshots: false,
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      exposureQueryId: "",
+      hashAttribute: "user_id",
+      hashVersion: 2,
+      id: "exp_123",
+      metrics: [],
+      name: "My Experiment",
+      organization: "",
+      owner: "",
+      phases: [
+        {
+          condition: `{"country":"us"}`,
+          coverage: 0.8,
+          dateStarted: new Date(),
+          name: "My Phase",
+          namespace: {
+            enabled: true,
+            name: "namespace",
+            range: [0, 0.6],
+          },
+          reason: "",
+          variationWeights: [0.4, 0.6],
+          seed: "testing",
+        },
+      ],
+      previewURL: "",
+      releasedVariationId: "",
+      status: "running",
+      tags: [],
+      targetURLRegex: "",
+      trackingKey: "exp-key",
+      variations: [
+        {
+          id: "v0",
+          key: "k0",
+          name: "Control",
+          screenshots: [],
+        },
+        {
+          id: "v1",
+          key: "k1",
+          name: "Variation 1",
+          screenshots: [],
+        },
+      ],
+      linkedFeatures: ["feature"],
+      excludeFromPayload: false,
+    };
+    const experimentMap = new Map([["exp_123", exp]]);
+
+    // Includes the experiment
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+      })
+    ).toEqual({
+      defaultValue: true,
+      rules: [
+        {
+          key: "exp-key",
+          coverage: 0.8,
+          hashAttribute: "user_id",
+          hashVersion: 2,
+          condition: {
+            country: "us",
+          },
+          meta: [
+            {
+              key: "k0",
+              name: "Control",
+            },
+            {
+              key: "k1",
+              name: "Variation 1",
+            },
+          ],
+          name: "My Experiment",
+          namespace: ["namespace", 0, 0.6],
+          phase: "0",
+          seed: "testing",
+          variations: [false, true],
+          weights: [0.4, 0.6],
+        },
+      ],
+    });
+
+    // Excludes because it's archived
+    exp.archived = true;
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+      })
+    ).toEqual({
+      defaultValue: true,
+    });
+
+    // Excludes because it's stopped without a released variation
+    exp.archived = false;
+    exp.status = "stopped";
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+      })
+    ).toEqual({
+      defaultValue: true,
+    });
+
+    // Included with released variation id
+    exp.releasedVariationId = "v1";
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+      })
+    ).toEqual({
+      defaultValue: true,
+      rules: [
+        {
+          coverage: 0.8,
+          hashAttribute: "user_id",
+          hashVersion: 2,
+          condition: {
+            country: "us",
+          },
+          namespace: ["namespace", 0, 0.6],
+          seed: "testing",
+          force: true,
+        },
+      ],
+    });
+
+    // Excluded because the experiment doesn't exist
+    experimentMap.clear();
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+      })
+    ).toEqual({
+      defaultValue: true,
+    });
+  });
+
   it("Gets Feature Definitions", () => {
     const feature = cloneDeep(baseFeature);
 
@@ -766,7 +1272,7 @@ describe("SDK Payloads", () => {
         feature,
         environment: "production",
         groupMap: groupMap,
-        useDraft: false,
+        experimentMap: experimentMap,
       })
     ).toEqual({
       defaultValue: true,
@@ -779,7 +1285,7 @@ describe("SDK Payloads", () => {
         feature,
         environment: "production",
         groupMap: groupMap,
-        useDraft: false,
+        experimentMap: experimentMap,
       })
     ).toEqual(null);
 
@@ -788,7 +1294,7 @@ describe("SDK Payloads", () => {
         feature,
         environment: "unknown",
         groupMap: groupMap,
-        useDraft: false,
+        experimentMap: experimentMap,
       })
     ).toEqual(null);
 
@@ -862,7 +1368,7 @@ describe("SDK Payloads", () => {
         feature,
         environment: "dev",
         groupMap: groupMap,
-        useDraft: false,
+        experimentMap: experimentMap,
       })
     ).toEqual({
       defaultValue: true,
@@ -882,6 +1388,7 @@ describe("SDK Payloads", () => {
           coverage: 1,
           hashAttribute: "anonymous_id",
           variations: [true, false],
+          meta: [{ key: "0" }, { key: "1" }],
           weights: [0.7, 0.3],
           key: "testing",
         },

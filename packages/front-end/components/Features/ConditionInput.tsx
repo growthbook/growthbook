@@ -1,6 +1,13 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+
 import React, { useState, useEffect } from "react";
 import { some } from "lodash";
-import { FaExclamationCircle } from "react-icons/fa";
+import {
+  FaExclamationCircle,
+  FaMinusCircle,
+  FaPlusCircle,
+} from "react-icons/fa";
+import { RxLoop } from "react-icons/rx";
 import {
   condToJson,
   jsonToConds,
@@ -9,22 +16,29 @@ import {
   getDefaultOperator,
 } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Field from "../Forms/Field";
-import { GBAddCircle } from "../Icons";
-import SelectField from "../Forms/SelectField";
-import CodeTextArea from "../Forms/CodeTextArea";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import CodeTextArea from "@/components/Forms/CodeTextArea";
+import StringArrayField from "@/components/Forms/StringArrayField";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
+  project: string;
   labelClassName?: string;
+  emptyText?: string;
+  title?: string;
+  require?: boolean;
 }
 
 export default function ConditionInput(props: Props) {
   const { savedGroups } = useDefinitions();
 
-  const attributes = useAttributeMap();
+  const attributes = useAttributeMap(props.project);
+
+  const title = props.title || "Target by Attributes";
+  const emptyText = props.emptyText || "Applied to everyone by default.";
 
   const [advanced, setAdvanced] = useState(
     () => jsonToConds(props.defaultValue, attributes) === null
@@ -34,8 +48,9 @@ export default function ConditionInput(props: Props) {
   const [conds, setConds] = useState(
     () => jsonToConds(props.defaultValue, attributes) || []
   );
+  const [rawTextMode, setRawTextMode] = useState(false);
 
-  const attributeSchema = useAttributeSchema();
+  const attributeSchema = useAttributeSchema(false, props.project);
 
   useEffect(() => {
     if (advanced) return;
@@ -65,58 +80,58 @@ export default function ConditionInput(props: Props) {
       )
     );
     return (
-      <div className="mb-3">
-        <CodeTextArea
-          label="Targeting Conditions"
-          labelClassName={props.labelClassName}
-          language="json"
-          value={value}
-          setValue={setValue}
-          helpText={
-            <>
-              <div className="d-flex">
-                <div>JSON format using MongoDB query syntax.</div>
-                {simpleAllowed && attributes.size && (
-                  <div className="ml-auto">
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        const newConds = jsonToConds(value, attributes);
-                        // TODO: show error
-                        if (newConds === null) return;
-                        setConds(newConds);
-                        setAdvanced(false);
-                      }}
-                    >
-                      switch to simple mode
-                    </a>
+      <div className="form-group my-4">
+        <label className={props.labelClassName || ""}>{title}</label>
+        <div className="appbox bg-light px-3 py-3">
+          <CodeTextArea
+            labelClassName={props.labelClassName}
+            language="json"
+            value={value}
+            setValue={setValue}
+            helpText={
+              <>
+                <div className="d-flex">
+                  <div>JSON format using MongoDB query syntax.</div>
+                  {simpleAllowed && attributes.size && (
+                    <div className="ml-auto">
+                      <span
+                        className="link-purple cursor-pointer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const newConds = jsonToConds(value, attributes);
+                          // TODO: show error
+                          if (newConds === null) return;
+                          setConds(newConds);
+                          setAdvanced(false);
+                        }}
+                      >
+                        <RxLoop /> Simple mode
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {hasSecureAttributes && (
+                  <div className="mt-1 text-warning-orange">
+                    <FaExclamationCircle /> Secure attribute hashing not
+                    guaranteed to work for complicated rules
                   </div>
                 )}
-              </div>
-              {hasSecureAttributes && (
-                <div className="mt-1 text-warning-orange">
-                  <FaExclamationCircle /> Secure attribute hashing not
-                  guaranteed to work for complicated rules
-                </div>
-              )}
-            </>
-          }
-        />
+              </>
+            }
+          />
+        </div>
       </div>
     );
   }
 
   if (!conds.length) {
     return (
-      <div className="form-group">
-        <label className={props.labelClassName || ""}>
-          Targeting Conditions
-        </label>
-        <div className={`mb-3 bg-light p-3 ${styles.conditionbox}`}>
-          <em className="text-muted mr-3">Applied to everyone by default.</em>
-          <a
-            href="#"
+      <div className="form-group my-4">
+        <label className={props.labelClassName || ""}>{title}</label>
+        <div>
+          <div className="font-italic text-muted mr-3">{emptyText}</div>
+          <div
+            className="d-inline-block ml-1 mt-2 link-purple font-weight-bold cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
               const prop = attributeSchema[0];
@@ -129,121 +144,130 @@ export default function ConditionInput(props: Props) {
               ]);
             }}
           >
-            Add targeting condition
-          </a>
+            <FaPlusCircle className="mr-1" />
+            Add attribute targeting
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="form-group">
-      <label className={props.labelClassName || ""}>Targeting Conditions</label>
-      <div className={`mb-3 bg-light px-3 pb-3 ${styles.conditionbox}`}>
+    <div className="form-group my-4">
+      <label className={props.labelClassName || ""}>{title}</label>
+      <div className="appbox bg-light px-3 pb-3">
         <ul className={styles.conditionslist}>
           {conds.map(({ field, operator, value }, i) => {
             const attribute = attributes.get(field);
 
+            if (!attribute) {
+              console.error("Attribute not found in attribute Map.");
+              return;
+            }
+
             const savedGroupOptions = savedGroups
               // First, limit to groups with the correct attribute
-              .filter((g) => g.attributeKey === field)
+              .filter((g) => g.type === "list" && g.attributeKey === field)
               // Then, transform into the select option format
               .map((g) => ({ label: g.groupName, value: g.id }));
 
-            const onChange = (
+            const handleCondsChange = (value: string, name: string) => {
+              const newConds = [...conds];
+              newConds[i] = { ...newConds[i] };
+              newConds[i][name] = value;
+              setConds(newConds);
+            };
+
+            const handleFieldChange = (
               e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>
             ) => {
               const name = e.target.name;
               const value: string | number = e.target.value;
 
-              const newConds = [...conds];
-              newConds[i] = { ...newConds[i] };
-              newConds[i][name] = value;
-              setConds(newConds);
+              handleCondsChange(value, name);
             };
 
-            const onSelectFieldChange = (value: string, name: string) => {
-              const newConds = [...conds];
-              newConds[i] = { ...newConds[i] };
-              newConds[i][name] = value;
-              setConds(newConds);
+            const handleListChange = (values: string[]) => {
+              const name = "value";
+              const value: string | number = values.join(",");
+              handleCondsChange(value, name);
             };
 
             const operatorOptions =
-              attribute?.datatype === "boolean"
+              attribute.datatype === "boolean"
                 ? [
                     { label: "is true", value: "$true" },
                     { label: "is false", value: "$false" },
-                    { label: "exists", value: "$exists" },
-                    { label: "does not exist", value: "$notExists" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
                   ]
-                : attribute?.array
+                : attribute.array
                 ? [
                     { label: "includes", value: "$includes" },
                     { label: "does not include", value: "$notIncludes" },
                     { label: "is empty", value: "$empty" },
                     { label: "is not empty", value: "$notEmpty" },
-                    { label: "exists", value: "$exists" },
-                    { label: "does not exist", value: "$notExists" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
                   ]
-                : attribute?.enum?.length || 0 > 0
+                : attribute.enum?.length || 0 > 0
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },
                     { label: "is in the list", value: "$in" },
                     { label: "is not in the list", value: "$nin" },
-                    { label: "exists", value: "$exists" },
-                    { label: "does not exist", value: "$notExists" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
                   ]
-                : attribute?.datatype === "string"
+                : attribute.datatype === "string"
                 ? [
                     {
                       label: "is equal to",
-                      value: attribute?.format === "version" ? "$veq" : "$eq",
+                      value: attribute.format === "version" ? "$veq" : "$eq",
                     },
                     {
                       label: "is not equal to",
-                      value: attribute?.format === "version" ? "$vne" : "$ne",
+                      value: attribute.format === "version" ? "$vne" : "$ne",
                     },
                     { label: "matches regex", value: "$regex" },
                     { label: "does not match regex", value: "$notRegex" },
                     {
                       label: "is greater than",
-                      value: attribute?.format === "version" ? "$vgt" : "$gt",
+                      value: attribute.format === "version" ? "$vgt" : "$gt",
                     },
                     {
                       label: "is greater than or equal to",
-                      value: attribute?.format === "version" ? "$vgte" : "$gte",
+                      value: attribute.format === "version" ? "$vgte" : "$gte",
                     },
                     {
                       label: "is less than",
-                      value: attribute?.format === "version" ? "$vlt" : "$lt",
+                      value: attribute.format === "version" ? "$vlt" : "$lt",
                     },
                     {
                       label: "is less than or equal to",
-                      value: attribute?.format === "version" ? "$vlte" : "$lte",
+                      value: attribute.format === "version" ? "$vlte" : "$lte",
                     },
                     { label: "is in the list", value: "$in" },
                     { label: "is not in the list", value: "$nin" },
-                    { label: "exists", value: "$exists" },
-                    { label: "does not exist", value: "$notExists" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
                     ...(savedGroupOptions.length > 0
                       ? savedGroupOperators
                       : []),
                   ]
-                : attribute?.datatype === "secureString"
+                : attribute.datatype === "secureString"
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },
                     { label: "is in the list", value: "$in" },
                     { label: "is not in the list", value: "$nin" },
-                    { label: "exists", value: "$exists" },
-                    { label: "does not exist", value: "$notExists" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
                     ...(savedGroupOptions.length > 0
                       ? savedGroupOperators
                       : []),
                   ]
-                : attribute?.datatype === "number"
+                : attribute.datatype === "number"
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },
@@ -253,8 +277,8 @@ export default function ConditionInput(props: Props) {
                     { label: "is less than or equal to", value: "$lte" },
                     { label: "is in the list", value: "$in" },
                     { label: "is not in the list", value: "$nin" },
-                    { label: "exists", value: "$exists" },
-                    { label: "does not exist", value: "$notExists" },
+                    { label: "is not NULL", value: "$exists" },
+                    { label: "is NULL", value: "$notExists" },
                     ...(savedGroupOptions.length > 0
                       ? savedGroupOperators
                       : []),
@@ -275,7 +299,11 @@ export default function ConditionInput(props: Props) {
                       options={attributeSchema.map((s) => ({
                         label: s.property,
                         value: s.property,
+                        tooltip: s.description || "",
                       }))}
+                      formatOptionLabel={(o) => (
+                        <span title={o.tooltip}>{o.label}</span>
+                      )}
                       name="field"
                       className={styles.firstselect}
                       onChange={(value) => {
@@ -285,13 +313,10 @@ export default function ConditionInput(props: Props) {
 
                         const newAttribute = attributes.get(value);
                         const hasAttrChanged =
-                          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                          newAttribute.datatype !== attribute.datatype ||
-                          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                          newAttribute.array !== attribute.array;
-                        if (hasAttrChanged) {
+                          newAttribute?.datatype !== attribute.datatype ||
+                          newAttribute?.array !== attribute.array;
+                        if (hasAttrChanged && newAttribute) {
                           newConds[i]["operator"] = getDefaultOperator(
-                            // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'AttributeData | undefined' is no... Remove this comment to see the full error message
                             newAttribute
                           );
                           newConds[i]["value"] = newConds[i]["value"] || "";
@@ -307,7 +332,7 @@ export default function ConditionInput(props: Props) {
                       options={operatorOptions}
                       sort={false}
                       onChange={(v) => {
-                        onSelectFieldChange(v, "operator");
+                        handleCondsChange(v, "operator");
                       }}
                     />
                   </div>
@@ -321,12 +346,12 @@ export default function ConditionInput(props: Props) {
                   ].includes(operator) ? (
                     ""
                   ) : ["$inGroup", "$notInGroup"].includes(operator) &&
-                    savedGroups ? (
+                    savedGroupOptions.length > 0 ? (
                     <SelectField
                       options={savedGroupOptions}
                       value={value}
                       onChange={(v) => {
-                        onSelectFieldChange(v, "value");
+                        handleCondsChange(v, "value");
                       }}
                       name="value"
                       initialOption="Choose group..."
@@ -334,51 +359,78 @@ export default function ConditionInput(props: Props) {
                       required
                     />
                   ) : ["$in", "$nin"].includes(operator) ? (
-                    <Field
-                      textarea
-                      value={value}
-                      onChange={onChange}
-                      name="value"
-                      minRows={1}
-                      className={styles.matchingInput}
-                      containerClassName="col-sm-12 col-md mb-2"
-                      helpText="separate values by comma"
-                      required
-                    />
-                  ) : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                  attribute.enum.length ? (
+                    <div className="d-flex align-items-end flex-column col-sm-12 col-md mb-1">
+                      {rawTextMode ? (
+                        <Field
+                          textarea
+                          value={value}
+                          onChange={handleFieldChange}
+                          name="value"
+                          minRows={1}
+                          className={styles.matchingInput}
+                          helpText={
+                            <span
+                              className="position-relative"
+                              style={{ top: -5 }}
+                            >
+                              separate values by comma
+                            </span>
+                          }
+                          required
+                        />
+                      ) : (
+                        <StringArrayField
+                          containerClassName="w-100"
+                          value={value ? value.trim().split(",") : []}
+                          onChange={handleListChange}
+                          placeholder="Enter some values..."
+                          delimiters={["Enter", "Tab"]}
+                          required
+                        />
+                      )}
+                      <span
+                        className="link-purple cursor-pointer"
+                        style={{ fontSize: "0.8em" }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setRawTextMode((prev) => !prev);
+                        }}
+                      >
+                        Switch to {rawTextMode ? "token" : "raw text"} mode
+                      </span>
+                    </div>
+                  ) : attribute.enum.length ? (
                     <SelectField
-                      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                       options={attribute.enum.map((v) => ({
                         label: v,
                         value: v,
                       }))}
                       value={value}
                       onChange={(v) => {
-                        onSelectFieldChange(v, "value");
+                        handleCondsChange(v, "value");
                       }}
                       name="value"
                       initialOption="Choose One..."
                       containerClassName="col-sm-12 col-md mb-2"
                       required
                     />
-                  ) : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                  attribute.datatype === "number" ? (
+                  ) : attribute.datatype === "number" ? (
                     <Field
                       type="number"
                       step="any"
                       value={value}
-                      onChange={onChange}
+                      onChange={handleFieldChange}
                       name="value"
                       className={styles.matchingInput}
                       containerClassName="col-sm-12 col-md mb-2"
                       required
                     />
-                  ) : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                  ["string", "secureString"].includes(attribute.datatype) ? (
+                  ) : ["string", "secureString"].includes(
+                      attribute.datatype
+                    ) ? (
                     <Field
                       value={value}
-                      onChange={onChange}
+                      onChange={handleFieldChange}
                       name="value"
                       className={styles.matchingInput}
                       containerClassName="col-sm-12 col-md mb-2"
@@ -387,20 +439,23 @@ export default function ConditionInput(props: Props) {
                   ) : (
                     ""
                   )}
-                  <div className="col-md-auto col-sm-12">
-                    <button
-                      className="btn btn-link text-danger float-right"
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        const newConds = [...conds];
-                        newConds.splice(i, 1);
-                        setConds(newConds);
-                      }}
-                    >
-                      remove
-                    </button>
-                  </div>
+                  {(conds.length > 1 || !props.require) && (
+                    <div className="col-md-auto col-sm-12">
+                      <button
+                        className="btn btn-link text-danger float-right"
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const newConds = [...conds];
+                          newConds.splice(i, 1);
+                          setConds(newConds);
+                        }}
+                      >
+                        <FaMinusCircle className="mr-1" />
+                        remove
+                      </button>
+                    </div>
+                  )}
                 </div>
               </li>
             );
@@ -408,9 +463,8 @@ export default function ConditionInput(props: Props) {
         </ul>
         <div className="d-flex align-items-center">
           {attributeSchema.length > 0 && (
-            <a
-              className={`mr-3 btn btn-outline-primary ${styles.addcondition}`}
-              href="#"
+            <span
+              className="link-purple font-weight-bold cursor-pointer"
               onClick={(e) => {
                 e.preventDefault();
                 const prop = attributeSchema[0];
@@ -424,25 +478,19 @@ export default function ConditionInput(props: Props) {
                 ]);
               }}
             >
-              <span
-                className={`h4 pr-2 m-0 d-inline-block align-top ${styles.addicon}`}
-              >
-                <GBAddCircle />
-              </span>
+              <FaPlusCircle className="mr-1" />
               Add another condition
-            </a>
+            </span>
           )}
-          <a
-            href="#"
-            className="ml-auto"
-            style={{ fontSize: "0.9em" }}
+          <span
+            className="ml-auto link-purple cursor-pointer"
             onClick={(e) => {
               e.preventDefault();
               setAdvanced(true);
             }}
           >
-            Advanced mode
-          </a>
+            <RxLoop /> Advanced mode
+          </span>
         </div>
       </div>
     </div>

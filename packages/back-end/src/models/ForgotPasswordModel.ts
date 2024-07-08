@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import mongoose from "mongoose";
-import { getUserByEmail } from "../services/users";
+import { getUserByEmail } from "../models/UserModel";
 import { APP_ORIGIN } from "../util/secrets";
 import { isEmailEnabled, sendResetPasswordEmail } from "../services/email";
 import { logger } from "../util/logger";
@@ -34,9 +34,12 @@ export const ForgotPasswordModel = mongoose.model<ForgotPasswordInterface>(
 
 export async function createForgotPasswordToken(email: string): Promise<void> {
   const user = await getUserByEmail(email);
-  if (!user) {
+  if (!user || !user.id) {
     throw new Error("Could not find a user with that email address");
   }
+
+  // Delete any existing reset password links
+  await ForgotPasswordModel.deleteMany({ userId: user.id });
 
   const token = crypto.randomBytes(32).toString("hex");
   const doc: ForgotPasswordInterface = {
@@ -69,7 +72,15 @@ export async function getUserIdFromForgotPasswordToken(
     token,
   });
 
-  return doc?.userId || "";
+  if (!doc) return "";
+
+  const lastValidDate = new Date();
+  lastValidDate.setMinutes(lastValidDate.getMinutes() - 30);
+  if (doc.createdAt < lastValidDate) {
+    throw new Error("That password reset link has expired.");
+  }
+
+  return doc.userId;
 }
 
 export async function deleteForgotPasswordToken(token: string) {

@@ -8,16 +8,17 @@ import {
   ReactNode,
 } from "react";
 import { MdCheck } from "react-icons/md";
-import Modal from "../Modal";
-import { DocSection } from "../DocLink";
+import Modal from "@/components/Modal";
+import { DocSection } from "@/components/DocLink";
 
 type Props = {
   header: string;
   submitColor?: string;
   cta?: string;
+  ctaEnabled?: boolean;
+  forceCtaText?: boolean;
   closeCta?: string;
   disabledMessage?: string;
-  ctaEnabled?: boolean;
   size?: "md" | "lg" | "max" | "fill";
   docSection?: DocSection;
   navStyle?: "pills" | "underlined" | "tabs" | "default";
@@ -30,6 +31,8 @@ type Props = {
   step: number;
   setStep: (step: number) => void;
   secondaryCTA?: ReactElement;
+  className?: string;
+  bodyClassName?: string;
 };
 
 const PagedModal: FC<Props> = (props) => {
@@ -43,10 +46,14 @@ const PagedModal: FC<Props> = (props) => {
     navFill,
     backButton = false,
     cta,
+    ctaEnabled = true,
+    forceCtaText,
     inline,
     secondaryCTA,
     size,
     // size = "md",
+    className,
+    bodyClassName,
     ...passThrough
   } = props;
 
@@ -104,6 +111,8 @@ const PagedModal: FC<Props> = (props) => {
       size={size}
       disabledMessage={disabledMessage}
       open={true}
+      className={className}
+      bodyClassName={bodyClassName}
       {...passThrough}
       submit={async () => {
         await validateSteps(nextStep);
@@ -116,7 +125,6 @@ const PagedModal: FC<Props> = (props) => {
           setStep(nextStep);
         }
       }}
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Element | null' is not assignable to type 'R... Remove this comment to see the full error message
       secondaryCTA={
         secondaryCTA ? (
           secondaryCTA
@@ -134,7 +142,8 @@ const PagedModal: FC<Props> = (props) => {
       }
       error={error}
       autoCloseOnSubmit={false}
-      cta={!nextStep ? cta : "Next"}
+      cta={forceCtaText || !nextStep ? cta : "Next"}
+      ctaEnabled={ctaEnabled}
     >
       <nav
         className={`nav mb-4 justify-content-start ${navStyleClass} ${navFillClass} ${
@@ -150,14 +159,14 @@ const PagedModal: FC<Props> = (props) => {
                   {
                     active: step === i,
                     completed: i < step,
-                    disabled: enabled === false,
+                    disabled: !enabled,
                   }
                 )}
                 key={i}
               >
                 <a
                   key={i}
-                  href="#"
+                  role="button"
                   className={clsx("nav-link")}
                   onClick={async (e) => {
                     e.preventDefault();
@@ -181,10 +190,10 @@ const PagedModal: FC<Props> = (props) => {
             return (
               <a
                 key={i}
-                href="#"
+                role="button"
                 className={clsx("w-md-100 nav-item nav-link", {
                   active: step === i,
-                  disabled: enabled === false,
+                  disabled: !enabled,
                 })}
                 onClick={async (e) => {
                   e.preventDefault();

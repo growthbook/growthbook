@@ -8,8 +8,8 @@ import { FaQuestionCircle } from "react-icons/fa";
 import { datetime } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
-import Modal from "../Modal";
-import Code from "../SyntaxHighlighting/Code";
+import Modal from "@/components/Modal";
+import Code from "@/components/SyntaxHighlighting/Code";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 
 const FilterSummary: FC<{
@@ -22,7 +22,11 @@ const FilterSummary: FC<{
     snapshot.settings.segment ||
     snapshot.settings.queryFilter ||
     snapshot.settings.activationMetric;
-  const { getSegmentById, getMetricById, getDatasourceById } = useDefinitions();
+  const {
+    getSegmentById,
+    getExperimentMetricById,
+    getDatasourceById,
+  } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
 
   return (
@@ -116,8 +120,8 @@ const FilterSummary: FC<{
             </div>
             <div className="col">
               {snapshot.settings.activationMetric ? (
-                getMetricById(snapshot.settings.activationMetric)?.name ??
-                "(unknown)"
+                getExperimentMetricById(snapshot.settings.activationMetric)
+                  ?.name ?? "(unknown)"
               ) : (
                 <em>none</em>
               )}
@@ -137,14 +141,14 @@ const FilterSummary: FC<{
             <div className="col-5">
               <strong className="text-gray">
                 <AttributionModelTooltip>
-                  Attribution Model <FaQuestionCircle />
+                  Conversion Window Override <FaQuestionCircle />
                 </AttributionModelTooltip>
               </strong>
             </div>
             <div className="col">
               {experiment.attributionModel === "experimentDuration"
-                ? "Experiment Duration"
-                : "First Exposure"}
+                ? "Ignore Conversion Windows"
+                : "Respect Conversion Windows"}
             </div>
           </div>
           {datasource?.properties?.queryLanguage === "sql" && (

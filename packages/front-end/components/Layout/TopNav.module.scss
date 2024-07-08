@@ -9,8 +9,7 @@ $sidebarwidth: 240px;
   left: $sidebarwidth;
   right: 0;
   height: 56px;
-  z-index: 945;
-  transition: all 0.5s cubic-bezier(0.685, 0.0473, 0.346, 1);
+  z-index: 1010;
   background-color: var(--surface-background-color);
   border-bottom: 1px solid var(--border-color-300);
   padding: 0 16px;
@@ -18,11 +17,37 @@ $sidebarwidth: 240px;
     padding: 0 8px;
   }
 }
+.guidedstepbar {
+  display: flex;
+  justify-content: space-between;
+  position: fixed;
+  top: 56px;
+  left: $sidebarwidth;
+  right: 0;
+  height: 56px;
+  z-index: 995;
+}
 .pagetitle {
-  font-size: 18px;
+  font-size: 14px;
   line-height: 1.1;
   color: var(--text-color-main);
   font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.breadcrumblink {
+  color: var(--text-color-primary);
+  text-decoration: none;
+
+  &:hover {
+    color: var(--text-color-primary-hover);
+    text-decoration: underline;
+  }
 }
 .mobilemenu {
   display: none;
@@ -34,17 +59,40 @@ $sidebarwidth: 240px;
     background: inherit;
   }
 }
-.leftSection {
+
+.navbar {
   display: flex;
   justify-content: flex-start;
   align-items: center;
-  max-width: 30%;
+  width: 100%;
 }
-.rightSection {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
+
+.add-organization {
+  hr {
+    margin: 0.25em 0.75rem;
+  }
+
+  div {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    div {
+      width: 1.5rem;
+      display: flex;
+      justify-content: center;
+    }
+  }
+
+  img {
+    height: 1em;
+  }
+
+  a {
+    padding: 0.25rem 1.5rem 0.25rem 0rem;
+  }
 }
+
 @media (max-width: 1180px) {
   .pagetitle {
     padding-left: 10px;

@@ -12,7 +12,9 @@ export const listExperiments = createApiRequestHandler(
   listExperimentsValidator
 )(
   async (req): Promise<ListExperimentsResponse> => {
-    const experiments = await getAllExperiments(req.organization.id);
+    const experiments = await getAllExperiments(req.context, {
+      includeArchived: true,
+    });
 
     // TODO: Move sorting/limiting to the database query for better performance
     const { filtered, returnFields } = applyPagination(
@@ -28,7 +30,7 @@ export const listExperiments = createApiRequestHandler(
     );
 
     const promises = filtered.map((experiment) =>
-      toExperimentApiInterface(req.organization, experiment)
+      toExperimentApiInterface(req.context, experiment)
     );
     const apiExperiments = await Promise.all(promises);
 

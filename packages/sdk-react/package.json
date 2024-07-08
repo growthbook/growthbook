@@ -1,6 +1,6 @@
 {
   "name": "@growthbook/growthbook-react",
-  "version": "0.17.0",
+  "version": "1.1.0",
   "license": "MIT",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -38,7 +38,7 @@
     "react": "^16.8.0-0 || ^17.0.0-0 || ^18.0.0-0"
   },
   "dependencies": {
-    "@growthbook/growthbook": "^0.27.0"
+    "@growthbook/growthbook": "^1.1.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.19.3",
@@ -59,7 +59,7 @@
     "rimraf": "^3.0.2",
     "rollup": "^2.56.3",
     "ts-jest": "^27.0.5",
-    "typescript": "4.7.4"
+    "typescript": "5.3.3"
   },
   "browserslist": [
     "defaults",

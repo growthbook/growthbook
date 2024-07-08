@@ -5,21 +5,23 @@ import {
   FeatureValueType,
 } from "back-end/types/feature";
 import dJSON from "dirty-json";
-import { ReactElement, useState } from "react";
+
+import React, { ReactElement, useState } from "react";
+import { validateFeatureValue } from "shared/util";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import {
-  getDefaultValue,
-  validateFeatureValue,
-  useEnvironments,
   genDuplicatedKey,
+  getDefaultValue,
+  useEnvironments,
 } from "@/services/features";
 import { useWatching } from "@/services/WatchProvider";
-import usePermissions from "@/hooks/usePermissions";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import FeatureValueField from "../FeatureValueField";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import FeatureValueField from "@/components/Features/FeatureValueField";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -63,13 +65,13 @@ const genEnvironmentSettings = ({
 }: {
   environments: ReturnType<typeof useEnvironments>;
   featureToDuplicate?: FeatureInterface;
-  permissions: ReturnType<typeof usePermissions>;
+  permissions: ReturnType<typeof usePermissionsUtil>;
   project: string;
 }): Record<string, FeatureEnvironment> => {
   const envSettings: Record<string, FeatureEnvironment> = {};
 
   environments.forEach((e) => {
-    const canPublish = permissions.check("publishFeatures", project, [e.id]);
+    const canPublish = permissions.canPublishFeature({ project }, [e.id]);
     const defaultEnabled = canPublish ? e.defaultState ?? true : false;
     const enabled = canPublish
       ? featureToDuplicate?.environmentSettings?.[e.id]?.enabled ??
@@ -85,19 +87,28 @@ const genEnvironmentSettings = ({
 
 const genFormDefaultValues = ({
   environments,
-  permissions,
+  permissions: permissionsUtil,
   featureToDuplicate,
   project,
 }: {
   environments: ReturnType<typeof useEnvironments>;
-  permissions: ReturnType<typeof usePermissions>;
+  permissions: ReturnType<typeof usePermissionsUtil>;
   featureToDuplicate?: FeatureInterface;
   project: string;
-}) => {
+}): Pick<
+  FeatureInterface,
+  | "valueType"
+  | "defaultValue"
+  | "description"
+  | "tags"
+  | "project"
+  | "id"
+  | "environmentSettings"
+> => {
   const environmentSettings = genEnvironmentSettings({
     environments,
     featureToDuplicate,
-    permissions,
+    permissions: permissionsUtil,
     project,
   });
   return featureToDuplicate
@@ -111,7 +122,7 @@ const genFormDefaultValues = ({
         environmentSettings,
       }
     : {
-        valueType: "boolean",
+        valueType: "" as FeatureValueType,
         defaultValue: getDefaultValue("boolean"),
         description: "",
         id: "",
@@ -131,26 +142,21 @@ export default function FeatureModal({
 }: Props) {
   const { project, refreshTags } = useDefinitions();
   const environments = useEnvironments();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
 
   const defaultValues = genFormDefaultValues({
     environments,
-    permissions,
+    permissions: permissionsUtil,
     featureToDuplicate,
     project,
   });
 
-  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ valueType: FeatureValueType; defaultValue:... Remove this comment to see the full error message
   const form = useForm({ defaultValues });
 
-  const [showTags, setShowTags] = useState(
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    featureToDuplicate?.tags?.length > 0
-  );
+  const [showTags, setShowTags] = useState(!!featureToDuplicate?.tags?.length);
   const [showDescription, setShowDescription] = useState(
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    featureToDuplicate?.description?.length > 0
+    !!featureToDuplicate?.description?.length
   );
 
   const { apiCall } = useAuth();
@@ -165,11 +171,18 @@ export default function FeatureModal({
   let ctaEnabled = true;
   let disabledMessage: string | undefined;
 
-  if (!permissions.check("createFeatureDrafts", project)) {
+  if (
+    !permissionsUtil.canManageFeatureDrafts({
+      project: featureToDuplicate?.project ?? project,
+    })
+  ) {
     ctaEnabled = false;
     disabledMessage =
       "You don't have permission to create feature flag drafts.";
   }
+
+  // We want to show a warning when someone tries to create a feature under the demo project
+  const { currentProjectIsDemo } = useDemoDataSourceProject();
 
   return (
     <Modal
@@ -184,7 +197,12 @@ export default function FeatureModal({
       secondaryCTA={secondaryCTA}
       submit={form.handleSubmit(async (values) => {
         const { defaultValue, ...feature } = values;
-        const valueType = feature.valueType as FeatureValueType;
+        const valueType = feature.valueType;
+
+        if (!valueType) {
+          throw new Error("Please select a value type");
+        }
+
         const passedFeature = feature as FeatureInterface;
         const newDefaultValue = validateFeatureValue(
           passedFeature,
@@ -215,23 +233,26 @@ export default function FeatureModal({
 
         track("Feature Created", {
           valueType: values.valueType,
-          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          hasDescription: values.description.length > 0,
+          hasDescription: !!values.description?.length,
           initialRule: "none",
         });
-        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string[] | undefined' is not ass... Remove this comment to see the full error message
-        refreshTags(values.tags);
+        values.tags && refreshTags(values.tags);
         refreshWatching();
 
         await onSuccess(res.feature);
       })}
     >
+      {currentProjectIsDemo && (
+        <div className="alert alert-warning">
+          You are creating a feature under the demo datasource project.
+        </div>
+      )}
+
       <FeatureKeyField keyField={form.register("id")} />
 
       {showTags ? (
         <TagsField
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string[] | undefined' is not assignable to t... Remove this comment to see the full error message
-          value={form.watch("tags")}
+          value={form.watch("tags") || []}
           onChange={(tags) => form.setValue("tags", tags)}
         />
       ) : (
@@ -251,8 +272,7 @@ export default function FeatureModal({
         <div className="form-group">
           <label>Description</label>
           <MarkdownInput
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-            value={form.watch("description")}
+            value={form.watch("description") || ""}
             setValue={(value) => form.setValue("description", value)}
             autofocus={!featureToDuplicate?.description?.length}
           />
@@ -283,18 +303,19 @@ export default function FeatureModal({
 
       <EnvironmentSelect
         environmentSettings={environmentSettings}
+        environments={environments}
         setValue={(env, on) => {
           environmentSettings[env.id].enabled = on;
           form.setValue("environmentSettings", environmentSettings);
         }}
       />
 
-      {/* 
-          We hide rule configuration when duplicating a feature since the 
-          decision of which rule to display (out of potentially many) in the 
+      {/*
+          We hide rule configuration when duplicating a feature since the
+          decision of which rule to display (out of potentially many) in the
           modal is not deterministic.
       */}
-      {!featureToDuplicate && (
+      {!featureToDuplicate && valueType && (
         <>
           <FeatureValueField
             label={"Default Value when Enabled"}

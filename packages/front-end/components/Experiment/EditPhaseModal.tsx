@@ -4,17 +4,16 @@ import {
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
-import Field from "../Forms/Field";
-import Modal from "../Modal";
-import FeatureVariationsInput from "../Features/FeatureVariationsInput";
-import ConditionInput from "../Features/ConditionInput";
-import NamespaceSelector from "../Features/NamespaceSelector";
+import Field from "@/components/Forms/Field";
+import Modal from "@/components/Modal";
+import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 
 export interface Props {
   close: () => void;
   i: number;
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
+  editTargeting: (() => void) | null;
 }
 
 export default function EditPhaseModal({
@@ -22,6 +21,7 @@ export default function EditPhaseModal({
   i,
   experiment,
   mutate,
+  editTargeting,
 }: Props) {
   const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
@@ -43,6 +43,8 @@ export default function EditPhaseModal({
       close={close}
       header={`Edit Analysis Phase #${i + 1}`}
       submit={form.handleSubmit(async (value) => {
+        validateSavedGroupTargeting(value.savedGroups);
+
         await apiCall(`/experiment/${experiment.id}/phase/${i}`, {
           method: "PUT",
           body: JSON.stringify(value),
@@ -50,6 +52,7 @@ export default function EditPhaseModal({
         mutate();
       })}
       size="lg"
+      bodyClassName="px-4 pt-4"
     >
       <Field label="Phase Name" {...form.register("name")} required />
       <Field
@@ -89,37 +92,23 @@ export default function EditPhaseModal({
         </>
       ) : null}
 
-      <ConditionInput
-        defaultValue={form.watch("condition")}
-        onChange={(condition) => form.setValue("condition", condition)}
-      />
-
-      <FeatureVariationsInput
-        valueType={"string"}
-        coverage={form.watch("coverage")}
-        setCoverage={(coverage) => form.setValue("coverage", coverage)}
-        setWeight={(i, weight) =>
-          form.setValue(`variationWeights.${i}`, weight)
-        }
-        valueAsId={true}
-        variations={
-          experiment.variations.map((v, i) => {
-            return {
-              value: v.key || i + "",
-              name: v.name,
-              weight: form.watch(`variationWeights.${i}`),
-              id: v.id,
-            };
-          }) || []
-        }
-        showPreview={false}
-      />
-
-      <NamespaceSelector
-        form={form}
-        featureId={experiment.trackingKey}
-        trackingKey={experiment.trackingKey}
-      />
+      {!isDraft && (
+        <div className="alert alert-info mt-4">
+          Trying to change targeting rules, traffic allocation, or start a new
+          phase? Use the{" "}
+          <a
+            role="button"
+            className="a"
+            onClick={() => {
+              editTargeting?.();
+              close();
+            }}
+          >
+            Make Changes
+          </a>{" "}
+          button instead.
+        </div>
+      )}
     </Modal>
   );
 }

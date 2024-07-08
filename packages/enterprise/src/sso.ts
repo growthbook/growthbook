@@ -1,15 +1,10 @@
 import type { IssuerMetadata } from "openid-client";
-import type { SSOConnectionInterface } from "../../back-end/types/sso-connection";
+import { stringToBoolean } from "shared/util";
+import type { SSOConnectionInterface } from "back-end/types/sso-connection";
 
 // Self-hosted SSO
 function getSSOConfig() {
   if (!process.env.SSO_CONFIG) return null;
-
-  if (!process.env.IS_CLOUD && !process.env.LICENSE_KEY) {
-    throw new Error(
-      "Must have a commercial License Key to use self-hosted SSO"
-    );
-  }
 
   const config: SSOConnectionInterface = JSON.parse(process.env.SSO_CONFIG);
   // Must include clientId and specific metadata
@@ -36,7 +31,7 @@ function getSSOConfig() {
 
   // Sanity check for GrowthBook Cloud (to avoid misconfigurations)
   if (
-    process.env.IS_CLOUD &&
+    stringToBoolean(process.env.IS_CLOUD) &&
     config?.metadata?.issuer !== "https://growthbook.auth0.com/"
   ) {
     throw new Error("Invalid SSO configuration for GrowthBook Cloud");

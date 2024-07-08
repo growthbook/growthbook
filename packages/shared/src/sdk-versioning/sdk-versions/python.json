@@ -1,0 +1,17 @@
+{
+  "versions": [
+    {
+      "version": "1.1.0",
+      "capabilities": [
+        "looseUnmarshalling",
+        "prerequisites",
+        "stickyBucketing",
+        "semverTargeting"
+      ]
+    },
+    {
+      "version": "1.0.0",
+      "capabilities": ["bucketingV2", "encryption"]
+    }
+  ]
+}

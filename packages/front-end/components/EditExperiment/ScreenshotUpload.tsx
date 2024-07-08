@@ -10,28 +10,25 @@ import clsx from "clsx";
 import { BiImageAdd } from "react-icons/bi";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
-import LoadingOverlay from "../LoadingOverlay";
-import { GBAddCircle } from "../Icons";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import styles from "./ScreenshotUpload.module.scss";
 
 type props = {
   experiment: string;
   variation: number;
   onSuccess: (variation: number, screenshot: Screenshot) => void;
-  newUi?: boolean;
 };
 
 const ScreenshotUpload = ({
   experiment,
   variation,
   onSuccess,
-  newUi,
 }: props): ReactElement => {
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(0);
 
   const onDrop = async (files: File[]) => {
-    setLoading(loading + files.length);
+    setLoading((previous) => previous + files.length);
 
     for (const file of files) {
       try {
@@ -49,7 +46,7 @@ const ScreenshotUpload = ({
           }
         );
 
-        setLoading(loading - 1);
+        setLoading((previous) => previous - 1);
 
         onSuccess(variation, {
           path: fileURL,
@@ -57,7 +54,7 @@ const ScreenshotUpload = ({
         });
       } catch (e) {
         alert(e.message);
-        setLoading(loading - 1);
+        setLoading((previous) => previous - 1);
       }
     }
   };
@@ -70,42 +67,21 @@ const ScreenshotUpload = ({
     HTMLDivElement
   >;
 
-  if (newUi) {
-    return (
-      <>
-        <div
-          {...typedRootProps}
-          className={clsx(styles.droparea, styles.dropareaNewUi, "my-1", {
-            [styles.dragging]: isDragActive,
-          })}
-        >
-          {loading > 0 ? <LoadingOverlay /> : ""}
-          <input {...getInputProps()} />
-          <div className={styles.message}>Drop Image Here...</div>
-          <span className={styles.textlink}>
-            <BiImageAdd className="mr-1" style={{ fontSize: 20 }} />
-            Add Screenshot
-          </span>
-        </div>
-      </>
-    );
-  }
-
   return (
     <>
       <div
         {...typedRootProps}
-        className={clsx(styles.droparea, { [styles.dragging]: isDragActive })}
+        className={clsx(styles.droparea, "my-1", {
+          [styles.dragging]: isDragActive,
+        })}
       >
         {loading > 0 ? <LoadingOverlay /> : ""}
         <input {...getInputProps()} />
         <div className={styles.message}>Drop Image Here...</div>
-        <button className="btn btn-link btn-sm">
-          <GBAddCircle /> Add Screenshot
-          <div className="small text-muted mt-1">
-            Drag and drop or browse to upload.
-          </div>
-        </button>
+        <span className={styles.textlink}>
+          <BiImageAdd className="mr-1" style={{ fontSize: 20 }} />
+          Add Screenshot
+        </span>
       </div>
     </>
   );

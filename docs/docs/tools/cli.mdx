@@ -25,7 +25,7 @@ The GrowthBook CLI enables you to generate TypeScript types for working with the
 
 Run `growthbook features generate-types --help` for more info.
 
-See the [JavaScript SDK documentation &rarr; Strongly-typed feature definitions](/lib/js#strongly-typed-feature-definitions) for more information on working with typed features.
+See the [JavaScript SDK documentation](/lib/js#strict-typing) for more information on working with typed features.
 
 ### Profile management
 
@@ -74,6 +74,28 @@ You can also add it to your `package.json` file of the project that will use the
 ```
 
 It should now be available for use when you run `npm run type-gen` or `yarn type-gen`.
+
+### Usage on CI/CD
+
+If you'd like to use the CLI in continuous integration/continuous deployment environments, instead of running the `growthbook auth login` command, we recommend creating the following file at `~/.growthbook/config.toml` with your secret and API base URL:
+
+```toml
+[default]
+growthbook_secret = "secret_abc123"
+api_base_url = "https://api.growthbook.io" # replace this with your API URL if self-hosted
+```
+
+You can also store multiple profiles and refer to them with the `--profile` flag in supported commands:
+
+```toml
+[default]
+growthbook_secret = "secret_abc123"
+api_base_url = "https://api.growthbook.io"
+
+[acme_donuts]
+growthbook_secret = "secret_xyz987"
+api_base_url = "http://localhost:3100"
+```
 
 ### Detailed Command Usage
 

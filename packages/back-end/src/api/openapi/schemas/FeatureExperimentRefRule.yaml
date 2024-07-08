@@ -1,0 +1,34 @@
+type: object
+required:
+  - description
+  - id
+  - enabled
+  - type
+  - variations
+  - experimentId
+properties:
+  description:
+    type: string
+  id:
+    type: string
+  enabled:
+    type: boolean
+  type:
+    type: string
+    enum: ["experiment-ref"]
+  condition:
+    type: string
+  variations:
+    type: array
+    items:
+      type: object
+      required:
+        - value
+        - variationId
+      properties:
+        value:
+          type: string
+        variationId:
+          type: string
+  experimentId:
+    type: string

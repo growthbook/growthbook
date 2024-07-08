@@ -1,61 +1,131 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
-import { WebhookInterface } from "back-end/types/webhook";
+import {
+  CreateSdkWebhookProps,
+  UpdateSdkWebhookProps,
+  WebhookInterface,
+  WebhookMethod,
+  WebhookPayloadFormat,
+} from "back-end/types/webhook";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useEnvironments } from "@/services/features";
-import Field from "../Forms/Field";
-import Modal from "../Modal";
+import Field from "@/components/Forms/Field";
+import Modal from "@/components/Modal";
+import SelectField from "@/components/Forms/SelectField";
+import CodeTextArea from "@/components/Forms/CodeTextArea";
+import { DocLink } from "@/components/DocLink";
 
 const WebhooksModal: FC<{
   close: () => void;
   onSave: () => void;
   defaultDescription?: string;
   current: Partial<WebhookInterface>;
-}> = ({ close, onSave, current }) => {
+  sdkConnectionId: string;
+}> = ({ close, onSave, current, sdkConnectionId }) => {
   const { apiCall } = useAuth();
+  const [validHeaders, setValidHeaders] = useState(true);
 
-  const { projects, project } = useDefinitions();
-
-  const environments = useEnvironments();
-
+  const methodTypes: WebhookMethod[] = [
+    "GET",
+    "POST",
+    "PUT",
+    "DELETE",
+    "PURGE",
+  ];
   const form = useForm({
     defaultValues: {
       name: current.name || "My Webhook",
       endpoint: current.endpoint || "",
-      project: current.project || (current.id ? "" : project),
-      environment:
-        current.environment === undefined ? "production" : current.environment,
+      useSdkMode: true,
+      payloadFormat: current?.payloadFormat || "standard",
+      httpMethod: current?.httpMethod || "POST",
+      headers: current?.headers || "{}",
+      sdkid: sdkConnectionId,
     },
   });
+
+  const isValidHttp = (urlString: string) => {
+    let url: URL;
+    try {
+      url = new URL(urlString);
+    } catch (e) {
+      return false;
+    }
+    return /https?/.test(url.protocol);
+  };
 
   const onSubmit = form.handleSubmit(async (value) => {
     if (value.endpoint.match(/localhost/g)) {
       throw new Error("Invalid endpoint");
     }
-    await apiCall(current.id ? `/webhook/${current.id}` : "/webhooks", {
-      method: current.id ? "PUT" : "POST",
-      body: JSON.stringify(value),
-    });
+    if (!isValidHttp(value.endpoint)) {
+      throw new Error("Invalid URL");
+    }
+
+    if (current.id) {
+      const data: UpdateSdkWebhookProps = {
+        name: value.name,
+        endpoint: value.endpoint,
+        httpMethod: value.httpMethod,
+        headers: value.headers,
+        payloadFormat: value.payloadFormat,
+      };
+
+      await apiCall(`/sdk-webhooks/${current.id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      });
+    } else {
+      const data: CreateSdkWebhookProps = {
+        name: value.name,
+        endpoint: value.endpoint,
+        httpMethod: value.httpMethod,
+        headers: value.headers,
+        payloadFormat: value.payloadFormat,
+      };
+      await apiCall(`/sdk-connections/${sdkConnectionId}/webhooks`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    }
+
     track(current.id ? "Edit Webhook" : "Create Webhook");
     onSave();
+    close();
   });
 
-  const envOptions = environments.map((e) => ({
-    display: e.id,
-    value: e.id,
-  }));
-
-  // New webhooks must select a single environment
-  // Add the option to select both only when required for backwards compatibility
-  if (current && current.environment === "") {
-    envOptions.push({
-      display: "Both dev and production",
-      value: "",
-    });
-  }
+  const validateHeaders = (headers: string) => {
+    try {
+      JSON.parse(headers);
+      setValidHeaders(true);
+    } catch (error) {
+      setValidHeaders(false);
+    }
+  };
+  const headerJsonEditor = () => (
+    <CodeTextArea
+      label="Headers"
+      language="json"
+      minLines={3}
+      maxLines={6}
+      value={form.watch("headers")}
+      setValue={(headers) => {
+        validateHeaders(headers);
+        form.setValue("headers", headers);
+      }}
+      helpText={
+        <>
+          {!validHeaders ? (
+            <div className="alert alert-danger mr-auto">Invalid JSON</div>
+          ) : (
+            <div>JSON format for headers.</div>
+          )}
+        </>
+      }
+    />
+  );
 
   return (
     <Modal
@@ -63,23 +133,19 @@ const WebhooksModal: FC<{
       header={current.id ? "Update Webhook" : "Create New Webhook"}
       open={true}
       submit={onSubmit}
+      autoCloseOnSubmit={false}
+      ctaEnabled={validHeaders}
       cta={current.id ? "Update" : "Create"}
+      size="lg"
     >
       <Field label="Display Name" required {...form.register("name")} />
       <Field
-        label="HTTP(S) Endpoint"
-        type="url"
-        required
-        placeholder="https://"
+        label="Endpoint URL"
+        placeholder="https://example.com"
         {...form.register("endpoint")}
-        onInvalid={(event) => {
-          (event.target as HTMLInputElement).setCustomValidity(
-            "Please enter a valid URL, including the http:// or https:// prefix."
-          );
-        }}
         helpText={
           <>
-            Must accept <code>POST</code> requests
+            Must accept <code>{form.watch("httpMethod")}</code> requests
             {isCloud() ? (
               <>
                 {" "}
@@ -105,22 +171,63 @@ const WebhooksModal: FC<{
           instead.
         </div>
       )}
-      <h4>Webhook Filter</h4>
-      <Field
-        label="Environment"
-        options={envOptions}
-        {...form.register("environment")}
+
+      <SelectField
+        label="Method"
+        required
+        placeholder="POST"
+        value={form.watch("httpMethod")}
+        onChange={(httpMethod: WebhookMethod) =>
+          form.setValue("httpMethod", httpMethod)
+        }
+        options={methodTypes.map((e) => ({ label: e, value: e }))}
+        sort={false}
       />
-      {projects.length > 0 && (
-        <Field
-          label="Project"
-          options={projects.map((p) => ({
-            display: p.name,
-            value: p.id,
-          }))}
-          initialOption="All Projects"
-          {...form.register("project")}
-        />
+
+      {headerJsonEditor()}
+
+      {form.watch("httpMethod") !== "GET" && (
+        <>
+          <SelectField
+            containerClassName="mb-1"
+            label="Payload Format"
+            value={form.watch("payloadFormat")}
+            onChange={(v: WebhookPayloadFormat) =>
+              form.setValue("payloadFormat", v)
+            }
+            options={[
+              { label: "Standard", value: "standard" },
+              {
+                label: "Standard (no SDK Payload)",
+                value: "standard-no-payload",
+              },
+              { label: "SDK Payload only", value: "sdkPayload" },
+              { label: "None", value: "none" },
+            ]}
+            formatOptionLabel={({ value, label }) => {
+              return (
+                <span>
+                  {label}
+                  {value === "standard" && (
+                    <span
+                      className="text-muted uppercase-title float-right position-relative"
+                      style={{ top: 3 }}
+                    >
+                      default
+                    </span>
+                  )}
+                </span>
+              );
+            }}
+            disabled={form.watch("httpMethod") === "GET"}
+            sort={false}
+          />
+          <div className="small">
+            <DocLink docSection="sdkWebhooks#payload-format">
+              Learn More <FaExternalLinkAlt />
+            </DocLink>
+          </div>
+        </>
       )}
     </Modal>
   );

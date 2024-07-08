@@ -1,10 +1,10 @@
-import { getValidDate } from "shared/dates";
+import { getValidDateOffsetByUTC } from "shared/dates";
 import { MetricAnalysis, MetricInterface } from "../../types/metric";
 import { Queries, QueryStatus } from "../../types/query";
 import { getMetricById, updateMetric } from "../models/MetricModel";
 import {
   MetricValueParams,
-  MetricValueQueryResponse,
+  MetricValueQueryResponseRows,
   MetricValueResult,
 } from "../types/Integration";
 import { meanVarianceFromSums } from "../util/stats";
@@ -15,14 +15,23 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
   MetricValueParams,
   MetricAnalysis
 > {
+  checkPermissions(): boolean {
+    return this.context.permissions.canRunMetricQueries(
+      this.integration.datasource
+    );
+  }
+
   async startQueries(params: MetricValueParams): Promise<Queries> {
     return [
-      await this.startQuery(
-        "metric",
-        this.integration.getMetricValueQuery(params),
-        (query) => this.integration.runMetricValueQuery(query),
-        (rows) => processMetricValueQueryResponse(rows)
-      ),
+      await this.startQuery({
+        name: "metric",
+        query: this.integration.getMetricValueQuery(params),
+        dependencies: [],
+        run: (query, setExternalId) =>
+          this.integration.runMetricValueQuery(query, setExternalId),
+        process: (rows) => processMetricValueQueryResponse(rows),
+        queryType: "metricAnalysis",
+      }),
     ];
   }
   async runAnalysis(queryMap: QueryMap): Promise<MetricAnalysis> {
@@ -51,7 +60,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
         total += dateTotal;
         count += d.count || 0;
         dates.push({
-          d: getValidDate(d.date),
+          d: getValidDateOffsetByUTC(d.date),
           v: mean,
           c: d.count || 0,
           s: stddev,
@@ -70,11 +79,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
     };
   }
   async getLatestModel(): Promise<MetricInterface> {
-    const model = await getMetricById(
-      this.model.id,
-      this.model.organization,
-      true
-    );
+    const model = await getMetricById(this.context, this.model.id, true);
     if (!model) throw new Error("Could not find metric");
     return model;
   }
@@ -97,7 +102,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
       analysisError: result ? "" : error,
     };
 
-    await updateMetric(this.model.id, updates, this.model.organization);
+    await updateMetric(this.context, this.model, updates);
 
     return {
       ...this.model,
@@ -107,7 +112,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
 }
 
 export function processMetricValueQueryResponse(
-  rows: MetricValueQueryResponse
+  rows: MetricValueQueryResponseRows
 ): MetricValueResult {
   const ret: MetricValueResult = { count: 0, mean: 0, stddev: 0 };
 

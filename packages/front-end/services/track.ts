@@ -10,12 +10,13 @@ Track anonymous usage statistics
 
 import { jitsuClient, JitsuClient } from "@jitsu/sdk-js";
 import md5 from "md5";
-import { StatsEngine } from "@/../back-end/types/stats";
+import { StatsEngine } from "@back-end/types/stats";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
-} from "@/../back-end/types/experiment-snapshot";
-import { ExperimentReportInterface } from "@/../back-end/types/report";
+} from "@back-end/types/experiment-snapshot";
+import { ExperimentReportInterface } from "@back-end/types/report";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getCurrentUser } from "./UserContext";
 import {
   getGrowthBookBuild,
@@ -149,7 +150,7 @@ function getTrackingPropsFromSnapshot(
     id: snapshot.id ? md5(snapshot.id) : "",
     source: source,
     experiment: snapshot.experiment ? md5(snapshot.experiment) : "",
-    engine: analysis?.settings?.statsEngine ?? "bayesian",
+    engine: analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
     datasource_type: datasourceType,
     regression_adjustment_enabled: !!snapshot.settings
       .regressionAdjustmentEnabled,
@@ -175,7 +176,7 @@ function getTrackingPropsFromReport(
     id: report.id ? md5(report.id) : "",
     source: source,
     experiment: report.experimentId ? md5(report.experimentId) : "",
-    engine: report.args.statsEngine ?? "bayesian",
+    engine: report.args.statsEngine || DEFAULT_STATS_ENGINE,
     datasource_type: datasourceType,
     regression_adjustment_enabled: !!report.args.regressionAdjustmentEnabled,
     sequential_testing_enabled: !!report.args.sequentialTestingEnabled,

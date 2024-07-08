@@ -4,8 +4,9 @@ import clsx from "clsx";
 import { FaPlay } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
 import { getValidDate } from "shared/dates";
+import { FaXmark } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
-import LoadingSpinner from "../LoadingSpinner";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 function getTimeDisplay(seconds: number): string {
   if (seconds < 120) {
@@ -26,15 +27,34 @@ function getTimeoutLength(seconds: number): number {
   return 0;
 }
 
-export function getQueryStatus(queries: Queries, error?: string): QueryStatus {
-  if (error) return "failed";
+export interface QueryStatusData {
+  status: QueryStatus;
+  numFailed?: number;
+  failedNames?: string[];
+}
+export function getQueryStatus(
+  queries: Queries,
+  error?: string
+): QueryStatusData {
+  let status: QueryStatus = "succeeded";
+  let numFailed = 0;
+  const failedNames: string[] = [];
 
+  if (error) status = "failed";
   let running = false;
   for (let i = 0; i < queries.length; i++) {
-    if (queries[i].status === "failed") return "failed";
-    if (queries[i].status === "running") running = true;
+    if (queries[i].status === "failed") {
+      failedNames.push(queries[i].name);
+      numFailed++;
+    }
+    if (queries[i].status === "running" || queries[i].status === "queued")
+      running = true;
   }
-  return running ? "running" : "succeeded";
+
+  if (numFailed > 0) status = "partially-succeeded";
+  if (numFailed >= queries.length / 2) status = "failed";
+  if (running) status = "running";
+  return { status, numFailed, failedNames };
 }
 
 const RunQueriesButton: FC<{
@@ -46,6 +66,7 @@ const RunQueriesButton: FC<{
   icon?: "run" | "refresh";
   color?: string;
   position?: "left" | "right";
+  onSubmit?: () => void;
 }> = ({
   cta = "Run Queries",
   loadingText = "Running",
@@ -55,6 +76,7 @@ const RunQueriesButton: FC<{
   icon = "run",
   color = "primary",
   position = "right",
+  onSubmit,
 }) => {
   const { apiCall } = useAuth();
 
@@ -71,9 +93,8 @@ const RunQueriesButton: FC<{
     .length;
   const numQueries = model.queries.length;
 
-  const status = getQueryStatus(model.queries || []);
+  const { status } = getQueryStatus(model.queries || []);
   const timeoutLength = getTimeoutLength(elapsed);
-
   // Mutate periodically to check for updates
   useEffect(() => {
     if (status !== "running") return;
@@ -120,25 +141,39 @@ const RunQueriesButton: FC<{
         }`}
       >
         {status === "running" && (
-          <div>
-            <button
-              className="btn btn-link text-danger"
-              onClick={async (e) => {
-                e.preventDefault();
+          <div
+            className="btn btn-danger p-0 position-absolute text-center"
+            style={{
+              zIndex: 1,
+              width: 22,
+              height: 22,
+              right: 0,
+              top: -10,
+              borderRadius: 50,
+            }}
+            onClick={async (e) => {
+              e.preventDefault();
+              onSubmit?.();
+              try {
                 await apiCall(cancelEndpoint, { method: "POST" });
-                await mutate();
-              }}
-            >
-              cancel
-            </button>
+              } catch (e) {
+                console.error(e);
+              }
+              await mutate();
+            }}
+            title="Cancel"
+          >
+            <FaXmark size={14} style={{ marginTop: -3.5 }} />
           </div>
         )}
-        <div>
+        <div className="position-relative">
           <button
-            className={clsx("btn font-weight-bold", `btn-${color}`, {
+            className={clsx("btn font-weight-bold my-0", `btn-${color}`, {
               disabled: status === "running",
             })}
+            disabled={status === "running"}
             type="submit"
+            onClick={onSubmit}
           >
             <span className="h4 pr-2 m-0 d-inline-block align-top">
               {buttonIcon}
@@ -149,11 +184,11 @@ const RunQueriesButton: FC<{
           </button>
           {status === "running" && numQueries > 0 && (
             <div
+              className="position-absolute bg-info"
               style={{
                 width: Math.floor((100 * numFinished) / numQueries) + "%",
-                height: 5,
+                height: 4,
               }}
-              className="bg-info"
             />
           )}
         </div>

@@ -95,11 +95,19 @@ function generateZodSchema(jsonSchema, coerceStringsToNumbers = true) {
     return `z.never()`;
   }
 
-  let zod = parseSchema(jsonSchema) + ".strict()";
+  let zod = parseSchema(jsonSchema);
+
+  if (zod.startsWith("z.object")) {
+    zod += ".strict()";
+  }
 
   if (coerceStringsToNumbers) {
     zod = zod.replace(/z\.number\(\)/g, "z.coerce.number()");
   }
+
+  // remove overly strick datetime zod validation 
+  // until we can write custom regex validator
+  zod = zod.replace(/(?<=string\(\))\.datetime\(\{.*?\}\)/g, "");
 
   return zod;
 }

@@ -1,11 +1,6 @@
 import { useFeature } from "@growthbook/growthbook-react";
-import { SubscriptionQuote } from "back-end/types/organization";
-import { useEffect, useState } from "react";
 import { getValidDate } from "shared/dates";
-import { useAuth } from "../services/auth";
-import { isCloud } from "../services/env";
-import { useUser } from "../services/UserContext";
-import usePermissions from "./usePermissions";
+import { useUser } from "@/services/UserContext";
 
 export default function useStripeSubscription() {
   const selfServePricingEnabled = useFeature("self-serve-billing").on;
@@ -13,66 +8,75 @@ export default function useStripeSubscription() {
     "self-serve-billing-overage-warning-banner"
   ).on;
 
-  const { organization } = useUser();
+  const { organization, license, quote } = useUser();
+
+  //TODO: Remove this once we have moved the license off the organization
+  const stripeSubscription =
+    license?.stripeSubscription || organization?.subscription;
 
   const freeSeats = organization?.freeSeats || 3;
 
-  const [quote, setQuote] = useState<SubscriptionQuote | null>(null);
-
-  const { apiCall } = useAuth();
-  const permissions = usePermissions();
-
-  useEffect(() => {
-    if (!permissions.manageBilling) return;
-    if (!isCloud()) return;
-
-    apiCall<{ quote: SubscriptionQuote }>(`/subscription/quote`)
-      .then((data) => {
-        setQuote(data.quote);
-      })
-      .catch((e) => console.error(e));
-  }, [freeSeats, isCloud(), permissions.manageBilling]);
-
   const activeAndInvitedUsers = quote?.activeAndInvitedUsers || 0;
 
-  const subscriptionStatus = organization?.subscription?.status;
+  const subscriptionStatus = stripeSubscription?.status;
 
-  const hasPaymentMethod = organization?.subscription?.hasPaymentMethod;
+  const hasPaymentMethod = stripeSubscription?.hasPaymentMethod;
 
   // We will treat past_due as active so as to not interrupt users
   const hasActiveSubscription = ["active", "trialing", "past_due"].includes(
     subscriptionStatus || ""
   );
 
-  const planName = organization?.subscription?.planNickname || "";
-
   const nextBillDate = new Date(
-    (organization?.subscription?.current_period_end || 0) * 1000
+    (stripeSubscription?.current_period_end || 0) * 1000
   ).toDateString();
 
   const dateToBeCanceled = new Date(
-    (organization?.subscription?.cancel_at || 0) * 1000
+    (stripeSubscription?.cancel_at || 0) * 1000
   ).toDateString();
 
   const cancelationDate = new Date(
-    (organization?.subscription?.canceled_at || 0) * 1000
+    (stripeSubscription?.canceled_at || 0) * 1000
   ).toDateString();
 
-  const pendingCancelation = organization?.subscription?.cancel_at_period_end;
+  const pendingCancelation =
+    stripeSubscription?.status !== "canceled" &&
+    stripeSubscription?.cancel_at_period_end;
 
   const disableSelfServeBilling =
     organization?.disableSelfServeBilling || false;
 
   // eslint-disable-next-line
-  let trialEnd = (organization?.subscription?.trialEnd || null) as any;
+  let trialEnd = (stripeSubscription?.trialEnd || null) as any;
   if (typeof trialEnd === "number") {
     trialEnd = getValidDate(trialEnd * 1000);
   }
 
+  const canSubscribe = () => {
+    if (disableSelfServeBilling) return false;
+
+    if (organization?.enterprise) return false; //TODO: Remove this once we have moved the license off the organization
+
+    if (license?.plan === "enterprise") return false;
+
+    // if already on pro, they must have a stripeSubscription - some self-hosted pro have an annual contract not directly through stripe.
+    if (
+      license &&
+      ["pro", "pro_sso"].includes(license.plan || "") &&
+      !license.stripeSubscription
+    )
+      return false;
+
+    if (!selfServePricingEnabled) return false;
+
+    if (hasActiveSubscription) return false;
+
+    return true;
+  };
+
   return {
     freeSeats,
     quote: quote,
-    planName,
     nextBillDate,
     dateToBeCanceled,
     cancelationDate,
@@ -84,11 +88,6 @@ export default function useStripeSubscription() {
     trialEnd: trialEnd as null | Date,
     showSeatOverageBanner,
     loading: !quote || !organization,
-    canSubscribe:
-      isCloud() &&
-      !disableSelfServeBilling &&
-      !organization?.enterprise &&
-      selfServePricingEnabled &&
-      !hasActiveSubscription,
+    canSubscribe: canSubscribe(),
   };
 }

@@ -49,6 +49,8 @@ const gb = new GrowthBook({
   clientKey: "sdk-abc123",
   // Enable easier debugging during development
   enableDevMode: true,
+  // Update the instance in realtime as features change in GrowthBook
+  subscribeToChanges: true,
   // Targeting attributes
   attributes: {
     id: "123",
@@ -65,7 +67,7 @@ const gb = new GrowthBook({
 });
 
 // Wait for features to be available
-await gb.loadFeatures({ autoRefresh: true });
+await gb.loadFeatures();
 ```
 
 ### Step 2: Start Feature Flagging!
@@ -114,7 +116,10 @@ app.use(function (req, res, next) {
   req.growthbook = new GrowthBook({
     apiHost: "https://cdn.growthbook.io",
     clientKey: "sdk-abc123",
-    enableDevMode: true,
+    // Set this to `false` to improve performance in server-side environments
+    enableDevMode: false,
+    // Important: make sure this is set to `false`, otherwise features may change in the middle of a request
+    subscribeToChanges: false,
   });
 
   // Clean up at the end of the request
@@ -152,14 +157,14 @@ If you pass an `apiHost` and `clientKey` into the GrowthBook constructor, it wil
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
-  decryptionKey: "key_abc123", // Only if you have feature encryption turned on
+  // Only required if you have feature encryption enabled in GrowthBook
+  decryptionKey: "key_abc123",
+  // Update the instance in realtime as features change in GrowthBook (default: false)
+  subscribeToChanges: true,
 });
 
 // Wait for features to be downloaded
 await gb.loadFeatures({
-  // When features change, update the GrowthBook instance automatically
-  // Default: `false`
-  autoRefresh: true,
   // If the network request takes longer than this (in milliseconds), continue
   // Default: `0` (no timeout)
   timeout: 2000,
@@ -169,6 +174,22 @@ await gb.loadFeatures({
 Until features are loaded, all features will evaluate to `null`. If you're ok with a potential flicker in your application (features going from `null` to their real value), you can call `loadFeatures` without awaiting the result.
 
 If you want to refresh the features at any time (e.g. when a navigation event occurs), you can call `gb.refreshFeatures()`.
+
+#### Streaming Updates
+
+By default, the SDK will open a streaming connection using Server-Sent Events (SSE) to receive feature updates in realtime as they are changed in GrowthBook. This is only supported on GrowthBook Cloud or if running a GrowthBook Proxy Server.
+
+If you want to disable streaming updates (to limit API usage on GrowthBook Cloud for example), you can set `backgroundSync` to `false`.
+
+```ts
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+
+  // Disable background streaming connection
+  backgroundSync: false,
+});
+```
 
 ### Custom Integration
 
@@ -184,7 +205,7 @@ const gb = new GrowthBook({
 })
 ```
 
-Note that you don't have to call `gb.loadFeatures()`. There's nothing to load - everything required is already passed in.
+Note that you don't have to call `gb.loadFeatures()`. There's nothing to load - everything required is already passed in. No network requests are made to GrowthBook at all.
 
 You can update features at any time by calling `gb.setFeatures()` with a new JSON object.
 

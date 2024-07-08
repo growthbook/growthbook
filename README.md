@@ -2,7 +2,6 @@
 <p align="center"><b>Open Source Feature Flagging and A/B Testing</b></p>
 <p align="center">
     <a href="https://github.com/growthbook/growthbook/github/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/growthbook/growthbook/ci.yml?branch=main" alt="Build Status" height="22"/></a>
-    <a href="https://github.com/growthbook/growthbook/blob/main/LICENSE"><img src="https://img.shields.io/github/license/growthbook/growthbook" alt="MIT License" height="22"/></a>
     <a href="https://github.com/growthbook/growthbook/releases"><img src="https://img.shields.io/github/v/release/growthbook/growthbook?color=blue&sort=semver" alt="Release" height="22"/></a>
     <a href="https://slack.growthbook.io?ref=readme-badge"><img src="https://img.shields.io/badge/slack-join-E01E5A?logo=slack" alt="Join us on Slack" height="22"/></a>
 </p>
@@ -29,13 +28,13 @@ We want to give all companies the flexibility and power of a fully-featured in-h
 ## Major Features
 
 - 🏁 Feature flags with advanced targeting, gradual rollouts, and experiments
-- 💻 SDKs for [React](https://docs.growthbook.io/lib/react), [Javascript](https://docs.growthbook.io/lib/js), [PHP](https://docs.growthbook.io/lib/php), [Ruby](https://docs.growthbook.io/lib/ruby), [Python](https://docs.growthbook.io/lib/python), [Go](https://docs.growthbook.io/lib/go), and [Kotlin (Android)](https://docs.growthbook.io/lib/kotlin) with more coming soon
-- 🆎 Powerful A/B test analysis with support for binomial, count, duration, and revenue metrics
+- 💻 SDKs for [React](https://docs.growthbook.io/lib/react), [Javascript](https://docs.growthbook.io/lib/js), [PHP](https://docs.growthbook.io/lib/php), [Ruby](https://docs.growthbook.io/lib/ruby), [Python](https://docs.growthbook.io/lib/python), [Go](https://docs.growthbook.io/lib/go), [Android](https://docs.growthbook.io/lib/kotlin), [iOS](https://docs.growthbook.io/lib/swift), and [more](https://docs.growthbook.io/lib)!
+- 🆎 Powerful A/B test analysis with advanced statistics (CUPED, Sequential testing, Bayesian, SRM checks, and more)
 - ❄️ Use your existing data stack - BigQuery, Mixpanel, Redshift, Google Analytics, [and more](https://docs.growthbook.io/app/datasources)
 - ⬇️ Drill down into A/B test results by browser, country, or any other custom attribute
 - 🪐 Export reports as a Jupyter Notebook!
 - 📝 Document everything with screenshots and GitHub Flavored Markdown throughout
-- 🔔 Automated email alerts when A/B tests become significant
+- 🔔 Webhooks and a REST API for building integrations
 
 ## Try GrowthBook
 
@@ -80,3 +79,5 @@ If you want to, you can reach out via [Slack](https://slack.growthbook.io?ref=re
 GrowthBook is an Open Core product. The bulk of the code is under the permissive MIT license, and the `packages/enterprise` directory has its own separate commercial license.
 
 View the `LICENSE` file in this repository for the full text and details.
+
+![GrowthBook Repository Stats](https://repobeats.axiom.co/api/embed/13ffc63ec5ce7fe45efa95dd326d9185517f0a15.svg "GrowthBook Repository Stats")

@@ -1,11 +1,4 @@
-export interface SegmentInterface {
-  id: string;
-  organization: string;
-  owner: string;
-  datasource: string;
-  userIdType: string;
-  name: string;
-  sql: string;
-  dateCreated: Date | null;
-  dateUpdated: Date | null;
-}
+import { z } from "zod";
+import { segmentValidator } from "@back-end/src/routers/segment/segment.validators";
+
+export type SegmentInterface = z.infer<typeof segmentValidator>;

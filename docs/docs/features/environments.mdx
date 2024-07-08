@@ -1,0 +1,37 @@
+---
+title: Environments
+description: Define multiple environments to control which features are enabled in each.
+sidebar_label: Environments
+slug: /features/environments
+---
+
+# Environments
+
+GrowthBook comes with one environment by default (**production**), but you can add as many as you need on the
+[Environments page](https://app.growthbook.io/environments) located within the **SDK Configuration** menu.
+
+Feature flags can be enabled and disabled on a per-environment basis. You can also set the default feature state for any new environment. Additionally, you can scope environments to only be available in specific projects, allowing for further control and segmentation over feature delivery.
+
+![A list of environments](/images/features/feature-environments-1.png)
+
+When a feature is disabled in an environment, the feature will not be returned via the SDK, and that feature will always
+evaluate to `null` and ignore any other targeting or override rules.
+
+## Environments and SDKs
+
+When you configure your SDK endpoint you will be asked which environment you want to use. Each SDK endpoint will have a
+unique SDK key. When this endpoint is called from the code, a JSON file containing all the features and rules by which
+they should be shown is returned. Scoping SDKs to environments allows you to easily separate, for example, your
+production and development environments.
+
+To use multiple environments in the same code base, you can use environment variables to set a dynamic key,
+e.g. `GROWTHBOOK_CLIENT_KEY='sdk-abc123'` and then reference that environment variable in your code base. Depending on
+the framework you're using, some environment variables are not exposed by default on the front-end unless provided an
+appropriate prefix, e.g. `NEXT_GROWTHBOOK_CLIENT_KEY='sdk-abc123'` in order to access environment variables in Next.js
+client code.
+
+:::note
+
+It's possible for a feature to be enabled for an environment and still be considered "off". This happens when its value is set to `false`, `null`, `0`, or an empty string.
+
+:::

@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { FaCog, FaFileDownload, FaPencilAlt } from "react-icons/fa";
+import { FaFileDownload, FaPencilAlt } from "react-icons/fa";
 import { BiTable } from "react-icons/bi";
 import { Queries } from "back-end/types/query";
 import {
@@ -8,8 +8,8 @@ import {
   ReportInterface,
 } from "back-end/types/report";
 import { BsArrowRepeat } from "react-icons/bs";
+import { DataSourceInterfaceWithParams } from "@back-end/types/datasource";
 import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
 import ResultsDownloadButton from "@/components/Experiment/ResultsDownloadButton";
 import Button from "@/components/Button";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -17,10 +17,10 @@ import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton"
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { trackReport } from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function ResultMoreMenu({
   editMetrics,
-  configure,
   queries,
   queryError,
   hasData,
@@ -35,10 +35,10 @@ export default function ResultMoreMenu({
   variations,
   trackingKey,
   dimension,
+  datasource,
   project,
 }: {
   editMetrics?: () => void;
-  configure: () => void;
   queries?: Queries;
   queryError?: string;
   hasData?: boolean;
@@ -53,31 +53,21 @@ export default function ResultMoreMenu({
   variations?: ExperimentReportVariation[];
   trackingKey?: string;
   dimension?: string;
+  datasource?: DataSourceInterfaceWithParams | null;
   project?: string;
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
 
-  const canEdit = permissions.check("createAnalyses", project);
+  const canEdit = permissionsUtil.canViewExperimentModal(project);
 
   const canDownloadJupyterNotebook =
     hasData && supportsNotebooks && notebookUrl && notebookFilename;
 
   return (
-    <MoreMenu>
-      {canEdit && (
-        <button
-          className="btn dropdown-item py-2"
-          onClick={(e) => {
-            e.preventDefault();
-            configure();
-          }}
-        >
-          <FaCog className="mr-2" /> Configure Analysis
-        </button>
-      )}
+    <MoreMenu autoCloseOnClick={false}>
       {(queries?.length ?? 0) > 0 && (
         <ViewAsyncQueriesButton
           queries={queries?.map((q) => q.query) ?? []}
@@ -85,17 +75,19 @@ export default function ResultMoreMenu({
           className="dropdown-item py-2"
         />
       )}
-      {forceRefresh && permissions.check("runQueries", "") && (
-        <button
-          className="btn dropdown-item py-2"
-          onClick={(e) => {
-            e.preventDefault();
-            forceRefresh();
-          }}
-        >
-          <BsArrowRepeat className="mr-2" /> Re-run All Queries
-        </button>
-      )}
+      {forceRefresh &&
+        datasource &&
+        permissionsUtil.canRunExperimentQueries(datasource) && (
+          <button
+            className="btn dropdown-item py-2"
+            onClick={(e) => {
+              e.preventDefault();
+              forceRefresh();
+            }}
+          >
+            <BsArrowRepeat className="mr-2" /> Re-run All Queries
+          </button>
+        )}
       {hasData && queries && generateReport && canEdit && (
         <Button
           className="dropdown-item py-2"

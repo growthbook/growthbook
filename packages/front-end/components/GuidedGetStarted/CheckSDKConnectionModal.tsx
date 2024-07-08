@@ -1,5 +1,5 @@
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
-import Modal from "../Modal";
+import Modal from "@/components/Modal";
 import CheckSDKConnectionResults from "./CheckSDKConnectionResults";
 
 type Props = {
@@ -7,6 +7,8 @@ type Props = {
   connection: SDKConnectionInterface;
   mutate: () => Promise<unknown>;
   goToNextStep?: () => void;
+  cta?: string;
+  showModalClose?: boolean;
 };
 
 export default function CheckSDKConnectionModal({
@@ -14,16 +16,16 @@ export default function CheckSDKConnectionModal({
   connection,
   mutate,
   goToNextStep,
+  cta,
+  showModalClose,
 }: Props) {
   return (
     <Modal
       open={true}
-      close={() => {
-        close();
-      }}
+      close={showModalClose ? close : undefined}
       closeCta="Close"
       size="lg"
-      cta="Next: Add a Data Source"
+      cta={cta}
       header={"Check SDK Connection"}
       submit={async () => goToNextStep?.()}
     >

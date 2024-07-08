@@ -1,0 +1,10 @@
+[
+  {
+    "id": "events.add",
+    "value": "event = 'Add to Cart'"
+  },
+  {
+    "id": "orders.large_amount",
+    "value": "amount >= 10"
+  }
+]

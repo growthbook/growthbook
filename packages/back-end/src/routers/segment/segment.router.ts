@@ -30,6 +30,7 @@ router.post(
       userIdType: z.string(),
       name: z.string(),
       sql: z.string(),
+      description: z.string(),
     }),
   }),
   segmentController.postSegment
@@ -49,6 +50,7 @@ router.put(
       name: z.string(),
       owner: z.string(),
       sql: z.string(),
+      description: z.string(),
     }),
   }),
   segmentController.putSegment

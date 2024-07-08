@@ -12,10 +12,12 @@ import {
   ExperimentUpdateSchedule,
   MemberRoleInfo,
   OrganizationInterface,
+  RequireReview,
 } from "back-end/types/organization";
 import { StatsEngine } from "back-end/types/stats";
 import { ProjectInterface } from "back-end/types/project";
 import { ReportInterface } from "back-end/types/report";
+import { MetricWindowSettings } from "back-end/types/fact-table";
 
 interface SettingMetadata {
   scopeApplied?: keyof ScopeDefinition | "organization";
@@ -53,8 +55,10 @@ export type ScopeSettingsFn = (
 };
 
 interface MetricSettings {
-  conversionWindowHours: number | null;
-  conversionDelayHours: number | null;
+  windowType: MetricWindowSettings["type"] | null;
+  windowHours: number | null;
+  delayHours: number | null;
+
   winRisk: number | null;
   loseRisk: number | null;
 }
@@ -77,6 +81,9 @@ interface BaseSettings {
   attributionModel: AttributionModel;
   secureAttributeSalt: string;
   killswitchConfirmation: boolean;
+  requireReviews: boolean | RequireReview[];
+  featureKeyExample: string;
+  featureRegexValidator: string;
 }
 
 // todo: encapsulate all settings, including experiment

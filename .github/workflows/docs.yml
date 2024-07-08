@@ -32,10 +32,10 @@ jobs:
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           scope: ${{ secrets.VERCEL_SCOPE }}
-          github-token: ${{ secrets.GITHUB_TOKEN }} 
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           vercel-args: ${{ env.vercelArgs }}
           vercel-org-id: ${{ secrets.VERCEL_DOCS_ORG_ID}}
-          vercel-project-id: ${{ secrets.VERCEL_DOCS_PROJECT_ID}} 
+          vercel-project-id: ${{ secrets.VERCEL_DOCS_PROJECT_ID}}
           working-directory: ./
 
   # Linting, type-checking, and tests
@@ -46,11 +46,12 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '16'
-          cache: 'yarn'
-      
+          node-version: "20"
+          cache: "yarn"
+          cache-dependency-path: "docs/yarn.lock"
+
       - name: Install dependencies and type-check
         run: |
           cd docs

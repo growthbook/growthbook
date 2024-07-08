@@ -3,9 +3,9 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { date, datetime } from "shared/dates";
 import { phaseSummary } from "@/services/utils";
 import { useAuth } from "@/services/auth";
-import Modal from "../Modal";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import { GBAddCircle } from "../Icons";
+import Modal from "@/components/Modal";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { GBAddCircle } from "@/components/Icons";
 import EditPhaseModal from "./EditPhaseModal";
 import NewPhaseForm from "./NewPhaseForm";
 
@@ -13,16 +13,20 @@ export interface Props {
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
   mutateExperiment: () => void;
+  editTargeting: (() => void) | null;
 }
 
 export default function EditPhasesModal({
   close,
   experiment,
   mutateExperiment,
+  editTargeting,
 }: Props) {
   const isDraft = experiment.status === "draft";
   const isMultiPhase = experiment.phases.length > 1;
   const hasStoppedPhases = experiment.phases.some((p) => p.dateEnded);
+  const hasLinkedChanges =
+    !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
 
   const [editPhase, setEditPhase] = useState<number | null>(
     isDraft && !isMultiPhase ? 0 : null
@@ -58,6 +62,10 @@ export default function EditPhasesModal({
         experiment={experiment}
         i={editPhase}
         mutate={mutateExperiment}
+        editTargeting={() => {
+          editTargeting?.();
+          close();
+        }}
       />
     );
   }
@@ -105,9 +113,9 @@ export default function EditPhasesModal({
                   )}
                 </td>
               ) : null}
-              <td style={{ width: 125 }}>
+              <td className="text-right" style={{ width: 125 }}>
                 <button
-                  className="btn btn-outline-primary mr-2"
+                  className="btn btn-outline-primary"
                   onClick={(e) => {
                     e.preventDefault();
                     setEditPhase(i);
@@ -115,34 +123,39 @@ export default function EditPhasesModal({
                 >
                   Edit
                 </button>
-                <DeleteButton
-                  displayName="phase"
-                  additionalMessage={
-                    experiment.phases.length === 1
-                      ? "This is the only phase. Deleting this will revert the experiment to a draft."
-                      : ""
-                  }
-                  onClick={async () => {
-                    await apiCall(`/experiment/${experiment.id}/phase/${i}`, {
-                      method: "DELETE",
-                    });
-                    mutateExperiment();
-                  }}
-                />
+                {(experiment.status !== "running" || !hasLinkedChanges) && (
+                  <DeleteButton
+                    className="ml-2"
+                    displayName="phase"
+                    additionalMessage={
+                      experiment.phases.length === 1
+                        ? "This is the only phase. Deleting this will revert the experiment to a draft."
+                        : ""
+                    }
+                    onClick={async () => {
+                      await apiCall(`/experiment/${experiment.id}/phase/${i}`, {
+                        method: "DELETE",
+                      });
+                      mutateExperiment();
+                    }}
+                  />
+                )}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      <button
-        className="btn btn-primary"
-        onClick={(e) => {
-          e.preventDefault();
-          setEditPhase(-1);
-        }}
-      >
-        <GBAddCircle /> New Phase
-      </button>
+      {(experiment.status !== "running" || !hasLinkedChanges) && (
+        <button
+          className="btn btn-primary"
+          onClick={(e) => {
+            e.preventDefault();
+            setEditPhase(-1);
+          }}
+        >
+          <GBAddCircle /> New Phase
+        </button>
+      )}
     </Modal>
   );
 }

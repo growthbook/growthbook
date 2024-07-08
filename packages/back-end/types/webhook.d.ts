@@ -10,4 +10,24 @@ export interface WebhookInterface {
   lastSuccess: Date | null;
   error: string;
   created: Date;
+  useSdkMode: boolean;
+  /** @deprecated */
+  sendPayload?: boolean;
+  payloadFormat?: WebhookPayloadFormat;
+  sdks: string[];
+  headers?: string;
+  httpMethod?: WebhookMethod;
 }
+
+export type WebhookMethod = "GET" | "PUT" | "POST" | "DELETE" | "PURGE";
+
+export type WebhookPayloadFormat =
+  | "standard"
+  | "standard-no-payload"
+  | "sdkPayload"
+  | "none";
+
+export type {
+  UpdateSdkWebhookProps,
+  CreateSdkWebhookProps,
+} from "../src/models/WebhookModel";

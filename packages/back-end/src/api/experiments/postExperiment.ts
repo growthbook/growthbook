@@ -10,17 +10,18 @@ import {
 } from "../../services/experiments";
 import { createApiRequestHandler } from "../../util/handler";
 import { postExperimentValidator } from "../../validators/openapi";
+import { getUserByEmail } from "../../models/UserModel";
+import { upsertWatch } from "../../models/WatchModel";
 
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req): Promise<PostExperimentResponse> => {
-    req.checkPermissions("createAnalyses", req.body.project);
+    if (!req.context.permissions.canCreateExperiment(req.body)) {
+      req.context.permissions.throwPermissionError();
+    }
 
-    const { datasourceId } = req.body;
+    const { datasourceId, owner: ownerEmail } = req.body;
 
-    const datasource = await getDataSourceById(
-      datasourceId,
-      req.organization.id
-    );
+    const datasource = await getDataSourceById(req.context, datasourceId);
 
     if (!datasource) {
       throw new Error(`Invalid data source: ${datasourceId}`);
@@ -39,7 +40,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     // check if tracking key is unique
     const existingByTrackingKey = await getExperimentByTrackingKey(
-      req.organization.id,
+      req.context,
       req.body.trackingKey
     );
     if (existingByTrackingKey) {
@@ -48,21 +49,47 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       );
     }
 
+    const ownerId = await (async () => {
+      if (!ownerEmail) return req.context.userId;
+
+      const user = await getUserByEmail(ownerEmail);
+
+      // check if the user is a member of the organization
+      const isMember = req.organization.members.some(
+        (member) => member.id === user?.id
+      );
+
+      if (!isMember || !user) {
+        throw new Error(`Unable to find user: ${ownerEmail}.`);
+      }
+
+      return user.id;
+    })();
+
     // transform into exp interface; set sane defaults
     const newExperiment = postExperimentApiPayloadToInterface(
-      req.body,
+      { ...req.body, ...(ownerId ? { owner: ownerId } : {}) },
       req.organization,
       datasource
     );
 
     const experiment = await createExperiment({
       data: newExperiment,
-      organization: req.organization,
-      user: req.eventAudit,
+      context: req.context,
     });
 
+    if (ownerId) {
+      // add owner as watcher
+      await upsertWatch({
+        userId: ownerId,
+        organization: req.organization.id,
+        item: experiment.id,
+        type: "experiments",
+      });
+    }
+
     const apiExperiment = await toExperimentApiInterface(
-      req.organization,
+      req.context,
       experiment
     );
     return {

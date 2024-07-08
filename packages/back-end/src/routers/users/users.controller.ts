@@ -1,26 +1,36 @@
 import { Response } from "express";
-import { getLicense } from "enterprise";
+import { OrganizationInterface } from "@back-end/types/organization";
 import { AuthRequest } from "../../types/AuthRequest";
 import { usingOpenId } from "../../services/auth";
-import { createUser, getUserByEmail } from "../../services/users";
 import { findOrganizationsByMemberId } from "../../models/OrganizationModel";
 import {
   addMemberFromSSOConnection,
-  findVerifiedOrgForNewUser,
-  getOrgFromReq,
+  findVerifiedOrgsForNewUser,
+  getContextFromReq,
   validateLoginMethod,
 } from "../../services/organizations";
-import { IS_CLOUD } from "../../util/secrets";
-import { UserModel } from "../../models/UserModel";
-import { WatchModel } from "../../models/WatchModel";
+import { createUser, getUserByEmail, updateUser } from "../../models/UserModel";
+import { deleteWatchedByEntity, upsertWatch } from "../../models/WatchModel";
 import { getFeature } from "../../models/FeatureModel";
-import { ensureWatching } from "../../services/experiments";
 import { getExperimentById } from "../../models/ExperimentModel";
+
+function isValidWatchEntityType(type: string): boolean {
+  if (type === "experiment" || type === "feature") {
+    return true;
+  } else {
+    return false;
+  }
+}
 
 export async function getUser(req: AuthRequest, res: Response) {
   // If using SSO, auto-create users in Mongo who we don't recognize yet
   if (!req.userId && usingOpenId()) {
-    const user = await createUser(req.name || "", req.email, "", req.verified);
+    const user = await createUser({
+      name: req.name || "",
+      email: req.email,
+      password: "",
+      verified: req.verified,
+    });
     req.userId = user.id;
   }
 
@@ -64,8 +74,7 @@ export async function getUser(req: AuthRequest, res: Response) {
     userId: userId,
     userName: req.name,
     email: req.email,
-    admin: !!req.admin,
-    license: !IS_CLOUD && getLicense(),
+    superAdmin: !!req.superAdmin,
     organizations: validOrgs.map((org) => {
       return {
         id: org.id,
@@ -80,19 +89,10 @@ export async function putUserName(
   res: Response
 ) {
   const { name } = req.body;
-  const { userId } = getOrgFromReq(req);
+  const { userId } = getContextFromReq(req);
 
   try {
-    await UserModel.updateOne(
-      {
-        id: userId,
-      },
-      {
-        $set: {
-          name,
-        },
-      }
-    );
+    await updateUser(userId, { name });
     res.status(200).json({
       status: 200,
     });
@@ -104,38 +104,27 @@ export async function putUserName(
   }
 }
 
-export async function getWatchedItems(req: AuthRequest, res: Response) {
-  const { org, userId } = getOrgFromReq(req);
-  try {
-    const watch = await WatchModel.findOne({
-      userId: userId,
-      organization: org.id,
-    });
-    res.status(200).json({
-      status: 200,
-      experiments: watch?.experiments || [],
-      features: watch?.features || [],
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e.message,
-    });
-  }
-}
-
 export async function postWatchItem(
   req: AuthRequest<null, { type: string; id: string }>,
   res: Response
 ) {
-  const { org, userId } = getOrgFromReq(req);
+  const context = getContextFromReq(req);
+  const { org, userId } = context;
   const { type, id } = req.params;
   let item;
 
+  if (!isValidWatchEntityType(type)) {
+    return res.status(400).json({
+      status: 400,
+      message:
+        "Invalid entity type. Type must be either experiment or feature.",
+    });
+  }
+
   if (type === "feature") {
-    item = await getFeature(org.id, id);
+    item = await getFeature(context, id);
   } else if (type === "experiment") {
-    item = await getExperimentById(org.id, id);
+    item = await getExperimentById(context, id);
     if (item && item.organization !== org.id) {
       res.status(403).json({
         status: 403,
@@ -147,11 +136,13 @@ export async function postWatchItem(
   if (!item) {
     throw new Error(`Could not find ${item}`);
   }
-  if (type == "feature") {
-    await ensureWatching(userId, org.id, id, "features");
-  } else {
-    await ensureWatching(userId, org.id, id, "experiments");
-  }
+
+  await upsertWatch({
+    userId,
+    organization: org.id,
+    item: id,
+    type: type === "experiment" ? "experiments" : "features", // Pluralizes entity type for the Watch model,
+  });
 
   return res.status(200).json({
     status: 200,
@@ -162,22 +153,24 @@ export async function postUnwatchItem(
   req: AuthRequest<null, { type: string; id: string }>,
   res: Response
 ) {
-  const { org, userId } = getOrgFromReq(req);
+  const { org, userId } = getContextFromReq(req);
   const { type, id } = req.params;
-  const pluralType = type + "s";
+
+  if (!isValidWatchEntityType(type)) {
+    return res.status(400).json({
+      status: 400,
+      message:
+        "Invalid entity type. Type must be either experiment or feature.",
+    });
+  }
 
   try {
-    await WatchModel.updateOne(
-      {
-        userId: userId,
-        organization: org.id,
-      },
-      {
-        $pull: {
-          [pluralType]: id,
-        },
-      }
-    );
+    await deleteWatchedByEntity({
+      organization: org.id,
+      userId,
+      type: type === "experiment" ? "experiments" : "features", // Pluralizes entity type for the Watch model
+      item: id,
+    });
 
     return res.status(200).json({
       status: 200,
@@ -190,7 +183,7 @@ export async function postUnwatchItem(
   }
 }
 
-export async function getRecommendedOrg(req: AuthRequest, res: Response) {
+export async function getRecommendedOrgs(req: AuthRequest, res: Response) {
   const { email } = req;
   const user = await getUserByEmail(email);
   if (!user?.verified) {
@@ -198,18 +191,26 @@ export async function getRecommendedOrg(req: AuthRequest, res: Response) {
       message: "no verified user found",
     });
   }
-  const org = await findVerifiedOrgForNewUser(email);
-  if (org) {
-    const currentUserIsPending = !!org?.pendingMembers?.find(
-      (m) => m.id === user.id
-    );
+  const orgs = await findVerifiedOrgsForNewUser(email);
+
+  // Filter out orgs that the user is already a member of
+  const joinableOrgs = orgs?.filter((org) => {
+    return !org.members.find((m) => m.id === user.id);
+  });
+
+  if (joinableOrgs) {
     return res.status(200).json({
-      organization: {
-        id: org.id,
-        name: org.name,
-        members: org?.members?.length || 0,
-        currentUserIsPending,
-      },
+      organizations: joinableOrgs.map((org: OrganizationInterface) => {
+        const currentUserIsPending = !!org?.pendingMembers?.find(
+          (m) => m.id === user.id
+        );
+        return {
+          id: org.id,
+          name: org.name,
+          members: org?.members?.length || 0,
+          currentUserIsPending,
+        };
+      }),
     });
   }
   res.status(200).json({

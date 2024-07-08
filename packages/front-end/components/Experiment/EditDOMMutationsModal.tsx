@@ -1,13 +1,15 @@
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { VisualChange } from "back-end/types/visual-changeset";
 import { FC, useCallback, useState } from "react";
 import Code from "@/components/SyntaxHighlighting/Code";
-import Modal from "../Modal";
+import Modal from "@/components/Modal";
 
 const EditDOMMutatonsModal: FC<{
+  experiment: ExperimentInterfaceStringDates;
   visualChange: VisualChange;
   close: () => void;
   onSave: (newVisualChange: VisualChange) => void;
-}> = ({ close, visualChange, onSave }) => {
+}> = ({ experiment, close, visualChange, onSave }) => {
   const [newVisualChange, setNewVisualChange] = useState<VisualChange>(
     visualChange
   );
@@ -52,6 +54,13 @@ const EditDOMMutatonsModal: FC<{
       cta="Save"
     >
       <div>
+        {experiment.status === "running" && (
+          <div className="alert alert-warning">
+            <strong>Warning:</strong> This experiment is currently running. Any
+            changes made here may introduce unpredictable effects in your
+            experiment results.
+          </div>
+        )}
         <div className="mb-4">
           <h4>
             Global CSS
