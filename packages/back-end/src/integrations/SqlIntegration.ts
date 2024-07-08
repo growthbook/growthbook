@@ -3427,7 +3427,7 @@ AND event_name = '${eventName}'`,
     );
   }
 
-  //MKTODO: How can I refactor getFactTableCTE to work for metrics or fact segments
+  //MKTODO: Explore how can I refactor getFactTableCTE to work for metrics or fact segments
   private getFactTableCTEForSegments({
     factTable,
     baseIdType,
@@ -3684,34 +3684,26 @@ AND event_name = '${eventName}'`,
         sqlVars,
       });
 
-      if (factTable?.sql && segment.filters?.length) {
-        //TODO: Wrap this is a named function getFilterWhereClause or something
-        const filterClauses: string[] = [];
+      const where: string[] = [];
 
+      if (segment.filters?.length) {
         segment.filters.forEach((filter) => {
           const filterObj = factTable.filters.find(
             (factFilter) => factFilter.id === filter
           );
 
           if (filterObj) {
-            filterClauses.push(filterObj.value);
+            where.push(filterObj.value);
           }
         });
-
-        let whereClause = "WHERE ";
-
-        if (filterClauses.length) {
-          filterClauses.forEach((filterClause, i) => {
-            if (i === 0) {
-              whereClause += filterClause;
-            } else {
-              whereClause += ` AND WHERE ${filterClause}`;
-            }
-          });
-
-          return `SELECT * FROM (\n${segmentSql}\n) t ` + whereClause;
-        }
       }
+
+      return (
+        `-- Segment (${segment.name})
+        SELECT * FROM (\n${segmentSql}\n) t ` +
+        `
+      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}`
+      );
     }
     const dateCol = this.castUserDateCol("s.date");
 
