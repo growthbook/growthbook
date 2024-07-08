@@ -136,7 +136,7 @@ export const config = checkConfig({
     defaultValue: DEFAULT_PROPER_PRIOR_STDDEV,
   },
   proper: {
-    title: "Modify metric priors",
+    title: "Use proper prior",
     metricType: "all",
     type: "boolean",
     defaultSettingsValue: (priorSettings, s) =>
