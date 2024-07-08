@@ -35,7 +35,7 @@ type SDKVersionData = {
   capabilities?: string[];
 };
 
-const sdks: SDKRecords = {
+export const sdks: SDKRecords = {
   "nocode-other": nocode_json,
   "nocode-webflow": nocode_json,
   "nocode-shopify": nocode_json,
