@@ -22,6 +22,7 @@ import {
   getMatchingRules,
   MatchingRule,
   validateCondition,
+  isDefined,
 } from "shared/util";
 import {
   ExperimentMetricInterface,
@@ -39,7 +40,6 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
-  MetricForSnapshot,
   SnapshotVariation,
 } from "../../types/experiment-snapshot";
 import {
@@ -70,7 +70,6 @@ import {
   LinkedFeatureState,
 } from "../../types/experiment";
 import { findDimensionById } from "../models/DimensionModel";
-import { findSegmentById } from "../models/SegmentModel";
 import {
   DEFAULT_CONVERSION_WINDOW_HOURS,
   EXPERIMENT_REFRESH_FREQUENCY,
@@ -96,7 +95,6 @@ import {
   updateExperimentValidator,
 } from "../validators/openapi";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { findProjectById } from "../models/ProjectModel";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
@@ -106,6 +104,7 @@ import { getFeaturesByIds } from "../models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel";
 import { ExperimentRefRule, FeatureRule } from "../../types/feature";
 import { ApiReqContext } from "../../types/api";
+import { ProjectInterface } from "../../types/project";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import {
@@ -159,7 +158,7 @@ export async function refreshMetric(
     let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
       segment =
-        (await findSegmentById(metric.segment, context.org.id)) || undefined;
+        (await context.models.segments.getById(metric.segment)) || undefined;
       if (!segment || segment.datasource !== metric.datasource) {
         throw new Error("Invalid user segment chosen");
       }
@@ -404,7 +403,7 @@ export function getSnapshotSettings({
         experiment.metricOverrides
       )
     )
-    .filter(Boolean) as MetricForSnapshot[];
+    .filter(isDefined);
 
   return {
     manual: !experiment.datasource,
@@ -766,10 +765,10 @@ export async function toExperimentApiInterface(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
 ): Promise<ApiExperiment> {
-  let project = null;
+  let project: ProjectInterface | null = null;
   const organization = context.org;
   if (experiment.project) {
-    project = await findProjectById(context, experiment.project);
+    project = await context.models.projects.getById(experiment.project);
   }
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -1967,7 +1966,7 @@ export async function getSettingsForSnapshotMetrics(
   ]);
   const allExperimentMetrics = allExperimentMetricIds
     .map((id) => metricMap.get(id))
-    .filter(Boolean);
+    .filter(isDefined);
 
   const denominatorMetrics = allExperimentMetrics
     .filter((m) => m && !isFactMetric(m) && m.denominator)

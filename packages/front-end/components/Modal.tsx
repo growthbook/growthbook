@@ -1,4 +1,11 @@
-import { FC, useRef, useEffect, useState, ReactNode } from "react";
+import {
+  FC,
+  useRef,
+  useEffect,
+  useState,
+  ReactNode,
+  CSSProperties,
+} from "react";
 import clsx from "clsx";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
@@ -35,6 +42,7 @@ type ModalProps = {
   bodyClassName?: string;
   formRef?: React.RefObject<HTMLFormElement>;
   customValidation?: () => Promise<boolean> | boolean;
+  increasedElevation?: boolean;
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
@@ -66,6 +74,7 @@ const Modal: FC<ModalProps> = ({
   bodyClassName = "",
   formRef,
   customValidation,
+  increasedElevation,
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -222,11 +231,15 @@ const Modal: FC<ModalProps> = ({
     </div>
   );
 
-  const overlayStyle = solidOverlay
+  const overlayStyle: CSSProperties = solidOverlay
     ? {
         opacity: 1,
       }
     : {};
+
+  if (increasedElevation) {
+    overlayStyle.zIndex = 1500;
+  }
 
   const modalHtml = (
     <div
@@ -234,7 +247,7 @@ const Modal: FC<ModalProps> = ({
       style={{
         display: open ? "block" : "none",
         position: inline ? "relative" : undefined,
-        zIndex: inline ? 1 : undefined,
+        zIndex: inline ? 1 : increasedElevation ? 1550 : undefined,
       }}
     >
       <div
@@ -252,6 +265,7 @@ const Modal: FC<ModalProps> = ({
             ref={formRef}
             onSubmit={async (e) => {
               e.preventDefault();
+              e.stopPropagation();
               if (loading) return;
               setError(null);
               setLoading(true);

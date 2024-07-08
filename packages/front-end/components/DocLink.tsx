@@ -14,6 +14,7 @@ const docSections = {
   api: "/app/api",
   eventWebhooks: "/app/webhooks/event-webhooks",
   sdkWebhooks: "/app/webhooks/sdk-webhooks",
+  "sdkWebhooks#payload-format": "/app/webhooks/sdk-webhooks#payload-format",
   //DataSourceType
   athena: "/app/datasources#aws-athena",
   mixpanel: "/guide/mixpanel",
@@ -35,6 +36,10 @@ const docSections = {
   elixir: "/lib/elixir",
   flutter: "/lib/flutter",
   nocode: "/lib/script-tag",
+  cloudflare: "/lib/edge/cloudflare",
+  fastly: "/lib/edge/fastly",
+  lambda: "/lib/edge/lambda",
+  edge: "/lib/edge/other",
   //Other
   user_guide: "/app",
   config: "/self-host/config",

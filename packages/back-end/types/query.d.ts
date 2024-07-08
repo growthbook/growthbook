@@ -31,6 +31,7 @@ export type QueryType =
   | "experimentMetric"
   | "dimensionSlices"
   | "experimentUnits"
+  | "experimentDropUnitsTable"
   | "experimentResults"
   | "experimentTraffic"
   | "experimentMultiMetric";
@@ -51,7 +52,8 @@ export interface QueryInterface {
   queryType?: QueryType;
   rawResult?: Record<string, number | string | boolean | object>[];
   error?: string;
-  dependencies?: string[];
+  dependencies?: string[]; // must succeed before running query
+  runAtEnd?: boolean; // only run when all other queries in model finish
   cachedQueryUsed?: string;
   statistics?: QueryStatistics;
   externalId?: string;

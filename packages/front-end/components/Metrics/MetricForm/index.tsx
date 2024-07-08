@@ -9,6 +9,7 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { FaArrowRight, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
+  DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_WIN_RISK_THRESHOLD,
@@ -347,7 +348,14 @@ const MetricForm: FC<MetricFormProps> = ({
         current.regressionAdjustmentDays ??
         settings.regressionAdjustmentDays ??
         DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
-      priorSettings: current.priorSettings || metricDefaults.priorSettings,
+      priorSettings:
+        current.priorSettings ||
+        (metricDefaults.priorSettings ?? {
+          override: false,
+          proper: false,
+          mean: 0,
+          stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+        }),
     },
   });
 

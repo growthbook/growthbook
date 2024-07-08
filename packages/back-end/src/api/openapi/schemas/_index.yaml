@@ -6,6 +6,8 @@ Metric:
   $ref: "./Metric.yaml"
 Project:
   $ref: "./Project.yaml"
+Environment:
+  $ref: "./Environment.yaml"
 Segment:
   $ref: "./Segment.yaml"
 Feature:

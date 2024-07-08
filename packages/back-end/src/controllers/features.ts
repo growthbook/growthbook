@@ -20,6 +20,7 @@ import {
   FeaturePrerequisite,
   FeatureRule,
   FeatureTestResult,
+  JSONSchemaDef,
 } from "../../types/feature";
 import { AuthRequest } from "../types/AuthRequest";
 import {
@@ -38,6 +39,7 @@ import {
   editFeatureRule,
   getAllFeaturesWithLinkedExperiments,
   getFeature,
+  hasArchivedFeatures,
   migrateDraft,
   publishRevision,
   setDefaultValue,
@@ -446,6 +448,11 @@ export async function postFeatures(
     version: 1,
     hasDrafts: false,
     jsonSchema: {
+      schemaType: "schema",
+      simple: {
+        type: "object",
+        fields: [],
+      },
       schema: "",
       date: new Date(),
       enabled: false,
@@ -1444,12 +1451,12 @@ export async function postFeatureDefaultValue(
 }
 
 export async function postFeatureSchema(
-  req: AuthRequest<{ schema: string; enabled: boolean }, { id: string }>,
+  req: AuthRequest<Omit<JSONSchemaDef, "date">, { id: string }>,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { schema, enabled } = req.body;
+  const schemaDef = req.body;
   const feature = await getFeature(context, id);
 
   if (!feature) {
@@ -1463,7 +1470,7 @@ export async function postFeatureSchema(
     context.permissions.throwPermissionError();
   }
 
-  const updatedFeature = await setJsonSchema(context, feature, schema, enabled);
+  const updatedFeature = await setJsonSchema(context, feature, schemaDef);
 
   await req.audit({
     event: "feature.update",
@@ -1954,7 +1961,11 @@ export async function postFeatureArchive(
 }
 
 export async function getFeatures(
-  req: AuthRequest<unknown, unknown, { project?: string }>,
+  req: AuthRequest<
+    unknown,
+    unknown,
+    { project?: string; includeArchived?: boolean }
+  >,
   res: Response
 ) {
   const context = getContextFromReq(req);
@@ -1963,16 +1974,25 @@ export async function getFeatures(
   if (typeof req.query?.project === "string") {
     project = req.query.project;
   }
+  const includeArchived = !!req.query.includeArchived;
 
   const { features, experiments } = await getAllFeaturesWithLinkedExperiments(
     context,
-    project
+    {
+      project,
+      includeArchived,
+    }
   );
+
+  const hasArchived = includeArchived
+    ? features.some((f) => f.archived)
+    : await hasArchivedFeatures(context, project);
 
   res.status(200).json({
     status: 200,
     features,
     linkedExperiments: experiments,
+    hasArchived,
   });
 }
 

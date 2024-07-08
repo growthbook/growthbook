@@ -1,8 +1,12 @@
-import React, { useState } from "react";
+import React, { ReactElement, useState } from "react";
 import { WebhookInterface } from "back-end/types/webhook";
-import { FaCheck, FaInfoCircle } from "react-icons/fa";
+import {
+  FaCheck,
+  FaExclamationTriangle,
+  FaInfoCircle,
+  FaPaperPlane,
+} from "react-icons/fa";
 import { ago } from "shared/dates";
-import { BsArrowRepeat } from "react-icons/bs";
 import { SDKConnectionInterface } from "@back-end/types/sdk-connection";
 import useApi from "@/hooks/useApi";
 import WebhooksModal from "@/components/Settings/WebhooksModal";
@@ -16,6 +20,19 @@ import { GBAddCircle } from "@/components/Icons";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
+
+const payloadFormatLabels: Record<string, string | ReactElement> = {
+  standard: "Standard",
+  "standard-no-payload": (
+    <>
+      Standard
+      <br />
+      (no SDK Payload)
+    </>
+  ),
+  sdkPayload: "SDK Payload only",
+  none: "none",
+};
 
 export default function SdkWebhooks({
   connection,
@@ -45,10 +62,20 @@ export default function SdkWebhooks({
     // only render table if there is data to show
     return data?.webhooks?.map((webhook) => (
       <tr key={webhook.name}>
-        <td>{webhook.name}</td>
-        <td>{webhook.endpoint}</td>
-        <td>{webhook.sendPayload ? "yes" : "no"}</td>
-        <td>
+        <td style={{ minWidth: 150 }}>{webhook.name}</td>
+        <td
+          style={{
+            wordBreak: "break-word",
+            overflowWrap: "anywhere",
+          }}
+        >
+          <code className="text-main small">{webhook.endpoint}</code>
+        </td>
+        <td className="small">{webhook.httpMethod}</td>
+        <td className="small">
+          {payloadFormatLabels?.[webhook?.payloadFormat ?? "standard"]}
+        </td>
+        <td className="nowrap">
           {webhook.signingKey ? (
             <ClickToReveal
               valueWhenHidden="wk_abc123def456ghi789"
@@ -60,11 +87,25 @@ export default function SdkWebhooks({
         </td>
         <td>
           {webhook.error ? (
-            <span className="text-danger">
-              Error <Tooltip body={webhook.error} />
-            </span>
+            <>
+              <span className="text-danger">
+                <FaExclamationTriangle /> error
+              </span>
+              <Tooltip
+                className="ml-1"
+                innerClassName="pb-1"
+                usePortal={true}
+                body={
+                  <>
+                    <div className="alert alert-danger mt-2">
+                      {webhook.error}
+                    </div>
+                  </>
+                }
+              />
+            </>
           ) : webhook.lastSuccess ? (
-            <em>
+            <em className="small">
               <FaCheck className="text-success" /> {ago(webhook.lastSuccess)}
             </em>
           ) : (
@@ -73,8 +114,9 @@ export default function SdkWebhooks({
         </td>
         <td>
           <Button
-            color="link"
+            color="outline-primary"
             className="btn-sm"
+            style={{ width: 80 }}
             disabled={!canUpdateWebhook}
             onClick={async () => {
               await apiCall(`/sdk-webhooks/${webhook.id}/test`, {
@@ -83,11 +125,12 @@ export default function SdkWebhooks({
               mutate();
             }}
           >
-            <BsArrowRepeat /> Test Webhook
+            <FaPaperPlane className="mr-1" />
+            Test
           </Button>
         </td>
-        <td>
-          <div className="col-auto">
+        <td className="px-0">
+          <div className="col-auto mr-1">
             <MoreMenu>
               {canUpdateWebhook ? (
                 <button
@@ -175,13 +218,14 @@ export default function SdkWebhooks({
         <table className="table appbox gbtable mb-0">
           <thead>
             <tr>
-              <td>WEBHOOK</td>
-              <td>ENDPOINT</td>
-              <td>SEND PAYLOAD</td>
-              <td>SHARED SECRET</td>
-              <td>LAST SUCCESS</td>
-              <td>TEST WEBHOOK</td>
-              <td style={{ width: 50 }}></td>
+              <th>Webhook</th>
+              <th>Endpoint</th>
+              <th>Method</th>
+              <th style={{ width: 130 }}>Format</th>
+              <th>Shared Secret</th>
+              <th style={{ width: 125 }}>Last Success</th>
+              <th />
+              <th className="px-0" style={{ width: 35 }} />
             </tr>
           </thead>
           <tbody>{renderTableRows()}</tbody>

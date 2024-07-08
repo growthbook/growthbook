@@ -55,6 +55,10 @@ router.put(
   "/organization/default-role",
   organizationsController.putDefaultRole
 );
+router.put(
+  "/organization/get-started-checklist",
+  organizationsController.putGetStartedChecklistItem
+);
 
 // API keys
 router.get("/keys", organizationsController.getApiKeys);
@@ -87,5 +91,14 @@ if (!IS_CLOUD) {
     organizationsController.addOrphanedUser
   );
 }
+
+// Custom Roles
+router.post("/custom-roles", organizationsController.postCustomRole);
+router.put("/custom-roles/:id", organizationsController.putCustomRole);
+router.delete("/custom-roles/:id", organizationsController.deleteCustomRole);
+
+// Standard Roles
+router.post("/role/:id/deactivate", organizationsController.deactivateRole);
+router.post("/role/:id/activate", organizationsController.activateRole);
 
 export { router as organizationsRouter };

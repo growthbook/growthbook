@@ -7,7 +7,7 @@
     "lint:ci": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content",
     "pretty": "prettier --write ./**/*.{json,css,scss,md,mdx}",
     "type-check": "wsrun -m type-check",
-    "clean": "rimraf node_modules && wsrun -m clean && yarn cache clean",
+    "clean": "wsrun -m clean && rimraf node_modules && yarn cache clean",
     "unused-export-check": "wsrun -m unused-export-check",
     "test": "wsrun -m test",
     "dev:apps": "wsrun -p 'back-end' -p 'front-end' -p 'shared' -p 'enterprise' -c dev",
@@ -65,7 +65,7 @@
     ]
   },
   "resolutions": {
-    "@growthbook/growthbook": "1.0.0"
+    "@growthbook/growthbook": "1.1.0"
   },
   "prettier": {
     "overrides": [

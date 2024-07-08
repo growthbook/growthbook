@@ -56,6 +56,7 @@ export default function EditDefaultValueModal({
       })}
       close={close}
       open={true}
+      size={feature.valueType === "json" ? "lg" : "md"}
     >
       <div className="alert alert-info">
         Changes here will be added to a draft revision. You will have a chance
@@ -67,6 +68,8 @@ export default function EditDefaultValueModal({
         value={form.watch("defaultValue")}
         setValue={(v) => form.setValue("defaultValue", v)}
         valueType={feature.valueType}
+        feature={feature}
+        renderJSONInline={true}
       />
     </Modal>
   );

@@ -8,11 +8,14 @@
     "moduleResolution": "node",
     "sourceMap": true,
     "outDir": "dist",
-    "typeRoots": ["node_modules/@types"],
+    "typeRoots": ["node_modules/@types", "../back-end/typings"],
     "strictNullChecks": true,
     "strictBindCallApply": true,
     "strictPropertyInitialization": true,
     "rootDir": "src",
+    "paths": {
+      "@back-end/*": ["../back-end/*"]
+    },
     "resolveJsonModule": true
   },
   "include": ["src/**/*", "typings.d.ts"]

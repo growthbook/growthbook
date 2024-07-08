@@ -1,4 +1,4 @@
-import { MemberRole, ProjectMemberRole } from "./organization";
+import { ProjectMemberRole } from "./organization";
 
 export interface TeamInterface {
   id: string;
@@ -8,7 +8,7 @@ export interface TeamInterface {
   dateUpdated: Date;
   createdBy: string;
   description: string;
-  role: MemberRole;
+  role: string;
   limitAccessByEnvironment: boolean;
   environments: string[];
   projectRoles?: ProjectMemberRole[];

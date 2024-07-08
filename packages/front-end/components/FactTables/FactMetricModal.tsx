@@ -6,6 +6,7 @@ import {
   DEFAULT_FACT_METRIC_WINDOW,
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_WIN_RISK_THRESHOLD,
@@ -393,7 +394,14 @@ export default function FactMetricModal({
         existing?.regressionAdjustmentDays ||
         (settings.regressionAdjustmentDays ??
           DEFAULT_REGRESSION_ADJUSTMENT_DAYS),
-      priorSettings: existing?.priorSettings || metricDefaults.priorSettings,
+      priorSettings:
+        existing?.priorSettings ||
+        (metricDefaults.priorSettings ?? {
+          override: false,
+          proper: false,
+          mean: 0,
+          stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+        }),
     },
   });
 
@@ -480,6 +488,15 @@ export default function FactMetricModal({
       submit={form.handleSubmit(async (values) => {
         if (values.denominator && !values.denominator.factTableId) {
           values.denominator = null;
+        }
+
+        if (values.priorSettings === undefined) {
+          values.priorSettings = {
+            override: false,
+            proper: false,
+            mean: 0,
+            stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+          };
         }
 
         if (values.metricType === "ratio" && !values.denominator)

@@ -3,7 +3,8 @@ import { omit } from "lodash";
 import uniqid from "uniqid";
 import md5 from "md5";
 import { z } from "zod";
-import { ReqContext } from "@back-end/types/organization";
+import { ReqContext } from "../../types/organization";
+import { migrateWebhookModel } from "../util/migrations";
 import { WebhookInterface } from "../../types/webhook";
 
 const webhookSchema = new mongoose.Schema({
@@ -29,7 +30,9 @@ const webhookSchema = new mongoose.Schema({
     type: [String],
     index: true,
   },
+  /** @deprecated */
   sendPayload: Boolean,
+  payloadFormat: String,
   headers: String,
   httpMethod: String,
 });
@@ -39,7 +42,9 @@ type WebhookDocument = mongoose.Document & WebhookInterface;
 const WebhookModel = mongoose.model<WebhookInterface>("Webhook", webhookSchema);
 
 function toInterface(doc: WebhookDocument): WebhookInterface {
-  return omit(doc.toJSON<WebhookDocument>(), ["__v", "_id"]);
+  return migrateWebhookModel(
+    omit(doc.toJSON<WebhookDocument>(), ["__v", "_id"])
+  );
 }
 
 export async function findAllSdkWebhooksByConnectionIds(
@@ -74,7 +79,7 @@ export async function findAllLegacySdkWebhooks(
   return (
     await WebhookModel.find({
       organization: context.org.id,
-      useSdkMode: false,
+      useSdkMode: { $ne: true },
     })
   ).map((e) => toInterface(e));
 }
@@ -118,11 +123,13 @@ export async function setLastSdkWebhookError(
 
 export const updateSdkWebhookValidator = z
   .object({
-    endpoint: z.string().optional(),
-    headers: z.string().optional(),
-    httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PURGE"]).optional(),
     name: z.string().optional(),
-    sendPayload: z.boolean().optional(),
+    endpoint: z.string().optional(),
+    payloadFormat: z
+      .enum(["standard", "standard-no-payload", "sdkPayload", "none"])
+      .optional(),
+    httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PURGE"]).optional(),
+    headers: z.string().optional(),
   })
   .strict();
 export type UpdateSdkWebhookProps = z.infer<typeof updateSdkWebhookValidator>;
@@ -157,7 +164,9 @@ const createSdkWebhookValidator = z
   .object({
     name: z.string(),
     endpoint: z.string(),
-    sendPayload: z.boolean(),
+    payloadFormat: z
+      .enum(["standard", "standard-no-payload", "sdkPayload", "none"])
+      .optional(),
     httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PURGE"]),
     headers: z.string(),
   })

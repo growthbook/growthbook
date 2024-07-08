@@ -6,6 +6,7 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import chunk from "lodash/chunk";
+import { ApiReqContext } from "@back-end/types/api";
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotHealth,
@@ -19,7 +20,6 @@ import {
   findSnapshotById,
   updateSnapshot,
 } from "../models/ExperimentSnapshotModel";
-import { findSegmentById } from "../models/SegmentModel";
 import { parseDimensionId } from "../services/experiments";
 import {
   analyzeExperimentResults,
@@ -37,7 +37,6 @@ import {
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
-import { getOrganizationById } from "../services/organizations";
 import { FactTableMap } from "../models/FactTableModel";
 import { OrganizationInterface } from "../../types/organization";
 import { FactMetricInterface } from "../../types/fact-table";
@@ -66,6 +65,8 @@ export type ExperimentResultsQueryParams = {
 };
 
 export const TRAFFIC_QUERY_NAME = "traffic";
+
+export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
 
 export const MAX_METRICS_PER_QUERY = 20;
 
@@ -159,9 +160,9 @@ export function getFactMetricGroups(
 }
 
 export const startExperimentResultQueries = async (
+  context: ApiReqContext,
   params: ExperimentResultsQueryParams,
   integration: SourceIntegrationInterface,
-  organization: OrganizationInterface,
   startQuery: (
     params: StartQueryParams<RowsType, ProcessedRowsType>
   ) => Promise<QueryPointer>
@@ -170,10 +171,8 @@ export const startExperimentResultQueries = async (
   const queryParentId = params.queryParentId;
   const metricMap = params.metricMap;
 
-  const org = await getOrganizationById(organization.id);
-  const hasPipelineModeFeature = org
-    ? orgHasPremiumFeature(org, "pipeline-mode")
-    : false;
+  const { org } = context;
+  const hasPipelineModeFeature = orgHasPremiumFeature(org, "pipeline-mode");
 
   const activationMetric = snapshotSettings.activationMetric
     ? metricMap.get(snapshotSettings.activationMetric) ?? null
@@ -193,9 +192,8 @@ export const startExperimentResultQueries = async (
 
   let segmentObj: SegmentInterface | null = null;
   if (snapshotSettings.segment) {
-    segmentObj = await findSegmentById(
-      snapshotSettings.segment,
-      organization.id
+    segmentObj = await context.models.segments.getById(
+      snapshotSettings.segment
     );
   }
 
@@ -207,7 +205,7 @@ export const startExperimentResultQueries = async (
 
   const dimensionObj = await parseDimensionId(
     snapshotSettings.dimensions[0]?.id,
-    organization.id
+    org.id
   );
 
   const queries: Queries = [];
@@ -223,15 +221,15 @@ export const startExperimentResultQueries = async (
   const unitsTableFullName =
     useUnitsTable && !!integration.generateTablePath
       ? integration.generateTablePath(
-          `growthbook_tmp_units_${queryParentId}`,
+          `${UNITS_TABLE_PREFIX}_${queryParentId}`,
           settings.pipelineSettings?.writeDataset,
-          "",
+          settings.pipelineSettings?.writeDatabase,
           true
         )
       : "";
 
   // Settings for health query
-  const runTrafficQuery = !dimensionObj && org?.settings?.runHealthTrafficQuery;
+  const runTrafficQuery = !dimensionObj && org.settings?.runHealthTrafficQuery;
   let dimensionsForTraffic: ExperimentDimension[] = [];
   if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
     dimensionsForTraffic = exposureQuery.dimensionMetadata
@@ -276,7 +274,7 @@ export const startExperimentResultQueries = async (
     selectedMetrics,
     params.snapshotSettings,
     integration,
-    organization
+    org
   );
 
   const singlePromises = singles.map(async (m) => {
@@ -352,8 +350,9 @@ export const startExperimentResultQueries = async (
 
   await Promise.all([...singlePromises, ...groupPromises]);
 
+  let trafficQuery: QueryPointer | null = null;
   if (runTrafficQuery) {
-    const trafficQuery = await startQuery({
+    trafficQuery = await startQuery({
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
@@ -367,6 +366,26 @@ export const startExperimentResultQueries = async (
       queryType: "experimentTraffic",
     });
     queries.push(trafficQuery);
+  }
+
+  const dropUnitsTable =
+    integration.getSourceProperties().dropUnitsTable &&
+    settings.pipelineSettings?.unitsTableDeletion;
+  if (useUnitsTable && dropUnitsTable) {
+    const dropUnitsTableQuery = await startQuery({
+      name: `drop_${queryParentId}`,
+      query: integration.getDropUnitsTableQuery({
+        fullTablePath: unitsTableFullName,
+      }),
+      dependencies: [],
+      // all other queries in model must succeed or fail first
+      runAtEnd: true,
+      run: (query, setExternalId) =>
+        integration.runDropTableQuery(query, setExternalId),
+      process: (rows) => rows,
+      queryType: "experimentDropUnitsTable",
+    });
+    queries.push(dropUnitsTableQuery);
   }
 
   return queries;
@@ -393,9 +412,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       this.integration.getSourceProperties().separateExperimentResultQueries
     ) {
       return startExperimentResultQueries(
+        this.context,
         params,
         this.integration,
-        this.context.org,
         this.startQuery.bind(this)
       );
     } else {

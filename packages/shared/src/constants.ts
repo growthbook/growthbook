@@ -1,4 +1,4 @@
-export const DEFAULT_STATS_ENGINE = "bayesian";
+export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 
 export const DEFAULT_P_VALUE_THRESHOLD = 0.05;
 

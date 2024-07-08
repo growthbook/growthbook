@@ -132,6 +132,10 @@ export type ProcessedDimensions = {
   activationDimension: ActivationDimension | null;
 };
 
+export interface DropTableQueryParams {
+  fullTablePath: string;
+}
+
 interface ExperimentBaseQueryParams {
   settings: ExperimentSnapshotSettings;
   activationMetric: ExperimentMetricInterface | null;
@@ -314,6 +318,7 @@ export type ExperimentFactMetricsQueryResponse = QueryResponse<ExperimentFactMet
 export type ExperimentUnitsQueryResponse = QueryResponse;
 export type ExperimentAggregateUnitsQueryResponse = QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
 export type DimensionSlicesQueryResponse = QueryResponse<DimensionSlicesQueryResponseRows>;
+export type DropTableQueryResponse = QueryResponse;
 
 export interface TestQueryRow {
   [key: string]: unknown;
@@ -434,6 +439,11 @@ export interface SourceIntegrationInterface {
     sql: string,
     timestampCols?: string[]
   ): Promise<TestQueryResult>;
+  getDropUnitsTableQuery(params: DropTableQueryParams): string;
+  runDropTableQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<DropTableQueryResponse>;
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentFactMetricsQuery?(
     params: ExperimentFactMetricsQueryParams

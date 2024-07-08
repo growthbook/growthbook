@@ -11,6 +11,7 @@ export const postAttribute = async (
 ) => {
   const {
     property,
+    description,
     datatype,
     projects,
     format,
@@ -37,6 +38,7 @@ export const postAttribute = async (
         ...attributeSchema,
         {
           property,
+          description,
           datatype,
           projects,
           format,
@@ -61,6 +63,7 @@ export const postAttribute = async (
             ...attributeSchema,
             {
               property,
+              description,
               datatype,
               projects,
               format,
@@ -83,6 +86,7 @@ export const putAttribute = async (
 ) => {
   const {
     property,
+    description,
     datatype,
     projects,
     format,
@@ -123,6 +127,7 @@ export const putAttribute = async (
   attributeSchema[index] = {
     ...attributeSchema[index],
     property,
+    description,
     datatype,
     projects,
     format,

@@ -20,6 +20,10 @@ import * as go_json from "./sdk-versions/go.json";
 import * as flutter_json from "./sdk-versions/flutter.json";
 import * as csharp_json from "./sdk-versions/csharp.json";
 import * as elixir_json from "./sdk-versions/elixir.json";
+import * as edge_cloudflare_json from "./sdk-versions/edge-cloudflare.json";
+import * as edge_fastly_json from "./sdk-versions/edge-fastly.json";
+import * as edge_lambda_json from "./sdk-versions/edge-lambda.json";
+import * as edge_other_json from "./sdk-versions/edge-other.json";
 import * as other_json from "./sdk-versions/other.json";
 
 type SDKRecords = Record<SDKLanguage, SDKData>;
@@ -31,7 +35,7 @@ type SDKVersionData = {
   capabilities?: string[];
 };
 
-const sdks: SDKRecords = {
+export const sdks: SDKRecords = {
   "nocode-other": nocode_json,
   "nocode-webflow": nocode_json,
   "nocode-shopify": nocode_json,
@@ -49,6 +53,10 @@ const sdks: SDKRecords = {
   flutter: flutter_json,
   csharp: csharp_json,
   elixir: elixir_json,
+  "edge-cloudflare": edge_cloudflare_json,
+  "edge-fastly": edge_fastly_json,
+  "edge-lambda": edge_lambda_json,
+  "edge-other": edge_other_json,
   other: other_json,
 };
 
@@ -72,6 +80,10 @@ const defaultSdkVersions: Record<SDKLanguage, string> = {
   flutter: "1.1.2",
   csharp: "0.2.0",
   elixir: "0.2.0",
+  "edge-cloudflare": "0.1.10",
+  "edge-fastly": "0.1.4",
+  "edge-lambda": "0.0.5",
+  "edge-other": "0.1.3",
   other: "0.0.0",
 };
 

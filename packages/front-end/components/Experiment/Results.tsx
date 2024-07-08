@@ -45,7 +45,7 @@ const Results: FC<{
   regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
   regressionAdjustmentHasValidMetrics?: boolean;
-  onRegressionAdjustmentChange?: (enabled: boolean) => void;
+  onRegressionAdjustmentChange?: (enabled: boolean) => Promise<void>;
   variationFilter?: number[];
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;

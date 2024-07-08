@@ -51,6 +51,7 @@ function ConnectionDot({ left }: { left: boolean }) {
         borderRadius: 20,
         border: "3px solid var(--text-color-primary)",
         background: "#fff",
+        zIndex: 1,
       }}
     />
   );
@@ -116,7 +117,8 @@ function ConnectionStatus({
               </span>
               {errorTxt !== undefined && (
                 <Tooltip
-                  className="ml-2"
+                  className="ml-1"
+                  innerClassName="pb-1"
                   usePortal={true}
                   body={
                     <>
@@ -193,7 +195,7 @@ export default function SDKConnectionPage() {
     ...disallowedProjectIds,
   ];
 
-  const hasProxy = connection?.proxy?.enabled && !!connection?.proxy?.host;
+  const hasProxy = connection?.proxy?.enabled;
 
   if (error) {
     return <div className="alert alert-danger">{error.message}</div>;
@@ -419,13 +421,15 @@ export default function SDKConnectionPage() {
               }
             >
               <code className="text-muted">
-                {connection.proxy.host || connection.proxy.hostExternal}
+                {connection.proxy.host ||
+                  connection.proxy.hostExternal ||
+                  "https://proxy.yoursite.io"}
               </code>
             </ConnectionNode>
 
             <ConnectionStatus
               connected={connection.proxy.connected}
-              canRefresh={canUpdate}
+              canRefresh={canUpdate && !!connection.proxy.host}
               error={!connection.proxy.connected}
               errorTxt={connection.proxy.error}
               refresh={

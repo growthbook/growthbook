@@ -57,10 +57,9 @@ export {
   helpers,
   onVisible,
   onHidden,
-  prefetchPayload,
 } from "./feature-repository";
 
-export { GrowthBook } from "./GrowthBook";
+export { GrowthBook, prefetchPayload } from "./GrowthBook";
 
 export {
   StickyBucketService,

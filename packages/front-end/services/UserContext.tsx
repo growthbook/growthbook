@@ -4,7 +4,6 @@ import { TeamInterface } from "back-end/types/team";
 import {
   EnvScopedPermission,
   GlobalPermission,
-  MemberRole,
   ExpandedMember,
   OrganizationInterface,
   OrganizationSettings,
@@ -12,6 +11,7 @@ import {
   Role,
   ProjectScopedPermission,
   UserPermissions,
+  SubscriptionQuote,
 } from "back-end/types/organization";
 import type {
   AccountPlan,
@@ -31,7 +31,11 @@ import {
 } from "react";
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import { Permissions, userHasPermission } from "shared/permissions";
+import {
+  Permissions,
+  getDefaultRole,
+  userHasPermission,
+} from "shared/permissions";
 import { isCloud, isMultiOrg, isSentryEnabled } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
@@ -54,6 +58,10 @@ type OrgSettingsResponse = {
   licenseKey?: string;
   currentUserPermissions: UserPermissions;
   teams: TeamInterface[];
+  watching: {
+    experiments: string[];
+    features: string[];
+  };
 };
 
 export interface PermissionFunctions {
@@ -89,11 +97,13 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   manageIntegrations: false,
   organizationSettings: false,
   superDeleteReport: false,
-  viewEvents: false,
+  viewAuditLog: false,
   readData: false,
+  manageCustomRoles: false,
 };
 
 export interface UserContextValue {
+  ready?: boolean;
   userId?: string;
   name?: string;
   email?: string;
@@ -119,6 +129,11 @@ export interface UserContextValue {
   error?: string;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
   permissionsUtil: Permissions;
+  quote: SubscriptionQuote | null;
+  watching: {
+    experiments: string[];
+    features: string[];
+  };
 }
 
 interface UserResponse {
@@ -162,6 +177,11 @@ export const UserContext = createContext<UserContextValue>({
     },
     false
   ),
+  quote: null,
+  watching: {
+    experiments: [],
+    features: [],
+  },
 });
 
 export function useUser() {
@@ -171,24 +191,33 @@ export function useUser() {
 let currentUser: null | {
   id: string;
   org: string;
-  role: MemberRole | "";
+  role: string;
 } = null;
 export function getCurrentUser() {
   return currentUser;
 }
 
 export function UserContextProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated, apiCall, orgId, setOrganizations } = useAuth();
+  const { isAuthenticated, orgId, setOrganizations } = useAuth();
 
-  const [data, setData] = useState<null | UserResponse>(null);
-  const [error, setError] = useState("");
+  const { data, mutate: mutateUser, error } = useApi<UserResponse>(`/user`, {
+    shouldRun: () => isAuthenticated,
+    orgScoped: false,
+  });
+
+  const updateUser = useCallback(async () => {
+    await mutateUser();
+  }, [mutateUser]);
+
   const router = useRouter();
 
   const {
     data: currentOrg,
     mutate: refreshOrganization,
     error: orgLoadingError,
-  } = useApi<OrgSettingsResponse>(isAuthenticated ? `/organization` : null);
+  } = useApi<OrgSettingsResponse>(`/organization`, {
+    shouldRun: () => !!orgId,
+  });
 
   const [hashedOrganizationId, setHashedOrganizationId] = useState<string>("");
   useEffect(() => {
@@ -198,19 +227,11 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     });
   }, [currentOrg?.organization?.id]);
 
-  const updateUser = useCallback(async () => {
-    try {
-      const res = await apiCall<UserResponse>("/user", {
-        method: "GET",
-      });
-      setData(res);
-      if (res.organizations && setOrganizations) {
-        setOrganizations(res.organizations);
-      }
-    } catch (e) {
-      setError(e.message);
+  useEffect(() => {
+    if (data?.organizations && setOrganizations) {
+      setOrganizations(data.organizations);
     }
-  }, [apiCall, setOrganizations]);
+  }, [data, setOrganizations]);
 
   const users = useMemo(() => {
     const userMap = new Map<string, ExpandedMember>();
@@ -254,7 +275,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   const role =
     (data?.superAdmin && "admin") ||
-    (user?.role ?? currentOrg?.organization?.settings?.defaultRole?.role);
+    (user?.role ?? getDefaultRole(currentOrg?.organization || {}).role);
 
   // Update current user data for telemetry data
   useEffect(() => {
@@ -265,21 +286,11 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     };
   }, [orgId, data?.userId, role]);
 
-  // Refresh organization data when switching orgs or license key changes
   useEffect(() => {
-    if (orgId) {
-      void refreshOrganization();
+    if (orgId && data?.userId) {
       track("Organization Loaded");
     }
-  }, [orgId, refreshOrganization]);
-
-  // Once authenticated, get userId, orgId from API
-  useEffect(() => {
-    if (!isAuthenticated) {
-      return;
-    }
-    void updateUser();
-  }, [isAuthenticated, updateUser]);
+  }, [orgId, data?.userId]);
 
   // Update growthbook tarageting attributes
   const growthbook = useGrowthBook<AppFeatures>();
@@ -355,21 +366,63 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     permissionsCheck,
   ]);
 
-  const permissionsUtil = new Permissions(
-    currentOrg?.currentUserPermissions || {
-      global: {
-        permissions: {},
-        limitAccessByEnvironment: false,
-        environments: [],
+  const permissionsUtil = useMemo(() => {
+    return new Permissions(
+      currentOrg?.currentUserPermissions || {
+        global: {
+          permissions: {},
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
       },
-      projects: {},
+      data?.superAdmin || false
+    );
+  }, [currentOrg?.currentUserPermissions, data?.superAdmin]);
+
+  const getUserDisplay = useCallback(
+    (id: string, fallback = true) => {
+      const u = users.get(id);
+      if (!u && fallback) return id;
+      return u?.name || u?.email || "";
     },
-    data?.superAdmin || false
+    [users]
   );
+
+  // Get a quote for upgrading
+  const { data: quoteData, mutate: mutateQuote } = useApi<{
+    quote: SubscriptionQuote;
+  }>(`/subscription/quote`, {
+    shouldRun: () =>
+      !!currentOrg?.organization &&
+      isAuthenticated &&
+      !!orgId &&
+      permissionsUtil.canManageBilling(),
+    autoRevalidate: false,
+  });
+  const freeSeats = currentOrg?.organization?.freeSeats || 3;
+  useEffect(() => {
+    mutateQuote();
+  }, [freeSeats, mutateQuote]);
+
+  const quote = quoteData?.quote || null;
+
+  const watching = useMemo(() => {
+    return {
+      experiments: currentOrg?.watching?.experiments || [],
+      features: currentOrg?.watching?.features || [],
+    };
+  }, [currentOrg]);
+
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (data) setReady(true);
+  }, [data]);
 
   return (
     <UserContext.Provider
       value={{
+        ready: ready,
         userId: data?.userId,
         name: data?.userName,
         email: data?.email,
@@ -377,11 +430,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         updateUser,
         user,
         users,
-        getUserDisplay: (id, fallback = true) => {
-          const u = users.get(id);
-          if (!u && fallback) return id;
-          return u?.name || u?.email || "";
-        },
+        getUserDisplay: getUserDisplay,
         refreshOrganization: refreshOrganization as () => Promise<void>,
         roles: currentOrg?.roles || [],
         permissions,
@@ -394,12 +443,13 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         licenseError: currentOrg?.licenseError || "",
         commercialFeatures: currentOrg?.commercialFeatures || [],
         apiKeys: currentOrg?.apiKeys || [],
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'OrganizationInterface | undefined' is not as... Remove this comment to see the full error message
-        organization: currentOrg?.organization,
+        organization: currentOrg?.organization || {},
         seatsInUse: currentOrg?.seatsInUse || 0,
         teams,
-        error: error || orgLoadingError?.message,
+        error: error?.message || orgLoadingError?.message,
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
+        quote: quote,
+        watching: watching,
       }}
     >
       {children}

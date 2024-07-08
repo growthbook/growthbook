@@ -19,7 +19,7 @@ export default function NamespaceModal({
   const existingNamespace = existing?.namespace;
   const form = useForm<Partial<Namespaces>>({
     defaultValues: {
-      name: existingNamespace?.name || "",
+      label: existingNamespace?.label || existingNamespace?.name || "",
       description: existingNamespace?.description || "",
       status: existingNamespace?.status || "active",
     },
@@ -34,10 +34,17 @@ export default function NamespaceModal({
       header={existing ? "Edit Namespace" : "Create Namespace"}
       submit={form.handleSubmit(async (value) => {
         if (existing) {
-          await apiCall(`/organization/namespaces/${existingNamespace?.name}`, {
-            method: "PUT",
-            body: JSON.stringify(value),
-          });
+          await apiCall(
+            `/organization/namespaces/${
+              existingNamespace?.name
+                ? encodeURIComponent(existingNamespace.name)
+                : ""
+            }`,
+            {
+              method: "PUT",
+              body: JSON.stringify(value),
+            }
+          );
         } else {
           await apiCall(`/organization/namespaces`, {
             method: "POST",
@@ -47,13 +54,7 @@ export default function NamespaceModal({
         await onSuccess();
       })}
     >
-      <Field
-        label="Name"
-        maxLength={60}
-        disabled={!!existing?.experiments}
-        required
-        {...form.register("name")}
-      />
+      <Field label="Name" maxLength={60} required {...form.register("label")} />
       <Field label="Description" textarea {...form.register("description")} />
     </Modal>
   );

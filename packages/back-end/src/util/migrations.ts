@@ -5,7 +5,11 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
+import { accountFeatures, getAccountPlan } from "enterprise";
+import { omit } from "lodash";
 import { LegacyReportInterface, ReportInterface } from "@back-end/types/report";
+import { WebhookInterface } from "@back-end/types/webhook";
 import { SdkWebHookLogDocument } from "../models/SdkWebhookLogModel";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import {
@@ -20,7 +24,7 @@ import {
   FeatureRule,
   LegacyFeatureInterface,
 } from "../../types/feature";
-import { MemberRole, OrganizationInterface } from "../../types/organization";
+import { OrganizationInterface } from "../../types/organization";
 import { getConfigOrganizationSettings } from "../init/config";
 import {
   ExperimentInterface,
@@ -380,6 +384,15 @@ export function upgradeFeatureInterface(
     newFeature.hasDrafts = true;
   }
 
+  if (newFeature.jsonSchema) {
+    newFeature.jsonSchema.schemaType =
+      newFeature.jsonSchema.schemaType || "schema";
+    newFeature.jsonSchema.simple = newFeature.jsonSchema.simple || {
+      type: "object",
+      fields: [],
+    };
+  }
+
   return newFeature;
 }
 
@@ -387,6 +400,7 @@ export function upgradeOrganizationDoc(
   doc: OrganizationInterface
 ): OrganizationInterface {
   const org = cloneDeep(doc);
+  const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
 
   // Add settings from config.json
   const configSettings = getConfigOrganizationSettings();
@@ -407,11 +421,19 @@ export function upgradeOrganizationDoc(
 
   // Add a default role if one doesn't exist
   if (!org.settings.defaultRole) {
-    org.settings.defaultRole = {
-      role: "collaborator",
-      environments: [],
-      limitAccessByEnvironment: false,
-    };
+    org.settings.defaultRole = getDefaultRole(org);
+  } else {
+    // if the defaultRole is a custom role and the org no longer has that feature, default to collaborator
+    if (
+      !RESERVED_ROLE_IDS.includes(org.settings.defaultRole.role) &&
+      !commercialFeatures.includes("custom-roles")
+    ) {
+      org.settings.defaultRole = {
+        role: "collaborator",
+        environments: [],
+        limitAccessByEnvironment: false,
+      };
+    }
   }
 
   // Default attribute schema for backwards compatibility
@@ -448,7 +470,7 @@ export function upgradeOrganizationDoc(
     ];
   }
   // Rename legacy roles
-  const legacyRoleMap: Record<string, MemberRole> = {
+  const legacyRoleMap: Record<string, string> = {
     designer: "collaborator",
     developer: "experimenter",
   };
@@ -457,6 +479,14 @@ export function upgradeOrganizationDoc(
       m.role = legacyRoleMap[m.role];
     }
   });
+
+  // Make sure namespaces have labels- if it's missing, use the name
+  if (org?.settings?.namespaces?.length) {
+    org.settings.namespaces = org.settings.namespaces.map((ns) => ({
+      ...ns,
+      label: ns.label || ns.name,
+    }));
+  }
 
   return org;
 }
@@ -823,4 +853,18 @@ export function migrateSdkWebhookLogModel(
     delete doc.webhookReduestId;
   }
   return doc;
+}
+
+export function migrateWebhookModel(doc: WebhookInterface): WebhookInterface {
+  const newDoc = omit(doc, ["sendPayload"]) as WebhookInterface;
+  if (!doc.payloadFormat) {
+    if (doc.httpMethod === "GET") {
+      newDoc.payloadFormat = "none";
+    } else if (doc.sendPayload) {
+      newDoc.payloadFormat = "standard";
+    } else {
+      newDoc.payloadFormat = "standard-no-payload";
+    }
+  }
+  return newDoc;
 }

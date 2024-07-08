@@ -1,10 +1,6 @@
 import React, { FC } from "react";
-import {
-  EventInterface,
-  NotificationEventName,
-  NotificationEventPayload,
-  NotificationEventResource,
-} from "back-end/types/event";
+import { EventInterface } from "back-end/types/event";
+import { NotificationEvent } from "back-end/src/events/notification-events";
 import { FaDownload } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import { useDownloadDataExport } from "@/hooks/useDownloadDataExport";
@@ -21,13 +17,7 @@ type EventsPageProps = {
   hasExportError: boolean;
   performDownload: () => void;
   isDownloading: boolean;
-  events: EventInterface<
-    NotificationEventPayload<
-      NotificationEventName,
-      NotificationEventResource,
-      unknown
-    >
-  >[];
+  events: EventInterface<NotificationEvent>[];
 };
 
 export const EventsPage: FC<EventsPageProps> = ({
@@ -41,7 +31,7 @@ export const EventsPage: FC<EventsPageProps> = ({
 }) => {
   const permissionsUtil = usePermissionsUtil();
 
-  if (!permissionsUtil.canViewEvents()) {
+  if (!permissionsUtil.canViewAuditLogs()) {
     return (
       <div className="container pagecontents">
         <div className="alert alert-danger">
@@ -121,13 +111,7 @@ export const EventsPage: FC<EventsPageProps> = ({
 
 export const EventsPageContainer = () => {
   const { data, error, isValidating } = useApi<{
-    events: EventInterface<
-      NotificationEventPayload<
-        NotificationEventName,
-        NotificationEventResource,
-        unknown
-      >
-    >[];
+    events: EventInterface<NotificationEvent>[];
   }>("/events");
 
   const {

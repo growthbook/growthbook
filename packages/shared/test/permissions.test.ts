@@ -1,5 +1,5 @@
 import { roleToPermissionMap } from "back-end/src/util/organization.util";
-import { MemberRole, OrganizationInterface } from "back-end/types/organization";
+import { OrganizationInterface } from "back-end/types/organization";
 import { Permissions } from "../permissions";
 
 describe("Role permissions", () => {
@@ -16,7 +16,7 @@ describe("Role permissions", () => {
     },
   };
 
-  function getPermissions(role: MemberRole) {
+  function getPermissions(role: string) {
     return new Permissions(
       {
         global: {
@@ -38,6 +38,8 @@ describe("Role permissions", () => {
   const envs = ["production"];
   const sdkConnection = { projects: [], environment: "" };
   const updates = {};
+  const event = { containsSecrets: false, projects: [] };
+  const secretEvent = { containsSecrets: true, projects: [] };
 
   it("has correct permissions for noaccess", () => {
     const p = getPermissions("noaccess");
@@ -120,14 +122,16 @@ describe("Role permissions", () => {
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canUpdateSavedGroup()).toBe(false);
     expect(p.canUpdateSegment()).toBe(false);
-    expect(p.canUpdateSomeProjects()).toBe(false);
+    expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(false);
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(false);
     expect(p.canViewEditFactTableModal(projectsResource)).toBe(false);
     expect(p.canViewEventWebhook()).toBe(false);
-    expect(p.canViewEvents()).toBe(false);
+    expect(p.canViewAuditLogs()).toBe(false);
+    expect(p.canViewEvent(event)).toBe(false);
+    expect(p.canViewEvent(secretEvent)).toBe(false);
     expect(p.canViewExperimentModal()).toBe(false);
     expect(p.canViewFeatureModal()).toBe(false);
     expect(p.canViewIdeaModal()).toBe(false);
@@ -226,14 +230,16 @@ describe("Role permissions", () => {
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canUpdateSavedGroup()).toBe(false);
     expect(p.canUpdateSegment()).toBe(false);
-    expect(p.canUpdateSomeProjects()).toBe(false);
+    expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(false);
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(false);
     expect(p.canViewEditFactTableModal(projectsResource)).toBe(false);
     expect(p.canViewEventWebhook()).toBe(false);
-    expect(p.canViewEvents()).toBe(false);
+    expect(p.canViewAuditLogs()).toBe(false);
+    expect(p.canViewEvent(event)).toBe(true);
+    expect(p.canViewEvent(secretEvent)).toBe(false);
     expect(p.canViewExperimentModal()).toBe(false);
     expect(p.canViewFeatureModal()).toBe(false);
     expect(p.canViewIdeaModal()).toBe(false);
@@ -332,14 +338,16 @@ describe("Role permissions", () => {
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canUpdateSavedGroup()).toBe(false);
     expect(p.canUpdateSegment()).toBe(false);
-    expect(p.canUpdateSomeProjects()).toBe(false);
+    expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(false);
     expect(p.canViewEditFactTableModal(projectsResource)).toBe(false);
     expect(p.canViewEventWebhook()).toBe(false);
-    expect(p.canViewEvents()).toBe(false);
+    expect(p.canViewAuditLogs()).toBe(false);
+    expect(p.canViewEvent(event)).toBe(true);
+    expect(p.canViewEvent(secretEvent)).toBe(false);
     expect(p.canViewExperimentModal()).toBe(false);
     expect(p.canViewFeatureModal()).toBe(false);
     expect(p.canViewIdeaModal()).toBe(false);
@@ -438,14 +446,16 @@ describe("Role permissions", () => {
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canUpdateSavedGroup()).toBe(false);
     expect(p.canUpdateSegment()).toBe(false);
-    expect(p.canUpdateSomeProjects()).toBe(false);
+    expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(false);
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(false);
     expect(p.canViewEditFactTableModal(projectsResource)).toBe(false);
     expect(p.canViewEventWebhook()).toBe(false);
-    expect(p.canViewEvents()).toBe(false);
+    expect(p.canViewAuditLogs()).toBe(false);
+    expect(p.canViewEvent(event)).toBe(true);
+    expect(p.canViewEvent(secretEvent)).toBe(false);
     expect(p.canViewExperimentModal()).toBe(false);
     expect(p.canViewFeatureModal()).toBe(false);
     expect(p.canViewIdeaModal()).toBe(true);
@@ -544,14 +554,16 @@ describe("Role permissions", () => {
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(true);
     expect(p.canUpdateSavedGroup()).toBe(true);
     expect(p.canUpdateSegment()).toBe(false);
-    expect(p.canUpdateSomeProjects()).toBe(false);
+    expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
     expect(p.canViewAttributeModal()).toBe(true);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(false);
     expect(p.canViewEditFactTableModal(projectsResource)).toBe(false);
     expect(p.canViewEventWebhook()).toBe(false);
-    expect(p.canViewEvents()).toBe(false);
+    expect(p.canViewAuditLogs()).toBe(false);
+    expect(p.canViewEvent(event)).toBe(true);
+    expect(p.canViewEvent(secretEvent)).toBe(false);
     expect(p.canViewExperimentModal()).toBe(false);
     expect(p.canViewFeatureModal()).toBe(true);
     expect(p.canViewIdeaModal()).toBe(true);
@@ -650,14 +662,16 @@ describe("Role permissions", () => {
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(false);
     expect(p.canUpdateSavedGroup()).toBe(false);
     expect(p.canUpdateSegment()).toBe(true);
-    expect(p.canUpdateSomeProjects()).toBe(false);
+    expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
     expect(p.canViewAttributeModal()).toBe(false);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(true);
     expect(p.canViewEditFactTableModal(projectsResource)).toBe(true);
     expect(p.canViewEventWebhook()).toBe(false);
-    expect(p.canViewEvents()).toBe(false);
+    expect(p.canViewAuditLogs()).toBe(false);
+    expect(p.canViewEvent(event)).toBe(true);
+    expect(p.canViewEvent(secretEvent)).toBe(false);
     expect(p.canViewExperimentModal()).toBe(true);
     expect(p.canViewFeatureModal()).toBe(false);
     expect(p.canViewIdeaModal()).toBe(true);
@@ -756,14 +770,16 @@ describe("Role permissions", () => {
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(true);
     expect(p.canUpdateSavedGroup()).toBe(true);
     expect(p.canUpdateSegment()).toBe(true);
-    expect(p.canUpdateSomeProjects()).toBe(false);
+    expect(p.canManageSomeProjects()).toBe(false);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
     expect(p.canViewAttributeModal()).toBe(true);
     expect(p.canViewCreateDataSourceModal()).toBe(false);
     expect(p.canViewCreateFactTableModal()).toBe(true);
     expect(p.canViewEditFactTableModal(projectsResource)).toBe(true);
     expect(p.canViewEventWebhook()).toBe(false);
-    expect(p.canViewEvents()).toBe(false);
+    expect(p.canViewAuditLogs()).toBe(false);
+    expect(p.canViewEvent(event)).toBe(true);
+    expect(p.canViewEvent(secretEvent)).toBe(false);
     expect(p.canViewExperimentModal()).toBe(true);
     expect(p.canViewFeatureModal()).toBe(true);
     expect(p.canViewIdeaModal()).toBe(true);
@@ -862,14 +878,16 @@ describe("Role permissions", () => {
     expect(p.canUpdateSDKWebhook(sdkConnection)).toBe(true);
     expect(p.canUpdateSavedGroup()).toBe(true);
     expect(p.canUpdateSegment()).toBe(true);
-    expect(p.canUpdateSomeProjects()).toBe(true);
+    expect(p.canManageSomeProjects()).toBe(true);
     expect(p.canUpdateVisualChange(projectResource)).toBe(true);
     expect(p.canViewAttributeModal()).toBe(true);
     expect(p.canViewCreateDataSourceModal()).toBe(true);
     expect(p.canViewCreateFactTableModal()).toBe(true);
     expect(p.canViewEditFactTableModal(projectsResource)).toBe(true);
     expect(p.canViewEventWebhook()).toBe(true);
-    expect(p.canViewEvents()).toBe(true);
+    expect(p.canViewAuditLogs()).toBe(true);
+    expect(p.canViewEvent(event)).toBe(true);
+    expect(p.canViewEvent(secretEvent)).toBe(true);
     expect(p.canViewExperimentModal()).toBe(true);
     expect(p.canViewFeatureModal()).toBe(true);
     expect(p.canViewIdeaModal()).toBe(true);
