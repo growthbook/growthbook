@@ -31,6 +31,7 @@ const savedGroupSchema = new mongoose.Schema({
   },
   attributeKey: String,
   description: String,
+  passByReferenceOnly: Boolean,
 });
 
 type SavedGroupDocument = mongoose.Document & LegacySavedGroupInterface;
@@ -156,5 +157,6 @@ export function toSavedGroupApiInterface(
     dateUpdated: savedGroup.dateUpdated.toISOString(),
     owner: savedGroup.owner || "",
     description: savedGroup.description,
+    passByReferenceOnly: savedGroup.passByReferenceOnly,
   };
 }

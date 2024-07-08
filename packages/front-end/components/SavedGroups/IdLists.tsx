@@ -153,6 +153,13 @@ export default function IdLists({ groups, mutate }: Props) {
                             href={`/saved-groups/${s.id}`}
                           >
                             {s.groupName}
+                            {s.passByReferenceOnly ? (
+                              <></>
+                            ) : (
+                              <span className="ml-1 badge-muted-info badge">
+                                legacy
+                              </span>
+                            )}
                           </Link>
                         </td>
                         <td>{s.attributeKey}</td>

@@ -2582,9 +2582,6 @@ html {
     fill: var(--text-color-muted);
   }
 }
-.cursor-pointer {
-  cursor: pointer;
-}
 .bg-impact {
   background-color: colors.$bg-impact;
 }
@@ -3334,12 +3331,37 @@ input:disabled {
   color: var(--text-color-main);
 }
 
+.custom-file {
+  height: 2.625rem;
+}
+
+.custom-file-input {
+  height: 2.625rem;
+}
+
 .custom-file-label {
   background-color: unset;
+  display: flex;
+  align-items: center;
+  height: 2.625rem;
 
   &::after {
+    display: flex;
+    height: calc(100% - 8px);
+    align-items: center;
     background-color: var(--file-picker-browse);
     color: var(--text-color-on-bright);
+    margin: 4px;
+    border-radius: 4px;
+    border: none;
+  }
+
+  &.remove-file {
+    &::after {
+      background: none;
+      color: colors.$danger;
+      font-size: 0.8rem;
+    }
   }
 }
 

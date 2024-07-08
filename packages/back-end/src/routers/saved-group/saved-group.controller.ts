@@ -92,6 +92,7 @@ export const postSavedGroup = async (
     type,
     condition,
     description,
+    passByReferenceOnly,
   } = req.body;
 
   if (!context.permissions.canCreateSavedGroup()) {
@@ -126,6 +127,7 @@ export const postSavedGroup = async (
     owner: owner || userName,
     attributeKey,
     description,
+    passByReferenceOnly,
   });
 
   await req.audit({
@@ -190,8 +192,8 @@ export const getSavedGroup = async (
 // region POST /saved-groups/:id/add-member/:mid
 
 type PostSavedGroupAddMembersRequest = AuthRequest<
-  Record<string, never>,
-  { id: string; mid: string }
+  { members: string[]; passByReferenceOnly?: boolean },
+  { id: string }
 >;
 
 type PostSavedGroupAddMembersResponse = {
@@ -211,7 +213,7 @@ export const postSavedGroupAddMembers = async (
   const context = getContextFromReq(req);
   const { org } = context;
   const { id } = req.params;
-  const { members } = req.body;
+  const { members, passByReferenceOnly } = req.body;
 
   if (!id) {
     throw new Error("Must specify saved group id");
@@ -239,9 +241,11 @@ export const postSavedGroupAddMembers = async (
     throw new Error("Must provide a list of members to remove");
   }
 
-  const newValues = (savedGroup.values || []).concat(members);
+  const newValues = new Set([...(savedGroup.values || []), ...members]);
   const changes = await updateSavedGroupById(id, org.id, {
-    values: newValues,
+    values: [...newValues],
+    passByReferenceOnly:
+      passByReferenceOnly || savedGroup.passByReferenceOnly || false,
   });
 
   const updatedSavedGroup = { ...savedGroup, ...changes };
@@ -268,7 +272,7 @@ export const postSavedGroupAddMembers = async (
 // region POST /saved-groups/:id/remove-members
 
 type PostSavedGroupRemoveMembersRequest = AuthRequest<
-  { members: string[] },
+  { members: string[]; passByReferenceOnly?: boolean },
   { id: string }
 >;
 
@@ -366,7 +370,14 @@ export const putSavedGroup = async (
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { groupName, owner, values, condition, description } = req.body;
+  const {
+    groupName,
+    owner,
+    values,
+    condition,
+    description,
+    passByReferenceOnly,
+  } = req.body;
   const { id } = req.params;
 
   if (!id) {
@@ -419,6 +430,10 @@ export const putSavedGroup = async (
       throw new Error("Description must be at most 100 characters");
     }
     fieldsToUpdate.description = description;
+  }
+
+  if (passByReferenceOnly !== savedGroup.passByReferenceOnly) {
+    fieldsToUpdate.passByReferenceOnly = passByReferenceOnly;
   }
 
   // If there are no changes, return early

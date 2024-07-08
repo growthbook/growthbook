@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from "react";
+import { FC, useEffect, useMemo, useState } from "react";
 import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
@@ -12,6 +12,9 @@ import {
   FaRetweet,
 } from "react-icons/fa";
 import { SavedGroupInterface, SavedGroupType } from "shared/src/types";
+import clsx from "clsx";
+import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
+import { SDKConnectionInterface } from "@back-end/types/sdk-connection";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import useMembers from "@/hooks/useMembers";
@@ -22,12 +25,21 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import ConditionInput from "@/components/Features/ConditionInput";
+import useSDKConnections from "@/hooks/useSDKConnections";
 
 export const IdListMemberInput: FC<{
   values: string[];
-  setValues: (newValues: string[]) => void;
   attributeKey: string;
-}> = ({ values, setValues, attributeKey }) => {
+  passByReferenceOnly: boolean;
+  setValues: (newValues: string[]) => void;
+  setPassByReferenceOnly: (passByReferenceOnly: boolean) => void;
+}> = ({
+  values,
+  attributeKey,
+  passByReferenceOnly,
+  setValues,
+  setPassByReferenceOnly,
+}) => {
   const [rawTextMode, setRawTextMode] = useState(false);
   const [rawText, setRawText] = useState(values.join(", ") || "");
   useEffect(() => {
@@ -41,43 +53,58 @@ export const IdListMemberInput: FC<{
   const [fileName, setFileName] = useState("");
   const [fileErrorMessage, setFileErrorMessage] = useState("");
 
+  const { data: sdkConnectionData } = useSDKConnections();
+  const [supportedConnections, unsupportedConnections] = useMemo(() => {
+    const connections = sdkConnectionData?.connections || [];
+    const supportedConnections: SDKConnectionInterface[] = [];
+    const unsupportedConnections: SDKConnectionInterface[] = [];
+    (connections || []).forEach((conn) => {
+      if (getConnectionSDKCapabilities(conn).includes("savedGroupReferences")) {
+        supportedConnections.push(conn);
+      } else {
+        unsupportedConnections.push(conn);
+      }
+    });
+    return [supportedConnections, unsupportedConnections];
+  }, [sdkConnectionData]);
+
+  const resetFile = () => {
+    setNumValuesToImport(null);
+    setFileName("");
+    setFileErrorMessage("");
+    setPassByReferenceOnly(false);
+    setNonLegacyImport(false);
+  };
+
+  const [nonLegacyImport, setNonLegacyImport] = useState(false);
+
   return (
     <>
       <label className="form-group font-weight-bold">
         Choose how to enter IDs for this group:
       </label>
       <div className="row ml-0 mr-0 form-group">
-        <div
-          className="cursor-pointer row align-items-center ml-0 mr-5"
-          onClick={(e) => {
-            e.preventDefault();
-            setImportMethod("file");
-          }}
-        >
+        <div className="cursor-pointer row align-items-center ml-0 mr-5">
           <input
             type="radio"
             id="importCsv"
             readOnly={true}
             checked={importMethod === "file"}
             className="mr-1 radio-button-lg"
+            onChange={() => setImportMethod("file")}
           />
           <label className="m-0" htmlFor="importCsv">
             Import CSV
           </label>
         </div>
-        <div
-          className="cursor-pointer row align-items-center ml-0 mr-0"
-          onClick={(e) => {
-            e.preventDefault();
-            setImportMethod("values");
-          }}
-        >
+        <div className="cursor-pointer row align-items-center ml-0 mr-0">
           <input
             type="radio"
             id="enterValues"
             checked={importMethod === "values"}
             readOnly={true}
             className="mr-1 radio-button-lg"
+            onChange={() => setImportMethod("values")}
           />
           <label className="m-0" htmlFor="enterValues">
             Manually enter values
@@ -86,17 +113,25 @@ export const IdListMemberInput: FC<{
       </div>
       {importMethod === "file" && (
         <>
-          <div className="custom-file">
+          <div
+            className="custom-file height:"
+            onClick={(e) => {
+              if (fileName) {
+                e.stopPropagation();
+                e.preventDefault();
+                resetFile();
+              }
+            }}
+          >
             <input
               type="file"
+              key={fileName}
               required={false}
-              className="custom-file-input"
+              className="custom-file-input cursor-pointer"
               id="savedGroupFileInput"
               accept=".csv"
               onChange={(e) => {
-                setNumValuesToImport(null);
-                setFileName("");
-                setFileErrorMessage("");
+                resetFile();
 
                 const file: File | undefined = e.target?.files?.[0];
                 if (!file) {
@@ -111,18 +146,22 @@ export const IdListMemberInput: FC<{
                   return;
                 }
 
-                setFileName(file.name);
-
                 const reader = new FileReader();
                 reader.onload = function (e) {
                   try {
                     const str = e.target?.result;
                     if (typeof str !== "string") {
+                      setFileErrorMessage(
+                        "Failed to import file. Please try again"
+                      );
                       return;
                     }
                     const newValues = str.replaceAll(/[\n\s]/g, "").split(",");
+                    setFileName(file.name);
                     setValues(newValues);
                     setNumValuesToImport(newValues.length);
+                    setPassByReferenceOnly(true);
+                    setNonLegacyImport(true);
                   } catch (e) {
                     console.error(e);
                     return;
@@ -131,25 +170,32 @@ export const IdListMemberInput: FC<{
                 reader.readAsText(file);
               }}
             />
-            <label className="custom-file-label" htmlFor="savedGroupFileInput">
+            <label
+              className={clsx([
+                "custom-file-label",
+                fileName ? "remove-file" : "",
+              ])}
+              htmlFor="savedGroupFileInput"
+              data-browse={fileName ? "Remove" : "Browse"}
+            >
               {fileName || "Select file..."}
             </label>
-            {numValuesToImport ? (
-              <>
-                <FaCheckCircle className="text-success-green" />{" "}
-                {`${numValuesToImport} ${attributeKey}s ready to import`}
-              </>
-            ) : (
-              <></>
-            )}
-            {fileErrorMessage ? (
-              <p className="text-error-red">
-                <FaExclamationTriangle /> {fileErrorMessage}
-              </p>
-            ) : (
-              <></>
-            )}
           </div>
+          {numValuesToImport ? (
+            <>
+              <FaCheckCircle className="text-success-green" />{" "}
+              {`${numValuesToImport} ${attributeKey}s ready to import`}
+            </>
+          ) : (
+            <></>
+          )}
+          {fileErrorMessage ? (
+            <p className="text-error-red">
+              <FaExclamationTriangle /> {fileErrorMessage}
+            </p>
+          ) : (
+            <></>
+          )}
         </>
       )}
       {importMethod === "values" && (
@@ -206,6 +252,17 @@ export const IdListMemberInput: FC<{
           )}
         </>
       )}
+      {!passByReferenceOnly &&
+        nonLegacyImport &&
+        unsupportedConnections.length > 0 && (
+          <>
+            {supportedConnections.length > 0 ? (
+              <>TODO: mix of supported & unsupported connections</>
+            ) : (
+              <>TODO: no supported connections</>
+            )}
+          </>
+        )}
     </>
   );
 };
@@ -242,6 +299,7 @@ const SavedGroupForm: FC<{
       type,
       values: current.values || [],
       description: current.description || "",
+      passByReferenceOnly: current.passByReferenceOnly || false,
     },
   });
 
@@ -280,6 +338,7 @@ const SavedGroupForm: FC<{
             owner: value.owner,
             values: value.values,
             description: value.description,
+            passByReferenceOnly: value.passByReferenceOnly,
           };
           await apiCall(`/saved-groups/${current.id}`, {
             method: "PUT",
@@ -381,10 +440,14 @@ const SavedGroupForm: FC<{
           {!current.id && (
             <IdListMemberInput
               values={form.watch("values") || []}
+              attributeKey={form.watch("attributeKey") || "ID"}
+              passByReferenceOnly={current?.passByReferenceOnly || false}
               setValues={(newValues) => {
                 form.setValue("values", newValues);
               }}
-              attributeKey={form.watch("attributeKey") || "ID"}
+              setPassByReferenceOnly={(passByReferenceOnly) =>
+                form.setValue("passByReferenceOnly", passByReferenceOnly)
+              }
             />
           )}
         </>

@@ -36,3 +36,6 @@ properties:
       type: string
   description:
     type: string
+  passByReferenceOnly:
+    description: Whether the saved group must be referenced by ID rather than its list of members for performance reasons
+    type: boolean
