@@ -112,6 +112,16 @@ export const config = checkConfig({
     minValue: 0,
     maxValue: 1,
   },
+  proper: {
+    title: "Use proper prior",
+    metricType: "all",
+    type: "boolean",
+    defaultSettingsValue: (priorSettings, s) =>
+      priorSettings?.override
+        ? priorSettings.proper
+        : s.metricDefaults?.priorSettings?.proper,
+    defaultValue: false,
+  },
   priorLiftMean: {
     title: "Prior mean",
     metricType: "all",
@@ -134,16 +144,6 @@ export const config = checkConfig({
         ? priorSettings.stddev
         : s.metricDefaults?.priorSettings?.stddev,
     defaultValue: DEFAULT_PROPER_PRIOR_STDDEV,
-  },
-  proper: {
-    title: "Use proper prior",
-    metricType: "all",
-    type: "boolean",
-    defaultSettingsValue: (priorSettings, s) =>
-      priorSettings?.override
-        ? priorSettings.proper
-        : s.metricDefaults?.priorSettings?.proper,
-    defaultValue: false,
   },
 });
 

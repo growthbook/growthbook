@@ -172,9 +172,9 @@ const SelectStep = ({
                         ...field("standardDeviation", metric),
                         standardDeviation: undefined,
                       }),
+                  ...field("proper", metric),
                   ...field("priorLiftMean", metric),
                   ...field("priorLiftStandardDeviation", metric),
-                  ...field("proper", metric),
                 },
               };
             }, {})
@@ -220,10 +220,12 @@ const InputField = ({
   entry,
   form,
   metricId,
+  disabled = false,
 }: {
   entry: keyof typeof config;
   form: Form;
   metricId: string;
+  disabled?: boolean;
 }) => {
   const metrics = form.watch("metrics");
   const params = ensureAndReturn(metrics[metricId]);
@@ -278,6 +280,7 @@ const InputField = ({
           {...commonOptions}
           value={entryValue}
           onChange={(v) => form.setValue(`metrics.${metricId}.${entry}`, v)}
+          disabled={disabled}
         />
       )}
       {c.type === "number" && (
@@ -286,6 +289,7 @@ const InputField = ({
           {...form.register(`metrics.${metricId}.${entry}`, {
             valueAsNumber: true,
           })}
+          disabled={disabled}
         />
       )}
       {c.type === "boolean" && (
@@ -298,6 +302,7 @@ const InputField = ({
                 setValue={(v) => {
                   form.setValue(`metrics.${metricId}.${entry}`, v);
                 }}
+                disabled={disabled}
               />
             </div>
             <div>{title}</div>
@@ -322,6 +327,11 @@ const MetricParamsInput = ({
   const { name, type: _type, ...params } = ensureAndReturn(metrics[metricId]);
   const [showBayesian, setShowBayesian] = useState(false);
 
+  const isBayesianParamDisabled = (entity) => {
+    if (params.proper) return false;
+    return ["priorLiftMean", "priorLiftStandardDeviation"].includes(entity);
+  };
+
   return (
     <div className="card gsbox mb-3 p-3 mb-2 power-analysis-params">
       <div className="card-title uppercase-title mb-3">{name}</div>
@@ -341,13 +351,14 @@ const MetricParamsInput = ({
         <>
           <div className="row align-items-center h-100 mb-2">
             <div className="col-auto">
-              <Toggle
+              <input
                 id={`input-value-${metricId}-showBayesian`}
-                value={showBayesian}
-                setValue={setShowBayesian}
+                type="checkbox"
+                checked={showBayesian}
+                onChange={() => setShowBayesian(!showBayesian)}
               />
             </div>
-            <div>Modify metric priors</div>
+            <div>Override metric-level settings</div>
           </div>
           <div className="row">
             {showBayesian &&
@@ -361,6 +372,7 @@ const MetricParamsInput = ({
                     entry={entry}
                     form={form}
                     metricId={metricId}
+                    disabled={isBayesianParamDisabled(entry)}
                   />
                 ))}
           </div>
