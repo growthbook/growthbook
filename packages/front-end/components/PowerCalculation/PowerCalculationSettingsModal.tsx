@@ -214,24 +214,24 @@ const SelectStep = ({
 const sortParams = (params: PartialMetricParams): PartialMetricParams => {
   if (params.type === "binomial")
     return {
-      name: params?.name,
+      name: params.name,
       type: params.type,
-      effectSize: params?.effectSize,
-      conversionRate: params?.conversionRate,
-      proper: params?.proper,
-      priorLiftMean: params?.priorLiftMean,
-      priorLiftStandardDeviation: params?.priorLiftStandardDeviation,
+      effectSize: params.effectSize,
+      conversionRate: params.conversionRate,
+      proper: params.proper,
+      priorLiftMean: params.priorLiftMean,
+      priorLiftStandardDeviation: params.priorLiftStandardDeviation,
     };
 
   return {
-    name: params?.name,
+    name: params.name,
     type: params.type,
-    effectSize: params?.effectSize,
-    mean: params?.mean,
-    standardDeviation: params?.standardDeviation,
-    proper: params?.proper,
-    priorLiftMean: params?.priorLiftMean,
-    priorLiftStandardDeviation: params?.priorLiftStandardDeviation,
+    effectSize: params.effectSize,
+    mean: params.mean,
+    standardDeviation: params.standardDeviation,
+    proper: params.proper,
+    priorLiftMean: params.priorLiftMean,
+    priorLiftStandardDeviation: params.priorLiftStandardDeviation,
   };
 };
 
