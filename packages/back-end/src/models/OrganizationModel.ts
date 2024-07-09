@@ -225,6 +225,7 @@ export async function findAllOrganizations(
           { ownerEmail: regex },
           { id: regex },
           { externalId: regex },
+          { verifiedDomain: regex },
         ],
       }
     : {};

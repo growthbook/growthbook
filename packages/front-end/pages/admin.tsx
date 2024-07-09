@@ -50,6 +50,7 @@ function OrganizationRow({
   current,
   switchTo,
   showExternalId,
+  showVerfiedDomain,
   onEdit,
   ssoInfo,
 }: {
@@ -57,6 +58,7 @@ function OrganizationRow({
   switchTo: (organization: OrganizationInterface) => void;
   current: boolean;
   showExternalId: boolean;
+  showVerfiedDomain: boolean;
   onEdit: () => void;
   ssoInfo: ssoInfoProps | undefined;
 }) {
@@ -97,6 +99,7 @@ function OrganizationRow({
       {editOrgModalOpen && (
         <EditOrganization
           id={organization.id}
+          deletable={!current && !organization.name.startsWith("DISABLED-")}
           currentName={organization.name}
           currentExternalId={organization.externalId || ""}
           currentLicenseKey={organization.licenseKey || ""}
@@ -110,6 +113,7 @@ function OrganizationRow({
       <tr
         className={clsx({
           "table-warning": current,
+          "table-danger": organization.name.startsWith("DISABLED-"),
         })}
       >
         <td>
@@ -129,6 +133,11 @@ function OrganizationRow({
         <td>
           <small>{organization.id}</small>
         </td>
+        {showVerfiedDomain && (
+          <td>
+            <small>{organization.verifiedDomain}</small>
+          </td>
+        )}
         {showExternalId && (
           <td>
             <small>{organization.externalId}</small>
@@ -164,7 +173,7 @@ function OrganizationRow({
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={isCloud() ? 7 : 8} className="bg-light">
+          <td colSpan={8} className="bg-light">
             <h3>Summary</h3>
             <div
               className="mb-3 bg-white border p-3"
@@ -439,6 +448,7 @@ const Admin: FC = () => {
 
   const loadOrgs = useCallback(
     async (page: number, search: string) => {
+      console.log("loading orgs");
       setLoading(true);
       const params = new URLSearchParams();
 
@@ -529,10 +539,15 @@ const Admin: FC = () => {
       )}
       <h1>GrowthBook Admin</h1>
       {!isCloud() && (
-        <div>
-          <ShowLicenseInfo showInput={false} />{" "}
+        <>
+          <div
+            className="p-3 bg-white"
+            style={{ border: "1px solid var(--border-color-200)" }}
+          >
+            <ShowLicenseInfo showInput={false} />{" "}
+          </div>
           <div className="divider border-bottom mb-3 mt-3" />
-        </div>
+        </>
       )}
       <ControlledTabs
         newStyle={true}
@@ -596,6 +611,7 @@ const Admin: FC = () => {
                   <th style={{ width: "260px" }}>Owner</th>
                   <th>Created</th>
                   <th>Id</th>
+                  {isCloud() && <th>Verified Domain</th>}
                   {!isCloud() && <th>External Id</th>}
                   <th style={{ width: "120px" }}>Members</th>
                   <th style={{ width: "14px" }}></th>
@@ -610,6 +626,7 @@ const Admin: FC = () => {
                       (sso) => sso.organization === o.id
                     )}
                     showExternalId={!isCloud()}
+                    showVerfiedDomain={isCloud()}
                     key={o.id}
                     current={o.id === orgId}
                     onEdit={() => {

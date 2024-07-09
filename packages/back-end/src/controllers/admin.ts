@@ -135,6 +135,62 @@ export async function putOrganization(
   });
 }
 
+// delete organization - For now, we're just marking the organization as deleted
+export async function deleteOrganization(
+  req: AuthRequest<{ orgId: string }>,
+  res: Response
+) {
+  if (!req.superAdmin) {
+    return res.status(403).json({
+      status: 403,
+      message: "Only superAdmins can delete organizations",
+    });
+  }
+
+  const updates: Partial<OrganizationInterface> = {};
+  const orig: Partial<OrganizationInterface> = {};
+  const { orgId } = req.body;
+  const org = await getOrganizationById(orgId);
+
+  if (!org) {
+    return res.status(404).json({
+      status: 404,
+      message: "Organization not found",
+    });
+  }
+  const prefix = "DISABLED-";
+  updates.name = prefix + org.name;
+  orig.name = org.name;
+  updates.ownerEmail = prefix + org.ownerEmail;
+  orig.ownerEmail = org.ownerEmail;
+  const members = org.members;
+  for (const member of members) {
+    member.id = prefix + member.id;
+  }
+  updates.members = members;
+  orig.members = org.members;
+  updates.invites = [];
+  orig.invites = org.invites;
+  updates.pendingMembers = [];
+  orig.pendingMembers = org.pendingMembers;
+
+  // we're not actually deleting the organization, just marking it as deleted for now
+  await updateOrganization(org.id, updates);
+
+  await req.audit({
+    event: "organization.update",
+    entity: {
+      object: "organization",
+      id: org.id,
+    },
+    details: auditDetailsUpdate(orig, updates),
+  });
+
+  return res.status(200).json({
+    status: 200,
+  });
+}
+
 export async function getMembers(
   req: AuthRequest<never, never, { page?: string; search?: string }>,
   res: Response

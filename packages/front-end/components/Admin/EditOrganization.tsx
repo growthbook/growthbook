@@ -8,6 +8,7 @@ const EditOrganization: FC<{
   onEdit: () => void;
   close?: () => void;
   id: string;
+  deletable: boolean;
   currentName: string;
   currentExternalId: string;
   currentLicenseKey: string;
@@ -18,6 +19,7 @@ const EditOrganization: FC<{
   onEdit,
   close,
   id,
+  deletable = false,
   currentName,
   currentExternalId,
   currentLicenseKey,
@@ -63,6 +65,37 @@ const EditOrganization: FC<{
       cta={"Update"}
       close={close}
       inline={!close}
+      secondaryCTA={
+        deletable ? (
+          <div className="flex-grow-1">
+            <button
+              className="btn btn-danger"
+              onClick={(e) => {
+                e.preventDefault();
+                if (
+                  confirm(
+                    "Are you sure you want to disable this organization? Users will not be able to use this organization"
+                  )
+                ) {
+                  apiCall<{
+                    status: number;
+                    message?: string;
+                  }>(`/admin/organization`, {
+                    method: "DELETE",
+                    body: JSON.stringify({
+                      orgId: id,
+                    }),
+                  });
+                  onEdit();
+                  if (close) close();
+                }
+              }}
+            >
+              Disable
+            </button>
+          </div>
+        ) : null
+      }
     >
       <div className="form-group">
         Company Name
