@@ -174,9 +174,12 @@ const SelectStep = ({
                         standardDeviation: undefined,
                       }),
                   ...field("overrideMetricLevelSettings", metric),
-                  ...field("proper", metric),
-                  ...field("priorLiftMean", metric),
-                  ...field("priorLiftStandardDeviation", metric),
+                  ...field("overrideProper", metric),
+                  ...field("overridePriorLiftMean", metric),
+                  ...field("overridePriorLiftStandardDeviation", metric),
+                  ...field("metricProper", metric),
+                  ...field("metricPriorLiftMean", metric),
+                  ...field("metricPriorLiftStandardDeviation", metric),
                 },
               };
             }, {}),
@@ -213,16 +216,23 @@ const SelectStep = ({
 };
 
 const sortParams = (params: PartialMetricParams): PartialMetricParams => {
+  const overridePrior = {
+    overrideMetricLevelSettings: params.overrideMetricLevelSettings,
+    overrideProper: params.overrideProper,
+    overridePriorLiftMean: params.overridePriorLiftMean,
+    overridePriorLiftStandardDeviation: params.overridePriorLiftStandardDeviation,
+    metricProper: params.metricProper,
+    metricPriorLiftMean: params.metricPriorLiftMean,
+    metricPriorLiftStandardDeviation: params.metricPriorLiftStandardDeviation,
+  };
+
   if (params.type === "binomial")
     return {
       name: params.name,
       type: params.type,
       effectSize: params.effectSize,
       conversionRate: params.conversionRate,
-      overrideMetricLevelSettings: params.overrideMetricLevelSettings,
-      proper: params.proper,
-      priorLiftMean: params.priorLiftMean,
-      priorLiftStandardDeviation: params.priorLiftStandardDeviation,
+      ...overridePrior,
     };
 
   return {
@@ -231,18 +241,21 @@ const sortParams = (params: PartialMetricParams): PartialMetricParams => {
     effectSize: params.effectSize,
     mean: params.mean,
     standardDeviation: params.standardDeviation,
-    overrideMetricLevelSettings: params.overrideMetricLevelSettings,
-    proper: params.proper,
-    priorLiftMean: params.priorLiftMean,
-    priorLiftStandardDeviation: params.priorLiftStandardDeviation,
+    ...overridePrior,
   };
 };
 
-const bayesianParams = [
-  "overrideMetricLevelSettings",
-  "priorLiftMean",
-  "priorLiftStandardDeviation",
-  "proper",
+const displayedMetricParams = [
+  "conversionRate",
+  "mean",
+  "standardDeviation",
+  "effectSize",
+] as const;
+
+const displayedBayesianParams = [
+  "overridePriorLiftMean",
+  "overridePriorLiftStandardDeviation",
+  "overrideProper",
 ] as const;
 
 const InputField = ({
@@ -362,8 +375,11 @@ const MetricParamsInput = ({
   } = sortParams(ensureAndReturn(metrics[metricId]));
 
   const isBayesianParamDisabled = (entity) => {
-    if (params.proper) return false;
-    return ["priorLiftMean", "priorLiftStandardDeviation"].includes(entity);
+    if (params.overrideProper) return false;
+
+    return ["overridePriorLiftMean", "overridePriorLiftStandardDeviation"].includes(
+      entity,
+    );
   };
 
   return (
@@ -371,7 +387,9 @@ const MetricParamsInput = ({
       <div className="card-title uppercase-title mb-3">{name}</div>
       <div className="row">
         {Object.keys(params)
-          .filter((v) => !(bayesianParams as readonly string[]).includes(v))
+          .filter((v) =>
+            (displayedMetricParams as readonly string[]).includes(v),
+          )
           .map((entry: keyof Omit<MetricParams, "name" | "type">) => (
             <InputField
               key={`${name}-${entry}`}
@@ -402,10 +420,8 @@ const MetricParamsInput = ({
           <div className="row">
             {params.overrideMetricLevelSettings &&
               Object.keys(params)
-                .filter(
-                  (v) =>
-                    v !== "overrideMetricLevelSettings" &&
-                    (bayesianParams as readonly string[]).includes(v),
+                .filter((v) =>
+                  (displayedBayesianParams as readonly string[]).includes(v),
                 )
                 .map((entry: keyof Omit<MetricParams, "name" | "type">) => (
                   <InputField

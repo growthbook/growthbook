@@ -44,6 +44,27 @@ function getMetricMean(metric: MetricParams): number {
   return metric.type === "mean" ? metric.mean : metric.conversionRate;
 }
 
+type PriorParams = {
+  proper: boolean;
+  priorLiftMean: number;
+  priorLiftStandardDeviation: number;
+};
+
+function getMetricPriorParams(params: MetricParams): PriorParams {
+  if (params.overrideMetricLevelSettings)
+    return {
+      proper: params.overrideProper,
+      priorLiftMean: params.overridePriorLiftMean,
+      priorLiftStandardDeviation: params.overridePriorLiftStandardDeviation,
+    };
+
+  return {
+    proper: params.metricProper,
+    priorLiftMean: params.metricPriorLiftMean,
+    priorLiftStandardDeviation: params.metricPriorLiftStandardDeviation,
+  };
+}
+
 function getMetricVariance(metric: MetricParams): number {
   return metric.type === "mean"
     ? Math.pow(metric.standardDeviation, 2)
@@ -379,7 +400,11 @@ function calculatePriorMeanSpecified(
   relative: boolean
 ): number {
   const metricMean = getMetricMean(metric);
-  return calculatePriorMean(metric.priorLiftMean, metricMean, relative);
+  return calculatePriorMean(
+    getMetricPriorParams(metric).priorLiftMean,
+    metricMean,
+    relative
+  );
 }
 
 function calculatePriorVarianceSpecified(
@@ -388,7 +413,7 @@ function calculatePriorVarianceSpecified(
 ): number {
   const metricMean = getMetricMean(metric);
   return calculatePriorVariance(
-    Math.pow(metric.priorLiftStandardDeviation, 2),
+    Math.pow(getMetricPriorParams(metric).priorLiftStandardDeviation, 2),
     metricMean,
     relative
   );
@@ -456,7 +481,7 @@ function getPosteriorPrecision(
     nPerVariation,
     relative
   );
-  const properInt = metric.proper ? 1 : 0;
+  const properInt = getMetricPriorParams(metric).proper ? 1 : 0;
   return 1 / tauHatVariance + properInt / priorVarianceSpecified;
 }
 
@@ -490,7 +515,7 @@ export function getCutpoint(
   );
   const zStar = normal.quantile(1.0 - 0.5 * alpha, 0, 1);
   const upperSign = upper ? 1 : -1;
-  const properInt = metric.proper ? 1 : 0;
+  const properInt = getMetricPriorParams(metric).proper ? 1 : 0;
 
   const numerator =
     upperSign * tauHatVariance * Math.sqrt(posteriorPrecision) * zStar -

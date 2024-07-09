@@ -6,9 +6,12 @@ export interface MetricParamsBase {
   name: string;
   effectSize: number;
   overrideMetricLevelSettings: boolean;
-  priorLiftMean: number;
-  priorLiftStandardDeviation: number;
-  proper: boolean;
+  overridePriorLiftMean: number;
+  overridePriorLiftStandardDeviation: number;
+  overrideProper: boolean;
+  metricPriorLiftMean: number;
+  metricPriorLiftStandardDeviation: number;
+  metricProper: boolean;
 }
 
 export interface MetricParamsMean extends MetricParamsBase {
@@ -64,7 +67,8 @@ export type PartialPowerCalculationParams = Partial<
 };
 
 type Config = {
-  title: string;
+  // Config with no title are not displayed by default!
+  title?: string;
   metricType?: "all" | "mean" | "binomial";
   tooltip?: string;
 } & (
@@ -128,7 +132,7 @@ export const config = checkConfig({
     type: "boolean",
     defaultValue: false,
   },
-  proper: {
+  overrideProper: {
     title: "Use proper prior",
     metricType: "all",
     type: "boolean",
@@ -138,7 +142,7 @@ export const config = checkConfig({
         : s.metricDefaults?.priorSettings?.proper,
     defaultValue: false,
   },
-  priorLiftMean: {
+  overridePriorLiftMean: {
     title: "Prior Mean",
     metricType: "all",
     type: "percent",
@@ -149,8 +153,38 @@ export const config = checkConfig({
         : s.metricDefaults?.priorSettings?.mean,
     defaultValue: 0,
   },
-  priorLiftStandardDeviation: {
+  overridePriorLiftStandardDeviation: {
     title: "Prior Standard Deviation",
+    metricType: "all",
+    type: "percent",
+    tooltip: "Prior standard deviation for the relative effect size.",
+    minValue: 0,
+    defaultSettingsValue: (priorSettings, s) =>
+      priorSettings?.override
+        ? priorSettings.stddev
+        : s.metricDefaults?.priorSettings?.stddev,
+    defaultValue: DEFAULT_PROPER_PRIOR_STDDEV,
+  },
+  metricProper: {
+    metricType: "all",
+    type: "boolean",
+    defaultSettingsValue: (priorSettings, s) =>
+      priorSettings?.override
+        ? priorSettings.proper
+        : s.metricDefaults?.priorSettings?.proper,
+    defaultValue: false,
+  },
+  metricPriorLiftMean: {
+    metricType: "all",
+    type: "percent",
+    tooltip: "Prior mean for the relative effect size.",
+    defaultSettingsValue: (priorSettings, s) =>
+      priorSettings?.override
+        ? priorSettings.mean
+        : s.metricDefaults?.priorSettings?.mean,
+    defaultValue: 0,
+  },
+  metricPriorLiftStandardDeviation: {
     metricType: "all",
     type: "percent",
     tooltip: "Prior standard deviation for the relative effect size.",
@@ -196,7 +230,7 @@ export const isValidPowerCalculationParams = (
       [
         "effectSize",
         ...(engineType === "bayesian"
-          ? (["proper", "priorLiftMean", "priorLiftStandardDeviation"] as const)
+          ? (["overrideProper", "overridePriorLiftMean", "overridePriorLiftStandardDeviation", "metricProper", "metricPriorLiftMean", "metricPriorLiftStandardDeviation"] as const)
           : []),
         ...(params.type === "binomial"
           ? (["conversionRate"] as const)

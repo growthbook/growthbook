@@ -35,9 +35,12 @@ describe("backend", () => {
       mean: 10,
       standardDeviation: Math.sqrt(3909.9997749994377),
       overrideMetricLevelSettings: true,
-      priorLiftMean: 0,
-      priorLiftStandardDeviation: 1,
-      proper: false,
+      overridePriorLiftMean: 0,
+      overridePriorLiftStandardDeviation: 1,
+      overrideProper: false,
+      metricPriorLiftMean: 0,
+      metricPriorLiftStandardDeviation: 1,
+      metricProper: false,
     };
     expect(
       +powerEstFrequentist(meanMetric, 400000, 3, 0.05, true, 0).toFixed(5),
@@ -50,10 +53,13 @@ describe("backend", () => {
       effectSize: 0.05,
       mean: 10,
       standardDeviation: Math.sqrt(3909.9997749994377),
-      priorLiftMean: 0,
-      priorLiftStandardDeviation: 1,
-      proper: false,
-          overrideMetricLevelSettings: true,
+      overrideMetricLevelSettings: true,
+      overridePriorLiftMean: 0,
+      overridePriorLiftStandardDeviation: 1,
+      overrideProper: false,
+      metricPriorLiftMean: 0,
+      metricPriorLiftStandardDeviation: 1,
+      metricProper: false,
     };
     const mde1 = findMdeFrequentist(meanMetric, 0.8, 400000, 3, 0.05, 0);
     let mde = 100;
@@ -69,10 +75,13 @@ describe("backend", () => {
       effectSize: 0.05,
       mean: 10,
       standardDeviation: Math.sqrt(3909.9997749994377),
-      priorLiftMean: 0,
-      priorLiftStandardDeviation: 1,
-      proper: false,
-          overrideMetricLevelSettings: true,
+      overrideMetricLevelSettings: true,
+      overridePriorLiftMean: 0,
+      overridePriorLiftStandardDeviation: 1,
+      overrideProper: false,
+      metricPriorLiftMean: 0,
+      metricPriorLiftStandardDeviation: 1,
+      metricProper: false,
     };
     expect(
       +powerEstFrequentist(meanMetric, 400000, 3, 0.05, true, 5000).toFixed(5),
@@ -85,10 +94,13 @@ describe("backend", () => {
       effectSize: 0.05,
       mean: 10,
       standardDeviation: Math.sqrt(3909.9997749994377),
-      priorLiftMean: 0,
-      priorLiftStandardDeviation: 1,
-      proper: false,
-          overrideMetricLevelSettings: true,
+      overrideMetricLevelSettings: true,
+      overridePriorLiftMean: 0,
+      overridePriorLiftStandardDeviation: 1,
+      overrideProper: false,
+      metricPriorLiftMean: 0,
+      metricPriorLiftStandardDeviation: 1,
+      metricProper: false,
     };
     const mde1 = findMdeFrequentist(meanMetric, 0.8, 400000, 3, 0.05, 5000);
     let mde = 100;
@@ -103,10 +115,13 @@ describe("backend", () => {
       name: "click_through_rate",
       conversionRate: 0.1,
       type: "binomial",
-      priorLiftMean: 0,
-      priorLiftStandardDeviation: 1,
-      proper: false,
-          overrideMetricLevelSettings: true,
+      overrideMetricLevelSettings: true,
+      overridePriorLiftMean: 0,
+      overridePriorLiftStandardDeviation: 1,
+      overrideProper: false,
+      metricPriorLiftMean: 0,
+      metricPriorLiftStandardDeviation: 1,
+      metricProper: false,
     },
     revenue: {
       effectSize: 0.3,
@@ -114,10 +129,13 @@ describe("backend", () => {
       mean: 0.1,
       standardDeviation: Math.sqrt(0.5),
       type: "mean",
-      priorLiftMean: 0,
-      priorLiftStandardDeviation: 1,
-      proper: false,
-          overrideMetricLevelSettings: true,
+      overrideMetricLevelSettings: true,
+      overridePriorLiftMean: 0,
+      overridePriorLiftStandardDeviation: 1,
+      overrideProper: false,
+      metricPriorLiftMean: 0,
+      metricPriorLiftStandardDeviation: 1,
+      metricProper: false,
     },
   };
   const metricsBayesian: { [id: string]: MetricParams } = {
@@ -126,10 +144,13 @@ describe("backend", () => {
       type: "binomial",
       conversionRate: 0.1,
       effectSize: 0.05,
-      priorLiftMean: 0.2,
-      priorLiftStandardDeviation: Math.sqrt(0.3),
-      proper: true,
-          overrideMetricLevelSettings: true,
+      overrideMetricLevelSettings: true,
+      overridePriorLiftMean: 0,
+      overridePriorLiftStandardDeviation: 1,
+      overrideProper: false,
+      metricPriorLiftMean: 0,
+      metricPriorLiftStandardDeviation: 1,
+      metricProper: false,
     },
     revenue: {
       name: "revenue",
@@ -137,10 +158,13 @@ describe("backend", () => {
       effectSize: 0.3,
       mean: 0.1,
       standardDeviation: Math.sqrt(0.5),
-      priorLiftMean: 0.2,
-      priorLiftStandardDeviation: Math.sqrt(0.3),
-      proper: true,
-          overrideMetricLevelSettings: true,
+      overrideMetricLevelSettings: true,
+      overridePriorLiftMean: 0,
+      overridePriorLiftStandardDeviation: 1,
+      overrideProper: false,
+      metricPriorLiftMean: 0,
+      metricPriorLiftStandardDeviation: 1,
+      metricProper: false,
     },
   };
   const usersPerWeek = 4500;
@@ -359,10 +383,13 @@ it("powerEstBayesian", () => {
     mean: 10, // Baseline mean value
     standardDeviation: Math.sqrt(3909.9997749994377), // Baseline standard deviation
     effectSize: effectSizeRelative, // Expected % change in mean
-    priorLiftMean: 0.05, // Prior mean for lift in mean
-    priorLiftStandardDeviation: Math.sqrt(0.5476), // Prior standard deviation for lift in mean
-    proper: true, // Whether to use a proper prior (affects prior distribution)
-        overrideMetricLevelSettings: true,
+    overrideMetricLevelSettings: true,
+    overridePriorLiftMean: 0.05, // Prior mean for lift in mean
+    overridePriorLiftStandardDeviation: Math.sqrt(0.5476), // Prior standard deviation for lift in mean
+    overrideProper: true, // Whether to use a proper prior (affects prior distribution)
+    metricPriorLiftMean: 0,
+    metricPriorLiftStandardDeviation: 1,
+    metricProper: false,
   };
   const myMetricAbs = { ...myMetricRel };
   myMetricAbs.effectSize = effectSizeAbsolute;
