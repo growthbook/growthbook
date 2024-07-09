@@ -3457,16 +3457,6 @@ AND event_name = '${eventName}'`,
     const timestampDateTimeColumn = this.castUserDateCol("m.timestamp");
 
     const sql = factTable.sql;
-    const where: string[] = [];
-
-    //MKTODO: Looking at the non-fact segments, we don't do any date filtering, not sure we should here or else results could change
-    // Add a rough date filter to improve query performance
-    // if (sqlVars?.startDate) {
-    //   where.push(`m.timestamp >= ${this.toTimestamp(sqlVars.startDate)}`);
-    // }
-    // if (sqlVars?.endDate) {
-    //   where.push(`m.timestamp <= ${this.toTimestamp(sqlVars.endDate)}`);
-    // }
 
     const additionalColumns: string[] = [];
 
@@ -3485,7 +3475,6 @@ AND event_name = '${eventName}'`,
         ${sql}
       ) m
       ${join}
-      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
   `;
     return sqlVars ? compileSqlTemplate(baseSql, sqlVars) : baseSql;
   }
