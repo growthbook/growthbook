@@ -3656,7 +3656,6 @@ AND event_name = '${eventName}'`,
   ) {
     // replace template variables
     let segmentSql = "";
-    console.log("sqlVars", sqlVars);
 
     if (segment.sql) {
       segmentSql = sqlVars
@@ -3664,7 +3663,6 @@ AND event_name = '${eventName}'`,
         : segment.sql;
     }
 
-    console.log("segmentSql", segmentSql);
     if (segment.factTableId) {
       const factTable = factTableMap.get(segment.factTableId);
 
@@ -3707,17 +3705,6 @@ AND event_name = '${eventName}'`,
 
     // Need to use an identity join table
     if (userIdType !== baseIdType) {
-      console.log("userIdType !== baseIdType, returning");
-      console.log(`-- Segment (${segment.name})
-      SELECT
-        i.${baseIdType},
-        ${dateCol} as date
-      FROM
-        (
-          ${segmentSql}
-        ) s
-        JOIN ${idJoinMap[userIdType]} i ON ( i.${userIdType} = s.${userIdType} )
-      `);
       return `-- Segment (${segment.name})
       SELECT
         i.${baseIdType},
@@ -3731,15 +3718,6 @@ AND event_name = '${eventName}'`,
     }
 
     if (dateCol !== "s.date") {
-      console.log("dateCol !== s.date");
-      console.log(`-- Segment (${segment.name})
-      SELECT
-        s.${userIdType},
-        ${dateCol} as date
-      FROM
-        (
-          ${segmentSql}
-        ) s`);
       return `-- Segment (${segment.name})
       SELECT
         s.${userIdType},
@@ -3749,11 +3727,6 @@ AND event_name = '${eventName}'`,
           ${segmentSql}
         ) s`;
     }
-
-    console.log("made it to the end, about to return");
-    console.log(`-- Segment (${segment.name})
-    ${segmentSql}
-    `);
     return `-- Segment (${segment.name})
     ${segmentSql}
     `;
