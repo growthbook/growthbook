@@ -458,11 +458,7 @@ export default abstract class SqlIntegration
                 params.segment,
                 baseIdType,
                 idJoinMap,
-                params.factTableMap,
-                {
-                  startDate: metricStart,
-                  endDate: metricEnd || undefined,
-                }
+                params.factTableMap
               )}),`
             : ""
         }
@@ -3437,7 +3433,7 @@ AND event_name = '${eventName}'`,
     factTable: FactTableInterface;
     baseIdType: string;
     idJoinMap: Record<string, string>;
-    sqlVars: SQLVars;
+    sqlVars?: SQLVars;
   }) {
     // Determine if a join is required to match up id types
     let join = "";
@@ -3463,28 +3459,35 @@ AND event_name = '${eventName}'`,
     const sql = factTable.sql;
     const where: string[] = [];
 
+    //MKTODO: Looking at the non-fact segments, we don't do any date filtering, not sure we should here or else results could change
     // Add a rough date filter to improve query performance
-    if (sqlVars?.startDate) {
-      where.push(`m.timestamp >= ${this.toTimestamp(sqlVars.startDate)}`);
-    }
-    if (sqlVars?.endDate) {
-      where.push(`m.timestamp <= ${this.toTimestamp(sqlVars.endDate)}`);
-    }
+    // if (sqlVars?.startDate) {
+    //   where.push(`m.timestamp >= ${this.toTimestamp(sqlVars.startDate)}`);
+    // }
+    // if (sqlVars?.endDate) {
+    //   where.push(`m.timestamp <= ${this.toTimestamp(sqlVars.endDate)}`);
+    // }
 
-    return compileSqlTemplate(
-      `-- Fact Table (${factTable.name})
-      SELECT
-        ${userIdCol} as ${baseIdType},
-        ${timestampDateTimeColumn} as timestamp,
-        ${factTable.columns.join(",\n")}
-      FROM(
-          ${sql}
-        ) m
-        ${join}
-        ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-    `,
-      sqlVars
-    );
+    const additionalColumns: string[] = [];
+
+    factTable.columns.forEach((column) => {
+      if (column.column !== baseIdType && column.column !== "timestamp") {
+        additionalColumns.push(column.column);
+      }
+    });
+
+    const baseSql = `-- Fact Table (${factTable.name})
+    SELECT
+      ${userIdCol} as ${baseIdType},
+      ${timestampDateTimeColumn} as date,
+      ${additionalColumns.join(",\n")}
+    FROM(
+        ${sql}
+      ) m
+      ${join}
+      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+  `;
+    return sqlVars ? compileSqlTemplate(baseSql, sqlVars) : baseSql;
   }
 
   private getMetricCTE({
@@ -3660,16 +3663,19 @@ AND event_name = '${eventName}'`,
     baseIdType: string,
     idJoinMap: Record<string, string>,
     factTableMap: FactTableMap,
-    sqlVars: SQLVars
+    sqlVars?: SQLVars
   ) {
     // replace template variables
     let segmentSql = "";
+    console.log("sqlVars", sqlVars);
 
     if (segment.sql) {
       segmentSql = sqlVars
         ? compileSqlTemplate(segment.sql, sqlVars)
         : segment.sql;
     }
+
+    console.log("segmentSql", segmentSql);
     if (segment.factTableId) {
       const factTable = factTableMap.get(segment.factTableId);
 
@@ -3705,12 +3711,24 @@ AND event_name = '${eventName}'`,
       ${where.length ? `WHERE ${where.join(" AND ")}` : ""}`
       );
     }
+
     const dateCol = this.castUserDateCol("s.date");
 
     const userIdType = segment.userIdType || "user_id";
 
     // Need to use an identity join table
     if (userIdType !== baseIdType) {
+      console.log("userIdType !== baseIdType, returning");
+      console.log(`-- Segment (${segment.name})
+      SELECT
+        i.${baseIdType},
+        ${dateCol} as date
+      FROM
+        (
+          ${segmentSql}
+        ) s
+        JOIN ${idJoinMap[userIdType]} i ON ( i.${userIdType} = s.${userIdType} )
+      `);
       return `-- Segment (${segment.name})
       SELECT
         i.${baseIdType},
@@ -3724,6 +3742,15 @@ AND event_name = '${eventName}'`,
     }
 
     if (dateCol !== "s.date") {
+      console.log("dateCol !== s.date");
+      console.log(`-- Segment (${segment.name})
+      SELECT
+        s.${userIdType},
+        ${dateCol} as date
+      FROM
+        (
+          ${segmentSql}
+        ) s`);
       return `-- Segment (${segment.name})
       SELECT
         s.${userIdType},
@@ -3734,6 +3761,10 @@ AND event_name = '${eventName}'`,
         ) s`;
     }
 
+    console.log("made it to the end, about to return");
+    console.log(`-- Segment (${segment.name})
+    ${segmentSql}
+    `);
     return `-- Segment (${segment.name})
     ${segmentSql}
     `;
