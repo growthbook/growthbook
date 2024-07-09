@@ -43,13 +43,22 @@ export type FullModalPowerCalculationParams = Omit<
   "nVariations" | "statsEngine"
 >;
 
+// Partial on all key except name and type.
+export type PartialMetricParams =
+  | (Partial<Omit<MetricParamsMean, "name" | "type">> & {
+      name: string;
+      type: "mean";
+    })
+  | (Partial<Omit<MetricParamsBinomial, "name" | "type">> & {
+      name: string;
+      type: "binomial";
+    });
+
 export type PartialPowerCalculationParams = Partial<
   Omit<FullModalPowerCalculationParams, "metrics">
 > & {
   metrics: {
-    [id: string]: Partial<Omit<MetricParams, "name">> & {
-      name: string;
-    };
+    [id: string]: PartialMetricParams;
   };
 };
 

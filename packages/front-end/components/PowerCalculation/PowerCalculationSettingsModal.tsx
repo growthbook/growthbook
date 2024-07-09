@@ -24,6 +24,7 @@ import {
   isValidPowerCalculationParams,
   ensureAndReturnPowerCalculationParams,
   MetricParams,
+  PartialMetricParams,
   FullModalPowerCalculationParams,
   PartialPowerCalculationParams,
   StatsEngineSettings,
@@ -210,6 +211,30 @@ const SelectStep = ({
   );
 };
 
+const sortParams = (params: PartialMetricParams): PartialMetricParams => {
+  if (params.type === "binomial")
+    return {
+      name: params?.name,
+      type: params.type,
+      effectSize: params?.effectSize,
+      conversionRate: params?.conversionRate,
+      proper: params?.proper,
+      priorLiftMean: params?.priorLiftMean,
+      priorLiftStandardDeviation: params?.priorLiftStandardDeviation,
+    };
+
+  return {
+    name: params?.name,
+    type: params.type,
+    effectSize: params?.effectSize,
+    mean: params?.mean,
+    standardDeviation: params?.standardDeviation,
+    proper: params?.proper,
+    priorLiftMean: params?.priorLiftMean,
+    priorLiftStandardDeviation: params?.priorLiftStandardDeviation,
+  };
+};
+
 const bayesianParams = [
   "priorLiftMean",
   "priorLiftStandardDeviation",
@@ -324,7 +349,7 @@ const MetricParamsInput = ({
 }) => {
   const metrics = form.watch("metrics");
   // eslint-disable-next-line
-  const { name, type: _type, ...params } = ensureAndReturn(metrics[metricId]);
+  const { name, type: _type, ...params } = sortParams(ensureAndReturn(metrics[metricId]));
   const [showBayesian, setShowBayesian] = useState(false);
 
   const isBayesianParamDisabled = (entity) => {
