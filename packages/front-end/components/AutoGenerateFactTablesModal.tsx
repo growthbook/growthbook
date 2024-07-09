@@ -298,6 +298,7 @@ export default function AutoGenerateFactTableModal({
           onChange={(datasourceId) => {
             form.setValue("schema", "");
             form.setValue("datasourceId", datasourceId);
+            setAvailableSchemas([]);
           }}
           options={(supportedDatasources || []).map((d) => ({
             value: d.id,
