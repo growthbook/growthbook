@@ -136,6 +136,13 @@ export interface DropTableQueryParams {
   fullTablePath: string;
 }
 
+export type TestQueryParams = {
+  query: string;
+  templateVariables?: TemplateVariables;
+  testDays?: number;
+  limit?: number;
+};
+
 interface ExperimentBaseQueryParams {
   settings: ExperimentSnapshotSettings;
   activationMetric: ExperimentMetricInterface | null;
@@ -430,11 +437,7 @@ export interface SourceIntegrationInterface {
     query: string,
     templateVariables?: TemplateVariables
   ): string;
-  getTestQuery?(
-    query: string,
-    templateVariables?: TemplateVariables,
-    lengthDays?: number
-  ): string;
+  getTestQuery?(params: TestQueryParams): string;
   runTestQuery?(
     sql: string,
     timestampCols?: string[]

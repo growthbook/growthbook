@@ -60,16 +60,16 @@ async function testFilterQuery(
     throw new Error("Testing not supported on this data source");
   }
 
-  const sql = integration.getTestQuery(
+  const sql = integration.getTestQuery({
     // Must have a newline after factTable sql in case it ends with a comment
-    `SELECT * FROM (
+    query: `SELECT * FROM (
       ${factTable.sql}
     ) f WHERE ${filter}`,
-    {
+    templateVariables: {
       eventName: factTable.eventName,
     },
-    context.org.settings?.testQueryDays
-  );
+    testDays: context.org.settings?.testQueryDays,
+  });
 
   try {
     const results = await integration.runTestQuery(sql);

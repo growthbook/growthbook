@@ -61,6 +61,7 @@ import {
   FactMetricData,
   DropTableQueryResponse,
   DropTableQueryParams,
+  TestQueryParams,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import { SegmentInterface } from "../../types/segment";
@@ -752,24 +753,20 @@ export default abstract class SqlIntegration
     query: string,
     templateVariables?: TemplateVariables
   ): string {
-    return this.getTestQuery(
+    return this.getTestQuery({
       query,
       templateVariables,
-      DEFAULT_TEST_QUERY_DAYS,
-      1
-    );
+      testDays: DEFAULT_TEST_QUERY_DAYS,
+      limit: 1,
+    });
   }
 
-  getTestQuery(
-    query: string,
-    templateVariables?: TemplateVariables,
-    testDays?: number,
-    limit: number = 5
-  ): string {
+  getTestQuery(params: TestQueryParams): string {
+    const { query, templateVariables } = params;
+    const limit = params.limit ?? 5;
+    const testDays = params.testDays ?? DEFAULT_TEST_QUERY_DAYS;
     const startDate = new Date();
-    startDate.setDate(
-      startDate.getDate() - (testDays ?? DEFAULT_TEST_QUERY_DAYS)
-    );
+    startDate.setDate(startDate.getDate() - testDays);
     const limitedQuery = compileSqlTemplate(
       `WITH __table as (
         ${query}
