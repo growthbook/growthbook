@@ -43,14 +43,14 @@ type Config =
   | {
       defaultSettingsValue?: (
         priorSettings: MetricPriorSettings | undefined,
-        orgSettings: OrganizationSettings
+        orgSettings: OrganizationSettings,
       ) => number | undefined;
       defaultValue?: number;
     }
   | {
       defaultSettingsValue?: (
         priorSettings: MetricPriorSettings | undefined,
-        orgSettings: OrganizationSettings
+        orgSettings: OrganizationSettings,
       ) => boolean | undefined;
       defaultValue?: boolean;
     };
@@ -58,7 +58,7 @@ type Config =
 const defaultValue = (
   { defaultSettingsValue, defaultValue }: Config,
   priorSettings: MetricPriorSettings | undefined,
-  settings: OrganizationSettings
+  settings: OrganizationSettings,
 ) => {
   const settingsDefault = defaultSettingsValue?.(priorSettings, settings);
   if (settingsDefault !== undefined) return settingsDefault;
@@ -109,7 +109,7 @@ const SelectStep = ({
 
   const field = (
     key: keyof typeof config,
-    metric: ExperimentMetricInterface
+    metric: ExperimentMetricInterface,
   ) => ({
     [key]: defaultValue(config[key], metric.priorSettings, settings),
   });
@@ -157,7 +157,7 @@ const SelectStep = ({
             "metrics",
             value.reduce((result, id) => {
               const metric = ensureAndReturn(
-                allAppMetrics.find((m) => m.id === id)
+                allAppMetrics.find((m) => m.id === id),
               );
 
               return {
@@ -173,12 +173,13 @@ const SelectStep = ({
                         ...field("standardDeviation", metric),
                         standardDeviation: undefined,
                       }),
+                  ...field("overrideMetricLevelSettings", metric),
                   ...field("proper", metric),
                   ...field("priorLiftMean", metric),
                   ...field("priorLiftStandardDeviation", metric),
                 },
               };
-            }, {})
+            }, {}),
           );
         }}
       />
@@ -218,6 +219,7 @@ const sortParams = (params: PartialMetricParams): PartialMetricParams => {
       type: params.type,
       effectSize: params.effectSize,
       conversionRate: params.conversionRate,
+      overrideMetricLevelSettings: params.overrideMetricLevelSettings,
       proper: params.proper,
       priorLiftMean: params.priorLiftMean,
       priorLiftStandardDeviation: params.priorLiftStandardDeviation,
@@ -229,6 +231,7 @@ const sortParams = (params: PartialMetricParams): PartialMetricParams => {
     effectSize: params.effectSize,
     mean: params.mean,
     standardDeviation: params.standardDeviation,
+    overrideMetricLevelSettings: params.overrideMetricLevelSettings,
     proper: params.proper,
     priorLiftMean: params.priorLiftMean,
     priorLiftStandardDeviation: params.priorLiftStandardDeviation,
@@ -236,6 +239,7 @@ const sortParams = (params: PartialMetricParams): PartialMetricParams => {
 };
 
 const bayesianParams = [
+  "overrideMetricLevelSettings",
   "priorLiftMean",
   "priorLiftStandardDeviation",
   "proper",
@@ -351,10 +355,11 @@ const MetricParamsInput = ({
 }) => {
   const metrics = form.watch("metrics");
   // eslint-disable-next-line
-  const { name, type: _type, ...params } = sortParams(
-    ensureAndReturn(metrics[metricId])
-  );
-  const [showBayesian, setShowBayesian] = useState(false);
+  const {
+    name,
+    type: _type,
+    ...params
+  } = sortParams(ensureAndReturn(metrics[metricId]));
 
   const isBayesianParamDisabled = (entity) => {
     if (params.proper) return false;
@@ -381,19 +386,26 @@ const MetricParamsInput = ({
           <div className="row align-items-center h-100 mb-2">
             <div className="col-auto">
               <input
-                id={`input-value-${metricId}-showBayesian`}
+                id={`input-value-${metricId}-overrideMetricLevelSettings`}
                 type="checkbox"
-                checked={showBayesian}
-                onChange={() => setShowBayesian(!showBayesian)}
+                checked={params.overrideMetricLevelSettings}
+                onChange={() =>
+                  form.setValue(
+                    `metrics.${metricId}.overrideMetricLevelSettings`,
+                    !params.overrideMetricLevelSettings,
+                  )
+                }
               />
             </div>
             <div>Override metric-level settings</div>
           </div>
           <div className="row">
-            {showBayesian &&
+            {params.overrideMetricLevelSettings &&
               Object.keys(params)
-                .filter((v) =>
-                  (bayesianParams as readonly string[]).includes(v)
+                .filter(
+                  (v) =>
+                    v !== "overrideMetricLevelSettings" &&
+                    (bayesianParams as readonly string[]).includes(v),
                 )
                 .map((entry: keyof Omit<MetricParams, "name" | "type">) => (
                   <InputField
@@ -452,8 +464,8 @@ const SetParamsStep = ({
             onSubmit(
               ensureAndReturnPowerCalculationParams(
                 engineType,
-                form.getValues()
-              )
+                form.getValues(),
+              ),
             )
           }
         >
@@ -502,7 +514,7 @@ export default function PowerCalculationModal({
             },
           }
         : defaultValues,
-    {}
+    {},
   );
 
   useEffect(() => {
@@ -518,13 +530,13 @@ export default function PowerCalculationModal({
                 defaultValues[key].type === "all"
                   ? { ...values, [key]: defaultValues[key].value }
                   : {},
-              {}
+              {},
             ),
             ...metrics[id],
           },
         }),
-        {}
-      )
+        {},
+      ),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
