@@ -246,11 +246,13 @@ const InputField = ({
   form,
   metricId,
   disabled = false,
+  className = "",
 }: {
   entry: keyof typeof config;
   form: Form;
   metricId: string;
   disabled?: boolean;
+  className?: string;
 }) => {
   const metrics = form.watch("metrics");
   const params = ensureAndReturn(metrics[metricId]);
@@ -299,7 +301,7 @@ const InputField = ({
   };
 
   return (
-    <div className="col-4">
+    <div className={`col-4 ${className}`}>
       {c.type === "percent" && (
         <PercentField
           {...commonOptions}
@@ -318,8 +320,8 @@ const InputField = ({
         />
       )}
       {c.type === "boolean" && (
-        <div className="form-group h-100">
-          <div className="row align-items-center h-100 mt-2">
+        <div className="form-group">
+          <div className="row align-items-center mt-4 self-start">
             <div className="col-auto">
               <Toggle
                 id={`input-value-${metricId}-${entry}`}
@@ -349,7 +351,9 @@ const MetricParamsInput = ({
 }) => {
   const metrics = form.watch("metrics");
   // eslint-disable-next-line
-  const { name, type: _type, ...params } = sortParams(ensureAndReturn(metrics[metricId]));
+  const { name, type: _type, ...params } = sortParams(
+    ensureAndReturn(metrics[metricId])
+  );
   const [showBayesian, setShowBayesian] = useState(false);
 
   const isBayesianParamDisabled = (entity) => {
@@ -358,7 +362,7 @@ const MetricParamsInput = ({
   };
 
   return (
-    <div className="card gsbox mb-3 p-3 mb-2 power-analysis-params">
+    <div className="card gsbox mb-3 pt-3 pl-3 pr-3 pb-1 mb-2 power-analysis-params">
       <div className="card-title uppercase-title mb-3">{name}</div>
       <div className="row">
         {Object.keys(params)
@@ -397,7 +401,9 @@ const MetricParamsInput = ({
                     entry={entry}
                     form={form}
                     metricId={metricId}
-                    disabled={isBayesianParamDisabled(entry)}
+                    className={
+                      isBayesianParamDisabled(entry) ? "invisible" : "visible"
+                    }
                   />
                 ))}
           </div>
