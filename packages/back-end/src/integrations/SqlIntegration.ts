@@ -3054,12 +3054,12 @@ export default abstract class SqlIntegration
           getDateLimitClause: (dates?: { start: Date; end: Date }) => {
             // If dates are provided, format them, otherwise use Sql template variables
             const start = dates
-              ? `${formatDate(dates.start, "yyyy-MM-dd")}`
-              : `{{date startDateISO "yyyy-MM-dd"}}`;
+              ? `${this.toTimestamp(dates.start)}`
+              : `'{{date startDateISO "yyyy-MM-dd"}}'`;
             const end = dates
-              ? `${formatDate(dates.end, "yyyy-MM-dd")}`
-              : `{{date endDateISO "yyyy-MM-dd"}}`;
-            return `received_at BETWEEN '${start}' AND '${end}'`;
+              ? `${this.toTimestamp(dates.end)}`
+              : `'{{date endDateISO "yyyy-MM-dd"}}'`;
+            return `received_at BETWEEN ${start} AND ${end}`;
           },
           getAdditionalEvents: () => [
             {
