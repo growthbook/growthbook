@@ -411,9 +411,12 @@ export interface components {
       datasourceId: string;
       identifierType: string;
       name: string;
-      query: string;
+      query?: string;
       dateCreated: string;
       dateUpdated: string;
+      type?: string;
+      factTableId?: string;
+      filters?: (string)[];
     };
     Feature: {
       id: string;
@@ -2877,9 +2880,12 @@ export interface operations {
                 datasourceId: string;
                 identifierType: string;
                 name: string;
-                query: string;
+                query?: string;
                 dateCreated: string;
                 dateUpdated: string;
+                type?: string;
+                factTableId?: string;
+                filters?: (string)[];
               })[];
           } & {
             limit: number;
@@ -2905,9 +2911,12 @@ export interface operations {
               datasourceId: string;
               identifierType: string;
               name: string;
-              query: string;
+              query?: string;
               dateCreated: string;
               dateUpdated: string;
+              type?: string;
+              factTableId?: string;
+              filters?: (string)[];
             };
           };
         };

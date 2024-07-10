@@ -47,4 +47,10 @@ export class SegmentModel extends BaseClass {
   ): Promise<SegmentInterface[]> {
     return await this._find({ datasource: datasourceId });
   }
+
+  public async getByFactTableId(
+    factTableId: string
+  ): Promise<SegmentInterface[]> {
+    return await this._find({ factTableId });
+  }
 }

@@ -167,7 +167,6 @@ export const postSegment = async (
     userIdType,
     name,
     sql,
-    id: uniqid("seg_"),
     description,
     type,
     factTableId,
@@ -240,7 +239,7 @@ export const putSegment = async (
   }
 
   await context.models.segments.updateById(id, {
-    owner: owner || "",
+    owner: owner,
     datasource,
     userIdType,
     name,

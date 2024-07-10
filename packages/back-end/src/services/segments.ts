@@ -2,7 +2,6 @@ import { ApiSegment } from "@back-end/types/openapi";
 import { SegmentInterface } from "@back-end/types/segment";
 
 export function toSegmentApiInterface(segment: SegmentInterface): ApiSegment {
-  //MKTODO: Add support for FACT type (e.g. add type, factTableId, and filter fields)
   return {
     id: segment.id,
     name: segment.name,
@@ -10,6 +9,9 @@ export function toSegmentApiInterface(segment: SegmentInterface): ApiSegment {
     identifierType: segment.userIdType || "user_id",
     query: segment.sql || "",
     datasourceId: segment.datasource || "",
+    type: segment.sql ? "SQL" : "FACT",
+    factTableId: segment.factTableId || "",
+    filters: segment.filters || [],
     dateCreated: segment.dateCreated?.toISOString() || "",
     dateUpdated: segment.dateUpdated?.toISOString() || "",
   };

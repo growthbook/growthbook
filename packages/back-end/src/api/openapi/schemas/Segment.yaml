@@ -5,7 +5,6 @@ required:
   - datasourceId
   - identifierType
   - name
-  - query
   - dateCreated
   - dateUpdated
 properties:
@@ -25,3 +24,11 @@ properties:
     type: string
   dateUpdated:
     type: string
+  type:
+    type: string
+  factTableId:
+    type: string
+  filters:
+    type: array
+    items:
+      type: string
