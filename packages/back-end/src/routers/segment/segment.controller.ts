@@ -1,7 +1,6 @@
 import type { Response } from "express";
 import { FilterQuery } from "mongoose";
 import { z } from "zod";
-import uniqid from "uniqid";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getContextFromReq } from "../../services/organizations";
