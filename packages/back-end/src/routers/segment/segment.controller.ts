@@ -20,7 +20,10 @@ import { MetricInterface } from "../../../types/metric";
 import { SegmentInterface } from "../../../types/segment";
 import { ExperimentInterface } from "../../../types/experiment";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
-import { createSegmentValidator } from "./segment.validators";
+import {
+  createSegmentValidator,
+  updateSegmentValidator,
+} from "./segment.validators";
 
 // region GET /segments
 
@@ -182,14 +185,7 @@ export const postSegment = async (
 // region PUT /segments/:id
 
 type PutSegmentRequest = AuthRequest<
-  {
-    datasource: string;
-    userIdType: string;
-    name: string;
-    sql: string;
-    owner: string;
-    description: string;
-  },
+  z.infer<typeof updateSegmentValidator>,
   { id: string }
 >;
 
@@ -226,7 +222,17 @@ export const putSegment = async (
     throw new Error("You don't have access to that segment");
   }
 
-  const { datasource, name, sql, userIdType, owner, description } = req.body;
+  const {
+    datasource,
+    name,
+    sql,
+    userIdType,
+    description,
+    owner,
+    factTableId,
+    filters,
+    type,
+  } = req.body;
 
   const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
@@ -234,12 +240,15 @@ export const putSegment = async (
   }
 
   await context.models.segments.updateById(id, {
+    owner: owner || "",
     datasource,
     userIdType,
     name,
-    owner,
     sql,
     description,
+    type,
+    factTableId,
+    filters,
   });
 
   res.status(200).json({

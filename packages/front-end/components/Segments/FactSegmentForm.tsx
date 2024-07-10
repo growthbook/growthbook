@@ -43,7 +43,7 @@ export default function FactSegmentForm({
       description: current?.description || "",
       factTableId: current?.factTableId || "",
       filters: current?.filters || [],
-      // projects: [],
+      type: "FACT",
     },
   });
 
@@ -56,8 +56,8 @@ export default function FactSegmentForm({
       close={close}
       open={true}
       size={"md"}
-      cta={current ? "Update Segment" : "Create Segment"}
-      header={current ? "Edit Segment" : "Create Segment"}
+      cta={current?.factTableId ? "Update Segment" : "Create Segment"}
+      header={current?.factTableId ? "Edit Segment" : "Create Segment"}
       submit={form.handleSubmit(async (value) => {
         if (current?.id) {
           await apiCall(`/segments/${current.id}`, {

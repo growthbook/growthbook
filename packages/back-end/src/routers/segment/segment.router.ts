@@ -3,7 +3,10 @@ import z from "zod";
 import { wrapController } from "../wrapController";
 import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
 import * as rawSegmentController from "./segment.controller";
-import { createSegmentValidator } from "./segment.validators";
+import {
+  createSegmentValidator,
+  updateSegmentValidator,
+} from "./segment.validators";
 
 const router = express.Router();
 
@@ -39,14 +42,7 @@ router.put(
         id: z.string(),
       })
       .strict(),
-    body: z.object({
-      datasource: z.string(),
-      userIdType: z.string(),
-      name: z.string(),
-      owner: z.string(),
-      sql: z.string(),
-      description: z.string(),
-    }),
+    body: updateSegmentValidator,
   }),
   segmentController.putSegment
 );
