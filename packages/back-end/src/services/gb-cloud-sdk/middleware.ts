@@ -61,7 +61,7 @@ export async function setAttributes(
     const attributes: Attributes = {
       id: req?.userId || "",
       name: req?.name || "",
-      admin: req?.admin || false,
+      admin: req?.superAdmin || false,
       company: req?.organization?.name || "",
       organizationId: req?.organization?.id
         ? sha256(req.organization.id, GROWTHBOOK_SECURE_ATTRIBUTE_SALT)
