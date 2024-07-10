@@ -78,7 +78,7 @@ type Config = {
       maxValue?: number;
       defaultSettingsValue?: (
         priorSettings: MetricPriorSettings | undefined,
-        orgSettings: OrganizationSettings,
+        orgSettings: OrganizationSettings
       ) => number | undefined;
       defaultValue?: number;
     }
@@ -86,7 +86,7 @@ type Config = {
       type: "boolean";
       defaultSettingsValue?: (
         priorSettings: MetricPriorSettings | undefined,
-        orgSettings: OrganizationSettings,
+        orgSettings: OrganizationSettings
       ) => boolean | undefined;
       defaultValue?: boolean;
     }
@@ -199,7 +199,7 @@ export const config = checkConfig({
 
 const validEntry = (
   name: keyof typeof config,
-  v: number | boolean | undefined,
+  v: number | boolean | undefined
 ) => {
   if (v === undefined) return false;
 
@@ -220,28 +220,33 @@ const validEntry = (
 
 export const isValidPowerCalculationParams = (
   engineType: "frequentist" | "bayesian",
-  v: PartialPowerCalculationParams,
+  v: PartialPowerCalculationParams
 ): v is FullModalPowerCalculationParams =>
   validEntry("usersPerWeek", v.usersPerWeek) &&
   Object.keys(v.metrics).every((key) => {
     const params = v.metrics[key];
     if (!params) return false;
-    return (
-      [
-        "effectSize",
-        ...(engineType === "bayesian"
-          ? (["overrideProper", "overridePriorLiftMean", "overridePriorLiftStandardDeviation", "metricProper", "metricPriorLiftMean", "metricPriorLiftStandardDeviation"] as const)
-          : []),
-        ...(params.type === "binomial"
-          ? (["conversionRate"] as const)
-          : (["mean", "standardDeviation"] as const)),
-      ] as const
-    ).every((k) => validEntry(k, params[k]));
+    return ([
+      "effectSize",
+      ...(engineType === "bayesian"
+        ? ([
+            "overrideProper",
+            "overridePriorLiftMean",
+            "overridePriorLiftStandardDeviation",
+            "metricProper",
+            "metricPriorLiftMean",
+            "metricPriorLiftStandardDeviation",
+          ] as const)
+        : []),
+      ...(params.type === "binomial"
+        ? (["conversionRate"] as const)
+        : (["mean", "standardDeviation"] as const)),
+    ] as const).every((k) => validEntry(k, params[k]));
   });
 
 export const ensureAndReturnPowerCalculationParams = (
   engineType: "frequentist" | "bayesian",
-  v: PartialPowerCalculationParams,
+  v: PartialPowerCalculationParams
 ): FullModalPowerCalculationParams => {
   if (!isValidPowerCalculationParams(engineType, v)) throw "internal error";
   return v;
