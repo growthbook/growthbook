@@ -104,12 +104,11 @@ export default function IdLists({ groups, mutate }: Props) {
         ) : null}
       </div>
       <p className="text-gray mb-1">
-        Pick an attribute and add a list of included values directly within the
-        GrowthBook UI.
+        Specify a list of values to include for an attribute.
       </p>
       <p className="text-gray">
-        Example: a &quot;Beta Testers&quot; group containing a specific set of{" "}
-        <code>device_id</code> values.
+        For example, create a &quot;Beta Testers&quot; group identified by a
+        specific set of <code>device_id</code> values.
       </p>
       {idLists.length > 0 && (
         <>

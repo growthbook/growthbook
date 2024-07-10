@@ -136,13 +136,10 @@ export default function SavedGroupsPage() {
         </div>
       </div>
       <p>
-        Create reusable groups of users to use as targets for feature flag rules
-        or experiments. Choose to define groups as an ID List or a Targeting
-        Condition.
+        Create reusable user groups as targets for feature flags or experiments.
       </p>
       <div className="alert alert-info mt-2">
-        Learn more about the differences between using ID Lists or Targeting
-        Conditions.{" "}
+        Learn more about using Condition Groups and ID Lists.{" "}
         <a
           href="https://docs.growthbook.io/features/targeting#saved-groups"
           target="_blank"
