@@ -18,13 +18,13 @@ import {
 describe("backend", () => {
   it("delta method variance absolute correct", () => {
     expect(+frequentistVariance(2, 7, 4, 0.5, 5, 15, false).toFixed(5)).toEqual(
-      0.53333,
+      0.53333
     );
   });
 
   it("delta method variance relative correct", () => {
     expect(+frequentistVariance(2, 7, 4, 0.5, 5, 15, true).toFixed(5)).toEqual(
-      0.00589,
+      0.00589
     );
   });
   it("calculates power correctly", () => {
@@ -43,7 +43,7 @@ describe("backend", () => {
       metricProper: false,
     };
     expect(
-      +powerEstFrequentist(meanMetric, 400000, 3, 0.05, true, 0).toFixed(5),
+      +powerEstFrequentist(meanMetric, 400000, 3, 0.05, true, 0).toFixed(5)
     ).toEqual(0.52144);
   });
   it("calculates two-tailed mde correctly", () => {
@@ -84,7 +84,7 @@ describe("backend", () => {
       metricProper: false,
     };
     expect(
-      +powerEstFrequentist(meanMetric, 400000, 3, 0.05, true, 5000).toFixed(5),
+      +powerEstFrequentist(meanMetric, 400000, 3, 0.05, true, 5000).toFixed(5)
     ).toEqual(0.20596);
   });
   it("calculates sequential mde correctly", () => {
@@ -129,7 +129,7 @@ describe("backend", () => {
       mean: 0.1,
       standardDeviation: Math.sqrt(0.5),
       type: "mean",
-      overrideMetricLevelSettings: true,
+      overrideMetricLevelSettings: false,
       overridePriorLiftMean: 0,
       overridePriorLiftStandardDeviation: 1,
       overrideProper: false,
@@ -144,13 +144,13 @@ describe("backend", () => {
       type: "binomial",
       conversionRate: 0.1,
       effectSize: 0.05,
-      overrideMetricLevelSettings: true,
+      overrideMetricLevelSettings: false,
       overridePriorLiftMean: 0,
       overridePriorLiftStandardDeviation: 1,
       overrideProper: false,
-      metricPriorLiftMean: 0,
-      metricPriorLiftStandardDeviation: 1,
-      metricProper: false,
+      metricPriorLiftMean: 0.2,
+      metricPriorLiftStandardDeviation: Math.sqrt(0.3),
+      metricProper: true,
     },
     revenue: {
       name: "revenue",
@@ -158,13 +158,13 @@ describe("backend", () => {
       effectSize: 0.3,
       mean: 0.1,
       standardDeviation: Math.sqrt(0.5),
-      overrideMetricLevelSettings: true,
+      overrideMetricLevelSettings: false,
       overridePriorLiftMean: 0,
       overridePriorLiftStandardDeviation: 1,
       overrideProper: false,
-      metricPriorLiftMean: 0,
-      metricPriorLiftStandardDeviation: 1,
-      metricProper: false,
+      metricPriorLiftMean: 0.2,
+      metricPriorLiftStandardDeviation: Math.sqrt(0.3),
+      metricProper: true,
     },
   };
   const usersPerWeek = 4500;
@@ -202,24 +202,84 @@ describe("backend", () => {
       },
     };
     const powerSolution = [
-      0.073, 0.17053, 0.0965, 0.29389, 0.1204, 0.41122, 0.14458, 0.51749,
-      0.16895, 0.61037, 0.19342, 0.68938, 0.21791, 0.75513, 0.24235, 0.80886,
-      0.26666, 0.85213,
+      0.073,
+      0.17053,
+      0.0965,
+      0.29389,
+      0.1204,
+      0.41122,
+      0.14458,
+      0.51749,
+      0.16895,
+      0.61037,
+      0.19342,
+      0.68938,
+      0.21791,
+      0.75513,
+      0.24235,
+      0.80886,
+      0.26666,
+      0.85213,
     ];
     const mdeSolution = [
-      0.36767, 1.26769, 0.24505, 0.71941, 0.19525, 0.54299, 0.16673, 0.4506,
-      0.14774, 0.39208, 0.13394, 0.35099, 0.12336, 0.32018, 0.11491, 0.29603,
-      0.10796, 0.27647,
+      0.36767,
+      1.26769,
+      0.24505,
+      0.71941,
+      0.19525,
+      0.54299,
+      0.16673,
+      0.4506,
+      0.14774,
+      0.39208,
+      0.13394,
+      0.35099,
+      0.12336,
+      0.32018,
+      0.11491,
+      0.29603,
+      0.10796,
+      0.27647,
     ];
     const powerSolutionBayesian = [
-      0.0752, 0.15127, 0.10103, 0.29358, 0.12581, 0.41893, 0.15048, 0.52858,
-      0.17516, 0.62241, 0.19984, 0.70103, 0.22446, 0.7657, 0.24899, 0.81807,
-      0.27334, 0.8599,
+      0.0752,
+      0.15127,
+      0.10103,
+      0.29358,
+      0.12581,
+      0.41893,
+      0.15048,
+      0.52858,
+      0.17516,
+      0.62241,
+      0.19984,
+      0.70103,
+      0.22446,
+      0.7657,
+      0.24899,
+      0.81807,
+      0.27334,
+      0.8599,
     ];
     const mdeSolutionBayesian = [
-      0.36259, 1.65287, 0.24173, 0.73248, 0.1929, 0.54036, 0.16492, 0.44561,
-      0.14626, 0.38687, 0.1327, 0.34604, 0.12228, 0.3156, 0.11396, 0.29182,
-      0.10712, 0.27258,
+      0.36259,
+      1.65287,
+      0.24173,
+      0.73248,
+      0.1929,
+      0.54036,
+      0.16492,
+      0.44561,
+      0.14626,
+      0.38687,
+      0.1327,
+      0.34604,
+      0.12228,
+      0.3156,
+      0.11396,
+      0.29182,
+      0.10712,
+      0.27258,
     ];
     const sampleSizeAndRuntime = [undefined, 8];
     const resultsTS = powerMetricWeeks(powerSettings);
@@ -237,17 +297,17 @@ describe("backend", () => {
         (result, { metrics }) =>
           Object.values(metrics).reduce(
             (result, { power }) => [...result, power],
-            result,
+            result
           ),
-        [],
+        []
       );
       mdeMultiple = resultsTS.weeks.reduce(
         (result, { metrics }) =>
           Object.values(metrics).reduce(
             (result, { effectSize }) => [...result, effectSize],
-            result,
+            result
           ),
-        [],
+        []
       );
       if (
         resultsTS.sampleSizeAndRuntime.click_through_rate?.weeks !== undefined
@@ -263,17 +323,17 @@ describe("backend", () => {
         (result, { metrics }) =>
           Object.values(metrics).reduce(
             (result, { power }) => [...result, power],
-            result,
+            result
           ),
-        [],
+        []
       );
       mdeMultipleBayesian = resultsTSBayesian.weeks.reduce(
         (result, { metrics }) =>
           Object.values(metrics).reduce(
             (result, { effectSize }) => [...result, effectSize],
-            result,
+            result
           ),
-        [],
+        []
       );
       if (
         resultsTSBayesian.sampleSizeAndRuntime.click_through_rate?.weeks !==
@@ -290,10 +350,10 @@ describe("backend", () => {
     expect(w0).toEqual(sampleSizeAndRuntime[0]);
     expect(w1).toEqual(sampleSizeAndRuntime[1]);
     expect(powerMultipleBayesian.map(roundToFifthDecimal)).toEqual(
-      powerSolutionBayesian,
+      powerSolutionBayesian
     );
     expect(mdeMultipleBayesian.map(roundToFifthDecimal)).toEqual(
-      mdeSolutionBayesian,
+      mdeSolutionBayesian
     );
     expect(sampleSizeAndRuntime[0]).toEqual(w0Bayesian);
     expect(sampleSizeAndRuntime[1]).toEqual(w1Bayesian);
@@ -312,14 +372,44 @@ describe("backend", () => {
       },
     };
     const powerSolution = [
-      0.05936, 0.09832, 0.06912, 0.14992, 0.07849, 0.19972, 0.08761, 0.24784,
-      0.09657, 0.29426, 0.10541, 0.33888, 0.11415, 0.38165, 0.12282, 0.42249,
-      0.13142, 0.46136,
+      0.05936,
+      0.09832,
+      0.06912,
+      0.14992,
+      0.07849,
+      0.19972,
+      0.08761,
+      0.24784,
+      0.09657,
+      0.29426,
+      0.10541,
+      0.33888,
+      0.11415,
+      0.38165,
+      0.12282,
+      0.42249,
+      0.13142,
+      0.46136,
     ];
     const mdeSolution = [
-      0.65545, 4.33868, 0.4112, 1.51846, 0.32394, 1.04943, 0.27607, 0.84084,
-      0.24484, 0.71862, 0.22241, 0.63663, 0.20532, 0.577, 0.19172, 0.53123,
-      0.18058, 0.49473,
+      0.65545,
+      4.33868,
+      0.4112,
+      1.51846,
+      0.32394,
+      1.04943,
+      0.27607,
+      0.84084,
+      0.24484,
+      0.71862,
+      0.22241,
+      0.63663,
+      0.20532,
+      0.577,
+      0.19172,
+      0.53123,
+      0.18058,
+      0.49473,
     ];
     const sampleSizeAndRuntime = [undefined, undefined];
     const resultsTS = powerMetricWeeks(powerSettings);
@@ -333,17 +423,17 @@ describe("backend", () => {
         (result, { metrics }) =>
           Object.values(metrics).reduce(
             (result, { power }) => [...result, power],
-            result,
+            result
           ),
-        [],
+        []
       );
       mdeMultiple = resultsTS.weeks.reduce(
         (result, { metrics }) =>
           Object.values(metrics).reduce(
             (result, { effectSize }) => [...result, effectSize],
-            result,
+            result
           ),
-        [],
+        []
       );
       if (
         resultsTS.sampleSizeAndRuntime.click_through_rate?.weeks !== undefined
@@ -399,14 +489,14 @@ it("powerEstBayesian", () => {
     alpha,
     power,
     nPerVariation,
-    true,
+    true
   );
   const mdeAbsolute = findMdeBayesian(
     myMetricAbs,
     alpha,
     power,
     nPerVariation,
-    false,
+    false
   );
   let mdeRelativeScalar = -999;
   if (mdeRelative.type === "success") {
@@ -421,22 +511,22 @@ it("powerEstBayesian", () => {
     myMetricRel,
     alpha,
     nPerVariation,
-    true,
+    true
   );
 
   const powerAbsolute = powerEstBayesian(
     myMetricAbs,
     alpha,
     nPerVariation,
-    false,
+    false
   );
 
   expect(parseFloat(mdeRelativeScalar.toFixed(5))).toEqual(
-    parseFloat(effectSizeRelative.toFixed(5)),
+    parseFloat(effectSizeRelative.toFixed(5))
   );
 
   expect(parseFloat(mdeAbsoluteScalar.toFixed(5))).toEqual(
-    parseFloat(effectSizeAbsolute.toFixed(5)),
+    parseFloat(effectSizeAbsolute.toFixed(5))
   );
 
   expect(parseFloat(powerRelative.toFixed(3))).toEqual(power);
