@@ -103,11 +103,11 @@ export default function ConditionGroups({ groups, mutate }: Props) {
         ) : null}
       </div>
       <p className="text-gray mb-1">
-        Set up advanced targeting rules based on a user&apo;s attributes.
+        Set up advanced targeting rules based on user attributes.
       </p>
       <p className="text-gray">
-        Example: include all users who are located in the US <b>and</b> on a
-        mobile device
+        For example, target users located in the US <b>and</b> on a mobile
+        device.
       </p>
       {conditionGroups.length > 0 && (
         <>
