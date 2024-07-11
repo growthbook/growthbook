@@ -17,7 +17,11 @@ import {
 } from "@dnd-kit/sortable";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
-import { getRules, isRuleFullyCovered } from "@/services/features";
+import {
+  getRules,
+  isRuleDisabled,
+  isRuleFullyCovered,
+} from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { Rule, SortableRule } from "./Rule";
@@ -66,7 +70,7 @@ export default function RuleList({
     })
   );
   const showInactiveToggle =
-    items.filter((r) => !r.enabled || r.scheduleRules?.length).length > 0;
+    items.filter((r) => isRuleDisabled(r, experimentsMap)).length > 0;
 
   if (!items.length) {
     return (
@@ -83,9 +87,14 @@ export default function RuleList({
     return -1;
   }
 
+  const filteredItems =
+    showInactiveToggle && hideDisabled
+      ? items.filter((r) => !isRuleDisabled(r, experimentsMap))
+      : items;
+
   // detect unreachable rules, and get the first rule that is at 100%.
   let unreachableIndex = 0;
-  items.forEach((item, i) => {
+  filteredItems.forEach((item, i) => {
     if (unreachableIndex) return;
 
     // if this rule covers 100% of traffic, no additional rules are reachable.
@@ -156,8 +165,11 @@ export default function RuleList({
           </label>
         </div>
       ) : null}
-      <SortableContext items={items} strategy={verticalListSortingStrategy}>
-        {items.map(({ ...rule }, i) => (
+      <SortableContext
+        items={filteredItems}
+        strategy={verticalListSortingStrategy}
+      >
+        {filteredItems.map(({ ...rule }, i) => (
           <SortableRule
             key={rule.id}
             environment={environment}
@@ -172,7 +184,6 @@ export default function RuleList({
             setVersion={setVersion}
             locked={locked}
             experimentsMap={experimentsMap}
-            hideDisabled={showInactiveToggle && hideDisabled}
           />
         ))}
       </SortableContext>

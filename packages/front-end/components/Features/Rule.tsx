@@ -12,7 +12,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { filterEnvironmentsByFeature } from "shared/dist/util";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import { getRules, useEnvironments } from "@/services/features";
+import { getRules, isRuleDisabled, useEnvironments } from "@/services/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Button";
@@ -24,9 +24,7 @@ import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 import ExperimentSummary from "./ExperimentSummary";
 import RuleStatusPill from "./RuleStatusPill";
-import ExperimentRefSummary, {
-  isExperimentRefRuleSkipped,
-} from "./ExperimentRefSummary";
+import ExperimentRefSummary from "./ExperimentRefSummary";
 
 interface SortableProps {
   i: number;
@@ -101,11 +99,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rule?.scheduleRules?.length &&
       rule.scheduleRules.at(-1)?.timestamp !== null;
 
-    const ruleDisabled =
-      scheduleCompletedAndDisabled ||
-      upcomingScheduleRule?.enabled ||
-      (linkedExperiment && isExperimentRefRuleSkipped(linkedExperiment)) ||
-      !rule.enabled;
+    const ruleDisabled = isRuleDisabled(rule, experimentsMap);
 
     const hasCondition =
       (rule.condition && rule.condition !== "{}") ||
