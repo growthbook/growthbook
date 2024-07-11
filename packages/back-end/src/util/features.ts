@@ -37,9 +37,14 @@ function getSavedGroupCondition(
   }
 
   if (!group.attributeKey) return null;
-  if (!group.passByReferenceOnly || !savedGroupReferencesEnabled) {
+  if (!savedGroupReferencesEnabled) {
     return {
-      [group.attributeKey]: { [include ? "$in" : "$nin"]: group.values || [] },
+      [group.attributeKey]: {
+        // This explicitly filters non-legacy (passByReferenceOnly) saved groups from being sent with unsupported sdk connections
+        [include ? "$in" : "$nin"]: group.passByReferenceOnly
+          ? []
+          : group.values || [],
+      },
     };
   }
 

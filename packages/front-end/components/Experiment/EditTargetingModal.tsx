@@ -83,6 +83,18 @@ export default function EditTargetingModal({
     prerequisiteTargetingSdkIssues,
     setPrerequisiteTargetingSdkIssues,
   ] = useState(false);
+  const [
+    savedGroupTargetingSdkIssues,
+    setSavedGroupTargetingSdkIssues,
+  ] = useState(false);
+  const [
+    attributeTargetingSdkIssues,
+    setAttributeTargetingSdkIssues,
+  ] = useState(false);
+  const canSubmit =
+    !attributeTargetingSdkIssues &&
+    !savedGroupTargetingSdkIssues &&
+    !prerequisiteTargetingSdkIssues;
 
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
@@ -167,6 +179,10 @@ export default function EditTargetingModal({
       throw new Error("Prerequisite targeting issues must be resolved");
     }
 
+    if (savedGroupTargetingSdkIssues || attributeTargetingSdkIssues) {
+      throw new Error("Saved Group targeting issues  must be resolved");
+    }
+
     await apiCall(`/experiment/${experiment.id}/targeting`, {
       method: "POST",
       body: JSON.stringify(value),
@@ -180,6 +196,7 @@ export default function EditTargetingModal({
         open={true}
         close={close}
         header={`Edit Targeting`}
+        ctaEnabled={canSubmit}
         submit={onSubmit}
         cta="Save"
         size="lg"
@@ -190,6 +207,8 @@ export default function EditTargetingModal({
           safeToEdit={true}
           conditionKey={conditionKey}
           setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
+          setSavedGroupTargetingSdkIssues={setSavedGroupTargetingSdkIssues}
+          setAttributeTargetingSdkIssues={setAttributeTargetingSdkIssues}
         />
       </Modal>
     );
@@ -225,7 +244,7 @@ export default function EditTargetingModal({
       header="Make Experiment Changes"
       submit={onSubmit}
       cta={cta}
-      ctaEnabled={ctaEnabled}
+      ctaEnabled={ctaEnabled && canSubmit}
       forceCtaText={!ctaEnabled}
       size="lg"
       step={step}
@@ -298,6 +317,8 @@ export default function EditTargetingModal({
               setPrerequisiteTargetingSdkIssues={
                 setPrerequisiteTargetingSdkIssues
               }
+              setSavedGroupTargetingSdkIssues={setSavedGroupTargetingSdkIssues}
+              setAttributeTargetingSdkIssues={setAttributeTargetingSdkIssues}
             />
           </div>
         </Page>
@@ -390,6 +411,8 @@ function TargetingForm({
   changeType = "advanced",
   conditionKey,
   setPrerequisiteTargetingSdkIssues,
+  setSavedGroupTargetingSdkIssues,
+  setAttributeTargetingSdkIssues,
 }: {
   experiment: ExperimentInterfaceStringDates;
   form: UseFormReturn<ExperimentTargetingData>;
@@ -397,6 +420,8 @@ function TargetingForm({
   changeType?: ChangeType;
   conditionKey: number;
   setPrerequisiteTargetingSdkIssues: (v: boolean) => void;
+  setSavedGroupTargetingSdkIssues: (v: boolean) => void;
+  setAttributeTargetingSdkIssues: (v: boolean) => void;
 }) {
   const hasLinkedChanges =
     !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
@@ -498,6 +523,8 @@ function TargetingForm({
           <SavedGroupTargetingField
             value={form.watch("savedGroups") || []}
             setValue={(v) => form.setValue("savedGroups", v)}
+            setSavedGroupTargetingSdkIssues={setSavedGroupTargetingSdkIssues}
+            project={experiment.project || ""}
           />
           <hr />
           <ConditionInput
@@ -505,6 +532,7 @@ function TargetingForm({
             onChange={(condition) => form.setValue("condition", condition)}
             key={conditionKey}
             project={experiment.project || ""}
+            setAttributeTargetingSdkIssues={setAttributeTargetingSdkIssues}
           />
           <hr />
           <PrerequisiteTargetingField

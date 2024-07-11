@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import {
   CreateSavedGroupProps,
   UpdateSavedGroupProps,
@@ -13,8 +13,6 @@ import {
 } from "react-icons/fa";
 import { SavedGroupInterface, SavedGroupType } from "shared/src/types";
 import clsx from "clsx";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
-import { SDKConnectionInterface } from "@back-end/types/sdk-connection";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
 import useMembers from "@/hooks/useMembers";
@@ -25,7 +23,9 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import useSDKConnections from "@/hooks/useSDKConnections";
+import LargeSavedGroupSupportWarning, {
+  useLargeSavedGroupSupport,
+} from "./LargeSavedGroupSupportWarning";
 
 export const IdListMemberInput: FC<{
   values: string[];
@@ -33,12 +33,14 @@ export const IdListMemberInput: FC<{
   passByReferenceOnly: boolean;
   setValues: (newValues: string[]) => void;
   setPassByReferenceOnly: (passByReferenceOnly: boolean) => void;
+  setDisableSubmit: (disabled: boolean) => void;
 }> = ({
   values,
   attributeKey,
   passByReferenceOnly,
   setValues,
   setPassByReferenceOnly,
+  setDisableSubmit,
 }) => {
   const [rawTextMode, setRawTextMode] = useState(false);
   const [rawText, setRawText] = useState(values.join(", ") || "");
@@ -53,22 +55,13 @@ export const IdListMemberInput: FC<{
   const [fileName, setFileName] = useState("");
   const [fileErrorMessage, setFileErrorMessage] = useState("");
 
-  const { data: sdkConnectionData } = useSDKConnections();
-  const [supportedConnections, unsupportedConnections] = useMemo(() => {
-    const connections = sdkConnectionData?.connections || [];
-    const supportedConnections: SDKConnectionInterface[] = [];
-    const unsupportedConnections: SDKConnectionInterface[] = [];
-    (connections || []).forEach((conn) => {
-      if (getConnectionSDKCapabilities(conn).includes("savedGroupReferences")) {
-        supportedConnections.push(conn);
-      } else {
-        unsupportedConnections.push(conn);
-      }
-    });
-    return [supportedConnections, unsupportedConnections];
-  }, [sdkConnectionData]);
+  const {
+    supportedConnections,
+    unsupportedConnections,
+  } = useLargeSavedGroupSupport();
 
   const resetFile = () => {
+    setValues([]);
     setNumValuesToImport(null);
     setFileName("");
     setFileErrorMessage("");
@@ -77,6 +70,14 @@ export const IdListMemberInput: FC<{
   };
 
   const [nonLegacyImport, setNonLegacyImport] = useState(false);
+
+  useEffect(() => {
+    if (supportedConnections.length > 0) {
+      setDisableSubmit(false);
+    } else {
+      setDisableSubmit(true);
+    }
+  }, [setDisableSubmit, supportedConnections]);
 
   return (
     <>
@@ -88,8 +89,8 @@ export const IdListMemberInput: FC<{
           <input
             type="radio"
             id="importCsv"
-            readOnly={true}
             checked={importMethod === "file"}
+            readOnly={true}
             className="mr-1 radio-button-lg"
             onChange={() => setImportMethod("file")}
           />
@@ -252,17 +253,15 @@ export const IdListMemberInput: FC<{
           )}
         </>
       )}
-      {!passByReferenceOnly &&
-        nonLegacyImport &&
-        unsupportedConnections.length > 0 && (
-          <>
-            {supportedConnections.length > 0 ? (
-              <>TODO: mix of supported & unsupported connections</>
-            ) : (
-              <>TODO: no supported connections</>
-            )}
-          </>
-        )}
+      {!passByReferenceOnly && nonLegacyImport && (
+        <>
+          <LargeSavedGroupSupportWarning
+            type="saved_group_creation"
+            supportedConnections={supportedConnections}
+            unsupportedConnections={unsupportedConnections}
+          />
+        </>
+      )}
     </>
   );
 };
@@ -303,6 +302,13 @@ const SavedGroupForm: FC<{
     },
   });
 
+  const [disableSubmit, setDisableSubmit] = useState(false);
+
+  const [
+    attributeTargetingSdkIssues,
+    setAttributeTargetingSdkIssues,
+  ] = useState(false);
+
   const isValid =
     !!form.watch("groupName") &&
     (type === "list"
@@ -318,7 +324,7 @@ const SavedGroupForm: FC<{
         type === "condition" ? "Condition Group" : "ID List"
       }`}
       cta={current.id ? "Save" : "Submit"}
-      ctaEnabled={isValid}
+      ctaEnabled={isValid && !disableSubmit && !attributeTargetingSdkIssues}
       submit={form.handleSubmit(async (value) => {
         if (type === "condition") {
           const conditionRes = validateAndFixCondition(value.condition, (c) => {
@@ -419,6 +425,7 @@ const SavedGroupForm: FC<{
           emptyText="No conditions specified."
           title="Include all users who match the following"
           require
+          setAttributeTargetingSdkIssues={setAttributeTargetingSdkIssues}
         />
       )}
       {type === "list" && (
@@ -448,6 +455,7 @@ const SavedGroupForm: FC<{
               setPassByReferenceOnly={(passByReferenceOnly) =>
                 form.setValue("passByReferenceOnly", passByReferenceOnly)
               }
+              setDisableSubmit={setDisableSubmit}
             />
           )}
         </>
