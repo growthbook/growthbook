@@ -44,6 +44,7 @@ interface SortableProps {
   setVersion: (version: number) => void;
   locked: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+  hideDisabled?: boolean;
 }
 
 type RuleProps = SortableProps &
@@ -68,6 +69,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       setVersion,
       locked,
       experimentsMap,
+      hideDisabled,
       ...props
     },
     ref
@@ -110,6 +112,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       !!rule.savedGroups?.length ||
       !!rule.prerequisites?.length;
 
+    if (hideDisabled && ruleDisabled) {
+      return null;
+    }
     return (
       <div
         className={`p-3 ${

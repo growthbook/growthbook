@@ -19,6 +19,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import { getRules, isRuleFullyCovered } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { Rule, SortableRule } from "./Rule";
 
 export default function RuleList({
@@ -46,6 +47,10 @@ export default function RuleList({
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
 }) {
   const { apiCall } = useAuth();
+  const [hideDisabled, setHideDisabled] = useLocalStorage(
+    `hide-disabled-rules-${environment}`,
+    false
+  );
   const [activeId, setActiveId] = useState<string | null>(null);
   const [items, setItems] = useState(getRules(feature, environment));
   const permissionsUtil = usePermissionsUtil();
@@ -60,6 +65,8 @@ export default function RuleList({
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+  const showInactiveToggle =
+    items.filter((r) => !r.enabled || r.scheduleRules?.length).length > 0;
 
   if (!items.length) {
     return (
@@ -136,6 +143,19 @@ export default function RuleList({
         setActiveId(active.id);
       }}
     >
+      {showInactiveToggle ? (
+        <div className="d-flex justify-content-end p-2">
+          <label className="">
+            <input
+              type="checkbox"
+              className="form-check-input"
+              checked={hideDisabled}
+              onChange={(e) => setHideDisabled(e.target.checked)}
+            />
+            only show active rules
+          </label>
+        </div>
+      ) : null}
       <SortableContext items={items} strategy={verticalListSortingStrategy}>
         {items.map(({ ...rule }, i) => (
           <SortableRule
@@ -152,6 +172,7 @@ export default function RuleList({
             setVersion={setVersion}
             locked={locked}
             experimentsMap={experimentsMap}
+            hideDisabled={showInactiveToggle && hideDisabled}
           />
         ))}
       </SortableContext>
