@@ -1,17 +1,50 @@
 import { SavedGroupTargeting } from "back-end/types/feature";
 import { FaMinusCircle, FaPlusCircle } from "react-icons/fa";
-import React from "react";
+import React, { useEffect, useMemo } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import LargeSavedGroupSupportWarning, {
+  useLargeSavedGroupSupport,
+} from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
 
 export interface Props {
   value: SavedGroupTargeting[];
   setValue: (savedGroups: SavedGroupTargeting[]) => void;
+  project: string;
+  setSavedGroupTargetingSdkIssues: (
+    savedGroupTargetingSdkIssues: boolean
+  ) => void;
 }
 
-export default function SavedGroupTargetingField({ value, setValue }: Props) {
+export default function SavedGroupTargetingField({
+  value,
+  setValue,
+  project,
+  setSavedGroupTargetingSdkIssues,
+}: Props) {
   const { savedGroups, getSavedGroupById } = useDefinitions();
+
+  const {
+    supportedConnections,
+    unsupportedConnections,
+  } = useLargeSavedGroupSupport(project);
+
+  const largeSavedGroups = useMemo(
+    () =>
+      value
+        .flatMap((savedGroupTargeting) => savedGroupTargeting.ids)
+        .filter((sgid) => getSavedGroupById(sgid)?.passByReferenceOnly),
+    [value, getSavedGroupById]
+  );
+
+  useEffect(() => {
+    if (largeSavedGroups.length > 0 && supportedConnections.length === 0) {
+      setSavedGroupTargetingSdkIssues(true);
+    } else {
+      setSavedGroupTargetingSdkIssues(false);
+    }
+  }, [largeSavedGroups, supportedConnections, setSavedGroupTargetingSdkIssues]);
 
   if (!savedGroups.length) return null;
 
@@ -38,6 +71,13 @@ export default function SavedGroupTargetingField({ value, setValue }: Props) {
                   </span>
                 ))}
               </div>
+            )}
+            {largeSavedGroups.length > 0 && (
+              <LargeSavedGroupSupportWarning
+                type="targeting_rule"
+                supportedConnections={supportedConnections}
+                unsupportedConnections={unsupportedConnections}
+              />
             )}
             {value.map((v, i) => {
               return (
@@ -86,13 +126,12 @@ export default function SavedGroupTargetingField({ value, setValue }: Props) {
                       closeMenuOnSelect={true}
                       formatOptionLabel={({ value, label }) => {
                         const group = getSavedGroupById(value);
-                        // TODO: potentially add group size to model
                         return (
                           <>
                             {label}
-                            {group?.type === "list" && group?.values && (
-                              <span className="badge ml-1 border bg-light text-dark">
-                                {group.values.length}
+                            {!group?.passByReferenceOnly && (
+                              <span className="ml-1 badge-muted-info badge">
+                                legacy
                               </span>
                             )}
                           </>

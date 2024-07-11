@@ -126,20 +126,22 @@ export default function ConditionGroups({ groups, mutate }: Props) {
             <div className="col-12">
               <table className="table gbtable">
                 <thead>
-                  <SortableTH className="no-uppercase" field={"groupName"}>
-                    Name
-                  </SortableTH>
-                  <SortableTH className="no-uppercase" field="condition">
-                    Condition
-                  </SortableTH>
-                  <th className="no-uppercase">Description</th>
-                  <SortableTH className="no-uppercase" field={"owner"}>
-                    Owner
-                  </SortableTH>
-                  <SortableTH className="no-uppercase" field={"dateUpdated"}>
-                    Date Updated
-                  </SortableTH>
-                  {(canUpdate || canDelete) && <th></th>}
+                  <tr>
+                    <SortableTH className="no-uppercase" field={"groupName"}>
+                      Name
+                    </SortableTH>
+                    <SortableTH className="no-uppercase" field="condition">
+                      Condition
+                    </SortableTH>
+                    <th className="no-uppercase">Description</th>
+                    <SortableTH className="no-uppercase" field={"owner"}>
+                      Owner
+                    </SortableTH>
+                    <SortableTH className="no-uppercase" field={"dateUpdated"}>
+                      Date Updated
+                    </SortableTH>
+                    {(canUpdate || canDelete) && <th></th>}
+                  </tr>
                 </thead>
                 <tbody>
                   {items.map((s) => {

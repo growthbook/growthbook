@@ -47,6 +47,7 @@ export default function EditSavedGroupPage() {
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
   const valuesPage = sortedValues.slice(start, end);
+  const [disableSubmit, setDisableSubmit] = useState(true);
 
   const [
     savedGroupForm,
@@ -114,7 +115,7 @@ export default function EditSavedGroupPage() {
         size="lg"
         header={`Add ${savedGroup.attributeKey}s to List`}
         cta="Save"
-        ctaEnabled={membersToAdd.length > 0}
+        ctaEnabled={membersToAdd.length > 0 && !disableSubmit}
         submit={async () => {
           await apiCall(`/saved-groups/${savedGroup.id}/add-members`, {
             method: "POST",
@@ -139,6 +140,7 @@ export default function EditSavedGroupPage() {
             setValues={(newValues) => setMembersToAdd(newValues)}
             passByReferenceOnly={savedGroup.passByReferenceOnly || false}
             setPassByReferenceOnly={setPassByReferenceOnly}
+            setDisableSubmit={setDisableSubmit}
           />
         </>
       </Modal>
@@ -264,12 +266,16 @@ export default function EditSavedGroupPage() {
               <div className="d-flex align-items-center">
                 {values.length > 0 && (
                   <div className="mr-3">
-                    {start + 1}-{end} of {values.length || 0}
+                    {start + 1}-{start + valuesPage.length} of{" "}
+                    {values.length || 0}
                   </div>
                 )}
                 <div
                   className="cursor-pointer text-color-primary"
-                  onClick={() => setSortNewestFirst(!sortNewestFirst)}
+                  onClick={() => {
+                    setSortNewestFirst(!sortNewestFirst);
+                    setCurrentPage(1);
+                  }}
                 >
                   <PiArrowsDownUp className="mr-1 lh-full align-middle" />
                   <span className="lh-full align-middle">
@@ -288,6 +294,7 @@ export default function EditSavedGroupPage() {
                       checked={
                         values.length > 0 && selected.size === values.length
                       }
+                      readOnly={true}
                       onChange={(e) => {
                         if (e.target.checked) {
                           setSelected(new Set(values));
@@ -318,7 +325,11 @@ export default function EditSavedGroupPage() {
                       }}
                     >
                       <td>
-                        <input type="checkbox" checked={selected.has(value)} />
+                        <input
+                          type="checkbox"
+                          readOnly={true}
+                          checked={selected.has(value)}
+                        />
                       </td>
                       <td>{value}</td>
                     </tr>

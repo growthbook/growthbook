@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { some } from "lodash";
 import {
   FaExclamationCircle,
@@ -20,12 +20,18 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import StringArrayField from "@/components/Forms/StringArrayField";
+import LargeSavedGroupSupportWarning, {
+  useLargeSavedGroupSupport,
+} from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
   project: string;
+  setAttributeTargetingSdkIssues: (
+    attributeTargetingSdkIssues: boolean
+  ) => void;
   labelClassName?: string;
   emptyText?: string;
   title?: string;
@@ -33,7 +39,7 @@ interface Props {
 }
 
 export default function ConditionInput(props: Props) {
-  const { savedGroups } = useDefinitions();
+  const { savedGroups, getSavedGroupById } = useDefinitions();
 
   const attributes = useAttributeMap(props.project);
 
@@ -51,6 +57,34 @@ export default function ConditionInput(props: Props) {
   const [rawTextMode, setRawTextMode] = useState(false);
 
   const attributeSchema = useAttributeSchema(false, props.project);
+
+  const {
+    supportedConnections,
+    unsupportedConnections,
+  } = useLargeSavedGroupSupport(props.project);
+
+  const largeSavedGroups = useMemo(
+    () =>
+      conds
+        .filter((condition) =>
+          ["$inGroup", "$notInGroup"].includes(condition.operator)
+        )
+        .map((condition) => getSavedGroupById(condition.value))
+        .filter((savedGroup) => savedGroup?.passByReferenceOnly),
+    [conds, getSavedGroupById]
+  );
+
+  useEffect(() => {
+    if (largeSavedGroups.length > 0 && supportedConnections.length === 0) {
+      props.setAttributeTargetingSdkIssues(true);
+    } else {
+      props.setAttributeTargetingSdkIssues(false);
+    }
+  }, [
+    largeSavedGroups,
+    supportedConnections,
+    props.setAttributeTargetingSdkIssues,
+  ]);
 
   useEffect(() => {
     if (advanced) return;
@@ -82,6 +116,13 @@ export default function ConditionInput(props: Props) {
     return (
       <div className="form-group my-4">
         <label className={props.labelClassName || ""}>{title}</label>
+        {largeSavedGroups.length > 0 && (
+          <LargeSavedGroupSupportWarning
+            type="targeting_rule"
+            supportedConnections={supportedConnections}
+            unsupportedConnections={unsupportedConnections}
+          />
+        )}
         <div className="appbox bg-light px-3 py-3">
           <CodeTextArea
             labelClassName={props.labelClassName}
@@ -155,6 +196,13 @@ export default function ConditionInput(props: Props) {
   return (
     <div className="form-group my-4">
       <label className={props.labelClassName || ""}>{title}</label>
+      {largeSavedGroups.length > 0 && (
+        <LargeSavedGroupSupportWarning
+          type="targeting_rule"
+          supportedConnections={supportedConnections}
+          unsupportedConnections={unsupportedConnections}
+        />
+      )}
       <div className="appbox bg-light px-3 pb-3">
         <ul className={styles.conditionslist}>
           {conds.map(({ field, operator, value }, i) => {
@@ -361,6 +409,19 @@ export default function ConditionInput(props: Props) {
                     savedGroupOptions.length > 0 ? (
                     <SelectField
                       options={savedGroupOptions}
+                      formatOptionLabel={({ value, label }) => {
+                        const group = getSavedGroupById(value);
+                        return (
+                          <>
+                            {label}
+                            {group && !group.passByReferenceOnly && (
+                              <span className="ml-1 badge-muted-info badge">
+                                legacy
+                              </span>
+                            )}
+                          </>
+                        );
+                      }}
                       value={value}
                       onChange={(v) => {
                         handleCondsChange(v, "value");

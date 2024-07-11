@@ -87,6 +87,11 @@ describe("getParsedCondition", () => {
       values: [],
       attributeKey: "empty",
     });
+    groupMap.set("legacy", {
+      type: "list",
+      values: ["0", "1"],
+      attributeKey: "id_a",
+    });
 
     // No condition or saved group
     expect(getParsedCondition(groupMap, "", [])).toBeUndefined();
@@ -125,6 +130,20 @@ describe("getParsedCondition", () => {
     // Single saved group without savedGroupReferences support
     expect(
       getParsedCondition(groupMap, "", [{ match: "any", ids: ["a"] }], false)
+    ).toEqual({
+      id_a: {
+        $in: [],
+      },
+    });
+
+    // Legacy saved group without savedGroupReferences support
+    expect(
+      getParsedCondition(
+        groupMap,
+        "",
+        [{ match: "any", ids: ["legacy"] }],
+        false
+      )
     ).toEqual({
       id_a: {
         $in: ["0", "1"],
