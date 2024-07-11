@@ -40,7 +40,7 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
       ) : null}
 
       <div className="mb-4">
-        <div className="d-flex">
+        <div className="d-flex align-items-center">
           <h1>Event Webhooks</h1>
           <span className="mr-auto badge badge-purple text-uppercase ml-2">
             Beta
