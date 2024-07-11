@@ -113,22 +113,25 @@ interface DocLinkProps {
   children: ReactNode;
 }
 
+export const docUrl = (docSection: DocSection, fallBackSection = "home") => {
+  const docsPath = docSections[docSection]
+    ? docSections[docSection]
+    : docSections[fallBackSection]
+      ? docSections[fallBackSection]
+      : "";
+
+  return docsOrigin + docsPath;
+};
+
 export function DocLink({
   docSection,
   fallBackSection = "home",
   className = "",
   children,
 }: DocLinkProps) {
-  const docsPath = docSections[docSection]
-    ? docSections[docSection]
-    : docSections[fallBackSection]
-    ? docSections[fallBackSection]
-    : "";
-  const docUrl = docsOrigin + docsPath;
-
   return (
     <a
-      href={docUrl}
+      href={docUrl(docSection, fallBackSection)}
       target="_blank"
       rel="noopener noreferrer"
       className={className}
