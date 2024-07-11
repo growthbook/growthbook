@@ -47,7 +47,6 @@ export default function FactSegmentForm({
     },
   });
 
-  console.log("current", current);
   const datasource = getDatasourceById(form.watch("datasource"));
   const factTable = getFactTableById(form.watch("factTableId"));
 
@@ -55,7 +54,7 @@ export default function FactSegmentForm({
     <Modal
       close={close}
       open={true}
-      size={"md"}
+      size={"lg"}
       cta={current?.factTableId ? "Update Segment" : "Create Segment"}
       header={current?.factTableId ? "Edit Segment" : "Create Segment"}
       submit={form.handleSubmit(async (value) => {

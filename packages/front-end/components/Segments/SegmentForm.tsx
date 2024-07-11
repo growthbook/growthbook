@@ -95,7 +95,7 @@ const SegmentForm: FC<{
       <Modal
         close={close}
         open={true}
-        size={"md"}
+        size={"lg"}
         cta={current.id ? "Update Segment" : "Create Segment"}
         header={current.id ? "Edit Segment" : "New Segment"}
         submit={form.handleSubmit(async (value) => {
