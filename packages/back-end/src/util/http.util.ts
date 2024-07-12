@@ -21,7 +21,7 @@ export type CancellableFetchReturn = {
   stringBody: string;
 };
 
-export async function getHttpOptions(url?: string, useWebhookProxy = false) {
+export function getHttpOptions(url?: string, useWebhookProxy = false) {
   // if there is a ?proxy argument in the url, use that as the proxy
   if (url) {
     // parse the url and extract the proxy argument
@@ -100,7 +100,7 @@ export const cancellableFetch = async (
   try {
     response = await fetch(url, {
       signal: abortController.signal,
-      ...(await getHttpOptions(url, useWebhookProxy)),
+      ...getHttpOptions(url, useWebhookProxy),
       ...fetchOptions,
     });
 
