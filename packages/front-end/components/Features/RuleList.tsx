@@ -69,13 +69,21 @@ export default function RuleList({
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-  const showInactiveToggle =
-    items.filter((r) => isRuleDisabled(r, experimentsMap)).length > 0;
+
+  const disabledRules = items.filter((r) => isRuleDisabled(r, experimentsMap));
+  const showInactiveToggle = items.length > 5 && disabledRules.length;
 
   if (!items.length) {
     return (
       <div className="px-3 mb-3">
         <em>None</em>
+      </div>
+    );
+  }
+  if (disabledRules.length === items.length && hideDisabled) {
+    return (
+      <div className="px-3 mb-3">
+        <em>No Active Rules</em>
       </div>
     );
   }
@@ -87,14 +95,9 @@ export default function RuleList({
     return -1;
   }
 
-  const filteredItems =
-    showInactiveToggle && hideDisabled
-      ? items.filter((r) => !isRuleDisabled(r, experimentsMap))
-      : items;
-
   // detect unreachable rules, and get the first rule that is at 100%.
   let unreachableIndex = 0;
-  filteredItems.forEach((item, i) => {
+  items.forEach((item, i) => {
     if (unreachableIndex) return;
 
     // if this rule covers 100% of traffic, no additional rules are reachable.
@@ -165,11 +168,8 @@ export default function RuleList({
           </label>
         </div>
       ) : null}
-      <SortableContext
-        items={filteredItems}
-        strategy={verticalListSortingStrategy}
-      >
-        {filteredItems.map(({ ...rule }, i) => (
+      <SortableContext items={items} strategy={verticalListSortingStrategy}>
+        {items.map(({ ...rule }, i) => (
           <SortableRule
             key={rule.id}
             environment={environment}
@@ -184,6 +184,7 @@ export default function RuleList({
             setVersion={setVersion}
             locked={locked}
             experimentsMap={experimentsMap}
+            hideDisabled={hideDisabled}
           />
         ))}
       </SortableContext>
