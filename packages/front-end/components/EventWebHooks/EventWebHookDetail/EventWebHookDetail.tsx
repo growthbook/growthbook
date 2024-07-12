@@ -12,7 +12,6 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import Badge from "@/components/Badge";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import useApi from "@/hooks/useApi";
 import { useEventWebhookLogs } from "@/hooks/useEventWebhookLogs";
 import {
   EventWebHookEditParams,
@@ -271,15 +270,17 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
   );
 };
 
-export const EventWebHookDetailContainer = () => {
+export const EventWebHookDetailContainer = ({
+  eventWebHook,
+  mutateEventWebHook,
+}: {
+  eventWebHook: EventWebHookInterface;
+  mutateEventWebHook: () => void;
+}) => {
   const router = useRouter();
   const { eventwebhookid: eventWebHookId } = router.query;
 
   const { apiCall } = useAuth();
-
-  const { data, error, mutate } = useApi<{
-    eventWebHook: EventWebHookInterface;
-  }>(`/event-webhooks/${eventWebHookId}`);
 
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -319,14 +320,14 @@ export const EventWebHookDetailContainer = () => {
         if (response.error) {
           handleUpdateError(response.error || "Unknown error");
         } else {
-          mutate();
+          mutateEventWebHook();
           setEditError(null);
         }
       } catch (e) {
         handleUpdateError("Unknown error");
       }
     },
-    [mutate, apiCall, eventWebHookId]
+    [mutateEventWebHook, apiCall, eventWebHookId]
   );
 
   const handleDelete = useCallback(async () => {
@@ -340,18 +341,6 @@ export const EventWebHookDetailContainer = () => {
     router.replace("/settings/webhooks");
   }, [eventWebHookId, apiCall, router]);
 
-  if (error) {
-    return (
-      <div className="alert alert-danger">
-        Unable to fetch event web hook {eventWebHookId}
-      </div>
-    );
-  }
-
-  if (!data) {
-    return null;
-  }
-
   return (
     <EventWebHookDetail
       isModalOpen={isEditModalOpen}
@@ -362,9 +351,9 @@ export const EventWebHookDetailContainer = () => {
         setEditError(null);
       }}
       onModalClose={() => setIsEditModalOpen(false)}
-      eventWebHook={data.eventWebHook}
+      eventWebHook={eventWebHook}
       editError={editError}
-      mutateEventWebHook={mutate}
+      mutateEventWebHook={mutateEventWebHook}
     />
   );
 };
