@@ -33,24 +33,46 @@ export function useLargeSavedGroupSupport(
   return { supportedConnections, unsupportedConnections };
 }
 
-type LargeSavedGroupWarningType = "saved_group_creation" | "targeting_rule";
-
-export default function LargeSavedGroupSupportWarning({
-  type,
-  supportedConnections,
-  unsupportedConnections,
-}: {
-  type: LargeSavedGroupWarningType;
+interface LargeSavedGroupSupportWarningPropsWithConnections {
+  type: "saved_group_creation" | "targeting_rule";
   supportedConnections: SDKConnectionInterface[];
   unsupportedConnections: SDKConnectionInterface[];
-}) {
-  if (unsupportedConnections.length === 0) return <></>;
+}
 
-  switch (type) {
+interface LargeSavedGroupSupportWarningPropsWithoutConnections {
+  type: "sdk_connection";
+}
+
+type LargeSavedGroupSupportWarningProps =
+  | LargeSavedGroupSupportWarningPropsWithConnections
+  | LargeSavedGroupSupportWarningPropsWithoutConnections;
+
+export default function LargeSavedGroupSupportWarning(
+  props: LargeSavedGroupSupportWarningProps
+) {
+  if (props.type === "sdk_connection") {
+    return (
+      <div className="alert alert-danger mt-2 p-3">
+        <FaExclamationTriangle /> Some of the projects selected for this SDK
+        Connection reference Large Saved Groups. You must select a language and
+        version which supports the Large Saved Groups feature and enable it via
+        the toggle below.
+        <br />
+        <strong>
+          If you proceed, those saved groups will be treated as empty by this
+          SDK Connection
+        </strong>
+      </div>
+    );
+  }
+
+  if (props.unsupportedConnections.length === 0) return <></>;
+
+  switch (props.type) {
     case "saved_group_creation":
       return (
         <>
-          {supportedConnections.length > 0 ? (
+          {props.supportedConnections.length > 0 ? (
             <div className="alert alert-warning mt-2 p-3">
               <FaExclamationTriangle /> Some of your SDK connections don&apos;t
               support Large Saved Groups. This group won&apos;t be referencable
@@ -68,14 +90,14 @@ export default function LargeSavedGroupSupportWarning({
     case "targeting_rule":
       return (
         <>
-          {supportedConnections.length > 0 ? (
+          {props.supportedConnections.length > 0 ? (
             <div className="alert alert-warning mt-2 p-3">
               <FaExclamationTriangle /> Some of your SDK connections don&apos;t
               support Large Saved Groups. This targeting rule will always
               evaluate users as <strong>not being in the group</strong> for the
               following SDK connections:
               <ul>
-                {unsupportedConnections.map((conn) => (
+                {props.unsupportedConnections.map((conn) => (
                   <li key={conn.id}>
                     {<Link href={`/sdks/${conn.id}`}>{conn.id}</Link>}
                   </li>
