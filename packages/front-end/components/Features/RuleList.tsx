@@ -71,7 +71,7 @@ export default function RuleList({
   );
 
   const disabledRules = items.filter((r) => isRuleDisabled(r, experimentsMap));
-  const showInactiveToggle = items.length > 5 && disabledRules.length;
+  const showInactiveToggle = items.length > 3 && disabledRules.length;
 
   if (!items.length) {
     return (
