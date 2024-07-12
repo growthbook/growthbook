@@ -43,4 +43,5 @@ export type AppFeatures = {
   "pylon-config": Record<string, unknown>;
   "no-access-role-type": boolean;
   "quantile-metrics": boolean;
+  "use-webhook-proxy": boolean;
 };

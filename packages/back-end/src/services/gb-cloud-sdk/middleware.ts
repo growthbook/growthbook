@@ -2,8 +2,8 @@ import { NextFunction, Request, Response } from "express";
 import {
   GrowthBook,
   Attributes,
-  configureCache,
   setPolyfills,
+  prefetchPayload,
 } from "@growthbook/growthbook";
 import { AppFeatures } from "front-end/types/app-features";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
@@ -13,40 +13,56 @@ import { AuthRequest } from "../../types/AuthRequest";
 import { sha256 } from "../features";
 import { logger } from "../../util/logger";
 
-export async function initializeSdk(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
-  setPolyfills({
-    fetch: require("node-fetch"),
-  });
+setPolyfills({
+  fetch: require("node-fetch"),
+  EventSource: require("eventsource"),
+});
 
-  // Disable SSE
-  configureCache({ backgroundSync: false });
+const cdnHost = process.env.GROWTHBOOK_CDN_HOST || "https://cdn.growthbook.io";
+const clientKey =
+  process.env.GROWTHBOOK_CLIENT_KEY ||
+  (process.env.NODE_ENV === "production"
+    ? "sdk-ueFMOgZ2daLa0M"
+    : "sdk-UmQ03OkUDAu7Aox");
 
+// Start a streaming connection
+prefetchPayload({
+  apiHost: cdnHost,
+  clientKey: clientKey,
+  streaming: true,
+}).then(() => logger.debug("Streaming connection open!"));
+
+export async function initializeSdk() {
   const gb = new GrowthBook<AppFeatures>({
-    apiHost: "https://cdn.growthbook.io",
-    clientKey:
-      process.env.NODE_ENV === "production"
-        ? "sdk-ueFMOgZ2daLa0M"
-        : "sdk-UmQ03OkUDAu7Aox",
-  });
-  req.app.locals.growthbook = gb;
-
-  res.on("close", () => {
-    gb.destroy();
+    apiHost: cdnHost,
+    clientKey: clientKey,
   });
 
   try {
-    await gb.loadFeatures({
-      // Do not subscribe individual SDK instances to streaming updates
-      autoRefresh: false,
+    // While individual gb instances are not streaming to avoid weird edge cases where a feature's value changes mid request
+    // However by running prefetchPayload above we still get up to the moment data.
+    await gb.init({
+      streaming: false,
       timeout: 1000,
     });
   } catch (e) {
     logger.error(e, "Failed to load features from GrowthBook");
   }
+
+  return gb;
+}
+
+export async function initializeSdkForRequest(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  const gb = await initializeSdk();
+  req.app.locals.growthbook = gb;
+
+  res.on("close", () => {
+    gb.destroy();
+  });
 
   next();
 }

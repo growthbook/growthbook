@@ -231,7 +231,7 @@ app.options(
 );
 
 // Initialize GBCloudSDK for standard and apiRouter routes
-app.use(gbCloudSdkMiddleware.initializeSdk);
+app.use(gbCloudSdkMiddleware.initializeSdkForRequest);
 
 if (!IS_CLOUD) {
   // Public remoteEval for SDKs:
