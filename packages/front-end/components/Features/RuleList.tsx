@@ -156,8 +156,8 @@ export default function RuleList({
       }}
     >
       {showInactiveToggle ? (
-        <div className="d-flex justify-content-end p-2">
-          <label className="">
+        <div className="d-flex justify-content-end pt-2 pr-3">
+          <label className="mb-0">
             <input
               type="checkbox"
               className="form-check-input"
