@@ -429,9 +429,9 @@ app.get(
 );
 app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
 
-app.get("/experiments/snapshots/", experimentsController.getSnapshots);
+app.get("/experiments/snapshots", experimentsController.getSnapshots);
 app.post(
-  "/experiments/snapshots/scaled/",
+  "/experiments/snapshots/scaled",
   experimentsController.postSnapshotsWithScaledImpactAnalysis
 );
 app.post("/experiment/:id", experimentsController.postExperiment);

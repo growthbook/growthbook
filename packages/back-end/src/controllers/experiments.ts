@@ -339,19 +339,17 @@ async function _getSnapshot(
 
 async function _getSnapshots(
   context: ReqContext | ApiReqContext,
-  experiments: string[],
+  experimentObjs: ExperimentInterface[],
   dimension?: string,
   withResults: boolean = true
 ): Promise<ExperimentSnapshotInterface[]> {
   const experimentPhaseMap: Map<string, number> = new Map();
-  const experimentObjs = await getExperimentsByIds(context, experiments);
   experimentObjs.forEach((e) => {
     if (e.organization !== context.org.id) {
       throw new Error("You do not have access to view this experiment");
     }
-    // get the latest phase:
-    const phase = String(e.phases.length - 1);
-    experimentPhaseMap.set(e.id, parseInt(phase));
+    // get the latest phase
+    experimentPhaseMap.set(e.id, e.phases.length - 1);
   });
   return await getLatestSnapshotMultipleExperiments(
     experimentPhaseMap,
@@ -423,7 +421,8 @@ export async function getSnapshots(
   }
 
   const ids = idsString.split(",");
-  const snapshots = await _getSnapshots(context, ids);
+  const experimentObjs = await getExperimentsByIds(context, ids);
+  const snapshots = await _getSnapshots(context, experimentObjs);
 
   res.status(200).json({
     status: 200,
@@ -2134,12 +2133,12 @@ export async function postSnapshotsWithScaledImpactAnalysis(
     return;
   }
   const metricMap = await getMetricMap(context);
+  const experimentObjs = await getExperimentsByIds(context, experiments);
 
   // get latest snapshot for latest phase without dimensions but with results
-  const snapshots = await _getSnapshots(context, experiments);
+  const snapshots = await _getSnapshots(context, experimentObjs);
 
   // Add snapshots missing scaled analysis to list to fetch
-  const experimentObjs = await getExperimentsByIds(context, experiments);
   const snapshotAnalysesToCreate: SnapshotAnalysisParams[] = [];
   snapshots.forEach((s) => {
     const defaultAnalysis = getSnapshotAnalysis(s);
