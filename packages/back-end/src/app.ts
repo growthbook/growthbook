@@ -414,7 +414,6 @@ app.get(
   "/experiments/frequency/month/:num",
   experimentsController.getExperimentsFrequencyMonth
 );
-app.get("/experiments/snapshots/", experimentsController.getSnapshots);
 app.get(
   "/experiments/tracking-key",
   experimentsController.lookupExperimentByTrackingKey
@@ -429,6 +428,12 @@ app.get(
   experimentsController.getSnapshotWithDimension
 );
 app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
+
+app.get("/experiments/snapshots", experimentsController.getSnapshots);
+app.post(
+  "/experiments/snapshots/scaled",
+  experimentsController.postSnapshotsWithScaledImpactAnalysis
+);
 app.post("/experiment/:id", experimentsController.postExperiment);
 app.delete("/experiment/:id", experimentsController.deleteExperiment);
 app.get("/experiment/:id/watchers", experimentsController.getWatchingUsers);
