@@ -130,6 +130,7 @@ const organizationSchema = new mongoose.Schema({
   getStartedChecklistItems: [String],
   customRoles: {},
   deactivatedRoles: [],
+  disabled: Boolean,
 });
 
 organizationSchema.index({ "members.id": 1 });
@@ -326,6 +327,7 @@ export async function findOrganizationsByMemberId(userId: string) {
           id: userId,
         },
       },
+      disabled: { $ne: true },
     })
     .toArray();
   return docs.map(toInterface);

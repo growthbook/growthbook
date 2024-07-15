@@ -8,7 +8,8 @@ const EditOrganization: FC<{
   onEdit: () => void;
   close?: () => void;
   id: string;
-  deletable: boolean;
+  disablable: boolean;
+  currentDisabled: boolean;
   currentName: string;
   currentExternalId: string;
   currentLicenseKey: string;
@@ -19,7 +20,8 @@ const EditOrganization: FC<{
   onEdit,
   close,
   id,
-  deletable = false,
+  disablable = true,
+  currentDisabled = false,
   currentName,
   currentExternalId,
   currentLicenseKey,
@@ -66,33 +68,55 @@ const EditOrganization: FC<{
       close={close}
       inline={!close}
       secondaryCTA={
-        deletable ? (
+        disablable ? (
           <div className="flex-grow-1">
-            <button
-              className="btn btn-danger"
-              onClick={(e) => {
-                e.preventDefault();
-                if (
-                  confirm(
-                    "Are you sure you want to disable this organization? Users will not be able to use this organization"
-                  )
-                ) {
+            {currentDisabled ? (
+              <button
+                className="btn btn-info"
+                onClick={(e) => {
+                  e.preventDefault();
                   apiCall<{
                     status: number;
                     message?: string;
-                  }>(`/admin/organization`, {
-                    method: "DELETE",
+                  }>(`/admin/organization/enable`, {
+                    method: "PUT",
                     body: JSON.stringify({
                       orgId: id,
                     }),
                   });
                   onEdit();
                   if (close) close();
-                }
-              }}
-            >
-              Disable
-            </button>
+                }}
+              >
+                Enable
+              </button>
+            ) : (
+              <button
+                className="btn btn-danger"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (
+                    confirm(
+                      "Are you sure you want to disable this organization? Users will not be able to use this organization"
+                    )
+                  ) {
+                    apiCall<{
+                      status: number;
+                      message?: string;
+                    }>(`/admin/organization/disable`, {
+                      method: "PUT",
+                      body: JSON.stringify({
+                        orgId: id,
+                      }),
+                    });
+                    onEdit();
+                    if (close) close();
+                  }
+                }}
+              >
+                Disable
+              </button>
+            )}
           </div>
         ) : null
       }

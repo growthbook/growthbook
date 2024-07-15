@@ -684,7 +684,12 @@ app.use("/teams", teamRouter);
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
 app.put("/admin/organization", adminController.putOrganization);
-app.delete("/admin/organization", adminController.deleteOrganization);
+app.put("/admin/organization/disable", adminController.disableOrganization);
+app.put("/admin/organization/enable", adminController.enableOrganization);
+app.get(
+  "/admin/organization/:orgId/members",
+  adminController.getOrganizationMembers
+);
 app.get("/admin/members", adminController.getMembers);
 app.put("/admin/member", adminController.putMember);
 

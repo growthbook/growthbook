@@ -64,7 +64,10 @@ function OrganizationRow({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editOrgModalOpen, setEditOrgModalOpen] = useState(false);
-
+  const [orgMembers, setOrgMembers] = useState<Map<
+    string,
+    ExpandedMember
+  > | null>(null);
   const { settings, members, ...otherAttributes } = organization;
   const [license, setLicense] = useState<LicenseInterface | null>(null);
   const [licenseLoading, setLicenseLoading] = useState(false);
@@ -94,12 +97,33 @@ function OrganizationRow({
     }
   }, [expanded, apiCall, license, organization]);
 
+  useEffect(() => {
+    if (expanded && !orgMembers) {
+      const fetchOrgMembers = async () => {
+        const res = await apiCall<{
+          members: ExpandedMember[];
+        }>(`/admin/organization/${organization.id}/members`);
+
+        const memberMap = new Map();
+        if (res.members.length > 0) {
+          res.members.forEach((member) => {
+            memberMap.set(member.id, member);
+          });
+        }
+        setOrgMembers(memberMap);
+      };
+
+      fetchOrgMembers();
+    }
+  }, [expanded, apiCall, orgMembers, organization]);
+
   return (
     <>
       {editOrgModalOpen && (
         <EditOrganization
           id={organization.id}
-          deletable={!current && !organization.name.startsWith("DISABLED-")}
+          disablable={!current}
+          currentDisabled={organization.disabled || false}
           currentName={organization.name}
           currentExternalId={organization.externalId || ""}
           currentLicenseKey={organization.licenseKey || ""}
@@ -113,7 +137,7 @@ function OrganizationRow({
       <tr
         className={clsx({
           "table-warning": current,
-          "table-danger": organization.name.startsWith("DISABLED-"),
+          "table-danger": organization.disabled,
         })}
       >
         <td>
@@ -299,7 +323,19 @@ function OrganizationRow({
               }
               transitionTime={150}
             >
-              <Code language="json" code={stringify(members)} />
+              <Code
+                language="json"
+                code={stringify(
+                  members.map((m) => {
+                    const mInfo = orgMembers?.get(m.id) ?? null;
+                    return {
+                      name: mInfo?.name ?? "-",
+                      email: mInfo?.email ?? "-",
+                      ...m,
+                    };
+                  })
+                )}
+              />
             </Collapsible>
             {isCloud() && (
               <div className="mt-3">
@@ -448,7 +484,6 @@ const Admin: FC = () => {
 
   const loadOrgs = useCallback(
     async (page: number, search: string) => {
-      console.log("loading orgs");
       setLoading(true);
       const params = new URLSearchParams();
 
@@ -461,6 +496,7 @@ const Admin: FC = () => {
           ssoConnections: ssoInfoProps[];
           total: number;
         }>(`/admin/organizations?${params.toString()}`);
+        //console.log("got orgs", res.organizations);
         setOrgs(res.organizations);
         setTotal(res.total);
         setSsoConnections(res.ssoConnections);

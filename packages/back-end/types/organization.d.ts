@@ -286,6 +286,7 @@ export interface OrganizationInterface {
   getStartedChecklistItems?: string[];
   customRoles?: Role[];
   deactivatedRoles?: string[];
+  disabled?: boolean;
 }
 
 export type NamespaceUsage = Record<
