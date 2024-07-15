@@ -31,6 +31,7 @@ export const IdListMemberInput: FC<{
   values: string[];
   attributeKey: string;
   passByReferenceOnly: boolean;
+  limit?: number;
   setValues: (newValues: string[]) => void;
   setPassByReferenceOnly: (passByReferenceOnly: boolean) => void;
   setDisableSubmit: (disabled: boolean) => void;
@@ -38,6 +39,7 @@ export const IdListMemberInput: FC<{
   values,
   attributeKey,
   passByReferenceOnly,
+  limit = LEGACY_GROUP_SIZE_LIMIT,
   setValues,
   setPassByReferenceOnly,
   setDisableSubmit,
@@ -72,12 +74,12 @@ export const IdListMemberInput: FC<{
   const [nonLegacyImport, setNonLegacyImport] = useState(false);
 
   useEffect(() => {
-    if (values.length > LEGACY_GROUP_SIZE_LIMIT) {
+    if (values.length > limit) {
       setNonLegacyImport(true);
     } else {
       setNonLegacyImport(false);
     }
-  }, [values]);
+  }, [values, limit]);
 
   useEffect(() => {
     if (supportedConnections.length > 0) {
