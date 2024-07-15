@@ -340,7 +340,6 @@ export default function ExperimentImpact({
           ei.error =
             "No snapshot with scaled impact available. Click refresh button above.";
           if (fitsFilters) {
-            console.log(e);
             expsNeedingScaledImpact.push(e.id);
           }
         }
@@ -535,7 +534,13 @@ export default function ExperimentImpact({
                   <button
                     className="btn btn-sm btn-primary"
                     onClick={() =>
-                      updateSnapshots(expsNeedingScaledImpact).then(
+                      // only show banner if filtered experiments are missing
+                      // scaled impact (e.g. expsNeedingScaledImpact)
+                      // but try to update all experiments including those
+                      // in background that may be used to debias
+                      // (e.g. experimentsWithNoImpact)
+                      //
+                      updateSnapshots(experimentsWithNoImpact).then(
                         fetchSnapshots
                       )
                     }
