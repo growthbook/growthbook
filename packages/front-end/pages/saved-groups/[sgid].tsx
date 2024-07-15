@@ -1,10 +1,11 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { getMatchingRules } from "shared/util";
+import { getMatchingRules, LEGACY_GROUP_SIZE_LIMIT } from "shared/util";
 import { SavedGroupInterface } from "shared/src/types";
 import { ago } from "shared/dates";
 import { FaExclamationTriangle, FaPlusCircle } from "react-icons/fa";
 import { PiArrowsDownUp } from "react-icons/pi";
+import Link from "next/link";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
 import Pagination from "@/components/Pagination";
@@ -18,6 +19,7 @@ import { useEnvironments, useFeaturesList } from "@/services/features";
 import { getSavedGroupMessage } from "@/pages/saved-groups";
 import EditButton from "@/components/EditButton/EditButton";
 import Modal from "@/components/Modal";
+import useSDKConnections from "@/hooks/useSDKConnections";
 
 const NUM_PER_PAGE = 10;
 
@@ -30,6 +32,7 @@ export default function EditSavedGroupPage() {
   const savedGroup = data?.savedGroup;
   const { features } = useFeaturesList(false);
   const environments = useEnvironments();
+  const { data: sdkConnectionData } = useSDKConnections();
   const [sortNewestFirst, setSortNewestFirst] = useState<boolean>(true);
   const [addMembers, setAddMembers] = useState<boolean>(false);
   const [membersToAdd, setMembersToAdd] = useState<string[]>([]);
@@ -72,9 +75,14 @@ export default function EditSavedGroupPage() {
     [mutate, savedGroup]
   );
 
-  const savedGroupFeatureIds = useMemo(() => {
-    const featureIds: Set<string> = new Set();
-    if (!savedGroup) return featureIds;
+  const {
+    featuresReferencingSavedGroup,
+    projectsReferencingSavedGroup,
+  } = useMemo(() => {
+    const featuresReferencingSavedGroup: Set<string> = new Set();
+    const projectsReferencingSavedGroup: Set<string> = new Set();
+    if (!savedGroup)
+      return { featuresReferencingSavedGroup, projectsReferencingSavedGroup };
     features.forEach((feature) => {
       const matches = getMatchingRules(
         feature,
@@ -86,15 +94,36 @@ export default function EditSavedGroupPage() {
       );
 
       if (matches.length > 0) {
-        featureIds.add(feature.id);
+        featuresReferencingSavedGroup.add(feature.id);
+        projectsReferencingSavedGroup.add(feature.project || "");
       }
     });
-    return featureIds;
+    return { featuresReferencingSavedGroup, projectsReferencingSavedGroup };
   }, [savedGroup, features, environments]);
 
+  const referencingUnsupportedSdkConnections = useMemo(() => {
+    if (projectsReferencingSavedGroup.size === 0) {
+      return [];
+    }
+    return (sdkConnectionData?.connections || []).filter((connection) => {
+      return (
+        !connection.savedGroupReferencesEnabled &&
+        (connection.projects?.length === 0 ||
+          connection.projects?.some((project) =>
+            projectsReferencingSavedGroup.has(project)
+          ))
+      );
+    });
+  }, [sdkConnectionData, projectsReferencingSavedGroup]);
+
+  const convertingLegacyWithUnsupportedConnections =
+    !savedGroup?.passByReferenceOnly &&
+    passByReferenceOnly &&
+    referencingUnsupportedSdkConnections.length > 0;
+
   const getConfirmationContent = useMemo(() => {
-    return getSavedGroupMessage(savedGroupFeatureIds);
-  }, [savedGroupFeatureIds]);
+    return getSavedGroupMessage(featuresReferencingSavedGroup);
+  }, [featuresReferencingSavedGroup]);
 
   if (!savedGroup || savedGroup.type !== "list" || error) {
     return (
@@ -115,7 +144,11 @@ export default function EditSavedGroupPage() {
         size="lg"
         header={`Add ${savedGroup.attributeKey}s to List`}
         cta="Save"
-        ctaEnabled={membersToAdd.length > 0 && !disableSubmit}
+        ctaEnabled={
+          membersToAdd.length > 0 &&
+          !disableSubmit &&
+          !convertingLegacyWithUnsupportedConnections
+        }
         submit={async () => {
           await apiCall(`/saved-groups/${savedGroup.id}/add-members`, {
             method: "POST",
@@ -137,11 +170,31 @@ export default function EditSavedGroupPage() {
           <IdListMemberInput
             values={membersToAdd}
             attributeKey={savedGroup.attributeKey || "ID"}
-            setValues={(newValues) => setMembersToAdd(newValues)}
             passByReferenceOnly={savedGroup.passByReferenceOnly || false}
+            limit={LEGACY_GROUP_SIZE_LIMIT - values.length}
+            setValues={(newValues) => setMembersToAdd(newValues)}
             setPassByReferenceOnly={setPassByReferenceOnly}
             setDisableSubmit={setDisableSubmit}
           />
+          {convertingLegacyWithUnsupportedConnections && (
+            <div className="alert alert-danger mt-2 p-3">
+              <FaExclamationTriangle /> This saved group is being used in SDK
+              connections which do not support Large Saved Groups. Update the
+              following connections and enable Large Saved Groups or keep the
+              number of items in the list below {LEGACY_GROUP_SIZE_LIMIT}
+              <ul>
+                {referencingUnsupportedSdkConnections.map((conn) => (
+                  <Link
+                    className="text-error-muted underline"
+                    key={conn.id}
+                    href={`/sdks/${conn.id}`}
+                  >
+                    {conn.id}
+                  </Link>
+                ))}
+              </ul>
+            </div>
+          )}
         </>
       </Modal>
       {savedGroupForm && (
