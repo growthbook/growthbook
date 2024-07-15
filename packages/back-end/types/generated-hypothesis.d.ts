@@ -1,5 +1,3 @@
-import { GrowthBookPayload } from "@growthbook/growthbook";
-
 export interface GeneratedHypothesisInterface {
   id: string;
   uuid: string;
@@ -7,6 +5,5 @@ export interface GeneratedHypothesisInterface {
   organization: string;
   url: string;
   hypothesis: string;
-  payload: GrowthBookPayload;
   experiment?: string;
 }
