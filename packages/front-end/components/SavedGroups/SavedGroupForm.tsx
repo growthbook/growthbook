@@ -4,7 +4,7 @@ import {
   UpdateSavedGroupProps,
 } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
-import { validateAndFixCondition } from "shared/util";
+import { LEGACY_GROUP_SIZE_LIMIT, validateAndFixCondition } from "shared/util";
 import {
   FaCheckCircle,
   FaExclamationTriangle,
@@ -72,12 +72,27 @@ export const IdListMemberInput: FC<{
   const [nonLegacyImport, setNonLegacyImport] = useState(false);
 
   useEffect(() => {
+    if (values.length > LEGACY_GROUP_SIZE_LIMIT) {
+      setNonLegacyImport(true);
+    } else {
+      setNonLegacyImport(false);
+    }
+  }, [values]);
+
+  useEffect(() => {
     if (supportedConnections.length > 0) {
       setDisableSubmit(false);
-    } else {
+    } else if (nonLegacyImport && !passByReferenceOnly) {
       setDisableSubmit(true);
+    } else {
+      setDisableSubmit(false);
     }
-  }, [setDisableSubmit, supportedConnections]);
+  }, [
+    setDisableSubmit,
+    supportedConnections,
+    nonLegacyImport,
+    passByReferenceOnly,
+  ]);
 
   return (
     <>
@@ -112,6 +127,11 @@ export const IdListMemberInput: FC<{
           </label>
         </div>
       </div>
+      <LargeSavedGroupSupportWarning
+        type="saved_group_creation"
+        supportedConnections={supportedConnections}
+        unsupportedConnections={unsupportedConnections}
+      />
       {importMethod === "file" && (
         <>
           <div
@@ -201,7 +221,7 @@ export const IdListMemberInput: FC<{
       )}
       {importMethod === "values" && (
         <>
-          {fileName && values.length > 1000 ? (
+          {fileName && values.length > LEGACY_GROUP_SIZE_LIMIT ? (
             <p>
               There are too many values being imported to edit them directly.
               Try uploading a new csv instead.
@@ -251,15 +271,6 @@ export const IdListMemberInput: FC<{
               </div>
             </>
           )}
-        </>
-      )}
-      {!passByReferenceOnly && nonLegacyImport && (
-        <>
-          <LargeSavedGroupSupportWarning
-            type="saved_group_creation"
-            supportedConnections={supportedConnections}
-            unsupportedConnections={unsupportedConnections}
-          />
         </>
       )}
     </>

@@ -1,5 +1,7 @@
 import { GroupMap, SavedGroupsValues, SavedGroupInterface } from "../types";
 
+export const LEGACY_GROUP_SIZE_LIMIT = 100;
+
 export function getSavedGroupsValuesFromGroupMap(
   groupMap: GroupMap
 ): SavedGroupsValues {
