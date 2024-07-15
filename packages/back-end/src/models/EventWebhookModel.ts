@@ -288,16 +288,16 @@ export const deleteOrganizationventWebHook = async (
 };
 
 export type UpdateEventWebHookAttributes = {
-    name?: string;
-    url?: string;
-    enabled?: boolean;
-    events?: NotificationEventName[];
-    tags?: string[];
-    environments?: string[];
-    projects?: string[];
-    payloadType?: EventWebHookPayloadType;
-    method?: EventWebHookMethod;
-    headers?: Record<string, string>;
+  name?: string;
+  url?: string;
+  enabled?: boolean;
+  events?: NotificationEventName[];
+  tags?: string[];
+  environments?: string[];
+  projects?: string[];
+  payloadType?: EventWebHookPayloadType;
+  method?: EventWebHookMethod;
+  headers?: Record<string, string>;
 };
 
 /**

@@ -2,7 +2,11 @@ import React, { FC } from "react";
 import Link from "next/link";
 import { EventWebHookInterface } from "back-end/types/event-webhook";
 import { datetime } from "shared/dates";
-import { webhookIcon, useIconForState, displayedEvents } from "@/components/EventWebHooks/utils";
+import {
+  webhookIcon,
+  useIconForState,
+  displayedEvents,
+} from "@/components/EventWebHooks/utils";
 
 type EventWebHookListItemProps = {
   href: string;
@@ -73,8 +77,7 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
             )}
           </div>
           <div className="text-main">
-            <b>Events enabled:</b>{" "}
-            {displayedEvents(events)}
+            <b>Events enabled:</b> {displayedEvents(events)}
           </div>
         </div>
       </div>
