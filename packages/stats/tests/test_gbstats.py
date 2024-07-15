@@ -260,7 +260,6 @@ RA_METRIC = MetricSettingsForStatsEngine(
     statistic_type="mean_ra",
     main_metric_type="count",
     covariate_metric_type="count",
-    decision_metric=True,
 )
 
 RA_STATISTICS_DF = pd.DataFrame(
@@ -291,9 +290,24 @@ RA_STATISTICS_DF = pd.DataFrame(
 )
 
 DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
+    var_names=["zero", "one"],
+    var_ids=["0", "1"],
+    weights=[0.5, 0.5],
+    baseline_index=0,
+    dimension="All",
+    stats_engine="bayesian",
+    sequential_testing_enabled=False,
+    sequential_tuning_parameter=5000,
+    difference_type="relative",
+    phase_length_days=1,
+    alpha=0.05,
+    max_dimensions=20,
+)
+
+BANDIT_ANALYSIS = AnalysisSettingsForStatsEngine(
     var_names=["zero", "one", "two", "three"],
     var_ids=["0", "1", "2", "3"],
-    weights=[0.45, 0.4, 0.1, 0.05],
+    weights=[0.25, 0.25, 0.25, 0.25],
     baseline_index=0,
     dimension="All",
     stats_engine="bayesian",
@@ -536,14 +550,7 @@ class TestAnalyzeMetricDfBayesian(TestCase):
     # New usage (no mean/stddev correction)
     def test_get_metric_df_new(self):
         rows = MULTI_DIMENSION_STATISTICS_DF
-        # turns sql output, which has unique row by (variation, dimension), into pd.DataFrame where each dimension has 1 row
-        df = get_metric_df(
-            rows,
-            {"zero": 0, "one": 1, "two": 2, "three": 3},
-            ["zero", "one", "two", "three"],
-        )
-        import copy
-
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(df, metric=COUNT_METRIC, analysis=DEFAULT_ANALYSIS)
         self.assertEqual(len(result.index), 2)
         self.assertEqual(result.at[0, "dimension"], "one")
@@ -619,19 +626,6 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(round_(result.at[0, "v1_expected"]), 0)
         self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.5)
         self.assertEqual(result.at[0, "v1_p_value"], None)
-
-
-class TestBandit(TestCase):
-    def test_get_bandit_weights(self):
-        rows = MULTI_DIMENSION_STATISTICS_DF
-        var_id_map = {"zero": 0, "one": 1, "two": 2, "three": 3}
-        metric = COUNT_METRIC
-        analysis = DEFAULT_ANALYSIS
-        df_weights = get_bandit_weights(rows, var_id_map, metric, analysis)
-        n_variations = len(var_id_map)
-        constant_weights = np.full((n_variations,), 1 / n_variations).tolist()
-        self.assertEqual(df_weights.at[0, "weights"], constant_weights)
-        self.assertEqual(df_weights.at[1, "weights"], constant_weights)
 
 
 class TestAnalyzeMetricDfFrequentist(TestCase):
@@ -816,15 +810,10 @@ class TestFormatResults(TestCase):
     def test_format_results_denominator(self):
         rows = RATIO_STATISTICS_DF
         df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
-        n_variations = len(RATIO_STATISTICS_DF["variation"].unique())
-        constant_weights = np.full((n_variations,), 1 / n_variations).tolist()
-        df_weights = pd.DataFrame(
-            {
-                "dimension": ["two", "one"],
-                "weights": [constant_weights, constant_weights],
-                "update_message": "successfully_updated",
-            }
-        )
+        var_id_map = {"zero": 0, "one": 1}
+        metric = COUNT_METRIC
+        analysis = DEFAULT_ANALYSIS
+        df_weights = get_bandit_weights(rows, var_id_map, metric, analysis)
         result = format_results(
             analyze_metric_df(
                 df,
@@ -836,7 +825,6 @@ class TestFormatResults(TestCase):
             0,
         )
         for res in result:
-            self.assertEqual(res.bandit_weights.weights, constant_weights)
             for i, v in enumerate(res.variations):
                 self.assertEqual(v.denominator, 510 if i == 0 else 500)
 

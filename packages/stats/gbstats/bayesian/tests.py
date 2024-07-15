@@ -337,6 +337,10 @@ class Bandits:
         return np.array(variances).reshape(self.array_shape)
 
     @property
+    def seed(self) -> int:
+        return self.config.seed
+
+    @property
     def variation_means(self) -> np.ndarray:
         return np.sum(self.means_array * self.weights_array, axis=0)
 
