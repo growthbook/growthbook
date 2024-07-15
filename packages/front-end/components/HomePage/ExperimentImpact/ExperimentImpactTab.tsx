@@ -31,7 +31,7 @@ export default function ExperimentImpactTab({
 }: Props) {
   const expRows: ReactElement[] = [];
   let anyNullImpact = false;
-  experimentImpactData.experiments.forEach((e) => {
+  experimentImpactData.experiments.forEach((e, ei) => {
     const variations: JSX.Element[] = [];
     const impactsScaled: JSX.Element[] = [];
     const impactsTotal: JSX.Element[] = [];
@@ -45,6 +45,7 @@ export default function ExperimentImpactTab({
         }
         variations.push(
           <div
+            key={`var-experiment${ei}-variation${i}`}
             className={`variation variation${i} with-variation-label d-flex my-1`}
           >
             <span className="label" style={{ width: 20, height: 20 }}>
@@ -62,6 +63,7 @@ export default function ExperimentImpactTab({
         );
         impactsScaled.push(
           <div
+            key={`imp-experiment${ei}-variation${i}`}
             className={clsx("my-1", { won: experimentImpactType === "winner" })}
           >
             {impact ? (
@@ -90,6 +92,7 @@ export default function ExperimentImpactTab({
         );
         impactsTotal.push(
           <div
+            key={`imptotal-experiment${ei}-variation${i}`}
             className={clsx("my-1", { won: experimentImpactType === "winner" })}
           >
             {impact ? (
@@ -154,7 +157,7 @@ export default function ExperimentImpactTab({
           <td colSpan={3}>
             <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
               <FaExclamationTriangle className="mr-1" />
-              No results available. Check experiment results for errors.
+              {e.error}
             </div>
           </td>
         ) : (

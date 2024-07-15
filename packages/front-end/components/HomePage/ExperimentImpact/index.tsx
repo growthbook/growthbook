@@ -22,7 +22,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
-import { jamesSteinAdjustment } from "./jamesSteinAdjustment";
+import { jamesSteinAdjustment } from "./JamesSteinAdjustment";
 import ExperimentImpactTab from "./ExperimentImpactTab";
 
 export function NoExperimentsForImpactBanner() {
@@ -128,7 +128,7 @@ export default function ExperimentImpact({
       adjusted: false,
     },
   });
-  console.log(form.watch("startDate"));
+
   const metric = form.watch("metric");
   const selectedProjects = form.watch("projects");
   const adjusted = form.watch("adjusted");
@@ -148,7 +148,8 @@ export default function ExperimentImpact({
   // 1 get all snapshots
   // 2 check for snapshots w/o impact
   // 3 if snapshots exist w/o impact analysis object:
-  //   upgrade those snapshots with scaled impact, then post
+  //   if < 5 experiments need update, update snapshots with scaled impact
+  //   if >= 5 experiments need update, ask them to update with button
 
   const setMissingAndBrokenScaledImpactExperiments = (
     experiments: ExperimentInterfaceStringDates[],
@@ -227,7 +228,7 @@ export default function ExperimentImpact({
 
   useEffect(() => {
     // 3 update snapshots missing impact
-    if (experimentsWithNoImpact.length && !hasTriedRebuildingImpact) {
+    if (experimentsWithNoImpact.length <= 5 && !hasTriedRebuildingImpact) {
       updateSnapshots(experimentsWithNoImpact).then(fetchSnapshots);
       setHasTriedRebuildingImpact(true);
     }
@@ -254,6 +255,7 @@ export default function ExperimentImpact({
     );
 
   let nExpsUsedForAdjustment = 0;
+  const expsNeedingScaledImpact: string[] = [];
   const experimentImpacts = new Map<string, ExperimentWithImpact>();
   let summaryObj: {
     winners: ExperimentImpactData;
@@ -335,10 +337,15 @@ export default function ExperimentImpact({
             }
           });
         } else {
-          ei.error = "No snapshot with scaled impact available.";
+          ei.error =
+            "No snapshot with scaled impact available. Click refresh button above.";
+          if (fitsFilters) {
+            console.log(e);
+            expsNeedingScaledImpact.push(e.id);
+          }
         }
       } else {
-        ei.error = "No snapshot with results available.";
+        ei.error = "No results available. Check experiment results for errors.";
       }
       experimentImpacts.set(e.id, ei);
     });
@@ -515,6 +522,30 @@ export default function ExperimentImpact({
         <LoadingSpinner />
       ) : summaryObj ? (
         <>
+          {expsNeedingScaledImpact.length > 0 ? (
+            <div className={`mt-2 alert alert-warning`}>
+              <div className="row">
+                <div className="col-auto">
+                  <span style={{ fontSize: "1.2em" }}>
+                    Some experiments are missing scaled impact results.
+                  </span>
+                </div>
+                <div className="flex-1" />
+                <div className="col-auto">
+                  <button
+                    className="btn btn-sm btn-primary"
+                    onClick={() =>
+                      updateSnapshots(expsNeedingScaledImpact).then(
+                        fetchSnapshots
+                      )
+                    }
+                  >
+                    Calculate Scaled Impact
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
           {summaryObj.losers.experiments.length +
             summaryObj.winners.experiments.length +
             summaryObj.others.experiments.length ===
