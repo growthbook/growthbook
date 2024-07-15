@@ -268,12 +268,10 @@ export async function runSnapshotAnalyses(
   });
   const chunkSize = 10;
   const chunks = chunk(paramsWithId, chunkSize);
-  const results = await Promise.all(
-    chunks.map(async (chunk) => {
-      return await runStatsEngine(chunk);
-    })
-  );
-
+  const results: MultipleExperimentMetricAnalysis[][] = [];
+  for (const chunk of chunks) {
+    results.push(await runStatsEngine(chunk));
+  }
   return results.flat();
 }
 
