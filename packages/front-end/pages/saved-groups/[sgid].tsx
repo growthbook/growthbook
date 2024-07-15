@@ -229,7 +229,7 @@ export default function EditSavedGroupPage() {
                 </button>
               </div>
             </div>
-            <h4>ID List Members</h4>
+            <h4>ID List Items</h4>
             <div className="row m-0 mb-3 align-items-center justify-content-between">
               <div className="row m-0 align-items-center">
                 {selected.size > 0 && (
@@ -304,9 +304,7 @@ export default function EditSavedGroupPage() {
                       }}
                     />
                   </th>
-                  <th className="uppercase-title xl">
-                    {savedGroup.attributeKey}
-                  </th>
+                  <th className="no-uppercase">{savedGroup.attributeKey}</th>
                 </tr>
               </thead>
               <tbody>
@@ -338,13 +336,13 @@ export default function EditSavedGroupPage() {
                 {!values.length && (
                   <tr>
                     <td colSpan={2}>
-                      This group doesn&apos;t have any members yet
+                      This group doesn&apos;t have any items yet
                     </td>
                   </tr>
                 )}
                 {values.length && !filteredValues.length ? (
                   <tr>
-                    <td colSpan={2}>No matching members</td>
+                    <td colSpan={2}>No matching items</td>
                   </tr>
                 ) : (
                   <></>

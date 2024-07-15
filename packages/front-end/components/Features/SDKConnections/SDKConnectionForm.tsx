@@ -188,6 +188,13 @@ export default function SDKConnectionForm({
     "min-ver-intersection"
   );
 
+  if (
+    form.watch("savedGroupReferencesEnabled") &&
+    !currentSdkCapabilities.includes("savedGroupReferences")
+  ) {
+    form.setValue("savedGroupReferencesEnabled", false);
+  }
+
   const showVisualEditorSettings = latestSdkCapabilities.includes(
     "visualEditor"
   );
