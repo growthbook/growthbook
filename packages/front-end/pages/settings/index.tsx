@@ -10,6 +10,7 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { OrganizationSettings } from "@back-end/types/organization";
+import Link from "next/link";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
@@ -28,7 +29,6 @@ import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetri
 import ExperimentSettings from "@/components/GeneralSettings/ExperimentSettings";
 import MetricsSettings from "@/components/GeneralSettings/MetricsSettings";
 import FeaturesSettings from "@/components/GeneralSettings/FeaturesSettings";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 
@@ -386,38 +386,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 <h4>Custom Markdown</h4>
               </div>
               <div className="col-sm-9">
-                <p>
-                  Custom markdown allows you to provide organization-specific
-                  guidance and documentation to your team on key pages within
-                  GrowthBook.
-                </p>
-                <div className={"form-group"}>
-                  <div className="my-3">
-                    <div className="form-group">
-                      <label>Features List</label>
-                      <MarkdownInput
-                        value={form.watch("featureListMarkdown") || ""}
-                        setValue={(value) =>
-                          form.setValue("featureListMarkdown", value)
-                        }
-                      />
-                      <label>Experiments List</label>
-                      <MarkdownInput
-                        value={form.watch("experimentListMarkdown") || ""}
-                        setValue={(value) =>
-                          form.setValue("experimentListMarkdown", value)
-                        }
-                      />
-                      <label>Metrics List</label>
-                      <MarkdownInput
-                        value={form.watch("metricListMarkdown") || ""}
-                        setValue={(value) =>
-                          form.setValue("metricListMarkdown", value)
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
+                <Link href="/settings/custom-markdown">
+                  View Custom Markdown Settings
+                </Link>
               </div>
             </div>
           </div>
