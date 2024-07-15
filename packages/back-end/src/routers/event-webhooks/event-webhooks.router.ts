@@ -134,4 +134,16 @@ router.post(
   eventWebHooksController.createTestEventWebHook
 );
 
+router.post(
+  "/event-webhooks/toggle",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        webhookId: z.string().trim().min(1),
+      })
+      .strict(),
+  }),
+  eventWebHooksController.toggleEventWebHook
+);
+
 export { router as eventWebHooksRouter };

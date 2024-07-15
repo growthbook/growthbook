@@ -287,10 +287,17 @@ export const deleteOrganizationventWebHook = async (
   return result.deletedCount > 0;
 };
 
-type UpdateEventWebHookAttributes = {
-  name?: string;
-  url?: string;
-  events?: NotificationEventName[];
+export type UpdateEventWebHookAttributes = {
+    name?: string;
+    url?: string;
+    enabled?: boolean;
+    events?: NotificationEventName[];
+    tags?: string[];
+    environments?: string[];
+    projects?: string[];
+    payloadType?: EventWebHookPayloadType;
+    method?: EventWebHookMethod;
+    headers?: Record<string, string>;
 };
 
 /**

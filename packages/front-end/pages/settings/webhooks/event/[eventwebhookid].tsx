@@ -32,7 +32,7 @@ const EventWebHookDetailPage: NextPage = () => {
         breadcrumb={[
           {
             display: "Webhooks",
-            href: `/webhooks`,
+            href: `/settings/webhooks`,
           },
           { display: eventWebHook.name },
         ]}
