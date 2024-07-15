@@ -12,9 +12,9 @@ import { RefreshTokenCookie } from "../../util/cookie";
 import { UnauthenticatedResponse } from "../../../types/sso-connection";
 import {
   getAuditableUserPropertiesFromRequest,
-  getUserById,
   trackLoginForUser,
 } from "../users";
+import { getUserById } from "../../models/UserModel";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 import { isNewInstallation } from ".";
 

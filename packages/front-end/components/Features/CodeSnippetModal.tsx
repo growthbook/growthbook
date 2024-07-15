@@ -35,9 +35,11 @@ function trimTrailingSlash(str: string): string {
 }
 
 export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
-  if (connection && connection.proxy.enabled && connection.proxy.host) {
+  if (connection && connection.proxy.enabled) {
     return trimTrailingSlash(
-      connection.proxy.hostExternal || connection.proxy.host
+      connection.proxy.hostExternal ||
+        connection.proxy.host ||
+        "https://proxy.yoursite.io"
     );
   }
 
@@ -115,8 +117,7 @@ export default function CodeSnippetModal({
   }
 
   const { docs, docLabel, label } = languageMapping[language];
-  const hasProxy =
-    currentConnection.proxy.enabled && !!currentConnection.proxy.host;
+  const hasProxy = currentConnection.proxy.enabled;
   const apiHost = getApiBaseUrl(currentConnection);
   const clientKey = currentConnection.key;
   const featuresEndpoint = apiHost + "/api/features/" + clientKey;

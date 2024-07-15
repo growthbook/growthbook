@@ -10,7 +10,7 @@ import {
   PowerCalculationResults,
   PartialPowerCalculationParams,
   FullModalPowerCalculationParams,
-  StatsEngine,
+  StatsEngineSettings,
 } from "@/components/PowerCalculation/types";
 
 import { powerMetricWeeks } from "@/components/PowerCalculation/stats";
@@ -23,7 +23,7 @@ type PageSettings = {
   powerCalculationParams?: FullModalPowerCalculationParams;
   settingsModalParams: PartialPowerCalculationParams;
   variations: number;
-  statsEngine?: StatsEngine;
+  statsEngineSettings?: StatsEngineSettings;
 };
 
 const INITIAL_PAGE_SETTINGS: PageSettings = {
@@ -55,15 +55,25 @@ const PowerCalculationPage = (): React.ReactElement => {
 
   const [variations, setVariations] = useState(initialParams.variations);
 
-  const [statsEngine, setStatsEngine] = useState<StatsEngine>(
-    initialParams.statsEngine || {
-      type: "frequentist",
-      sequentialTesting: orgSettings.sequentialTestingEnabled
-        ? orgSettings.sequentialTestingTuningParameter ||
-          DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
-        : false,
-    }
+  const defaultStatsEngineSettings: StatsEngineSettings = {
+    type: orgSettings.statsEngine || "frequentist",
+    sequentialTesting: orgSettings.sequentialTestingEnabled
+      ? orgSettings.sequentialTestingTuningParameter ||
+        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
+      : false,
+  };
+
+  const [
+    statsEngineSettings,
+    setStatsEngineSettings,
+  ] = useState<StatsEngineSettings>(
+    initialParams.statsEngineSettings || defaultStatsEngineSettings
   );
+
+  const [
+    modalStatsEngineSettings,
+    setModalStatsEngineSettings,
+  ] = useState<StatsEngineSettings>(statsEngineSettings);
 
   useEffect(() => {
     localStorage.setItem(
@@ -72,30 +82,33 @@ const PowerCalculationPage = (): React.ReactElement => {
         powerCalculationParams,
         settingsModalParams,
         variations,
-        statsEngine,
+        statsEngineSettings,
       })
     );
-  }, [powerCalculationParams, settingsModalParams, variations, statsEngine]);
+  }, [
+    powerCalculationParams,
+    settingsModalParams,
+    variations,
+    statsEngineSettings,
+  ]);
 
   const finalParams: PowerCalculationParams | undefined = useMemo(() => {
     if (!powerCalculationParams) return;
-
     return {
       ...powerCalculationParams,
-      statsEngine,
+      statsEngineSettings,
       nVariations: variations,
       nWeeks: WEEKS,
       targetPower: 0.8,
       alpha: 0.05,
     };
-  }, [powerCalculationParams, variations, statsEngine]);
+  }, [powerCalculationParams, variations, statsEngineSettings]);
 
   const results: PowerCalculationResults | undefined = useMemo(() => {
     if (!finalParams) return;
 
     return powerMetricWeeks(finalParams);
   }, [finalParams]);
-
   return (
     <div className="contents power-calculator container-fluid pagecontents">
       {showModal && (
@@ -104,8 +117,10 @@ const PowerCalculationPage = (): React.ReactElement => {
           onSuccess={(p) => {
             setSettingsModalParams(p);
             setPowerCalculationParams(p);
+            setStatsEngineSettings(modalStatsEngineSettings);
             setShowModal(false);
           }}
+          statsEngineSettings={modalStatsEngineSettings}
           params={settingsModalParams}
         />
       )}
@@ -118,11 +133,13 @@ const PowerCalculationPage = (): React.ReactElement => {
           results={results}
           edit={() => {
             setSettingsModalParams(powerCalculationParams);
+            setModalStatsEngineSettings(statsEngineSettings);
             setShowModal(true);
           }}
           updateVariations={setVariations}
-          updateStatsEngine={setStatsEngine}
+          updateStatsEngineSettings={setStatsEngineSettings}
           newCalculation={() => {
+            setModalStatsEngineSettings(defaultStatsEngineSettings);
             setSettingsModalParams(INITIAL_FORM_PARAMS);
             setShowModal(true);
           }}

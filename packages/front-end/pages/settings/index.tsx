@@ -8,6 +8,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
+  DEFAULT_TEST_QUERY_DAYS,
 } from "shared/constants";
 import { OrganizationSettings } from "@back-end/types/organization";
 import { useAuth } from "@/services/auth";
@@ -19,15 +20,14 @@ import {
   useOrganizationMetricDefaults,
 } from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
-import SelectField from "@/components/Forms/SelectField";
 import { useCurrency } from "@/hooks/useCurrency";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import OrganizationAndLicenseSettings from "@/components/GeneralSettings/OrganizationAndLicenseSettings";
 import ImportSettings from "@/components/GeneralSettings/ImportSettings";
 import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetricSettings";
 import ExperimentSettings from "@/components/GeneralSettings/ExperimentSettings";
 import MetricsSettings from "@/components/GeneralSettings/MetricsSettings";
 import FeaturesSettings from "@/components/GeneralSettings/FeaturesSettings";
+import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 
@@ -60,7 +60,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     setCodeRefsBranchesToFilterStr,
   ] = useState<string>("");
   const displayCurrency = useCurrency();
-  const { datasources } = useDefinitions();
 
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
 
@@ -120,6 +119,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         },
       ],
       defaultDataSource: settings.defaultDataSource || "",
+      testQueryDays: DEFAULT_TEST_QUERY_DAYS,
       useStickyBucketing: false,
       useFallbackAttributes: false,
       codeReferencesEnabled: false,
@@ -350,29 +350,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
             <div className="divider border-bottom mb-3 mt-3" />
 
-            <div className="row">
-              <div className="col-sm-3">
-                <h4>Data Source Settings</h4>
-              </div>
-              <div className="col-sm-9">
-                <>
-                  <SelectField
-                    label="Default Data Source (Optional)"
-                    value={form.watch("defaultDataSource") || ""}
-                    options={datasources.map((d) => ({
-                      label: d.name,
-                      value: d.id,
-                    }))}
-                    onChange={(v: string) =>
-                      form.setValue("defaultDataSource", v)
-                    }
-                    isClearable={true}
-                    placeholder="Select a data source..."
-                    helpText="The default data source is the default data source selected when creating metrics and experiments."
-                  />
-                </>
-              </div>
-            </div>
+            <DatasourceSettings />
           </div>
         </div>
       </div>
