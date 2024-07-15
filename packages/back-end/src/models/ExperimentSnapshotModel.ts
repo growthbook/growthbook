@@ -407,4 +407,4 @@ export async function createExperimentSnapshotModel({
 
 export const getDefaultAnalysisResults = (
   snapshot: ExperimentSnapshotDocument
-) => snapshot.results?.[0];
+) => snapshot.analyses?.[0]?.results?.[0];

@@ -1,33 +1,32 @@
 import fs from "fs";
 import uniq from "lodash/uniq";
-import difference from "lodash/difference";
 
 import { SDKLanguage } from "back-end/types/sdk-connection";
 import {
+  SDKCapability,
   getDefaultSDKVersion,
   getLatestSDKVersion,
-  getSDKCapabilities,
+  getSDKCapabilityVersion,
+  sdks,
 } from ".";
 
-const languages = [
-  "javascript",
-  "nodejs",
-  "react",
-  "php",
-  "python",
-  "ruby",
-  "java",
-  "android",
-  "ios",
-  "go",
-  "flutter",
-  "csharp",
-  "elixir",
-  "nocode-other",
-  "nocode-webflow",
-  "nocode-shopify",
-  "nocode-wordpress",
-];
+const allCapabilities: Record<SDKCapability, boolean> = {
+  looseUnmarshalling: true,
+  bucketingV2: true,
+  encryption: true,
+  semverTargeting: true,
+  streaming: true,
+  prerequisites: true,
+  stickyBucketing: true,
+  remoteEval: true,
+  redirects: true,
+  savedGroupReferences: true,
+  visualEditor: true,
+  visualEditorDragDrop: true,
+  visualEditorJS: true,
+};
+
+const languages = Object.keys(sdks);
 
 type Info = {
   versions: Record<string, string>;
@@ -49,21 +48,14 @@ function getInfo(languages: string[]): Info {
 
 function updateInfo(lang: string, { versions, capabilities }: Info) {
   const sdkLang = lang as SDKLanguage;
-  const defaultVersion = getDefaultSDKVersion(sdkLang);
-  const latestVersion = getLatestSDKVersion(sdkLang);
-  const defaultCaps = getSDKCapabilities(sdkLang, defaultVersion);
-  const latestCaps = difference(
-    getSDKCapabilities(sdkLang, latestVersion),
-    defaultCaps
-  );
-  defaultCaps.forEach(
-    (cap) => (versions[versionKey(lang, cap)] = defaultVersion)
-  );
-  latestCaps.forEach(
-    (cap) => (versions[versionKey(lang, cap)] = latestVersion)
-  );
-  capabilities.push(...defaultCaps);
-  capabilities.push(...latestCaps);
+
+  Object.keys(allCapabilities).forEach((cap) => {
+    const minVersion = getSDKCapabilityVersion(sdkLang, cap as SDKCapability);
+    if (minVersion) {
+      capabilities.push(cap);
+      versions[versionKey(lang, cap)] = minVersion;
+    }
+  });
 }
 
 function captable(languages: string[]) {

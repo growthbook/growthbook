@@ -14,6 +14,7 @@ const docSections = {
   api: "/app/api",
   eventWebhooks: "/app/webhooks/event-webhooks",
   sdkWebhooks: "/app/webhooks/sdk-webhooks",
+  "sdkWebhooks#payload-format": "/app/webhooks/sdk-webhooks#payload-format",
   //DataSourceType
   athena: "/app/datasources#aws-athena",
   mixpanel: "/guide/mixpanel",
@@ -112,22 +113,25 @@ interface DocLinkProps {
   children: ReactNode;
 }
 
+export const docUrl = (docSection: DocSection, fallBackSection = "home") => {
+  const docsPath = docSections[docSection]
+    ? docSections[docSection]
+    : docSections[fallBackSection]
+    ? docSections[fallBackSection]
+    : "";
+
+  return docsOrigin + docsPath;
+};
+
 export function DocLink({
   docSection,
   fallBackSection = "home",
   className = "",
   children,
 }: DocLinkProps) {
-  const docsPath = docSections[docSection]
-    ? docSections[docSection]
-    : docSections[fallBackSection]
-    ? docSections[fallBackSection]
-    : "";
-  const docUrl = docsOrigin + docsPath;
-
   return (
     <a
-      href={docUrl}
+      href={docUrl(docSection, fallBackSection)}
       target="_blank"
       rel="noopener noreferrer"
       className={className}

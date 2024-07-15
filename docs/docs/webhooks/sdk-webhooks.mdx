@@ -120,25 +120,30 @@ Webhooks are retried up to 2 additional times with an exponential back-off betwe
 
 You can view the status of your webhooks in the GrowthBook app under **SDK Connections**.
 
-## Supported HTTP Types
+## Supported HTTP Methods
 
+- **GET**
 - **POST**
 - **PUT**
-- **GET**
 - **DELETE**
 - **PURGE**
 
-### Sending Payload
+## Payload Format
 
-If you opt to include a payload in your webhook request, the body will be in the following format:
+For all methods other than `GET`, you may send a payload body. By default, webhooks will send in the "Standard" format.
+
+### Standard
+
+Follows the **Standard Webhooks** specification. Inludes a JSON-encoded SDK Payload in the `data.payload` field.
+
+Example payload:
 
 ```json
 {
   "type": "payload.changed",
   "timestamp": "2024-04-03T01:54:20.449Z",
-  "data":{
-    "payload":"{\"features\":{\"my-feature\":{\"defaultValue\":true}}}"
-    }
+  "data": {
+    "payload": "{\"features\":{\"my-feature\":{\"defaultValue\":true}}}"
   }
 }
 ```
@@ -152,4 +157,28 @@ const gb = new GrowthBook();
 await gb.init({
   payload: payload
 });
+```
+
+### Standard (no SDK Payload)
+
+Same as above, but without the `data.payload` field.
+
+Example payload:
+
+```json
+{
+  "type": "payload.changed",
+  "timestamp": "2024-04-03T01:54:20.449Z",
+}
+```
+
+### SDK Payload
+
+Sends the raw SDK Payload using the same format as our SDK features endpoint. This is usually the correct format if you are using the webhook to set
+a cache value or assigning key/value storage.
+
+Example payload:
+
+```json
+{"features":{"my-feature":{"defaultValue":true}}}
 ```

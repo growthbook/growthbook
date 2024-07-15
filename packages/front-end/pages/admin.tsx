@@ -80,6 +80,7 @@ function OrganizationRow({
           currentName={organization.name}
           currentExternalId={organization.externalId || ""}
           currentLicenseKey={organization.licenseKey || ""}
+          currentOwner={organization.ownerEmail}
           onEdit={onEdit}
           close={() => setEditOrgModalOpen(false)}
         />
