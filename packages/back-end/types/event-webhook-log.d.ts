@@ -18,4 +18,6 @@ export interface EventWebHookLegacyLogInterface {
 export interface EventWebHookLogInterface
   extends EventWebHookLegacyLogInterface {
   event: NotificationEventName;
+  url: string;
+  method: EventWebHookMethod;
 }
