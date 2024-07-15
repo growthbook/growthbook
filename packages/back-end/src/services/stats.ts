@@ -17,6 +17,7 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
+import chunk from "lodash/chunk";
 import {
   ExperimentMetricAnalysis,
   MultipleExperimentMetricAnalysis,
@@ -262,13 +263,18 @@ export async function runSnapshotAnalysis(
 export async function runSnapshotAnalyses(
   params: ExperimentMetricAnalysisParams[]
 ): Promise<MultipleExperimentMetricAnalysis[]> {
-  const result = await runStatsEngine(
-    params.map((p) => {
-      return { id: p.id, data: createStatsEngineData(p) };
+  const paramsWithId = params.map((p) => {
+    return { id: p.id, data: createStatsEngineData(p) };
+  });
+  const chunkSize = 10;
+  const chunks = chunk(paramsWithId, chunkSize);
+  const results = await Promise.all(
+    chunks.map(async (chunk) => {
+      return await runStatsEngine(chunk);
     })
   );
 
-  return result;
+  return results.flat();
 }
 
 export function getMetricSettingsForStatsEngine(
