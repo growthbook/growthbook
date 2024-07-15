@@ -92,6 +92,9 @@ pre {
 .text-error-red {
   color: colors.$danger;
 }
+.text-error-muted {
+  color: var(--alert-danger-color);
+}
 .text-success-green {
   color: colors.$success;
 }

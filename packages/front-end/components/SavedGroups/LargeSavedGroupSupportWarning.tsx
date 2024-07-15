@@ -2,6 +2,7 @@ import { FaExclamationTriangle } from "react-icons/fa";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { SDKConnectionInterface } from "@back-end/types/sdk-connection";
 import Link from "next/link";
+import { LEGACY_GROUP_SIZE_LIMIT } from "shared/util";
 import useSDKConnections from "@/hooks/useSDKConnections";
 
 export function useLargeSavedGroupSupport(
@@ -75,14 +76,21 @@ export default function LargeSavedGroupSupportWarning(
           {props.supportedConnections.length > 0 ? (
             <div className="alert alert-warning mt-2 p-3">
               <FaExclamationTriangle /> Some of your SDK connections don&apos;t
-              support Large Saved Groups. This group won&apos;t be referencable
-              in features or experiments used in those SDK connections.
+              support saved groups with over {LEGACY_GROUP_SIZE_LIMIT} members.
+              If this group is too large it won&apos;t be referencable in
+              features or experiments used in those SDK connections.
             </div>
           ) : (
             <div className="alert alert-danger mt-2 p-3">
               <FaExclamationTriangle /> None of your SDK connections support
-              Large Saved Groups. Try updating your connections and enabling the
-              feature, or use manual value entry instead
+              saved groups with over {LEGACY_GROUP_SIZE_LIMIT} members. If you
+              exceed this limit you won&apos;t be able to save your changes.
+              <br></br>
+              Try updating your{" "}
+              <Link className="text-error-muted underline" href="/sdks">
+                sdk connections
+              </Link>{" "}
+              and enabling the &quot;Large Saved Groups&quot; feature first.
             </div>
           )}
         </>
@@ -98,9 +106,13 @@ export default function LargeSavedGroupSupportWarning(
               following SDK connections:
               <ul>
                 {props.unsupportedConnections.map((conn) => (
-                  <li key={conn.id}>
-                    {<Link href={`/sdks/${conn.id}`}>{conn.id}</Link>}
-                  </li>
+                  <Link
+                    className="text-warning-muted underline"
+                    key={conn.id}
+                    href={`/sdks/${conn.id}`}
+                  >
+                    {conn.id}
+                  </Link>
                 ))}
               </ul>
             </div>
