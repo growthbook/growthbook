@@ -47,6 +47,7 @@ from gbstats.models.statistics import (
     RegressionAdjustedStatistic,
     SampleMeanStatistic,
     TestStatistic,
+    BanditStatistic,
 )
 from gbstats.utils import check_srm
 
@@ -111,7 +112,6 @@ def get_metric_df(
     var_names: List[str],
 ):
     dfc = rows.copy()
-
     dimensions = {}
     # Each row in the raw SQL result is a dimension/variation combo
     # We want to end up with one row per dimension
@@ -607,26 +607,24 @@ def get_bandit_weights(
     reduced = preprocess_analysis(rows, var_id_map, metric, analysis)
     num_variations = reduced.at[0, "variations"]
     bandit_prior = GaussianPrior(mean=0, variance=float(1e4), proper=True)
-    bandit_config = BanditConfig(prior_distribution=bandit_prior)
+    bandit_config = BanditConfig(prior_distribution=bandit_prior, seed=analysis.seed)
 
     def get_bandit_weights_single(s: pd.Series) -> pd.Series:
         s_final = pd.Series({"dimension": s["dimension"]})
         # initialize weights as constant; then just return s if any update checks below fail
         s_final["update_message"] = "did not update"
-        s_final["weights"] = np.full((num_variations,), 1 / num_variations).tolist()
-        # need proportion, samplemean, or ratio;
-        bandit_types = Union[ProportionStatistic, SampleMeanStatistic, RatioStatistic]
+        s_final["weights"] = None
         s0 = variation_statistic_from_metric_row(
             row=s, prefix="baseline", metric=metric
         )
-        if isinstance(s0, bandit_types):
+        if isinstance(s0, BanditStatistic):
             stats = [s0]
             for i in range(1, num_variations):
                 s1 = variation_statistic_from_metric_row(
                     row=s, prefix=f"v{i}", metric=metric
                 )
                 # overwrites weights only if test statistics are of correct type
-                if isinstance(s1, bandit_types):
+                if isinstance(s1, BanditStatistic):
                     stats.append(s1)
                 else:
                     return s_final

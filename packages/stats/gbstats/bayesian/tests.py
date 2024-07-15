@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from dataclasses import field
-from typing import Union, List, Literal, Optional, Sequence
+from typing import List, Literal, Optional, Sequence
 
 import numpy as np
 from pydantic.dataclasses import dataclass
@@ -15,9 +15,7 @@ from gbstats.messages import (
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
 from gbstats.models.statistics import (
     TestStatistic,
-    SampleMeanStatistic,
-    ProportionStatistic,
-    RatioStatistic,
+    BanditStatistic,
 )
 from gbstats.frequentist.tests import frequentist_diff, frequentist_variance
 from gbstats.utils import truncated_normal_mean
@@ -45,6 +43,7 @@ class EffectBayesianConfig(BayesianConfig):
 
 @dataclass
 class BanditConfig(BayesianConfig):
+    seed: int = 1
     top_two: bool = True
     prior_distribution: GaussianPrior = field(default_factory=GaussianPrior)
 
@@ -52,7 +51,7 @@ class BanditConfig(BayesianConfig):
 @dataclass
 class BanditWeights:
     update_message: str
-    weights: List[float]
+    weights: List[float] | None
 
 
 # Results
@@ -245,14 +244,16 @@ class EffectBayesianABTest(BayesianABTest):
 class Bandits(object):
     def __init__(
         self,
-        stats: Sequence[
-            Union[ProportionStatistic, SampleMeanStatistic, RatioStatistic]
-        ],
+        stats: Sequence[BanditStatistic],
         config: BanditConfig,
     ):
         self.stats = stats
         self.config = config
         self.n_variations = len(stats)
+
+    @property
+    def seed(self) -> int:
+        return self.config.seed
 
     @property
     def variation_means(self) -> np.ndarray:
@@ -312,9 +313,10 @@ class Bandits(object):
         min_n = 100
         if any(self.variation_counts < min_n):
             update_message = "some variation counts smaller than " + str(min_n)
-            p = np.full((self.n_variations,), 1 / self.n_variations).tolist()
+            p = None
             return BanditWeights(update_message=update_message, weights=p)
-        y = np.random.multivariate_normal(
+        rng = np.random.default_rng(seed=self.seed)
+        y = rng.multivariate_normal(
             mean=self.posterior_mean,
             cov=np.diag(self.posterior_variance),
             size=self.n_samples,

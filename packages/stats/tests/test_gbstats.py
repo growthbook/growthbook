@@ -34,22 +34,6 @@ MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(
     [
         {
             "dimension": "one",
-            "variation": "three",
-            "main_sum": 30,
-            "main_sum_squares": 869,
-            "users": 12,
-            "count": 15,
-        },
-        {
-            "dimension": "one",
-            "variation": "two",
-            "main_sum": 3000,
-            "main_sum_squares": 86900,
-            "users": 1200,
-            "count": 1200,
-        },
-        {
-            "dimension": "one",
             "variation": "one",
             "main_sum": 300,
             "main_sum_squares": 869,
@@ -63,22 +47,6 @@ MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(
             "main_sum_squares": 848.79,
             "users": 100,
             "count": 100,
-        },
-        {
-            "dimension": "two",
-            "variation": "three",
-            "main_sum": 3,
-            "main_sum_squares": 8069,
-            "users": 12,
-            "count": 15,
-        },
-        {
-            "dimension": "two",
-            "variation": "two",
-            "main_sum": 7700,
-            "main_sum_squares": 357001,
-            "users": 2200,
-            "count": 2200,
         },
         {
             "dimension": "two",
@@ -97,6 +65,48 @@ MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(
             "count": 200,
         },
     ]
+)
+
+# used for testing bandits
+ADDITIONAL_VARIATIONS = pd.DataFrame(
+    [
+        {
+            "dimension": "one",
+            "variation": "three",
+            "main_sum": 30,
+            "main_sum_squares": 869,
+            "users": 12,
+            "count": 15,
+        },
+        {
+            "dimension": "one",
+            "variation": "two",
+            "main_sum": 3000,
+            "main_sum_squares": 86900,
+            "users": 1200,
+            "count": 1200,
+        },
+        {
+            "dimension": "two",
+            "variation": "three",
+            "main_sum": 770,
+            "main_sum_squares": 3571,
+            "users": 220,
+            "count": 220,
+        },
+        {
+            "dimension": "two",
+            "variation": "two",
+            "main_sum": 740,
+            "main_sum_squares": 3615.59,
+            "users": 200,
+            "count": 200,
+        },
+    ]
+)
+
+MULTI_DIMENSION_STATISTICS_DF_BANDITS = pd.concat(
+    [MULTI_DIMENSION_STATISTICS_DF, ADDITIONAL_VARIATIONS], axis=0, ignore_index=True
 )
 
 THIRD_DIMENSION_STATISTICS_DF = pd.DataFrame(
@@ -214,7 +224,6 @@ RA_METRIC = MetricSettingsForStatsEngine(
     statistic_type="mean_ra",
     main_metric_type="count",
     covariate_metric_type="count",
-    decision_metric=True,
 )
 
 RA_STATISTICS_DF = pd.DataFrame(
@@ -245,9 +254,24 @@ RA_STATISTICS_DF = pd.DataFrame(
 )
 
 DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
+    var_names=["zero", "one"],
+    var_ids=["0", "1"],
+    weights=[0.5, 0.5],
+    baseline_index=0,
+    dimension="All",
+    stats_engine="bayesian",
+    sequential_testing_enabled=False,
+    sequential_tuning_parameter=5000,
+    difference_type="relative",
+    phase_length_days=1,
+    alpha=0.05,
+    max_dimensions=20,
+)
+
+BANDIT_ANALYSIS = AnalysisSettingsForStatsEngine(
     var_names=["zero", "one", "two", "three"],
     var_ids=["0", "1", "2", "3"],
-    weights=[0.45, 0.4, 0.1, 0.05],
+    weights=[0.25, 0.25, 0.25, 0.25],
     baseline_index=0,
     dimension="All",
     stats_engine="bayesian",
@@ -260,18 +284,228 @@ DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
 )
 
 
+class TestDiffDailyTS(TestCase):
+    def test_diff_works_as_expected(self):
+        dfc = MULTI_DIMENSION_STATISTICS_DF.copy()
+        dfc["dimension"].replace(
+            ["one", "two"], ["2022-01-01", "2022-01-02"], inplace=True
+        )
+        dfc = diff_for_daily_time_series(dfc)
+
+        target_df = pd.DataFrame(
+            [
+                {
+                    "dimension": "2022-01-01",
+                    "variation": "one",
+                    "main_sum": 300,
+                    "main_sum_squares": 869,
+                    "users": 120,
+                    "count": 120,
+                },
+                {
+                    "dimension": "2022-01-01",
+                    "variation": "zero",
+                    "main_sum": 270,
+                    "main_sum_squares": 848.79,
+                    "users": 100,
+                    "count": 100,
+                },
+                {
+                    "dimension": "2022-01-02",
+                    "variation": "one",
+                    "main_sum": 770.0 - 300,
+                    "main_sum_squares": 3571 - 869,
+                    "users": 220,
+                    "count": 220,
+                },
+                {
+                    "dimension": "2022-01-02",
+                    "variation": "zero",
+                    "main_sum": 740.0 - 270,
+                    "main_sum_squares": 3615.59 - 848.79,
+                    "users": 200,
+                    "count": 200,
+                },
+            ]
+        )
+        pd.testing.assert_frame_equal(
+            dfc.sort_values(["variation", "dimension"]).reset_index(drop=True),
+            target_df.sort_values(["variation", "dimension"]).reset_index(drop=True),
+        )
+
+
+class TestGetMetricDf(TestCase):
+    def test_get_metric_df_missing_count(self):
+        rows = MULTI_DIMENSION_STATISTICS_DF.drop("count", axis=1)
+        df = get_metric_df(
+            rows,
+            {"zero": 0, "one": 1},
+            ["zero", "one"],
+        )
+        for i, row in df.iterrows():
+            self.assertEqual(row["baseline_count"], row["baseline_users"])
+            self.assertEqual(row["v1_count"], row["v1_users"])
+
+
+class TestVariationStatisticBuilder(TestCase):
+    def test_ra_statistic_type(self):
+        test_row = pd.Series(
+            {
+                "statistic_type": "mean_ra",
+                "baseline_main_sum": 222,
+                "baseline_main_sum_squares": 555,
+                "baseline_covariate_sum": 120,
+                "baseline_covariate_sum_squares": 405,
+                "baseline_main_covariate_sum_product": -10,
+                "baseline_users": 3000,
+                "baseline_count": 3000,
+                "v1_main_sum": 333,
+                "v1_main_sum_squares": 999,
+                "v1_covariate_sum": 210,
+                "v1_covariate_sum_squares": 415,
+                "v1_main_covariate_sum_product": -20,
+                "v1_users": 3001,
+                "v1_count": 3001,
+            }
+        )
+        baseline_stat = variation_statistic_from_metric_row(
+            test_row, prefix="baseline", metric=RA_METRIC
+        )
+        v1_stat = variation_statistic_from_metric_row(
+            test_row, prefix="v1", metric=RA_METRIC
+        )
+        self.assertIsInstance(baseline_stat, RegressionAdjustedStatistic)
+        self.assertIsInstance(v1_stat, RegressionAdjustedStatistic)
+
+        expected_baseline_post_stat = SampleMeanStatistic(
+            n=3000, sum=222, sum_squares=555
+        )
+        expected_baseline_pre_stat = SampleMeanStatistic(
+            n=3000, sum=120, sum_squares=405
+        )
+        expected_baseline_pre_post_sum_product = -10
+        expected_baseline_n = 3000
+        self.assertEqual(
+            baseline_stat,
+            RegressionAdjustedStatistic(
+                post_statistic=expected_baseline_post_stat,
+                pre_statistic=expected_baseline_pre_stat,
+                post_pre_sum_of_products=expected_baseline_pre_post_sum_product,
+                n=expected_baseline_n,
+                theta=0,
+            ),
+        )
+
+
+class TestDetectVariations(TestCase):
+    def test_unknown_variations(self):
+        rows = MULTI_DIMENSION_STATISTICS_DF
+        self.assertEqual(detect_unknown_variations(rows, {"zero", "one"}), set())
+        self.assertEqual(detect_unknown_variations(rows, {"zero", "hello"}), {"one"})
+        self.assertEqual(
+            detect_unknown_variations(rows, {"hello", "world"}), {"one", "zero"}
+        )
+
+    def test_multiple_exposures(self):
+        rows = pd.concat(
+            [
+                MULTI_DIMENSION_STATISTICS_DF,
+                pd.DataFrame(
+                    [
+                        {
+                            "dimension": "All",
+                            "variation": "__multiple__",
+                            "main_sum": 99,
+                            "main_sum_squares": 9999,
+                            "users": 500,
+                        }
+                    ]
+                ),
+            ]
+        )
+        self.assertEqual(detect_unknown_variations(rows, {"zero", "one"}), set())
+        self.assertEqual(
+            detect_unknown_variations(rows, {"zero", "one"}, {"some_other"}),
+            {"__multiple__"},
+        )
+
+
+class TestReduceDimensionality(TestCase):
+    def test_reduce_dimensionality(self):
+        rows = pd.concat([MULTI_DIMENSION_STATISTICS_DF, THIRD_DIMENSION_STATISTICS_DF])
+        df = get_metric_df(
+            rows,
+            {"zero": 0, "one": 1},
+            ["zero", "one"],
+        )
+        reduced = reduce_dimensionality(df, 3)
+        self.assertEqual(len(reduced.index), 3)
+        self.assertEqual(reduced.at[0, "dimension"], "three")
+        self.assertEqual(reduced.at[0, "v1_main_sum"], 222)
+
+        reduced = reduce_dimensionality(df, 2)
+        self.assertEqual(len(reduced.index), 2)
+        self.assertEqual(reduced.at[1, "dimension"], "(other)")
+        self.assertEqual(reduced.at[1, "total_users"], 640)
+        self.assertEqual(reduced.at[1, "v1_main_sum"], 1070)
+        self.assertEqual(reduced.at[1, "v1_main_sum_squares"], 4440)
+        self.assertEqual(reduced.at[1, "v1_users"], 340)
+        self.assertEqual(reduced.at[1, "baseline_users"], 300)
+        self.assertEqual(reduced.at[1, "baseline_main_sum"], 1010)
+        self.assertEqual(reduced.at[1, "baseline_main_sum_squares"], 4464.38)
+
+    def test_reduce_dimensionality_ratio(self):
+        rows = pd.concat(
+            [RATIO_STATISTICS_DF, RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF]
+        )
+        df = get_metric_df(
+            rows,
+            {"zero": 0, "one": 1},
+            ["zero", "one"],
+        )
+
+        reduced = reduce_dimensionality(df, 20)
+        self.assertEqual(len(reduced.index), 2)
+        self.assertEqual(reduced.at[0, "dimension"], "one")
+        self.assertEqual(reduced.at[0, "total_users"], 220)
+        self.assertEqual(reduced.at[0, "v1_users"], 120)
+        self.assertEqual(reduced.at[0, "v1_main_sum"], 300)
+        self.assertEqual(reduced.at[0, "v1_main_sum_squares"], 869)
+        self.assertEqual(reduced.at[0, "v1_denominator_sum"], 500)
+        self.assertEqual(reduced.at[0, "v1_denominator_sum_squares"], 800)
+        self.assertEqual(reduced.at[0, "v1_main_denominator_sum_product"], -905)
+        self.assertEqual(reduced.at[0, "baseline_users"], 100)
+        self.assertEqual(reduced.at[0, "baseline_main_sum"], 270)
+        self.assertEqual(reduced.at[0, "baseline_main_sum_squares"], 848.79)
+        self.assertEqual(reduced.at[0, "baseline_denominator_sum"], 510)
+        self.assertEqual(reduced.at[0, "baseline_denominator_sum_squares"], 810)
+        self.assertEqual(reduced.at[0, "baseline_main_denominator_sum_product"], -900)
+
+        reduced = reduce_dimensionality(df, 1)
+        self.assertEqual(len(reduced.index), 1)
+        self.assertEqual(reduced.at[0, "dimension"], "(other)")
+        self.assertEqual(reduced.at[0, "total_users"], 220 * 2)
+        self.assertEqual(reduced.at[0, "v1_users"], 120 * 2)
+        self.assertEqual(reduced.at[0, "v1_main_sum"], 300 * 2)
+        self.assertEqual(reduced.at[0, "v1_main_sum_squares"], 869 * 2)
+        self.assertEqual(reduced.at[0, "v1_denominator_sum"], 500 * 2)
+        self.assertEqual(reduced.at[0, "v1_denominator_sum_squares"], 800 * 2)
+        self.assertEqual(reduced.at[0, "v1_main_denominator_sum_product"], -905 * 2)
+        self.assertEqual(reduced.at[0, "baseline_users"], 100 * 2)
+        self.assertEqual(reduced.at[0, "baseline_main_sum"], 270 * 2)
+        self.assertEqual(reduced.at[0, "baseline_main_sum_squares"], 848.79 * 2)
+        self.assertEqual(reduced.at[0, "baseline_denominator_sum"], 510 * 2)
+        self.assertEqual(reduced.at[0, "baseline_denominator_sum_squares"], 810 * 2)
+        self.assertEqual(
+            reduced.at[0, "baseline_main_denominator_sum_product"], -900 * 2
+        )
+
+
 class TestAnalyzeMetricDfBayesian(TestCase):
     # New usage (no mean/stddev correction)
     def test_get_metric_df_new(self):
         rows = MULTI_DIMENSION_STATISTICS_DF
-        # turns sql output, which has unique row by (variation, dimension), into pd.DataFrame where each dimension has 1 row
-        df = get_metric_df(
-            rows,
-            {"zero": 0, "one": 1, "two": 2, "three": 3},
-            ["zero", "one", "two", "three"],
-        )
-        import copy
-
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(df, metric=COUNT_METRIC, analysis=DEFAULT_ANALYSIS)
         self.assertEqual(len(result.index), 2)
         self.assertEqual(result.at[0, "dimension"], "one")
@@ -347,19 +581,6 @@ class TestAnalyzeMetricDfBayesian(TestCase):
         self.assertEqual(round_(result.at[0, "v1_expected"]), 0)
         self.assertEqual(round_(result.at[0, "v1_prob_beat_baseline"]), 0.5)
         self.assertEqual(result.at[0, "v1_p_value"], None)
-
-
-class TestBandit(TestCase):
-    def test_get_bandit_weights(self):
-        rows = MULTI_DIMENSION_STATISTICS_DF
-        var_id_map = {"zero": 0, "one": 1, "two": 2, "three": 3}
-        metric = COUNT_METRIC
-        analysis = DEFAULT_ANALYSIS
-        df_weights = get_bandit_weights(rows, var_id_map, metric, analysis)
-        n_variations = len(var_id_map)
-        constant_weights = np.full((n_variations,), 1 / n_variations).tolist()
-        self.assertEqual(df_weights.at[0, "weights"], constant_weights)
-        self.assertEqual(df_weights.at[1, "weights"], constant_weights)
 
 
 class TestAnalyzeMetricDfFrequentist(TestCase):
@@ -544,15 +765,10 @@ class TestFormatResults(TestCase):
     def test_format_results_denominator(self):
         rows = RATIO_STATISTICS_DF
         df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
-        n_variations = len(RATIO_STATISTICS_DF["variation"].unique())
-        constant_weights = np.full((n_variations,), 1 / n_variations).tolist()
-        df_weights = pd.DataFrame(
-            {
-                "dimension": ["two", "one"],
-                "weights": [constant_weights, constant_weights],
-                "update_message": "successfully_updated",
-            }
-        )
+        var_id_map = {"zero": 0, "one": 1}
+        metric = COUNT_METRIC
+        analysis = DEFAULT_ANALYSIS
+        df_weights = get_bandit_weights(rows, var_id_map, metric, analysis)
         result = format_results(
             analyze_metric_df(
                 df,
@@ -565,9 +781,27 @@ class TestFormatResults(TestCase):
             0,
         )
         for res in result:
-            self.assertEqual(res.bandit_weights.weights, constant_weights)
             for i, v in enumerate(res.variations):
                 self.assertEqual(v.denominator, 510 if i == 0 else 500)
+
+
+class TestBandit(TestCase):
+    def test_get_bandit_weights(self):
+        rows = MULTI_DIMENSION_STATISTICS_DF_BANDITS
+        var_id_map = {"zero": 0, "one": 1, "two": 2, "three": 3}
+        metric = COUNT_METRIC
+        analysis = BANDIT_ANALYSIS
+        df_weights = get_bandit_weights(rows, var_id_map, metric, analysis)
+        solution = [
+            0.4323605671615877,
+            0.06777148763876079,
+            0.43065176256061066,
+            0.06921618263904117,
+        ]
+        self.assertEqual(
+            df_weights.at[0, "weights"], None
+        )  # should fail because sample size is too small
+        self.assertEqual(df_weights.at[1, "weights"], solution)
 
 
 if __name__ == "__main__":

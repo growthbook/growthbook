@@ -23,6 +23,7 @@ class AnalysisSettingsForStatsEngine:
     phase_length_days: float = 1
     alpha: float = 0.05
     max_dimensions: int = 20
+    seed: int = 100
 
 
 ExperimentMetricQueryResponseRows = List[Dict[str, Union[str, int, float]]]
