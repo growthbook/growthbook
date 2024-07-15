@@ -83,7 +83,7 @@ export default function SDKConnectionsList() {
               <th>Name</th>
               {projects.length > 0 && <th>Projects</th>}
               <th>Environment</th>
-              <th className="text-center">Features</th>
+              <th className="text-center">Supported Features</th>
               <th>Language</th>
               <th style={{ width: 25 }}></th>
             </tr>
