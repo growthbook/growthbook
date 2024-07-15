@@ -78,14 +78,14 @@ export default function ExperimentImpactTab({
             {!!impact && (
               <span className="small text-muted">
                 {" "}
-                X{" "}
+                &times;{" "}
                 {Intl.NumberFormat(undefined, {
                   maximumFractionDigits: 3,
                 }).format(
                   (impact.scaledImpactAdjusted ?? 0) /
                     (impact.scaledImpact ?? 0)
                 )}{" "}
-                X 365{" "}
+                &times; 365{" "}
               </span>
             )}
           </div>
@@ -213,8 +213,11 @@ export default function ExperimentImpactTab({
                   </th>
                   <th>
                     Scaled Impact{" "}
-                    <span className="small text-muted">X adj X 365</span>
+                    <span className="small text-muted">
+                      &times; adj &times; 365
+                    </span>
                     <Tooltip
+                      className="ml-1"
                       body={
                         <>
                           <div

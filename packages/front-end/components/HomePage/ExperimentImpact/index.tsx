@@ -491,9 +491,10 @@ export default function ExperimentImpact({
           </div>
         </div>
         <div className="col pl-3">
-          <label className="mb-1">
-            {"De-bias?"}
+          <label className="mb-1 nowrap">
+            De-bias?
             <Tooltip
+              className="ml-1"
               body={
                 <>
                   <div className="mb-2">

@@ -710,7 +710,9 @@ async function getSnapshotAnalyses(
         runningQueries.length > 0 ||
         failedQueries.length >= totalQueries / 2
       ) {
-        logger.error(`Snapshot queries not available for analysis: ${snapshot.id}`);
+        logger.error(
+          `Snapshot queries not available for analysis: ${snapshot.id}`
+        );
         return;
       }
       const analysis: ExperimentSnapshotAnalysis = {
