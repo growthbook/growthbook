@@ -251,14 +251,18 @@ export default function AutoGenerateFactTableModal({
 
   useEffect(() => {
     async function getInformationSchema(dataSourceId: string) {
-      const { informationSchema } = await apiCall<{
-        status: number;
-        informationSchema?: InformationSchemaInterface;
-      }>(`/datasource/${dataSourceId}/schema`, {});
-      if (informationSchema?.error?.message) {
-        setAutoFactTableError(informationSchema.error.message);
+      try {
+        const { informationSchema } = await apiCall<{
+          status: number;
+          informationSchema?: InformationSchemaInterface;
+        }>(`/datasource/${dataSourceId}/schema`, {});
+        if (informationSchema?.error?.message) {
+          setAutoFactTableError(informationSchema.error.message);
+        }
+        setSelectedDatasourceData({ informationSchema });
+      } catch (e) {
+        setAutoFactTableError(e.message);
       }
-      setSelectedDatasourceData({ informationSchema });
     }
 
     if (selectedDatasource?.id) {

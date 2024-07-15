@@ -242,6 +242,16 @@ export default function FactTablesPage() {
             >
               <strong>Auto-generate Fact Tables...</strong>
             </button>
+          </Tooltip>
+          <Tooltip
+            body={
+              !canCreate
+                ? `You don't have permission to create fact tables ${
+                    project ? "in this project" : ""
+                  }`
+                : ""
+            }
+          >
             <button
               className="btn btn-primary"
               onClick={(e) => {
