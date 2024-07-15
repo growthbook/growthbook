@@ -3,10 +3,13 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import clsx from "clsx";
+import { useRouter } from "next/router";
+import { GeneratedHypothesisInterface } from "@back-end/types/generated-hypothesis";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useUser } from "@/services/UserContext";
+import { useAuth } from "@/services/auth";
 import PageHead from "@/components/Layout/PageHead";
 import { useExperiments } from "@/hooks/useExperiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -23,6 +26,39 @@ const ExperimentGuide = (): React.ReactElement => {
   const { experiments, loading: experimentsLoading, error } = useExperiments();
   const { project, ready: definitionsReady } = useDefinitions();
   const { setStep, clearStep } = useGetStarted();
+
+  const router = useRouter();
+  const params = router.query;
+  const { apiCall } = useAuth();
+  const [
+    generatedHypothesis,
+    setGeneratedHypothesis,
+  ] = useState<GeneratedHypothesisInterface | null>(null);
+  const [loadingHypothesis, setLoadingHypothesis] = useState(false);
+
+  useEffect(() => {
+    if (!params.hypId) return;
+    // if there is a hypId query param provided, block page until things are
+    // loaded
+    const load = async () => {
+      try {
+        setLoadingHypothesis(true);
+        const { generatedHypothesis } = await apiCall<{
+          generatedHypothesis: GeneratedHypothesisInterface;
+        }>(`/generated-hypothesis/${params.hypId}`);
+        setGeneratedHypothesis(generatedHypothesis);
+      } catch (e) {
+        console.error("Error loading generated hypothesis", {
+          hypId: params.hypId,
+          error: e,
+        });
+        setGeneratedHypothesis(null);
+      } finally {
+        setLoadingHypothesis(false);
+      }
+    };
+    load();
+  }, [apiCall, params.hypId]);
 
   // If they view the guide, clear the current step
   useEffect(() => {
@@ -66,12 +102,16 @@ const ExperimentGuide = (): React.ReactElement => {
         (e) => e.project !== demoProjectId && e.status !== "draft"
       );
 
+  const title = generatedHypothesis
+    ? "Run an Auto-generated Website Experiment"
+    : "Run an Experiment";
+
   return (
     <div className={clsx(styles.getStartedPage, "container pagecontents p-4")}>
       <PageHead
         breadcrumb={[
           { display: "Get Started", href: "/getstarted" },
-          { display: "Run an Experiment" },
+          { display: title },
         ]}
       />
       {upgradeModal && (
@@ -81,7 +121,7 @@ const ExperimentGuide = (): React.ReactElement => {
           source="get-started-experiment-guide"
         />
       )}
-      <h1 className="mb-3">Run an Experiment</h1>
+      <h1 className="mb-3">{title}</h1>
       <div className="d-flex align-middle justify-content-between mb-4">
         <span className="mr-3">
           Ran experiments on another platform?{" "}
@@ -250,137 +290,194 @@ const ExperimentGuide = (): React.ReactElement => {
               </div>
             </div>
 
-            <div className="row">
-              <div className="col-sm-auto">
-                {hasExperiments ? (
-                  <PiCheckCircleFill
-                    className="mt-1"
+            {generatedHypothesis ? (
+              <div className="row">
+                <div className="col-sm-auto">
+                  {hasExperiments ? (
+                    <PiCheckCircleFill
+                      className="mt-1"
+                      style={{
+                        fill: "#56BA9F",
+                        width: "18.5px",
+                        height: "18.5px",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        borderRadius: "50%",
+                        borderStyle: "solid",
+                        borderWidth: "0.6px",
+                        borderColor: "#D3D4DB",
+                        width: "15px",
+                        height: "15px",
+                        margin: "2px",
+                      }}
+                    />
+                  )}
+                </div>
+                <div className="col">
+                  <Link
+                    href="/experiments"
                     style={{
-                      fill: "#56BA9F",
-                      width: "18.5px",
-                      height: "18.5px",
+                      fontSize: "17px",
+                      fontWeight: 600,
+                      textDecoration: hasExperiments ? "line-through" : "none",
                     }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      borderRadius: "50%",
-                      borderStyle: "solid",
-                      borderWidth: "0.6px",
-                      borderColor: "#D3D4DB",
-                      width: "15px",
-                      height: "15px",
-                      margin: "2px",
-                    }}
-                  />
-                )}
-              </div>
-              <div className="col">
-                <Link
-                  href="/experiments"
-                  style={{
-                    fontSize: "17px",
-                    fontWeight: 600,
-                    textDecoration: hasExperiments ? "line-through" : "none",
-                  }}
-                  onClick={() =>
-                    setStep({
-                      step: project
-                        ? "Design the First Experiment for this Project"
-                        : "Design Your Organization’s First Experiment",
-                      source: "experiments",
-                      stepKey: "createExperiment",
-                    })
-                  }
-                >
-                  {project
-                    ? "Design the First Experiment for this Project"
-                    : "Design Your Organization’s First Experiment"}
-                </Link>
-                <p className="mt-2">
-                  Create an experiment and change variations. Choose from
-                  Feature Flags, URL Redirects, or the Visual Editor (Pro).
-                </p>
-                <hr />
-              </div>
-            </div>
-
-            <div className="row">
-              <div className="col-sm-auto">
-                {hasStartedExperiment ? (
-                  <PiCheckCircleFill
-                    className="mt-1"
-                    style={{
-                      fill: "#56BA9F",
-                      width: "18.5px",
-                      height: "18.5px",
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      borderRadius: "50%",
-                      borderStyle: "solid",
-                      borderWidth: "0.6px",
-                      borderColor: "#D3D4DB",
-                      width: "15px",
-                      height: "15px",
-                      margin: "2px",
-                    }}
-                  />
-                )}
-              </div>
-              <div className="col">
-                <Link
-                  href="/experiments"
-                  style={{
-                    fontSize: "17px",
-                    fontWeight: 600,
-                    textDecoration: hasStartedExperiment
-                      ? "line-through"
-                      : "none",
-                  }}
-                  onClick={() =>
-                    setStep({
-                      step: "Start the Test",
-                      source: "experiments",
-                      stepKey: "startExperiment",
-                    })
-                  }
-                >
-                  <Tooltip
-                    body={
-                      <div>
-                        <img
-                          className="mb-3"
-                          src="/images/get-started/start-experiment.png"
-                          width={"260px"}
-                          height={"96px"}
-                        />
-                        <h4>Start the Test</h4>
-                        <p className="text-muted">
-                          Experiments {">"} [selected experiment]
-                        </p>
-
-                        <p style={{ fontSize: "15px" }}>
-                          Click the “Start Experiment” button in the top right
-                          corner of the selected experiment.
-                        </p>
-                      </div>
+                    onClick={() =>
+                      setStep({
+                        step: project
+                          ? "Design the First Experiment for this Project"
+                          : "Design Your Organization’s First Experiment",
+                        source: "experiments",
+                        stepKey: "createExperiment",
+                      })
                     }
-                    popperStyle={{ maxWidth: "300px" }}
                   >
-                    Start the Test
-                  </Tooltip>
-                </Link>
-                <p className="mt-2">
-                  Define any additional settings, rules and targeting as
-                  desired. Then, click “Run experiment.”
-                </p>
+                    Configure Your Auto-generated Experiment
+                  </Link>
+                  <p className="mt-2">
+                    Define any additional settings, rules and targeting as
+                    desired. Then, click “Run experiment.”
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="row">
+                <div className="col-sm-auto">
+                  {hasExperiments ? (
+                    <PiCheckCircleFill
+                      className="mt-1"
+                      style={{
+                        fill: "#56BA9F",
+                        width: "18.5px",
+                        height: "18.5px",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        borderRadius: "50%",
+                        borderStyle: "solid",
+                        borderWidth: "0.6px",
+                        borderColor: "#D3D4DB",
+                        width: "15px",
+                        height: "15px",
+                        margin: "2px",
+                      }}
+                    />
+                  )}
+                </div>
+                <div className="col">
+                  <Link
+                    href="/experiments"
+                    style={{
+                      fontSize: "17px",
+                      fontWeight: 600,
+                      textDecoration: hasExperiments ? "line-through" : "none",
+                    }}
+                    onClick={() =>
+                      setStep({
+                        step: project
+                          ? "Design the First Experiment for this Project"
+                          : "Design Your Organization’s First Experiment",
+                        source: "experiments",
+                        stepKey: "createExperiment",
+                      })
+                    }
+                  >
+                    {project
+                      ? "Design the First Experiment for this Project"
+                      : "Design Your Organization’s First Experiment"}
+                  </Link>
+                  <p className="mt-2">
+                    Create an experiment and change variations. Choose from
+                    Feature Flags, URL Redirects, or the Visual Editor (Pro).
+                  </p>
+                  <hr />
+                </div>
+              </div>
+            )}
+
+            {!generatedHypothesis && (
+              <div className="row">
+                <div className="col-sm-auto">
+                  {hasStartedExperiment ? (
+                    <PiCheckCircleFill
+                      className="mt-1"
+                      style={{
+                        fill: "#56BA9F",
+                        width: "18.5px",
+                        height: "18.5px",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        borderRadius: "50%",
+                        borderStyle: "solid",
+                        borderWidth: "0.6px",
+                        borderColor: "#D3D4DB",
+                        width: "15px",
+                        height: "15px",
+                        margin: "2px",
+                      }}
+                    />
+                  )}
+                </div>
+                <div className="col">
+                  <Link
+                    href="/experiments"
+                    style={{
+                      fontSize: "17px",
+                      fontWeight: 600,
+                      textDecoration: hasStartedExperiment
+                        ? "line-through"
+                        : "none",
+                    }}
+                    onClick={() =>
+                      setStep({
+                        step: "Start the Test",
+                        source: "experiments",
+                        stepKey: "startExperiment",
+                      })
+                    }
+                  >
+                    <Tooltip
+                      body={
+                        <div>
+                          <img
+                            className="mb-3"
+                            src="/images/get-started/start-experiment.png"
+                            width={"260px"}
+                            height={"96px"}
+                          />
+                          <h4>Start the Test</h4>
+                          <p className="text-muted">
+                            Experiments {">"} [selected experiment]
+                          </p>
+
+                          <p style={{ fontSize: "15px" }}>
+                            Click the “Start Experiment” button in the top right
+                            corner of the selected experiment.
+                          </p>
+                        </div>
+                      }
+                      popperStyle={{ maxWidth: "300px" }}
+                    >
+                      Start the Test
+                    </Tooltip>
+                  </Link>
+                  <p className="mt-2">
+                    Define any additional settings, rules and targeting as
+                    desired. Then, click “Run experiment.”
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
+        {loadingHypothesis && <LoadingOverlay />}
         <div className="col-auto">
           <DocumentationSidebar
             setUpgradeModal={setUpgradeModal}
