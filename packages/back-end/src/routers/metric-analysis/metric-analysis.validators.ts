@@ -36,6 +36,46 @@ export const createMetricAnalysisPropsValidator = z
   })
   .strict();
 
+export const metricAnalysisHistogramValidator = z.array(
+  z
+    .object({
+      start: z.number(),
+      end: z.number(),
+      units: z.number(),
+    })
+    .strict()
+);
+
+export const metricAnalysisResultValidator = z
+  .object({
+    units: z.number(),
+    mean: z.number(),
+    stddev: z.number().optional(),
+    numerator: z.number().optional(),
+    denominator: z.number().optional(),
+    cappingData: z
+      .object({
+        cappingValue: z.boolean(),
+        unitsCapped: z.number(),
+        uncappedHistogram: metricAnalysisHistogramValidator.optional(),
+      })
+      .optional(),
+    dates: z
+      .array(
+        z.object({
+          date: z.date(),
+          units: z.number(),
+          mean: z.number(),
+          stddev: z.number().optional(),
+          numerator: z.number().optional(),
+          denominator: z.number().optional(),
+        })
+      )
+      .optional(),
+    histogram: metricAnalysisHistogramValidator.optional(),
+  })
+  .strict();
+
 export const metricAnalysisInterfaceValidator = z
   .object({
     id: z.string(),
@@ -46,32 +86,7 @@ export const metricAnalysisInterfaceValidator = z
     dateUpdated: z.date(),
     runStarted: z.date().nullable(),
     status: z.string(),
-    result: z
-      .object({
-        count: z.number(),
-        mean: z.number(),
-        stddev: z.number(),
-        dates: z
-          .array(
-            z.object({
-              date: z.date(),
-              count: z.number(),
-              mean: z.number(),
-              stddev: z.number(),
-            })
-          )
-          .optional(),
-        histogram: z
-          .array(
-            z.object({
-              start: z.number(),
-              end: z.number(),
-              count: z.number(),
-            })
-          )
-          .optional(),
-      })
-      .optional(),
+    result: metricAnalysisResultValidator.optional(),
     // TODO better typing here
     settings: metricAnalysisSettingsValidator,
     queries: z.array(queryPointerValidator),

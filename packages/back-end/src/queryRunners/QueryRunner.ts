@@ -125,7 +125,7 @@ export abstract class QueryRunner<
 
   abstract startQueries(params: Params): Promise<Queries>;
 
-  abstract runAnalysis(queryMap: QueryMap): Promise<Result>;
+  abstract runAnalysis(queryMap: QueryMap, params?: Params): Promise<Result>;
 
   abstract getLatestModel(): Promise<Model>;
 

@@ -14,6 +14,7 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import { AUTOMATIC_DIMENSION_OTHER_NAME } from "shared/constants";
+import { MetricAnalysisSettings } from "@back-end/types/metric-analysis";
 import { ReqContext } from "../../types/organization";
 import { MetricInterface, MetricType } from "../../types/metric";
 import {
@@ -81,7 +82,6 @@ import {
 } from "../../types/fact-table";
 import { applyMetricOverrides } from "../util/integration";
 import { ReqContextClass } from "../services/context";
-import { MetricAnalysisSettings } from "@back-end/types/metric-analysis";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
@@ -554,11 +554,16 @@ export default abstract class SqlIntegration
     );
   }
 
-  getMetricAnalysisPopulationCTEs(
-    settings: MetricAnalysisSettings, 
+  getMetricAnalysisPopulationCTEs({
+    settings,
+    idJoinMap,
+    segment
+  } : {
+    settings: MetricAnalysisSettings,
     idJoinMap: Record<string, string>,
     segment: SegmentInterface | null
-  ): string {
+  }): string {
+
     // get population query
     if (settings.populationType === "exposureQuery") {
       const exposureQuery = this.getExposureQuery(settings.populationId || "");
@@ -573,31 +578,62 @@ export default abstract class SqlIntegration
       __population AS (
         -- All recent users
         SELECT DISTINCT
-          e.${settings.userIdType} as ${settings.userIdType}
+          ${settings.userIdType}
         FROM
-            __rawExperiment e
+            __rawExperiment
         WHERE
-            e.timestamp >= ${this.toTimestamp(settings.startDate)}
+            timestamp >= ${this.toTimestamp(settings.startDate)}
             ${
               settings.endDate
-                ? `AND e.timestamp <= ${this.toTimestamp(settings.endDate)}`
+                ? `AND timestamp <= ${this.toTimestamp(settings.endDate)}`
                 : ""
             }
-        )`;
+        ),`;
     }
 
     if (settings.populationType === "segment" && segment) {
       // TODO segment missing
       return `
       __segment as (${this.getSegmentCTE(
-          segment,
-          settings.userIdType,
-          idJoinMap
-        )}),
-      `
+        segment,
+        settings.userIdType,
+        idJoinMap
+      )}),
+      __population AS (
+        SELECT DISTINCT
+          ${settings.userIdType}
+        FROM
+          __segment e
+        WHERE
+            date >= ${this.toTimestamp(settings.startDate)}
+            ${
+              settings.endDate
+                ? `AND date <= ${this.toTimestamp(settings.endDate)}`
+                : ""
+            }
+      ),`;
+      }
 
-    }
     return "";
+  }
+
+  getMetricAnalysisStatisticClauses(
+    finalValueColumn: string,
+    finalDenominatorColumn: string,
+    ratioMetric: boolean
+  ): string {
+    return `, COUNT(*) as units
+            , SUM(${finalValueColumn}) as main_sum
+            , SUM(POWER(${finalValueColumn}, 2)) as main_sum_squares
+            ${
+              ratioMetric
+                ? `
+            , SUM(${finalDenominatorColumn}) as denominator_sum
+            , SUM(POWER(${finalDenominatorColumn}, 2)) as denominator_sum_squares
+            , SUM(${finalDenominatorColumn} * ${finalValueColumn}) as main_denominator_sum_product
+            `
+                : ""
+            }`;
   }
 
   getMetricAnalysisQuery(params: MetricAnalysisParams): string {
@@ -624,14 +660,18 @@ export default abstract class SqlIntegration
       // TODO default id type?
     );
 
-    const metricData = this.getMetricData(metric, {
-      attributionModel: "experimentDuration",
-      regressionAdjustmentEnabled: false,
-      startDate: settings.startDate,
-      endDate: settings.endDate ?? undefined,
-    }, null, "m")
+    const metricData = this.getMetricData(
+      metric,
+      {
+        attributionModel: "experimentDuration",
+        regressionAdjustmentEnabled: false,
+        startDate: settings.startDate,
+        endDate: settings.endDate ?? undefined,
+      },
+      null,
+      "m0"
+    );
 
-    
     // Get rough date filter for metrics to improve performance
     // const metricStart = this.getMetricStart(
     //   settings.startDate,
@@ -639,8 +679,26 @@ export default abstract class SqlIntegration
     //   0
     // );
 
-    const aggregate = this.getAggregateMetricColumn(params.metric);
-    const denominatorAggregate = metricData.ratioMetric ? this.getAggregateMetricColumn(params.metric, true) : null;
+    // TODO FIX SUM
+    const createHistogram = metric.metricType === "mean";
+    const finalValueColumn = this.capCoalesceValue(
+      "value",
+      metric,
+      "cap",
+      "value_capped"
+    );
+    const finalDenominatorColumn = this.capCoalesceValue(
+      "denominator",
+      metric,
+      "cap",
+      "denominator_capped"
+    );
+
+    const populationSQL = this.getMetricAnalysisPopulationCTEs({
+      settings,
+      idJoinMap,
+      segment: params.segment,
+    })
 
     const histogram_bin_number = 25;
     // TODO query is broken if segment has template variables
@@ -648,88 +706,144 @@ export default abstract class SqlIntegration
       `-- ${metric.name} Metric Analysis
       WITH
         ${idJoinSQL}
-      , __factTable as (${this.getFactTableCTE({
+        ${populationSQL}
+      __factTable AS (${this.getFactTableCTE({
         baseIdType,
         idJoinMap,
         metrics: [metric],
         endDate: metricData.metricEnd,
         startDate: metricData.metricStart,
         factTableMap: params.factTableMap,
-      })}),
-        , __userMetricDaily as (
+        addFiltersToWhere: settings.populationType == "metric",
+      })})
+        , __userMetricDaily AS (
           -- Get aggregated metric per user by day
           SELECT
-            ${baseIdType},
-            ${this.dateTrunc("timestamp")} as date,
+          ${populationSQL ? "p" : "f"}.${baseIdType} AS ${baseIdType}
+            , ${this.dateTrunc("timestamp")} AS date
             -- TODO dimension
-            ${this.getAggregateMetricColumn(
+            , ${this.getAggregateMetricColumn(
               metricData.metric,
-                    false,
-                    `${metricData.alias}_value`,
-                    `${metricData.alias}_quantile`
-                  )} AS ${metricData.alias}_value
+              false,
+              `f.${metricData.alias}_value`
+            )} AS value
                   ${
                     metricData.ratioMetric
                       ? `, ${this.getAggregateMetricColumn(
                           metricData.metric,
                           true,
-                          `${metricData.alias}_denominator`,
-                          `${metricData.alias}_quantile`
-                        )} AS ${metricData.alias}_denominator`
+                          `f.${metricData.alias}_denominator`
+                        )} AS denominator`
                       : ""
                   }
-              )
-          FROM
-            __factTable
+          
+          ${populationSQL ? `
+            FROM __population p 
+            LEFT JOIN __factTable f ON (f.${baseIdType} = p.${baseIdType})`
+            : `
+            FROM __factTable f`} 
           GROUP BY
-            ${this.dateTrunc("timestamp")},
-            ${baseIdType}
+            ${this.dateTrunc("f.timestamp")}
+            , ${populationSQL ? "p" : "f"}.${baseIdType}
         )
         , __userMetricOverall as (
           -- Re-sum across all users (NOTE DOES NOT WORK FOR CERTAIN AGGREGATIONS!)
           SELECT
-            ${baseIdType},
-            SUM(value) as value
+            ${baseIdType}
+            , ${
+              metric.metricType === "proportion"
+                ? "MAX(COALESCE(value, 0))"
+                : "SUM(COALESCE(value, 0))"
+            } as value
+             ${
+               metricData.ratioMetric // ALL AGGREGATIONS?
+                 ? `,${
+                     metric.metricType === "proportion"
+                       ? "MAX(COALESCE(denominator, 0))"
+                       : "SUM(COALESCE(denominator, 0))"
+                   } as denominator`
+                 : ""
+             }
           FROM
             __userMetricDaily
           GROUP BY
             ${baseIdType}
         )
+        ${
+          metricData.isPercentileCapped
+            ? `
+        , __capValue AS (
+            ${this.percentileCapSelectClause(
+              [
+                {
+                  valueCol: "value",
+                  outputCol: "value_capped",
+                  percentile: metricData.metric.cappingSettings.value ?? 1,
+                  ignoreZeros:
+                    metricData.metric.cappingSettings.ignoreZeros ?? false,
+                },
+              ],
+              "__userMetricOverall"
+            )}
+        )
+        `
+            : ""
+        }
         , __statisticsDaily AS (
           SELECT
             date
             , MAX(${this.castToString("'date'")}) AS data_type
-            , COUNT(*) as count
-            , COALESCE(SUM(value), 0) as main_sum
-            , COALESCE(SUM(POWER(value, 2)), 0) as main_sum_squares
+            ${this.getMetricAnalysisStatisticClauses(
+              finalValueColumn,
+              finalDenominatorColumn,
+              metricData.ratioMetric
+            )}
+            ${
+              createHistogram
+                ? `
             , MIN(value) as value_min
             , MAX(value) as value_max
             , ${this.ensureFloat("NULL")} AS bin_width
             ${[...Array(histogram_bin_number).keys()]
-              .map((i) => `, ${this.ensureFloat("NULL")} AS count_bin_${i}`)
-              .join("\n")}
+              .map((i) => `, ${this.ensureFloat("NULL")} AS units_bin_${i}`)
+              .join("\n")}`
+                : ""
+            }
           FROM __userMetricDaily
           GROUP BY date
+          ${metricData.isPercentileCapped ? "CROSS JOIN __capValue cap" : ""}
         )
         , __statisticsOverall AS (
           SELECT
-            ${this.castToDate("NULL")} AS date,
-            MAX(${this.castToString("'overall'")}) AS data_type,
-            COUNT(*) as count,
-            COALESCE(SUM(value), 0) as main_sum,
-            COALESCE(SUM(POWER(value, 2)), 0) as main_sum_squares,
-            MIN(value) as value_min,
-            MAX(value) as value_max,
-            (MAX(value) - MIN(value)) / ${histogram_bin_number}.0 as bin_width
+            ${this.castToDate("NULL")} AS date
+            , MAX(${this.castToString("'overall'")}) AS data_type
+            ${this.getMetricAnalysisStatisticClauses(
+              finalValueColumn,
+              finalDenominatorColumn,
+              metricData.ratioMetric
+            )}
+            ${
+              createHistogram
+                ? `
+            , MIN(value) as value_min
+            , MAX(value) as value_max
+            , (MAX(value) - MIN(value)) / ${histogram_bin_number}.0 as bin_width
+            `
+                : ""
+            }
           FROM __userMetricOverall
+        ${metricData.isPercentileCapped ? "CROSS JOIN __capValue cap" : ""}
         )
+        ${
+          createHistogram
+            ? `
         , __histogram AS (
           SELECT
             SUM(${this.ifElse(
               "m.value < (s.value_min + s.bin_width)",
               "1",
               "0"
-            )}) as count_bin_0
+            )}) as units_bin_0
             ${[...Array(histogram_bin_number - 2).keys()]
               .map(
                 (i) =>
@@ -739,24 +853,27 @@ export default abstract class SqlIntegration
                     }.0) AND m.value < (s.value_min + s.bin_width*${i + 2}.0)`,
                     "1",
                     "0"
-                  )}) as count_bin_${i + 1}`
+                  )}) as units_bin_${i + 1}`
               )
               .join("\n")}
             , SUM(${this.ifElse(
-              `m.value >= (s.value_min + s.bin_width*${histogram_bin_number - 1}.0)`,
+              `m.value >= (s.value_min + s.bin_width*${
+                histogram_bin_number - 1
+              }.0)`,
               "1",
               "0"
-            )}) as count_bin_${histogram_bin_number - 1}
+            )}) as units_bin_${histogram_bin_number - 1}
           FROM
             __userMetricOverall m
           CROSS JOIN
             __statisticsOverall s
-        )
-        -- TODO capped
+        ) `
+            : ""
+        }
         SELECT
             *
         FROM __statisticsOverall
-        CROSS JOIN __histogram
+        ${createHistogram ? `CROSS JOIN __histogram` : ""}
         UNION ALL
         SELECT
             *
@@ -772,14 +889,19 @@ export default abstract class SqlIntegration
   ): Promise<MetricAnalysisQueryResponse> {
     const { rows, statistics } = await this.runQuery(query, setExternalId);
     console.log(rows);
+    console.log("wemadeithere");
     return {
       rows: rows.map((row) => {
         const {
           date,
           data_type,
-          count,
+          units,
+          capped,
           main_sum,
           main_sum_squares,
+          denominator_sum,
+          denominator_sum_squares,
+          main_denominator_sum_product,
           value_min,
           value_max,
         } = row;
@@ -787,89 +909,94 @@ export default abstract class SqlIntegration
         const ret: MetricAnalysisQueryResponseRow = {
           date: date ? this.convertDate(date).toISOString() : "",
           data_type: data_type ?? "",
-          count: parseFloat(count) || 0,
+          capped: (capped ?? "uncapped") == "capped",
+          units: parseFloat(units) || 0,
           main_sum: parseFloat(main_sum) || 0,
           main_sum_squares: parseFloat(main_sum_squares) || 0,
+          denominator_sum: parseFloat(denominator_sum) || 0,
+          denominator_sum_squares: parseFloat(denominator_sum_squares) || 0,
+          main_denominator_sum_product:
+            parseFloat(main_denominator_sum_product) || 0,
 
           value_min: parseFloat(value_min) || 0,
           value_max: parseFloat(value_max) || 0,
           ...(parseFloat(row.bin_width) && {
             bin_width: parseFloat(row.bin_width),
           }),
-          ...(parseFloat(row.count_bin_0) && {
-            count_bin_0: parseFloat(row.count_bin_0),
+          ...(parseFloat(row.units_bin_0) && {
+            units_bin_0: parseFloat(row.units_bin_0),
           }),
-          ...(parseFloat(row.count_bin_1) && {
-            count_bin_1: parseFloat(row.count_bin_1),
+          ...(parseFloat(row.units_bin_1) && {
+            units_bin_1: parseFloat(row.units_bin_1),
           }),
-          ...(parseFloat(row.count_bin_2) && {
-            count_bin_2: parseFloat(row.count_bin_2),
+          ...(parseFloat(row.units_bin_2) && {
+            units_bin_2: parseFloat(row.units_bin_2),
           }),
-          ...(parseFloat(row.count_bin_3) && {
-            count_bin_3: parseFloat(row.count_bin_3),
+          ...(parseFloat(row.units_bin_3) && {
+            units_bin_3: parseFloat(row.units_bin_3),
           }),
-          ...(parseFloat(row.count_bin_4) && {
-            count_bin_4: parseFloat(row.count_bin_4),
+          ...(parseFloat(row.units_bin_4) && {
+            units_bin_4: parseFloat(row.units_bin_4),
           }),
-          ...(parseFloat(row.count_bin_5) && {
-            count_bin_5: parseFloat(row.count_bin_5),
+          ...(parseFloat(row.units_bin_5) && {
+            units_bin_5: parseFloat(row.units_bin_5),
           }),
-          ...(parseFloat(row.count_bin_6) && {
-            count_bin_6: parseFloat(row.count_bin_6),
+          ...(parseFloat(row.units_bin_6) && {
+            units_bin_6: parseFloat(row.units_bin_6),
           }),
-          ...(parseFloat(row.count_bin_7) && {
-            count_bin_7: parseFloat(row.count_bin_7),
+          ...(parseFloat(row.units_bin_7) && {
+            units_bin_7: parseFloat(row.units_bin_7),
           }),
-          ...(parseFloat(row.count_bin_8) && {
-            count_bin_8: parseFloat(row.count_bin_8),
+          ...(parseFloat(row.units_bin_8) && {
+            units_bin_8: parseFloat(row.units_bin_8),
           }),
-          ...(parseFloat(row.count_bin_9) && {
-            count_bin_9: parseFloat(row.count_bin_9),
+          ...(parseFloat(row.units_bin_9) && {
+            units_bin_9: parseFloat(row.units_bin_9),
           }),
-          ...(parseFloat(row.count_bin_10) && {
-            count_bin_10: parseFloat(row.count_bin_10),
+          ...(parseFloat(row.units_bin_10) && {
+            units_bin_10: parseFloat(row.units_bin_10),
           }),
-          ...(parseFloat(row.count_bin_11) && {
-            count_bin_11: parseFloat(row.count_bin_11),
+          ...(parseFloat(row.units_bin_11) && {
+            units_bin_11: parseFloat(row.units_bin_11),
           }),
-          ...(parseFloat(row.count_bin_12) && {
-            count_bin_12: parseFloat(row.count_bin_12),
+          ...(parseFloat(row.units_bin_12) && {
+            units_bin_12: parseFloat(row.units_bin_12),
           }),
-          ...(parseFloat(row.count_bin_13) && {
-            count_bin_13: parseFloat(row.count_bin_13),
+          ...(parseFloat(row.units_bin_13) && {
+            units_bin_13: parseFloat(row.units_bin_13),
           }),
-          ...(parseFloat(row.count_bin_14) && {
-            count_bin_14: parseFloat(row.count_bin_14),
+          ...(parseFloat(row.units_bin_14) && {
+            units_bin_14: parseFloat(row.units_bin_14),
           }),
-          ...(parseFloat(row.count_bin_15) && {
-            count_bin_15: parseFloat(row.count_bin_15),
+          ...(parseFloat(row.units_bin_15) && {
+            units_bin_15: parseFloat(row.units_bin_15),
           }),
-          ...(parseFloat(row.count_bin_16) && {
-            count_bin_16: parseFloat(row.count_bin_16),
+          ...(parseFloat(row.units_bin_16) && {
+            units_bin_16: parseFloat(row.units_bin_16),
           }),
-          ...(parseFloat(row.count_bin_17) && {
-            count_bin_17: parseFloat(row.count_bin_17),
+          ...(parseFloat(row.units_bin_17) && {
+            units_bin_17: parseFloat(row.units_bin_17),
           }),
-          ...(parseFloat(row.count_bin_18) && {
-            count_bin_18: parseFloat(row.count_bin_18),
+          ...(parseFloat(row.units_bin_18) && {
+            units_bin_18: parseFloat(row.units_bin_18),
           }),
-          ...(parseFloat(row.count_bin_19) && {
-            count_bin_19: parseFloat(row.count_bin_19),
+          ...(parseFloat(row.units_bin_19) && {
+            units_bin_19: parseFloat(row.units_bin_19),
           }),
-          ...(parseFloat(row.count_bin_20) && {
-            count_bin_20: parseFloat(row.count_bin_20),
+          ...(parseFloat(row.units_bin_20) && {
+            units_bin_20: parseFloat(row.units_bin_20),
           }),
-          ...(parseFloat(row.count_bin_21) && {
-            count_bin_21: parseFloat(row.count_bin_21),
+          ...(parseFloat(row.units_bin_21) && {
+            units_bin_21: parseFloat(row.units_bin_21),
           }),
-          ...(parseFloat(row.count_bin_22) && {
-            count_bin_22: parseFloat(row.count_bin_22),
+          ...(parseFloat(row.units_bin_22) && {
+            units_bin_22: parseFloat(row.units_bin_22),
           }),
-          ...(parseFloat(row.count_bin_23) && {
-            count_bin_23: parseFloat(row.count_bin_23),
+          ...(parseFloat(row.units_bin_23) && {
+            units_bin_23: parseFloat(row.units_bin_23),
           }),
-          ...(parseFloat(row.count_bin_24) && {
-            count_bin_24: parseFloat(row.count_bin_24),
+          ...(parseFloat(row.units_bin_24) && {
+            units_bin_24: parseFloat(row.units_bin_24),
           }),
         };
         return ret;
@@ -1872,7 +1999,10 @@ export default abstract class SqlIntegration
 
   private getMetricData(
     metric: ExperimentMetricInterface,
-    settings: Pick<ExperimentSnapshotSettings, "attributionModel" | "regressionAdjustmentEnabled" | "startDate"> & {endDate?: Date},
+    settings: Pick<
+      ExperimentSnapshotSettings,
+      "attributionModel" | "regressionAdjustmentEnabled" | "startDate"
+    > & { endDate?: Date },
     activationMetric: ExperimentMetricInterface | null,
     alias: string
   ): FactMetricData {
@@ -3604,6 +3734,7 @@ AND event_name = '${eventName}'`,
     startDate,
     endDate,
     experimentId,
+    addFiltersToWhere
   }: {
     metrics: FactMetricInterface[];
     factTableMap: FactTableMap;
@@ -3612,6 +3743,7 @@ AND event_name = '${eventName}'`,
     startDate: Date;
     endDate: Date | null;
     experimentId?: string;
+    addFiltersToWhere?: boolean;
   }) {
     const factTable = factTableMap.get(
       metrics[0]?.numerator?.factTableId || ""
@@ -3653,6 +3785,10 @@ AND event_name = '${eventName}'`,
     }
 
     const metricCols: string[] = [];
+    // optionally, you can add metric filters to the WHERE clause
+    // to filter to rows that match a metric. We AND together each metric
+    // filters, before OR together all of the different metrics filters
+    const filterWhere: string[] = [];
     metrics.forEach((m, i) => {
       if (m.numerator.factTableId !== factTable.id) {
         throw new Error(
@@ -3675,6 +3811,10 @@ AND event_name = '${eventName}'`,
       metricCols.push(`-- ${m.name}
       ${column} as m${i}_value`);
 
+      if (addFiltersToWhere) {
+        filterWhere.push(`(${filters.join(" AND ")})`)
+      }
+        
       // Add denominator column if there is one
       if (isRatioMetric(m) && m.denominator) {
         if (m.denominator.factTableId !== factTable.id) {
@@ -3694,8 +3834,13 @@ AND event_name = '${eventName}'`,
             : value;
         metricCols.push(`-- ${m.name} (denominator)
         ${column} as m${i}_denominator`);
+        
+        if (addFiltersToWhere) {
+          filterWhere.push(`(${filters.join(" AND ")})`)
+        }
       }
     });
+    const allMetricFilters = filterWhere.join(" OR ");
 
     return `-- Fact Table (${factTable.name})
       SELECT
@@ -3715,7 +3860,7 @@ AND event_name = '${eventName}'`,
           })}
         ) m
         ${join}
-        ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+        ${where.length ? `WHERE ${where.join(" AND ")} ${filterWhere.length ? ` AND ${filterWhere.join(" OR ")}` : ""}` : ""}
     `;
   }
 

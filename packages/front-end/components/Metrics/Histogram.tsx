@@ -10,12 +10,13 @@ import { formatNumber } from "@/services/metrics";
 interface Datapoint {
   start: number;
   end: number;
-  count: number;
+  units: number;
 }
 
 interface HistogramGraphProps {
   data: Datapoint[];
   userIdType: string;
+  formatter: (value: number, options?: Intl.NumberFormatOptions) => string;
   height?: number;
   margin?: [number, number, number, number];
 }
@@ -23,6 +24,7 @@ interface HistogramGraphProps {
 const HistogramGraph: FC<HistogramGraphProps> = ({
   data,
   userIdType,
+  formatter,
   height = 220,
   margin = [15, 15, 30, 80],
 }: HistogramGraphProps) => {
@@ -43,17 +45,18 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
   });
 
   const yScale = scaleLinear({
-    domain: [0, Math.max(...data.map((d) => d.count))],
+    domain: [0, Math.max(...data.map((d) => d.units))],
     range: [yMax, 0],
   });
+
+  // TODO currency
+  // TODO add tooltip
 
   const binWidth = xMax / data.length;
 
   return (
     <ParentSizeModern style={{ position: "relative" }}>
       {({ width }) => {
-        const xMax = width - marginRight - marginLeft;
-
         return (
           <>
             <div ref={containerRef}></div>
@@ -63,8 +66,8 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                   <Bar
                     key={`bar-${i}`}
                     x={xScale(i)}
-                    y={yScale(d.count)}
-                    height={yMax - yScale(d.count)}
+                    y={yScale(d.units)}
+                    height={yMax - yScale(d.units)}
                     width={binWidth - 1}
                     fill="#8884d8"
                   />
@@ -76,15 +79,15 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                   tickStroke="#333"
                   tickLabelProps={() => ({
                     fill: "var(--text-color-table)",
-                    fontSize: 11,
+                    fontSize: 10,
                     textAnchor: "middle",
                   })}
                   numTicks={data.length + 1}
                   tickFormat={(v) => {
                     const i = v as number;
                     return i < data.length
-                      ? `${formatNumber(data[i]?.start)}`
-                      : `${formatNumber(data[i - 1]?.end)}`;
+                      ? `${formatter(data[i]?.start)}`
+                      : `${formatter(data[i - 1]?.end)}`;
                   }}
                 />
                 <AxisLeft
@@ -99,6 +102,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                   })}
                   label={`Count of ${userIdType}`}
                   labelClassName="h5"
+                  labelOffset={55}
                 />
               </Group>
             </svg>

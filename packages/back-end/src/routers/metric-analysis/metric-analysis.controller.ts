@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import { isFactMetric } from "shared/experiments";
+import { getValidDate } from "shared/dates";
 import {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
@@ -12,7 +13,6 @@ import { getExperimentMetricById } from "../../services/experiments";
 import { getIntegrationFromDatasourceId } from "../../services/datasource";
 import { getContextFromReq } from "../../services/organizations";
 import { AuthRequest } from "../../types/AuthRequest";
-import { getValidDate } from "shared/dates";
 
 export const postMetricAnalysis = async (
   req: AuthRequest<CreateMetricAnalysisProps>,
@@ -49,8 +49,12 @@ export const postMetricAnalysis = async (
     endDate: data.endDate ? getValidDate(data.endDate) : null,
     populationType: data.populationType,
     populationId: data.populationId ?? null,
-  }
-  const metricAnalysis = await createMetricAnalysis(context, metricObj, metricAnalysisSettings);
+  };
+  const metricAnalysis = await createMetricAnalysis(
+    context,
+    metricObj,
+    metricAnalysisSettings
+  );
 
   const model = metricAnalysis.model;
   res.status(200).json({
@@ -114,8 +118,8 @@ export const getMetricAnalysis = async (
   if (!metricAnalysis) {
     throw new Error("Metric analysis not found");
   }
-  console.log(metricAnalysis.settings)
-  console.log(typeof metricAnalysis.settings.startDate)
+  console.log(metricAnalysis.settings);
+  console.log(typeof metricAnalysis.settings.startDate);
   res.status(200).json({
     status: 200,
     metricAnalysis,

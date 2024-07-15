@@ -190,22 +190,8 @@ export type MetricAnalysisParams = {
   segment: SegmentInterface | null;
 };
 
-export type MetricAnalysisHistogram = {
-  start: number;
-  end: number;
-  count: number;
-}[];
-
-export type MetricAnalysisResult = {
-  count: number;
-  stddev: number;
-  mean: number;
-  dates?: MetricValueResultDate[];
-  histogram?: MetricAnalysisHistogram;
-};
-
 export type MetricValueResultDate = {
-  date: Date;
+  date: string;
   count: number;
   mean: number;
   stddev: number;
@@ -270,38 +256,42 @@ export type MetricValueQueryResponseRows = MetricValueQueryResponseRow[];
 export type MetricAnalysisQueryResponseRow = {
   date: string;
   data_type: string;
-  count: number;
+  capped: boolean;
+  units: number;
   main_sum: number;
   main_sum_squares: number;
+  denominator_sum?: number;
+  denominator_sum_squares?: number;
+  main_denominator_sum_product?: number;
 
-  value_min: number;
-  value_max: number;
+  value_min?: number;
+  value_max?: number;
   bin_width?: number;
-  count_bin_0?: number;
-  count_bin_1?: number;
-  count_bin_2?: number;
-  count_bin_3?: number;
-  count_bin_4?: number;
-  count_bin_5?: number;
-  count_bin_6?: number;
-  count_bin_7?: number;
-  count_bin_8?: number;
-  count_bin_9?: number;
-  count_bin_10?: number;
-  count_bin_11?: number;
-  count_bin_12?: number;
-  count_bin_13?: number;
-  count_bin_14?: number;
-  count_bin_15?: number;
-  count_bin_16?: number;
-  count_bin_17?: number;
-  count_bin_18?: number;
-  count_bin_19?: number;
-  count_bin_20?: number;
-  count_bin_21?: number;
-  count_bin_22?: number;
-  count_bin_23?: number;
-  count_bin_24?: number;
+  units_bin_0?: number;
+  units_bin_1?: number;
+  units_bin_2?: number;
+  units_bin_3?: number;
+  units_bin_4?: number;
+  units_bin_5?: number;
+  units_bin_6?: number;
+  units_bin_7?: number;
+  units_bin_8?: number;
+  units_bin_9?: number;
+  units_bin_10?: number;
+  units_bin_11?: number;
+  units_bin_12?: number;
+  units_bin_13?: number;
+  units_bin_14?: number;
+  units_bin_15?: number;
+  units_bin_16?: number;
+  units_bin_17?: number;
+  units_bin_18?: number;
+  units_bin_19?: number;
+  units_bin_20?: number;
+  units_bin_21?: number;
+  units_bin_22?: number;
+  units_bin_23?: number;
+  units_bin_24?: number;
 };
 
 export type MetricAnalysisQueryResponseRows = MetricAnalysisQueryResponseRow[];

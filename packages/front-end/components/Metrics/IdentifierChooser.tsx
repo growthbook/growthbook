@@ -1,6 +1,6 @@
+import React from "react";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import React from "react";
 
 export interface Props {
   value: string;
@@ -17,7 +17,6 @@ export default function IdentifierChooser({
 
   labelClassName,
 }: Props) {
-
   const { getFactTableById } = useDefinitions();
   const factTable = getFactTableById(factTableId);
 
@@ -30,13 +29,11 @@ export default function IdentifierChooser({
       <SelectField
         labelClassName={labelClassName}
         containerClassName={"select-dropdown-underline"}
-        options={factTable.userIdTypes.map((d) => 
-          {
-            return {label: d, value: d};
-          }
-        )}
+        options={factTable.userIdTypes.map((d) => {
+          return { label: d, value: d };
+        })}
         formatOptionLabel={({ value, label }) => {
-          return <code>{`${label}`}</code>
+          return <code>{`${label}`}</code>;
         }}
         value={value}
         onChange={(v) => {

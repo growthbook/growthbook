@@ -1,22 +1,27 @@
 import { getValidDateOffsetByUTC } from "shared/dates";
-import { MetricAnalysisInterface } from "@back-end/types/metric-analysis";
-import { LegacyMetricAnalysis } from "../../types/metric";
-import { Queries, QueryStatus } from "../../types/query";
+import { isRatioMetric } from "shared/experiments";
 import {
   MetricAnalysisHistogram,
+  MetricAnalysisInterface,
+  MetricAnalysisResult,
+} from "../../types/metric-analysis";
+import { FactMetricInterface } from "../../types/fact-table";
+import { Queries, QueryStatus } from "../../types/query";
+import {
   MetricAnalysisParams,
   MetricAnalysisQueryResponseRows,
-  MetricAnalysisResult,
-  MetricValueResult,
 } from "../types/Integration";
-import { meanVarianceFromSums } from "../util/stats";
+import { meanVarianceFromSums, proportionVarianceFromSums, ratioVarianceFromSums } from "../util/stats";
 import { QueryRunner, QueryMap } from "./QueryRunner";
+import { isNumberObject } from "util/types";
 
 export class MetricAnalysisQueryRunner extends QueryRunner<
   MetricAnalysisInterface,
   MetricAnalysisParams,
   MetricAnalysisResult
 > {
+  private metric?: FactMetricInterface;
+
   checkPermissions(): boolean {
     return this.context.permissions.canRunMetricQueries(
       this.integration.datasource
@@ -24,6 +29,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
   }
 
   async startQueries(params: MetricAnalysisParams): Promise<Queries> {
+    this.metric = params.metric;
     return [
       await this.startQuery({
         name: "metricAnalysis",
@@ -43,7 +49,10 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
     if (!queryResults) {
       throw new Error("Metric analysis query failed");
     }
-    return processMetricAnalysisQueryResponse(queryResults);
+    if (!this.metric) {
+      throw new Error("Metric not available to process query results");
+    }
+    return processMetricAnalysisQueryResponse(queryResults, this.metric);
   }
   async getLatestModel(): Promise<MetricAnalysisInterface> {
     const model = await this.context.models.metricAnalysis.getById(
@@ -91,43 +100,87 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
 }
 
 export function processMetricAnalysisQueryResponse(
-  rows: MetricAnalysisQueryResponseRows
+  rows: MetricAnalysisQueryResponseRows,
+  metric: FactMetricInterface
 ): MetricAnalysisResult {
-  const ret: MetricAnalysisResult = { count: 0, mean: 0, stddev: 0 };
+  const ret: MetricAnalysisResult = { units: 0, mean: 0, stddev: 0 };
   console.log("here");
-  console.log(rows);
   rows.forEach((row) => {
-    const { date, count, main_sum, main_sum_squares } = row;
-    const mean = main_sum / count;
-    const stddev = Math.sqrt(
-      meanVarianceFromSums(main_sum, main_sum_squares, count)
-    );
-    // Row for each date
-    if (date) {
-      ret.dates = ret.dates || [];
-      ret.dates.push({
-        date: getValidDateOffsetByUTC(date),
-        count,
-        mean,
-        stddev,
+    const {
+      date,
+      data_type,
+      units,
+      main_sum,
+      main_sum_squares,
+      denominator_sum,
+      denominator_sum_squares,
+      main_denominator_sum_product,
+    } = row;
+    let mean: number;
+    let stddev: number;
+    if (isRatioMetric(metric)) {
+      mean = main_sum / (denominator_sum ?? 0);
+      stddev = ratioVarianceFromSums({
+        numerator_sum: main_sum,
+        numerator_sum_squares: main_sum_squares,
+        denominator_sum: denominator_sum ?? 0,
+        denominator_sum_squares: denominator_sum_squares ?? 0,
+        numerator_denominator_sum_product: main_denominator_sum_product ?? 0,
+        n: units,
       });
+    } else if (metric.metricType === "proportion") { 
+      mean = main_sum / units;
+      stddev = mean * Math.sqrt(
+        proportionVarianceFromSums(main_sum, units)
+      );
+    } else {
+      mean = main_sum / units;
+      stddev = Math.sqrt(
+        meanVarianceFromSums(main_sum, main_sum_squares, units)
+      );
+    }
+    // Row for each date
+    if (data_type === "date") {
+      // remove unmatched dates
+      if (date) {
+        ret.dates = ret.dates || [];
+        ret.dates.push({
+          date: getValidDateOffsetByUTC(date),
+          units,
+          mean,
+          stddev,
+          numerator: main_sum,
+          denominator: denominator_sum,
+        });
+      }
     }
     // Overall numbers
     else {
-      const histogram: MetricAnalysisHistogram = [...Array(20).keys()].map(
-        (i) => {
-          return {
-            start: row[`bin_width`] * i + row["value_min"],
-            end: row[`bin_width`] * (i + 1) + row["value_min"],
-            count: row[`count_bin_${i}`] ?? 0,
-          };
-        }
-      );
-
-      ret.count = count;
+      if (row[`bin_width`]) {
+        const histogram: MetricAnalysisHistogram = [...Array(20).keys()].map(
+          (i) => {
+            type RowType = keyof typeof row;
+            const bin_width = row[`bin_width`] ?? 0;
+            const value_min = row["value_min"] ?? 0;
+            // TODO fix gross type
+            const units_bin = row[`units_bin_${i}` as RowType] as number;
+            return {
+              start: (row[`bin_width`] ?? 0) * i + value_min,
+              end: bin_width * (i + 1) + value_min,
+              units: units_bin ?? 0,
+            };
+          }
+        );
+        ret.histogram = histogram;
+      }
+      console.log(row);
+      console.log(main_sum);
+      console.log(units);
+      ret.units = units;
       ret.mean = mean;
       ret.stddev = stddev;
-      ret.histogram = histogram;
+      ret.numerator = main_sum;
+      ret.denominator = denominator_sum;
     }
   });
   if (ret.dates) {

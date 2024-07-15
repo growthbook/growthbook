@@ -49,3 +49,54 @@ export function meanVarianceFromSums(
   const variance = (sum_squares - Math.pow(sum, 2) / n) / (n - 1);
   return returnZeroIfNotFinite(variance);
 }
+
+
+export function proportionVarianceFromSums(
+  sum: number,
+  n: number
+): number {
+  const mean = sum / n;
+  return returnZeroIfNotFinite(mean * (1 - mean));
+}
+
+// compare with RatioStatistic.variance in gbstats
+export function ratioVarianceFromSums({
+  numerator_sum,
+  numerator_sum_squares,
+  denominator_sum,
+  denominator_sum_squares,
+  numerator_denominator_sum_product,
+  n,
+}: {
+  numerator_sum: number;
+  numerator_sum_squares: number;
+  denominator_sum: number;
+  denominator_sum_squares: number;
+  numerator_denominator_sum_product: number;
+  n: number;
+}): number {
+  const numerator_mean = returnZeroIfNotFinite(numerator_sum / n);
+  const numerator_variance = meanVarianceFromSums(
+    numerator_sum,
+    numerator_sum_squares,
+    n
+  );
+  const denominator_mean = returnZeroIfNotFinite(denominator_sum / n);
+  const denominator_variance = meanVarianceFromSums(
+    denominator_sum,
+    denominator_sum_squares,
+    n
+  );
+  const covariance =
+    returnZeroIfNotFinite(
+      numerator_denominator_sum_product - (numerator_sum * denominator_sum) / n
+    ) /
+    (n - 1);
+
+  return returnZeroIfNotFinite(
+    numerator_variance / Math.pow(denominator_mean, 2) -
+      (2 * covariance * numerator_mean) / Math.pow(denominator_mean, 3) +
+      (Math.pow(numerator_mean, 2) * denominator_variance) /
+        Math.pow(denominator_mean, 4)
+  );
+}
