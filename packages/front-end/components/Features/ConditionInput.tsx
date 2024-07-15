@@ -8,7 +8,6 @@ import {
   FaPlusCircle,
 } from "react-icons/fa";
 import { RxLoop } from "react-icons/rx";
-import { format } from "date-fns";
 import {
   condToJson,
   jsonToConds,
@@ -333,12 +332,6 @@ export default function ConditionInput(props: Props) {
                             newAttribute
                           );
                           newConds[i]["value"] = newConds[i]["value"] || "";
-                        }
-                        if (newAttribute?.format === "date") {
-                          newConds[i]["value"] = format(
-                            new Date(),
-                            "yyyy-MM-dd'T'HH:mm"
-                          );
                         }
                         setConds(newConds);
                       }}
