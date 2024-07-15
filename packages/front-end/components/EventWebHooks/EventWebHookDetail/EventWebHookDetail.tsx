@@ -220,7 +220,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           {!lastRunAt ? (
             <div className="text-muted">No runs</div>
           ) : (
-            <div className="text-main d-flex">
+            <div className="text-main d-flex align-items-center">
               <b className="mr-1">Last run:</b> {datetime(lastRunAt)}
               <span className="ml-2" style={{ fontSize: "1.5rem" }}>
                 {iconForState}
