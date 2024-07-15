@@ -1,8 +1,11 @@
 import { NotificationEventName } from "./event";
+import { EventWebHookMethod } from "./event-webhook";
 
 export interface EventWebHookLegacyLogInterface {
   id: string;
   event?: NotificationEventName;
+  url?: string;
+  method?: EventWebHookMethod;
   eventWebHookId: string;
   organizationId: string;
   dateCreated: Date;

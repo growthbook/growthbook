@@ -100,7 +100,7 @@ export type EventWebHookModalMode =
  */
 export const useIconForState = (
   state: "none" | "success" | "error",
-  { text }: { text: boolean } = { text: false },
+  { text }: { text: boolean } = { text: false }
 ): ReactNode =>
   useMemo(() => {
     let invalidState: never;
@@ -110,9 +110,9 @@ export const useIconForState = (
         const icon = <PiQuestionLight className="d-block text-muted" />;
         if (text)
           return (
-            <span className="p-1 px-2 rounded-pill badge badge badge-light d-flex align-items-center">
+            <span className="p-1 px-2 rounded-pill badge badge-light d-flex align-items-center">
               {icon}{" "}
-              <span className="ml-1 mb-0 text-mutex font-weight-normal">
+              <span className="ml-1 mb-0 text-muted font-weight-normal">
                 Not ran
               </span>
             </span>
@@ -172,5 +172,5 @@ export const displayedEvents = (events: string[]) =>
         {text}
       </>
     ),
-    null,
+    null
   );
