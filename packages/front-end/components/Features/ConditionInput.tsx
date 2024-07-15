@@ -444,22 +444,16 @@ export default function ConditionInput(props: Props) {
                       containerClassName="col-sm-12 col-md mb-2"
                       required
                     />
-                  ) : ["string", "secureString"].includes(attribute.datatype) &&
-                    attribute.format === "date" &&
-                    !["$regex", "$notRegex"].includes(operator) ? (
-                    <Field
-                      type="datetime-local"
-                      value={format(new Date(value), "yyyy-MM-dd'T'HH:mm")}
-                      onChange={handleFieldChange}
-                      name="value"
-                      className={styles.matchingInput}
-                      containerClassName="col-sm-12 col-md mb-2"
-                      required
-                    />
                   ) : ["string", "secureString"].includes(
                       attribute.datatype
                     ) ? (
                     <Field
+                      type={
+                        attribute.format === "date" &&
+                        !["$regex", "$notRegex"].includes(operator)
+                          ? "datetime-local"
+                          : undefined
+                      }
                       value={value}
                       onChange={handleFieldChange}
                       name="value"
