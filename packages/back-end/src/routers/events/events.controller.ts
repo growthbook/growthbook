@@ -33,15 +33,14 @@ export const getEvents = async (
   const eventTypes = JSON.parse(type || "[]");
 
   const cappedPerPage = Math.min(parseInt(perPage), 100);
-  const events = await Event.getEventsForOrganization(
-    context.org.id,
-    parseInt(page),
-    cappedPerPage,
+  const events = await Event.getEventsForOrganization(context.org.id, {
+    page: parseInt(page),
+    perPage: cappedPerPage,
     eventTypes,
     from,
     to,
-    sortOrder === "asc" ? 1 : -1
-  );
+    sortOrder: sortOrder === "asc" ? 1 : -1,
+  });
 
   return res.json({
     events: events.filter((event) =>
@@ -67,12 +66,11 @@ export const getEventsCount = async (
   const context = getContextFromReq(req);
   const { type, from, to } = req.query;
   const eventTypes = JSON.parse(type || "[]");
-  const count = await Event.getEventsCountForOrganization(
-    context.org.id,
+  const count = await Event.getEventsCountForOrganization(context.org.id, {
     eventTypes,
     from,
-    to
-  );
+    to,
+  });
 
   return res.json({ count });
 };
