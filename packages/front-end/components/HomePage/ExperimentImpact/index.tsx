@@ -304,7 +304,8 @@ export default function ExperimentImpact({
       };
 
       if (s) {
-        const defaultSettings = getSnapshotAnalysis(s)?.settings;
+        const defaultAnalysis = getSnapshotAnalysis(s);
+        const defaultSettings = defaultAnalysis?.settings;
         const scaledAnalysis = defaultSettings
           ? getSnapshotAnalysis(s, {
               ...defaultSettings,
@@ -337,14 +338,20 @@ export default function ExperimentImpact({
             }
           });
         } else {
-          ei.error =
-            "No snapshot with scaled impact available. Click refresh button above.";
-          if (fitsFilters) {
-            expsNeedingScaledImpact.push(e.id);
+          if (defaultAnalysis && defaultAnalysis.status === "success") {
+            ei.error =
+              "No snapshot with scaled impact available. Click calculate button above.";
+            if (fitsFilters) {
+              expsNeedingScaledImpact.push(e.id);
+            }
+          } else {
+            ei.error =
+              "No results available. Check experiment results for errors.";
           }
         }
       } else {
-        ei.error = "No results available. Check experiment results for errors.";
+        ei.error =
+          "No results available. Run experiment update on experiment page.";
       }
       experimentImpacts.set(e.id, ei);
     });
