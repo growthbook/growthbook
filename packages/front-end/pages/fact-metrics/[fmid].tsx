@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FaExternalLinkAlt, FaQuestionCircle, FaTimes } from "react-icons/fa";
 import {
   ColumnRef,
@@ -61,6 +61,7 @@ import HistogramGraph from "@/components/Metrics/Histogram";
 import IdentifierChooser from "@/components/Metrics/IdentifierChooser";
 import PopulationChooser from "@/components/Metrics/PopulationChooser";
 import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -258,13 +259,15 @@ function ColumnRefSQL({
   );
 }
 
-type MetricAnalysisSettingsWithStringDates = Omit<
-  MetricAnalysisSettings,
-  "startDate" | "endDate"
-> & {
-  startDate: string;
-  endDate: string | null;
-};
+type MetricAnalysisSettingsWithoutDates = {
+  userIdType: string;
+  dimensions: string[];
+
+  lookbackDays: number;
+
+  populationType: MetricAnalysisPopulationType;
+  populationId: string | null;
+}
 
 export default function FactMetricPage() {
   const router = useRouter();
@@ -319,34 +322,27 @@ export default function FactMetricPage() {
   }>(`/metric-analysis/metric/${fmid}`);
 
   // get latest full object or add reset to default?
-  const todayMinus30 = new Date();
-  todayMinus30.setDate(todayMinus30.getDate() - 30);
+  const defaultLookbackDays = settings.metricAnalysisDays ?? 30;
   console.log(data?.metricAnalysis?.settings);
-  console.log(typeof data?.metricAnalysis?.settings.startDate);
-  const form = useForm<MetricAnalysisSettingsWithStringDates>({
-    defaultValues: data?.metricAnalysis?.settings
-      ? {
-          ...data.metricAnalysis.settings,
-          startDate: getValidDate(data.metricAnalysis.settings.startDate)
-            .toISOString()
-            .substring(0, 16),
-          endDate: data.metricAnalysis.settings.endDate
-            ? getValidDate(data.metricAnalysis.settings.endDate)
-                .toISOString()
-                .substring(0, 16)
-            : null,
-        }
-      : {
+
+  // todo use old settings!
+  const [lookbackSelected, setLookbackSelected] = useState("30");
+  useEffect(() => {
+    const oldLookback = [7, 14, 30].includes(data?.metricAnalysis?.settings?.lookbackDays ?? defaultLookbackDays) ? `${data?.metricAnalysis?.settings?.lookbackDays}` : `custom`;
+    setLookbackSelected(oldLookback);
+  },
+  [data]);
+
+  const form = useForm<MetricAnalysisSettingsWithoutDates>({
+    defaultValues: data?.metricAnalysis?.settings ?? {
           userIdType: "",
           dimensions: [],
-          startDate: todayMinus30.toISOString().substring(0, 16),
-          endDate: null,
           populationType: "factTable",
           populationId: null,
         },
   });
+  console.log(typeof form.getValues("lookbackDays"))
 
-  const endDate = form.watch("endDate");
 
   if (!ready) return <LoadingOverlay />;
 
@@ -890,36 +886,49 @@ export default function FactMetricPage() {
               <div className="col-auto form-inline pr-5">
                 <div>
                   <div className="uppercase-title text-muted">Date Range</div>
-                  <div className="d-flex align-items-start">
+                  <div className="row">
+                    <div className="col-auto">
+                  <SelectField
+                    containerClassName={"select-dropdown-underline"}
+                    options={[
+                      {
+                        label: "Last 7 Days",
+                        value: "7",
+                      },
+                      {
+                        label: "Last 14 Days",
+                        value: "14",
+                      },
+                      {
+                        label: "Last 30 Days",
+                        value: "30",
+                      },
+                      {
+                        label: "Custom Lookback",
+                        value: "custom",
+                      },
+                    ]}
+                    sort={false}
+                    value={lookbackSelected}
+                    onChange={(v) => {
+                      setLookbackSelected(v);
+                      if (v !== "custom") {
+                        form.setValue("lookbackDays", parseInt(v));
+                      }
+                    }}
+                  />
+                  </div>
+                  {lookbackSelected === "custom" && (
+                    <div className="col-auto">
                     <Field
-                      type="datetime-local"
-                      containerClassName="select-dropdown-underline"
-                      {...form.register("startDate")}
+                      type="number"
+                      min={1}
+                      max={999999}
+                      append={"days"}
+                      {...form.register("lookbackDays")}
                     />
-                    <div className="m-2">{" to "}</div>
-                    <div>
-                      <Field
-                        type="datetime-local"
-                        {...form.register("endDate")}
-                      />
-
-                      <div
-                        style={{ marginRight: -10 }}
-                        className="small text-muted"
-                      >
-                        <a
-                          role="button"
-                          className="a"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            form.setValue("endDate", null);
-                          }}
-                        >
-                          Clear Input
-                        </a>{" "}
-                        to include today
-                      </div>
-                    </div>
+                  </div>
+                  )}
                   </div>
                 </div>
               </div>
@@ -966,12 +975,20 @@ export default function FactMetricPage() {
                     onSubmit={async (e) => {
                       e.preventDefault();
                       try {
+                        const today = new Date();
+                        const todayMinusLookback = new Date();
+                        todayMinusLookback.setDate(
+                          todayMinusLookback.getDate() -
+                            (form.watch("lookbackDays") as number)
+                        );
+                        console.log(typeof  form.watch("lookbackDays"))
                         const data: CreateMetricAnalysisProps = {
                           id: factMetric.id,
                           userIdType: form.watch("userIdType"),
                           dimensions: [],
-                          startDate: form.watch("startDate"),
-                          endDate: endDate ? endDate : "",
+                          lookbackDays: Number(form.watch("lookbackDays")),
+                          startDate: todayMinusLookback.toISOString().substring(0, 16),
+                          endDate: today.toISOString().substring(0, 16),
                           populationType: form.watch("populationType"),
                           populationId: form.watch("populationId") ?? undefined,
                         };

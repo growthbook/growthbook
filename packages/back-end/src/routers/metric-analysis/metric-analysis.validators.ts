@@ -17,7 +17,8 @@ export const metricAnalysisSettingsValidator = z
     dimensions: z.array(z.string()),
 
     startDate: z.date(),
-    endDate: z.date().nullable(),
+    endDate: z.date(),
+    lookbackDays: z.number(),
 
     populationType: metricAnalysisPopulationTypeValidator,
     populationId: z.string().nullable(),
@@ -29,6 +30,7 @@ export const createMetricAnalysisPropsValidator = z
     id: z.string(),
     userIdType: z.string(),
     dimensions: z.array(z.string()),
+    lookbackDays: z.number(),
     startDate: z.string(),
     endDate: z.string(),
     populationType: metricAnalysisPopulationTypeValidator,

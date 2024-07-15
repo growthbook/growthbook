@@ -810,8 +810,8 @@ export default abstract class SqlIntegration
                 : ""
             }
           FROM __userMetricDaily
-          GROUP BY date
           ${metricData.isPercentileCapped ? "CROSS JOIN __capValue cap" : ""}
+          GROUP BY date
         )
         , __statisticsOverall AS (
           SELECT

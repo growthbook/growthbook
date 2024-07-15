@@ -45,8 +45,9 @@ export const postMetricAnalysis = async (
   const metricAnalysisSettings: MetricAnalysisSettings = {
     dimensions: data.dimensions,
     userIdType: data.userIdType,
+    lookbackDays: data.lookbackDays,
     startDate: getValidDate(data.startDate),
-    endDate: data.endDate ? getValidDate(data.endDate) : null,
+    endDate: getValidDate(data.endDate),
     populationType: data.populationType,
     populationId: data.populationId ?? null,
   };
