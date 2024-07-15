@@ -1,21 +1,20 @@
 import { useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import RadioSelector from "@/components/Forms/RadioSelector";
 import { DocLink } from "@/components/DocLink";
 import Toggle from "@/components/Forms/Toggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
-import { StatsEngine } from "./types";
+import { StatsEngineSettings } from "./types";
 
 export type Props = {
   close: () => void;
-  params: StatsEngine;
-  onSubmit: (_: StatsEngine) => void;
+  params: StatsEngineSettings;
+  onSubmit: (_: StatsEngineSettings) => void;
 };
 
-export default function PowerCalculationStatsEngineModal({
+export default function PowerCalculationStatsEngineSettingsModal({
   close,
   params,
   onSubmit,
@@ -53,11 +52,6 @@ export default function PowerCalculationStatsEngineModal({
           <span className="mr-auto font-weight-bold">
             Choose Statistical Engine
           </span>{" "}
-          <Tooltip
-            popperClassName="text-left"
-            body="The Beta version of the Power Calculator uses frequentist methods"
-            tipPosition="right"
-          />
         </label>
         <RadioSelector
           name="ruleType"
@@ -66,14 +60,15 @@ export default function PowerCalculationStatsEngineModal({
             {
               key: "bayesian",
               description: (
-                <>
-                  <span className="text-muted mr-1">Bayesian</span>
-                  {orgSettings.statsEngine === "bayesian"
-                    ? "(Org default) - Coming Soon!"
-                    : " - Coming Soon!"}
-                </>
+                <div className="container">
+                  <div className="row">
+                    <span className="text-muted mr-1">Bayesian</span>
+                    {orgSettings.statsEngine === "bayesian"
+                      ? "(Org default)"
+                      : ""}
+                  </div>
+                </div>
               ),
-              disabled: true,
             },
             {
               key: "frequentist",

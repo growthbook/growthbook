@@ -13,7 +13,10 @@ import {
   getMetricTemplateVariables,
   quantileMetricType,
 } from "shared/experiments";
-import { AUTOMATIC_DIMENSION_OTHER_NAME } from "shared/constants";
+import {
+  AUTOMATIC_DIMENSION_OTHER_NAME,
+  DEFAULT_TEST_QUERY_DAYS,
+} from "shared/constants";
 import { UNITS_TABLE_PREFIX } from "../queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "../../types/organization";
 import { MetricInterface, MetricType } from "../../types/metric";
@@ -62,9 +65,9 @@ import {
   AutoMetricToCreate,
   DropTableQueryResponse,
   DropTableQueryParams,
+  TestQueryParams,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
-import { IMPORT_LIMIT_DAYS } from "../util/secrets";
 import { SegmentInterface } from "../../types/segment";
 import {
   getBaseIdTypeAndJoins,
@@ -769,16 +772,20 @@ export default abstract class SqlIntegration
     query: string,
     templateVariables?: TemplateVariables
   ): string {
-    return this.getTestQuery(query, templateVariables, 1);
+    return this.getTestQuery({
+      query,
+      templateVariables,
+      testDays: DEFAULT_TEST_QUERY_DAYS,
+      limit: 1,
+    });
   }
 
-  getTestQuery(
-    query: string,
-    templateVariables?: TemplateVariables,
-    limit: number = 5
-  ): string {
+  getTestQuery(params: TestQueryParams): string {
+    const { query, templateVariables } = params;
+    const limit = params.limit ?? 5;
+    const testDays = params.testDays ?? DEFAULT_TEST_QUERY_DAYS;
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - IMPORT_LIMIT_DAYS);
+    startDate.setDate(startDate.getDate() - testDays);
     const limitedQuery = compileSqlTemplate(
       `WITH __table as (
         ${query}
