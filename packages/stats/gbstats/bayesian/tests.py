@@ -337,8 +337,8 @@ class Bandits:
         return np.array(variances).reshape(self.array_shape)
 
     @property
-    def seed(self) -> int:
-        return self.config.seed
+    def bandit_weights_seed(self) -> int:
+        return self.config.bandit_weights_seed
 
     @property
     def variation_means(self) -> np.ndarray:

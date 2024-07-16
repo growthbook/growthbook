@@ -65,6 +65,9 @@ export interface AnalysisSettingsForStatsEngine {
   phase_length_days: number;
   alpha: number;
   max_dimensions: number;
+  decision_metric: string;
+  bandit: boolean;
+  bandit_weights_seed: number;
 }
 
 export interface BanditSettingsForStatsEngine {
@@ -96,7 +99,6 @@ export interface MetricSettingsForStatsEngine {
   prior_proper?: boolean;
   prior_mean?: number;
   prior_stddev?: number;
-  decision_metric?: boolean; 
 }
 
 export interface QueryResultsForStatsEngine {

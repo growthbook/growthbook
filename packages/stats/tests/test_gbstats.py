@@ -317,6 +317,9 @@ BANDIT_ANALYSIS = AnalysisSettingsForStatsEngine(
     phase_length_days=1,
     alpha=0.05,
     max_dimensions=20,
+    decision_metric="count_metric",
+    bandit=True,
+    bandit_weights_seed=100,
 )
 
 # confirm with sonnet that var_ids are right;
@@ -810,10 +813,6 @@ class TestFormatResults(TestCase):
     def test_format_results_denominator(self):
         rows = RATIO_STATISTICS_DF
         df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
-        var_id_map = {"zero": 0, "one": 1}
-        metric = COUNT_METRIC
-        analysis = DEFAULT_ANALYSIS
-        df_weights = get_bandit_weights(rows, var_id_map, metric, analysis)
         result = format_results(
             analyze_metric_df(
                 df,
