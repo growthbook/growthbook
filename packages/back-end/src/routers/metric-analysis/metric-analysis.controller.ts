@@ -63,48 +63,6 @@ export const postMetricAnalysis = async (
   });
 };
 
-// Not needed?
-// export const putMetricAnalysis = async (
-//   req: AuthRequest<UpdateFactTableProps, { id: string }>,
-//   res: Response<{ status: 200 }>
-// ) => {
-//   const data = req.body;
-//   const context = getContextFromReq(req);
-
-//   const factTable = await getFactTable(context, req.params.id);
-//   if (!factTable) {
-//     throw new Error("Could not find fact table with that id");
-//   }
-
-//   if (!context.permissions.canUpdateFactTable(factTable, data)) {
-//     context.permissions.throwPermissionError();
-//   }
-
-//   const datasource = await getDataSourceById(context, factTable.datasource);
-//   if (!datasource) {
-//     throw new Error("Could not find datasource");
-//   }
-
-//   // Update the columns
-//   data.columns = await runRefreshColumnsQuery(context, datasource, {
-//     ...factTable,
-//     ...data,
-//   } as FactTableInterface);
-//   data.columnsError = null;
-
-//   if (!data.columns.some((col) => !col.deleted)) {
-//     throw new Error("SQL did not return any rows");
-//   }
-
-//   await updateFactTable(context, factTable, data);
-
-//   await addTagsDiff(context.org.id, factTable.tags, data.tags || []);
-
-//   res.status(200).json({
-//     status: 200,
-//   });
-// };
-
 export const getMetricAnalysis = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200; metricAnalysis: MetricAnalysisInterface }>

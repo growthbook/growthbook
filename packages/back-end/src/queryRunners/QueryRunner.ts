@@ -140,7 +140,7 @@ export abstract class QueryRunner<
 
   async onQueryFinish() {
     if (!this.timer) {
-      logger.info(
+      logger.debug(
         "Query finished for " +
           this.model.id +
           " runner, refreshing in 1 second"
@@ -148,7 +148,7 @@ export abstract class QueryRunner<
       this.timer = setTimeout(async () => {
         this.timer = null;
         try {
-          logger.info("Getting latest model for " + this.model.id);
+          logger.debug("Getting latest model for " + this.model.id);
           this.model = await this.getLatestModel();
           const queryMap = await this.refreshQueryStatuses();
           await this.startReadyQueries(queryMap);
@@ -160,7 +160,7 @@ export abstract class QueryRunner<
         }
       }, 1000);
     } else {
-      logger.info(
+      logger.debug(
         "Query finished for " + this.model.id + " runner, timer already started"
       );
     }
@@ -171,7 +171,7 @@ export abstract class QueryRunner<
   }
 
   public async startAnalysis(params: Params): Promise<Model> {
-    logger.info(this.model.id + " runner: Starting queries");
+    logger.debug(this.model.id + " runner: Starting queries");
     const queries = await this.startQueries(params);
     this.model.queries = queries;
 
@@ -181,17 +181,17 @@ export abstract class QueryRunner<
 
     const queryStatus = this.getOverallQueryStatus();
     if (queryStatus === "succeeded") {
-      logger.info(this.model.id + " runner: Query already succeeded (cached)");
+      logger.debug(this.model.id + " runner: Query already succeeded (cached)");
       const queryMap = await this.getQueryMap(queries);
       try {
         result = await this.runAnalysis(queryMap);
-        logger.info(this.model.id + " runner: Ran analysis successfully");
+        logger.debug(this.model.id + " runner: Ran analysis successfully");
       } catch (e) {
         logger.error(this.model.id + " runner: Error running analysis");
         error = "Error running analysis: " + e.message;
       }
     } else if (queryStatus === "failed") {
-      logger.info(this.model.id + " runner: Query failed immediately");
+      logger.debug(this.model.id + " runner: Query failed immediately");
       error = "Error running one or more database queries";
     }
 
@@ -256,7 +256,7 @@ export abstract class QueryRunner<
     const queuedQueries = Array.from(queryMap.values()).filter(
       (q) => q.status === "queued"
     );
-    logger.info(
+    logger.debug(
       `Starting any queued queries for ${
         this.model.id
       } runner that are ready: ${queuedQueries.map((q) => q.id)}`
@@ -288,7 +288,7 @@ export abstract class QueryRunner<
         });
 
         if (failedDependencies.length) {
-          logger.info(`${query.id}: Dependency failed...`);
+          logger.debug(`${query.id}: Dependency failed...`);
           await updateQuery(query, {
             finishedAt: new Date(),
             status: "failed",
@@ -300,7 +300,7 @@ export abstract class QueryRunner<
           return;
         }
         if (pendingDependencies.length) {
-          logger.info(`${query.id}: Dependencies pending...`);
+          logger.debug(`${query.id}: Dependencies pending...`);
           return;
         }
 
@@ -321,10 +321,10 @@ export abstract class QueryRunner<
         }
 
         if (succeededDependencies.length === dependencyIds.length) {
-          logger.info(`${query.id}: Dependencies completed, running...`);
+          logger.debug(`${query.id}: Dependencies completed, running...`);
           const runCallbacks = this.runCallbacks[query.id];
           if (runCallbacks === undefined) {
-            logger.info(`${query.id}: Run callbacks not found..`);
+            logger.debug(`${query.id}: Run callbacks not found..`);
             await updateQuery(query, {
               finishedAt: new Date(),
               status: "failed",
@@ -345,7 +345,7 @@ export abstract class QueryRunner<
 
   public async refreshQueryStatuses(): Promise<QueryMap> {
     const oldStatus = this.getOverallQueryStatus();
-    logger.info("Refreshing query statuses for " + this.model.id);
+    logger.debug("Refreshing query statuses for " + this.model.id);
 
     // If there are no running or queued queries, return immediately
     if (
@@ -353,7 +353,7 @@ export abstract class QueryRunner<
         (q) => q.status === "running" || q.status === "queued"
       )
     ) {
-      logger.info(
+      logger.debug(
         "No running or queued queries for " + this.model.id + ", return"
       );
       return new Map();
@@ -363,7 +363,7 @@ export abstract class QueryRunner<
 
     const newStatus = this.getOverallQueryStatus();
 
-    logger.info(
+    logger.debug(
       this.model.id +
         " has changes? " +
         hasChanges +
@@ -378,7 +378,7 @@ export abstract class QueryRunner<
 
     if (oldStatus === "running" && newStatus === "failed") {
       error = "Failed to run a majority of the database queries";
-      logger.info(
+      logger.debug(
         "Query failed for " +
           this.model.id +
           " runner, transitioning to error state"
@@ -390,7 +390,7 @@ export abstract class QueryRunner<
     ) {
       try {
         result = await this.runAnalysis(queryMap);
-        logger.info(`Queries ${newStatus}, ran analysis successfully`);
+        logger.debug(`Queries ${newStatus}, ran analysis successfully`);
       } catch (e) {
         error = "Error running analysis: " + e.message;
         logger.error(
@@ -441,7 +441,7 @@ export abstract class QueryRunner<
                 try {
                   await this.integration.cancelQuery(id);
                 } catch (e) {
-                  logger.info(`Failed to cancel query - ${e.message}`);
+                  logger.debug(`Failed to cancel query - ${e.message}`);
                 }
               };
             }),
@@ -481,7 +481,7 @@ export abstract class QueryRunner<
     }, 30000);
 
     // Run the query in the background
-    logger.info(`Start executing query in background: ${doc.id}`);
+    logger.debug(`Start executing query in background: ${doc.id}`);
     if (doc.status !== "running") {
       await updateQuery(doc, {
         startedAt: new Date(),
@@ -498,7 +498,7 @@ export abstract class QueryRunner<
     run(doc.query, setExternalId)
       .then(async ({ rows, statistics }) => {
         clearInterval(timer);
-        logger.info("Query succeeded: " + doc.id);
+        logger.debug("Query succeeded: " + doc.id);
         await updateQuery(doc, {
           finishedAt: new Date(),
           status: "succeeded",
@@ -510,7 +510,7 @@ export abstract class QueryRunner<
       })
       .catch(async (e) => {
         clearInterval(timer);
-        logger.info("Query failed: " + e.message);
+        logger.debug("Query failed: " + e.message);
         updateQuery(doc, {
           finishedAt: new Date(),
           status: "failed",
@@ -538,7 +538,7 @@ export abstract class QueryRunner<
     } = params;
     // Re-use recent identical query if it exists
     if (this.useCache) {
-      logger.info("Trying to reuse existing query for " + name);
+      logger.debug("Trying to reuse existing query for " + name);
       try {
         const existing = await getRecentQuery(
           this.integration.context.org.id,
@@ -548,7 +548,7 @@ export abstract class QueryRunner<
         if (existing) {
           // Query still running, periodically check the status
           if (existing.status === "running") {
-            logger.info(
+            logger.debug(
               "Reusing previous query " +
                 existing.id +
                 " for query " +
@@ -578,12 +578,12 @@ export abstract class QueryRunner<
           }
           // Query already finished
           else {
-            logger.info(
+            logger.debug(
               "Reusing previous query for " + query + ". Already finished"
             );
             this.onQueryFinish();
           }
-          logger.info(
+          logger.debug(
             "Creating query with cached values for " +
               query +
               " from " +
@@ -619,7 +619,7 @@ export abstract class QueryRunner<
       runAtEnd: runAtEnd,
     });
 
-    logger.info("Created new query " + doc.id + " for " + name);
+    logger.debug("Created new query " + doc.id + " for " + name);
     if (readyToRun) {
       this.executeQuery(doc, run, process);
     } else {
