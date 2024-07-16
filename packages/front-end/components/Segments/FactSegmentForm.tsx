@@ -33,11 +33,22 @@ export default function FactSegmentForm({
     getFactTableById,
     mutateDefinitions,
   } = useDefinitions();
+
+  // Build a list of unique data source ids that have atleast 1 fact table built on it
+  const uniqueDatasourcesWithFactTables = Array.from(
+    new Set(factTables.map((ft) => ft.datasource))
+  );
+
+  // Filter the list of datasources to only show those that have atleast 1 fact built on it
+  const datasourceOptions = filteredDatasources.filter((filteredDs) =>
+    uniqueDatasourcesWithFactTables.includes(filteredDs.id)
+  );
+
   const form = useForm({
     defaultValues: {
       name: current?.name || "",
       datasource:
-        (current?.id ? current?.datasource : filteredDatasources[0]?.id) || "",
+        (current?.id ? current?.datasource : datasourceOptions[0]?.id) || "",
       userIdType: current?.userIdType || "user_id",
       owner: current?.owner || "",
       description: current?.description || "",
@@ -94,18 +105,18 @@ export default function FactSegmentForm({
           {...form.register("owner")}
         />
         <Field label="Description" {...form.register("description")} textarea />
-        {/* MKTODO: Filter based on which datasources have fact tables */}
         <SelectField
           label="Data Source"
           required
           value={form.watch("datasource")}
           onChange={(v) => form.setValue("datasource", v)}
           placeholder="Choose one..."
-          options={filteredDatasources.map((d) => ({
+          options={datasourceOptions.map((d) => ({
             value: d.id,
             label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
           }))}
           className="portal-overflow-ellipsis"
+          helpText="This list has been filtered to only show data sources that have at least one Fact Table built on top of it"
         />
         <SelectField
           label="Identifier"
