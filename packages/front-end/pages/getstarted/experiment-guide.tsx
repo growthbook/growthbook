@@ -293,28 +293,17 @@ const ExperimentGuide = (): React.ReactElement => {
             {generatedHypothesis ? (
               <div className="row">
                 <div className="col-sm-auto">
-                  {hasExperiments ? (
-                    <PiCheckCircleFill
-                      className="mt-1"
-                      style={{
-                        fill: "#56BA9F",
-                        width: "18.5px",
-                        height: "18.5px",
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        borderRadius: "50%",
-                        borderStyle: "solid",
-                        borderWidth: "0.6px",
-                        borderColor: "#D3D4DB",
-                        width: "15px",
-                        height: "15px",
-                        margin: "2px",
-                      }}
-                    />
-                  )}
+                  <div
+                    style={{
+                      borderRadius: "50%",
+                      borderStyle: "solid",
+                      borderWidth: "0.6px",
+                      borderColor: "#D3D4DB",
+                      width: "15px",
+                      height: "15px",
+                      margin: "2px",
+                    }}
+                  />
                 </div>
                 <div className="col">
                   <Link
@@ -322,13 +311,10 @@ const ExperimentGuide = (): React.ReactElement => {
                     style={{
                       fontSize: "17px",
                       fontWeight: 600,
-                      textDecoration: hasExperiments ? "line-through" : "none",
                     }}
                     onClick={() =>
                       setStep({
-                        step: project
-                          ? "Design the First Experiment for this Project"
-                          : "Design Your Organization’s First Experiment",
+                        step: "Edit Your Organization’s First Experiment",
                         source: "experiments",
                         stepKey: "createExperiment",
                       })
