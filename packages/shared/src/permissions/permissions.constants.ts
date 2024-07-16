@@ -40,6 +40,7 @@ export const POLICIES = [
   "BillingFullAccess",
   "AuditLogsFullAccess",
   "CustomRolesFullAccess",
+  "CustomFieldsFullAccess",
 ] as const;
 
 export type Policy = typeof POLICIES[number];
@@ -112,6 +113,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   BillingFullAccess: ["readData", "manageBilling"],
   AuditLogsFullAccess: ["readData", "viewAuditLog"],
   CustomRolesFullAccess: ["readData", "manageTeam", "manageCustomRoles"],
+  CustomFieldsFullAccess: ["readData", "manageCustomFields"],
 };
 
 export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
@@ -170,6 +172,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "NorthStarMetricFullAccess",
       "TeamManagementFullAccess",
       "CustomRolesFullAccess",
+      "CustomFieldsFullAccess",
       "ProjectsFullAccess",
       "TagsFullAccess",
       "APIKeysFullAccess",
@@ -343,6 +346,10 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "Manage Custom Roles",
     description: "Create, edit, and delete custom roles",
   },
+  CustomFieldsFullAccess: {
+    displayName: "Manage Custom Fields",
+    description: "Create, edit, and delete custom fields",
+  },
 };
 
 export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
@@ -505,6 +512,7 @@ export const GLOBAL_PERMISSIONS = [
   "manageSavedGroups",
   "manageArchetype",
   "manageCustomRoles",
+  "manageCustomFields",
   "viewAuditLog",
 ] as const;
 
