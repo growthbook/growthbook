@@ -14,8 +14,6 @@ const CustomMarkdown: React.FC = () => {
   const { apiCall } = useAuth();
   const [saveMsg, setSaveMsg] = useState(false);
 
-  console.log({ settings });
-
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
       featureListMarkdown: settings.featureListMarkdown || "",
