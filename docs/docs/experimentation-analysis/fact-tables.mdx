@@ -277,17 +277,21 @@ Lastly, Ratio metrics now have a single metric window and capping behavior. Prev
 
 ## Auto Generate Fact Tables
 
-When using GrowthBook with certain event trackers, we may be able to generate Fact Tables for you automatically by identifying the unique events tracked by your event tracker. This is currently only supported for a few event trackers (listed below), but we are working to expand this list.
-
-If you are using one of the supported event trackers and would like to see what Fact Tables we can create for you, head to the `Fact Tables` page in GrowthBook and select the `Auto Generate Fact Tables...` button.
-
-:::note
-When querying your datasource to identify unique events, we're currently only looking at events in the last 7 days.
-:::
-
-### Supported Event Trackers
+GrowthBook can automatically generate Fact Tables for you using your existing tools. This feature is supported for the following event trackers:
 
 - Segment
 - Rudderstack
 - Google Analytics 4 (GA4)
 - Amplitude
+
+Support for additional event trackers is coming soon.
+
+To see which Fact Tables GrowthBook can create for your connected event tracker, go to the **Fact Tables** page and click the **Auto Generate Fact Tables** button.
+
+:::note
+When querying your data source to identify unique events, we only look at events in the last 7 days.
+:::
+
+### Supported Event Trackers
+
+
