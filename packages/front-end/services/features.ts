@@ -32,6 +32,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useApi from "@/hooks/useApi";
+import { isExperimentRefRuleSkipped } from "@/components/Features/ExperimentRefSummary";
 import { useDefinitions } from "./DefinitionsContext";
 
 export { generateVariationId } from "shared/util";
@@ -126,6 +127,26 @@ export function getVariationDefaultName(
   }
 
   return val.value;
+}
+
+export function isRuleDisabled(
+  rule: FeatureRule,
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>
+): boolean {
+  const linkedExperiment =
+    rule.type === "experiment-ref" && experimentsMap.get(rule.experimentId);
+  const upcomingScheduleRule = getUpcomingScheduleRule(rule);
+  const scheduleCompletedAndDisabled =
+    !upcomingScheduleRule &&
+    rule?.scheduleRules?.length &&
+    rule.scheduleRules.at(-1)?.timestamp !== null;
+
+  return (
+    scheduleCompletedAndDisabled ||
+    upcomingScheduleRule?.enabled ||
+    (linkedExperiment && isExperimentRefRuleSkipped(linkedExperiment)) ||
+    !rule.enabled
+  );
 }
 
 type NamespaceGaps = { start: number; end: number }[];
