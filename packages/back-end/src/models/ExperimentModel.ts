@@ -262,7 +262,10 @@ export async function getExperimentById(
 
 export async function getAllExperiments(
   context: ReqContext | ApiReqContext,
-  project?: string
+  {
+    project,
+    includeArchived = false,
+  }: { project?: string; includeArchived?: boolean } = {}
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
@@ -272,7 +275,28 @@ export async function getAllExperiments(
     query.project = project;
   }
 
+  if (!includeArchived) {
+    query.archived = { $ne: true };
+  }
+
   return await findExperiments(context, query);
+}
+
+export async function hasArchivedExperiments(
+  context: ReqContext | ApiReqContext,
+  project?: string
+): Promise<boolean> {
+  const query: FilterQuery<ExperimentDocument> = {
+    organization: context.org.id,
+    archived: true,
+  };
+
+  if (project) {
+    query.project = project;
+  }
+
+  const e = await ExperimentModel.findOne(query);
+  return !!e;
 }
 
 export async function getExperimentByTrackingKey(

@@ -214,7 +214,10 @@ export default function AttributeModal({ close, attribute }: Props) {
             value={form.watch(`format`) || "none"}
             onChange={(v) => form.setValue(`format`, v as SDKAttributeFormat)}
             initialOption="None"
-            options={[{ value: "version", label: "Version string" }]}
+            options={[
+              { value: "version", label: "Version string" },
+              { value: "date", label: "Date string" },
+            ]}
             sort={false}
             helpText="Affects the targeting attribute UI and string comparison logic. More formats coming soon."
           />

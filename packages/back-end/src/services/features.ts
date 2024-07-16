@@ -74,7 +74,6 @@ import { URLRedirectInterface } from "../../types/url-redirect";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
-  getOrganizationById,
 } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -606,10 +605,9 @@ export async function getFeatureDefinitions({
       let attributes: SDKAttributeSchema | undefined = undefined;
       let secureAttributeSalt: string | undefined = undefined;
       if (hashSecureAttributes) {
-        const org = await getOrganizationById(context.org.id);
-        if (org && orgHasPremiumFeature(org, "hash-secure-attributes")) {
-          secureAttributeSalt = org.settings?.secureAttributeSalt;
-          attributes = org.settings?.attributeSchema;
+        if (orgHasPremiumFeature(context.org, "hash-secure-attributes")) {
+          secureAttributeSalt = context.org.settings?.secureAttributeSalt;
+          attributes = context.org.settings?.attributeSchema;
         }
       }
       const { features, experiments } = cached.contents;
@@ -632,35 +630,18 @@ export async function getFeatureDefinitions({
     logger.error(e, "Failed to fetch SDK payload from cache");
   }
 
-  const org = await getOrganizationById(context.org.id);
   let attributes: SDKAttributeSchema | undefined = undefined;
   let secureAttributeSalt: string | undefined = undefined;
   if (hashSecureAttributes) {
-    if (org && orgHasPremiumFeature(org, "hash-secure-attributes")) {
-      secureAttributeSalt = org?.settings?.secureAttributeSalt;
-      attributes = org.settings?.attributeSchema;
+    if (orgHasPremiumFeature(context.org, "hash-secure-attributes")) {
+      secureAttributeSalt = context.org.settings?.secureAttributeSalt;
+      attributes = context.org.settings?.attributeSchema;
     }
-  }
-  if (!org) {
-    return await getFeatureDefinitionsResponse({
-      features: {},
-      experiments: [],
-      dateUpdated: null,
-      encryptionKey,
-      includeVisualExperiments,
-      includeDraftExperiments,
-      includeExperimentNames,
-      includeRedirectExperiments,
-      attributes,
-      secureAttributeSalt,
-      projects: projects || [],
-      capabilities,
-    });
   }
 
   // Generate the feature definitions
   const features = await getAllFeatures(context);
-  const groupMap = await getSavedGroupMap(org);
+  const groupMap = await getSavedGroupMap(context.org);
   const experimentMap = await getAllPayloadExperiments(context);
 
   const prereqStateCache: Record<

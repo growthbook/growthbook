@@ -648,6 +648,11 @@ const sidebars = {
             },
           ],
         },
+        {
+          type: "doc",
+          id: "kb/glossary",
+          label: "Glossary",
+        },
       ],
     },
     {
