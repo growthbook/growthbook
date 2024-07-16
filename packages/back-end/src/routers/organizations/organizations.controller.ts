@@ -16,6 +16,8 @@ import {
   isRoleValid,
   getDefaultRole,
 } from "shared/permissions";
+import uniqid from "uniqid";
+import { getWatchedByUser } from "../../models/WatchModel";
 import {
   UpdateSdkWebhookProps,
   deleteLegacySdkWebhookById,
@@ -65,7 +67,6 @@ import {
 } from "../../services/audit";
 import { getAllFeatures } from "../../models/FeatureModel";
 import { findDimensionsByOrganization } from "../../models/DimensionModel";
-import { findSegmentsByOrganization } from "../../models/SegmentModel";
 import {
   ALLOW_SELF_ORG_CREATION,
   APP_ORIGIN,
@@ -78,6 +79,7 @@ import {
   sendPendingMemberEmail,
   sendNewOrgEmail,
   sendPendingMemberApprovalEmail,
+  sendOwnerEmailChangeEmail,
 } from "../../services/email";
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import { getAllSavedGroups } from "../../models/SavedGroupModel";
@@ -110,7 +112,12 @@ import {
   getUnredactedSecretKey,
 } from "../../models/ApiKeyModel";
 import { getUserPermissions } from "../../util/organization.util";
-import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
+import {
+  deleteUser,
+  getUserById,
+  getAllUsers,
+  getUserByEmail,
+} from "../../models/UserModel";
 import {
   getAllExperiments,
   getExperimentsForActivityFeed,
@@ -153,7 +160,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     getMetricsByOrganization(context),
     getDataSourcesByOrganization(context),
     findDimensionsByOrganization(orgId),
-    findSegmentsByOrganization(orgId),
+    context.models.segments.getAll(),
     getAllTags(orgId),
     getAllSavedGroups(orgId),
     context.models.projects.getAll(),
@@ -696,7 +703,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
 
-  const expandedMembers = await expandOrgMembers(members);
+  const expandedMembers = await expandOrgMembers(members, userId);
 
   const teams = await getTeamsForOrganization(org.id);
 
@@ -713,6 +720,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   const currentUserPermissions = getUserPermissions(userId, org, teams || []);
   const seatsInUse = getNumberOfUniqueMembersAndInvites(org);
 
+  const watch = await getWatchedByUser(org.id, userId);
+
   return res.status(200).json({
     status: 200,
     apiKeys,
@@ -726,6 +735,10 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     currentUserPermissions,
     teams: teamsWithMembers,
     license,
+    watching: {
+      experiments: watch?.experiments || [],
+      features: watch?.features || [],
+    },
     organization: {
       invites,
       ownerEmail,
@@ -843,13 +856,13 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
 
 export async function postNamespaces(
   req: AuthRequest<{
-    name: string;
+    label: string;
     description: string;
     status: "active" | "inactive";
   }>,
   res: Response
 ) {
-  const { name, description, status } = req.body;
+  const { label, description, status } = req.body;
   const context = getContextFromReq(req);
 
   if (!context.permissions.canCreateNamespace()) {
@@ -861,14 +874,18 @@ export async function postNamespaces(
   const namespaces = org.settings?.namespaces || [];
 
   // Namespace with the same name already exists
-  if (namespaces.filter((n) => n.name === name).length > 0) {
-    throw new Error("Namespace names must be unique.");
+  if (namespaces.filter((n) => n.label === label).length > 0) {
+    throw new Error("A namespace with this name already exists.");
   }
 
+  // Create a unique id for this new namespace - We might want to clean this
+  // up later, but for now, 'name' is the unique identifier, and 'label' is
+  // the display name.
+  const name = uniqid("ns-");
   await updateOrganization(org.id, {
     settings: {
       ...org.settings,
-      namespaces: [...namespaces, { name, description, status }],
+      namespaces: [...namespaces, { name, label, description, status }],
     },
   });
 
@@ -896,7 +913,7 @@ export async function postNamespaces(
 export async function putNamespaces(
   req: AuthRequest<
     {
-      name: string;
+      label: string;
       description: string;
       status: "active" | "inactive";
     },
@@ -904,8 +921,9 @@ export async function putNamespaces(
   >,
   res: Response
 ) {
-  const { name, description, status } = req.body;
-  const originalName = req.params.name;
+  const { label, description, status } = req.body;
+  const { name } = req.params;
+
   const context = getContextFromReq(req);
 
   if (!context.permissions.canUpdateNamespace()) {
@@ -916,13 +934,15 @@ export async function putNamespaces(
 
   const namespaces = org.settings?.namespaces || [];
 
-  // Namespace with the same name already exists
-  if (namespaces.filter((n) => n.name === originalName).length === 0) {
+  // Make sure this namespace exists
+  if (namespaces.filter((n) => n.name === name).length === 0) {
     throw new Error("Namespace not found.");
   }
+
   const updatedNamespaces = namespaces.map((n) => {
-    if (n.name === originalName) {
-      return { name, description, status };
+    if (n.name === name) {
+      // cannot update the 'name' (id) of a namespace
+      return { label, name: n.name, description, status };
     }
     return n;
   });
@@ -1261,9 +1281,16 @@ export async function putOrganization(
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { name, settings, connections, externalId, licenseKey } = req.body;
+  const {
+    name,
+    ownerEmail,
+    settings,
+    connections,
+    externalId,
+    licenseKey,
+  } = req.body;
 
-  if (connections || name) {
+  if (connections || name || ownerEmail) {
     if (!context.permissions.canManageOrgSettings()) {
       context.permissions.throwPermissionError();
     }
@@ -1311,6 +1338,26 @@ export async function putOrganization(
     if (name) {
       updates.name = name;
       orig.name = org.name;
+    }
+    if (ownerEmail && ownerEmail !== org.ownerEmail) {
+      // the owner email is being changed
+      const newOwnerUser = await getUserByEmail(ownerEmail);
+      if (!newOwnerUser) {
+        throw Error("New owner does not have an account");
+      }
+      updates.ownerEmail = ownerEmail;
+      orig.ownerEmail = org.ownerEmail;
+      // send email to original owner and new owner alerting them of the change:
+      try {
+        await sendOwnerEmailChangeEmail(
+          req.email,
+          org.name,
+          org.ownerEmail,
+          ownerEmail
+        );
+      } catch (e) {
+        req.log.error(e, "Failed to send owner email change email");
+      }
     }
     if (externalId !== undefined) {
       updates.externalId = externalId;
@@ -1789,7 +1836,7 @@ export async function addOrphanedUser(
   } = req.body;
 
   // Make sure user exists
-  const user = await findUserById(id);
+  const user = await getUserById(id);
   if (!user) {
     return res.status(400).json({
       status: 400,
@@ -1862,7 +1909,7 @@ export async function deleteOrphanedUser(
   const { id } = req.params;
 
   // Make sure user exists
-  const user = await findUserById(id);
+  const user = await getUserById(id);
   if (!user) {
     return res.status(400).json({
       status: 400,

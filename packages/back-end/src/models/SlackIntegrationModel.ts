@@ -7,7 +7,7 @@ import { z } from "zod";
 import { SlackIntegrationInterface } from "../../types/slack-integration";
 import {
   NotificationEventName,
-  notificationEventNames,
+  zodNotificationEventNamesEnum,
 } from "../events/base-types";
 import { logger } from "../util/logger";
 import { errorStringFromZodResult } from "../util/validation";
@@ -52,7 +52,7 @@ const slackIntegrationSchema = new mongoose.Schema({
     required: true,
     validate: {
       validator(value: unknown) {
-        const zodSchema = z.array(z.enum(notificationEventNames));
+        const zodSchema = z.array(z.enum(zodNotificationEventNamesEnum));
 
         const result = zodSchema.safeParse(value);
 

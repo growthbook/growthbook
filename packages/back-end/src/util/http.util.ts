@@ -1,8 +1,7 @@
 import fetch, { RequestInit, Response } from "node-fetch";
 import { ProxyAgent } from "proxy-agent";
-//import ssrfReqFilter from "ssrf-req-filter";
 import { logger } from "./logger";
-import { IS_CLOUD, USE_PROXY } from "./secrets";
+import { USE_PROXY, WEBHOOK_PROXY } from "./secrets";
 
 export type CancellableFetchCriteria = {
   maxContentSize: number;
@@ -16,13 +15,30 @@ export type CancellableFetchReturn = {
 };
 
 export function getHttpOptions(url?: string) {
+  // if there is a ?proxy argument in the url, use that as the proxy
+  if (url) {
+    // parse the url and extract the proxy argument
+    const urlObj = new URL(url);
+    const proxy = urlObj.searchParams.get("proxy_test");
+    if (proxy) {
+      return {
+        agent: new ProxyAgent({
+          getProxyForUrl: () => proxy,
+        }),
+      };
+    }
+  }
+
+  if (WEBHOOK_PROXY) {
+    return {
+      agent: new ProxyAgent({
+        getProxyForUrl: () => WEBHOOK_PROXY,
+      }),
+    };
+  }
+
   if (USE_PROXY) {
     return { agent: new ProxyAgent() };
-  }
-  if (url && IS_CLOUD) {
-    // Temporarily disable ssrf filter to see if it's the cause of Node internal errors
-    // return { agent: ssrfReqFilter(url) };
-    return {};
   }
   return {};
 }

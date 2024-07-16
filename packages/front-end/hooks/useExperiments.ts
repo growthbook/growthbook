@@ -2,10 +2,18 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useMemo } from "react";
 import useApi from "./useApi";
 
-export function useExperiments(project?: string) {
+export function useExperiments(
+  project?: string,
+  includeArchived: boolean = false
+) {
   const { data, error, mutate } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
-  }>(`/experiments?project=${project || ""}`);
+    hasArchived: boolean;
+  }>(
+    `/experiments?project=${project || ""}&includeArchived=${
+      includeArchived ? "1" : ""
+    }`
+  );
 
   const experiments = useMemo(() => data?.experiments || [], [data]);
 
@@ -20,5 +28,6 @@ export function useExperiments(project?: string) {
     experimentsMap,
     error: error,
     mutateExperiments: mutate,
+    hasArchived: data?.hasArchived || false,
   };
 }

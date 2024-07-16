@@ -10,6 +10,7 @@ import {
 import ValidateValue from "@/components/Features/ValidateValue";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import Modal from "@/components/Modal";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 
@@ -29,6 +30,7 @@ export default function ExperimentSummary({
 }) {
   const { namespace, coverage, values, hashAttribute, trackingKey } = rule;
   const type = feature.valueType;
+  const { namespaces: allNamespaces } = useOrgSettings();
 
   const { datasources, metrics } = useDefinitions();
   const [newExpModal, setNewExpModal] = useState(false);
@@ -105,7 +107,8 @@ export default function ExperimentSummary({
               {" "}
               <span>in the namespace </span>
               <span className="mr-1 border px-2 py-1 bg-light rounded">
-                {namespace.name}
+                {allNamespaces?.find((n) => n.name === namespace.name)?.label ||
+                  namespace.name}
               </span>
             </>
           )}

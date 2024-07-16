@@ -10,13 +10,17 @@ import {
   deleteEventWebHookById,
   getEventWebHookById,
   updateEventWebHook,
+  UpdateEventWebHookAttributes,
 } from "../../models/EventWebhookModel";
 import { createEvent } from "../../models/EventModel";
 import * as EventWebHookLog from "../../models/EventWebHookLogModel";
 
 import { AuthRequest } from "../../types/AuthRequest";
 import { getContextFromReq } from "../../services/organizations";
-import { EventWebHookLogInterface } from "../../../types/event-webhook-log";
+import {
+  EventWebHookLegacyLogInterface,
+  EventWebHookLogInterface,
+} from "../../../types/event-webhook-log";
 import { WebhookTestEvent } from "../../events/notification-events";
 import { NotificationEventName } from "../../events/base-types";
 import { EventNotifier } from "../../events/notifiers/EventNotifier";
@@ -152,7 +156,10 @@ type GetEventWebHookLogsRequest = AuthRequest<
 >;
 
 type GetEventWebHookLogsResponse = {
-  eventWebHookLogs: EventWebHookLogInterface[];
+  eventWebHookLogs: (
+    | EventWebHookLegacyLogInterface
+    | EventWebHookLogInterface
+  )[];
 };
 
 export const getEventWebHookLogs = async (
@@ -211,18 +218,7 @@ export const deleteEventWebHook = async (
 // region PUT /event-webhooks/:eventWebHookId
 
 type UpdateEventWebHookRequest = AuthRequest<
-  {
-    name: string;
-    url: string;
-    enabled: boolean;
-    events: NotificationEventName[];
-    tags: string[];
-    environments: string[];
-    projects: string[];
-    payloadType: EventWebHookPayloadType;
-    method: EventWebHookMethod;
-    headers: Record<string, string>;
-  },
+  Required<UpdateEventWebHookAttributes>,
   { eventWebHookId: string }
 >;
 
@@ -256,6 +252,57 @@ export const putEventWebHook = async (
 };
 
 // endregion PUT /event-webhooks/:eventWebHookId
+
+// region POST /event-webhooks/toggle
+
+type PostToggleEventWebHooksRequest = AuthRequest & {
+  body: {
+    webhookId: string;
+  };
+};
+
+type PostToggleEventWebHooksResponse = {
+  enabled: boolean;
+};
+
+export const toggleEventWebHook = async (
+  req: PostToggleEventWebHooksRequest,
+  res: Response<PostToggleEventWebHooksResponse | PrivateApiErrorResponse>
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canUpdateEventWebhook()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const {
+    org: { id: organizationId },
+  } = context;
+  const { webhookId } = req.body;
+
+  const webhook = await EventWebHook.getEventWebHookById(
+    webhookId,
+    organizationId
+  );
+
+  const enabled = !webhook?.enabled;
+
+  const successful = await updateEventWebHook(
+    {
+      eventWebHookId: webhookId,
+      organizationId,
+    },
+    { enabled }
+  );
+
+  const status = successful ? 200 : 404;
+
+  res.status(status).json({
+    enabled,
+  });
+};
+
+// endregion /event-webhooks/toggle
 
 // region POST /event-webhooks/test
 

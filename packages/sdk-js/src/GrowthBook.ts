@@ -200,6 +200,9 @@ export class GrowthBook<
     if (data.features) {
       this._ctx.features = data.features;
     }
+    if (data.savedGroups) {
+      this._ctx.savedGroups = data.savedGroups;
+    }
     if (data.experiments) {
       this._ctx.experiments = data.experiments;
       this._updateAllAutoExperiments();
@@ -439,24 +442,46 @@ export class GrowthBook<
   ): Promise<FeatureApiResponse> {
     data = { ...data };
     if (data.encryptedFeatures) {
-      data.features = JSON.parse(
-        await decrypt(
-          data.encryptedFeatures,
-          decryptionKey || this._ctx.decryptionKey,
-          subtle
-        )
-      );
+      try {
+        data.features = JSON.parse(
+          await decrypt(
+            data.encryptedFeatures,
+            decryptionKey || this._ctx.decryptionKey,
+            subtle
+          )
+        );
+      } catch (e) {
+        console.error(e);
+      }
       delete data.encryptedFeatures;
     }
     if (data.encryptedExperiments) {
-      data.experiments = JSON.parse(
-        await decrypt(
-          data.encryptedExperiments,
-          decryptionKey || this._ctx.decryptionKey,
-          subtle
-        )
-      );
+      try {
+        data.experiments = JSON.parse(
+          await decrypt(
+            data.encryptedExperiments,
+            decryptionKey || this._ctx.decryptionKey,
+            subtle
+          )
+        );
+      } catch (e) {
+        console.error(e);
+      }
       delete data.encryptedExperiments;
+    }
+    if (data.encryptedSavedGroups) {
+      try {
+        data.savedGroups = JSON.parse(
+          await decrypt(
+            data.encryptedSavedGroups,
+            decryptionKey || this._ctx.decryptionKey,
+            subtle
+          )
+        );
+      } catch (e) {
+        console.error(e);
+      }
+      delete data.encryptedSavedGroups;
     }
     return data;
   }
@@ -1139,7 +1164,11 @@ export class GrowthBook<
   }
 
   private _conditionPasses(condition: ConditionInterface): boolean {
-    return evalCondition(this.getAttributes(), condition);
+    return evalCondition(
+      this.getAttributes(),
+      condition,
+      this._ctx.savedGroups || {}
+    );
   }
 
   private _isFilteredOut(filters: Filter[]): boolean {

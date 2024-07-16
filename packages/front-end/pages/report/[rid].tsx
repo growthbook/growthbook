@@ -58,11 +58,9 @@ export default function ReportPage() {
     experiment: ExperimentInterfaceStringDates;
     idea?: IdeaInterface;
     visualChangesets: VisualChangesetInterface[];
-  }>(
-    data?.report?.experimentId
-      ? `/experiment/${data.report.experimentId}`
-      : null
-  );
+  }>(`/experiment/${data?.report?.experimentId}`, {
+    shouldRun: () => !!data?.report?.experimentId,
+  });
 
   const { userId, getUserDisplay, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
