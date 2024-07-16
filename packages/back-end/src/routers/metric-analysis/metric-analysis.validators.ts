@@ -53,13 +53,6 @@ export const metricAnalysisResultValidator = z
     stddev: z.number().optional(),
     numerator: z.number().optional(),
     denominator: z.number().optional(),
-    cappingData: z
-      .object({
-        cappingValue: z.boolean(),
-        unitsCapped: z.number(),
-        uncappedHistogram: metricAnalysisHistogramValidator.optional(),
-      })
-      .optional(),
     dates: z
       .array(
         z.object({

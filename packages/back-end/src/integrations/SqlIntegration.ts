@@ -13,7 +13,7 @@ import {
   getMetricTemplateVariables,
   quantileMetricType,
 } from "shared/experiments";
-import { AUTOMATIC_DIMENSION_OTHER_NAME } from "shared/constants";
+import { AUTOMATIC_DIMENSION_OTHER_NAME, DEFAULT_METRIC_HISTOGRAM_BINS } from "shared/constants";
 import { MetricAnalysisSettings } from "@back-end/types/metric-analysis";
 import { ReqContext } from "../../types/organization";
 import { MetricInterface, MetricType } from "../../types/metric";
@@ -637,17 +637,11 @@ export default abstract class SqlIntegration
 
   getMetricAnalysisQuery(params: MetricAnalysisParams): string {
     const { metric, settings } = params;
-    // TODO
-    // const { unitDimensions } = this.processDimensions(
-    //   params.settings.dimensions,
-    //   settings,
-    //   activationMetric
-    // );
-
-    // Get any required identity join queries
+  
+    // Get any required identity join queries; only use same id type for now,
+    // so not needed
     const idTypeObjects = [
       getUserIdTypes(metric, params.factTableMap),
-      // population id type
       //...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
       //settings.segment ? [settings.segment.userIdType || "user_id"] : [],
     ];
@@ -656,7 +650,6 @@ export default abstract class SqlIntegration
       settings.startDate,
       settings.endDate ?? undefined,
       settings.userIdType
-      // TODO default id type?
     );
 
     const metricData = this.getMetricData(
@@ -671,12 +664,6 @@ export default abstract class SqlIntegration
       "m0"
     );
 
-    // Get rough date filter for metrics to improve performance
-    // const metricStart = this.getMetricStart(
-    //   settings.startDate,
-    //   this.getMetricMinDelay([params.metric]),
-    //   0
-    // );
 
     // TODO FIX SUM
     const createHistogram = metric.metricType === "mean";
@@ -699,8 +686,10 @@ export default abstract class SqlIntegration
       segment: params.segment,
     });
 
-    const histogram_bin_number = 25;
-    // TODO query is broken if segment has template variables
+    const histogram_bin_number = DEFAULT_METRIC_HISTOGRAM_BINS;
+
+    // TODO check if query broken if segment has template variables
+    // TODO return cap numbers
     return format(
       `-- ${metric.name} Metric Analysis
       WITH
@@ -803,8 +792,8 @@ export default abstract class SqlIntegration
             ${
               createHistogram
                 ? `
-            , MIN(value) as value_min
-            , MAX(value) as value_max
+            , MIN(${finalValueColumn}) as value_min
+            , MAX(${finalValueColumn}) as value_max
             , ${this.ensureFloat("NULL")} AS bin_width
             ${[...Array(histogram_bin_number).keys()]
               .map((i) => `, ${this.ensureFloat("NULL")} AS units_bin_${i}`)
@@ -827,9 +816,9 @@ export default abstract class SqlIntegration
             ${
               createHistogram
                 ? `
-            , MIN(value) as value_min
-            , MAX(value) as value_max
-            , (MAX(value) - MIN(value)) / ${histogram_bin_number}.0 as bin_width
+            , MIN(${finalValueColumn}) as value_min
+            , MAX(${finalValueColumn}) as value_max
+            , (MAX(${finalValueColumn}) - MIN(${finalValueColumn})) / ${histogram_bin_number}.0 as bin_width
             `
                 : ""
             }

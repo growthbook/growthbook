@@ -1,4 +1,4 @@
-import React, { FC, useState } from "react";
+import React, { FC, useMemo, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaQuestionCircle } from "react-icons/fa";
 import {
@@ -159,30 +159,43 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
     metricAnalysis: MetricAnalysisInterface;
   }>(`/metric-analysis/metric/${factMetric.id}`);
 
-  const factTable = getFactTableById(factMetric.numerator.factTableId);
-
+  const metricAnalysis = data?.metricAnalysis;
   // get latest full object or add reset to default?
-  const form = useForm<MetricAnalysisFormFields>({
-    defaultValues: {
-      userIdType: data?.metricAnalysis?.settings?.userIdType ?? "",
-      dimensions: data?.metricAnalysis?.settings?.dimensions ?? [],
-      lookbackSelected: data?.metricAnalysis?.settings
-        ? getLookbackSelected(
-            data?.metricAnalysis?.settings?.lookbackDays ?? 30
-          )
-        : "custom",
-      lookbackDays: data?.metricAnalysis?.settings?.lookbackDays ?? 30,
-      populationType:
-        data?.metricAnalysis?.settings?.populationType ?? "factTable",
-      populationId: data?.metricAnalysis?.settings?.populationId ?? null,
-    },
+  const {
+    reset,
+    watch,
+    setValue,
+    register,
+  } = useForm<MetricAnalysisFormFields>({
+    defaultValues: useMemo(() => {
+      return {
+        userIdType: metricAnalysis?.settings?.userIdType ?? "",
+        dimensions: metricAnalysis?.settings?.dimensions ?? [],
+        lookbackSelected: metricAnalysis?.settings
+          ? getLookbackSelected(metricAnalysis?.settings?.lookbackDays ?? 30)
+          : "custom",
+        lookbackDays: metricAnalysis?.settings?.lookbackDays ?? 30,
+        populationType: metricAnalysis?.settings?.populationType ?? "factTable",
+        populationId: metricAnalysis?.settings?.populationId ?? null,
+      };
+    }, [metricAnalysis]),
   });
 
-  if (form.watch("userIdType") === "" && !!factTable?.userIdTypes?.[0]) {
-    form.setValue("userIdType", factTable.userIdTypes[0]);
-  }
+  // TODO better way to populate form/fields than the following
+  // not working to keep populationTypes
+  useEffect(() => {
+    reset({
+      userIdType: metricAnalysis?.settings?.userIdType ?? "",
+      dimensions: metricAnalysis?.settings?.dimensions ?? [],
+      lookbackSelected: metricAnalysis?.settings
+        ? getLookbackSelected(metricAnalysis?.settings?.lookbackDays ?? 30)
+        : "custom",
+      lookbackDays: metricAnalysis?.settings?.lookbackDays ?? 30,
+      populationType: metricAnalysis?.settings?.populationType ?? "factTable",
+      populationId: metricAnalysis?.settings?.populationId ?? null,
+    });
+  }, [metricAnalysis, reset]);
 
-  const metricAnalysis = data?.metricAnalysis;
   const hasQueries = (metricAnalysis?.queries ?? []).length > 0;
 
   const formatter = getExperimentMetricFormatter(factMetric, getFactTableById);
@@ -229,23 +242,23 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                       },
                     ]}
                     sort={false}
-                    value={form.watch("lookbackSelected")}
+                    value={watch("lookbackSelected")}
                     onChange={(v) => {
-                      form.setValue("lookbackSelected", v);
+                      setValue("lookbackSelected", v);
                       if (v !== "custom") {
-                        form.setValue("lookbackDays", parseInt(v));
+                        setValue("lookbackDays", parseInt(v));
                       }
                     }}
                   />
                 </div>
-                {form.watch("lookbackSelected") === "custom" && (
+                {watch("lookbackSelected") === "custom" && (
                   <div className="col-auto">
                     <Field
                       type="number"
                       min={1}
                       max={999999}
                       append={"days"}
-                      {...form.register("lookbackDays")}
+                      {...register("lookbackDays")}
                     />
                   </div>
                 )}
@@ -254,22 +267,19 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
           </div>
           <div className="col-auto form-inline pr-5">
             <IdentifierChooser
-              value={form.watch("userIdType")}
-              setValue={(v) => form.setValue("userIdType", v)}
+              value={watch("userIdType")}
+              setValue={(v) => setValue("userIdType", v)}
               factTableId={factMetric.numerator.factTableId}
             />
           </div>
           <div className="col-auto form-inline pr-5">
             <PopulationChooser
-              value={form.watch("populationType")}
+              value={watch("populationType")}
               setValue={(v) =>
-                form.setValue(
-                  "populationType",
-                  v as MetricAnalysisPopulationType
-                )
+                setValue("populationType", v as MetricAnalysisPopulationType)
               }
-              setPopulationValue={(v) => form.setValue("populationId", v)}
-              userIdType={form.watch("userIdType")}
+              setPopulationValue={(v) => setValue("populationId", v)}
+              userIdType={watch("userIdType")}
               datasourceId={factMetric.datasource}
             />
           </div>
@@ -295,20 +305,20 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                     const todayMinusLookback = new Date();
                     todayMinusLookback.setDate(
                       todayMinusLookback.getDate() -
-                        (form.watch("lookbackDays") as number)
+                        (watch("lookbackDays") as number)
                     );
-                    console.log(typeof form.watch("lookbackDays"));
+                    console.log(typeof watch("lookbackDays"));
                     const data: CreateMetricAnalysisProps = {
                       id: factMetric.id,
-                      userIdType: form.watch("userIdType"),
+                      userIdType: watch("userIdType"),
                       dimensions: [],
-                      lookbackDays: Number(form.watch("lookbackDays")),
+                      lookbackDays: Number(watch("lookbackDays")),
                       startDate: todayMinusLookback
                         .toISOString()
                         .substring(0, 16),
                       endDate: today.toISOString().substring(0, 16),
-                      populationType: form.watch("populationType"),
-                      populationId: form.watch("populationId") ?? undefined,
+                      populationType: watch("populationType"),
+                      populationId: watch("populationId") ?? undefined,
                     };
                     await apiCall(`/metric-analysis`, {
                       method: "POST",

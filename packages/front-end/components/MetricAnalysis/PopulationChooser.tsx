@@ -31,7 +31,7 @@ export default function PopulationChooser({
   )
     .filter((e) => e.userIdType === userIdType)
     .map((e) => ({
-      label: `Experiment Assignment Table: ${e.name}`,
+      label: `Experiment Units: ${e.name}`,
       value: `experiment_${e.id}`,
     }));
 

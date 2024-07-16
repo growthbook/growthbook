@@ -17,6 +17,8 @@ import {
   ratioVarianceFromSums,
 } from "../util/stats";
 import { QueryRunner, QueryMap } from "./QueryRunner";
+import { returnZeroIfNotFinite } from "shared/util";
+import { DEFAULT_METRIC_HISTOGRAM_BINS } from "shared/constants";
 
 export class MetricAnalysisQueryRunner extends QueryRunner<
   MetricAnalysisInterface,
@@ -147,8 +149,8 @@ export function processMetricAnalysisQueryResponse(
         ret.dates.push({
           date: getValidDateOffsetByUTC(date),
           units,
-          mean,
-          stddev,
+          mean: returnZeroIfNotFinite(mean),
+          stddev: returnZeroIfNotFinite(stddev),
           numerator: main_sum,
           denominator: denominator_sum,
         });
@@ -157,7 +159,7 @@ export function processMetricAnalysisQueryResponse(
     // Overall numbers
     else {
       if (row[`bin_width`]) {
-        const histogram: MetricAnalysisHistogram = [...Array(20).keys()].map(
+        const histogram: MetricAnalysisHistogram = [...Array(DEFAULT_METRIC_HISTOGRAM_BINS).keys()].map(
           (i) => {
             type RowType = keyof typeof row;
             const bin_width = row[`bin_width`] ?? 0;
@@ -175,8 +177,8 @@ export function processMetricAnalysisQueryResponse(
       }
 
       ret.units = units;
-      ret.mean = mean;
-      ret.stddev = stddev;
+      ret.mean = returnZeroIfNotFinite(mean);
+      ret.stddev = returnZeroIfNotFinite(stddev);
       ret.numerator = main_sum;
       ret.denominator = denominator_sum;
     }

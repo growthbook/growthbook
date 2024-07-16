@@ -34,7 +34,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
 
   const [marginTop, marginRight, marginBottom, marginLeft] = margin;
 
-  const width = (containerBounds?.width || 0) + marginRight + marginLeft;
+  const width = (containerBounds?.width || 0) - marginRight - marginLeft;
 
   const xMax = width - marginLeft - marginRight;
   const yMax = height - marginTop - marginBottom;
