@@ -7,6 +7,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import LargeSavedGroupSupportWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
+import SavedGroupNameWithBadge from "@/components/SavedGroups/SavedGroupNameWithBadge";
 
 export interface Props {
   value: SavedGroupTargeting[];
@@ -126,16 +127,8 @@ export default function SavedGroupTargetingField({
                       closeMenuOnSelect={true}
                       formatOptionLabel={({ value, label }) => {
                         const group = getSavedGroupById(value);
-                        return (
-                          <>
-                            {label}
-                            {!group?.passByReferenceOnly && (
-                              <span className="ml-1 badge-muted-info badge">
-                                legacy
-                              </span>
-                            )}
-                          </>
-                        );
+                        if (!group) return label;
+                        return <SavedGroupNameWithBadge savedGroup={group} />;
                       }}
                     />
                   </div>

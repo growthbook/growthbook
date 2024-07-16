@@ -23,6 +23,7 @@ import StringArrayField from "@/components/Forms/StringArrayField";
 import LargeSavedGroupSupportWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
+import SavedGroupNameWithBadge from "@/components/SavedGroups/SavedGroupNameWithBadge";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {
@@ -411,16 +412,8 @@ export default function ConditionInput(props: Props) {
                       options={savedGroupOptions}
                       formatOptionLabel={({ value, label }) => {
                         const group = getSavedGroupById(value);
-                        return (
-                          <>
-                            {label}
-                            {group && !group.passByReferenceOnly && (
-                              <span className="ml-1 badge-muted-info badge">
-                                legacy
-                              </span>
-                            )}
-                          </>
-                        );
+                        if (!group) return label;
+                        return <SavedGroupNameWithBadge savedGroup={group} />;
                       }}
                       value={value}
                       onChange={(v) => {

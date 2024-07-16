@@ -4,7 +4,7 @@ import {
   UpdateSavedGroupProps,
 } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
-import { LEGACY_GROUP_SIZE_LIMIT, validateAndFixCondition } from "shared/util";
+import { SMALL_GROUP_SIZE_LIMIT, validateAndFixCondition } from "shared/util";
 import {
   FaCheckCircle,
   FaExclamationTriangle,
@@ -39,7 +39,7 @@ export const IdListMemberInput: FC<{
   values,
   attributeKey,
   passByReferenceOnly,
-  limit = LEGACY_GROUP_SIZE_LIMIT,
+  limit = SMALL_GROUP_SIZE_LIMIT,
   setValues,
   setPassByReferenceOnly,
   setDisableSubmit,
@@ -138,92 +138,100 @@ export const IdListMemberInput: FC<{
       </div>
       {importMethod === "file" && (
         <>
-          <LargeSavedGroupSupportWarning
-            type="saved_group_creation"
-            supportedConnections={supportedConnections}
-            unsupportedConnections={unsupportedConnections}
-          />
-          <div
-            className="custom-file height:"
-            onClick={(e) => {
-              if (fileName) {
-                e.stopPropagation();
-                e.preventDefault();
-                resetFile();
-              }
-            }}
-          >
-            <input
-              type="file"
-              key={fileName}
-              required={false}
-              className="custom-file-input cursor-pointer"
-              id="savedGroupFileInput"
-              accept=".csv"
-              onChange={(e) => {
-                resetFile();
+          {!passByReferenceOnly && (
+            <LargeSavedGroupSupportWarning
+              type="saved_group_creation"
+              supportedConnections={supportedConnections}
+              unsupportedConnections={unsupportedConnections}
+            />
+          )}
+          {(passByReferenceOnly || supportedConnections.length > 0) && (
+            <>
+              <div
+                className="custom-file height:"
+                onClick={(e) => {
+                  if (fileName) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    resetFile();
+                  }
+                }}
+              >
+                <input
+                  type="file"
+                  key={fileName}
+                  required={false}
+                  className="custom-file-input cursor-pointer"
+                  id="savedGroupFileInput"
+                  accept=".csv"
+                  onChange={(e) => {
+                    resetFile();
 
-                const file: File | undefined = e.target?.files?.[0];
-                if (!file) {
-                  return;
-                }
-                if (!file.name.endsWith(".csv")) {
-                  setFileErrorMessage("Only .csv file types are supported");
-                  return;
-                }
-                if (file.size > 1024 * 1024) {
-                  setFileErrorMessage("File size must be less than 1 MB");
-                  return;
-                }
-
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                  try {
-                    const str = e.target?.result;
-                    if (typeof str !== "string") {
-                      setFileErrorMessage(
-                        "Failed to import file. Please try again"
-                      );
+                    const file: File | undefined = e.target?.files?.[0];
+                    if (!file) {
                       return;
                     }
-                    const newValues = str.replaceAll(/[\n\s]/g, "").split(",");
-                    setFileName(file.name);
-                    setValues(newValues);
-                    setNumValuesToImport(newValues.length);
-                    setNonLegacyImport(true);
-                  } catch (e) {
-                    console.error(e);
-                    return;
-                  }
-                };
-                reader.readAsText(file);
-              }}
-            />
-            <label
-              className={clsx([
-                "custom-file-label",
-                fileName ? "remove-file" : "",
-              ])}
-              htmlFor="savedGroupFileInput"
-              data-browse={fileName ? "Remove" : "Browse"}
-            >
-              {fileName || "Select file..."}
-            </label>
-          </div>
-          {numValuesToImport ? (
-            <>
-              <FaCheckCircle className="text-success-green" />{" "}
-              {`${numValuesToImport} ${attributeKey}s ready to import`}
+                    if (!file.name.endsWith(".csv")) {
+                      setFileErrorMessage("Only .csv file types are supported");
+                      return;
+                    }
+                    if (file.size > 1024 * 1024) {
+                      setFileErrorMessage("File size must be less than 1 MB");
+                      return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                      try {
+                        const str = e.target?.result;
+                        if (typeof str !== "string") {
+                          setFileErrorMessage(
+                            "Failed to import file. Please try again"
+                          );
+                          return;
+                        }
+                        const newValues = str
+                          .replaceAll(/[\n\s]/g, "")
+                          .split(",");
+                        setFileName(file.name);
+                        setValues(newValues);
+                        setNumValuesToImport(newValues.length);
+                        setNonLegacyImport(true);
+                      } catch (e) {
+                        console.error(e);
+                        return;
+                      }
+                    };
+                    reader.readAsText(file);
+                  }}
+                />
+                <label
+                  className={clsx([
+                    "custom-file-label",
+                    fileName ? "remove-file" : "",
+                  ])}
+                  htmlFor="savedGroupFileInput"
+                  data-browse={fileName ? "Remove" : "Browse"}
+                >
+                  {fileName || "Select file..."}
+                </label>
+              </div>
+              {numValuesToImport ? (
+                <>
+                  <FaCheckCircle className="text-success-green" />{" "}
+                  {`${numValuesToImport} ${attributeKey}s ready to import`}
+                </>
+              ) : (
+                <></>
+              )}
+              {fileErrorMessage ? (
+                <p className="text-error-red">
+                  <FaExclamationTriangle /> {fileErrorMessage}
+                </p>
+              ) : (
+                <></>
+              )}
             </>
-          ) : (
-            <></>
-          )}
-          {fileErrorMessage ? (
-            <p className="text-error-red">
-              <FaExclamationTriangle /> {fileErrorMessage}
-            </p>
-          ) : (
-            <></>
           )}
         </>
       )}
@@ -262,6 +270,7 @@ export const IdListMemberInput: FC<{
             />
           )}
           <div className="row justify-content-end">
+            <span className="mr-1">Remaining: {limit - values.length}</span>
             <a
               href="#"
               style={{ fontSize: "0.8em" }}
