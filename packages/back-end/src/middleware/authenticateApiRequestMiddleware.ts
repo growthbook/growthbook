@@ -15,7 +15,7 @@ import {
 import { ApiKeyInterface } from "../../types/apikey";
 import { getTeamsForOrganization } from "../models/TeamModel";
 import { TeamInterface } from "../../types/team";
-import { getUserById } from "../services/users";
+import { getUserById } from "../models/UserModel";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,

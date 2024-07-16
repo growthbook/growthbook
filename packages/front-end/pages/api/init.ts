@@ -107,5 +107,5 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     usingFileProxy: stringToBoolean(USING_FILE_PROXY),
   };
 
-  res.status(200).json(body);
+  res.setHeader("Cache-Control", "max-age=3600").status(200).json(body);
 }

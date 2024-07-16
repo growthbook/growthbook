@@ -179,8 +179,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       phaseIndex: experiment.phases.length - 1,
       defaultAnalysisSettings: analysisSettings,
       additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
-        analysisSettings,
-        experiment
+        analysisSettings
       ),
       settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
       metricMap,
@@ -244,9 +243,7 @@ async function sendSignificanceEmail(
 
   try {
     // get the org confidence level settings:
-    const { ciUpper, ciLower } = await getConfidenceLevelsForOrg(
-      experiment.organization
-    );
+    const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
 
     // check this and the previous snapshot to see if anything changed:
     const experimentChanges: string[] = [];
@@ -304,10 +301,9 @@ async function sendSignificanceEmail(
         experiment.id,
         experiment.organization
       );
-      const userIds = watchers.map((w) => w.userId);
 
       await sendExperimentChangesEmail(
-        userIds,
+        watchers,
         experiment.id,
         experiment.name,
         experimentChanges
