@@ -2,7 +2,11 @@ import React, { FC } from "react";
 import Link from "next/link";
 import { EventWebHookInterface } from "back-end/types/event-webhook";
 import { datetime } from "shared/dates";
-import { useIconForState } from "@/components/EventWebHooks/utils";
+import {
+  webhookIcon,
+  useIconForState,
+  displayedEvents,
+} from "@/components/EventWebHooks/utils";
 
 type EventWebHookListItemProps = {
   href: string;
@@ -10,12 +14,6 @@ type EventWebHookListItemProps = {
 };
 
 const MAX_EVENTS_DISPLAY = 5;
-
-const webhookIcon = {
-  discord: "/images/discord.png",
-  slack: "/images/slack.png",
-  raw: "/images/raw-webhook.png",
-} as const;
 
 export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
   href,
@@ -34,13 +32,6 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
   const iconForState = useIconForState(lastState);
 
   if (!payloadType) return null;
-
-  const displayedEvents = [
-    ...events
-      .slice(0, MAX_EVENTS_DISPLAY)
-      .map((event) => <code key={event}>{event}</code>),
-    ...(events.length > MAX_EVENTS_DISPLAY ? ["..."] : []),
-  ];
 
   return (
     <Link href={href} style={{ textDecoration: "none" }} className="card p-3">
@@ -89,15 +80,9 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
           </div>
           <div className="text-main">
             <b>Events enabled:</b>{" "}
-            {displayedEvents.reduce(
-              (element, text) => (
-                <>
-                  {element ? <>{element}, </> : null}
-                  {text}
-                </>
-              ),
-              null
-            )}
+            {displayedEvents(events, {
+              maxEventsDisplay: MAX_EVENTS_DISPLAY,
+            })}
           </div>
         </div>
       </div>

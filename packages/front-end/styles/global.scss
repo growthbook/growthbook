@@ -1810,6 +1810,14 @@ main.main.report {
   }
 }
 
+.badge-success-light {
+  background-color: var(--win-background);
+}
+
+.badge-danger-light {
+  background-color: var(--lose-background);
+}
+
 .tooltip-experimentDateGraph {
   td.won {
     background-color: var(--win-background);
@@ -3260,4 +3268,9 @@ input:disabled {
 }
 .enterprise-text-color {
   color: var(--text-color-enterprise);
+}
+
+.table-column-fit-width {
+  width: 1px;
+  white-space: nowrap;
 }
