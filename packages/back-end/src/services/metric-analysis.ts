@@ -3,7 +3,6 @@ import { MetricAnalysisSettings } from "@back-end/types/metric-analysis";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { getFactTableMap } from "../models/FactTableModel";
 import { Context } from "../models/BaseModel";
-import { findSegmentById } from "../models/SegmentModel";
 import { SegmentInterface } from "../../types/segment";
 import { getIntegrationFromDatasourceId } from "./datasource";
 
@@ -26,9 +25,8 @@ export async function createMetricAnalysis(
       metricAnalysisSettings.populationType === "segment" &&
       metricAnalysisSettings.populationId
     ) {
-      segment = await findSegmentById(
-        metricAnalysisSettings.populationId,
-        context.org.id
+      segment = await context.models.segments.getById(
+        metricAnalysisSettings.populationId
       );
       if (!segment) {
         throw new Error("Segment not found");
