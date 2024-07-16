@@ -50,7 +50,6 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeRedirectExperiments: Boolean,
   connected: Boolean,
   remoteEvalEnabled: Boolean,
-  savedGroupReferencesEnabled: Boolean,
   key: {
     type: String,
     unique: true,
@@ -170,7 +169,6 @@ export const createSDKConnectionValidator = z
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     remoteEvalEnabled: z.boolean().optional(),
-    savedGroupReferencesEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -244,7 +242,6 @@ export const editSDKConnectionValidator = z
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
     remoteEvalEnabled: z.boolean().optional(),
-    savedGroupReferencesEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -306,7 +303,6 @@ export async function editSDKConnection(
     "includeDraftExperiments",
     "includeExperimentNames",
     "includeRedirectExperiments",
-    "savedGroupReferencesEnabled",
   ] as const;
   keysRequiringProxyUpdate.forEach((key) => {
     if (key in otherChanges && !isEqual(otherChanges[key], connection[key])) {
@@ -519,6 +515,5 @@ export function toApiSDKConnectionInterface(
     proxyHost: connection.proxy.host,
     proxySigningKey: connection.proxy.signingKey,
     remoteEvalEnabled: connection.remoteEvalEnabled,
-    savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
   };
 }

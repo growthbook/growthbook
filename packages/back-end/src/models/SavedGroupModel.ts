@@ -42,7 +42,7 @@ const SavedGroupModel = mongoose.model<LegacySavedGroupInterface>(
 );
 
 interface GetAllSavedGroupsOptions {
-  includeValues?: boolean;
+  includeLargeSavedGroupValues?: boolean;
 }
 
 const toInterface = (doc: SavedGroupDocument): SavedGroupInterface => {
@@ -81,13 +81,24 @@ export async function getAllSavedGroups(
   organization: string,
   options: GetAllSavedGroupsOptions = {}
 ): Promise<SavedGroupInterface[]> {
-  const savedGroups: SavedGroupDocument[] = await SavedGroupModel.find(
-    {
-      organization,
-    },
-    // By default, don't return the values as they are likely to be extremely large
-    options.includeValues ? {} : { values: 0 }
-  );
+  const savedGroups: SavedGroupDocument[] =
+    // Query legacy saved groups separately from large (pass-by-reference-only) groups
+    // and conditionally include the values for the latter
+    (
+      await Promise.all([
+        SavedGroupModel.find({
+          organization,
+          passByReferenceOnly: { $in: [null, false] },
+        }),
+        SavedGroupModel.find(
+          {
+            organization,
+            passByReferenceOnly: true,
+          },
+          options.includeLargeSavedGroupValues ? {} : { values: 0 }
+        ),
+      ])
+    ).flat();
   return savedGroups.map(toInterface);
 }
 

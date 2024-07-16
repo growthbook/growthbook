@@ -67,7 +67,6 @@ export const IdListMemberInput: FC<{
     setNumValuesToImport(null);
     setFileName("");
     setFileErrorMessage("");
-    setPassByReferenceOnly(false);
     setNonLegacyImport(false);
   };
 
@@ -76,10 +75,12 @@ export const IdListMemberInput: FC<{
   useEffect(() => {
     if (values.length > limit) {
       setNonLegacyImport(true);
+      setPassByReferenceOnly(true);
     } else {
       setNonLegacyImport(false);
+      setPassByReferenceOnly(false);
     }
-  }, [values, limit]);
+  }, [values, limit, setPassByReferenceOnly]);
 
   useEffect(() => {
     if (supportedConnections.length > 0) {
@@ -109,7 +110,10 @@ export const IdListMemberInput: FC<{
             checked={importMethod === "file"}
             readOnly={true}
             className="mr-1 radio-button-lg"
-            onChange={() => setImportMethod("file")}
+            onChange={() => {
+              setImportMethod("file");
+              resetFile();
+            }}
           />
           <label className="m-0" htmlFor="importCsv">
             Import CSV
@@ -122,7 +126,10 @@ export const IdListMemberInput: FC<{
             checked={importMethod === "values"}
             readOnly={true}
             className="mr-1 radio-button-lg"
-            onChange={() => setImportMethod("values")}
+            onChange={() => {
+              setImportMethod("values");
+              resetFile();
+            }}
           />
           <label className="m-0" htmlFor="enterValues">
             Manually enter values
@@ -183,7 +190,6 @@ export const IdListMemberInput: FC<{
                     setFileName(file.name);
                     setValues(newValues);
                     setNumValuesToImport(newValues.length);
-                    setPassByReferenceOnly(true);
                     setNonLegacyImport(true);
                   } catch (e) {
                     console.error(e);

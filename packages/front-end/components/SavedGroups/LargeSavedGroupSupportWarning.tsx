@@ -22,10 +22,7 @@ export function useLargeSavedGroupSupport(
   const unsupportedConnections: SDKConnectionInterface[] = [];
 
   (connections || []).forEach((conn) => {
-    if (
-      getConnectionSDKCapabilities(conn).includes("savedGroupReferences") &&
-      conn.savedGroupReferencesEnabled
-    ) {
+    if (getConnectionSDKCapabilities(conn).includes("savedGroupReferences")) {
       supportedConnections.push(conn);
     } else {
       unsupportedConnections.push(conn);

@@ -6,6 +6,7 @@ import { ago } from "shared/dates";
 import { FaExclamationTriangle, FaPlusCircle } from "react-icons/fa";
 import { PiArrowsDownUp } from "react-icons/pi";
 import Link from "next/link";
+import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
 import Pagination from "@/components/Pagination";
@@ -107,7 +108,9 @@ export default function EditSavedGroupPage() {
     }
     return (sdkConnectionData?.connections || []).filter((connection) => {
       return (
-        !connection.savedGroupReferencesEnabled &&
+        !getConnectionSDKCapabilities(connection).includes(
+          "savedGroupReferences"
+        ) &&
         (connection.projects?.length === 0 ||
           connection.projects?.some((project) =>
             projectsReferencingSavedGroup.has(project)
