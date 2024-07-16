@@ -180,12 +180,17 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
       };
     }, [metricAnalysis]),
   });
+  const factTable = getFactTableById(factMetric.numerator.factTableId);
 
   // TODO better way to populate form/fields than the following
-  // not working to keep populationTypes
+  // not working properly ATM
   useEffect(() => {
+    console.log(factTable?.userIdTypes?.[0]);
     reset({
-      userIdType: metricAnalysis?.settings?.userIdType ?? "",
+      userIdType:
+        metricAnalysis?.settings?.userIdType ??
+        factTable?.userIdTypes?.[0] ??
+        "",
       dimensions: metricAnalysis?.settings?.dimensions ?? [],
       lookbackSelected: metricAnalysis?.settings
         ? getLookbackSelected(metricAnalysis?.settings?.lookbackDays ?? 30)
@@ -194,7 +199,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
       populationType: metricAnalysis?.settings?.populationType ?? "factTable",
       populationId: metricAnalysis?.settings?.populationId ?? null,
     });
-  }, [metricAnalysis, reset]);
+  }, [metricAnalysis, reset, factTable]);
 
   const hasQueries = (metricAnalysis?.queries ?? []).length > 0;
 
