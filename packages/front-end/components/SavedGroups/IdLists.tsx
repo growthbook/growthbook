@@ -157,8 +157,8 @@ export default function IdLists({ groups, mutate }: Props) {
                             {s.passByReferenceOnly ? (
                               <></>
                             ) : (
-                              <span className="ml-1 badge-muted-info badge">
-                                legacy
+                              <span className="ml-1 badge-darkgray badge rounder float-right fw-bold">
+                                Legacy
                               </span>
                             )}
                           </Link>

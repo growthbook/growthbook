@@ -50,7 +50,7 @@ export const IdListMemberInput: FC<{
     setRawText(values.join(","));
   }, [values]);
 
-  const [importMethod, setImportMethod] = useState<"file" | "values">("file");
+  const [importMethod, setImportMethod] = useState<"file" | "values">("values");
   const [numValuesToImport, setNumValuesToImport] = useState<number | null>(
     null
   );
@@ -100,10 +100,26 @@ export const IdListMemberInput: FC<{
   return (
     <>
       <label className="form-group font-weight-bold">
-        Choose how to enter IDs for this group:
+        Choose how to enter items for this list:
       </label>
       <div className="row ml-0 mr-0 form-group">
         <div className="cursor-pointer row align-items-center ml-0 mr-5">
+          <input
+            type="radio"
+            id="enterValues"
+            checked={importMethod === "values"}
+            readOnly={true}
+            className="mr-1 radio-button-lg"
+            onChange={() => {
+              setImportMethod("values");
+              resetFile();
+            }}
+          />
+          <label className="m-0" htmlFor="enterValues">
+            Manually enter values (Limit: 100)
+          </label>
+        </div>
+        <div className="cursor-pointer row align-items-center ml-0 mr-0">
           <input
             type="radio"
             id="importCsv"
@@ -119,30 +135,14 @@ export const IdListMemberInput: FC<{
             Import CSV
           </label>
         </div>
-        <div className="cursor-pointer row align-items-center ml-0 mr-0">
-          <input
-            type="radio"
-            id="enterValues"
-            checked={importMethod === "values"}
-            readOnly={true}
-            className="mr-1 radio-button-lg"
-            onChange={() => {
-              setImportMethod("values");
-              resetFile();
-            }}
-          />
-          <label className="m-0" htmlFor="enterValues">
-            Manually enter values
-          </label>
-        </div>
       </div>
-      <LargeSavedGroupSupportWarning
-        type="saved_group_creation"
-        supportedConnections={supportedConnections}
-        unsupportedConnections={unsupportedConnections}
-      />
       {importMethod === "file" && (
         <>
+          <LargeSavedGroupSupportWarning
+            type="saved_group_creation"
+            supportedConnections={supportedConnections}
+            unsupportedConnections={unsupportedConnections}
+          />
           <div
             className="custom-file height:"
             onClick={(e) => {
@@ -229,56 +229,50 @@ export const IdListMemberInput: FC<{
       )}
       {importMethod === "values" && (
         <>
-          {fileName && values.length > LEGACY_GROUP_SIZE_LIMIT ? (
-            <p>
-              There are too many values being imported to edit them directly.
-              Try uploading a new csv instead.
-            </p>
+          {rawTextMode ? (
+            <Field
+              containerClassName="mb-0"
+              label="List Values to Include"
+              labelClassName="font-weight-bold"
+              required
+              textarea
+              value={rawText}
+              placeholder="Use commas to separate values"
+              minRows={1}
+              onChange={(e) => {
+                setValues(
+                  e.target.value
+                    .split(",")
+                    .map((val) => val.trim())
+                    .slice(0, 100)
+                );
+              }}
+            />
           ) : (
-            <>
-              {rawTextMode ? (
-                <Field
-                  containerClassName="mb-0"
-                  label="List Values to Include"
-                  labelClassName="font-weight-bold"
-                  required
-                  textarea
-                  value={rawText}
-                  placeholder="Use commas to separate values"
-                  minRows={1}
-                  onChange={(e) => {
-                    setValues(
-                      e.target.value.split(",").map((val) => val.trim())
-                    );
-                  }}
-                />
-              ) : (
-                <StringArrayField
-                  containerClassName="mb-0"
-                  label="List Values to Include"
-                  labelClassName="font-weight-bold"
-                  value={values}
-                  onChange={(values) => {
-                    setValues(values);
-                  }}
-                  placeholder="Separate values using the 'Enter' key"
-                  delimiters={["Enter", "Tab"]}
-                />
-              )}
-              <div className="row justify-content-end">
-                <a
-                  href="#"
-                  style={{ fontSize: "0.8em" }}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setRawTextMode((prev) => !prev);
-                  }}
-                >
-                  <FaRetweet /> {rawTextMode ? "Token" : "Raw Text"} Mode
-                </a>
-              </div>
-            </>
+            <StringArrayField
+              containerClassName="mb-0"
+              label="List Values to Include"
+              labelClassName="font-weight-bold"
+              value={values}
+              onChange={(values) => {
+                setValues(values.slice(0, 100));
+              }}
+              placeholder="Separate values using the 'Enter' key"
+              delimiters={["Enter", "Tab"]}
+            />
           )}
+          <div className="row justify-content-end">
+            <a
+              href="#"
+              style={{ fontSize: "0.8em" }}
+              onClick={(e) => {
+                e.preventDefault();
+                setRawTextMode((prev) => !prev);
+              }}
+            >
+              <FaRetweet /> {rawTextMode ? "Token" : "Raw Text"} Mode
+            </a>
+          </div>
         </>
       )}
     </>

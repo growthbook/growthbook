@@ -776,6 +776,10 @@ main.main.report {
   .badge {
     margin-bottom: 0;
   }
+
+  &.rounder {
+    border-radius: 999px;
+  }
 }
 
 .badge-red {
@@ -792,6 +796,11 @@ main.main.report {
 }
 .badge-gray {
   @include badge-variant(#f6f7f9);
+  border: 1px solid colors.$gray4;
+}
+.badge-darkgray {
+  background-color: var(--table-row-hover-background-color);
+  color: var(--text-color-muted);
   border: 1px solid colors.$gray4;
 }
 .badge-purple {
