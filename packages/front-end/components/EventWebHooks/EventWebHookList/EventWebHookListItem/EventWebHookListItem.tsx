@@ -13,6 +13,8 @@ type EventWebHookListItemProps = {
   eventWebHook: EventWebHookInterface;
 };
 
+const MAX_EVENTS_DISPLAY = 5;
+
 export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
   href,
   eventWebHook,
@@ -77,7 +79,10 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
             )}
           </div>
           <div className="text-main">
-            <b>Events enabled:</b> {displayedEvents(events)}
+            <b>Events enabled:</b>{" "}
+            {displayedEvents(events, {
+              maxEventsDisplay: MAX_EVENTS_DISPLAY,
+            })}
           </div>
         </div>
       </div>

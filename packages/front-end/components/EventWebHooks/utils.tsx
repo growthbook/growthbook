@@ -157,14 +157,15 @@ export const webhookIcon = {
   raw: "/images/raw-webhook.png",
 } as const;
 
-const MAX_EVENTS_DISPLAY = 5;
-
-export const displayedEvents = (events: string[]) =>
+export const displayedEvents = (
+  events: string[],
+  { maxEventsDisplay }: { maxEventsDisplay?: number } = {}
+) =>
   [
     ...events
-      .slice(0, MAX_EVENTS_DISPLAY)
+      .slice(0, maxEventsDisplay)
       .map((event) => <code key={event}>{event}</code>),
-    ...(events.length > MAX_EVENTS_DISPLAY ? ["..."] : []),
+    ...(maxEventsDisplay && events.length > maxEventsDisplay ? ["..."] : []),
   ].reduce(
     (element, text) => (
       <>
