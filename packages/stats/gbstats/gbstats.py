@@ -3,7 +3,6 @@ import re
 from typing import Any, Dict, Hashable, List, Optional, Set, Union
 
 import pandas as pd
-import numpy as np
 
 from gbstats.bayesian.tests import (
     BayesianTestResult,
@@ -12,7 +11,6 @@ from gbstats.bayesian.tests import (
     GaussianPrior,
     BanditConfig,
     Bandits,
-    BanditWeights,
 )
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -29,6 +27,7 @@ from gbstats.models.results import (
     ExperimentMetricAnalysisResult,
     FrequentistVariationResponse,
     MetricStats,
+    BanditResponse,
 )
 from gbstats.models.settings import (
     AnalysisSettingsForStatsEngine,
@@ -262,6 +261,9 @@ def analyze_metric_df(
             df[f"v{i}_uplift"] = None
             df[f"v{i}_error_message"] = None
 
+    if analysis.bandit and analysis.decision_metric == metric.id:
+        df = get_bandit_weights(df, metric, analysis)
+
     def analyze_row(s: pd.Series) -> pd.Series:
         s = s.copy()
 
@@ -323,28 +325,21 @@ def analyze_metric_df(
 # Convert final experiment results to a structure that can be easily
 # serialized and used to display results in the GrowthBook front-end
 def format_results(
-    df: pd.DataFrame, df_weights: pd.DataFrame, baseline_index: int = 0
+    df: pd.DataFrame, baseline_index: int = 0
 ) -> List[DimensionResponse]:
     num_variations = df.at[0, "variations"]
     results: List[DimensionResponse] = []
-    includes_bandit_weights = df_weights.shape[0] > 0
-    if includes_bandit_weights:
-        df = df.merge(df_weights, on="dimension")
     rows = df.to_dict("records")
     for row in rows:
-        if includes_bandit_weights:
-            weights = row["weights"]
-            update_message = row["update_message"]
+        if "bandit_weights" in row:
+            bandit = BanditResponse(
+                banditWeights=row["bandit_weights"],
+                banditErrorMessage=row["bandit_error_message"],
+            )
         else:
-            weights = np.full((num_variations,), 1 / num_variations).tolist()
-            update_message = "weights did not update"
+            bandit = None
         dim = DimensionResponse(
-            dimension=row["dimension"],
-            srm=row["srm_p"],
-            variations=[],
-            bandit_weights=BanditWeights(
-                update_message=update_message, weights=weights
-            ),
+            dimension=row["dimension"], srm=row["srm_p"], variations=[], bandit=bandit
         )
         baseline_data = format_variation_result(row, 0)
         variation_data = [
@@ -487,7 +482,7 @@ def base_statistic_from_metric_row(
 
 
 # Run a specific analysis given data and configuration settings
-def preprocess_analysis(
+def process_analysis(
     rows: pd.DataFrame,
     var_id_map: VarIdMap,
     metric: MetricSettingsForStatsEngine,
@@ -515,17 +510,7 @@ def preprocess_analysis(
         max=max_dimensions,
         keep_other=metric.statistic_type not in ["quantile_event", "quantile_unit"],
     )
-    return reduced
 
-
-# Run a specific analysis given data and configuration settings
-def process_analysis(
-    rows: pd.DataFrame,
-    var_id_map: VarIdMap,
-    metric: MetricSettingsForStatsEngine,
-    analysis: AnalysisSettingsForStatsEngine,
-) -> pd.DataFrame:
-    reduced = preprocess_analysis(rows, var_id_map, metric, analysis)
     # Run the analysis for each variation and dimension
     result = analyze_metric_df(
         df=reduced,
@@ -572,15 +557,6 @@ def process_single_metric(
                 metric=metric,
                 analysis=a,
             ),
-            # calculate weights only if this is the decision metric
-            get_bandit_weights(
-                rows=pdrows,
-                var_id_map=get_var_id_map(a.var_ids),
-                metric=metric,
-                analysis=a,
-            )
-            if metric.decision_metric
-            else pd.DataFrame(),
             baseline_index=a.baseline_index,
         )
         for a in analyses
@@ -599,41 +575,48 @@ def process_single_metric(
 
 
 def get_bandit_weights(
-    rows: pd.DataFrame,
-    var_id_map: VarIdMap,
+    df: pd.DataFrame,
     metric: MetricSettingsForStatsEngine,
     analysis: AnalysisSettingsForStatsEngine,
 ) -> pd.DataFrame:
-    reduced = preprocess_analysis(rows, var_id_map, metric, analysis)
-    num_variations = reduced.at[0, "variations"]
+
+    num_variations = df.at[0, "variations"]
     bandit_prior = GaussianPrior(mean=0, variance=float(1e4), proper=True)
-    bandit_config = BanditConfig(prior_distribution=bandit_prior, seed=analysis.seed)
+    bandit_config = BanditConfig(
+        prior_distribution=bandit_prior,
+        bandit_weights_seed=analysis.bandit_weights_seed,
+    )
 
     def get_bandit_weights_single(s: pd.Series) -> pd.Series:
-        s_final = pd.Series({"dimension": s["dimension"]})
-        # initialize weights as constant; then just return s if any update checks below fail
-        s_final["update_message"] = "did not update"
-        s_final["weights"] = None
-        s0 = variation_statistic_from_metric_row(
-            row=s, prefix="baseline", metric=metric
-        )
-        if isinstance(s0, BanditStatistic):
-            stats = [s0]
-            for i in range(1, num_variations):
-                s1 = variation_statistic_from_metric_row(
-                    row=s, prefix=f"v{i}", metric=metric
+        s = s.copy()
+        s["bandit_weights"] = None
+        s["bandit_update_message"] = "not a bandit analysis"
+        if analysis.bandit:
+            s["bandit_update_message"] = "not a decision metric"
+            if analysis.decision_metric == metric.id:
+                s0 = variation_statistic_from_metric_row(
+                    row=s, prefix="baseline", metric=metric
                 )
-                # overwrites weights only if test statistics are of correct type
-                if isinstance(s1, BanditStatistic):
-                    stats.append(s1)
-                else:
-                    return s_final
-            w = Bandits(stats, bandit_config).compute_variation_weights()
-            s_final["update_message"] = w.update_message
-            s_final["weights"] = w.weights
-        return s_final
+                if isinstance(s0, BanditStatistic):
+                    stats = [s0]
+                    for i in range(1, num_variations):
+                        s1 = variation_statistic_from_metric_row(
+                            row=s, prefix=f"v{i}", metric=metric
+                        )
+                        # overwrites weights only if test statistics are of correct type
+                        if isinstance(s1, BanditStatistic):
+                            stats.append(s1)
+                        else:
+                            s[
+                                "weight_update_message"
+                            ] = "test statistic is not of type BanditStatistic"
+                            return s
+                    w = Bandits(stats, bandit_config).compute_variation_weights()
+                    s["bandit_update_message"] = w.update_message
+                    s["bandit_weights"] = w.weights
+        return s
 
-    return reduced.apply(get_bandit_weights_single, axis=1)
+    return df.apply(get_bandit_weights_single, axis=1)
 
 
 # Get just the columns for a single metric

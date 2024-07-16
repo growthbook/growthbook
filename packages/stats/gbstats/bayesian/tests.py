@@ -43,7 +43,7 @@ class EffectBayesianConfig(BayesianConfig):
 
 @dataclass
 class BanditConfig(BayesianConfig):
-    seed: int = 1
+    bandit_weights_seed: int = 1
     top_two: bool = True
     prior_distribution: GaussianPrior = field(default_factory=GaussianPrior)
 
@@ -241,7 +241,7 @@ class EffectBayesianABTest(BayesianABTest):
         return [risk_ctrl, risk_trt]
 
 
-class Bandits(object):
+class Bandits:
     def __init__(
         self,
         stats: Sequence[BanditStatistic],
@@ -252,8 +252,8 @@ class Bandits(object):
         self.n_variations = len(stats)
 
     @property
-    def seed(self) -> int:
-        return self.config.seed
+    def bandit_weights_seed(self) -> int:
+        return self.config.bandit_weights_seed
 
     @property
     def variation_means(self) -> np.ndarray:
@@ -315,31 +315,47 @@ class Bandits(object):
             update_message = "some variation counts smaller than " + str(min_n)
             p = None
             return BanditWeights(update_message=update_message, weights=p)
-        rng = np.random.default_rng(seed=self.seed)
+        rng = np.random.default_rng(seed=self.bandit_weights_seed)
         y = rng.multivariate_normal(
             mean=self.posterior_mean,
             cov=np.diag(self.posterior_variance),
             size=self.n_samples,
         )
-        row_maxes = np.max(y, axis=1)
-        p = np.mean((y == row_maxes[:, np.newaxis]), axis=0)
         if self.config.top_two:
-            p = self.top_two_weights(p)
+            p = self.top_two_weights(y)
+        else:
+            row_maxes = np.max(y, axis=1)
+            p = np.mean((y == row_maxes[:, np.newaxis]), axis=0)
         update_message = "successfully updated"
         return BanditWeights(update_message=update_message, weights=p.tolist())
 
     # function that takes weights for largest realization and turns into top two weights
     @staticmethod
-    def top_two_weights(p) -> np.ndarray:
-        # normalize weights to be no smaller than 1e-5
-        p_star = np.array([max(x, 1e-5) for x in p])
-        p_star /= sum(p_star)
-        n_arms = len(p_star)
-        p_mat = np.repeat(np.expand_dims(p_star, axis=1), n_arms, axis=1)
-        p_mat_t = p_mat.T
-        probs = p_mat * p_mat_t / (1 - p_mat) + p_mat_t * p_mat / (1 - p_mat_t)
-        np.fill_diagonal(probs, 0)
-        return 0.5 * np.sum(probs, axis=1)
+    def top_two_weights(y) -> np.ndarray:
+        """Calculates the proportion of times each column contains the largest or second largest element in a row.
+        Args:
+        arr: A 2D NumPy array.
+        Returns:
+        A NumPy array of proportions, one for each column.
+        """
+        # Get indices of sorted elements in each row
+        sorted_indices = np.argsort(y, axis=1)
+        # counts for number of times each variation was the largest
+        unique_0, counts_0 = np.unique(
+            sorted_indices[:, -1][:, np.newaxis], return_counts=True
+        )
+        # counts for number of times each variation was the second largest
+        unique_1, counts_1 = np.unique(
+            sorted_indices[:, -2][:, np.newaxis], return_counts=True
+        )
+        # put inside dicts and loop over count to ensure arms that are never the biggest are included
+        dict_0 = dict(zip(unique_0, counts_0))
+        dict_1 = dict(zip(unique_1, counts_1))
+        n_variations = y.shape[1]
+        final_counts = np.zeros((n_variations,))
+        for i in range(n_variations):
+            final_counts[i] = dict_0.get(i, 0) + dict_1.get(i, 0)
+        return final_counts / sum(final_counts)
 
     # given n_periods x n_variations arrays of counts and means, what is the reward?
     @staticmethod
@@ -357,14 +373,3 @@ class Bandits(object):
         )
         counts_diff = variation_counts - variation_counts_balanced
         return np.sum(counts_diff * variation_means)
-
-    # create config for AB testing from Thompson sampling prior
-    def compute_delta_config(self) -> EffectBayesianConfig:
-        prior_effect = GaussianPrior(
-            mean=0, variance=2 * self.config.prior_distribution.variance, proper=True
-        )
-        return EffectBayesianConfig(
-            prior_effect=prior_effect,
-            prior_type="absolute",
-            difference_type=self.config.difference_type,
-        )

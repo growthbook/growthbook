@@ -23,7 +23,13 @@ class AnalysisSettingsForStatsEngine:
     phase_length_days: float = 1
     alpha: float = 0.05
     max_dimensions: int = 20
-    seed: int = 100
+    decision_metric: str = ""
+    bandit: bool = False
+    bandit_weights_seed: int = 100
+
+    def __post_init__(self):
+        if self.bandit and not self.decision_metric:
+            raise ValueError("Must have decision metric for bandit analysis.")
 
 
 ExperimentMetricQueryResponseRows = List[Dict[str, Union[str, int, float]]]
@@ -50,7 +56,6 @@ class MetricSettingsForStatsEngine:
     denominator_metric_type: Optional[MetricType] = None
     covariate_metric_type: Optional[MetricType] = None
     quantile_value: Optional[float] = None
-    decision_metric: bool = False
 
 
 @dataclass

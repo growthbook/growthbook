@@ -23,8 +23,8 @@ DECIMALS = 9
 round_ = partial(np.round, decimals=DECIMALS)
 
 COUNT_METRIC = MetricSettingsForStatsEngine(
-    id="",
-    name="",
+    id="count_metric",
+    name="count_metric",
     inverse=False,
     statistic_type="mean",
     main_metric_type="count",
@@ -281,6 +281,9 @@ BANDIT_ANALYSIS = AnalysisSettingsForStatsEngine(
     phase_length_days=1,
     alpha=0.05,
     max_dimensions=20,
+    decision_metric="count_metric",
+    bandit=True,
+    bandit_weights_seed=100,
 )
 
 
@@ -765,10 +768,6 @@ class TestFormatResults(TestCase):
     def test_format_results_denominator(self):
         rows = RATIO_STATISTICS_DF
         df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
-        var_id_map = {"zero": 0, "one": 1}
-        metric = COUNT_METRIC
-        analysis = DEFAULT_ANALYSIS
-        df_weights = get_bandit_weights(rows, var_id_map, metric, analysis)
         result = format_results(
             analyze_metric_df(
                 df,
@@ -777,7 +776,6 @@ class TestFormatResults(TestCase):
                     DEFAULT_ANALYSIS, stats_engine="frequentist"
                 ),
             ),
-            df_weights,
             0,
         )
         for res in result:
@@ -786,22 +784,50 @@ class TestFormatResults(TestCase):
 
 
 class TestBandit(TestCase):
-    def test_get_bandit_weights(self):
-        rows = MULTI_DIMENSION_STATISTICS_DF_BANDITS
-        var_id_map = {"zero": 0, "one": 1, "two": 2, "three": 3}
-        metric = COUNT_METRIC
-        analysis = BANDIT_ANALYSIS
-        df_weights = get_bandit_weights(rows, var_id_map, metric, analysis)
-        solution = [
-            0.4323605671615877,
-            0.06777148763876079,
-            0.43065176256061066,
-            0.06921618263904117,
+    def setUp(self):
+        # preprocessing steps
+        self.rows = MULTI_DIMENSION_STATISTICS_DF_BANDITS
+        self.metric = COUNT_METRIC
+        self.analysis = BANDIT_ANALYSIS
+        self.max_dimensions = self.analysis.max_dimensions
+        # If we're doing a daily time series, we need to diff the data
+        if self.analysis.dimension == "pre:datedaily":
+            self.rows = diff_for_daily_time_series(self.rows)
+        # Convert raw SQL result into a dataframe of dimensions
+        self.df = get_metric_df(
+            rows=self.rows,
+            var_id_map={"zero": 0, "one": 1, "two": 2, "three": 3},
+            var_names=self.analysis.var_names,
+        )
+        self.update_messages = [
+            "some variation counts smaller than 100",
+            "successfully updated",
         ]
-        self.assertEqual(
-            df_weights.at[0, "weights"], None
-        )  # should fail because sample size is too small
-        self.assertEqual(df_weights.at[1, "weights"], solution)
+        self.true_weights = [None, [0.39755, 0.10465, 0.397, 0.1008]]
+
+    def test_analyze_metric_df(self):
+        result = analyze_metric_df(
+            self.df,
+            metric=COUNT_METRIC,
+            analysis=BANDIT_ANALYSIS,
+        )
+        self.assertEqual(result["bandit_update_message"][0], self.update_messages[0])
+        self.assertEqual(result["bandit_update_message"][1], self.update_messages[1])
+        self.assertEqual(result["bandit_weights"][0], self.true_weights[0])
+        self.assertEqual(result["bandit_weights"][1], self.true_weights[1])
+
+    def test_get_bandit_weights(self):
+        reduced = reduce_dimensionality(
+            df=self.df,
+            max=self.max_dimensions,
+            keep_other=self.metric.statistic_type
+            not in ["quantile_event", "quantile_unit"],
+        )
+        result = get_bandit_weights(reduced, self.metric, self.analysis)
+        self.assertEqual(result["bandit_update_message"][0], self.update_messages[0])
+        self.assertEqual(result["bandit_update_message"][1], self.update_messages[1])
+        self.assertEqual(result["bandit_weights"][0], self.true_weights[0])
+        self.assertEqual(result["bandit_weights"][1], self.true_weights[1])
 
 
 if __name__ == "__main__":
