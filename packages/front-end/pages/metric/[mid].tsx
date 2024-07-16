@@ -69,6 +69,7 @@ import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
+import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -83,8 +84,14 @@ const MetricPage: FC = () => {
     getMetricById,
     metrics,
     segments,
+    getProjectById,
+    project,
   } = useDefinitions();
   const settings = useOrgSettings();
+  const { name, organization } = useUser();
+
+  const { metricPageMarkdown: customMarkdown } = settings;
+
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
   const [editing, setEditing] = useState(false);
   const [editTags, setEditTags] = useState(false);
@@ -107,12 +114,17 @@ const MetricPage: FC = () => {
     setHoverDate(ret.d);
   };
 
-  const { organization } = useUser();
-
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
     experiments: Partial<ExperimentInterfaceStringDates>[];
   }>(`/metric/${mid}`);
+
+  const variables = {
+    project: getProjectById(project)?.name || "",
+    user: name,
+    orgName: organization.name,
+    metricName: data?.metric.name || "",
+  };
 
   const {
     metricDefaults,
@@ -477,6 +489,13 @@ const MetricPage: FC = () => {
             </a>
           )}
         </div>
+      </div>
+
+      <div className="mt-3">
+        <CustomMarkdown
+          markdown={customMarkdown}
+          handlebarsVariables={variables}
+        />
       </div>
 
       <div className="row">

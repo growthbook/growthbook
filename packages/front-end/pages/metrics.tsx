@@ -30,7 +30,7 @@ import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Markdown from "@/components/Markdown/Markdown";
+import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 interface MetricTableItem {
   id: string;
   managedBy: "" | "api" | "config";
@@ -64,10 +64,11 @@ const MetricsPage = (): React.ReactElement => {
     factMetrics,
     project,
     ready,
+    getProjectById,
   } = useDefinitions();
   const router = useRouter();
 
-  const { getUserDisplay } = useUser();
+  const { getUserDisplay, name, organization } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
@@ -76,6 +77,12 @@ const MetricsPage = (): React.ReactElement => {
 
   const settings = useOrgSettings();
   const { metricListMarkdown: customMarkdown } = settings;
+
+  const variables = {
+    project: getProjectById(project)?.name || "",
+    user: name,
+    orgName: organization.name,
+  };
 
   const [showArchived, setShowArchived] = useState(false);
   const [recentlyArchived, setRecentlyArchived] = useState<Set<string>>(
@@ -336,14 +343,12 @@ const MetricsPage = (): React.ReactElement => {
             </div>
           )}
       </div>
-      {customMarkdown && (
-        <Markdown
-          className="mb-3 p-2 rounded-lg"
-          style={{ backgroundColor: "var(--surface-background-color)" }}
-        >
-          {customMarkdown}
-        </Markdown>
-      )}
+      <div className="mt-3">
+        <CustomMarkdown
+          markdown={customMarkdown}
+          handlebarsVariables={variables}
+        />
+      </div>
       <div className="row mb-2 align-items-center">
         <div className="col-lg-3 col-md-4 col-6">
           <Field placeholder="Search..." type="search" {...searchInputProps} />

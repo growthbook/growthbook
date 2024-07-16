@@ -46,7 +46,7 @@ import Tabs from "@/components/Tabs/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Markdown from "@/components/Markdown/Markdown";
+import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
@@ -79,6 +79,7 @@ export default function FeaturesPage() {
     error,
     mutate,
   } = useFeaturesList();
+  const { name, organization } = useUser();
 
   const { usage, usageDomain } = useRealtimeData(
     allFeatures,
@@ -88,6 +89,12 @@ export default function FeaturesPage() {
 
   const settings = useOrgSettings();
   const { featureListMarkdown: customMarkdown } = settings;
+
+  const variables = {
+    project: getProjectById(project)?.name || "",
+    user: name,
+    orgName: organization.name,
+  };
 
   const staleFeatures = useMemo(() => {
     const staleFeatures: Record<
@@ -603,14 +610,12 @@ export default function FeaturesPage() {
         GrowthBook UI. For example, turn on/off a sales banner or change the
         title of your pricing page.{" "}
       </p>
-      {customMarkdown && (
-        <Markdown
-          className="mb-3 p-2 rounded-lg"
-          style={{ backgroundColor: "var(--surface-background-color)" }}
-        >
-          {customMarkdown}
-        </Markdown>
-      )}
+      <div className="mt-3">
+        <CustomMarkdown
+          markdown={customMarkdown}
+          handlebarsVariables={variables}
+        />
+      </div>
       {!hasFeatures ? (
         <>
           <div
