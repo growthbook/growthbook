@@ -31,10 +31,9 @@ import {
   AutoMetricToCreate,
   AutoMetricTrackedEvent,
 } from "../types/Integration";
-import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
+import { LegacyMetricAnalysisQueryRunner } from "../queryRunners/LegacyMetricAnalysisQueryRunner";
 import { getUserById } from "../models/UserModel";
 import { AuditUserLoggedIn } from "../../types/audit";
-import { LegacyMetricAnalysisQueryRunner } from "@back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 
 /**
  * Fields on a metric that we allow users to update. Excluded fields are
