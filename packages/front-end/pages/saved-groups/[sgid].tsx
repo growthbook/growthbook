@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/router";
-import { getMatchingRules, LEGACY_GROUP_SIZE_LIMIT } from "shared/util";
+import { getMatchingRules, SMALL_GROUP_SIZE_LIMIT } from "shared/util";
 import { SavedGroupInterface } from "shared/src/types";
 import { ago } from "shared/dates";
 import { FaExclamationTriangle, FaPlusCircle } from "react-icons/fa";
@@ -174,7 +174,7 @@ export default function EditSavedGroupPage() {
             values={membersToAdd}
             attributeKey={savedGroup.attributeKey || "ID"}
             passByReferenceOnly={savedGroup.passByReferenceOnly || false}
-            limit={LEGACY_GROUP_SIZE_LIMIT - values.length}
+            limit={SMALL_GROUP_SIZE_LIMIT - values.length}
             setValues={(newValues) => setMembersToAdd(newValues)}
             setPassByReferenceOnly={setPassByReferenceOnly}
             setDisableSubmit={setDisableSubmit}
@@ -184,7 +184,7 @@ export default function EditSavedGroupPage() {
               <FaExclamationTriangle /> This saved group is being used in SDK
               connections which do not support Large Saved Groups. Update the
               following connections and enable Large Saved Groups or keep the
-              number of items in the list below {LEGACY_GROUP_SIZE_LIMIT}
+              number of items in the list below {SMALL_GROUP_SIZE_LIMIT}
               <ul>
                 {referencingUnsupportedSdkConnections.map((conn) => (
                   <Link

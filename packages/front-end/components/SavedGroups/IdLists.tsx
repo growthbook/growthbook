@@ -16,6 +16,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import SavedGroupForm from "./SavedGroupForm";
+import SavedGroupNameWithBadge from "./SavedGroupNameWithBadge";
 
 export interface Props {
   groups: SavedGroupInterface[];
@@ -153,14 +154,7 @@ export default function IdLists({ groups, mutate }: Props) {
                             key={s.id}
                             href={`/saved-groups/${s.id}`}
                           >
-                            {s.groupName}
-                            {s.passByReferenceOnly ? (
-                              <></>
-                            ) : (
-                              <span className="ml-1 badge-darkgray badge rounder float-right fw-bold">
-                                Legacy
-                              </span>
-                            )}
+                            <SavedGroupNameWithBadge savedGroup={s} />
                           </Link>
                         </td>
                         <td>{s.attributeKey}</td>
