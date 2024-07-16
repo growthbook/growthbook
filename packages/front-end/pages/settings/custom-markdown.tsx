@@ -6,8 +6,25 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
 import TempMessage from "@/components/TempMessage";
-import Button from "@/components/Button";
 import { useAuth } from "@/services/auth";
+import Modal from "@/components/Modal";
+
+const SaveMessage = ({ showMessage, close }) => {
+  return (
+    <div className="flex-grow-1 mr-4">
+      {showMessage && (
+        <TempMessage
+          className="mb-0 py-2"
+          close={() => {
+            close();
+          }}
+        >
+          Settings saved
+        </TempMessage>
+      )}
+    </div>
+  );
+};
 
 const CustomMarkdown: React.FC = () => {
   const { refreshOrganization, settings } = useUser();
@@ -65,80 +82,50 @@ const CustomMarkdown: React.FC = () => {
         Custom markdown allows you to provide organization-specific guidance and
         documentation to your team on key pages within GrowthBook.
       </p>
-      <div className={"form-group"}>
-        <div className="my-3">
-          <div className="appbox p-3">
-            <h3 className="mb-3">Features List</h3>
-            <MarkdownInput
-              value={form.watch("featureListMarkdown") || ""}
-              setValue={(value) => form.setValue("featureListMarkdown", value)}
-            />
-            <h3 className="my-3">Feature Page</h3>
-            <MarkdownInput
-              value={form.watch("featurePageMarkdown") || ""}
-              setValue={(value) => form.setValue("featurePageMarkdown", value)}
-            />
-            <hr />
-            <h3 className="mb-3">Experiments List</h3>
-            <MarkdownInput
-              value={form.watch("experimentListMarkdown") || ""}
-              setValue={(value) =>
-                form.setValue("experimentListMarkdown", value)
-              }
-            />
-            <h3 className="my-3">Experiment Page</h3>
-            <MarkdownInput
-              value={form.watch("experimentPageMarkdown") || ""}
-              setValue={(value) =>
-                form.setValue("experimentPageMarkdown", value)
-              }
-            />
-            <hr />
-            <h3 className="mb-3">Metrics List</h3>
-            <MarkdownInput
-              value={form.watch("metricListMarkdown") || ""}
-              setValue={(value) => form.setValue("metricListMarkdown", value)}
-            />
-            <h3 className="my-3">Metric Page</h3>
-            <MarkdownInput
-              value={form.watch("metricPageMarkdown") || ""}
-              setValue={(value) => form.setValue("metricPageMarkdown", value)}
-            />
-          </div>
-        </div>
-      </div>
-      <div
-        className="bg-main-color position-sticky w-100 py-3 border-top"
-        style={{ bottom: 0, height: 70 }}
+      <Modal
+        cta={"Save"}
+        header={false}
+        open
+        inline
+        submit={async () => await saveSettings()}
+        autoCloseOnSubmit={false}
+        secondaryCTA={
+          <SaveMessage showMessage={saveMsg} close={() => setSaveMsg(false)} />
+        }
       >
-        <div className="container-fluid pagecontents d-flex">
-          <div className="flex-grow-1 mr-4">
-            {saveMsg && (
-              <TempMessage
-                className="mb-0 py-2"
-                close={() => {
-                  setSaveMsg(false);
-                }}
-              >
-                Settings saved
-              </TempMessage>
-            )}
-          </div>
-          <div>
-            <Button
-              style={{ marginRight: "4rem" }}
-              color={"primary"}
-              //   disabled={!ctaEnabled}
-              onClick={async () => {
-                // if (!ctaEnabled) return;
-                await saveSettings();
-              }}
-            >
-              Save
-            </Button>
-          </div>
-        </div>
-      </div>
+        <h3 className="mb-3">Features List</h3>
+        <MarkdownInput
+          value={form.watch("featureListMarkdown") || ""}
+          setValue={(value) => form.setValue("featureListMarkdown", value)}
+        />
+        <h3 className="my-3">Feature Page</h3>
+        <MarkdownInput
+          value={form.watch("featurePageMarkdown") || ""}
+          setValue={(value) => form.setValue("featurePageMarkdown", value)}
+        />
+        <hr />
+        <h3 className="mb-3">Experiments List</h3>
+        <MarkdownInput
+          value={form.watch("experimentListMarkdown") || ""}
+          setValue={(value) => form.setValue("experimentListMarkdown", value)}
+        />
+        <h3 className="my-3">Experiment Page</h3>
+        <MarkdownInput
+          value={form.watch("experimentPageMarkdown") || ""}
+          setValue={(value) => form.setValue("experimentPageMarkdown", value)}
+        />
+        <hr />
+        <h3 className="mb-3">Metrics List</h3>
+        <MarkdownInput
+          value={form.watch("metricListMarkdown") || ""}
+          setValue={(value) => form.setValue("metricListMarkdown", value)}
+        />
+        <h3 className="my-3">Metric Page</h3>
+        <MarkdownInput
+          value={form.watch("metricPageMarkdown") || ""}
+          setValue={(value) => form.setValue("metricPageMarkdown", value)}
+        />
+      </Modal>
     </div>
   );
 };
