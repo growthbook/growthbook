@@ -21,7 +21,7 @@ function getSavedGroupCondition(
   groupId: string,
   groupMap: GroupMap,
   include: boolean,
-  savedGroupReferencesEnabled?: boolean
+  savedGroupReferencesSupported?: boolean
 ): null | ConditionInterface {
   const group = groupMap.get(groupId);
   if (!group) return null;
@@ -37,7 +37,7 @@ function getSavedGroupCondition(
   }
 
   if (!group.attributeKey) return null;
-  if (!savedGroupReferencesEnabled) {
+  if (!savedGroupReferencesSupported) {
     return {
       [group.attributeKey]: {
         // This explicitly filters non-legacy (passByReferenceOnly) saved groups from being sent with unsupported sdk connections
@@ -57,7 +57,7 @@ export function getParsedCondition(
   groupMap: GroupMap,
   condition?: string,
   savedGroups?: SavedGroupTargeting[],
-  savedGroupReferencesEnabled?: boolean
+  savedGroupReferencesSupported?: boolean
 ) {
   const conditions: ConditionInterface[] = [];
   if (condition && condition !== "{}") {
@@ -91,7 +91,7 @@ export function getParsedCondition(
             groupId,
             groupMap,
             true,
-            savedGroupReferencesEnabled
+            savedGroupReferencesSupported
           );
           if (cond) conditions.push(cond);
         });
@@ -104,7 +104,7 @@ export function getParsedCondition(
             groupId,
             groupMap,
             true,
-            savedGroupReferencesEnabled
+            savedGroupReferencesSupported
           );
           if (cond) ors.push(cond);
         });
@@ -125,7 +125,7 @@ export function getParsedCondition(
             groupId,
             groupMap,
             false,
-            savedGroupReferencesEnabled
+            savedGroupReferencesSupported
           );
           if (cond) conditions.push(cond);
         });
@@ -338,7 +338,7 @@ export function getFeatureDefinition({
   experimentMap,
   revision,
   returnRuleId = false,
-  savedGroupReferencesEnabled,
+  savedGroupReferencesSupported,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -346,7 +346,7 @@ export function getFeatureDefinition({
   experimentMap: Map<string, ExperimentInterface>;
   revision?: FeatureRevisionInterface;
   returnRuleId?: boolean;
-  savedGroupReferencesEnabled?: boolean;
+  savedGroupReferencesSupported?: boolean;
 }): FeatureDefinitionWithProject | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -370,7 +370,7 @@ export function getFeatureDefinition({
         groupMap,
         p.condition,
         undefined,
-        savedGroupReferencesEnabled
+        savedGroupReferencesSupported
       );
       if (!condition) return null;
       return {
@@ -414,7 +414,7 @@ export function getFeatureDefinition({
             groupMap,
             phase.condition,
             phase.savedGroups,
-            savedGroupReferencesEnabled
+            savedGroupReferencesSupported
           );
           if (condition) {
             rule.condition = condition;
@@ -493,7 +493,7 @@ export function getFeatureDefinition({
           groupMap,
           r.condition,
           r.savedGroups,
-          savedGroupReferencesEnabled
+          savedGroupReferencesSupported
         );
         if (condition) {
           rule.condition = condition;
@@ -505,7 +505,7 @@ export function getFeatureDefinition({
               groupMap,
               p.condition,
               undefined,
-              savedGroupReferencesEnabled
+              savedGroupReferencesSupported
             );
             if (!condition) return null;
             return {

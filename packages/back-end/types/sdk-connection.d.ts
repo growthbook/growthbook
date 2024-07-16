@@ -25,7 +25,6 @@ export type EditSDKConnectionParams = {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   remoteEvalEnabled?: boolean;
-  savedGroupReferencesEnabled?: boolean;
 };
 export type CreateSDKConnectionParams = {
   organization: string;
@@ -43,7 +42,6 @@ export type CreateSDKConnectionParams = {
   includeExperimentNames: boolean;
   includeRedirectExperiments: boolean;
   remoteEvalEnabled?: boolean;
-  savedGroupReferencesEnabled?: boolean;
 };
 
 import { sdkLanguages } from "../src/util/constants";
@@ -81,8 +79,6 @@ export interface SDKConnectionInterface {
   proxy: ProxyConnection;
 
   remoteEvalEnabled?: boolean;
-
-  savedGroupReferencesEnabled?: boolean;
 }
 
 export interface ProxyTestResult {

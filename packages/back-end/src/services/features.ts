@@ -98,14 +98,14 @@ export function generateFeaturesPayload({
   environment,
   groupMap,
   prereqStateCache = {},
-  savedGroupReferencesEnabled,
+  savedGroupReferencesSupported,
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
   environment: string;
   groupMap: GroupMap;
   prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
-  savedGroupReferencesEnabled?: boolean;
+  savedGroupReferencesSupported?: boolean;
 }): Record<string, FeatureDefinition> {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
@@ -121,7 +121,7 @@ export function generateFeaturesPayload({
       environment,
       groupMap,
       experimentMap,
-      savedGroupReferencesEnabled,
+      savedGroupReferencesSupported,
     });
     if (def) {
       defs[feature.id] = def;
@@ -149,7 +149,7 @@ export function generateAutoExperimentsPayload({
   features,
   environment,
   prereqStateCache = {},
-  savedGroupReferencesEnabled,
+  savedGroupReferencesSupported,
 }: {
   visualExperiments: VisualExperiment[];
   urlRedirectExperiments: URLRedirectExperiment[];
@@ -157,7 +157,7 @@ export function generateAutoExperimentsPayload({
   features: FeatureInterface[];
   environment: string;
   prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
-  savedGroupReferencesEnabled?: boolean;
+  savedGroupReferencesSupported?: boolean;
 }): AutoExperimentWithProject[] {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
@@ -202,7 +202,7 @@ export function generateAutoExperimentsPayload({
         groupMap,
         phase?.condition,
         phase?.savedGroups,
-        savedGroupReferencesEnabled
+        savedGroupReferencesSupported
       );
 
       const prerequisites = (phase?.prerequisites ?? [])
@@ -211,7 +211,7 @@ export function generateAutoExperimentsPayload({
             groupMap,
             p.condition,
             undefined,
-            savedGroupReferencesEnabled
+            savedGroupReferencesSupported
           );
           if (!condition) return null;
           return {
@@ -321,7 +321,9 @@ export async function getSavedGroupMap(
   // Get "SavedGroups" for an organization and build a map of the SavedGroup's Id to the actual array of IDs, respecting the type.
   const allGroups =
     typeof savedGroups === "undefined"
-      ? await getAllSavedGroups(organization.id, { includeValues: true })
+      ? await getAllSavedGroups(organization.id, {
+          includeLargeSavedGroupValues: true,
+        })
       : savedGroups;
 
   function getGroupValues(
@@ -390,7 +392,7 @@ export async function refreshSDKPayloadCache(
   allFeatures: FeatureInterface[] | null = null,
   experimentMap?: Map<string, ExperimentInterface>,
   skipRefreshForProject?: string,
-  savedGroupReferencesEnabled?: boolean
+  savedGroupReferencesSupported?: boolean
 ) {
   // This is a background job, so switch to using a background context
   // This is required so that we have full read access to the entire org's data
@@ -449,7 +451,7 @@ export async function refreshSDKPayloadCache(
       groupMap,
       experimentMap,
       prereqStateCache,
-      savedGroupReferencesEnabled,
+      savedGroupReferencesSupported,
     });
 
     const experimentsDefinitions = generateAutoExperimentsPayload({
@@ -459,7 +461,7 @@ export async function refreshSDKPayloadCache(
       features: allFeatures,
       environment,
       prereqStateCache,
-      savedGroupReferencesEnabled,
+      savedGroupReferencesSupported,
     });
 
     const savedGroupsInUse = Object.keys(
@@ -665,7 +667,7 @@ export type FeatureDefinitionArgs = {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   hashSecureAttributes?: boolean;
-  savedGroupReferencesEnabled?: boolean;
+  savedGroupReferencesSupported?: boolean;
 };
 
 export type FeatureDefinitionSDKPayload = {
@@ -689,7 +691,7 @@ export async function getFeatureDefinitions({
   includeExperimentNames,
   includeRedirectExperiments,
   hashSecureAttributes,
-  savedGroupReferencesEnabled,
+  savedGroupReferencesSupported,
 }: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
   // Return cached payload from Mongo if exists
   try {
@@ -762,7 +764,7 @@ export async function getFeatureDefinitions({
   }
   let savedGroupAttributeKeys: Record<string, string> | undefined = undefined;
   const savedGroups = await getAllSavedGroups(context.org.id, {
-    includeValues: true,
+    includeLargeSavedGroupValues: true,
   });
 
   if (
@@ -795,7 +797,7 @@ export async function getFeatureDefinitions({
     groupMap,
     experimentMap,
     prereqStateCache,
-    savedGroupReferencesEnabled,
+    savedGroupReferencesSupported,
   });
 
   const allVisualExperiments = await getAllVisualExperiments(
@@ -815,7 +817,7 @@ export async function getFeatureDefinitions({
     features,
     environment,
     prereqStateCache,
-    savedGroupReferencesEnabled,
+    savedGroupReferencesSupported,
   });
 
   const savedGroupsInUse = filterUsedSavedGroups(
@@ -911,7 +913,7 @@ export function evaluateFeature({
         environment: env.id,
         revision,
         returnRuleId: true,
-        savedGroupReferencesEnabled: true,
+        savedGroupReferencesSupported: true,
       });
       if (definition) {
         // Prerequisite scrubbing:
@@ -1074,6 +1076,7 @@ export function getApiFeatureObj({
   experimentMap,
   revision,
   savedGroupReferencesEnabled,
+  savedGroupReferencesSupported,
 }: {
   feature: FeatureInterface;
   organization: OrganizationInterface;
@@ -1081,6 +1084,7 @@ export function getApiFeatureObj({
   experimentMap: Map<string, ExperimentInterface>;
   revision: FeatureRevisionInterface | null;
   savedGroupReferencesEnabled?: boolean;
+  savedGroupReferencesSupported?: boolean;
 }): ApiFeature {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
@@ -1106,7 +1110,7 @@ export function getApiFeatureObj({
       groupMap,
       experimentMap,
       environment: env,
-      savedGroupReferencesEnabled,
+      savedGroupReferencesSupported,
     });
 
     featureEnvironments[env] = {

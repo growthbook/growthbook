@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { BsLightningFill } from "react-icons/bs";
 import { RxDesktop } from "react-icons/rx";
-import { PiListPlus, PiShuffle } from "react-icons/pi";
+import { PiShuffle } from "react-icons/pi";
 import {
   filterProjectsByEnvironment,
   getDisallowedProjects,
@@ -247,17 +247,6 @@ export default function SDKConnectionsList() {
                         }
                       >
                         <PiShuffle className="mx-1 text-blue" />
-                      </Tooltip>
-                    )}
-                    {connection.savedGroupReferencesEnabled && (
-                      <Tooltip
-                        body={
-                          <>
-                            <strong>Large Saved Groups</strong> are enabled
-                          </>
-                        }
-                      >
-                        <PiListPlus className="mx-1 text-blue" />
                       </Tooltip>
                     )}
                   </td>

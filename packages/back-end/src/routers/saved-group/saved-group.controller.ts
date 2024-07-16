@@ -27,7 +27,7 @@ import { savedGroupUpdated } from "../../services/savedGroups";
 // region GET /saved-groups
 type ListSavedGroupsRequest = AuthRequest<
   Record<string, never>,
-  { includeValues: boolean }
+  { includeLargeSavedGroupValues: boolean }
 >;
 
 type ListSavedGroupsResponse = {
@@ -47,13 +47,15 @@ export const getSavedGroups = async (
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { includeValues } = req.params;
+  const { includeLargeSavedGroupValues } = req.params;
 
   if (!context.permissions.canCreateSavedGroup()) {
     context.permissions.throwPermissionError();
   }
 
-  const savedGroups = await getAllSavedGroups(org.id, { includeValues });
+  const savedGroups = await getAllSavedGroups(org.id, {
+    includeLargeSavedGroupValues,
+  });
 
   return res.status(200).json({
     status: 200,

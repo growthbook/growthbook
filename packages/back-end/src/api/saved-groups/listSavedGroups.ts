@@ -11,7 +11,7 @@ export const listSavedGroups = createApiRequestHandler(
 )(
   async (req): Promise<ListSavedGroupsResponse> => {
     const savedGroups = await getAllSavedGroups(req.organization.id, {
-      includeValues: false,
+      includeLargeSavedGroupValues: false,
     });
 
     // TODO: Move sorting/limiting to the database query for better performance

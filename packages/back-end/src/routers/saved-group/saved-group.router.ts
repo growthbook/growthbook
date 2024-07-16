@@ -15,7 +15,9 @@ const savedGroupController = wrapController(rawSavedGroupController);
 router.get(
   "/",
   validateRequestMiddleware({
-    params: z.object({ includeValues: z.boolean().optional() }).strict(),
+    params: z
+      .object({ includeLargeSavedGroupValues: z.boolean().optional() })
+      .strict(),
   }),
   savedGroupController.getSavedGroups
 );
