@@ -15,7 +15,6 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { GBEdit } from "@/components/Icons";
@@ -25,19 +24,20 @@ import {
 } from "@/components/CustomFields/SortableCustomField";
 import CustomFieldModal from "@/components/CustomFields/CustomFieldModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const CustomFields: FC<{
   section: CustomFieldSection;
   title: string;
 }> = ({ section, title }) => {
   const [modalOpen, setModalOpen] = useState<Partial<CustomField> | null>(null);
-  const permissions = usePermissions();
   const { customFields, mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState();
   const [items, setItems] = useState(
     customFields?.filter((x) => x.section === section)
   );
+  const permissionsUtils = usePermissionsUtil();
 
   useEffect(() => {
     setItems(customFields?.filter((x) => x.section === section));
@@ -108,7 +108,7 @@ const CustomFields: FC<{
             <p className="text-gray"></p>
           </div>
           <div style={{ flex: 1 }} />
-          {permissions.manageCustomFields && (
+          {permissionsUtils.canManageCustomFields() && (
             <div className="col-auto">
               <button
                 className="btn btn-primary float-right"
