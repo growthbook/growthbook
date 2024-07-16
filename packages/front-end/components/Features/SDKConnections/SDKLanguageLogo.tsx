@@ -312,12 +312,10 @@ export default function SDKLanguageLogo({
         className="m-0"
         title={titlePrefix + label}
       />
-      {showLabel && (
-        <span className="ml-1">
-          {label}
-          {versionText}
-        </span>
-      )}
+      <span className="ml-1">
+        {showLabel && label}
+        {versionText}
+      </span>
       {!hideExtra ? extra : null}
     </span>
   );
