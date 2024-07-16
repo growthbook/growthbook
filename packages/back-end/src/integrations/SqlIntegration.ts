@@ -1933,7 +1933,7 @@ export default abstract class SqlIntegration
             : ""
         }
       )
-      , __factTable as (${this.getFactTableCTE({
+      , __factTable as (${this.getFactMetricCTE({
         baseIdType,
         idJoinMap,
         metrics,
@@ -3487,7 +3487,7 @@ export default abstract class SqlIntegration
     return filterValues;
   }
   // Get a Fact Table CTE for multiple fact metrics that all share the same fact table
-  private getFactTableCTE({
+  private getFactMetricCTE({
     metrics,
     factTableMap,
     baseIdType,
@@ -3613,8 +3613,8 @@ export default abstract class SqlIntegration
     );
   }
 
-  //MKTODO: Explore how can I refactor getFactTableCTE to work for metrics or fact segments
-  private getFactTableCTEForSegments({
+  // Get a Fact Table CTE for segments based on fact tables
+  private getFactSegmentCTE({
     factTable,
     baseIdType,
     idJoinMap,
@@ -3860,7 +3860,7 @@ export default abstract class SqlIntegration
         throw new Error("Unknown fact table");
       }
 
-      segmentSql = this.getFactTableCTEForSegments({
+      segmentSql = this.getFactSegmentCTE({
         baseIdType,
         idJoinMap,
         factTable,
