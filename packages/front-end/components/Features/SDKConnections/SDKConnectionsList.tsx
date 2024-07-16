@@ -257,6 +257,11 @@ export default function SDKConnectionsList() {
                           <SDKLanguageLogo
                             language={language}
                             hideExtra={true}
+                            version={
+                              connection.languages?.length === 1
+                                ? connection.sdkVersion
+                                : undefined
+                            }
                           />
                         </span>
                       ))}
