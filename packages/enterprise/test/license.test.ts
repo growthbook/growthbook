@@ -31,7 +31,10 @@ describe("src/license", () => {
     eventTrackers: ["rudderstack"],
     isCloud: false,
   };
+  const getUserCodesForOrg = () => Promise.resolve(userLicenseCodes);
+  const getLicenseMetaData = () => Promise.resolve(metaData);
   const licenseKey = "license_19exntswvlosvp1d6";
+  const org = { id: "org_id", licenseKey };
   const licenseData = {
     id: "license_19exntswvlosvp1d6",
     companyName: "Acme",
@@ -119,7 +122,45 @@ describe("src/license", () => {
     const org = { id: "org_id", licenseKey };
 
     describe("when there is no license", () => {
-      it("should not have an error if there is no license", () => {
+      it("should throw an error if SSO is enabled and IS_CLOUD is false", () => {
+        process.env.SSO_CONFIG = "true";
+
+        expect.assertions(1);
+
+        expect(() => {
+          getLicenseError(org);
+        }).toThrowError(
+          "You need an enterprise license for SSO functionality. Either upgrade to enterprise or remove SSO_CONFIG environment variable."
+        );
+      });
+
+      it("should not throw an error if SSO is enabled on cloud no matter what", () => {
+        process.env.SSO_CONFIG = "true";
+        process.env.IS_CLOUD = "true";
+
+        expect(getLicenseError(org)).toBe("");
+      });
+
+      it("should return multi org error if the env var is set", () => {
+        process.env.IS_MULTI_ORG = "true";
+
+        expect.assertions(1);
+
+        expect(() => {
+          getLicenseError(org);
+        }).toThrowError(
+          "You need an enterprise license for multi-org functionality. Either upgrade to enterprise or remove IS_MULTI_ORG environment variable."
+        );
+      });
+
+      it("should not throw an error if multi-org is enabled on cloud", () => {
+        process.env.IS_MULTI_ORG = "true";
+        process.env.IS_CLOUD = "true";
+
+        expect(getLicenseError(org)).toBe("");
+      });
+
+      it("should not have an error if there is no license and no enterprise env vars set", () => {
         expect(getLicenseError(org)).toBe("");
       });
     });
@@ -138,7 +179,45 @@ describe("src/license", () => {
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
-        await licenseInit(licenseKey, userLicenseCodes, metaData);
+        await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
+      });
+
+      it("should throw an error if SSO is enabled and IS_CLOUD is false", () => {
+        process.env.SSO_CONFIG = "true";
+
+        expect.assertions(1);
+
+        expect(() => {
+          getLicenseError(org);
+        }).toThrowError(
+          "You need an enterprise license for SSO functionality. Either upgrade to enterprise or remove SSO_CONFIG environment variable."
+        );
+      });
+
+      it("should not throw an error if SSO is enabled on cloud no matter what", () => {
+        process.env.SSO_CONFIG = "true";
+        process.env.IS_CLOUD = "true";
+
+        expect(getLicenseError(org)).toBe("");
+      });
+
+      it("should return multi org error if the env var is set", () => {
+        process.env.IS_MULTI_ORG = "true";
+
+        expect.assertions(1);
+
+        expect(() => {
+          getLicenseError(org);
+        }).toThrowError(
+          "You need an enterprise license for multi-org functionality. Either upgrade to enterprise or remove IS_MULTI_ORG environment variable."
+        );
+      });
+
+      it("should not throw an error if multi-org is enabled on cloud", () => {
+        process.env.IS_MULTI_ORG = "true";
+        process.env.IS_CLOUD = "true";
+
+        expect(getLicenseError(org)).toBe("");
       });
 
       it("should not have an error since no plan means it was an abandoned stripe checkout and not a full license", () => {
@@ -161,7 +240,7 @@ describe("src/license", () => {
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
-        await licenseInit(licenseKey, userLicenseCodes, metaData);
+        await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
       });
 
       it("should have an error since no plan but an error means the license server errored or could not connect on first ever try", () => {
@@ -186,7 +265,7 @@ describe("src/license", () => {
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
-        await licenseInit(licenseKey, userLicenseCodes, metaData);
+        await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
       });
 
       it("should have an error since no plan but an error means the license server errored or could not connect on first ever try", () => {
@@ -212,7 +291,7 @@ describe("src/license", () => {
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
-        await licenseInit(licenseKey, userLicenseCodes, metaData);
+        await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
       });
 
       it("should return an error saying the server is down too long", () => {
@@ -237,7 +316,7 @@ describe("src/license", () => {
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
-        await licenseInit(licenseKey, userLicenseCodes, metaData);
+        await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
       });
 
       it("should still use cache (but we will show a warning)", () => {
@@ -261,7 +340,7 @@ describe("src/license", () => {
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
-        await licenseInit(licenseKey, userLicenseCodes, metaData);
+        await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
       });
 
       it("should return an error saying the server is down too long", () => {
@@ -287,7 +366,7 @@ describe("src/license", () => {
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
-        await licenseInit(licenseKey, userLicenseCodes, metaData);
+        await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
       });
 
       it("should return an error saying the server is down too long", () => {
@@ -311,7 +390,7 @@ describe("src/license", () => {
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
-        await licenseInit(licenseKey, userLicenseCodes, metaData);
+        await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
       });
 
       it("should return an error if the license is too old", () => {
@@ -329,8 +408,8 @@ describe("src/license", () => {
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
-        await licenseInit(licenseKey, userLicenseCodes, metaData);
-        await licenseInit(oldLicenseKey);
+        await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
+        await licenseInit({ id: org.id, licenseKey: oldLicenseKey });
       });
 
       it("should return an error saying the email is not verified", () => {
@@ -369,7 +448,7 @@ describe("src/license", () => {
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
-        await licenseInit(licenseKey, userLicenseCodes, metaData);
+        await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
       });
 
       it("should return an error that the license is invalid", () => {
@@ -390,7 +469,7 @@ describe("src/license", () => {
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
-        await licenseInit(licenseKey, userLicenseCodes, metaData);
+        await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
       });
 
       it("should return an error that the license is invalid", () => {
@@ -406,7 +485,7 @@ describe("src/license", () => {
         } as unknown) as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
-        await licenseInit(licenseKey, userLicenseCodes, metaData);
+        await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
       });
 
       it("should not have an error if the license is valid", () => {
@@ -421,7 +500,7 @@ describe("src/license", () => {
         expect(() => {
           getLicenseError(org);
         }).toThrowError(
-          "Your license does not support SSO. Either upgrade to enterprise or remove SSO_CONFIG environment variable."
+          "You need an enterprise license for SSO functionality. Either upgrade to enterprise or remove SSO_CONFIG environment variable."
         );
       });
 
@@ -435,7 +514,13 @@ describe("src/license", () => {
       it("should return multi org error if the license does not support multi org", () => {
         process.env.IS_MULTI_ORG = "true";
 
-        expect(getLicenseError(org)).toBe("No support for multi-org");
+        expect.assertions(1);
+
+        expect(() => {
+          getLicenseError(org);
+        }).toThrowError(
+          "You need an enterprise license for multi-org functionality. Either upgrade to enterprise or remove IS_MULTI_ORG environment variable."
+        );
       });
 
       it("should not throw an error if multi-org is enabled on cloud even if the license does not support it", () => {
@@ -449,7 +534,11 @@ describe("src/license", () => {
 
   describe("licenseInit and getLicense", () => {
     it("should set licenseData to null if licenseKey is not provided", async () => {
-      const result = await licenseInit(undefined, userLicenseCodes, metaData);
+      const result = await licenseInit(
+        { id: org.id },
+        getUserCodesForOrg,
+        getLicenseMetaData
+      );
 
       expect(result).toBeUndefined();
       expect(getLicense()).toBeNull();
@@ -473,33 +562,33 @@ describe("src/license", () => {
         it("should use the env variable if licenseKey argument is not provided", async () => {
           process.env.LICENSE_KEY = licenseKey;
           const result = await licenseInit(
-            undefined,
-            userLicenseCodes,
-            metaData
+            { id: org.id },
+            getUserCodesForOrg,
+            getLicenseMetaData
           );
 
           expect(getLicense()).toEqual(licenseData);
           expect(result).toEqual(licenseData);
         });
 
-        it("should throw an error if we call the function without userLicenseCodes or metadata", async () => {
+        it("should throw an error if we call the function without getUserCodesForOrg, or getLicenseMetaData", async () => {
           expect.assertions(2);
 
           await expect(
-            licenseInit(licenseKey, userLicenseCodes, undefined)
+            licenseInit(org, undefined, getLicenseMetaData)
           ).rejects.toThrowError(
-            "Missing userLicenseCodes or metaData for license key"
+            "Missing org, getUserCodesForOrg, or getLicenseMetaData for connected license key"
           );
 
           await expect(
-            licenseInit(licenseKey, undefined, metaData)
+            licenseInit(org, getUserCodesForOrg, undefined)
           ).rejects.toThrowError(
-            "Missing userLicenseCodes or metaData for license key"
+            "Missing org, getUserCodesForOrg, or getLicenseMetaData for connected license key"
           );
         });
 
         it("should call fetch once and the second time return in-memory cached license data if it exists and is not too old", async () => {
-          await licenseInit(licenseKey, userLicenseCodes, metaData);
+          await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
 
           expect(fetch).toHaveBeenCalledWith(
             `${LICENSE_SERVER_URL}license/${licenseKey}/check`,
@@ -517,7 +606,7 @@ describe("src/license", () => {
 
           expect(getLicense(licenseKey)).toEqual(licenseData);
 
-          await licenseInit(licenseKey, userLicenseCodes, metaData);
+          await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
           expect(getLicense(licenseKey)).toEqual(licenseData);
           expect(fetch).toHaveBeenCalledTimes(1);
           expect(LicenseModel.findOneAndReplace).toHaveBeenCalledTimes(1);
@@ -526,11 +615,11 @@ describe("src/license", () => {
             licenseData,
             { upsert: true }
           );
-          expect(LicenseModelModule.getLicenseByKey).toHaveBeenCalledTimes(1);
+          expect(LicenseModelModule.getLicenseByKey).toHaveBeenCalledTimes(2);
         });
 
         it("should fetch the license from datastore if it is not in memory", async () => {
-          await licenseInit(licenseKey, userLicenseCodes, metaData);
+          await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
 
           expect(fetch).toHaveBeenCalledWith(
             `${LICENSE_SERVER_URL}license/${licenseKey}/check`,
@@ -551,7 +640,7 @@ describe("src/license", () => {
           jest
             .spyOn(LicenseModelModule, "getLicenseByKey")
             .mockResolvedValue(cloneDeep(licenseData));
-          await licenseInit(licenseKey, userLicenseCodes, metaData);
+          await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
 
           expect(getLicense(licenseKey)).toEqual({
             ...licenseData,
@@ -564,11 +653,11 @@ describe("src/license", () => {
             licenseData,
             { upsert: true }
           );
-          expect(LicenseModelModule.getLicenseByKey).toHaveBeenCalledTimes(2);
+          expect(LicenseModelModule.getLicenseByKey).toHaveBeenCalledTimes(3);
         });
 
         it("should fetch the license from the license server if the license is not in memory and the datastore is too old", async () => {
-          await licenseInit(licenseKey, userLicenseCodes, metaData);
+          await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
 
           expect(fetch).toHaveBeenCalledWith(
             `${LICENSE_SERVER_URL}license/${licenseKey}/check`,
@@ -603,7 +692,7 @@ describe("src/license", () => {
 
           mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse2));
 
-          await licenseInit(licenseKey, userLicenseCodes, metaData);
+          await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
           expect(getLicense(licenseKey)).toEqual(licenseData2);
           expect(fetch).toHaveBeenCalledTimes(2);
         });
@@ -643,15 +732,15 @@ describe("src/license", () => {
             Array.from({ length: numRequests }).map(async (_, i) => {
               if (i % 2 === 0) {
                 return await licenseInit(
-                  licenseKey,
-                  userLicenseCodes,
-                  metaData
+                  org,
+                  getUserCodesForOrg,
+                  getLicenseMetaData
                 );
               } else {
                 return await licenseInit(
-                  licenseKey2,
-                  userLicenseCodes,
-                  metaData
+                  { id: org.id, licenseKey: licenseKey2 },
+                  getUserCodesForOrg,
+                  getLicenseMetaData
                 );
               }
             })
@@ -672,7 +761,7 @@ describe("src/license", () => {
         });
 
         it("should call fetch twice rather than use the in-memory cache if it has been over a day since the last fetch, and update the licenseData", async () => {
-          await licenseInit(licenseKey, userLicenseCodes, metaData);
+          await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
 
           expect(fetch).toHaveBeenCalledWith(
             `${LICENSE_SERVER_URL}license/${licenseKey}/check`,
@@ -699,13 +788,13 @@ describe("src/license", () => {
 
           mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse2));
 
-          await licenseInit(licenseKey, userLicenseCodes, metaData);
+          await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
           expect(getLicense(licenseKey)).toEqual(licenseData2);
           expect(fetch).toHaveBeenCalledTimes(2);
         });
 
         it("should call fetch twice rather than use the in-memory cache if forceRefresh flag is true", async () => {
-          await licenseInit(licenseKey, userLicenseCodes, metaData);
+          await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
 
           expect(getLicense(licenseKey)).toEqual(licenseData);
 
@@ -723,7 +812,7 @@ describe("src/license", () => {
 
           mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse2));
 
-          await licenseInit(licenseKey, userLicenseCodes, metaData, true);
+          await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
           expect(getLicense(licenseKey)).toEqual(licenseData2);
           expect(fetch).toHaveBeenCalledTimes(2);
         });
@@ -746,7 +835,12 @@ describe("src/license", () => {
 
           // Use force refresh to make sure the bad data is returned
           await expect(async () => {
-            await licenseInit(licenseKey, userLicenseCodes, metaData, true);
+            await licenseInit(
+              org,
+              getUserCodesForOrg,
+              getLicenseMetaData,
+              true
+            );
           }).rejects.toThrowError("Invalid license key signature");
 
           const expectedLicenseData = {
@@ -799,7 +893,7 @@ describe("src/license", () => {
 
           it("should throw error if the license server is down and there is no cached data in LicenseModel", async () => {
             await expect(async () => {
-              await licenseInit(licenseKey, userLicenseCodes, metaData);
+              await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
             }).rejects.toThrowError(
               "License server errored with: internal server error"
             );
@@ -823,7 +917,12 @@ describe("src/license", () => {
 
           it("should throw an error if force refresh is true and save the failures in the mongo cache", async () => {
             await expect(async () => {
-              await licenseInit(licenseKey, userLicenseCodes, metaData, true);
+              await licenseInit(
+                org,
+                getUserCodesForOrg,
+                getLicenseMetaData,
+                true
+              );
             }).rejects.toThrowError(
               "License server errored with: internal server error"
             );
@@ -851,7 +950,7 @@ describe("src/license", () => {
             const firstCallTime = now.getTime() + 2 * 24 * 60 * 60 * 1000;
             jest.setSystemTime(firstCallTime);
 
-            await licenseInit(licenseKey, userLicenseCodes, metaData);
+            await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
 
             // The previous license data in mongo cache should be returned as it calls the license server in the background
             expect(getLicense(licenseKey)).toEqual({
@@ -887,7 +986,7 @@ describe("src/license", () => {
 
             const secondCallTime = now.getTime() + 4 * 24 * 60 * 60 * 1000;
             jest.setSystemTime(secondCallTime);
-            await licenseInit(licenseKey, userLicenseCodes, metaData);
+            await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
 
             // The previous license data in mongo cache should be returned as it calls the license server in the background
             expect(getLicense(licenseKey)).toEqual(expectedLicenseData);
@@ -917,7 +1016,12 @@ describe("src/license", () => {
             jest.setSystemTime(callTime);
 
             await expect(async () => {
-              await licenseInit(licenseKey, userLicenseCodes, metaData, true);
+              await licenseInit(
+                org,
+                getUserCodesForOrg,
+                getLicenseMetaData,
+                true
+              );
             }).rejects.toThrowError(
               "License server errored with: internal server error"
             );
@@ -947,7 +1051,7 @@ describe("src/license", () => {
 
           it("should await fetch", async () => {
             await expect(async () => {
-              await licenseInit(licenseKey, userLicenseCodes, metaData);
+              await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
             }).rejects.toThrowError(
               "License server errored with: internal server error"
             );
@@ -966,6 +1070,8 @@ describe("src/license", () => {
     });
 
     describe("old style licenses where licenseKey does NOT start with 'license_' but contains the license data encoded in itself", () => {
+      const orgWithOldKey = { id: "org_123", licenseKey: oldLicenseKey };
+
       it("should use the env variable if the licenseKey argument references an expired license", async () => {
         const licenseData3 = cloneDeep(licenseData);
         const tenDaysAgo = new Date(now);
@@ -982,9 +1088,9 @@ describe("src/license", () => {
 
         process.env.LICENSE_KEY = oldLicenseKey;
         const result = await licenseInit(
-          licenseKey,
-          userLicenseCodes,
-          metaData
+          org,
+          getUserCodesForOrg,
+          getLicenseMetaData
         );
 
         expect(getLicense(licenseKey)).toEqual(oldLicenseData);
@@ -1001,9 +1107,9 @@ describe("src/license", () => {
 
         process.env.LICENSE_KEY = oldLicenseKey;
         const result = await licenseInit(
-          licenseKey,
-          userLicenseCodes,
-          metaData
+          org,
+          getUserCodesForOrg,
+          getLicenseMetaData
         );
 
         expect(getLicense(licenseKey)).toEqual(licenseData);
@@ -1011,7 +1117,7 @@ describe("src/license", () => {
       });
 
       it("should read license data from the key itself and use the in-memory cache if called a second time, even if a long time has passed, as old style license keys should never expire", async () => {
-        await licenseInit(oldLicenseKey);
+        await licenseInit(orgWithOldKey);
 
         expect(getLicense(oldLicenseKey)).toEqual(oldLicenseData);
 
@@ -1020,13 +1126,21 @@ describe("src/license", () => {
         jest.setSystemTime(tenYearsFromNow);
         jest.spyOn(JSON, "parse").mockReturnValue({ foo: "bar" }); // This is an invalid license, but we should use the cache so won't see an error.
 
-        await licenseInit(oldLicenseKey, userLicenseCodes, metaData);
+        await licenseInit(
+          orgWithOldKey,
+          getUserCodesForOrg,
+          getLicenseMetaData
+        );
         expect(getLicense(oldLicenseKey)).toEqual(oldLicenseData);
       });
 
       it("should throw an error if the data doesn't match the signature", async () => {
         await expect(
-          async () => await licenseInit(oldLicenseKey + "extrasignature")
+          async () =>
+            await licenseInit({
+              id: org.id,
+              licenseKey: oldLicenseKey + "extrasignature",
+            })
         ).rejects.toThrowError("Invalid license key signature");
       });
 
@@ -1038,7 +1152,7 @@ describe("src/license", () => {
         delete oldLicenseOriginalData2.exp;
         jest.spyOn(JSON, "parse").mockReturnValue(oldLicenseOriginalData2);
 
-        await licenseInit(oldLicenseKey);
+        await licenseInit(orgWithOldKey);
 
         expect(getLicense(oldLicenseKey)).toEqual(oldLicenseData);
       });
@@ -1050,7 +1164,7 @@ describe("src/license", () => {
         jest.spyOn(JSON, "parse").mockReturnValue(oldLicenseOriginalData2);
 
         await expect(async () => {
-          await licenseInit(oldLicenseKey);
+          await licenseInit(orgWithOldKey);
         }).rejects.toThrowError(
           "Invalid License Key - Missing expiration date"
         );
@@ -1062,7 +1176,7 @@ describe("src/license", () => {
         delete oldLicenseOriginalData2.plan;
         jest.spyOn(JSON, "parse").mockReturnValue(oldLicenseOriginalData2);
 
-        await licenseInit(oldLicenseKey);
+        await licenseInit(orgWithOldKey);
 
         const expected = cloneDeep(oldLicenseData);
         expected.plan = "enterprise";

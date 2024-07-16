@@ -173,7 +173,7 @@ const navlinks: SidebarLinkProps[] = [
         href: "/projects",
         path: /^project/,
         filter: ({ permissionsUtils }) =>
-          permissionsUtils.canUpdateSomeProjects(),
+          permissionsUtils.canManageSomeProjects(),
       },
       {
         name: "API Keys",

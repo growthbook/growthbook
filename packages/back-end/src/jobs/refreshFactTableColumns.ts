@@ -69,8 +69,12 @@ export async function runRefreshColumnsQuery(
     throw new Error("Testing not supported on this data source");
   }
 
-  const sql = integration.getTestQuery(factTable.sql, {
-    eventName: factTable.eventName,
+  const sql = integration.getTestQuery({
+    query: factTable.sql,
+    templateVariables: {
+      eventName: factTable.eventName,
+    },
+    testDays: context.org.settings?.testQueryDays,
   });
 
   const result = await integration.runTestQuery(sql, ["timestamp"]);

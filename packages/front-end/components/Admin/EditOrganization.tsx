@@ -10,6 +10,7 @@ const EditOrganization: FC<{
   currentName: string;
   currentExternalId: string;
   currentLicenseKey: string;
+  currentOwner: string;
 }> = ({
   onEdit,
   close,
@@ -17,8 +18,10 @@ const EditOrganization: FC<{
   currentName,
   currentExternalId,
   currentLicenseKey,
+  currentOwner,
 }) => {
   const [name, setName] = useState(currentName);
+  const [owner, setOwner] = useState(currentOwner);
   const [externalId, setExternalId] = useState(currentExternalId);
   const [licenseKey, setLicenseKey] = useState(currentLicenseKey);
 
@@ -35,6 +38,7 @@ const EditOrganization: FC<{
         name,
         externalId,
         licenseKey,
+        ownerEmail: owner,
       }),
     });
     onEdit();
@@ -45,7 +49,7 @@ const EditOrganization: FC<{
       submit={handleSubmit}
       open={true}
       header={"Edit Organization"}
-      cta={"Edit"}
+      cta={"Update"}
       close={close}
       inline={!close}
     >
@@ -82,6 +86,16 @@ const EditOrganization: FC<{
             />
           </div>
         )}
+        <div className="mt-3">
+          Owner Email
+          <input
+            type="email"
+            className="form-control"
+            value={owner}
+            required
+            onChange={(e) => setOwner(e.target.value)}
+          />
+        </div>
       </div>
     </Modal>
   );

@@ -11,6 +11,7 @@ import { decryptDataSourceParams } from "../services/datasource";
 import { formatQuery, runQuery } from "../services/mixpanel";
 import {
   DimensionSlicesQueryResponse,
+  DropTableQueryResponse,
   ExperimentAggregateUnitsQueryResponse,
   ExperimentMetricQueryResponse,
   ExperimentQueryResponses,
@@ -64,6 +65,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
     throw new Error("Method not implemented.");
   }
   runMetricAnalysisQuery(): Promise<MetricAnalysisQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  getDropUnitsTableQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runDropTableQuery(): Promise<DropTableQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getExperimentMetricQuery(): string {

@@ -13,7 +13,8 @@ import {
   APP_ORIGIN,
 } from "../util/secrets";
 import { OrganizationInterface } from "../../types/organization";
-import { getEmailFromUserId, getInviteUrl } from "./organizations";
+import { getEmailFromUserId } from "../models/UserModel";
+import { getInviteUrl } from "./organizations";
 
 export function isEmailEnabled(): boolean {
   return !!(EMAIL_ENABLED && EMAIL_HOST && EMAIL_PORT && EMAIL_FROM);
@@ -282,5 +283,33 @@ export async function sendStripeTrialWillEndEmail({
     subject: `Your GrowthBook Pro trial will end in ${trialDaysText}`,
     to: email,
     text,
+  });
+}
+
+export async function sendOwnerEmailChangeEmail(
+  email: string,
+  organization: string,
+  originalOwner: string,
+  newOwner: string
+) {
+  const html = nunjucks.render("owner-email-change.jinja", {
+    email,
+    organization,
+    originalOwner,
+    newOwner,
+  });
+
+  await sendMail({
+    html,
+    subject: `The owner for ${organization} on GrowthBook has changed`,
+    to: originalOwner,
+    text: `The owner for ${organization} on GrowthBook has been changed to ${newOwner} by ${email}`,
+  });
+
+  await sendMail({
+    html,
+    subject: `The owner for ${organization} on GrowthBook has changed`,
+    to: newOwner,
+    text: `The owner for ${organization} on GrowthBook has been changed to ${newOwner} by ${email}`,
   });
 }

@@ -56,6 +56,7 @@ export type StartQueryParams<Rows, ProcessedRows> = {
   ) => Promise<QueryResponse<Rows>>;
   process: (rows: Rows) => ProcessedRows;
   queryType: QueryType;
+  runAtEnd?: boolean;
 };
 
 const FINISH_EVENT = "finish";
@@ -302,6 +303,23 @@ export abstract class QueryRunner<
           logger.info(`${query.id}: Dependencies pending...`);
           return;
         }
+
+        // if `runAtEnd = true` run if all queries that are not marked
+        // `runAtEnd` are finished
+        if (query.runAtEnd) {
+          const pendingQueries = this.model.queries.filter(
+            (q) =>
+              !queryMap.get(q.name)?.runAtEnd &&
+              (q.status === "queued" || q.status === "running")
+          );
+          if (pendingQueries.length) {
+            logger.debug(
+              `${query.id}: "Run at end query" waiting for other queries to finish...`
+            );
+            return;
+          }
+        }
+
         if (succeededDependencies.length === dependencyIds.length) {
           logger.info(`${query.id}: Dependencies completed, running...`);
           const runCallbacks = this.runCallbacks[query.id];
@@ -509,7 +527,15 @@ export abstract class QueryRunner<
     Rows extends RowsType,
     ProcessedRows extends ProcessedRowsType
   >(params: StartQueryParams<Rows, ProcessedRows>): Promise<QueryPointer> {
-    const { name, query, dependencies, run, process, queryType } = params;
+    const {
+      name,
+      query,
+      dependencies,
+      runAtEnd,
+      run,
+      process,
+      queryType,
+    } = params;
     // Re-use recent identical query if it exists
     if (this.useCache) {
       logger.info("Trying to reuse existing query for " + name);
@@ -566,6 +592,7 @@ export abstract class QueryRunner<
           const copiedCachedDoc = await createNewQueryFromCached({
             existing: existing,
             dependencies: dependencies,
+            runAtEnd: runAtEnd,
           });
           return {
             name,
@@ -579,8 +606,8 @@ export abstract class QueryRunner<
     }
 
     // Create a new query in mongo
-    logger.info("Creating query for: " + name);
-    const readyToRun = dependencies.length === 0;
+    logger.debug("Creating query for: " + name);
+    const readyToRun = dependencies.length === 0 && !runAtEnd;
     const doc = await createNewQuery({
       query,
       queryType,
@@ -589,6 +616,7 @@ export abstract class QueryRunner<
       language: this.integration.getSourceProperties().queryLanguage,
       dependencies: dependencies,
       running: readyToRun,
+      runAtEnd: runAtEnd,
     });
 
     logger.info("Created new query " + doc.id + " for " + name);

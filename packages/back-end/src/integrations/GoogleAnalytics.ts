@@ -13,6 +13,7 @@ import {
   ExperimentAggregateUnitsQueryResponse,
   DimensionSlicesQueryResponse,
   MetricAnalysisQueryResponse,
+  DropTableQueryResponse,
 } from "../types/Integration";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "../services/datasource";
@@ -78,6 +79,12 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
     throw new Error("Method not implemented.");
   }
   runMetricAnalysisQuery(): Promise<MetricAnalysisQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  getDropUnitsTableQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runDropTableQuery(): Promise<DropTableQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getExperimentMetricQuery(): string {

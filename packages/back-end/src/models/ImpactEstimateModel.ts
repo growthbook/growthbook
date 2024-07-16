@@ -9,7 +9,6 @@ import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { processMetricValueQueryResponse } from "../queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ReqContext } from "../../types/organization";
 import { ApiReqContext } from "../../types/api";
-import { findSegmentById } from "./SegmentModel";
 
 const impactEstimateSchema = new mongoose.Schema({
   id: String,
@@ -70,7 +69,7 @@ export async function getImpactEstimate(
 
   let segmentObj: SegmentInterface | null = null;
   if (segment) {
-    segmentObj = await findSegmentById(segment, context.org.id);
+    segmentObj = await context.models.segments.getById(segment);
   }
 
   if (segmentObj?.datasource !== metricObj.datasource) {

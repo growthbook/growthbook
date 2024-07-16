@@ -22,6 +22,9 @@ export const DEFAULT_REGRESSION_ADJUSTMENT_DAYS = 14;
 // Sequential Testing:
 export const DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER = 5000;
 
+// Query settings
+export const DEFAULT_TEST_QUERY_DAYS = 30;
+
 // Dimension name constants:
 export const EXPOSURE_DATE_DIMENSION_NAME = "dim_exposure_date";
 export const AUTOMATIC_DIMENSION_OTHER_NAME = "__Other__";

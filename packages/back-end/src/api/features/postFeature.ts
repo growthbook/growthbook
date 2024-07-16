@@ -17,6 +17,7 @@ import {
 import { auditDetailsCreate } from "../../services/audit";
 import { OrganizationInterface } from "../../../types/organization";
 import { getEnvironments } from "../../services/organizations";
+import { addTags } from "../../models/TagModel";
 
 export type ApiFeatureEnvSettings = NonNullable<
   z.infer<typeof postFeatureValidator.bodySchema>["environments"]
@@ -75,13 +76,19 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       throw new Error(`Feature id '${req.body.id}' already exists.`);
     }
 
-    const orgEnvs = getEnvironments(req.organization);
+    const orgEnvs = getEnvironments(req.context.org);
 
     // ensure environment keys are valid
     validateEnvKeys(
       orgEnvs.map((e) => e.id),
       Object.keys(req.body.environments ?? {})
     );
+
+    const tags = req.body.tags || [];
+
+    if (tags.length > 0) {
+      await addTags(req.context.org.id, tags);
+    }
 
     const feature: FeatureInterface = {
       defaultValue: req.body.defaultValue ?? "",
@@ -91,11 +98,12 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       project: req.body.project || "",
       dateCreated: new Date(),
       dateUpdated: new Date(),
-      organization: req.organization.id,
+      organization: req.context.org.id,
       id: req.body.id,
       archived: !!req.body.archived,
       version: 1,
       environmentSettings: {},
+      tags,
     };
 
     const environmentSettings = createInterfaceEnvSettingsFromApiEnvSettings(
@@ -107,7 +115,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
     feature.environmentSettings = environmentSettings;
 
     const jsonSchema = parseJsonSchemaForEnterprise(
-      req.organization,
+      req.context.org,
       req.body.jsonSchema
     );
 

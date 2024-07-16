@@ -33,9 +33,11 @@ import {
 import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
 import { MetricPriorSettings } from "@back-end/types/fact-table";
+import { promiseAllChunks } from "../util/promise";
 import { updateExperiment } from "../models/ExperimentModel";
 import { Context } from "../models/BaseModel";
 import {
+  ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -71,7 +73,6 @@ import {
   LinkedFeatureState,
 } from "../../types/experiment";
 import { findDimensionById } from "../models/DimensionModel";
-import { findSegmentById } from "../models/SegmentModel";
 import {
   DEFAULT_CONVERSION_WINDOW_HOURS,
   EXPERIMENT_REFRESH_FREQUENCY,
@@ -112,9 +113,12 @@ import { getIntegrationFromDatasourceId } from "./datasource";
 import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
-  analyzeExperimentMetric,
   analyzeExperimentResults,
   getMetricSettingsForStatsEngine,
+  getMetricsAndQueryDataForStatsEngine,
+  runSnapshotAnalyses,
+  runSnapshotAnalysis,
+  writeSnapshotAnalyses,
 } from "./stats";
 import { getEnvironmentIdsFromOrg } from "./organizations";
 
@@ -178,7 +182,7 @@ export async function refreshMetric(
     let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
       segment =
-        (await findSegmentById(metric.segment, context.org.id)) || undefined;
+        (await context.models.segments.getById(metric.segment)) || undefined;
       if (!segment || segment.datasource !== metric.datasource) {
         throw new Error("Invalid user segment chosen");
       }
@@ -286,7 +290,8 @@ export async function getManualSnapshotData(
     });
   });
 
-  const result = await analyzeExperimentMetric({
+  const result = await runSnapshotAnalysis({
+    id: experiment.id,
     variations: getReportVariations(experiment, phase),
     phaseLengthHours: Math.max(
       hoursBetween(phase.dateStarted, phase.dateEnded ?? new Date()),
@@ -353,19 +358,10 @@ export function getDefaultExperimentAnalysisSettings(
 }
 
 export function getAdditionalExperimentAnalysisSettings(
-  defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings,
-  experiment: ExperimentInterface
+  defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings
 ): ExperimentSnapshotAnalysisSettings[] {
-  // one analysis per possible baseline
   const additionalAnalyses: ExperimentSnapshotAnalysisSettings[] = [];
-  experiment.variations.forEach((v, i) => {
-    if (i > 0) {
-      additionalAnalyses.push({
-        ...defaultAnalysisSettings,
-        baselineVariationIndex: i,
-      });
-    }
-  });
+
   // for default baseline, get difference types
   additionalAnalyses.push({
     ...defaultAnalysisSettings,
@@ -376,9 +372,7 @@ export function getAdditionalExperimentAnalysisSettings(
     differenceType: "scaled",
   });
 
-  // Skip all of these additional analyses until we fix the performance issues
-  //return additionalAnalyses;
-  return [];
+  return additionalAnalyses;
 }
 
 export function getSnapshotSettings({
@@ -688,21 +682,148 @@ export async function createSnapshot({
   return queryRunner;
 }
 
-export async function createSnapshotAnalysis({
-  experiment,
-  organization,
-  analysisSettings,
-  metricMap,
-  snapshot,
-  context,
-}: {
+export type SnapshotAnalysisParams = {
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
   snapshot: ExperimentSnapshotInterface;
-  context: Context;
-}): Promise<void> {
+};
+
+async function getSnapshotAnalyses(
+  params: SnapshotAnalysisParams[],
+  context: ReqContext
+) {
+  const analysisParamsMap = new Map<
+    string,
+    ExperimentAnalysisParamsContextData
+  >();
+
+  // get queryMap for all snapshots
+  const queryMap = await getQueryMap(
+    context.org.id,
+    params.map((p) => p.snapshot.queries).flat()
+  );
+
+  const createAnalysisPromises: (() => Promise<void>)[] = [];
+  params.forEach(
+    (
+      { experiment, organization, analysisSettings, metricMap, snapshot },
+      i
+    ) => {
+      // check if analysis is possible
+      if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
+        throw new Error("Analysis not allowed with this snapshot");
+      }
+
+      const totalQueries = snapshot.queries.length;
+      const failedQueries = snapshot.queries.filter(
+        (q) => q.status === "failed"
+      );
+      const runningQueries = snapshot.queries.filter(
+        (q) => q.status === "running"
+      );
+
+      if (
+        runningQueries.length > 0 ||
+        failedQueries.length >= totalQueries / 2
+      ) {
+        throw new Error("Snapshot queries not available for analysis");
+      }
+      const analysis: ExperimentSnapshotAnalysis = {
+        results: [],
+        status: "running",
+        settings: analysisSettings,
+        dateCreated: new Date(),
+      };
+
+      // promise to add analysis to mongo record if it does not exist, overwrite if it does
+      createAnalysisPromises.push(() =>
+        addOrUpdateSnapshotAnalysis({
+          organization: organization.id,
+          id: snapshot.id,
+          analysis,
+          context,
+        })
+      );
+
+      const mdat = getMetricsAndQueryDataForStatsEngine(
+        queryMap,
+        metricMap,
+        snapshot.settings
+      );
+      const id = `${i}_${experiment.id}_${snapshot.id}`;
+      const variationNames = experiment.variations.map((v) => v.name);
+      const { queryResults, metricSettings, unknownVariations } = mdat;
+
+      analysisParamsMap.set(id, {
+        params: {
+          id,
+          coverage: snapshot.settings.coverage ?? 1,
+          phaseLengthHours: Math.max(
+            hoursBetween(
+              snapshot.settings.startDate,
+              snapshot.settings.endDate
+            ),
+            1
+          ),
+          variations: snapshot.settings.variations.map((v, i) => ({
+            ...v,
+            name: variationNames[i] || v.id,
+          })),
+          analyses: [analysisSettings],
+          queryResults: queryResults,
+          metrics: metricSettings,
+        },
+        context: {
+          // extra settings for multiple experiment approach
+          snapshotSettings: snapshot.settings,
+          organization: organization.id,
+          snapshot: snapshot.id,
+        },
+        data: {
+          unknownVariations: unknownVariations,
+          analysisObj: analysis,
+        },
+      });
+    }
+  );
+
+  // write running snapshots to db
+  if (createAnalysisPromises.length > 0) {
+    await promiseAllChunks(createAnalysisPromises, 10);
+  }
+
+  return analysisParamsMap;
+}
+
+export async function createSnapshotAnalyses(
+  params: SnapshotAnalysisParams[],
+  context: ReqContext
+): Promise<void> {
+  // creates snapshot analyses in mongo and gets analysis parameters
+  const analysisParamsMap = await getSnapshotAnalyses(params, context);
+
+  // calls stats engine to run analyses
+  const results = await runSnapshotAnalyses(
+    Array.from(analysisParamsMap.values()).map((v) => v.params)
+  );
+
+  // parses results and writes to mongo
+  await writeSnapshotAnalyses(results, analysisParamsMap, context);
+}
+
+export async function createSnapshotAnalysis(
+  params: SnapshotAnalysisParams,
+  context: Context
+): Promise<void> {
+  const {
+    snapshot,
+    analysisSettings,
+    organization,
+    experiment,
+    metricMap,
+  } = params;
   // check if analysis is possible
   if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
     throw new Error("Analysis not allowed with this snapshot");
