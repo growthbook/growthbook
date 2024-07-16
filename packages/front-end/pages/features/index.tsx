@@ -45,7 +45,6 @@ import Tab from "@/components/Tabs/Tab";
 import Tabs from "@/components/Tabs/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
@@ -79,22 +78,12 @@ export default function FeaturesPage() {
     error,
     mutate,
   } = useFeaturesList();
-  const { name, organization } = useUser();
 
   const { usage, usageDomain } = useRealtimeData(
     allFeatures,
     !!router?.query?.mockdata,
     showGraphs
   );
-
-  const settings = useOrgSettings();
-  const { featureListMarkdown: customMarkdown } = settings;
-
-  const variables = {
-    project: getProjectById(project)?.name || "",
-    user: name,
-    orgName: organization.name,
-  };
 
   const staleFeatures = useMemo(() => {
     const staleFeatures: Record<
@@ -611,10 +600,7 @@ export default function FeaturesPage() {
         title of your pricing page.{" "}
       </p>
       <div className="mt-3">
-        <CustomMarkdown
-          markdown={customMarkdown}
-          handlebarsVariables={variables}
-        />
+        <CustomMarkdown page={"featureList"} />
       </div>
       {!hasFeatures ? (
         <>

@@ -84,13 +84,9 @@ const MetricPage: FC = () => {
     getMetricById,
     metrics,
     segments,
-    getProjectById,
-    project,
   } = useDefinitions();
   const settings = useOrgSettings();
-  const { name, organization } = useUser();
-
-  const { metricPageMarkdown: customMarkdown } = settings;
+  const { organization } = useUser();
 
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
   const [editing, setEditing] = useState(false);
@@ -118,13 +114,6 @@ const MetricPage: FC = () => {
     metric: MetricInterface;
     experiments: Partial<ExperimentInterfaceStringDates>[];
   }>(`/metric/${mid}`);
-
-  const variables = {
-    project: getProjectById(project)?.name || "",
-    user: name,
-    orgName: organization.name,
-    metricName: data?.metric.name || "",
-  };
 
   const {
     metricDefaults,
@@ -194,6 +183,13 @@ const MetricPage: FC = () => {
       <>Not available for metrics with custom aggregations.</>
     );
   }
+
+  const variables = {
+    metricName: metric.name,
+    tags: metric.tags || [],
+    metricType: metric.type,
+    metricDatasource: datasource?.name || "",
+  };
 
   const getMetricUsage = (metric: MetricInterface) => {
     return async (): Promise<ReactElement | null> => {
@@ -492,10 +488,7 @@ const MetricPage: FC = () => {
       </div>
 
       <div className="mt-3">
-        <CustomMarkdown
-          markdown={customMarkdown}
-          handlebarsVariables={variables}
-        />
+        <CustomMarkdown page={"metric"} variables={variables} />
       </div>
 
       <div className="row">

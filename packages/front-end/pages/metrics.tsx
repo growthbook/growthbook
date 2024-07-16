@@ -29,7 +29,6 @@ import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 interface MetricTableItem {
   id: string;
@@ -64,25 +63,15 @@ const MetricsPage = (): React.ReactElement => {
     factMetrics,
     project,
     ready,
-    getProjectById,
   } = useDefinitions();
   const router = useRouter();
 
-  const { getUserDisplay, name, organization } = useUser();
+  const { getUserDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
 
   const tagsFilter = useTagsFilter("metrics");
-
-  const settings = useOrgSettings();
-  const { metricListMarkdown: customMarkdown } = settings;
-
-  const variables = {
-    project: getProjectById(project)?.name || "",
-    user: name,
-    orgName: organization.name,
-  };
 
   const [showArchived, setShowArchived] = useState(false);
   const [recentlyArchived, setRecentlyArchived] = useState<Set<string>>(
@@ -344,10 +333,7 @@ const MetricsPage = (): React.ReactElement => {
           )}
       </div>
       <div className="mt-3">
-        <CustomMarkdown
-          markdown={customMarkdown}
-          handlebarsVariables={variables}
-        />
+        <CustomMarkdown page={"metricList"} />
       </div>
       <div className="row mb-2 align-items-center">
         <div className="col-lg-3 col-md-4 col-6">

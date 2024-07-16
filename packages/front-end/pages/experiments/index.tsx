@@ -58,12 +58,9 @@ const ExperimentsPage = (): React.ReactElement => {
   );
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
-  const { getUserDisplay, userId, organization, name } = useUser();
+  const { getUserDisplay, userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const settings = useOrgSettings();
-
-  const { experimentListMarkdown: customMarkdown } = settings;
-  const variables = { orgName: organization.name, project, user: name };
 
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -276,10 +273,7 @@ const ExperimentsPage = (): React.ReactElement => {
               </div>
             )}
           </div>
-          <CustomMarkdown
-            markdown={customMarkdown}
-            handlebarsVariables={variables}
-          />
+          <CustomMarkdown page={"experimentList"} />
           {!hasExperiments ? (
             <div
               className="appbox d-flex flex-column align-items-center"
