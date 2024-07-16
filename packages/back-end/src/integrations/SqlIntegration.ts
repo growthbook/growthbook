@@ -557,13 +557,12 @@ export default abstract class SqlIntegration
   getMetricAnalysisPopulationCTEs({
     settings,
     idJoinMap,
-    segment
-  } : {
-    settings: MetricAnalysisSettings,
-    idJoinMap: Record<string, string>,
-    segment: SegmentInterface | null
+    segment,
+  }: {
+    settings: MetricAnalysisSettings;
+    idJoinMap: Record<string, string>;
+    segment: SegmentInterface | null;
   }): string {
-
     // get population query
     if (settings.populationType === "exposureQuery") {
       const exposureQuery = this.getExposureQuery(settings.populationId || "");
@@ -612,7 +611,7 @@ export default abstract class SqlIntegration
                 : ""
             }
       ),`;
-      }
+    }
 
     return "";
   }
@@ -698,7 +697,7 @@ export default abstract class SqlIntegration
       settings,
       idJoinMap,
       segment: params.segment,
-    })
+    });
 
     const histogram_bin_number = 25;
     // TODO query is broken if segment has template variables
@@ -737,11 +736,14 @@ export default abstract class SqlIntegration
                       : ""
                   }
           
-          ${populationSQL ? `
+          ${
+            populationSQL
+              ? `
             FROM __population p 
             LEFT JOIN __factTable f ON (f.${baseIdType} = p.${baseIdType})`
-            : `
-            FROM __factTable f`} 
+              : `
+            FROM __factTable f`
+          } 
           GROUP BY
             ${this.dateTrunc("f.timestamp")}
             , ${populationSQL ? "p" : "f"}.${baseIdType}
@@ -888,8 +890,7 @@ export default abstract class SqlIntegration
     setExternalId: ExternalIdCallback
   ): Promise<MetricAnalysisQueryResponse> {
     const { rows, statistics } = await this.runQuery(query, setExternalId);
-    console.log(rows);
-    console.log("wemadeithere");
+
     return {
       rows: rows.map((row) => {
         const {
@@ -3734,7 +3735,7 @@ AND event_name = '${eventName}'`,
     startDate,
     endDate,
     experimentId,
-    addFiltersToWhere
+    addFiltersToWhere,
   }: {
     metrics: FactMetricInterface[];
     factTableMap: FactTableMap;
@@ -3812,9 +3813,9 @@ AND event_name = '${eventName}'`,
       ${column} as m${i}_value`);
 
       if (addFiltersToWhere) {
-        filterWhere.push(`(${filters.join(" AND ")})`)
+        filterWhere.push(`(${filters.join(" AND ")})`);
       }
-        
+
       // Add denominator column if there is one
       if (isRatioMetric(m) && m.denominator) {
         if (m.denominator.factTableId !== factTable.id) {
@@ -3834,13 +3835,12 @@ AND event_name = '${eventName}'`,
             : value;
         metricCols.push(`-- ${m.name} (denominator)
         ${column} as m${i}_denominator`);
-        
+
         if (addFiltersToWhere) {
-          filterWhere.push(`(${filters.join(" AND ")})`)
+          filterWhere.push(`(${filters.join(" AND ")})`);
         }
       }
     });
-    const allMetricFilters = filterWhere.join(" OR ");
 
     return `-- Fact Table (${factTable.name})
       SELECT
@@ -3860,7 +3860,13 @@ AND event_name = '${eventName}'`,
           })}
         ) m
         ${join}
-        ${where.length ? `WHERE ${where.join(" AND ")} ${filterWhere.length ? ` AND ${filterWhere.join(" OR ")}` : ""}` : ""}
+        ${
+          where.length
+            ? `WHERE ${where.join(" AND ")} ${
+                filterWhere.length ? ` AND ${filterWhere.join(" OR ")}` : ""
+              }`
+            : ""
+        }
     `;
   }
 

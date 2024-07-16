@@ -32,7 +32,7 @@ export default function IdentifierChooser({
         options={factTable.userIdTypes.map((d) => {
           return { label: d, value: d };
         })}
-        formatOptionLabel={({ value, label }) => {
+        formatOptionLabel={({ label }) => {
           return <code>{`${label}`}</code>;
         }}
         value={value}

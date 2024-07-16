@@ -86,7 +86,7 @@ function getTooltipContents(
   method: "sum" | "avg",
   smoothBy: "day" | "week",
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
-  displayCurrency?: string,
+  displayCurrency?: string
 ) {
   if (!d || d.oor) return null;
   const formatterOptions = { currency: displayCurrency };

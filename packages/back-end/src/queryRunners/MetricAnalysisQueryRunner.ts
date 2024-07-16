@@ -11,9 +11,12 @@ import {
   MetricAnalysisParams,
   MetricAnalysisQueryResponseRows,
 } from "../types/Integration";
-import { meanVarianceFromSums, proportionVarianceFromSums, ratioVarianceFromSums } from "../util/stats";
+import {
+  meanVarianceFromSums,
+  proportionVarianceFromSums,
+  ratioVarianceFromSums,
+} from "../util/stats";
 import { QueryRunner, QueryMap } from "./QueryRunner";
-import { isNumberObject } from "util/types";
 
 export class MetricAnalysisQueryRunner extends QueryRunner<
   MetricAnalysisInterface,
@@ -94,7 +97,6 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
       latest,
       updates
     );
-    console.log(updated);
     return updated;
   }
 }
@@ -104,7 +106,7 @@ export function processMetricAnalysisQueryResponse(
   metric: FactMetricInterface
 ): MetricAnalysisResult {
   const ret: MetricAnalysisResult = { units: 0, mean: 0, stddev: 0 };
-  console.log("here");
+
   rows.forEach((row) => {
     const {
       date,
@@ -128,11 +130,9 @@ export function processMetricAnalysisQueryResponse(
         numerator_denominator_sum_product: main_denominator_sum_product ?? 0,
         n: units,
       });
-    } else if (metric.metricType === "proportion") { 
+    } else if (metric.metricType === "proportion") {
       mean = main_sum / units;
-      stddev = mean * Math.sqrt(
-        proportionVarianceFromSums(main_sum, units)
-      );
+      stddev = mean * Math.sqrt(proportionVarianceFromSums(main_sum, units));
     } else {
       mean = main_sum / units;
       stddev = Math.sqrt(
@@ -173,9 +173,7 @@ export function processMetricAnalysisQueryResponse(
         );
         ret.histogram = histogram;
       }
-      console.log(row);
-      console.log(main_sum);
-      console.log(units);
+
       ret.units = units;
       ret.mean = mean;
       ret.stddev = stddev;

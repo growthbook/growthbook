@@ -50,11 +50,7 @@ export function meanVarianceFromSums(
   return returnZeroIfNotFinite(variance);
 }
 
-
-export function proportionVarianceFromSums(
-  sum: number,
-  n: number
-): number {
+export function proportionVarianceFromSums(sum: number, n: number): number {
   const mean = sum / n;
   return returnZeroIfNotFinite(mean * (1 - mean));
 }

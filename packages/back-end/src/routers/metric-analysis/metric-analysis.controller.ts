@@ -6,7 +6,6 @@ import {
   MetricAnalysisInterface,
   MetricAnalysisSettings,
 } from "@back-end/types/metric-analysis";
-import { getMetricById } from "../../models/MetricModel";
 import { createMetricAnalysis } from "../../services/metric-analysis";
 import { MetricAnalysisQueryRunner } from "../../queryRunners/MetricAnalysisQueryRunner";
 import { getExperimentMetricById } from "../../services/experiments";
@@ -119,8 +118,7 @@ export const getMetricAnalysis = async (
   if (!metricAnalysis) {
     throw new Error("Metric analysis not found");
   }
-  console.log(metricAnalysis.settings);
-  console.log(typeof metricAnalysis.settings.startDate);
+
   res.status(200).json({
     status: 200,
     metricAnalysis,

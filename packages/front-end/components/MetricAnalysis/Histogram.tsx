@@ -5,7 +5,6 @@ import { scaleLinear } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { Bar } from "@visx/shape";
 import { useTooltipInPortal } from "@visx/tooltip";
-import { formatNumber } from "@/services/metrics";
 
 interface Datapoint {
   start: number;
