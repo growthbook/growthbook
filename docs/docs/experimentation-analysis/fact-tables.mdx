@@ -274,3 +274,20 @@ Ratio metrics are now self-contained. Previously, the denominator would just be 
 During analysis, Ratio metrics used to behave like a Funnel - the denominator had to happen first before the numerator. This was unintuitive for many people, so With Fact Tables, we changed them to act like true ratios - we calculate the numerator and denominator independently and then divide them. We plan to add a dedicated Funnel metric type in the future to support this use case.
 
 Lastly, Ratio metrics now have a single metric window and capping behavior. Previously, this would be controlled separately for the numerator and denominator. Because of this change, only "percentile" capping is allowed for ratio metrics.
+
+## Auto Generate Fact Tables
+
+When using GrowthBook with certain event trackers, we may be able to generate Fact Tables for you automatically by identifying the unique events tracked by your event tracker. This is currently only supported for a few event trackers (listed below), but we are working to expand this list.
+
+If you are using one of the supported event trackers and would like to see what Fact Tables we can create for you, head to the `Fact Tables` page in GrowthBook and select the `Auto Generate Fact Tables...` button.
+
+:::note
+When querying your datasource to identify unique events, we're currently only looking at events in the last 7 days.
+:::
+
+### Supported Event Trackers
+
+- Segment
+- Rudderstack
+- Google Analytics 4 (GA4)
+- Amplitude
