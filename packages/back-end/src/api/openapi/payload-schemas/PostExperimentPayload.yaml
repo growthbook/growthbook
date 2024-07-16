@@ -2,7 +2,6 @@ type: object
 required:
   - name
   - variations
-  - owner
   - datasourceId
   - trackingKey
   - assignmentQueryId
@@ -65,12 +64,25 @@ properties:
     type: number
   minBucketVersion:
     type: number
-  excludeBlockedBucketUsers:
-    type: boolean
   releasedVariationId:
     type: string
   excludeFromPayload:
     type: boolean
+  inProgressConversions:
+    type: string
+    enum:
+      - loose
+      - strict
+  attributionModel:
+    type: string
+    enum:
+      - firstExposure
+      - experimentDuration
+  statsEngine:
+    type: string
+    enum:
+      - bayesian
+      - frequentist
   variations:
     type: array
     minItems: 2
@@ -115,10 +127,10 @@ properties:
           type: string
         dateStarted:
           type: string
-          format: date
+          format: date-time
         dateEnded:
           type: string
-          format: date
+          format: date-time
         reasonForStopping:
           type: string
         seed:

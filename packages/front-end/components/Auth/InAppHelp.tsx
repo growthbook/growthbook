@@ -4,14 +4,14 @@ import { BsQuestionLg, BsXLg } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
-import { GBPremiumBadge } from "../Icons";
-import UpgradeModal from "../Settings/UpgradeModal";
+import { GBPremiumBadge } from "@/components/Icons";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 
 export default function InAppHelp() {
   const config = useFeature("pylon-config").value;
   const [showFreeHelpWidget, setShowFreeHelpWidget] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const { name, email, hasCommercialFeature } = useUser();
+  const { name, email, hasCommercialFeature, commercialFeatures } = useUser();
   const showUpgradeModal = !hasCommercialFeature("livechat") && isCloud();
 
   useEffect(() => {
@@ -30,7 +30,7 @@ export default function InAppHelp() {
         },
       };
     }
-  }, [config]);
+  }, [config, commercialFeatures]);
 
   // If the Pylon key exists on the window, we're showing the Pylon widget, so don't show the freeHelpModal
   if (window["pylon"]) return null;

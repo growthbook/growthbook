@@ -16,6 +16,7 @@ properties:
     type: boolean
   type:
     type: string
+    enum: ["experiment"]
   trackingKey:
     type: string
   hashAttribute:
@@ -28,8 +29,6 @@ properties:
     type: number
   minBucketVersion:
     type: number
-  excludeBlockedBucketUsers:
-    type: boolean
   namespace:
     type: obect
     required:

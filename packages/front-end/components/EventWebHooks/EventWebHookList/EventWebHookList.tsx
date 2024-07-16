@@ -1,10 +1,11 @@
-import React, { FC, PropsWithChildren, useCallback, useState } from "react";
+import React, { FC, useCallback, useState } from "react";
 import { FaBolt } from "react-icons/fa";
 import { EventWebHookInterface } from "back-end/types/event-webhook";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
-import { EventWebHookEditParams } from "../utils";
-import { EventWebHookAddEditModal } from "../EventWebHookAddEditModal/EventWebHookAddEditModal";
+import { EventWebHookEditParams } from "@/components/EventWebHooks/utils";
+import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
+import { docUrl, DocLink } from "@/components/DocLink";
 import { EventWebHookListItem } from "./EventWebHookListItem/EventWebHookListItem";
 
 type EventWebHookListProps = {
@@ -39,13 +40,25 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
       ) : null}
 
       <div className="mb-4">
-        <div className="d-flex justify-space-between align-items-center">
-          <span className="badge badge-purple text-uppercase mr-2">Beta</span>
+        <div className="d-flex align-items-center">
           <h1>Event Webhooks</h1>
+          <span className="mr-auto badge badge-purple text-uppercase ml-2">
+            Beta
+          </span>
+          <div>
+            <button className="btn btn-primary" onClick={onCreateModalOpen}>
+              <FaBolt className="mr-1" />
+              Create an Event Webhook
+            </button>
+          </div>
         </div>
         <p>
-          Event Webhooks are event-based, and allow you to monitor specific
-          events.
+          Monitor specific events globally accross features and experiments.
+          <span className="ml-2">
+            <DocLink docSection={"eventWebhooks"}>
+              View Documentation &gt;
+            </DocLink>
+          </span>
         </p>
         <div className="alert alert-premium">
           <h4>Free while in Beta</h4>
@@ -62,14 +75,34 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
       )}
 
       {/* Empty state*/}
-      {eventWebHooks.length === 0 ? (
-        <EventWebHooksEmptyState>
-          <button className="btn btn-primary" onClick={onCreateModalOpen}>
-            <FaBolt />
-            Create an Event Webhook
-          </button>
-        </EventWebHooksEmptyState>
-      ) : (
+      {eventWebHooks.length === 0 && (
+        <div className="row">
+          <div className="col" />
+          <div className="col-4 d-flex flex-column justify-content-center text-center">
+            <h2>Monitor Specific Events</h2>
+            <p>
+              Send targeted notifications to popular apps like Discord and
+              Slack. Apply globally for all features and experiments, or filter
+              by environment, project, or tags.
+            </p>
+            <div className="d-flex">
+              <button
+                className="btn btn-outline-primary mr-2"
+                onClick={() => window.open(docUrl("eventWebhooks"), "_blank")}
+              >
+                Setup Instructions
+              </button>
+              <button className="btn btn-primary" onClick={onCreateModalOpen}>
+                <FaBolt className="mr-1" />
+                Create an Event Webhook
+              </button>
+            </div>
+          </div>
+          <div className="col" />
+        </div>
+      )}
+
+      {eventWebHooks.length > 0 && (
         <div>
           {/* List view */}
           {eventWebHooks.map((eventWebHook) => (
@@ -80,29 +113,11 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
               />
             </div>
           ))}
-
-          <div className="mt-4">
-            <button className="btn btn-primary" onClick={onCreateModalOpen}>
-              <FaBolt />
-              Create an Event Webhook
-            </button>
-          </div>
         </div>
       )}
     </div>
   );
 };
-
-const EventWebHooksEmptyState: FC<PropsWithChildren> = ({ children }) => (
-  <div className="row">
-    <div className="col-xs-12 col-md-6 offset-md-3">
-      <div className="card text-center p-3">
-        When Event Webhooks are created, they will show up here.
-        <div className="mt-4">{children}</div>
-      </div>
-    </div>
-  </div>
-);
 
 export const EventWebHookListContainer = () => {
   const { apiCall } = useAuth();

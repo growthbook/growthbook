@@ -1,5 +1,8 @@
 import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
-import { ExperimentReportVariationWithIndex } from "back-end/types/report";
+import {
+  ExperimentReportVariationWithIndex,
+  MetricSnapshotSettings,
+} from "back-end/types/report";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import {
   DifferenceType,
@@ -16,7 +19,12 @@ import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { RxInfoCircled } from "react-icons/rx";
 import { MdSwapCalls } from "react-icons/md";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  isFactMetric,
+  quantileMetricType,
+} from "shared/experiments";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
 import {
   getEffectLabel,
@@ -31,11 +39,13 @@ import {
   formatPercent,
   getColumnRefFormatter,
   getExperimentMetricFormatter,
+  getPercentileLabel,
 } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
+import { PercentileLabel } from "@/components/Metrics/MetricName";
 
 export const TOOLTIP_WIDTH = 400;
 export const TOOLTIP_HEIGHT = 400; // Used for over/under layout calculation. Actual height may vary.
@@ -58,6 +68,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 export interface TooltipData {
   metricRow: number;
   metric: ExperimentMetricInterface;
+  metricSnapshotSettings?: MetricSnapshotSettings;
   dimensionName?: string;
   dimensionValue?: string;
   variation: ExperimentReportVariationWithIndex;
@@ -180,8 +191,9 @@ export default function ResultsTableTooltip({
   }
   let denomFormatter = formatNumber;
   const hasCustomDenominator =
-    (isFactMetric(data.metric) && data.metric.metricType === "ratio") ||
-    !!data.metric.denominator;
+    ((isFactMetric(data.metric) && data.metric.metricType === "ratio") ||
+      !!data.metric.denominator) &&
+    !quantileMetricType(data.metric);
   if (
     hasCustomDenominator &&
     isFactMetric(data.metric) &&
@@ -192,8 +204,13 @@ export default function ResultsTableTooltip({
       getFactTableById
     );
   }
+  const quantileMetric = quantileMetricType(data.metric);
+  const quantileIgnoreZeros =
+    isFactMetric(data.metric) && data.metric.quantileSettings?.ignoreZeros;
+  const quantileValue = isFactMetric(data.metric)
+    ? data.metric.quantileSettings?.quantile
+    : undefined;
   // Lift units
-  const expected = data.stats?.expected ?? 0;
   const ci1 = data.stats?.ciAdjusted?.[1] ?? data.stats?.ci?.[1] ?? 0;
   const ci0 = data.stats?.ciAdjusted?.[0] ?? data.stats?.ci?.[0] ?? 0;
   const ciRangeText =
@@ -215,6 +232,11 @@ export default function ResultsTableTooltip({
         {deltaFormatter(data.stats.ci?.[1] ?? 0, deltaFormatterOptions)}]
       </>
     );
+
+  const priorUsed =
+    data.statsEngine === "bayesian" && data.metricSnapshotSettings?.properPrior;
+  const cupedUsed = data.metricSnapshotSettings?.regressionAdjustmentEnabled;
+  const addLiftWarning = priorUsed || cupedUsed;
 
   const arrowLeft =
     data.layoutX === "element-right"
@@ -292,8 +314,9 @@ export default function ResultsTableTooltip({
             >
               {data.metric.name}
             </span>
+            <PercentileLabel metric={data.metric} />
             {metricInverseIconDisplay}
-            <span className="text-muted ml-2">
+            <span className="small text-muted ml-2">
               (
               {isFactMetric(data.metric)
                 ? data.metric.metricType
@@ -416,17 +439,6 @@ export default function ResultsTableTooltip({
                     deltaFormatterOptions
                   )}
                 </span>
-                {data.statsEngine === "frequentist" ? (
-                  <span className="plusminus ml-1">
-                    ±
-                    {Math.abs(ci0) === Infinity || Math.abs(ci1) === Infinity
-                      ? "∞"
-                      : deltaFormatter(
-                          Math.abs(expected - ci0),
-                          deltaFormatterOptions
-                        )}
-                  </span>
-                ) : null}
               </div>
             </div>
 
@@ -477,6 +489,56 @@ export default function ResultsTableTooltip({
                   : pValText}
               </div>
             </div>
+            {addLiftWarning ? (
+              <div
+                className={clsx(
+                  "results-prior text-muted rounded d-flex justify-content-center mt-2",
+                  data.rowResults.resultsStatus
+                )}
+              >
+                <Tooltip
+                  className="cursor-pointer"
+                  body={
+                    <>
+                      {priorUsed ? (
+                        <div className="mb-1">
+                          {`This metric was analyzed with a prior that is normally distributed with mean ${
+                            data.metricSnapshotSettings?.properPriorMean ?? 0
+                          } and standard deviation ${
+                            data.metricSnapshotSettings?.properPriorStdDev ??
+                            DEFAULT_PROPER_PRIOR_STDDEV
+                          }.`}
+                        </div>
+                      ) : null}
+                      {cupedUsed ? (
+                        <div className="mb-1">
+                          {`This metric was analyzed with CUPED, which adjusts for covariates.`}
+                        </div>
+                      ) : null}
+                      <div>
+                        {`This affects metrics results (e.g., lift, ${
+                          data.statsEngine === "bayesian"
+                            ? "chance to win, credible intervals"
+                            : "p-values, confidence intervals"
+                        }), and estimated lift will often differ from the raw difference between variation and baseline.`}
+                      </div>
+                    </>
+                  }
+                >
+                  <HiOutlineExclamationCircle
+                    size={16}
+                    className="flag-icon mr-1"
+                  />
+                  <span>
+                    {priorUsed
+                      ? `Your Bayesian prior ${
+                          cupedUsed ? "and CUPED " : ""
+                        }affects results`
+                      : "CUPED affects results"}
+                  </span>
+                </Tooltip>
+              </div>
+            ) : null}
 
             {hasFlaggedItems ? (
               <div
@@ -583,10 +645,17 @@ export default function ResultsTableTooltip({
               <thead>
                 <tr>
                   <th style={{ width: 130 }}>Variation</th>
-                  <th>Users</th>
-                  <th>Numerator</th>
+                  <th>
+                    {quantileMetric && quantileIgnoreZeros ? "Non-zero " : ""}
+                    {quantileMetric === "event" ? "Events" : "Users"}
+                  </th>
+                  {!quantileMetric ? <th>Numerator</th> : null}
                   {hasCustomDenominator ? <th>Denom.</th> : null}
-                  <th>Value</th>
+                  {quantileMetric && quantileValue ? (
+                    <th>{getPercentileLabel(quantileValue)}</th>
+                  ) : (
+                    <th>Value</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -629,15 +698,21 @@ export default function ResultsTableTooltip({
                           </div>
                         ) : null}
                       </td>
-                      <td>{numberFormatter.format(row.users)}</td>
-
                       <td>
-                        {getExperimentMetricFormatter(
-                          data.metric,
-                          getFactTableById,
-                          true
-                        )(row.value, { currency: displayCurrency })}
+                        {quantileMetric && row.stats
+                          ? numberFormatter.format(row.stats.count)
+                          : numberFormatter.format(row.users)}
                       </td>
+
+                      {!quantileMetric ? (
+                        <td>
+                          {getExperimentMetricFormatter(
+                            data.metric,
+                            getFactTableById,
+                            true
+                          )(row.value, { currency: displayCurrency })}
+                        </td>
+                      ) : null}
                       {hasCustomDenominator ? (
                         <td>
                           {denomFormatter(row.denominator || row.users, {

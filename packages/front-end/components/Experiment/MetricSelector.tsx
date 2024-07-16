@@ -2,7 +2,7 @@ import { FC } from "react";
 import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
-import FactBadge from "../FactTables/FactBadge";
+import MetricName from "@/components/Metrics/MetricName";
 import { isMetricJoinable } from "./MetricsSelector";
 
 type MetricOption = {
@@ -24,6 +24,7 @@ const MetricSelector: FC<
     includeFacts?: boolean;
     availableIds?: string[];
     onlyBinomial?: boolean;
+    onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   }
 > = ({
   datasource,
@@ -33,6 +34,7 @@ const MetricSelector: FC<
   placeholder,
   availableIds,
   onlyBinomial,
+  onPaste,
   ...selectProps
 }) => {
   const {
@@ -105,14 +107,10 @@ const MetricSelector: FC<
           label: m.name,
         };
       })}
-      formatOptionLabel={({ label, value }) => {
-        return (
-          <>
-            {label}
-            <FactBadge metricId={value} />
-          </>
-        );
+      formatOptionLabel={({ value, label }) => {
+        return value ? <MetricName id={value} /> : label;
       }}
+      onPaste={onPaste}
     />
   );
 };

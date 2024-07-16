@@ -1,0 +1,69 @@
+---
+title: URL Redirect Testing
+description: Easily A/B test multiple versions of a page without writing code
+sidebar_label: URL Redirects
+slug: /app/url-redirects
+---
+
+import Pill from '@site/src/components/Pill';
+
+# URL Redirect Testing
+
+URL Redirect tests are an alternative to using the Visual Editor and are ideal for testing big changes or complete page redesigns.
+
+URL Redirects require a Pro or Enterprise GrowthBook license.
+
+## How it Works
+
+You start by specifying an "Original URL". Users who visit this URL will be included in the experiment (assuming they meet all of the other targeting conditions).
+
+You then specify "Destination URLs" for each of your variations. You can also turn off redirects for some of your variations if you want to keep the user on the Original URL.
+
+When a user visits the Original URL and is included in the experiment, they will be assigned a variation. Then, an "Experiment Viewed" event will be sent to your data warehouse. After a short delay (default `100ms`) to allow for the tracking event to finish, the user will be redirected to the destination URL.
+
+## Implementation
+
+URL Redirect tests require integrating one of our [SDKs](/lib) into your application. Currently, URL Redirect tests are only supported in our [Script Tag](/lib/script-tag), [Javascript](/lib/js), and [ReactJS](/lib/js) SDKs. Support for other SDKs is coming soon. Verify URL Redirect tests are enabled for your SDK Connection: Go to **SDK Connections**, select your SDK connection, click **Edit**, and ensure that "Enable URL Redirect experiments" is toggled on.
+
+### HTML Script Tag
+
+The easiest option is to use our [Script Tag](/lib/script-tag) SDK. This involves adding a single `<script>` tag to the HEAD of your website. This option fully works out-of-the-box with no configuration required.
+
+### Client-Side JavaScript and React
+
+A more advanced integration involves using our [Javascript](/lib/js) or [ReactJS](/lib/js) client-side SDKs.
+
+Besides the standard implementation described in the SDK docs, there are 4 additional settings that control the redirect behavior.
+
+- `navigate` - a callback function to perform the redirect. Defaults to `(url) => window.location.replace(url)`.
+- `navigateDelay` - the number of milliseconds to wait before redirecting. Use this to give time for your analytics tracking callback to finish. Defaults to `100`
+- `antiFlicker` - If `true`, a white screen will be shown while the redirect is happening to avoid the user seeing a "flicker". Defaults to `false`.
+- `antiFlickerTimeout` - the maximum number of milliseconds that the anti-flicker white screen will be shown. Defaults to `3500` (3.5 seconds).
+
+#### Single Page Apps (SPAs)
+
+If you have a Single Page App (SPA), it's recommended to use your own `navigate` function to avoid doing full-page redirects. In this case, you also want to set `navigateDelay` to 0. Here's an example in Next.js
+
+```jsx
+import router from "next/router";
+
+const gb = new GrowthBook({
+    navigate: (url) => router.replace(url),
+    navigateDelay: 0,
+    // ... other settings
+});
+```
+
+It's also super important to update the URL in the GrowthBook instance on every client-side navigation. For example:
+
+```jsx
+router.events.on("routeChangeComplete", (url) => {
+    gb.setURL(url);
+})
+```
+
+### Node.js / Edge Workers <Pill>beta</Pill>
+
+It's possible to use our [Javascript](/lib/js) SDK to perform redirects on the back-end as well, in either a Node.js application or in an edge worker.
+
+Reach out to us on Slack or at hello@growthbook.io if you're interested in helping us beta test this and we can help you get set up.

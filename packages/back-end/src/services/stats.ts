@@ -1,6 +1,7 @@
 import { promisify } from "util";
 import os from "os";
 import { PythonShell } from "python-shell";
+import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -13,9 +14,13 @@ import {
   isFactMetric,
   isRatioMetric,
   isRegressionAdjusted,
+  quantileMetricType,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
-import { ExperimentMetricAnalysis } from "../../types/stats";
+import {
+  ExperimentMetricAnalysis,
+  MultipleExperimentMetricAnalysis,
+} from "../../types/stats";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentFactMetricsQueryResponseRows,
@@ -27,9 +32,12 @@ import {
   ExperimentReportResults,
   ExperimentReportVariation,
 } from "../../types/report";
+import { ReqContext } from "../../types/organization";
 import { checkSrm } from "../util/stats";
+import { promiseAllChunks } from "../util/promise";
 import { logger } from "../util/logger";
 import {
+  ExperimentAnalysisParamsContextData,
   ExperimentMetricAnalysisParams,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
@@ -38,7 +46,9 @@ import {
   SnapshotSettingsVariation,
 } from "../../types/experiment-snapshot";
 import { QueryMap } from "../queryRunners/QueryRunner";
+import { updateSnapshotAnalysis } from "../models/ExperimentSnapshotModel";
 import { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "../integrations/SqlIntegration";
+import { applyMetricOverrides } from "../util/integration";
 
 // Keep these interfaces in sync with gbstats
 export interface AnalysisSettingsForStatsEngine {
@@ -60,10 +70,19 @@ export interface MetricSettingsForStatsEngine {
   id: string;
   name: string;
   inverse: boolean;
-  statistic_type: "mean" | "ratio" | "mean_ra";
-  main_metric_type: "count" | "binomial";
-  denominator_metric_type?: "count" | "binomial";
-  covariate_metric_type?: "count" | "binomial";
+  statistic_type:
+    | "mean"
+    | "ratio"
+    | "mean_ra"
+    | "quantile_event"
+    | "quantile_unit";
+  main_metric_type: "count" | "binomial" | "quantile";
+  denominator_metric_type?: "count" | "binomial" | "quantile";
+  covariate_metric_type?: "count" | "binomial" | "quantile";
+  quantile_value?: number;
+  prior_proper?: boolean;
+  prior_mean?: number;
+  prior_stddev?: number;
 }
 
 export interface QueryResultsForStatsEngine {
@@ -78,6 +97,11 @@ export interface DataForStatsEngine {
   analyses: AnalysisSettingsForStatsEngine[];
   metrics: Record<string, MetricSettingsForStatsEngine>;
   query_results: QueryResultsForStatsEngine[];
+}
+
+export interface ExperimentDataForStatsEngine {
+  id: string;
+  data: DataForStatsEngine;
 }
 
 export const MAX_DIMENSIONS = 20;
@@ -138,48 +162,27 @@ export function getAnalysisSettingsForStatsEngine(
   return analysisData;
 }
 
-export async function analyzeExperimentMetric(
-  params: ExperimentMetricAnalysisParams
-): Promise<ExperimentMetricAnalysis> {
-  const {
-    variations,
-    metrics,
-    phaseLengthHours,
-    coverage,
-    analyses,
-    queryResults,
-  } = params;
-
-  const phaseLengthDays = Number(phaseLengthHours / 24);
-
-  const statsData: DataForStatsEngine = {
-    metrics: metrics,
-    query_results: queryResults,
-    analyses: analyses.map((a) =>
-      getAnalysisSettingsForStatsEngine(
-        a,
-        variations,
-        coverage,
-        phaseLengthDays
-      )
-    ),
-  };
-
+async function runStatsEngine(
+  statsData: ExperimentDataForStatsEngine[]
+): Promise<MultipleExperimentMetricAnalysis[]> {
   const escapedStatsData = JSON.stringify(statsData).replace(/\\/g, "\\\\");
-
   const start = Date.now();
   const cpus = os.cpus();
   const result = await promisify(PythonShell.runString)(
     `
-from gbstats.gbstats import process_experiment_results
+
+from dataclasses import asdict
 import json
 import time
+
+from gbstats.gbstats import process_multiple_experiment_results
 
 start = time.time()
 
 data = json.loads("""${escapedStatsData}""", strict=False)
 
-results = process_experiment_results(data)
+# cast asdict because dataclasses are not serializable
+results = [asdict(analysis) for analysis in process_multiple_experiment_results(data)]
 
 print(json.dumps({
   'results': results,
@@ -190,7 +193,7 @@ print(json.dumps({
 
   try {
     const parsed: {
-      results: ExperimentMetricAnalysis;
+      results: MultipleExperimentMetricAnalysis[];
       time: number;
     } = JSON.parse(result?.[0]);
 
@@ -209,30 +212,112 @@ print(json.dumps({
   }
 }
 
+function createStatsEngineData(
+  params: ExperimentMetricAnalysisParams
+): DataForStatsEngine {
+  const {
+    variations,
+    metrics,
+    phaseLengthHours,
+    coverage,
+    analyses,
+    queryResults,
+  } = params;
+
+  const phaseLengthDays = Number(phaseLengthHours / 24);
+
+  return {
+    metrics: metrics,
+    query_results: queryResults,
+    analyses: analyses.map((a) =>
+      getAnalysisSettingsForStatsEngine(
+        a,
+        variations,
+        coverage,
+        phaseLengthDays
+      )
+    ),
+  };
+}
+
+export async function runSnapshotAnalysis(
+  params: ExperimentMetricAnalysisParams
+): Promise<ExperimentMetricAnalysis> {
+  const result = (
+    await runStatsEngine([
+      { id: params.id, data: createStatsEngineData(params) },
+    ])
+  )?.[0];
+
+  if (!result) {
+    throw new Error("Error in stats engine: no rows returned");
+  }
+  if (result.error) {
+    logger.error(result.error, "Failed to run stats model: " + result.error);
+    throw new Error("Error in stats engine: " + result.error);
+  }
+  return result.results;
+}
+
+export async function runSnapshotAnalyses(
+  params: ExperimentMetricAnalysisParams[]
+): Promise<MultipleExperimentMetricAnalysis[]> {
+  const result = await runStatsEngine(
+    params.map((p) => {
+      return { id: p.id, data: createStatsEngineData(p) };
+    })
+  );
+
+  return result;
+}
+
 export function getMetricSettingsForStatsEngine(
-  metric: ExperimentMetricInterface,
-  metricMap: Map<string, ExperimentMetricInterface>
+  metricDoc: ExperimentMetricInterface,
+  metricMap: Map<string, ExperimentMetricInterface>,
+  settings: ExperimentSnapshotSettings
 ): MetricSettingsForStatsEngine {
-  let denominator =
+  const metric = cloneDeep<ExperimentMetricInterface>(metricDoc);
+  applyMetricOverrides(metric, settings);
+
+  const denominatorDoc =
     metric.denominator && !isFactMetric(metric)
       ? metricMap.get(metric.denominator)
       : undefined;
+  let denominator: undefined | ExperimentMetricInterface = undefined;
+  if (denominatorDoc) {
+    denominator = cloneDeep<ExperimentMetricInterface>(denominatorDoc);
+    applyMetricOverrides(denominator, settings);
+  }
+
   const ratioMetric = isRatioMetric(metric, denominator);
-  const regressionAdjusted = isRegressionAdjusted(metric, denominator);
-  const mainMetricType = isBinomialMetric(metric) ? "binomial" : "count";
+  const quantileMetric = quantileMetricType(metric);
+  const regressionAdjusted =
+    settings.regressionAdjustmentEnabled &&
+    isRegressionAdjusted(metric, denominator);
+  const mainMetricType = quantileMetric
+    ? "quantile"
+    : isBinomialMetric(metric)
+    ? "binomial"
+    : "count";
   // Fact ratio metrics contain denominator
   if (isFactMetric(metric) && ratioMetric) {
     denominator = metric;
   }
+
   return {
     id: metric.id,
     name: metric.name,
     inverse: !!metric.inverse,
-    statistic_type: ratioMetric
-      ? "ratio"
-      : regressionAdjusted
-      ? "mean_ra"
-      : "mean",
+    statistic_type:
+      quantileMetric === "unit"
+        ? "quantile_unit"
+        : quantileMetric === "event"
+        ? "quantile_event"
+        : ratioMetric
+        ? "ratio"
+        : regressionAdjusted
+        ? "mean_ra"
+        : "mean",
     main_metric_type: mainMetricType,
     ...(denominator && {
       denominator_metric_type: isBinomialMetric(denominator)
@@ -240,13 +325,19 @@ export function getMetricSettingsForStatsEngine(
         : "count",
     }),
     ...(regressionAdjusted && { covariate_metric_type: mainMetricType }),
+    ...(!!quantileMetric && isFactMetric(metric)
+      ? { quantile_value: metric.quantileSettings?.quantile ?? 0 }
+      : {}),
+    prior_proper: metric.priorSettings.proper,
+    prior_mean: metric.priorSettings.mean,
+    prior_stddev: metric.priorSettings.stddev,
   };
 }
 
 export function getMetricsAndQueryDataForStatsEngine(
   queryData: QueryMap,
   metricMap: Map<string, ExperimentMetricInterface>,
-  variations: (SnapshotSettingsVariation | ExperimentReportVariation)[]
+  settings: ExperimentSnapshotSettings
 ) {
   const queryResults: QueryResultsForStatsEngine[] = [];
   const metricSettings: Record<string, MetricSettingsForStatsEngine> = {};
@@ -271,11 +362,12 @@ export function getMetricsAndQueryDataForStatsEngine(
           }
           metricSettings[metric] = getMetricSettingsForStatsEngine(
             metricInterface,
-            metricMap
+            metricMap,
+            settings
           );
           byMetric[metric].push({
             dimension: row.dimension,
-            variation: variations[v.variation]?.id || v.variation + "",
+            variation: settings.variations[v.variation]?.id || v.variation + "",
             users: stats.count,
             count: stats.count,
             main_sum: stats.main_sum,
@@ -311,7 +403,8 @@ export function getMetricsAndQueryDataForStatsEngine(
             metricIds.push(metricId);
             metricSettings[metricId] = getMetricSettingsForStatsEngine(
               metric,
-              metricMap
+              metricMap,
+              settings
             );
           } else {
             metricIds.push(null);
@@ -328,7 +421,11 @@ export function getMetricsAndQueryDataForStatsEngine(
       // Single metric query, just return rows as-is
       const metric = metricMap.get(key);
       if (!metric) return;
-      metricSettings[key] = getMetricSettingsForStatsEngine(metric, metricMap);
+      metricSettings[key] = getMetricSettingsForStatsEngine(
+        metric,
+        metricMap,
+        settings
+      );
       queryResults.push({
         metrics: [key],
         rows: (query.result ?? []) as ExperimentMetricQueryResponseRows,
@@ -343,42 +440,16 @@ export function getMetricsAndQueryDataForStatsEngine(
   };
 }
 
-export async function analyzeExperimentResults({
-  queryData,
-  analysisSettings,
-  snapshotSettings,
-  variationNames,
-  metricMap,
-}: {
-  queryData: QueryMap;
-  analysisSettings: ExperimentSnapshotAnalysisSettings[];
-  snapshotSettings: ExperimentSnapshotSettings;
-  variationNames: string[];
-  metricMap: Map<string, ExperimentMetricInterface>;
-}): Promise<ExperimentReportResults[]> {
-  const mdat = getMetricsAndQueryDataForStatsEngine(
-    queryData,
-    metricMap,
-    snapshotSettings.variations
-  );
-  const { queryResults, metricSettings } = mdat;
-  let { unknownVariations } = mdat;
+function parseStatsEngineResult(
+  analysisSettings: ExperimentSnapshotAnalysisSettings[],
+  snapshotSettings: ExperimentSnapshotSettings,
+  queryResults: QueryResultsForStatsEngine[],
+  unknownVariations: string[],
+  result: ExperimentMetricAnalysis
+): ExperimentReportResults[] {
+  let unknownVariationsCopy = [...unknownVariations];
 
-  const results = await analyzeExperimentMetric({
-    coverage: snapshotSettings.coverage ?? 1,
-    phaseLengthHours: Math.max(
-      hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
-      1
-    ),
-    variations: snapshotSettings.variations.map((v, i) => ({
-      ...v,
-      name: variationNames[i] || v.id,
-    })),
-    analyses: analysisSettings,
-    queryResults: queryResults,
-    metrics: metricSettings,
-  });
-
+  const experimentReportResults: ExperimentReportResults[] = [];
   // TODO fix for dimension slices and move to health query
   const multipleExposures = Math.max(
     ...queryResults.map(
@@ -387,18 +458,21 @@ export async function analyzeExperimentResults({
     )
   );
 
-  const ret: ExperimentReportResults[] = [];
   analysisSettings.forEach((_, i) => {
     const dimensionMap: Map<
       string,
       ExperimentReportResultDimension
     > = new Map();
-
-    results.forEach(({ metric, analyses }) => {
+    result.forEach(({ metric, analyses }) => {
+      // each result can have multiple analyses (a set of computations that
+      // use the same snapshot)
+      // we loop over the analyses requested and pull out the results for each one
       const result = analyses[i];
       if (!result) return;
 
-      unknownVariations = unknownVariations.concat(result.unknownVariations);
+      unknownVariationsCopy = unknownVariationsCopy.concat(
+        result.unknownVariations
+      );
 
       result.dimensions.forEach((row) => {
         const dim = dimensionMap.get(row.dimension) || {
@@ -440,15 +514,106 @@ export async function analyzeExperimentResults({
         );
       });
     }
-
-    ret.push({
+    experimentReportResults.push({
       multipleExposures,
-      unknownVariations: Array.from(new Set(unknownVariations)),
+      unknownVariations: Array.from(new Set(unknownVariationsCopy)),
       dimensions,
     });
   });
+  return experimentReportResults;
+}
 
-  return ret;
+export async function writeSnapshotAnalyses(
+  results: MultipleExperimentMetricAnalysis[],
+  paramsMap: Map<string, ExperimentAnalysisParamsContextData>,
+  context: ReqContext
+) {
+  const promises: (() => Promise<void>)[] = [];
+  results.map((result) => {
+    const params = paramsMap.get(result.id);
+    if (!params) return;
+
+    const { organization, snapshot, snapshotSettings } = params.context;
+    const { analyses, queryResults } = params.params;
+    const { analysisObj, unknownVariations } = params.data;
+
+    if (result.error) {
+      analysisObj.results = [];
+      analysisObj.status = "error";
+      analysisObj.error = result.error;
+    } else {
+      const experimentReportResults: ExperimentReportResults[] = parseStatsEngineResult(
+        analyses,
+        snapshotSettings,
+        queryResults,
+        unknownVariations,
+        result.results
+      );
+
+      analysisObj.results = experimentReportResults[0]?.dimensions || [];
+      analysisObj.status = "success";
+      analysisObj.error = undefined;
+    }
+
+    promises.push(async () =>
+      updateSnapshotAnalysis({
+        organization,
+        id: snapshot,
+        analysis: analysisObj,
+        context,
+      })
+    );
+  });
+  if (promises.length > 0) {
+    await promiseAllChunks(promises, 10);
+  }
+}
+
+export async function analyzeExperimentResults({
+  queryData,
+  analysisSettings,
+  snapshotSettings,
+  variationNames,
+  metricMap,
+}: {
+  queryData: QueryMap;
+  analysisSettings: ExperimentSnapshotAnalysisSettings[];
+  snapshotSettings: ExperimentSnapshotSettings;
+  variationNames: string[];
+  metricMap: Map<string, ExperimentMetricInterface>;
+}): Promise<ExperimentReportResults[]> {
+  const mdat = getMetricsAndQueryDataForStatsEngine(
+    queryData,
+    metricMap,
+    snapshotSettings
+  );
+  const { queryResults, metricSettings } = mdat;
+  const { unknownVariations } = mdat;
+
+  const params: ExperimentMetricAnalysisParams = {
+    id: snapshotSettings.experimentId,
+    coverage: snapshotSettings.coverage ?? 1,
+    phaseLengthHours: Math.max(
+      hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
+      1
+    ),
+    variations: snapshotSettings.variations.map((v, i) => ({
+      ...v,
+      name: variationNames[i] || v.id,
+    })),
+    analyses: analysisSettings,
+    queryResults: queryResults,
+    metrics: metricSettings,
+  };
+  const results = await runSnapshotAnalysis(params);
+
+  return parseStatsEngineResult(
+    analysisSettings,
+    snapshotSettings,
+    queryResults,
+    unknownVariations,
+    results
+  );
 }
 export function analyzeExperimentTraffic({
   rows,

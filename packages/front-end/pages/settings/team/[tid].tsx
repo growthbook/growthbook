@@ -4,13 +4,13 @@ import { datetime } from "shared/dates";
 import Link from "next/link";
 import { FaUserLock } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import TeamModal from "@/components/Teams/TeamModal";
 import { AddMembersModal } from "@/components/Teams/AddMembersModal";
 import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
 import { useUser } from "@/services/UserContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const TeamPage: FC = () => {
   const { apiCall } = useAuth();
@@ -21,8 +21,8 @@ const TeamPage: FC = () => {
   );
   const [memberModalOpen, setMemberModalOpen] = useState<boolean>(false);
 
-  const permissions = usePermissions();
-  const canManageTeam = permissions.check("manageTeam");
+  const permissionsUtil = usePermissionsUtil();
+  const canManageTeam = permissionsUtil.canManageTeam();
 
   const { teams, refreshOrganization } = useUser();
 
@@ -63,9 +63,8 @@ const TeamPage: FC = () => {
       <div className="container pagecontents">
         <div className="mb-4">
           <Link href="/settings/team#teams">
-            <a>
-              <GBCircleArrowLeft /> Back to all teams
-            </a>
+            <GBCircleArrowLeft className="mr-1" />
+            Back to all teams
           </Link>
         </div>
         {!isEditable && (

@@ -6,11 +6,13 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import FactBadge from "../FactTables/FactBadge";
+import MetricName from "@/components/Metrics/MetricName";
+import ClickToCopy from "@/components/Settings/ClickToCopy";
 
 type MetricOption = {
   id: string;
   name: string;
+  description: string;
   datasource: string;
   tags: string[];
   projects: string[];
@@ -104,6 +106,7 @@ const MetricsSelector: FC<{
     ...metrics.map((m) => ({
       id: m.id,
       name: m.name,
+      description: m.description || "",
       datasource: m.datasource || "",
       tags: m.tags || [],
       projects: m.projects || [],
@@ -114,6 +117,7 @@ const MetricsSelector: FC<{
       ? factMetrics.map((m) => ({
           id: m.id,
           name: m.name,
+          description: m.description || "",
           datasource: m.datasource,
           tags: m.tags || [],
           projects: m.projects || [],
@@ -160,7 +164,7 @@ const MetricsSelector: FC<{
   });
 
   return (
-    <>
+    <div>
       <MultiSelectField
         value={selected}
         onChange={onChange}
@@ -168,55 +172,81 @@ const MetricsSelector: FC<{
           return {
             value: m.id,
             label: m.name,
+            tooltip: m.description,
           };
         })}
         placeholder="Select metrics..."
         autoFocus={autoFocus}
-        formatOptionLabel={({ label, value }) => {
-          return (
-            <>
-              {label}
-              <FactBadge metricId={value} />
-            </>
+        formatOptionLabel={({ value, label }, { context }) => {
+          return value ? (
+            <MetricName id={value} showDescription={context !== "value"} />
+          ) : (
+            label
           );
         }}
+        onPaste={(e) => {
+          try {
+            const clipboard = e.clipboardData;
+            const data = JSON.parse(clipboard.getData("Text"));
+            if (data.every((d) => d.startsWith("met_"))) {
+              e.preventDefault();
+              e.stopPropagation();
+              onChange(data);
+            }
+          } catch (e) {
+            // fail silently
+          }
+        }}
       />
-      {Object.keys(tagCounts).length > 0 && (
-        <div className="metric-from-tag text-muted form-inline mt-2">
-          <span style={{ fontSize: "0.82rem" }}>
-            Select metric by tag:{" "}
-            <Tooltip body="Metrics can be tagged for grouping. Select any tag to add all metrics associated with that tag.">
-              <FaQuestionCircle />
-            </Tooltip>
-          </span>
-          <SelectField
-            placeholder="..."
-            value="..."
-            className="ml-3"
-            onChange={(v) => {
-              const newValue = new Set(selected);
-              const tag = v;
-              filteredOptions.forEach((m) => {
-                if (m.tags && m.tags.includes(tag)) {
-                  newValue.add(m.id);
-                }
-              });
-              onChange(Array.from(newValue));
-            }}
-            options={[
-              {
-                value: "...",
-                label: "...",
-              },
-              ...Object.keys(tagCounts).map((k) => ({
-                value: k,
-                label: `${k} (${tagCounts[k]})`,
-              })),
-            ]}
-          />
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <div>
+          {Object.keys(tagCounts).length > 0 && (
+            <div className="metric-from-tag text-muted form-inline mt-2">
+              <span style={{ fontSize: "0.82rem" }}>
+                Select metric by tag:{" "}
+                <Tooltip body="Metrics can be tagged for grouping. Select any tag to add all metrics associated with that tag.">
+                  <FaQuestionCircle />
+                </Tooltip>
+              </span>
+              <SelectField
+                placeholder="..."
+                value="..."
+                className="ml-3"
+                onChange={(v) => {
+                  const newValue = new Set(selected);
+                  const tag = v;
+                  filteredOptions.forEach((m) => {
+                    if (m.tags && m.tags.includes(tag)) {
+                      newValue.add(m.id);
+                    }
+                  });
+                  onChange(Array.from(newValue));
+                }}
+                options={[
+                  {
+                    value: "...",
+                    label: "...",
+                  },
+                  ...Object.keys(tagCounts).map((k) => ({
+                    value: k,
+                    label: `${k} (${tagCounts[k]})`,
+                  })),
+                ]}
+              />
+            </div>
+          )}
         </div>
-      )}
-    </>
+        {selected.length > 0 && (
+          <ClickToCopy compact valueToCopy={JSON.stringify(selected)} />
+        )}
+      </div>
+    </div>
   );
 };
 

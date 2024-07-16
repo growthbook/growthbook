@@ -1,19 +1,23 @@
 import { useForm } from "react-hook-form";
 import {
-  OrganizationSettings,
   SDKAttribute,
   SDKAttributeFormat,
   SDKAttributeType,
-} from "@/../back-end/types/organization";
+} from "back-end/types/organization";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
+import React from "react";
 import { useAttributeSchema } from "@/services/features";
-import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import PremiumTooltip from "../Marketing/PremiumTooltip";
-import Toggle from "../Forms/Toggle";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Toggle from "@/components/Forms/Toggle";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { useUser } from "@/services/UserContext";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import MinSDKVersionsList from "./MinSDKVersionsList";
 
 export interface Props {
   close: () => void;
@@ -21,6 +25,7 @@ export interface Props {
 }
 
 export default function AttributeModal({ close, attribute }: Props) {
+  const { projects, project } = useDefinitions();
   const { refreshOrganization } = useUser();
 
   const { apiCall } = useAuth();
@@ -31,7 +36,9 @@ export default function AttributeModal({ close, attribute }: Props) {
   const form = useForm<SDKAttribute>({
     defaultValues: {
       property: attribute || "",
+      description: current?.description || "",
       datatype: current?.datatype || "string",
+      projects: attribute ? current?.projects || [] : project ? [project] : [],
       format: current?.format || "",
       enum: current?.enum || "",
       hashAttribute: !!current?.hashAttribute,
@@ -65,51 +72,80 @@ export default function AttributeModal({ close, attribute }: Props) {
           value.hashAttribute = false;
         }
 
-        const attributeSchema = [...schema];
-
-        // Editing
-        if (attribute) {
-          const i = schema.findIndex((s) => s.property === attribute);
-          if (i >= 0) {
-            attributeSchema[i] = value;
-          } else {
-            attributeSchema.push(value);
-          }
-        }
-        // Creating
-        else {
-          attributeSchema.push(value);
-        }
-
-        // Make sure this attribute name doesn't conflict with any existing attributes
         if (
-          attributeSchema.filter((s) => s.property === value.property).length >
-          1
+          (!attribute || (attribute && value.property !== attribute)) &&
+          schema.some((s) => s.property === value.property)
         ) {
           throw new Error(
             "That attribute name is already being used. Please choose another one."
           );
         }
 
-        const settings: Pick<OrganizationSettings, "attributeSchema"> = {
-          attributeSchema,
+        const attributeObj: SDKAttribute & { previousName?: string } = {
+          property: value.property,
+          datatype: value.datatype,
+          description: value.description,
+          projects: value.projects,
+          format: value.format,
+          enum: value.enum,
+          hashAttribute: value.hashAttribute,
         };
-        await apiCall(`/organization`, {
-          method: "PUT",
-          body: JSON.stringify({
-            settings,
-          }),
-        });
 
+        // If the attribute name is changed, we need to pass in the original name
+        // as that's how we access the attribute in the backend
+        if (attribute && attribute !== value.property) {
+          attributeObj.previousName = attribute;
+        }
+
+        await apiCall<{
+          status: number;
+        }>("/attribute", {
+          method: attribute ? "PUT" : "POST",
+          body: JSON.stringify(attributeObj),
+        });
         refreshOrganization();
       })}
     >
-      <Field label="Attribute" {...form.register("property")} />
-      {attribute && form.watch("property") !== attribute && (
+      <Field
+        label={
+          <>
+            Attribute{" "}
+            <Tooltip body={"This is the attribute name used in the SDK"} />
+          </>
+        }
+        required={true}
+        {...form.register("property")}
+      />
+      {attribute && form.watch("property") !== attribute ? (
         <div className="alert alert-warning">
           Be careful changing the attribute name. Any existing targeting
           conditions that use this attribute will NOT be updated automatically
           and will still reference the old attribute name.
+        </div>
+      ) : null}
+      <div className="form-group">
+        <Field
+          className="form-control"
+          label={
+            <>
+              Description <small className="text-muted">(optional)</small>
+            </>
+          }
+          {...form.register("description")}
+          textarea={true}
+        />
+      </div>
+      {projects?.length > 0 && (
+        <div className="form-group">
+          <MultiSelectField
+            label="Projects"
+            placeholder="All projects"
+            value={form.watch("projects") || []}
+            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            onChange={(v) => form.setValue("projects", v)}
+            customClassName="label-overflow-ellipsis"
+            helpText="Assign this attribute to specific projects"
+          />
         </div>
       )}
       <SelectField
@@ -178,17 +214,24 @@ export default function AttributeModal({ close, attribute }: Props) {
             value={form.watch(`format`) || "none"}
             onChange={(v) => form.setValue(`format`, v as SDKAttributeFormat)}
             initialOption="None"
-            options={[{ value: "version", label: "Version string" }]}
+            options={[
+              { value: "version", label: "Version string" },
+              { value: "date", label: "Date string" },
+            ]}
             sort={false}
             helpText="Affects the targeting attribute UI and string comparison logic. More formats coming soon."
           />
           {form.watch("format") === "version" && (
             <div className="alert alert-warning">
               <strong>Warning:</strong> Version string attributes are only
-              supported in the latest Javascript and React SDK versions. Other
-              language support is coming soon. Do not use this format if you are
-              using an older SDK version or a different language as it will
-              break any filtering based on the attribute.
+              supported in{" "}
+              <Tooltip
+                body={<MinSDKVersionsList capability="semverTargeting" />}
+              >
+                <span className="text-primary">some SDK versions</span>
+              </Tooltip>
+              . Do not use this format if you are using an incompatible SDK as
+              it will break any filtering based on the attribute.
             </div>
           )}
         </>

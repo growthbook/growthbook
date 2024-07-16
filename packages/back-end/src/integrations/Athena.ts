@@ -6,9 +6,7 @@ import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Athena extends SqlIntegration {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  params: AthenaConnectionParams;
+  params!: AthenaConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<AthenaConnectionParams>(
@@ -52,27 +50,6 @@ export default class Athena extends SqlIntegration {
   }
   ensureFloat(col: string): string {
     return `CAST(${col} as double)`;
-  }
-  percentileCapSelectClause(
-    values: {
-      valueCol: string;
-      outputCol: string;
-      percentile: number;
-    }[],
-    metricTable: string,
-    where: string = ""
-  ): string {
-    return `
-    SELECT
-      ${values
-        .map(
-          (v) =>
-            `APPROX_PERCENTILE(${v.valueCol}, ${v.percentile}) AS ${v.outputCol}`
-        )
-        .join(",\n")}
-      FROM ${metricTable}
-      ${where}
-    `;
   }
   getDefaultDatabase() {
     return this.params.catalog || "";

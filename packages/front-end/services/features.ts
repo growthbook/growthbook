@@ -30,8 +30,9 @@ import isEqual from "lodash/isEqual";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
-import useOrgSettings from "../hooks/useOrgSettings";
-import useApi from "../hooks/useApi";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import useApi from "@/hooks/useApi";
+import { isExperimentRefRuleSkipped } from "@/components/Features/ExperimentRefSummary";
 import { useDefinitions } from "./DefinitionsContext";
 
 export { generateVariationId } from "shared/util";
@@ -79,11 +80,13 @@ export function useEnvironments() {
         id: "dev",
         description: "",
         toggleOnList: true,
+        projects: [],
       },
       {
         id: "production",
         description: "",
         toggleOnList: true,
+        projects: [],
       },
     ];
   }
@@ -95,6 +98,9 @@ export function getRules(feature: FeatureInterface, environment: string) {
 }
 export function getFeatureDefaultValue(feature: FeatureInterface) {
   return feature.defaultValue ?? "";
+}
+export function getPrerequisites(feature: FeatureInterface) {
+  return feature.prerequisites ?? [];
 }
 
 export function roundVariationWeight(num: number): number {
@@ -121,6 +127,26 @@ export function getVariationDefaultName(
   }
 
   return val.value;
+}
+
+export function isRuleDisabled(
+  rule: FeatureRule,
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>
+): boolean {
+  const linkedExperiment =
+    rule.type === "experiment-ref" && experimentsMap.get(rule.experimentId);
+  const upcomingScheduleRule = getUpcomingScheduleRule(rule);
+  const scheduleCompletedAndDisabled =
+    !upcomingScheduleRule &&
+    rule?.scheduleRules?.length &&
+    rule.scheduleRules.at(-1)?.timestamp !== null;
+
+  return (
+    scheduleCompletedAndDisabled ||
+    upcomingScheduleRule?.enabled ||
+    (linkedExperiment && isExperimentRefRuleSkipped(linkedExperiment)) ||
+    !rule.enabled
+  );
 }
 
 type NamespaceGaps = { start: number; end: number }[];
@@ -158,14 +184,23 @@ export function findGaps(
   return gaps;
 }
 
-export function useFeaturesList(withProject = true) {
+export function useFeaturesList(withProject = true, includeArchived = false) {
   const { project } = useDefinitions();
 
-  const url = withProject ? `/feature?project=${project || ""}` : "/feature";
+  const qs = new URLSearchParams();
+  if (withProject) {
+    qs.set("project", project);
+  }
+  if (includeArchived) {
+    qs.set("includeArchived", "true");
+  }
+
+  const url = `/feature?${qs.toString()}`;
 
   const { data, error, mutate } = useApi<{
     features: FeatureInterface[];
     linkedExperiments: ExperimentInterfaceStringDates[];
+    hasArchived: boolean;
   }>(url);
 
   return {
@@ -174,6 +209,7 @@ export function useFeaturesList(withProject = true) {
     loading: !data,
     error,
     mutate,
+    hasArchived: data?.hasArchived || false,
   };
 }
 
@@ -192,14 +228,25 @@ export function getVariationColor(i: number) {
   return colors[i % colors.length];
 }
 
-export function useAttributeSchema(showArchived = false) {
+export function useAttributeSchema(
+  showArchived = false,
+  projectFilter?: string
+) {
   const attributeSchema = useOrgSettings().attributeSchema || [];
+
+  const filteredAttributeSchema = attributeSchema.filter((attribute) => {
+    return (
+      !projectFilter ||
+      !attribute.projects?.length ||
+      attribute.projects.includes(projectFilter)
+    );
+  });
   return useMemo(() => {
     if (!showArchived) {
-      return attributeSchema.filter((s) => !s.archived);
+      return filteredAttributeSchema.filter((s) => !s.archived);
     }
-    return attributeSchema;
-  }, [attributeSchema, showArchived]);
+    return filteredAttributeSchema;
+  }, [attributeSchema, showArchived, projectFilter]);
 }
 
 export function validateFeatureRule(
@@ -220,6 +267,11 @@ export function validateFeatureRule(
       },
       false
     );
+  }
+  if (rule.prerequisites) {
+    if (rule.prerequisites.some((p) => !p.id)) {
+      throw new Error("Cannot have empty prerequisites");
+    }
   }
   if (rule.type === "force") {
     const newValue = validateFeatureValue(
@@ -318,7 +370,7 @@ export function getDefaultValue(valueType: FeatureValueType): string {
     return "1";
   }
   if (valueType === "string") {
-    return "foo";
+    return "OFF"; // Default Values should be the OFF State to match most platforms.
   }
   if (valueType === "json") {
     return "{}";
@@ -533,6 +585,10 @@ export function isRuleFullyCovered(rule: FeatureRule): boolean {
     upcomingScheduleRule?.enabled ||
     !rule.enabled;
 
+  if (rule?.prerequisites?.length) {
+    return false;
+  }
+
   // rollouts and experiments at 100%:
   if (
     (rule.type === "rollout" || rule.type === "experiment") &&
@@ -600,6 +656,10 @@ export function jsonToConds(
         const v = value[operator];
 
         if (operator === "$in" || operator === "$nin") {
+          if (v.some((str) => typeof str === "string" && str.includes(","))) {
+            valid = false;
+            return;
+          }
           return conds.push({
             field,
             operator,
@@ -807,8 +867,10 @@ function getAttributeDataType(type: SDKAttributeType) {
   return "number";
 }
 
-export function useAttributeMap(): Map<string, AttributeData> {
-  const attributeSchema = useAttributeSchema(true);
+export function useAttributeMap(
+  projectFilter?: string
+): Map<string, AttributeData> {
+  const attributeSchema = useAttributeSchema(true, projectFilter);
 
   return useMemo(() => {
     if (!attributeSchema.length) {
@@ -889,9 +951,10 @@ export function useRealtimeData(
   mock = false,
   update = false
 ): { usage: FeatureUsageRecords; usageDomain: [number, number] } {
-  const { data, mutate } = useApi<{
-    usage: FeatureUsageRecords;
-  }>(`/usage/features`);
+  const { data, mutate } = useApi<{ usage: FeatureUsageRecords }>(
+    `/usage/features`,
+    { shouldRun: () => !!update }
+  );
 
   // Mock data
   const usage = useMemo(() => {

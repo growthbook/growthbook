@@ -24,6 +24,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 type Definitions = {
   metrics: MetricInterface[];
+  _metricsIncludingArchived: MetricInterface[];
   datasources: DataSourceInterfaceWithParams[];
   dimensions: DimensionInterface[];
   segments: SegmentInterface[];
@@ -67,6 +68,7 @@ const defaultValue: DefinitionContextValue = {
   },
   project: "",
   metrics: [],
+  _metricsIncludingArchived: [],
   datasources: [],
   dimensions: [],
   segments: [],
@@ -118,6 +120,8 @@ export function useDefinitions() {
   return useContext(DefinitionsContext);
 }
 
+export const LOCALSTORAGE_PROJECT_KEY = "gb_current_project" as const;
+
 export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   children,
 }) => {
@@ -125,13 +129,20 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     "/organization/definitions"
   );
 
-  const [project, setProject] = useLocalStorage("gb_current_project", "");
+  const [project, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
 
   const activeMetrics = useMemo(() => {
     if (!data || !data.metrics) {
       return [];
     }
     return data.metrics.filter((m) => m.status !== "archived");
+  }, [data?.metrics]);
+
+  const allMetrics = useMemo(() => {
+    if (!data || !data.metrics) {
+      return [];
+    }
+    return data.metrics;
   }, [data?.metrics]);
 
   const getMetricById = useGetById(data?.metrics);
@@ -167,6 +178,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     value = {
       ready: true,
       metrics: activeMetrics,
+      _metricsIncludingArchived: allMetrics,
       datasources: data.datasources,
       dimensions: data.dimensions,
       segments: data.segments,

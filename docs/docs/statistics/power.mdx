@@ -1,0 +1,194 @@
+---
+title: Power Analysis
+description: Power Analysis
+sidebar_label: Power Analysis
+slug: power
+---
+
+# Power
+
+:::note
+Power analysis is currently in alpha (version 2.9+ required). To enable power analysis, go to your organizational settings, and toggle "Enable Power Calculator" in "Experiment Settings."
+Currently GrowthBook offers only frequentist power analysis. Bayesian power analysis is coming soon.
+:::
+
+## What is power analysis?
+
+Power analysis helps you estimate required experimental duration. Power is the probability of observing a statistically significant result, given your feature has some effect on your metric.
+
+## When should I run power analysis?
+
+You should run power analysis before your experiment starts, to determine how long you should run your experiment. The longer the experiment runs, the more users are in the experiment (i.e., your sample size increases). Increasing your sample size lowers the uncertainty around your estimate, which makes it likelier you achieve a statistically significant result.
+
+## What is a minimum detectable effect, and how do I interpret it?
+
+Recall that your relative effect size (which we often refer to as simply the effect size), is the percentage improvement in your metric caused by your feature. For example, suppose that average revenue per customer under control is \$100, while under treatment you expect that it will be $102. This corresponds to a ($102-$100)/$100 = 2% effect size. Effect size is often referred to as lift.
+
+Given the sample variance of your metric and the sample size, the minimum detectable effect (MDE) is the smallest effect size for which your power will be at least 80%.
+
+GrowthBook includes both power and MDE results to ensure that customers comfortable with either tool can use them to make decisions. The MDE can be thought of as the smallest effect that you will be able to detect most of the time in your experiment. We want to be able to detect subtle changes in metrics, so smaller MDEs are better.
+
+For example, suppose your MDE is 2%. If you feel like your feature could drive a 2% improvement, then your experiment is high-powered. If you feel like your feature will probably only drive something like .5% improvement (which can still be huge!), then you need to add users to detect this effect.
+
+## How do I run a power analysis?
+
+1. From the GrowthBook home page, click "Experiments" on the left tab. In the top right, click "+ Power Calculation."
+2. Select “New Calculation”.
+3. On the first page you:
+
+- Select your metrics (maximum of 5). Currently binomial, count, duration, and revenue metrics are supported, while ratio and quantile metrics are unsupported.
+- Select your "Estimated users per week." This is the average number of **new** users your experiment will add each week. See [FAQ](#faq) below for a couple of simple estimation approaches.
+- click "Next".
+
+4. On the second page you:
+
+- enter the "Effect Size" for each metric. Effect size is the percentage improvement in your metric (i.e., the lift) you anticipate your feature will cause. Inputting your effect size can require care - see [here](#how-should-i-pick-my-effect-size).
+- for binomial metrics, enter the conversion rate.
+- for other metrics, enter the metric mean and metric standard deviation. These means and standard deviations occur across users in your experimental population.
+- click "Next".
+
+5. Now you have results! Please see the results interpretation [here](#how-do-i-interpret-power-analysis-results).
+6. By clicking "Edit" in the "Analysis Settings" box, you can toggle [sequential testing](/statistics/sequential) on and off to compare power. Enabling sequential testing decreases power.
+7. You can alter the number of variations in your experiment. Increased variations result in smaller sample sizes per variation, resulting in lower power.
+8. If you want to modify your inputs, click the "Edit" button next to "New Calculation" in the top right corner.
+
+## How do I interpret power analysis results?
+
+In this section we run through an example power analysis. After starting power analysis, you will need to select metrics and enter estimated users per week.
+
+![metric and users input](/images/statistics/power_1.png)
+
+In our example, we choose a binomial metric (Retention - [1, 14) Days) and a revenue metric (Purchases - Total Revenue (72 hour window)). We refer to these metrics as "retention" and "revenue" respectively going forward. We estimate that 500,000 new users per week visit our website.
+
+You then input your effect sizes, which are the best guesses for your expected metric improvements due to your feature.
+
+![metric and users input](/images/statistics/power_2.png)
+
+We provide guidance for effect size selection [here](#how-should-i-pick-my-effect-size). For our feature we anticpate a 2% improvement in retention. For retention, the conversion rate is 10%. This 10% number should come from an offline query that measures your conversion rate on your experimental population. We expect a 1% improvement in revenue, which has a mean of $0.10 and a standard deviation of $0.22 (as with conversion rate, the mean and standard deviation come from an offline query that you run on your population). We then submit our data.
+
+Now we can see the results!
+![metric and users input](/images/statistics/power_3.png)
+
+At the top of the page is a box called Analysis Settings. The summary here says, "Run experiment for 4 weeks to achieve 80% power for all metrics." This is the most important piece of information from power analysis. If running your experiment for 4 weeks is compatible with your business constraints, costs, and rollout timeframe, then you do not need to dive into the numbers below this statement. If you want to rerun power results with number of variations greater than 2, then click "# of Variations" and then click "Update". The total traffic divided by number of variations should equal the smallest sample size in the experiment you plan to run. If you want to toggle on or off "Sequential Testing", then press the "Edit" button and select the appropriate option. Enabling sequential testing reduces power.
+
+Below "Analysis Settings" is "Calculated Sample Size and Runtime", which contains the number of weeks (or equivalently the number of users) needed to run your experiment to achieve 80% power by metric. Clicking on a row in the table causes the information in the box to the right to change. We expect 80% power for retention if we run the experiment for 2 weeks. For revenue, we need to run the experiment for 4 weeks to achieve at least 80% power.
+
+Beneath "Calculated Sample Size and Runtime" is "Power Over Time", which contains power estimates by metric.
+
+![metric and users input](/images/statistics/power_4.png)
+
+The columns in Power Over Time correspond to different weeks. For example, in the first week power for retention is 65%. The highlighted column in week 4 is the first week where at least 80% power is achieved for all metrics. As expected, power increases over time, as new users are added to the experiment.
+
+Beneath Power Over Time is Minimum Detectable Effect Over Time.
+
+![metric and users input](/images/statistics/mde.png)
+
+Minimum Detectable Effect Over Time is structured the same as Power Over Time, except it contains MDEs rather than power estimates. The Week 1 revenue MDE is 2%. This means that if your true lift is 2%, after 1 week you will have at least 80% chance of observing a statistically significant result. As expected, MDEs decrease over time, as new users are added to the experiment.
+
+If you see `N/A` in your MDE results, this means that you need to increase your number of weekly users, as the MDE calculation failed.
+
+It can be helpful to see power estimates at different effect sizes, different estimates of weekly users, etc. To modify your inputs, click the "Edit" button next to "New Calculation" in the top right corner.
+
+## How should I pick my effect size?
+
+Selecting your effect size for power analysis requires careful thought. Your effect size is your anticipated metric lift due to your feature. Obviously you do not have complete information about the true lift, otherwise you would not be running the experiment!
+
+We advocate running power analysis for multiple effect sizes. The following questions may elicit helpful effect sizes:
+
+1. What is your best guess for the potential improvement due to your feature? Are there similar historical experiments, or pilot studies, and if so, what were their lifts?
+2. Suppose your feature is amazing - what do you think the lift would be?
+3. Suppose your feature impact is smaller than you think - how small could it be?
+
+Ideally your experiment has high power (see [here](#what-is-a-high-powered-experiment)) across a range of effect sizes.
+
+## What is a high-powered experiment?
+
+In clinical trials, the standard is 80%. This means that if you were to run your clinical trial 100 times with different patients and different randomizations each time, then you would observe statistically significant results in at least roughly 80 of those trials. When calculating MDEs, we use this default of 80%.
+
+That being said, running an experiment with less than 80% power can still help your business. The purpose of an experiment is to learn about your business, not simply to roll out features that achieve statistically significant improvement. The biggest cost to running low-powered experiments is that your results will be noisy. This usually leads to ambiguity in the rollout decision.
+
+## How do I run Bayesian power analysis?
+
+For Bayesian power analysis, you specify the prior distribution of the treatment effect (see [here](/statistics/details#bayesian-engine)) for guidance regarding prior selection). We then estimate Bayesian power, which is the probability that the $(1 - \alpha)$ credible interval does not contain 0.
+
+If your organizational default is Bayesian, then Bayesian will be your default power analysis. You can switch to and from frequentist and Bayesian power calculations by toggling "Statistics Engine" under "Settings" on the Power Results page.
+
+Your default prior for each metric will be your organizational default. To change a prior for a metric, go to "Settings", and make sure that "Statistics Engine" is toggled to "Bayesian." Then choose "Prior Specification", and update prior means and standard deviations for your metric(s). Remember that these priors are on the relative scale, so a prior mean of 0.1 represents a 10% lift.
+
+## FAQ
+
+Frequently asked questions:
+
+1. How do I pick the number for Estimated Users Per Week? If you know your number of daily users, you can multiply that by 7. If traffic varies by day of the week, you may want to do something like (5 _ average weekday traffic + 2 _ average weekend traffic) / 7.
+2. How can I increase my experimental power? You can increase experimental power by increasing the number of daily users, perhaps by either expanding your population to new segments, or by including a larger percentage of user traffic in your experiment. Similarly, if you have more than 2 variations, reducing the number of variations increases power.
+3. What if my experiment is low-powered? Should I still run it? The biggest cost to running a low-powered experiment is that your results will probably be noisy, and you will face ambiguity in your rollout/rollback decision. That being said, you will probably still have learnings from your experiment.
+4. What does "N/A" mean for my MDE result? It means there is no solution for the MDE, given the current number of weekly users, control mean, and control variance. Increase your number of weekly users or reduce your number of treatment variations.
+
+## GrowthBook implementation
+
+For both Bayesian and frequentist engines, we produce two key estimates:
+
+1. Power - After running the experiment for a given number of weeks and for a hypothesized effect size, what is the probability of a statistically significant result?
+2. Minimum Detectable Effect (MDE) - After running an experiment for a given number of weeks, what is the smallest effect that we can detect as statistically significant 80% of the time?
+
+Each engine arrives at these values differently. Below we describe high-level technical details of our implementation. All technical details can be found [here](/statistics/power-technical).
+
+### Frequentist implementation
+
+Below we define frequentist power.
+
+Define:
+
+1. the false positive rate as $\alpha$ (GrowthBook default is $\alpha=0.05$).
+2. the critical values $Z_{1- \alpha / 2}= \Phi^{-1}(1-\alpha/2)$ and $Z_{1-\alpha}= \Phi^{-1}(1-\alpha)$ where $\Phi$ is the inverse cumulative distribution function of the standard normal distribution.
+
+We make the following assumptions:
+
+1. equal sample sizes across control and treatment variations. If unequal sample sizes are used in the experiment, use the smaller of the two sample sizes. This will produce conservative power estimates.
+2. equal variance across control and treatment variations;
+3. observations across users are independent and identically distributed; and
+4. all metrics have finite variance.
+5. you are running a two-sample t-test. If in practice you use [CUPED](/statistics/cuped), your power will be higher. Use CUPED!
+
+For a 2-sided test (all GrowthBook tests are 2-sided), power is the probability of rejecting the null hypothesis of no effect, given that a nonzero effect exists.  
+Mathematically, **frequentist power** equals
+
+$$\pi = 1 - \Phi\left(Z_{1-\alpha/2}-\frac{\Delta}{\hat{\sigma}_{\Delta}}\right) + \Phi(Z_{\alpha/2} - \frac{\Delta}{\hat{\sigma}_{\Delta}})$$.
+
+The MDE is the smallest effect size for which nominal power (i.e., 80%) is achieved.
+In the 2-sided case there is no closed form solution.
+The **frequentist MDE** is the solution for $\Delta$ when solving for $\pi$ in the equation below:
+
+$$\pi = 1 - \Phi\left(Z_{1-\alpha/2}-\frac{\Delta}{\hat{\sigma}_{\Delta}}\right).$$
+
+Inverting this equation requires some care, as the uncertainty estimate $\hat{\sigma}_{\Delta}$ depends upon $\Delta$. Details can be found [here](/statistics/power-technical).
+
+To estimate power under [sequential testing](/statistics/sequential), we adjust the variance term $\hat{\sigma}_{\Delta}^{2}$ to account for sequential testing, and then input this adjusted variance into our power formula. We assume that you look at the data only once, so our power estimate below is a lower bound for the actual power under sequential testing.
+Otherwise we would have to make assumptions about the temporal correlation of the data generating process.
+
+### Bayesian implementation
+
+For Bayesian power analysis, we let users specify the prior distribution of the treatment effect (see [here](/statistics/details#bayesian-engine) for guidance regarding prior selection). We then estimate Bayesian power, which is the probability that the $(1 - \alpha)$ credible interval does not contain 0.
+
+At GrowthBook, **Bayesian power** is
+
+$$
+\begin{align}
+\begin{split}
+\pi &= 1-\Phi\left(
+\frac{
+\hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{prior}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2} Z_{1-\alpha/2} - \frac{\mu_{prior}}{\sigma_{prior}^{2}}\right]-\Delta}
+{\sqrt{\hat{\sigma}_{\Delta}^{2}}}
+\right)
+\\&+\Phi\left(
+\frac{
+-\hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{prior}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2} Z_{1-\alpha/2} - \frac{\mu_{prior}}{\sigma_{prior}^{2}}\right]-\Delta}
+{\sqrt{\hat{\sigma}_{\Delta}^{2}}}
+\right).
+\end{split}
+\end{align}
+$$
+
+Constructing the MDE is less straightforward, as MDEs are not well defined in Bayesian literature. We provide MDEs in Bayesian power analysis for customers that are used to conceptualizing MDEs and want to be able to leverage prior information in their analysis. We define the MDE as the minimum value of $\Delta$ such that at least $\pi$ power is achieved.
+
+The **Bayesian MDE** is the solution for $\Delta$ when solving for $\pi$ in Equation 1. To find $\Delta$, we use a grid search.

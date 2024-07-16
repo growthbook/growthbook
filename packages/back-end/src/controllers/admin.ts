@@ -1,9 +1,13 @@
-import crypto from "crypto";
 import { Response } from "express";
+import { OrganizationInterface } from "@back-end/types/organization";
 import { AuthRequest } from "../types/AuthRequest";
-import { findAllOrganizations } from "../models/OrganizationModel";
-import { getLicenseMetaData, initializeLicense } from "../services/licenseData";
-import { getUserLicenseCodes } from "../services/users";
+import {
+  findAllOrganizations,
+  updateOrganization,
+} from "../models/OrganizationModel";
+import { getOrganizationById } from "../services/organizations";
+import { setLicenseKey } from "../routers/organizations/organizations.controller";
+import { auditDetailsUpdate } from "../services/audit";
 
 export async function getOrganizations(
   req: AuthRequest<never, never, { page?: string; search?: string }>,
@@ -12,7 +16,7 @@ export async function getOrganizations(
   if (!req.superAdmin) {
     return res.status(403).json({
       status: 403,
-      message: "Only admins can get all organizations",
+      message: "Only superAdmins can get all organizations",
     });
   }
 
@@ -30,50 +34,65 @@ export async function getOrganizations(
   });
 }
 
-/**
- * An endpoint mostly used to refresh the license data manually, if they
- * have only recently paid for a subscription or for more seats and don't
- * want to restart their servers.
- */
-export async function getLicenseData(req: AuthRequest, res: Response) {
-  req.checkPermissions("manageBilling");
+export async function putOrganization(
+  req: AuthRequest<{
+    orgId: string;
+    name: string;
+    externalId: string;
+    licenseKey: string;
+    ownerEmail?: string;
+  }>,
+  res: Response
+) {
+  if (!req.superAdmin) {
+    return res.status(403).json({
+      status: 403,
+      message: "Only superAdmins can update organizations via admin page",
+    });
+  }
 
-  // Force refresh the license data
-  const licenseData = await initializeLicense(
-    req.organization?.licenseKey,
-    true
-  );
+  const { orgId, name, externalId, licenseKey, ownerEmail } = req.body;
+  const updates: Partial<OrganizationInterface> = {};
+  const orig: Partial<OrganizationInterface> = {};
+  const org = await getOrganizationById(orgId);
 
-  return res.status(200).json({
-    status: 200,
-    licenseData,
+  if (!org) {
+    return res.status(404).json({
+      status: 404,
+      message: "Organization not found",
+    });
+  }
+
+  if (name) {
+    updates.name = name;
+    orig.name = org.name;
+  }
+  if (externalId !== undefined) {
+    updates.externalId = externalId;
+    orig.externalId = org.externalId;
+  }
+  if (licenseKey && licenseKey.trim() !== org.licenseKey) {
+    updates.licenseKey = licenseKey.trim();
+    orig.licenseKey = org.licenseKey;
+    await setLicenseKey(org, updates.licenseKey);
+  }
+  if (ownerEmail) {
+    updates.ownerEmail = ownerEmail;
+    orig.ownerEmail = org.ownerEmail;
+  }
+
+  await updateOrganization(org.id, updates);
+
+  await req.audit({
+    event: "organization.update",
+    entity: {
+      object: "organization",
+      id: org.id,
+    },
+    details: auditDetailsUpdate(orig, updates),
   });
-}
-
-/**
- * An endpoint to download license usage data, for use in organizations
- * that have an old style airgap license, so that they can download the
- * data and send it to us.
- */
-export async function getLicenseReport(req: AuthRequest, res: Response) {
-  req.checkPermissions("manageBilling");
-
-  const timestamp = new Date().toISOString();
-  const licenseMetaData = await getLicenseMetaData();
-  const userLicenseCodes = await getUserLicenseCodes();
-
-  // Create a hmac signature of the license data
-  const hmac = crypto.createHmac("sha256", licenseMetaData.installationId);
-
-  const report = {
-    timestamp,
-    licenseMetaData,
-    userLicenseCodes,
-  };
 
   return res.status(200).json({
     status: 200,
-    ...report,
-    signature: hmac.update(JSON.stringify(report)).digest("hex"),
   });
 }

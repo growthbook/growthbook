@@ -2,6 +2,7 @@ from typing import List, Optional, Tuple, Union
 
 from pydantic.dataclasses import dataclass
 
+from gbstats.bayesian.tests import RiskType
 from gbstats.models.tests import Uplift
 
 
@@ -35,6 +36,7 @@ class BaseVariationResponse(BaselineResponse):
 class BayesianVariationResponse(BaseVariationResponse):
     chanceToWin: float
     risk: Tuple[float, float]
+    riskType: RiskType
 
 
 @dataclass
@@ -65,3 +67,10 @@ class ExperimentMetricAnalysisResult:
 class ExperimentMetricAnalysis:
     metric: str
     analyses: List[ExperimentMetricAnalysisResult]
+
+
+@dataclass
+class MultipleExperimentMetricAnalysis:
+    id: str
+    results: List[ExperimentMetricAnalysis]
+    error: Optional[str]

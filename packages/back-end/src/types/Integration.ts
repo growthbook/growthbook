@@ -1,8 +1,10 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { ReqContext } from "../../types/organization";
 import {
+  AutoFactTableSchemas,
+  DataSourceInterface,
   DataSourceProperties,
-  DataSourceSettings,
   SchemaFormat,
 } from "../../types/datasource";
 import { DimensionInterface } from "../../types/dimension";
@@ -13,7 +15,11 @@ import { SegmentInterface } from "../../types/segment";
 import { FormatDialect } from "../util/sql";
 import { TemplateVariables } from "../../types/sql";
 import { FactTableMap } from "../models/FactTableModel";
-import { FactMetricInterface } from "../../types/fact-table";
+import {
+  FactMetricInterface,
+  FactTableInterface,
+  MetricQuantileSettings,
+} from "../../types/fact-table";
 
 export type ExternalIdCallback = (id: string) => Promise<void>;
 
@@ -32,6 +38,32 @@ export class DataSourceNotSupportedError extends Error {
 }
 
 export type MetricAggregationType = "pre" | "post" | "noWindow";
+
+export type FactMetricData = {
+  alias: string;
+  id: string;
+  metric: ExperimentMetricInterface;
+  ratioMetric: boolean;
+  funnelMetric: boolean;
+  quantileMetric: "" | MetricQuantileSettings["type"];
+  metricQuantileSettings: MetricQuantileSettings;
+  regressionAdjusted: boolean;
+  regressionAdjustmentHours: number;
+  overrideConversionWindows: boolean;
+  isPercentileCapped: boolean;
+  capCoalesceMetric: string;
+  capCoalesceDenominator: string;
+  capCoalesceCovariate: string;
+  minMetricDelay: number;
+  raMetricSettings: {
+    hours: number;
+    minDelay: number;
+    alias: string;
+  };
+  metricStart: Date;
+  metricEnd: Date | null;
+  maxHoursToConvert: number;
+};
 
 export interface ExperimentMetricStats {
   metric_type: MetricType;
@@ -102,6 +134,17 @@ export type ProcessedDimensions = {
   activationDimension: ActivationDimension | null;
 };
 
+export interface DropTableQueryParams {
+  fullTablePath: string;
+}
+
+export type TestQueryParams = {
+  query: string;
+  templateVariables?: TemplateVariables;
+  testDays?: number;
+  limit?: number;
+};
+
 interface ExperimentBaseQueryParams {
   settings: ExperimentSnapshotSettings;
   activationMetric: ExperimentMetricInterface | null;
@@ -140,6 +183,7 @@ export type DimensionSlicesQueryParams = {
 
 export type PastExperimentParams = {
   from: Date;
+  forceRefresh?: boolean;
 };
 
 export type MetricValueParams = {
@@ -166,6 +210,7 @@ export type MetricValueResult = {
 };
 
 export type PastExperimentResult = {
+  mergeResults: boolean;
   experiments: {
     exposureQueryId: string;
     experiment_id: string;
@@ -175,31 +220,47 @@ export type PastExperimentResult = {
     start_date: Date;
     end_date: Date;
     users: number;
+    latest_data: Date;
+    start_of_range: boolean;
   }[];
 };
 
+// NOTE: response rows must all be lower case to work across SQL integrations
 export type TrackedEventResponseRow = {
   event: string;
-  displayName: string;
-  hasUserId: boolean;
+  display_name: string;
+  has_user_id: boolean;
   count: number;
-  lastTrackedAt: Date | BigQueryTimestamp;
+  last_tracked_at: Date | BigQueryTimestamp;
 };
 
-export type TrackedEventData = {
-  event: string;
+export interface TrackedEventData {
+  eventName: string;
   displayName: string;
   hasUserId: boolean;
   count: number;
   lastTrackedAt: Date;
-  metricsToCreate: {
-    name: string;
-    sql: string;
-    type: MetricType;
-    shouldCreate?: boolean;
-    exists?: boolean;
-  }[];
+}
+
+export interface AutoFactTableToCreate
+  extends Omit<TrackedEventData, "count" | "lastTrackedAt" | "hasUserId"> {
+  sql: string;
+  shouldCreate: boolean;
+  alreadyExists: boolean;
+  userIdTypes: string[];
+}
+
+export type AutoMetricToCreate = {
+  name: string;
+  sql: string;
+  type: MetricType;
+  shouldCreate: boolean;
+  alreadyExists: boolean;
 };
+
+export interface AutoMetricTrackedEvent extends TrackedEventData {
+  metricsToCreate: AutoMetricToCreate[];
+}
 
 export type MetricValueQueryResponseRow = {
   date: string;
@@ -218,6 +279,7 @@ export type PastExperimentResponseRows = {
   start_date: string;
   end_date: string;
   users: number;
+  latest_data: string;
 }[];
 
 export type ExperimentMetricQueryResponseRows = {
@@ -235,6 +297,12 @@ export type ExperimentMetricQueryResponseRows = {
   covariate_sum?: number;
   covariate_sum_squares?: number;
   main_covariate_sum_product?: number;
+
+  quantile?: number;
+  quantile_n?: number;
+  quantile_lower?: number;
+  quantile_upper?: number;
+  quantile_nstar?: number;
 }[];
 
 export type ExperimentFactMetricsQueryResponseRows = {
@@ -272,13 +340,7 @@ export type ExperimentFactMetricsQueryResponse = QueryResponse<ExperimentFactMet
 export type ExperimentUnitsQueryResponse = QueryResponse;
 export type ExperimentAggregateUnitsQueryResponse = QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
 export type DimensionSlicesQueryResponse = QueryResponse<DimensionSlicesQueryResponseRows>;
-
-export interface SourceIntegrationConstructor {
-  new (
-    encryptedParams: string,
-    settings: DataSourceSettings
-  ): SourceIntegrationInterface;
-}
+export type DropTableQueryResponse = QueryResponse;
 
 export interface TestQueryRow {
   [key: string]: unknown;
@@ -359,10 +421,8 @@ export interface InformationSchemaTablesInterface {
 }
 
 export interface SourceIntegrationInterface {
-  datasource: string;
-  organization: string;
-  type: string;
-  settings: DataSourceSettings;
+  datasource: DataSourceInterface;
+  context: ReqContext;
   decryptionError: boolean;
   // eslint-disable-next-line
   params: any;
@@ -392,11 +452,16 @@ export interface SourceIntegrationInterface {
     query: string,
     templateVariables?: TemplateVariables
   ): string;
-  getTestQuery?(query: string, templateVariables?: TemplateVariables): string;
+  getTestQuery?(params: TestQueryParams): string;
   runTestQuery?(
     sql: string,
     timestampCols?: string[]
   ): Promise<TestQueryResult>;
+  getDropUnitsTableQuery(params: DropTableQueryParams): string;
+  runDropTableQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<DropTableQueryResponse>;
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentFactMetricsQuery?(
     params: ExperimentFactMetricsQueryParams
@@ -437,10 +502,23 @@ export interface SourceIntegrationInterface {
     setExternalId: ExternalIdCallback
   ): Promise<PastExperimentQueryResponse>;
   getEventsTrackedByDatasource?: (
-    schemaFormat: SchemaFormat,
-    existingMetrics: MetricInterface[],
+    schemaFormat: AutoFactTableSchemas,
     schema?: string
   ) => Promise<TrackedEventData[]>;
+  getAutoFactTablesToCreate?: (
+    existingFactTables: FactTableInterface[],
+    schema: string
+  ) => Promise<AutoFactTableToCreate[]>;
+  getAutoMetricsToCreate?: (
+    existingMetrics: MetricInterface[],
+    schema: string
+  ) => Promise<AutoMetricTrackedEvent[]>;
+  getAutoGeneratedFactTableSqlQuery?(
+    eventName: string,
+    hasUserId: boolean,
+    schemaFormat: SchemaFormat,
+    schema?: string
+  ): string;
   getAutoGeneratedMetricSqlQuery?(
     event: string,
     hasUserId: boolean,

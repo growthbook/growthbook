@@ -9,7 +9,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { formatTrafficSplit } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
-import { HashVersionTooltip } from "../HashVersionSelector";
+import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
 
 export interface Props {
   phaseIndex?: number | null;
@@ -23,6 +23,7 @@ export interface Props {
   showChanges?: boolean;
   changes?: ExperimentTargetingData;
   showFullTargetingInfo?: boolean;
+  horizontalView?: boolean;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -42,6 +43,7 @@ export default function TargetingInfo({
   showChanges,
   changes,
   showFullTargetingInfo = true,
+  horizontalView,
 }: Props) {
   const phase = experiment.phases[phaseIndex ?? experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
@@ -58,6 +60,10 @@ export default function TargetingInfo({
       JSON.stringify(phase.savedGroups || []);
   const hasConditionChanges =
     showChanges && changes?.condition !== phase.condition;
+  const hasPrerequisiteChanges =
+    showChanges &&
+    JSON.stringify(changes?.prerequisites || []) !==
+      JSON.stringify(phase.prerequisites || []);
   const hasCoverageChanges =
     showChanges && changes?.coverage !== phase.coverage;
   const hasVariationWeightsChanges =
@@ -97,17 +103,17 @@ export default function TargetingInfo({
       )}
       {phase ? (
         <div className="row">
-          <div className="col">
+          <div className={clsx("col", horizontalView && "d-flex flex-wrap")}>
             {!targetingFieldsOnly && (
               <>
-                <div className="mb-3">
+                <div className={clsx("mb-3", horizontalView && "mr-4")}>
                   <div className="mb-1">
                     <strong>Experiment Key</strong>{" "}
                     <Tooltip body="This is hashed together with the assignment attribute (below) to deterministically assign users to a variation." />
                   </div>
                   <div>{experiment.trackingKey}</div>
                 </div>
-                <div className="mb-3">
+                <div className={clsx("mb-3", horizontalView && "mr-4")}>
                   <div className="mb-1">
                     <strong>
                       Assignment Attribute
@@ -139,16 +145,17 @@ export default function TargetingInfo({
             {(!showChanges ||
               showFullTargetingInfo ||
               hasSavedGroupsChanges ||
-              hasConditionChanges) && (
+              hasConditionChanges ||
+              hasPrerequisiteChanges) && (
               <>
-                <div className="mb-3">
+                <div className={clsx("mb-3", horizontalView && "mr-4")}>
                   <div className="mb-1">
                     <strong>Saved Group targeting</strong>
                   </div>
                   <div className="d-flex">
                     <div
                       className={clsx("d-flex", {
-                        "text-danger font-weight-bold": hasSavedGroupsChanges,
+                        "text-danger font-weight-bold mw-50": hasSavedGroupsChanges,
                       })}
                     >
                       {hasSavedGroupsChanges && (
@@ -184,14 +191,14 @@ export default function TargetingInfo({
                     )}
                   </div>
                 </div>
-                <div className="mb-3">
+                <div className={clsx("mb-3", horizontalView && "mr-4")}>
                   <div className="mb-1">
                     <strong>Attribute targeting</strong>
                   </div>
                   <div className="d-flex">
                     <div
                       className={clsx("d-flex", {
-                        "text-danger font-weight-bold": hasConditionChanges,
+                        "text-danger font-weight-bold mw-50": hasConditionChanges,
                       })}
                     >
                       {hasConditionChanges && (
@@ -223,11 +230,54 @@ export default function TargetingInfo({
                     )}
                   </div>
                 </div>
+                <div className={clsx("mb-3", horizontalView && "mr-4")}>
+                  <div className="mb-1">
+                    <strong>Prerequisite targeting</strong>
+                  </div>
+                  <div className="d-flex">
+                    <div
+                      className={clsx("d-flex", {
+                        "text-danger font-weight-bold mw-50": hasPrerequisiteChanges,
+                      })}
+                    >
+                      {hasPrerequisiteChanges && (
+                        <div className="text-center mx-1" style={{ width: 20 }}>
+                          Δ
+                        </div>
+                      )}
+                      <div>
+                        {phase.prerequisites?.length ? (
+                          <ConditionDisplay
+                            prerequisites={phase.prerequisites}
+                          />
+                        ) : (
+                          <em>None</em>
+                        )}
+                      </div>
+                    </div>
+                    {hasPrerequisiteChanges && (
+                      <div className="font-weight-bold text-success d-flex ml-4">
+                        <div className="text-center mx-1" style={{ width: 20 }}>
+                          →
+                        </div>
+                        <div>
+                          {changes?.prerequisites?.length ? (
+                            <ConditionDisplay
+                              prerequisites={changes.prerequisites}
+                            />
+                          ) : (
+                            <em>None</em>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </>
             )}
 
             {(!showChanges || showFullTargetingInfo || hasNamespaceChanges) && (
-              <div className="mb-3">
+              <div className={clsx("mb-3", horizontalView && "mr-4")}>
                 <div className="mb-1">
                   <strong>Namespace targeting</strong>{" "}
                   <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration → Namespaces">
@@ -299,7 +349,7 @@ export default function TargetingInfo({
                 showFullTargetingInfo ||
                 hasCoverageChanges ||
                 hasVariationWeightsChanges) && (
-                <div className="mb-3">
+                <div className={clsx("mb-3", horizontalView && "mr-4")}>
                   <div className="mb-1">
                     <strong>Traffic</strong>
                   </div>
@@ -349,7 +399,7 @@ export default function TargetingInfo({
                   showFullTargetingInfo ||
                   hasCoverageChanges ||
                   hasVariationWeightsChanges) && (
-                  <div className="mb-3">
+                  <div className={clsx("mb-3", horizontalView && "mr-4")}>
                     <div>
                       <strong>Traffic percent</strong>
                     </div>
@@ -383,7 +433,7 @@ export default function TargetingInfo({
                   showFullTargetingInfo ||
                   hasCoverageChanges ||
                   hasVariationWeightsChanges) && (
-                  <div className="mb-3">
+                  <div className={clsx("mb-3", horizontalView && "mr-4")}>
                     <div>
                       <strong>Variation weights</strong>
                     </div>

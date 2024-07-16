@@ -10,7 +10,6 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import FactTableModal from "@/components/FactTables/FactTableModal";
 import Code from "@/components/SyntaxHighlighting/Code";
-import usePermissions from "@/hooks/usePermissions";
 import ColumnList from "@/components/FactTables/ColumnList";
 import FactFilterList from "@/components/FactTables/FactFilterList";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
@@ -20,6 +19,8 @@ import SortedTags from "@/components/Tags/SortedTags";
 import FactMetricList from "@/components/FactTables/FactMetricList";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { usesEventName } from "@/components/Metrics/MetricForm";
+import { OfficialBadge } from "@/components/Metrics/MetricName";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function FactTablePage() {
   const router = useRouter();
@@ -33,7 +34,7 @@ export default function FactTablePage() {
 
   const { apiCall } = useAuth();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   const {
     factTables,
@@ -56,10 +57,9 @@ export default function FactTablePage() {
     );
   }
 
-  const canEdit = permissions.check(
-    "manageFactTables",
-    factTable.projects || ""
-  );
+  const canEdit =
+    !factTable.managedBy &&
+    permissionsUtil.canViewEditFactTableModal(factTable);
 
   const hasColumns = factTable.columns?.some((col) => !col.deleted);
 
@@ -105,7 +105,10 @@ export default function FactTablePage() {
       />
       <div className="row mb-3">
         <div className="col-auto">
-          <h1 className="mb-0">{factTable.name}</h1>
+          <h1 className="mb-0">
+            {factTable.name}{" "}
+            <OfficialBadge type="Fact Table" managedBy={factTable.managedBy} />
+          </h1>
         </div>
         {canEdit && (
           <div className="ml-auto">
@@ -175,10 +178,11 @@ export default function FactTablePage() {
         </div>
         <div className="col-auto">
           Data source:{" "}
-          <Link href={`/datasources/${factTable.datasource}`}>
-            <a className="font-weight-bold">
-              {getDatasourceById(factTable.datasource)?.name || "Unknown"}
-            </a>
+          <Link
+            href={`/datasources/${factTable.datasource}`}
+            className="font-weight-bold"
+          >
+            {getDatasourceById(factTable.datasource)?.name || "Unknown"}
           </Link>
         </div>
       </div>
@@ -222,15 +226,19 @@ export default function FactTablePage() {
               containerClassName="m-0"
               className="mb-4"
               filename={
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setEditOpen(true);
-                  }}
-                >
-                  Edit SQL <GBEdit />
-                </a>
+                canEdit ? (
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setEditOpen(true);
+                    }}
+                  >
+                    Edit SQL <GBEdit />
+                  </a>
+                ) : (
+                  "SQL"
+                )
               }
             />
             {usesEventName(factTable.sql) && (

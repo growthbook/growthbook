@@ -2,10 +2,10 @@ import { Namespaces, NamespaceUsage } from "back-end/types/organization";
 import Link from "next/link";
 import { MouseEventHandler, useState } from "react";
 import { findGaps } from "@/services/features";
-import usePermissions from "@/hooks/usePermissions";
-import NamespaceUsageGraph from "../Features/NamespaceUsageGraph";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import MoreMenu from "../Dropdown/MoreMenu";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import NamespaceUsageGraph from "@/components/Features/NamespaceUsageGraph";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
 
 export interface Props {
   i: number;
@@ -29,8 +29,9 @@ export default function NamespaceTableRow({
   onEdit,
 }: Props) {
   const experiments = usage[namespace.name] ?? [];
-  const permissions = usePermissions();
-  const canEdit = permissions.manageNamespaces;
+  const permissionsUtil = usePermissionsUtil();
+  const canEdit = permissionsUtil.canUpdateNamespace();
+  const canDelete = permissionsUtil.canDeleteNamespace();
 
   const [open, setOpen] = useState(false);
   const [range, setRange] = useState<[number, number] | null>(null);
@@ -49,7 +50,7 @@ export default function NamespaceTableRow({
         style={{ cursor: "pointer" }}
       >
         <td onClick={expandRow}>
-          {namespace.name}
+          {namespace.label}
           {status === "inactive" && (
             <div
               className={`badge badge-secondary ml-2`}
@@ -59,6 +60,9 @@ export default function NamespaceTableRow({
               Disabled
             </div>
           )}
+        </td>
+        <td onClick={expandRow} className="text-muted small">
+          {namespace.name}
         </td>
         <td onClick={expandRow}>{namespace.description}</td>
         <td onClick={expandRow}>{experiments.length}</td>
@@ -70,42 +74,44 @@ export default function NamespaceTableRow({
             )
           )}
         </td>
-        {canEdit && (
-          <td>
-            <MoreMenu>
-              <a
-                href="#"
-                className="dropdown-item"
-                onClick={(e) => {
-                  e.preventDefault();
-                  onEdit();
-                }}
-              >
-                Edit
-              </a>
-              <a
-                href="#"
-                className="dropdown-item"
-                onClick={async (e) => {
-                  e.preventDefault();
-                  await onArchive();
-                }}
-              >
-                {namespace?.status === "inactive" ? "Enable" : "Disable"}
-              </a>
-              {experiments.length === 0 && (
-                <DeleteButton
-                  displayName="Namespace"
-                  className="dropdown-item text-danger"
-                  useIcon={false}
-                  text="Delete"
-                  title="Delete Namespace"
-                  onClick={onDelete}
-                />
-              )}
-            </MoreMenu>
-          </td>
-        )}
+        <td>
+          <MoreMenu>
+            {canEdit ? (
+              <>
+                <a
+                  href="#"
+                  className="dropdown-item"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onEdit();
+                  }}
+                >
+                  Edit
+                </a>
+                <a
+                  href="#"
+                  className="dropdown-item"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    await onArchive();
+                  }}
+                >
+                  {namespace?.status === "inactive" ? "Enable" : "Disable"}
+                </a>
+              </>
+            ) : null}
+            {experiments.length === 0 && canDelete ? (
+              <DeleteButton
+                displayName="Namespace"
+                className="dropdown-item text-danger"
+                useIcon={false}
+                text="Delete"
+                title="Delete Namespace"
+                onClick={onDelete}
+              />
+            ) : null}
+          </MoreMenu>
+        </td>
       </tr>
       <tr
         className="bg-white"
@@ -114,7 +120,7 @@ export default function NamespaceTableRow({
         }}
       >
         <td
-          colSpan={canEdit ? 5 : 4}
+          colSpan={6}
           className="px-4 bg-light"
           style={{
             boxShadow: "rgba(0, 0, 0, 0.06) 0px 2px 4px 0px inset",
@@ -153,9 +159,7 @@ export default function NamespaceTableRow({
                         }}
                       >
                         <td>
-                          <Link href={e.link}>
-                            <a>{e.name}</a>
-                          </Link>
+                          <Link href={e.link}>{e.name}</Link>
                         </td>
                         <td>{e.environment}</td>
                         <td>{e.trackingKey || e.id}</td>

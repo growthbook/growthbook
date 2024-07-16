@@ -5,12 +5,24 @@ import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import { orgHasPremiumFeature } from "enterprise";
 import {
-  FeatureRule as FeatureDefinitionRule,
   AutoExperiment,
+  FeatureRule as FeatureDefinitionRule,
   GrowthBook,
 } from "@growthbook/growthbook";
-import { validateCondition, validateFeatureValue } from "shared/util";
-import { scrubFeatures, SDKCapability } from "shared/sdk-versioning";
+import {
+  evalDeterministicPrereqValue,
+  evaluatePrerequisiteState,
+  isDefined,
+  PrerequisiteStateResult,
+  validateCondition,
+  validateFeatureValue,
+} from "shared/util";
+import {
+  scrubExperiments,
+  scrubFeatures,
+  SDKCapability,
+} from "shared/sdk-versioning";
+import cloneDeep from "lodash/cloneDeep";
 import {
   ApiReqContext,
   AutoExperimentWithProject,
@@ -18,18 +30,20 @@ import {
   FeatureDefinitionWithProject,
 } from "../../types/api";
 import {
+  ExperimentRefRule,
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
+  FeaturePrerequisite,
   FeatureRule,
+  FeatureTestResult,
   ForceRule,
   RolloutRule,
-  FeatureTestResult,
-  ExperimentRefRule,
 } from "../../types/feature";
 import { getAllFeatures } from "../models/FeatureModel";
 import {
   getAllPayloadExperiments,
+  getAllURLRedirectExperiments,
   getAllVisualExperiments,
 } from "../models/ExperimentModel";
 import { getFeatureDefinition, getParsedCondition } from "../util/features";
@@ -56,23 +70,36 @@ import {
 import { ArchetypeAttributeValues } from "../../types/archetype";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { triggerWebhookJobs } from "../jobs/updateAllJobs";
-import { getEnvironmentIdsFromOrg, getOrganizationById } from "./organizations";
+import { URLRedirectInterface } from "../../types/url-redirect";
+import {
+  getContextForAgendaJobByOrgObject,
+  getEnvironmentIdsFromOrg,
+} from "./organizations";
 
 export type AttributeMap = Map<string, string>;
 
-function generatePayload({
+export function generateFeaturesPayload({
   features,
   experimentMap,
   environment,
   groupMap,
+  prereqStateCache = {},
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
   environment: string;
   groupMap: GroupMap;
+  prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
 }): Record<string, FeatureDefinition> {
+  prereqStateCache[environment] = prereqStateCache[environment] || {};
+
   const defs: Record<string, FeatureDefinition> = {};
-  features.forEach((feature) => {
+  const newFeatures = reduceFeaturesWithPrerequisites(
+    features,
+    environment,
+    prereqStateCache
+  );
+  newFeatures.forEach((feature) => {
     const def = getFeatureDefinition({
       feature,
       environment,
@@ -88,24 +115,59 @@ function generatePayload({
 }
 
 export type VisualExperiment = {
+  type: "visual";
   experiment: ExperimentInterface;
   visualChangeset: VisualChangesetInterface;
 };
+export type URLRedirectExperiment = {
+  type: "redirect";
+  experiment: ExperimentInterface;
+  urlRedirect: URLRedirectInterface;
+};
 
-function generateVisualExperimentsPayload({
+export function generateAutoExperimentsPayload({
   visualExperiments,
-  // environment,
+  urlRedirectExperiments,
   groupMap,
+  features,
+  environment,
+  prereqStateCache = {},
 }: {
-  visualExperiments: Array<VisualExperiment>;
-  // environment: string,
+  visualExperiments: VisualExperiment[];
+  urlRedirectExperiments: URLRedirectExperiment[];
   groupMap: GroupMap;
+  features: FeatureInterface[];
+  environment: string;
+  prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
 }): AutoExperimentWithProject[] {
+  prereqStateCache[environment] = prereqStateCache[environment] || {};
+
   const isValidSDKExperiment = (
     e: AutoExperimentWithProject | null
   ): e is AutoExperimentWithProject => !!e;
-  const sdkExperiments: Array<AutoExperimentWithProject | null> = visualExperiments.map(
-    ({ experiment: e, visualChangeset: v }) => {
+
+  const newVisualExperiments = reduceExperimentsWithPrerequisites(
+    visualExperiments,
+    features,
+    environment,
+    prereqStateCache
+  );
+
+  const newURLRedirectExperiments = reduceExperimentsWithPrerequisites(
+    urlRedirectExperiments,
+    features,
+    environment,
+    prereqStateCache
+  );
+
+  const sortedAutoExperiments = [
+    ...newURLRedirectExperiments,
+    ...newVisualExperiments,
+  ];
+
+  const sdkExperiments: Array<AutoExperimentWithProject | null> = sortedAutoExperiments.map(
+    (data) => {
+      const { experiment: e } = data;
       if (e.status === "stopped" && e.excludeFromPayload) return null;
 
       const phase: ExperimentPhase | null = e.phases.slice(-1)?.[0] ?? null;
@@ -120,24 +182,67 @@ function generateVisualExperimentsPayload({
         phase?.savedGroups
       );
 
+      const prerequisites = (phase?.prerequisites ?? [])
+        ?.map((p) => {
+          const condition = getParsedCondition(groupMap, p.condition);
+          if (!condition) return null;
+          return {
+            id: p.id,
+            condition,
+          };
+        })
+        .filter(isDefined);
+
       if (!phase) return null;
+
+      const implementationId =
+        data.type === "redirect"
+          ? data.urlRedirect.id
+          : data.visualChangeset.id;
 
       const exp: AutoExperimentWithProject = {
         key: e.trackingKey,
+        changeId: sha256(
+          `${e.trackingKey}_${data.type}_${implementationId}`,
+          ""
+        ),
         status: e.status,
         project: e.project,
-        variations: v.visualChanges.map((vc) => ({
-          css: vc.css,
-          js: vc.js || "",
-          domMutations: vc.domMutations,
-        })) as AutoExperimentWithProject["variations"],
+        variations: e.variations.map((v) => {
+          if (data.type === "redirect") {
+            const match = data.urlRedirect.destinationURLs.find(
+              (d) => d.variation === v.id
+            );
+            return {
+              urlRedirect: match?.url || "",
+            };
+          }
+
+          const match = data.visualChangeset.visualChanges.find(
+            (vc) => vc.variation === v.id
+          );
+          return {
+            css: match?.css || "",
+            js: match?.js || "",
+            domMutations: match?.domMutations || [],
+          };
+        }) as AutoExperimentWithProject["variations"],
         hashVersion: e.hashVersion,
         hashAttribute: e.hashAttribute,
         fallbackAttribute: e.fallbackAttribute,
         disableStickyBucketing: e.disableStickyBucketing,
         bucketVersion: e.bucketVersion,
         minBucketVersion: e.minBucketVersion,
-        urlPatterns: v.urlPatterns,
+        urlPatterns:
+          data.type === "redirect"
+            ? [
+                {
+                  include: true,
+                  pattern: data.urlRedirect.urlPattern,
+                  type: "simple",
+                },
+              ]
+            : data.visualChangeset.urlPatterns,
         weights: phase.variationWeights,
         meta: e.variations.map((v) => ({ key: v.key, name: v.name })),
         filters: phase.namespace.enabled
@@ -159,6 +264,14 @@ function generateVisualExperimentsPayload({
         condition,
         coverage: phase.coverage,
       };
+
+      if (prerequisites.length) {
+        exp.parentConditions = prerequisites;
+      }
+
+      if (data.type === "redirect" && data.urlRedirect.persistQueryString) {
+        exp.persistQueryString = true;
+      }
 
       return exp;
     }
@@ -210,12 +323,16 @@ export async function getSavedGroupMap(
 }
 
 export async function refreshSDKPayloadCache(
-  context: ReqContext | ApiReqContext,
+  baseContext: ReqContext | ApiReqContext,
   payloadKeys: SDKPayloadKey[],
   allFeatures: FeatureInterface[] | null = null,
   experimentMap?: Map<string, ExperimentInterface>,
   skipRefreshForProject?: string
 ) {
+  // This is a background job, so switch to using a background context
+  // This is required so that we have full read access to the entire org's data
+  const context = getContextForAgendaJobByOrgObject(baseContext.org);
+
   logger.debug(
     `Refreshing SDK Payloads for ${context.org.id}: ${JSON.stringify(
       payloadKeys
@@ -246,32 +363,45 @@ export async function refreshSDKPayloadCache(
     context,
     experimentMap
   );
+  const allURLRedirectExperiments = await getAllURLRedirectExperiments(
+    context,
+    experimentMap
+  );
 
   // For each affected environment, generate a new SDK payload and update the cache
   const environments = Array.from(
     new Set(payloadKeys.map((k) => k.environment))
   );
 
+  const prereqStateCache: Record<
+    string,
+    Record<string, PrerequisiteStateResult>
+  > = {};
+
   const promises: (() => Promise<void>)[] = [];
-  for (const env of environments) {
-    const featureDefinitions = generatePayload({
+  for (const environment of environments) {
+    const featureDefinitions = generateFeaturesPayload({
       features: allFeatures,
-      environment: env,
+      environment: environment,
       groupMap,
       experimentMap,
+      prereqStateCache,
     });
 
-    const experimentsDefinitions = generateVisualExperimentsPayload({
+    const experimentsDefinitions = generateAutoExperimentsPayload({
       visualExperiments: allVisualExperiments,
-      // environment: key.environment,
+      urlRedirectExperiments: allURLRedirectExperiments,
       groupMap,
+      features: allFeatures,
+      environment,
+      prereqStateCache,
     });
 
     promises.push(async () => {
-      logger.debug(`Updating SDK Payload for ${context.org.id} ${env}`);
+      logger.debug(`Updating SDK Payload for ${context.org.id} ${environment}`);
       await updateSDKPayload({
         organization: context.org.id,
-        environment: env,
+        environment: environment,
         featureDefinitions,
         experimentsDefinitions,
       });
@@ -286,7 +416,9 @@ export async function refreshSDKPayloadCache(
   // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
   await promiseAllChunks(promises, 4);
 
-  triggerWebhookJobs(context, payloadKeys, environments, true);
+  triggerWebhookJobs(context, payloadKeys, environments, true).catch((e) => {
+    logger.error(e, "Error triggering webhook jobs");
+  });
 }
 
 export type FeatureDefinitionsResponseArgs = {
@@ -297,6 +429,7 @@ export type FeatureDefinitionsResponseArgs = {
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  includeRedirectExperiments?: boolean;
   attributes?: SDKAttributeSchema;
   secureAttributeSalt?: string;
   projects: string[];
@@ -310,6 +443,7 @@ async function getFeatureDefinitionsResponse({
   includeVisualExperiments,
   includeDraftExperiments,
   includeExperimentNames,
+  includeRedirectExperiments,
   attributes,
   secureAttributeSalt,
   projects,
@@ -381,11 +515,24 @@ async function getFeatureDefinitionsResponse({
   }
 
   features = scrubFeatures(features, capabilities);
+  experiments = scrubExperiments(experiments, capabilities);
+
+  const includeAutoExperiments =
+    !!includeRedirectExperiments || !!includeVisualExperiments;
+
+  if (includeAutoExperiments) {
+    if (!includeRedirectExperiments) {
+      experiments = experiments.filter((e) => e.changeType !== "redirect");
+    }
+    if (!includeVisualExperiments) {
+      experiments = experiments.filter((e) => e.changeType === "redirect");
+    }
+  }
 
   if (!encryptionKey) {
     return {
       features,
-      ...(includeVisualExperiments && { experiments }),
+      ...(includeAutoExperiments && { experiments }),
       dateUpdated,
     };
   }
@@ -394,16 +541,16 @@ async function getFeatureDefinitionsResponse({
     JSON.stringify(features),
     encryptionKey
   );
-  const encryptedExperiments = includeVisualExperiments
+  const encryptedExperiments = includeAutoExperiments
     ? await encrypt(JSON.stringify(experiments || []), encryptionKey)
     : undefined;
 
   return {
     features: {},
-    ...(includeVisualExperiments && { experiments: [] }),
+    ...(includeAutoExperiments && { experiments: [] }),
     dateUpdated,
     encryptedFeatures,
-    ...(includeVisualExperiments && { encryptedExperiments }),
+    ...(includeAutoExperiments && { encryptedExperiments }),
   };
 }
 
@@ -411,11 +558,12 @@ export type FeatureDefinitionArgs = {
   context: ReqContext | ApiReqContext;
   capabilities: SDKCapability[];
   environment?: string;
-  projects?: string[];
+  projects?: string[] | null;
   encryptionKey?: string;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  includeRedirectExperiments?: boolean;
   hashSecureAttributes?: boolean;
 };
 
@@ -436,6 +584,7 @@ export async function getFeatureDefinitions({
   includeVisualExperiments,
   includeDraftExperiments,
   includeExperimentNames,
+  includeRedirectExperiments,
   hashSecureAttributes,
 }: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
   // Return cached payload from Mongo if exists
@@ -445,13 +594,20 @@ export async function getFeatureDefinitions({
       environment,
     });
     if (cached) {
+      if (projects === null) {
+        // null projects have nothing in the payload. They result from environment project scrubbing.
+        return {
+          features: {},
+          experiments: [],
+          dateUpdated: cached.dateUpdated,
+        };
+      }
       let attributes: SDKAttributeSchema | undefined = undefined;
       let secureAttributeSalt: string | undefined = undefined;
       if (hashSecureAttributes) {
-        const org = await getOrganizationById(context.org.id);
-        if (org && orgHasPremiumFeature(org, "hash-secure-attributes")) {
-          secureAttributeSalt = org.settings?.secureAttributeSalt;
-          attributes = org.settings?.attributeSchema;
+        if (orgHasPremiumFeature(context.org, "hash-secure-attributes")) {
+          secureAttributeSalt = context.org.settings?.secureAttributeSalt;
+          attributes = context.org.settings?.attributeSchema;
         }
       }
       const { features, experiments } = cached.contents;
@@ -463,6 +619,7 @@ export async function getFeatureDefinitions({
         includeVisualExperiments,
         includeDraftExperiments,
         includeExperimentNames,
+        includeRedirectExperiments,
         attributes,
         secureAttributeSalt,
         projects: projects || [],
@@ -473,53 +630,50 @@ export async function getFeatureDefinitions({
     logger.error(e, "Failed to fetch SDK payload from cache");
   }
 
-  const org = await getOrganizationById(context.org.id);
   let attributes: SDKAttributeSchema | undefined = undefined;
   let secureAttributeSalt: string | undefined = undefined;
   if (hashSecureAttributes) {
-    if (org && orgHasPremiumFeature(org, "hash-secure-attributes")) {
-      secureAttributeSalt = org?.settings?.secureAttributeSalt;
-      attributes = org.settings?.attributeSchema;
+    if (orgHasPremiumFeature(context.org, "hash-secure-attributes")) {
+      secureAttributeSalt = context.org.settings?.secureAttributeSalt;
+      attributes = context.org.settings?.attributeSchema;
     }
-  }
-  if (!org) {
-    return await getFeatureDefinitionsResponse({
-      features: {},
-      experiments: [],
-      dateUpdated: null,
-      encryptionKey,
-      includeVisualExperiments,
-      includeDraftExperiments,
-      includeExperimentNames,
-      attributes,
-      secureAttributeSalt,
-      projects: projects || [],
-      capabilities,
-    });
   }
 
   // Generate the feature definitions
   const features = await getAllFeatures(context);
-  const groupMap = await getSavedGroupMap(org);
+  const groupMap = await getSavedGroupMap(context.org);
   const experimentMap = await getAllPayloadExperiments(context);
 
-  const featureDefinitions = generatePayload({
+  const prereqStateCache: Record<
+    string,
+    Record<string, PrerequisiteStateResult>
+  > = {};
+
+  const featureDefinitions = generateFeaturesPayload({
     features,
     environment,
     groupMap,
     experimentMap,
+    prereqStateCache,
   });
 
   const allVisualExperiments = await getAllVisualExperiments(
     context,
     experimentMap
   );
+  const allURLRedirectExperiments = await getAllURLRedirectExperiments(
+    context,
+    experimentMap
+  );
 
   // Generate visual experiments
-  const experimentsDefinitions = generateVisualExperimentsPayload({
+  const experimentsDefinitions = generateAutoExperimentsPayload({
     visualExperiments: allVisualExperiments,
-    // environment: key.environment,
+    urlRedirectExperiments: allURLRedirectExperiments,
     groupMap,
+    features,
+    environment,
+    prereqStateCache,
   });
 
   // Cache in Mongo
@@ -530,6 +684,15 @@ export async function getFeatureDefinitions({
     experimentsDefinitions,
   });
 
+  if (projects === null) {
+    // null projects have nothing in the payload. They result from environment project scrubbing.
+    return {
+      features: {},
+      experiments: [],
+      dateUpdated: new Date(),
+    };
+  }
+
   return await getFeatureDefinitionsResponse({
     features: featureDefinitions,
     experiments: experimentsDefinitions,
@@ -538,6 +701,7 @@ export async function getFeatureDefinitions({
     includeVisualExperiments,
     includeDraftExperiments,
     includeExperimentNames,
+    includeRedirectExperiments,
     attributes,
     secureAttributeSalt,
     projects: projects || [],
@@ -552,6 +716,8 @@ export function evaluateFeature({
   groupMap,
   experimentMap,
   revision,
+  scrubPrerequisites = true,
+  skipRulesWithPrerequisites = true,
 }: {
   feature: FeatureInterface;
   attributes: ArchetypeAttributeValues;
@@ -559,13 +725,18 @@ export function evaluateFeature({
   experimentMap: Map<string, ExperimentInterface>;
   environments: Environment[];
   revision: FeatureRevisionInterface;
+  scrubPrerequisites?: boolean;
+  skipRulesWithPrerequisites?: boolean;
 }) {
   const results: FeatureTestResult[] = [];
 
   // change the NODE ENV so that we can get the debug log information:
   let switchEnv = false;
   if (process.env.NODE_ENV === "production") {
-    process.env.NODE_ENV = "development";
+    process.env = {
+      ...process.env,
+      NODE_ENV: "development",
+    };
     switchEnv = true;
   }
   // I could loop through the feature's defined environments, but if environments change in the org,
@@ -589,14 +760,49 @@ export function evaluateFeature({
         returnRuleId: true,
       });
       if (definition) {
+        // Prerequisite scrubbing:
+        const rulesWithPrereqs: FeatureDefinitionRule[] = [];
+        if (scrubPrerequisites) {
+          definition.rules = definition.rules
+            ? definition?.rules
+                ?.map((rule) => {
+                  if (rule?.parentConditions?.length) {
+                    rulesWithPrereqs.push(rule);
+                    if (rule.parentConditions.some((pc) => !!pc.gate)) {
+                      return null;
+                    }
+                    if (skipRulesWithPrerequisites) {
+                      // make rule invalid so it is skipped
+                      delete rule.force;
+                      delete rule.variations;
+                    }
+                    delete rule.parentConditions;
+                  }
+                  return rule;
+                })
+                .filter(isDefined)
+            : undefined;
+        }
+
         thisEnvResult.featureDefinition = definition;
-        const log: [string, never][] = [];
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const log: [string, any][] = [];
         const gb = new GrowthBook({
           features: {
             [feature.id]: definition,
           },
           attributes: attributes,
-          log: (msg: string, ctx: never) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          log: (msg: string, ctx: any) => {
+            const ruleId = ctx?.rule?.id ?? null;
+            if (ruleId && rulesWithPrereqs.find((r) => r.id === ruleId)) {
+              if (skipRulesWithPrerequisites) {
+                msg = "Skip rule with prerequisite targeting";
+              } else {
+                msg += " (prerequisite targeting passed)";
+              }
+            }
             log.push([msg, ctx]);
           },
         });
@@ -610,7 +816,10 @@ export function evaluateFeature({
   });
   if (switchEnv) {
     // change the NODE ENV back
-    process.env.NODE_ENV = "production";
+    process.env = {
+      ...process.env,
+      NODE_ENV: "production",
+    };
   }
   return results;
 }
@@ -876,7 +1085,12 @@ any {
   // Given an object of unknown type, determine whether to recurse into it or return it
   if (Array.isArray(obj)) {
     // loop over array elements, process them
-    const newObj = [];
+    const newObj: {
+      // eslint-disable-next-line
+      obj: any;
+      attribute?: SDKAttribute;
+      doHash?: boolean;
+    }[] = [];
     for (let i = 0; i < obj.length; i++) {
       newObj[i] = processVal({
         obj: obj[i],
@@ -1046,4 +1260,205 @@ export const updateInterfaceEnvSettingsFromApiEnvSettings = (
       },
     };
   }, existing);
+};
+
+// Only keep features that are "on" or "conditional". For "on" features, remove any top level prerequisites
+export const reduceFeaturesWithPrerequisites = (
+  features: FeatureInterface[],
+  environment: string,
+  prereqStateCache: Record<string, Record<string, PrerequisiteStateResult>> = {}
+): FeatureInterface[] => {
+  prereqStateCache[environment] = prereqStateCache[environment] || {};
+
+  const newFeatures: FeatureInterface[] = [];
+
+  const featuresMap = new Map(features.map((f) => [f.id, f]));
+
+  // block "always off" features, or remove "always on" prereqs
+  for (const feature of features) {
+    const newFeature = cloneDeep(feature);
+    let removeFeature = false;
+
+    const newPrerequisites: FeaturePrerequisite[] = [];
+    for (const prereq of newFeature.prerequisites || []) {
+      let state: PrerequisiteStateResult = {
+        state: "deterministic",
+        value: null,
+      };
+      if (prereqStateCache[environment][prereq.id]) {
+        state = prereqStateCache[environment][prereq.id];
+      } else {
+        const prereqFeature = featuresMap.get(prereq.id);
+        if (prereqFeature) {
+          state = evaluatePrerequisiteState(
+            prereqFeature,
+            featuresMap,
+            environment,
+            undefined,
+            true
+          );
+        }
+        prereqStateCache[environment][prereq.id] = state;
+      }
+
+      switch (state.state) {
+        case "conditional":
+          // keep the feature and the prerequisite
+          newPrerequisites.push(prereq);
+          break;
+        case "cyclic":
+          removeFeature = true;
+          break;
+        case "deterministic": {
+          const evaled = evalDeterministicPrereqValue(
+            state.value ?? null,
+            prereq.condition
+          );
+          if (evaled === "fail") {
+            removeFeature = true;
+          }
+          break;
+        }
+      }
+    }
+    if (!removeFeature) {
+      newFeature.prerequisites = newPrerequisites;
+      newFeatures.push(newFeature);
+    }
+  }
+
+  // block "always off" rules, or reduce "always on" rules
+  for (let i = 0; i < newFeatures.length; i++) {
+    const feature = newFeatures[i];
+    if (!feature.environmentSettings[environment]?.rules) continue;
+
+    const newFeatureRules: FeatureRule[] = [];
+
+    for (
+      let i = 0;
+      i < feature.environmentSettings[environment].rules.length;
+      i++
+    ) {
+      const rule = feature.environmentSettings[environment].rules[i];
+      const {
+        removeRule,
+        newPrerequisites,
+      } = getInlinePrerequisitesReductionInfo(
+        rule.prerequisites || [],
+        featuresMap,
+        environment,
+        prereqStateCache
+      );
+      if (!removeRule) {
+        rule.prerequisites = newPrerequisites;
+        newFeatureRules.push(rule);
+      }
+    }
+    newFeatures[i].environmentSettings[environment].rules = newFeatureRules;
+  }
+
+  return newFeatures;
+};
+
+export const reduceExperimentsWithPrerequisites = <
+  T extends { experiment: ExperimentInterface }
+>(
+  experiments: T[],
+  features: FeatureInterface[],
+  environment: string,
+  prereqStateCache: Record<string, Record<string, PrerequisiteStateResult>> = {}
+): T[] => {
+  prereqStateCache[environment] = prereqStateCache[environment] || {};
+
+  const featuresMap = new Map(features.map((f) => [f.id, f]));
+
+  const newExperiments: T[] = [];
+  for (const data of experiments) {
+    const phaseIndex = data.experiment.phases.length - 1;
+    const phase: ExperimentPhase | null =
+      data.experiment.phases?.[phaseIndex] ?? null;
+    if (!phase) continue;
+    const newData = cloneDeep(data);
+
+    const {
+      removeRule,
+      newPrerequisites,
+    } = getInlinePrerequisitesReductionInfo(
+      phase.prerequisites || [],
+      featuresMap,
+      environment,
+      prereqStateCache
+    );
+    if (!removeRule) {
+      newData.experiment.phases[phaseIndex].prerequisites = newPrerequisites;
+      newExperiments.push(newData);
+    }
+  }
+  return newExperiments;
+};
+
+const getInlinePrerequisitesReductionInfo = (
+  prerequisites: FeaturePrerequisite[],
+  featuresMap: Map<string, FeatureInterface>,
+  environment: string,
+  prereqStateCache: Record<string, Record<string, PrerequisiteStateResult>> = {}
+): {
+  removeRule: boolean;
+  newPrerequisites: FeaturePrerequisite[];
+} => {
+  prereqStateCache[environment] = prereqStateCache[environment] || {};
+
+  let removeRule = false;
+  const newPrerequisites: FeaturePrerequisite[] = [];
+
+  for (const pc of prerequisites) {
+    const prereqFeature = featuresMap.get(pc.id);
+    let state: PrerequisiteStateResult = {
+      state: "deterministic",
+      value: null,
+    };
+    if (prereqStateCache[environment][pc.id]) {
+      state = prereqStateCache[environment][pc.id];
+    } else {
+      if (prereqFeature) {
+        state = evaluatePrerequisiteState(
+          prereqFeature,
+          featuresMap,
+          environment,
+          undefined,
+          true
+        );
+      }
+      prereqStateCache[environment][pc.id] = state;
+    }
+
+    switch (state.state) {
+      case "conditional":
+        // keep the rule and prerequisite
+        break;
+      case "cyclic":
+        // remove the rule
+        removeRule = true;
+        continue;
+      case "deterministic": {
+        const evaled = evalDeterministicPrereqValue(
+          state.value ?? null,
+          pc.condition
+        );
+        if (evaled === "fail") {
+          // remove the rule
+          removeRule = true;
+        }
+        continue;
+      }
+    }
+
+    // only keep the prerequisite if switch logic hasn't prevented it
+    newPrerequisites.push(pc);
+  }
+
+  return {
+    removeRule,
+    newPrerequisites,
+  };
 };

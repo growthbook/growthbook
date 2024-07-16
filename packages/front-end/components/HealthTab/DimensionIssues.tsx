@@ -8,14 +8,14 @@ import {
 import { useUser } from "@/services/UserContext";
 import { DEFAULT_SRM_THRESHOLD } from "@/pages/settings";
 import track from "@/services/track";
-import VariationUsersTable from "../Experiment/TabbedPage/VariationUsersTable";
-import Modal from "../Modal";
-import SelectField from "../Forms/SelectField";
-import SRMWarning from "../Experiment/SRMWarning";
+import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
+import Modal from "@/components/Modal";
+import SelectField from "@/components/Forms/SelectField";
+import SRMWarning from "@/components/Experiment/SRMWarning";
 import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
-} from "../Experiment/TabbedPage/HealthTabOnboardingModal";
+} from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
 import { EXPERIMENT_DIMENSION_PREFIX, srmHealthCheck } from "./SRMDrawer";
 import HealthCard from "./HealthCard";
 import { IssueTags, IssueValue } from "./IssueTags";
@@ -29,6 +29,7 @@ interface Props {
   exposureQuery?: ExposureQuery;
   variations: ExperimentReportVariation[];
   healthTabConfigParams: HealthTabConfigParams;
+  canConfigHealthTab: boolean;
 }
 
 type DimensionWithIssues = {
@@ -86,6 +87,7 @@ export const DimensionIssues = ({
   dataSource,
   exposureQuery,
   healthTabConfigParams,
+  canConfigHealthTab,
 }: Props) => {
   const { settings } = useUser();
   const [modalOpen, setModalOpen] = useState(false);
@@ -304,6 +306,7 @@ export const DimensionIssues = ({
             </div>
             {exposureQuery?.dimensions &&
             dataSource &&
+            canConfigHealthTab &&
             exposureQuery.dimensions.length > 0 ? (
               <div className="pt-4 d-flex justify-content-center">
                 <div>

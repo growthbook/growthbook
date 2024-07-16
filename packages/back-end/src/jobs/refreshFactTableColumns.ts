@@ -1,15 +1,17 @@
 import Agenda, { Job } from "agenda";
-import { getFactTable, updateFactTable } from "../models/FactTableModel";
+import { ReqContext } from "../../types/organization";
+import { getFactTable, updateFactTableColumns } from "../models/FactTableModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import {
   ColumnInterface,
   FactTableColumnType,
   FactTableInterface,
-  UpdateFactTableProps,
 } from "../../types/fact-table";
 import { determineColumnTypes } from "../util/sql";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { DataSourceInterface } from "../../types/datasource";
+import { getContextForAgendaJobByOrgId } from "../services/organizations";
+import { trackJob } from "../services/otel";
 
 const JOB_NAME = "refreshFactTableColumns";
 type RefreshFactTableColumnsJob = Job<{
@@ -17,18 +19,62 @@ type RefreshFactTableColumnsJob = Job<{
   factTableId: string;
 }>;
 
+const refreshFactTableColumns = trackJob(
+  JOB_NAME,
+  async (job: RefreshFactTableColumnsJob) => {
+    const { organization, factTableId } = job.attrs.data;
+
+    if (!factTableId || !organization) return;
+
+    const context = await getContextForAgendaJobByOrgId(organization);
+
+    const factTable = await getFactTable(context, factTableId);
+    if (!factTable) return;
+
+    const datasource = await getDataSourceById(context, factTable.datasource);
+    if (!datasource) return;
+
+    const updates: Partial<
+      Pick<FactTableInterface, "columns" | "columnsError">
+    > = {};
+
+    try {
+      const columns = await runRefreshColumnsQuery(
+        context,
+        datasource,
+        factTable
+      );
+      updates.columns = columns;
+      updates.columnsError = null;
+    } catch (e) {
+      updates.columnsError = e.message;
+    }
+
+    await updateFactTableColumns(factTable, updates);
+  }
+);
+
 export async function runRefreshColumnsQuery(
+  context: ReqContext,
   datasource: DataSourceInterface,
   factTable: Pick<FactTableInterface, "sql" | "eventName" | "columns">
 ): Promise<ColumnInterface[]> {
-  const integration = getSourceIntegrationObject(datasource, true);
+  if (!context.permissions.canRunFactQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource, true);
 
   if (!integration.getTestQuery || !integration.runTestQuery) {
     throw new Error("Testing not supported on this data source");
   }
 
-  const sql = integration.getTestQuery(factTable.sql, {
-    eventName: factTable.eventName,
+  const sql = integration.getTestQuery({
+    query: factTable.sql,
+    templateVariables: {
+      eventName: factTable.eventName,
+    },
+    testDays: context.org.settings?.testQueryDays,
   });
 
   const result = await integration.runTestQuery(sql, ["timestamp"]);
@@ -87,31 +133,7 @@ let agenda: Agenda;
 export default function (ag: Agenda) {
   agenda = ag;
 
-  agenda.define(JOB_NAME, async (job: RefreshFactTableColumnsJob) => {
-    const { organization, factTableId } = job.attrs.data;
-
-    if (!factTableId || !organization) return;
-
-    const factTable = await getFactTable(organization, factTableId);
-    if (!factTable) return;
-
-    const datasource = await getDataSourceById(
-      factTable.datasource,
-      factTable.organization
-    );
-    if (!datasource) return;
-
-    const updates: UpdateFactTableProps = {};
-    try {
-      const columns = await runRefreshColumnsQuery(datasource, factTable);
-      updates.columns = columns;
-      updates.columnsError = null;
-    } catch (e) {
-      updates.columnsError = e.message;
-    }
-
-    await updateFactTable(factTable, updates);
-  });
+  agenda.define(JOB_NAME, refreshFactTableColumns);
 }
 
 export async function queueFactTableColumnsRefresh(

@@ -7,7 +7,6 @@ import {
   toFactTableApiInterface,
   getFactTable,
 } from "../../models/FactTableModel";
-import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { addTagsDiff } from "../../models/TagModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { updateFactTableValidator } from "../../validators/openapi";
@@ -16,18 +15,18 @@ export const updateFactTable = createApiRequestHandler(
   updateFactTableValidator
 )(
   async (req): Promise<UpdateFactTableResponse> => {
-    const factTable = await getFactTable(req.organization.id, req.params.id);
+    const factTable = await getFactTable(req.context, req.params.id);
     if (!factTable) {
       throw new Error("Could not find factTable with that id");
     }
-    req.checkPermissions("manageFactTables", factTable.projects);
-    if (req.body.projects) {
-      req.checkPermissions("manageFactTables", req.body.projects);
+
+    if (!req.context.permissions.canUpdateFactTable(factTable, req.body)) {
+      req.context.permissions.throwPermissionError();
     }
 
     // Validate projects
     if (req.body.projects?.length) {
-      const projects = await findAllProjectsByOrganization(req.context);
+      const projects = await req.context.models.projects.getAll();
       const projectIds = new Set(projects.map((p) => p.id));
       for (const projectId of req.body.projects) {
         if (!projectIds.has(projectId)) {
@@ -39,8 +38,8 @@ export const updateFactTable = createApiRequestHandler(
     // Validate userIdTypes
     if (req.body.userIdTypes) {
       const datasource = await getDataSourceById(
-        factTable.datasource,
-        req.organization.id
+        req.context,
+        factTable.datasource
       );
       if (!datasource) {
         throw new Error("Could not find datasource for this fact table");
@@ -58,7 +57,7 @@ export const updateFactTable = createApiRequestHandler(
 
     const data: UpdateFactTableProps = { ...req.body };
 
-    await updateFactTableInDb(factTable, data);
+    await updateFactTableInDb(req.context, factTable, data);
     await queueFactTableColumnsRefresh(factTable);
 
     if (data.tags) {

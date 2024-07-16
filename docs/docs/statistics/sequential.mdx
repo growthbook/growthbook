@@ -32,23 +32,17 @@ We have two options:
 1. Stop checking early. This is possible, but in a lot of cases it can make decision making worse! It is powerful to be able to see bad results and shut a feature down early; or conversely to see a great feature do well right away, end the experiment, and ship to everyone.
 2. Use an estimator that returns our control over false positive rates.
 
-Sequential testing provides estimators for the second option; it allows peeking at your results without fear of inflating the false positive rate beyond your specified $alpha$.
+Sequential testing provides estimators for the second option; it allows peeking at your results without fear of inflating the false positive rate beyond your specified $\alpha$.
 
-## GrowthBook's implementation
+## Configuring sequential testing
 
-There are many approaches to sequential testing, several of which are well explained and compared in [this Spotify blogpost](https://engineering.atspotify.com/2023/03/choosing-sequential-testing-framework-comparisons-and-discussions/).
+You can enable or disable sequential testing, as well as select your tuning parameter, both in your organization settings (as a default for all future experiments) or on an individual experiment's page.
 
-For GrowthBook, we selected a method that would work for the wide variety of experimenters that we serve, while also providing experimenters with a way to tune the approach for their setting. To that end, we implement Asymptotic Confidence Sequences introduced by [Waudby-Smith et al. (2023)](https://arxiv.org/pdf/2103.06476v7.pdf); these are very similar to the Generalized Anytime Valid Inference confidence sequences described by Spotify in the above post and introduced by [Howard et al. (2022)](https://arxiv.org/pdf/1810.08240.pdf), although the Waudby-Smith et al. approach more transparently applies to our setting.
+You can also play with the settings in an ad-hoc report.
 
-Specifically, GrowthBook's confidence sequences, which take the place of confidence intervals, become:
+### Setting the tuning parameter
 
-$$\left(\hat{\mu} \pm \hat{\sigma}^2*N * \sqrt{\frac{2(N\rho^2 + 1)}{N^2\rho^2}\log\left(\frac{\sqrt{N\rho^2 + 1}}{\alpha}\right)}\right)$$
-
-$$\rho = \sqrt{\frac{-2\text{log}(\alpha) + \text{log}(-2 \text{log}(\alpha) + 1)}{N^*}}$$
-
-In the above, $\hat{\mu}$ is our estimated uplift, $\hat{\sigma}^2$ is the estimated variance of the uplift, $\alpha$ is our significance level (defaults to 0.05), and $N$ is the sum of the two variation's sample sizes.
-
-In the above $N^*$ is a tuning parameter that lets us control how tight these confidence sequences are relative to the standard, fixed-time confidence intervals. It can be thought of as an "estimated sample size." You want to set $N^*$ to be the number of observations at which you tend to make decisions, because it is at that sample size that the loss in experiment power from using sequential testing will be smallest relative to the traditional confidence intervals.
+The tuning parameter (written as $N^*$ in the [implementation notes below](#growthbooks-implementation)), should be set to the number of observations at which you tend to make decisions. It can be thought of as an "estimated sample size" for the two arms you are comparing. You want to set $N^*$ to be the number of observations at which you tend to make decisions, because it is at that sample size that the loss in experiment power from using sequential testing will be smallest relative to the traditional confidence intervals.
 
 The following figure shows how the increased CI width in sequential analysis is minimized when the sample size is approximately $N^*$. The y-axis is the ratio of the sequential CIs to the regular CIs; all lines are well above 1.0, showing that sequential analysis results in uniformly wider confidence intervals. On the x-axis is the sample size at which the analysis was executed. As you can see, the ratio is lowest when $N^*$ is as close to sample size used in the analysis.
 
@@ -58,13 +52,7 @@ The following figure shows how the increased CI width in sequential analysis is 
   style={{ width: 450, margin: "0 auto" }}
 />
 
-We default to using 5,000, but the general advice is to set this parameter to the sample size you expect to get when you are most likely to make a decision on this experiment. This value should remain fixed for an experiment.
-
-## Configuring sequential testing
-
-You can enable or disable sequential testing, as well as select your tuning parameter, both in your organization settings (as a default for all future experiments) or on an individual experiment's page.
-
-You can also play with the settings in an ad-hoc report.
+We default to using 5,000, but the general advice is to set this parameter to the sample size you expect to get when you are most likely to make a decision on this experiment. Note, this number reflects the total sample size across the two variations you are comparing. If you have an experiment with 3 variations, and you want the smallest confidence intervals after 3,000 users in each variation, you should set the tuning parameter to 6,000 following the above logic. This is because while the total number of users will be 9,000, there will be 6,000 total in each comparison of arms (e.g. A vs B, B vs C, and A vs C).
 
 Note that the tuning parameter should remain fixed for an experiment.
 
@@ -87,3 +75,19 @@ You can also turn sequential testing on and off for an individual experiment, as
   alt="Sequential Statistics Experiment Settings"
   style={{ width: 600, margin: "0 auto" }}
 />
+
+## GrowthBook's implementation
+
+There are many approaches to sequential testing, several of which are well explained and compared in [this Spotify blogpost](https://engineering.atspotify.com/2023/03/choosing-sequential-testing-framework-comparisons-and-discussions/).
+
+For GrowthBook, we selected a method that would work for the wide variety of experimenters that we serve, while also providing experimenters with a way to tune the approach for their setting. To that end, we implement Asymptotic Confidence Sequences introduced by [Waudby-Smith et al. (2023)](https://arxiv.org/pdf/2103.06476v7.pdf); these are very similar to the Generalized Anytime Valid Inference confidence sequences described by Spotify in the above post and introduced by [Howard et al. (2022)](https://arxiv.org/pdf/1810.08240.pdf), although the Waudby-Smith et al. approach more transparently applies to our setting.
+
+Specifically, GrowthBook's confidence sequences, which take the place of confidence intervals, become:
+
+$$\left(\hat{\mu} \pm \hat{\sigma}*\sqrt{N}*\sqrt{\frac{2(N\rho^2 + 1)}{N^{2}\rho^2}\log\left(\frac{\sqrt{N\rho^2 + 1}}{\alpha}\right)}\right)$$
+
+$$\rho = \sqrt{\frac{-2\text{log}(\alpha) + \text{log}(-2 \text{log}(\alpha) + 1)}{N^*}}$$
+
+In the above, $\hat{\mu}$ is our estimated uplift, $\hat{\sigma}$ is the estimated standard error of the uplift, $\alpha$ is our significance level (defaults to 0.05), and $N$ is the sum of the two variation's sample sizes.
+
+In the above $N^*$ is a tuning parameter that lets us control how tight these confidence sequences are relative to the standard, fixed-time confidence intervals. You can read more about how to set it in the [Configuring Sequential Testing](#setting-the-tuning-parameter) section.

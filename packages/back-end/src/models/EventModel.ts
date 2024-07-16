@@ -3,7 +3,7 @@ import z from "zod";
 import omit from "lodash/omit";
 import mongoose from "mongoose";
 import {
-  notificationEventNames,
+  zodNotificationEventNamesEnum,
   notificationEventResources,
 } from "../events/base-types";
 import { EventInterface } from "../../types/event";
@@ -30,7 +30,7 @@ const eventSchema = new mongoose.Schema({
   event: {
     type: String,
     required: true,
-    enum: notificationEventNames,
+    enum: zodNotificationEventNamesEnum,
   },
   data: {
     type: Object,
@@ -40,9 +40,13 @@ const eventSchema = new mongoose.Schema({
         // NotificationEventPayload<EventName, ResourceType, DataType>
         const zodSchema = z
           .object({
-            event: z.enum(notificationEventNames),
+            event: z.enum(zodNotificationEventNamesEnum),
             object: z.enum(notificationEventResources),
             data: z.any(),
+            projects: z.array(z.string()),
+            environments: z.array(z.string()),
+            tags: z.array(z.string()),
+            containsSecrets: z.boolean(),
             user: z.union([
               z
                 .object({
@@ -155,6 +159,76 @@ export const getEventForOrganization = async (
 ): Promise<EventInterface<NotificationEvent> | null> => {
   const doc = await EventModel.findOne({ id: eventId, organizationId });
   return !doc ? null : (toInterface(doc) as EventInterface<NotificationEvent>);
+};
+
+/**
+ * Get all events for an organization, and allow for pagination
+ * @param organizationId
+ * @param filters - object containing: page, perPage, eventTypes, from, to, sortOrder
+ * @returns
+ */
+export const getEventsForOrganization = async (
+  organizationId: string,
+  filters: {
+    page: number;
+    perPage: number;
+    eventTypes?: string[];
+    from?: string;
+    to?: string;
+    sortOrder?: 1 | -1;
+  }
+): Promise<EventInterface<unknown>[]> => {
+  const query = applyFiltersToQuery(organizationId, filters);
+  const docs = await EventModel.find(query)
+    .sort([["dateCreated", filters.sortOrder ?? -1]])
+    .skip((filters.page - 1) * filters.perPage)
+    .limit(filters.perPage);
+
+  return docs.map(toInterface);
+};
+
+/**
+ * Get the total count of events for an organization
+ * @param organizationId
+ * @param filters - object containing: eventTypes, from, to
+ * @returns
+ */
+export const getEventsCountForOrganization = async (
+  organizationId: string,
+  filters: {
+    eventTypes?: string[];
+    from?: string;
+    to?: string;
+  }
+): Promise<number> => {
+  const query = applyFiltersToQuery(organizationId, filters);
+  return EventModel.countDocuments(query);
+};
+
+const applyFiltersToQuery = (
+  organizationId: string,
+  filters: { eventTypes?: string[]; from?: string; to?: string }
+) => {
+  const query: {
+    organizationId: string;
+    event?: unknown;
+    dateCreated?: unknown;
+  } = { organizationId };
+  if (filters.eventTypes && filters.eventTypes.length > 0) {
+    query["event"] = { $in: filters.eventTypes };
+  }
+  if (filters.from && filters.to) {
+    query["dateCreated"] = {
+      $gte: new Date(filters.from),
+      $lt: new Date(filters.to),
+    };
+  } else if (filters.from) {
+    query["dateCreated"] = { $gte: new Date(filters.from) };
+  } else if (filters.to) {
+    query["dateCreated"] = { $lt: new Date(filters.to) };
+  }
+
+  return query;
 };
 
 /**

@@ -8,8 +8,9 @@ import {
   getVariationColor,
 } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
-import NewExperimentForm from "../Experiment/NewExperimentForm";
-import Modal from "../Modal";
+import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import Modal from "@/components/Modal";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 
@@ -29,6 +30,7 @@ export default function ExperimentSummary({
 }) {
   const { namespace, coverage, values, hashAttribute, trackingKey } = rule;
   const type = feature.valueType;
+  const { namespaces: allNamespaces } = useOrgSettings();
 
   const { datasources, metrics } = useDefinitions();
   const [newExpModal, setNewExpModal] = useState(false);
@@ -73,8 +75,9 @@ export default function ExperimentSummary({
                   href={`/experiments/?featureExperiment=${encodeURIComponent(
                     JSON.stringify(expDefinition)
                   )}`}
+                  className="btn btn-primary"
                 >
-                  <a className="btn btn-primary">Set up experiments</a>
+                  Set up experiments
                 </Link>
               </div>
             </div>
@@ -104,7 +107,8 @@ export default function ExperimentSummary({
               {" "}
               <span>in the namespace </span>
               <span className="mr-1 border px-2 py-1 bg-light rounded">
-                {namespace.name}
+                {allNamespaces?.find((n) => n.name === namespace.name)?.label ||
+                  namespace.name}
               </span>
             </>
           )}
@@ -205,8 +209,11 @@ export default function ExperimentSummary({
         </div>
         <div className="col-auto">
           {experiment ? (
-            <Link href={`/experiment/${experiment.id}#results`}>
-              <a className="btn btn-outline-primary">View results</a>
+            <Link
+              href={`/experiment/${experiment.id}#results`}
+              className="btn btn-outline-primary"
+            >
+              View results
             </Link>
           ) : datasources.length > 0 && metrics.length > 0 ? (
             <a

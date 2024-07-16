@@ -1,7 +1,7 @@
 [tool]
 [tool.poetry]
 name = "gbstats"
-version = "0.7.0"
+version = "0.8.0"
 homepage = "https://github.com/growthbook/growthbook/tree/main/packages/stats"
 description = "Stats engine for GrowthBook, the open source feature flagging and A/B testing platform."
 authors = ["Jeremy Dorn <jeremy@growthbook.io>"]
@@ -24,7 +24,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.12"
+python = ">=3.8,<4.0"
 pandas = "^1.5.1"
 scipy = "^1.9.2"
 numpy = "^1.23.4"

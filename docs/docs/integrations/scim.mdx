@@ -23,7 +23,7 @@ GrowthBook's SCIM integration currently offers the following features:
 
 When a user is provisioned, they are added to your GrowthBook organization with your organization's default role. After provisioning, admin users can adjust their roles and permissions via the GrowthBook application as needed. It's important to note that if a user is provisioned through SCIM, they can only be deprovisioned through your identity provider.
 
-GrowthBook does support the ability to optionally [define a role when provioning a user](#how-to-define-user-role-when-provisioning). Project-level permissions are not supported when provisioning a user via SCIM. That must be done via the GrowthBook application.
+GrowthBook does support the ability to optionally [define a role when provisioning a user](#how-to-define-user-role-when-provisioning). Project-level permissions are not supported when provisioning a user via SCIM. That must be done via the GrowthBook application.
 
 When a group is added to "Push Groups" in your Okta SCIM application, groups and their members will be synced with GrowthBook via a corresponding [Team](https://docs.growthbook.io/account/user-permissions). Please note that only members that have been provisioned into the GrowthBook app will be added to the Team in GrowthBook. For example, if you have a push group with members A, B, and C and only A and B are assigned to GrowthBook on the "Assignments" tab, the corresponding team on GrowthBook will only include members A and B. Just like how user provisioning works, new Teams will be set up with your organization's default role. You'll need to adjust the permissions for the Team in GrowthBook. Group removal or membership changes will need to be done through your identity provider.
 
@@ -53,7 +53,10 @@ We are actively working on adding support for additional identity providers.
 
 ![](../../static/images/integrations/scim/GrowthBook-SCIM-Enable-API-Integration.png)
 
-6. Choose to enable API Integration, and input your credentials. Contact your account representative to obtain the SCIM 2.0 Base URL. You can acquire your OAuth Bearer Token by creating a new Secret API Key with an `Admin` role. To do this, go to your GrowthBook account, and in the left navigation, select "Settings > API Keys." We recommend creating a dedicated API key exclusively for your SCIM integration.
+6. Now you can enter the Base URL and your OAUTH Bearer Token.
+
+- For GrowthBook Cloud users, the Base URL is `https://api.growthbook.io/scim/v2`. If you're self-hosting GrowthBook, the Base URL will be `{YOUR_API_HOST}/scim/v2`.
+- You can obtain your OAuth Bearer Token by creating a new Secret API Key with an `Admin` role. To do this, go to your GrowthBook account, and in the left navigation, select "Settings → API Keys." We recommend creating a dedicated API key exclusively for your SCIM integration.
 
 7. After adding your credentials, click "Test API Credentials" to ensure they are valid. If they pass the test, click "Save."
 

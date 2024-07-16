@@ -1,6 +1,7 @@
 import { useState, FC } from "react";
-import { useAuth } from "../../services/auth";
-import Modal from "../Modal";
+import { useAuth } from "@/services/auth";
+import Modal from "@/components/Modal";
+import { isCloud } from "@/services/env";
 
 const EditOrganization: FC<{
   onEdit: () => void;
@@ -8,17 +9,21 @@ const EditOrganization: FC<{
   id: string;
   currentName: string;
   currentExternalId: string;
-  showExternalId?: boolean;
+  currentLicenseKey: string;
+  currentOwner: string;
 }> = ({
   onEdit,
   close,
   id,
   currentName,
   currentExternalId,
-  showExternalId,
+  currentLicenseKey,
+  currentOwner,
 }) => {
   const [name, setName] = useState(currentName);
+  const [owner, setOwner] = useState(currentOwner);
   const [externalId, setExternalId] = useState(currentExternalId);
+  const [licenseKey, setLicenseKey] = useState(currentLicenseKey);
 
   const { apiCall } = useAuth();
 
@@ -26,13 +31,14 @@ const EditOrganization: FC<{
     await apiCall<{
       status: number;
       message?: string;
-      orgId?: string;
-    }>("/organization", {
+    }>("/admin/organization", {
       method: "PUT",
-      headers: { "X-Organization": id },
       body: JSON.stringify({
+        orgId: id,
         name,
         externalId,
+        licenseKey,
+        ownerEmail: owner,
       }),
     });
     onEdit();
@@ -43,7 +49,7 @@ const EditOrganization: FC<{
       submit={handleSubmit}
       open={true}
       header={"Edit Organization"}
-      cta={"Edit"}
+      cta={"Update"}
       close={close}
       inline={!close}
     >
@@ -57,7 +63,17 @@ const EditOrganization: FC<{
           minLength={3}
           onChange={(e) => setName(e.target.value)}
         />
-        {showExternalId && (
+        {isCloud() ? (
+          <div className="mt-3">
+            License Key
+            <input
+              type="text"
+              className="form-control"
+              value={licenseKey}
+              onChange={(e) => setLicenseKey(e.target.value)}
+            />
+          </div>
+        ) : (
           <div className="mt-3">
             External Id: Id used for the organization within your company
             (optional)
@@ -70,6 +86,16 @@ const EditOrganization: FC<{
             />
           </div>
         )}
+        <div className="mt-3">
+          Owner Email
+          <input
+            type="email"
+            className="form-control"
+            value={owner}
+            required
+            onChange={(e) => setOwner(e.target.value)}
+          />
+        </div>
       </div>
     </Modal>
   );

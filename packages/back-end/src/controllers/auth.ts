@@ -13,7 +13,6 @@ import {
   deleteAuthCookies,
   getAuthConnection,
   isNewInstallation,
-  markInstalled,
   validatePasswordFormat,
 } from "../services/auth";
 import {
@@ -21,21 +20,18 @@ import {
   RefreshTokenCookie,
   SSOConnectionIdCookie,
 } from "../util/cookie";
-import {
-  getEmailFromUserId,
-  getContextFromReq,
-} from "../services/organizations";
-import {
-  createUser,
-  getUserByEmail,
-  getUserById,
-  updatePassword,
-  verifyPassword,
-} from "../services/users";
+import { getContextFromReq } from "../services/organizations";
+import { updatePassword, verifyPassword } from "../services/users";
 import { AuthRequest } from "../types/AuthRequest";
 import { getSSOConnectionByEmailDomain } from "../models/SSOConnectionModel";
 import { UserInterface } from "../../types/user";
-import { resetMinTokenDate } from "../models/UserModel";
+import {
+  resetMinTokenDate,
+  getEmailFromUserId,
+  createUser,
+  getUserByEmail,
+  getUserById,
+} from "../models/UserModel";
 import { AuthRefreshModel } from "../models/AuthRefreshModel";
 
 export async function getHasOrganizations(req: Request, res: Response) {
@@ -68,7 +64,7 @@ export async function postRefresh(req: Request, res: Response) {
       idToken,
       refreshToken: newRefreshToken,
       expiresIn,
-    } = await auth.refresh(req, refreshToken);
+    } = await auth.refresh(req, res, refreshToken);
 
     IdTokenCookie.setValue(idToken, req, res, expiresIn);
     if (newRefreshToken) {
@@ -159,10 +155,14 @@ export async function postLogout(req: Request, res: Response) {
 
 export async function postLogin(
   // eslint-disable-next-line
-  req: Request<any, any, { email: string; password: string }>,
+  req: Request<any, any, { email: unknown; password: unknown }>,
   res: Response
 ) {
   const { email, password } = req.body;
+
+  if (typeof email !== "string" || typeof password !== "string") {
+    throw new Error("Invalid email or password");
+  }
 
   validatePasswordFormat(password);
 
@@ -189,10 +189,18 @@ export async function postLogin(
 
 export async function postRegister(
   // eslint-disable-next-line
-  req: Request<any, any, { email: string; name: string; password: string }>,
+  req: Request<any, any, { email: unknown; name: unknown; password: unknown }>,
   res: Response
 ) {
   const { email, name, password } = req.body;
+
+  if (
+    typeof email !== "string" ||
+    typeof name !== "string" ||
+    typeof password !== "string"
+  ) {
+    throw new Error("Invalid arguments");
+  }
 
   validatePasswordFormat(password);
 
@@ -213,7 +221,7 @@ export async function postRegister(
   }
 
   // Create new account
-  const user = await createUser(name, email, password);
+  const user = await createUser({ name, email, password });
   sendLocalSuccessResponse(req, res, user);
 }
 
@@ -224,10 +232,10 @@ export async function postFirstTimeRegister(
     // eslint-disable-next-line
     any,
     {
-      email: string;
-      name: string;
-      password: string;
-      companyname: string;
+      email: unknown;
+      name: unknown;
+      password: unknown;
+      companyname: unknown;
     }
   >,
   res: Response
@@ -242,6 +250,15 @@ export async function postFirstTimeRegister(
 
   const { email, name, password, companyname } = req.body;
 
+  if (
+    typeof email !== "string" ||
+    typeof name !== "string" ||
+    typeof password !== "string" ||
+    typeof companyname !== "string"
+  ) {
+    throw new Error("Invalid arguments");
+  }
+
   validatePasswordFormat(password);
   if (companyname.length < 3) {
     throw Error("Company length must be at least 3 characters");
@@ -255,23 +272,28 @@ export async function postFirstTimeRegister(
     });
   }
 
-  const user = await createUser(name, email, password);
+  // grant the first user on a new installation super admin access
+  const user = await createUser({ name, email, password, superAdmin: true });
+
   await createOrganization({
     email,
     userId: user.id,
     name: companyname,
   });
-  markInstalled();
 
   sendLocalSuccessResponse(req, res, user);
 }
 
 export async function postForgotPassword(
   // eslint-disable-next-line
-  req: Request<any, any, { email: string }>,
+  req: Request<any, any, { email: unknown }>,
   res: Response
 ) {
   const { email } = req.body;
+  if (!email || typeof email !== "string") {
+    throw new Error("Invalid email");
+  }
+
   await createForgotPasswordToken(email);
 
   res.status(200).json({
@@ -280,11 +302,11 @@ export async function postForgotPassword(
 }
 
 export async function getResetPassword(
-  req: Request<{ token: string }>,
+  req: Request<{ token: unknown }>,
   res: Response
 ) {
   const { token } = req.params;
-  if (!token) {
+  if (!token || typeof token !== "string") {
     throw new Error("Invalid password reset token.");
   }
 
@@ -323,14 +345,17 @@ export async function getSSOConnectionFromDomain(req: Request, res: Response) {
 
 export async function postResetPassword(
   // eslint-disable-next-line
-  req: Request<{ token: string }, any, { password: string }>,
+  req: Request<{ token: unknown }, any, { password: unknown }>,
   res: Response
 ) {
   const { token } = req.params;
   const { password } = req.body;
 
-  if (!token) {
+  if (!token || typeof token !== "string") {
     throw new Error("Invalid password reset token.");
+  }
+  if (!password || typeof password !== "string") {
+    throw new Error("Invalid password");
   }
 
   const userId = await getUserIdFromForgotPasswordToken(token);

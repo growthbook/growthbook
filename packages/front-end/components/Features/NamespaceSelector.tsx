@@ -3,9 +3,9 @@ import useApi from "@/hooks/useApi";
 import { NamespaceApiResponse } from "@/pages/namespaces";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { findGaps } from "@/services/features";
-import Toggle from "../Forms/Toggle";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
+import Toggle from "@/components/Forms/Toggle";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
 import NamespaceUsageGraph from "./NamespaceUsageGraph";
 
 export interface Props {
@@ -89,7 +89,7 @@ export default function NamespaceSelector({
                 .filter((n) => {
                   return n?.status !== "inactive";
                 })
-                .map((n) => ({ value: n.name, label: n.name }))}
+                .map((n) => ({ value: n.name, label: n.label }))}
             />
             {namespace &&
               namespaces.filter((n) => n.name === namespace).length > 0 && (

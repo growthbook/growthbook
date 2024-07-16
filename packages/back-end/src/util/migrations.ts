@@ -1,16 +1,22 @@
 import isEqual from "lodash/isEqual";
 import cloneDeep from "lodash/cloneDeep";
 import {
+  DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
+import { accountFeatures, getAccountPlan } from "enterprise";
+import { omit } from "lodash";
+import { LegacyReportInterface, ReportInterface } from "@back-end/types/report";
+import { WebhookInterface } from "@back-end/types/webhook";
+import { SdkWebHookLogDocument } from "../models/SdkWebhookLogModel";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import {
   DataSourceInterface,
   DataSourceSettings,
 } from "../../types/datasource";
-import SqlIntegration from "../integrations/SqlIntegration";
-import { getSourceIntegrationObject } from "../services/datasource";
+import { decryptDataSourceParams } from "../services/datasource";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
@@ -18,7 +24,7 @@ import {
   FeatureRule,
   LegacyFeatureInterface,
 } from "../../types/feature";
-import { MemberRole, OrganizationInterface } from "../../types/organization";
+import { OrganizationInterface } from "../../types/organization";
 import { getConfigOrganizationSettings } from "../init/config";
 import {
   ExperimentInterface,
@@ -57,12 +63,35 @@ function adjustWeights(weights: number[]): number[] {
 }
 
 export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
-  const newDoc = { ...doc };
+  const newDoc = cloneDeep(doc);
 
-  if (doc.conversionDelayHours == null && doc.earlyStart) {
-    newDoc.conversionDelayHours = -0.5;
-    newDoc.conversionWindowHours =
-      (doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) + 0.5;
+  if (doc.windowSettings === undefined) {
+    if (doc.conversionDelayHours == null && doc.earlyStart) {
+      newDoc.windowSettings = {
+        type: "conversion",
+        windowValue:
+          (doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS) + 0.5,
+        windowUnit: "hours",
+        delayHours: -0.5,
+      };
+    } else {
+      newDoc.windowSettings = {
+        type: "conversion",
+        windowValue:
+          doc.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS,
+        windowUnit: "hours",
+        delayHours: doc.conversionDelayHours || 0,
+      };
+    }
+  }
+
+  if (doc.priorSettings === undefined) {
+    newDoc.priorSettings = {
+      override: false,
+      proper: false,
+      mean: 0,
+      stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+    };
   }
 
   if (!doc.userIdTypes?.length) {
@@ -88,13 +117,28 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
     });
   }
 
-  if (doc.capping === undefined && doc.cap) {
-    newDoc.capValue = doc.cap;
-    newDoc.capping = "absolute";
+  if (doc.cappingSettings === undefined) {
+    if (doc.capping === undefined && doc.cap) {
+      newDoc.cappingSettings = {
+        type: "absolute",
+        value: doc.cap,
+      };
+    } else {
+      newDoc.cappingSettings = {
+        type: doc.capping || "",
+        value: doc.capValue || 0,
+      };
+    }
   }
-  if (newDoc.cap !== undefined) delete newDoc.cap;
 
-  return newDoc;
+  // delete old fields
+  delete newDoc.cap;
+  delete newDoc.capping;
+  delete newDoc.capValue;
+  delete newDoc.conversionDelayHours;
+  delete newDoc.conversionWindowHours;
+
+  return newDoc as MetricInterface;
 }
 
 export function getDefaultExperimentQuery(
@@ -148,8 +192,21 @@ export function upgradeDatasourceObject(
 
   // Upgrade old docs to the new exposure queries format
   if (settings && !settings?.queries?.exposure) {
-    const integration = getSourceIntegrationObject(datasource);
-    if (integration instanceof SqlIntegration) {
+    const isSQL = !["google_analytics", "mixpanel"].includes(datasource.type);
+    if (isSQL) {
+      let schema = "";
+      try {
+        const params = decryptDataSourceParams(datasource.params);
+        if (
+          "defaultSchema" in params &&
+          typeof params.defaultSchema === "string"
+        ) {
+          schema = params.defaultSchema;
+        }
+      } catch (e) {
+        // Ignore decryption errors, they are handled elsewhere
+      }
+
       settings.queries = settings.queries || {};
       settings.queries.exposure = [
         {
@@ -160,11 +217,7 @@ export function upgradeDatasourceObject(
           dimensions: settings.experimentDimensions || [],
           query:
             settings.queries.experimentsQuery ||
-            getDefaultExperimentQuery(
-              settings,
-              "user_id",
-              integration.getSchema()
-            ),
+            getDefaultExperimentQuery(settings, "user_id", schema),
         },
         {
           id: "anonymous_id",
@@ -174,11 +227,7 @@ export function upgradeDatasourceObject(
           dimensions: settings.experimentDimensions || [],
           query:
             settings.queries.experimentsQuery ||
-            getDefaultExperimentQuery(
-              settings,
-              "anonymous_id",
-              integration.getSchema()
-            ),
+            getDefaultExperimentQuery(settings, "anonymous_id", schema),
         },
       ];
     }
@@ -335,6 +384,15 @@ export function upgradeFeatureInterface(
     newFeature.hasDrafts = true;
   }
 
+  if (newFeature.jsonSchema) {
+    newFeature.jsonSchema.schemaType =
+      newFeature.jsonSchema.schemaType || "schema";
+    newFeature.jsonSchema.simple = newFeature.jsonSchema.simple || {
+      type: "object",
+      fields: [],
+    };
+  }
+
   return newFeature;
 }
 
@@ -342,6 +400,7 @@ export function upgradeOrganizationDoc(
   doc: OrganizationInterface
 ): OrganizationInterface {
   const org = cloneDeep(doc);
+  const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
 
   // Add settings from config.json
   const configSettings = getConfigOrganizationSettings();
@@ -362,14 +421,22 @@ export function upgradeOrganizationDoc(
 
   // Add a default role if one doesn't exist
   if (!org.settings.defaultRole) {
-    org.settings.defaultRole = {
-      role: "collaborator",
-      environments: [],
-      limitAccessByEnvironment: false,
-    };
+    org.settings.defaultRole = getDefaultRole(org);
+  } else {
+    // if the defaultRole is a custom role and the org no longer has that feature, default to collaborator
+    if (
+      !RESERVED_ROLE_IDS.includes(org.settings.defaultRole.role) &&
+      !commercialFeatures.includes("custom-roles")
+    ) {
+      org.settings.defaultRole = {
+        role: "collaborator",
+        environments: [],
+        limitAccessByEnvironment: false,
+      };
+    }
   }
 
-  // Default attribute schema
+  // Default attribute schema for backwards compatibility
   if (!org.settings.attributeSchema) {
     org.settings.attributeSchema = [
       { property: "id", datatype: "string", hashAttribute: true },
@@ -388,8 +455,22 @@ export function upgradeOrganizationDoc(
     org.settings.statsEngine = DEFAULT_STATS_ENGINE;
   }
 
+  // Migrate Arroval Flow Settings
+  if (
+    org.settings?.requireReviews === true ||
+    org.settings?.requireReviews === false
+  ) {
+    org.settings.requireReviews = [
+      {
+        requireReviewOn: org.settings.requireReviews,
+        resetReviewOnChange: false,
+        environments: [],
+        projects: [],
+      },
+    ];
+  }
   // Rename legacy roles
-  const legacyRoleMap: Record<string, MemberRole> = {
+  const legacyRoleMap: Record<string, string> = {
     designer: "collaborator",
     developer: "experimenter",
   };
@@ -398,6 +479,14 @@ export function upgradeOrganizationDoc(
       m.role = legacyRoleMap[m.role];
     }
   });
+
+  // Make sure namespaces have labels- if it's missing, use the name
+  if (org?.settings?.namespaces?.length) {
+    org.settings.namespaces = org.settings.namespaces.map((ns) => ({
+      ...ns,
+      label: ns.label || ns.name,
+    }));
+  }
 
   return org;
 }
@@ -464,6 +553,20 @@ export function upgradeExperimentDoc(
     experiment.description = experiment.observations;
   }
 
+  // metric overrides
+  if (experiment.metricOverrides) {
+    experiment.metricOverrides.forEach((mo) => {
+      mo.delayHours = mo.delayHours || mo.conversionDelayHours;
+      mo.windowHours = mo.windowHours || mo.conversionWindowHours;
+      if (
+        mo.windowType === undefined &&
+        mo.conversionWindowHours !== undefined
+      ) {
+        mo.windowType = "conversion";
+      }
+    });
+  }
+
   // releasedVariationId
   if (!("releasedVariationId" in experiment)) {
     if (experiment.status === "stopped") {
@@ -488,6 +591,39 @@ export function upgradeExperimentDoc(
   }
 
   return experiment as ExperimentInterface;
+}
+
+export function migrateReport(orig: LegacyReportInterface): ReportInterface {
+  const { args, ...report } = orig;
+
+  if ((args?.attributionModel as string) === "allExposures") {
+    args.attributionModel = "experimentDuration";
+  }
+
+  if (
+    args?.metricRegressionAdjustmentStatuses &&
+    args?.settingsForSnapshotMetrics === undefined
+  ) {
+    args.settingsForSnapshotMetrics = args.metricRegressionAdjustmentStatuses.map(
+      (m) => ({
+        metric: m.metric,
+        properPrior: false,
+        properPriorMean: 0,
+        properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
+        regressionAdjustmentReason: m.reason,
+        regressionAdjustmentDays: m.regressionAdjustmentDays,
+        regressionAdjustmentEnabled: m.regressionAdjustmentEnabled,
+        regressionAdjustmentAvailable: m.regressionAdjustmentAvailable,
+      })
+    );
+  }
+
+  delete args?.metricRegressionAdjustmentStatuses;
+
+  return {
+    ...report,
+    args,
+  };
 }
 
 export function migrateSnapshot(
@@ -562,6 +698,12 @@ export function migrateSnapshot(
       : "running";
   }
 
+  const defaultMetricPriorSettings = {
+    override: false,
+    proper: false,
+    mean: 0,
+    stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+  };
   // Migrate settings
   // We weren't tracking all of these before, so just pick good defaults
   if (!snapshot.settings) {
@@ -584,8 +726,15 @@ export function migrateSnapshot(
       return {
         id,
         computedSettings: {
-          conversionDelayHours: 0,
-          conversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS,
+          windowSettings: {
+            type: "conversion",
+            delayHours: 0,
+            windowUnit: "hours",
+            windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
+          },
+          properPrior: defaultMetricPriorSettings.proper,
+          properPriorMean: defaultMetricPriorSettings.mean,
+          properPriorStdDev: defaultMetricPriorSettings.stddev,
           regressionAdjustmentDays:
             regressionSettings?.regressionAdjustmentDays || 0,
           regressionAdjustmentEnabled: !!(
@@ -613,6 +762,7 @@ export function migrateSnapshot(
       goalMetrics: metricIds.filter((m) => m !== activationMetric),
       guardrailMetrics: [],
       activationMetric: activationMetric || null,
+      defaultMetricPriorSettings: defaultMetricPriorSettings,
       regressionAdjustmentEnabled: !!regressionAdjustmentEnabled,
       startDate: snapshot.dateCreated,
       endDate: snapshot.dateCreated,
@@ -625,6 +775,25 @@ export function migrateSnapshot(
       attributionModel: "firstExposure",
       variations,
     };
+  } else {
+    // Add new settings field in case it is missing
+    if (snapshot.settings.defaultMetricPriorSettings === undefined) {
+      snapshot.settings.defaultMetricPriorSettings = defaultMetricPriorSettings;
+    }
+
+    // migrate metric for snapshot to have new fields as old snapshots
+    // may not have prior settings
+    snapshot.settings.metricSettings = snapshot.settings.metricSettings.map(
+      (m) => {
+        if (m.computedSettings) {
+          m.computedSettings = {
+            ...defaultMetricPriorSettings,
+            ...m.computedSettings,
+          };
+        }
+        return m;
+      }
+    );
   }
 
   // Some fields used to be optional, but are now required
@@ -674,4 +843,28 @@ export function migrateSavedGroup(
   }
 
   return group;
+}
+
+export function migrateSdkWebhookLogModel(
+  doc: SdkWebHookLogDocument
+): SdkWebHookLogDocument {
+  if (doc?.webhookReduestId) {
+    doc.webhookRequestId = doc.webhookReduestId;
+    delete doc.webhookReduestId;
+  }
+  return doc;
+}
+
+export function migrateWebhookModel(doc: WebhookInterface): WebhookInterface {
+  const newDoc = omit(doc, ["sendPayload"]) as WebhookInterface;
+  if (!doc.payloadFormat) {
+    if (doc.httpMethod === "GET") {
+      newDoc.payloadFormat = "none";
+    } else if (doc.sendPayload) {
+      newDoc.payloadFormat = "standard";
+    } else {
+      newDoc.payloadFormat = "standard-no-payload";
+    }
+  }
+  return newDoc;
 }

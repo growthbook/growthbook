@@ -30,6 +30,12 @@ export class ReportQueryRunner extends QueryRunner<
 > {
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
+  checkPermissions(): boolean {
+    return this.context.permissions.canRunExperimentQueries(
+      this.integration.datasource
+    );
+  }
+
   async startQueries(params: ReportQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
 
@@ -47,9 +53,9 @@ export class ReportQueryRunner extends QueryRunner<
     };
 
     return startExperimentResultQueries(
+      this.context,
       experimentParams,
       this.integration,
-      this.organization,
       this.startQuery.bind(this)
     );
   }

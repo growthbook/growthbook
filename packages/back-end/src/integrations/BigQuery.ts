@@ -16,9 +16,7 @@ import { logger } from "../util/logger";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  params: BigQueryConnectionParams;
+  params!: BigQueryConnectionParams;
   requiresEscapingPath = true;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<BigQueryConnectionParams>(
@@ -98,7 +96,9 @@ export default class BigQuery extends SqlIntegration {
   }
 
   createUnitsTableOptions() {
-    return bigQueryCreateTableOptions(this.settings.pipelineSettings ?? {});
+    return bigQueryCreateTableOptions(
+      this.datasource.settings.pipelineSettings ?? {}
+    );
   }
 
   addTime(
@@ -147,31 +147,18 @@ export default class BigQuery extends SqlIntegration {
   castToString(col: string): string {
     return `cast(${col} as string)`;
   }
+  escapeStringLiteral(value: string): string {
+    return value.replace(/(['\\])/g, "\\$1");
+  }
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;
   }
-  percentileCapSelectClause(
-    values: {
-      valueCol: string;
-      outputCol: string;
-      percentile: number;
-    }[],
-    metricTable: string,
-    where: string = ""
-  ): string {
-    return `
-    SELECT
-      ${values
-        .map(
-          (v) =>
-            `APPROX_QUANTILES(${v.valueCol}, 100000)[OFFSET(${Math.trunc(
-              100000 * v.percentile
-            )})] AS ${v.outputCol}`
-        )
-        .join(",\n")}
-      FROM ${metricTable}
-      ${where}
-    `;
+  approxQuantile(value: string, quantile: string | number): string {
+    const multiplier = 10000;
+    const quantileVal = Number(quantile)
+      ? Math.trunc(multiplier * Number(quantile))
+      : `${multiplier} * ${quantile}`;
+    return `APPROX_QUANTILES(${value}, ${multiplier} IGNORE NULLS)[OFFSET(CAST(${quantileVal} AS INT64))]`;
   }
   getDefaultDatabase() {
     return this.params.projectId || "";
@@ -205,7 +192,8 @@ export default class BigQuery extends SqlIntegration {
       throw new Error(`No datasets found.`);
     }
 
-    const results = [];
+    // eslint-disable-next-line
+    const results: Record<string, any>[] = [];
 
     for (const datasetName of datasetNames) {
       const query = `SELECT
@@ -241,7 +229,7 @@ export default class BigQuery extends SqlIntegration {
 
     return formatInformationSchema(
       results as RawInformationSchema[],
-      this.type
+      this.datasource.type
     );
   }
 }

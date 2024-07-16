@@ -1,8 +1,4 @@
 import { GetFactMetricResponse } from "../../../types/openapi";
-import {
-  getFactMetric as findFactMetricById,
-  toFactMetricApiInterface,
-} from "../../models/FactMetricModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { getFactMetricValidator } from "../../validators/openapi";
 
@@ -14,13 +10,13 @@ export const getFactMetric = createApiRequestHandler(getFactMetricValidator)(
       id = `fact__${id}`;
     }
 
-    const factMetric = await findFactMetricById(req.organization.id, id);
+    const factMetric = await req.context.models.factMetrics.getById(id);
     if (!factMetric) {
       throw new Error("Could not find factMetric with that id");
     }
 
     return {
-      factMetric: toFactMetricApiInterface(factMetric),
+      factMetric: req.context.models.factMetrics.toApiInterface(factMetric),
     };
   }
 );

@@ -10,16 +10,18 @@ export const deleteFactTable = createApiRequestHandler(
   deleteFactTableValidator
 )(
   async (req): Promise<DeleteFactTableResponse> => {
-    const factTable = await getFactTable(req.organization.id, req.params.id);
+    const factTable = await getFactTable(req.context, req.params.id);
     if (!factTable) {
       throw new Error(
         "Unable to delete - Could not find factTable with that id"
       );
     }
 
-    req.checkPermissions("manageFactTables", factTable.projects);
+    if (!req.context.permissions.canDeleteFactTable(factTable)) {
+      req.context.permissions.throwPermissionError();
+    }
 
-    await deleteFactTableFromDb(factTable);
+    await deleteFactTableFromDb(req.context, factTable);
 
     return {
       deletedId: req.params.id,

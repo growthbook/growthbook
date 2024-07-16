@@ -2,8 +2,8 @@ import { useState } from "react";
 import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
-import LoadingOverlay from "../LoadingOverlay";
-import Button from "../Button";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import Button from "@/components/Button";
 import UpgradeModal from "./UpgradeModal";
 
 export default function SubscriptionInfo() {

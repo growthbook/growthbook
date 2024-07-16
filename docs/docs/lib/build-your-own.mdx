@@ -7,13 +7,13 @@ slug: build-your-own
 
 # Build Your Own SDK
 
-**Latest spec version: 0.5.3 [View Changelog](#changelog)**
+**Latest spec version: 0.7.0 [View Changelog](#changelog)**
 
 This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
 
-GrowthBook SDKs are simple and lightweight. Because of this, they can often be kept to **under 2000 lines of code**.
-
 All libraries should follow this specification as closely as the language permits to maintain consistency and make updates and maintenance easier.
+
+At the end of this guide is an extensive test suite with over 400 language-agnostic unit tests in JSON format. All SDKs must pass 100% of these test cases. It's recommended to add additional manual unit tests as needed on top of these.
 
 ## Data structures
 
@@ -70,6 +70,24 @@ The syntax is inspired by MongoDB queries. Here is an example:
 }
 ```
 
+### ParentCondition
+
+A **ParentCondition** defines a prerequisite. It consists of a parent feature's **id** (`string`), a **condition** (`Condition`), and an optional **gate** (`boolean`) flag.
+
+Instead of evaluating against attributes, the condition evaluates against the returned value of the parent feature. The condition will always reference a "value" property. Here is an example of a gating prerequisite where the parent feature must be on (`true`)
+
+```
+{
+  "id": "parent-feature",
+  "condition": {
+    "value": {
+      "$eq": true
+    }
+  },
+  "gate": true
+}
+```
+
 ### Context
 
 **Context** object passed into the GrowthBook constructor. Has a number of optional properties:
@@ -99,12 +117,16 @@ Defines a single **Experiment**. Has a number of properties:
 - **namespace** (`Namespace`) - Adds the experiment to a namespace
 - **force** (`integer`) - All users included in the experiment will be forced into the specific variation index
 - **hashAttribute** (`string`) - What user attribute should be used to assign variations (defaults to `id`)
+- **fallbackAttribute** (`string`) - When using sticky bucketing, can be used as a fallback to assign variations
 - **hashVersion** (`integer`) - The hash version to use (default to `1`)
 - **meta** (`VariationMeta[]`) - Meta info about the variations
 - **filters** (`Filter[]`) - Array of filters to apply
 - **seed** (`string`) - The hash seed to use
 - **name** (`string`) - Human-readable name for the experiment
 - **phase** (`string`) - Id of the current experiment phase
+- **disableStickyBucketing** (`boolean`) - If true, sticky bucketing will be disabled for this experiment. (Note: sticky bucketing is only available if a StickyBucketingService is provided in the Context)
+- **bucketVersion** (`integer`) - An sticky bucket version number that can be used to force a re-bucketing of users (default to `0`)
+- **minBucketVersion** (`integer`) - Any users with a sticky bucket version less than this will be excluded from the experiment
 
 The only required properties are `key` and `variations`. Everything else is optional.
 
@@ -123,6 +145,7 @@ The result of running an **Experiment** given a specific **Context**
 - **bucket** (`float`) - The hash value used to assign a variation (float from `0` to `1`)
 - **name** (`string` or `null`) - The human-readable name of the assigned variation
 - **passthrough** (`boolean`) - Used for holdout groups
+- **stickyBucketUsed** (`boolean`) - If sticky bucketing was used to assign a variation
 
 The `variationId` and `value` should always be set, even when `inExperiment` is false.
 
@@ -172,7 +195,9 @@ The result of evaluating a **Feature**. Has a number of properties:
 
 Overrides the defaultValue of a **Feature**. Has a number of optional properties
 
+- **id** (`string`) - Optional rule id, reserved for future use
 - **condition** (`Condition`) - Optional targeting condition
+- **parentConditions** (`ParentCondition[]`) - Each item defines a prerequisite where a `condition` must evaluate against a parent feature's value (identified by `id`). If `gate` is true, then this is a blocking feature-level prerequisite; otherwise it applies to the current rule only.
 - **coverage** (`float`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
 - **force** (`any`) - Immediately force a specific value (ignore every other option besides condition and coverage)
 - **variations** (`any[]`) - Run an experiment (A/B test) and randomly choose between these variations
@@ -421,15 +446,16 @@ There is only one public method `evalCondition` and everything else is a private
 
 ### public evalCondition(attributes: Attributes, condition: Condition): boolean
 
-This is the main function used to evaluate a condition.
+This is the main function used to evaluate a condition. It loops through the condition key/value pairs
+and checks each entry:
 
-1. If condition has a key `$or`, return `evalOr(attributes, condition["$or"])`
-2. If condition has a key `$nor`, return `!evalOr(attributes, condition["$nor"])`
-3. If condition has a key `$and`, return `evalAnd(attributes, condition["$and"])`
-4. If condition has a key `$not`, return `!evalCondition(attributes, condition["$not"])`
-5. Loop through the condition key/value pairs
-   1. If `evalConditionValue(value, getPath(attributes, key))` is false, break out of loop and return false
-6. Return true
+1. If condition key is `$or`, check if `evalOr(attributes, condition["$or"])` is false. If so, break out of the loop and return false
+2. If condition key is `$nor`, check if `!evalOr(attributes, condition["$nor"])` is false. If so, break out of the loop and return false
+3. If condition key is `$and`, check if `evalAnd(attributes, condition["$and"])` is false. If so, break out of the loop and return false
+4. If condition key is `$not`, check if `!evalCondition(attributes, condition["$not"])` is false. If so, break out of the loop and return false
+5. Otherwise, check if `evalConditionValue(value, getPath(attributes, key))` is false. If so, break out of the loop and return false
+
+If none of the entries failed their checks, `evalCondition` returns true
 
 ### private evalOr(attributes: Attributes, conditions: Condition[]): boolean
 
@@ -691,17 +717,18 @@ This is a helper method to evaluate `filters` for both feature flags and experim
 Determines if the user is part of a gradual feature rollout.
 
 1. Either `coverage` or `range` are required. If both are `null`, return `true` immediately
-2. Get the hashAttribute and hashValue
+2. If `range` is null and `coverage` is zero, return `false` immediately. This catches an edge case where the bucket is zero and users are let through when they shouldn't be
+3. Get the hashAttribute and hashValue
    ```ts
    hashAttribute = hashAttribute || "id";
    hashValue = context.attributes[hashAttribute] || "";
    ```
-3. If `hashValue` is empty, return `false` immediately
-4. Determine the bucket for the user
+4. If `hashValue` is empty, return `false` immediately
+5. Determine the bucket for the user
    ```ts
    n = hash(seed, hashValue, hashVersion || 1)
    ```
-5. Check if user is included
+6. Check if user is included
 
    ```js
    if (range) {
@@ -782,11 +809,25 @@ There are a few ordered steps to evaluate a feature
 1. If the key doesn't exist in `context.features`
    1. Return `getFeatureResult(null, "unknownFeature")`
 2. Loop through the feature rules (if any)
-   1. If the rule has `filters` defined
+   1. If the rule has `parentConditions` (prerequisites) defined, loop through each one:
+      1. Call `evalFeature` on the parent condition
+         - If a cycle is detected, break out of feature evaluation and return `getFeatureResult(null, "cyclicPrerequisite")`
+      2. Using the evaluated parent's result, create an object
+         ```ts
+         const evalObj = { "value": parentResult.value }
+         ```
+      3. Evaluate this object against the parentCondition's condition:
+         ```ts
+         evalCondition(evalObj, parentResult.value);
+         ```
+      4. If any of the parentConditions fail evaluation then:
+         - If `parentCondition.gate` is true (a blocking prerequisite), return `getFeatureResult(null, "prerequisite")`
+         - Otherwise, skip this rule and continue to the next one
+   2. If the rule has `filters` defined
       1. if `isFilteredOut(rule.filters)`, skip this rule and continue to the next one
-   2. If the rule has a `condition`
+   3. If the rule has a `condition`
       1. If `evalCondition(context.attributes, rule.condition)` is false, skip this rule and continue to the next one
-   3. If `rule.force` is set
+   4. If `rule.force` is set
       1. If not `isIncludedInRollout`, skip this rule and continue to the next one
          ```ts
          if (!isIncludedInRollout(
@@ -801,14 +842,14 @@ There are a few ordered steps to evaluate a feature
          ```
       2. If `rule.tracks` is set, fire the `TrackingCallback` for each element in the `rule.tracks` array.
       3. Return `getFeatureResult(rule.force, "force")`
-   4. Otherwise, convert the rule to an Experiment object
+   5. Otherwise, convert the rule to an Experiment object
       ```ts
       const exp = {
         variations: rule.variations,
         key: rule.key || featureKey,
       };
       ```
-   5. Copy over additional settings from the rule to `exp` if defined:
+   6. Copy over additional settings from the rule to `exp` if defined:
       - `coverage`
       - `weights`
       - `hashAttribute`
@@ -825,12 +866,12 @@ There are a few ordered steps to evaluate a feature
       - `hashVersion`
       - `filters`
       - `condition`
-   6. Run the experiment
+   7. Run the experiment
       ```ts
       result = run(exp);
       ```
-   7. If `result.inExperiment` is false OR `result.passthrough` is true, skip this rule and continue to the next one
-   8. Otherwise, return
+   8. If `result.inExperiment` is false OR `result.passthrough` is true, skip this rule and continue to the next one
+   9. Otherwise, return
       ```ts
       return getFeatureResult(result.value, "experiment", exp, result);
       ```
@@ -891,13 +932,15 @@ There are a bunch of ordered steps to run an experiment:
          return getExperimentResult(experiment);
         }
         ```
-8.  If `experiment.condition` is set, return if it evaluates to false
+8.  Return if any conditions are not met, return
+    1. If `experiment.condition` is set, return if it evaluates to false
     ```ts
     if (!evalCondition(context.attributes, experiment.condition)) {
       return getExperimentResult(experiment);
     }
     ```
-    8.1 Apply any url targeting based on experiment.urlPatterns, return if no match
+    2.  If `experiment.parentConditions` is set (prerequisites), return if any of them evaluate to false. See the corresponding logic in **evalFeature** for more details. (Note that the `gate` flag should not be set in an experiment)
+    3.  Apply any url targeting based on experiment.urlPatterns, return if no match
 9.  Choose a variation
     1.  If a sticky bucket value exists, use it.
         1. If the found sticky bucket version is blocked (doesn't exceed `experiment.minBucketVersion`), then skip enrollment
@@ -1065,10 +1108,16 @@ Subscriptions and tracking calls require storing references to many objects and 
 
 We strive to have 100% test coverage for all of our SDKs.
 
-There is a language-agnostic test suite stored as a JSON file `packages/sdk-js/test/cases.json` with more than 200 unit tests. This extensively tests all of the public methods mentioned above.
+There is a language-agnostic test suite stored as a JSON file (https://github.com/growthbook/growthbook/blob/main/packages/sdk-js/test/cases.json) with more than 400 unit tests. This extensively tests all of the public methods mentioned above.
 
 The cases.json file is an object. The keys are the function being tested, and the values are arrays of test cases. The test case arrays structure is different for each function and listed below:
 
+- **evalCondition**
+  - name of the test case (string)
+  - condition
+  - attributes
+  - expected return value (boolean)
+  - definitions for Saved Groups referenced in the test case (object of keys: ID of list -> values: array of members)
 - **hash**
   - seed (string)
   - value to hash (string)
@@ -1078,6 +1127,18 @@ The cases.json file is an object. The keys are the function being tested, and th
   - Name of the test case (string)
   - Arguments array ([numVariations, coverage, weights or null])
   - expected result
+- **feature** (evalFeature)
+  - name of the test case (string)
+  - context passed into GrowthBook constructor
+  - name of the feature (string)
+  - expected result
+- **run**
+  - name of the test case (string)
+  - context passed into GrowthBook constructor
+  - experiment object
+  - expected value
+  - inExperiment (boolean)
+  - hashUsed (boolean)
 - **chooseVariation**
   - name of the test case (string)
   - n (hash)
@@ -1097,32 +1158,22 @@ The cases.json file is an object. The keys are the function being tested, and th
 - **getEqualWeights**
   - numVariations
   - expected result (weights rounded to 8 decimal places)
-- **evalCondition**
-  - name of the test case (string)
-  - condition
-  - attributes
-  - expected return value (boolean)
-- **feature** (evalFeature)
-  - name of the test case (string)
-  - context passed into GrowthBook constructor
-  - name of the feature (string)
-  - expected result
-- **run**
-  - name of the test case (string)
-  - context passed into GrowthBook constructor
-  - experiment object
-  - expected value
-  - inExperiment (boolean)
-  - hashUsed (boolean)
 - **decrypt**
   - name of the test case (string)
   - encrypted text (string)
   - decryption key (string)
   - expected result (string or `null` if the decryption should fail)
-- **versionCompare** is an object with comparison type properties `lt`, `gt`, `eq`, each with an array of test cases
-  - version (string)
-  - other version (string)
-  - expected to match for comparison type (boolean)
+- **stickyBucket**
+  - name of the test case (string)
+  - context passed into GrowthBook constructor
+  - array of preexisting sticky bucket assignment docs
+  - name of the feature (string)
+  - expected result
+  - expected sticky bucket assignment docs
+- **urlRedirect**
+  - name of the test case (string)
+  - context passed into GrowthBook constructor
+  - expected array of result objects
 
 In addition to the above, you should write custom test cases for things like event subscriptions, tracking callbacks, getters/setters, etc. that are more language-specific.
 
@@ -1175,3 +1226,22 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - New `fallbackAttribute`, `disableStickyBucketing`, `bucketVersion`, `minBucketVersion`, properties of FeatureRules
   - New `fallbackAttribute`, `disableStickyBucketing`, `bucketVersion`, `minBucketVersion`, properties of Experiments
   - Add `stickyBucketUsed` to ExperimentResult object
+- **v0.5.4** 2024-02-23
+  - New `parentConditions` property of FeatureRules
+  - New `parentConditions` property of Experiments
+- **v0.5.5** 2024-04-09
+  - Add test cases for URL Redirects
+  - Add `navigate` method to Context
+  - Add `persistQueryString` property to Experiment
+  - Add and improve test cases for StickyBucket
+- **v0.6.0** 2024-04-30
+  - Remove `versionCompare` test cases (these are now just included as part of `evalCondition`)
+  - Tweak to `isIncludedInRollout` to handle an edge case when coverage is zero. Also added test case for this.
+  - Add `id` property to feature rules (reserved for future use)
+- **v0.6.1** 2024-05-13
+  - Update logic in `evalCondition` to allow for and/or/not/nor operators to appear at the same level as other conditions
+  - Added test cases for multiple operators on the same level
+- **v0.7.0** 2024-06-25
+  - New Operators `$inGroup` and `$notInGroup` to check Saved Groups by reference
+  - Add argument to `evalCondition` for definition of Saved Groups
+  - Add test cases for `evalCondition`, `feature`, and `run` using the new operators

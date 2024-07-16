@@ -5,17 +5,20 @@ import {
   MetricOverride,
 } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
+import {
+  DEFAULT_PROPER_PRIOR_STDDEV,
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+} from "shared/constants";
 import { OrganizationSettings } from "back-end/types/organization";
 import { ExperimentMetricInterface } from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import Modal from "../Modal";
-import PremiumTooltip from "../Marketing/PremiumTooltip";
-import UpgradeMessage from "../Marketing/UpgradeMessage";
-import UpgradeModal from "../Settings/UpgradeModal";
+import Modal from "@/components/Modal";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
@@ -24,16 +27,7 @@ export interface EditMetricsFormInterface {
   metrics: string[];
   guardrails: string[];
   activationMetric: string;
-  metricOverrides: {
-    id: string;
-    conversionWindowHours?: number;
-    conversionDelayHours?: number;
-    winRisk?: number;
-    loseRisk?: number;
-    regressionAdjustmentOverride?: boolean;
-    regressionAdjustmentEnabled?: boolean;
-    regressionAdjustmentDays?: number;
-  }[];
+  metricOverrides: MetricOverride[];
 }
 
 export function getDefaultMetricOverridesFormValue(
@@ -69,6 +63,34 @@ export function getDefaultMetricOverridesFormValue(
           DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
       }
     }
+    if (
+      isNaN(defaultMetricOverrides[i].properPriorMean ?? NaN) ||
+      isNaN(defaultMetricOverrides[i].properPriorMean ?? NaN)
+    ) {
+      const metricDefinition = getExperimentMetricById(
+        defaultMetricOverrides[i].id
+      );
+      const defaultValues = metricDefinition?.priorSettings?.override
+        ? {
+            proper: metricDefinition.priorSettings.proper,
+            mean: metricDefinition.priorSettings.mean,
+            stddev: metricDefinition.priorSettings.stddev,
+          }
+        : {
+            proper: settings.metricDefaults?.priorSettings?.proper ?? false,
+            mean: settings.metricDefaults?.priorSettings?.mean ?? 0,
+            stddev:
+              settings.metricDefaults?.priorSettings?.stddev ??
+              DEFAULT_PROPER_PRIOR_STDDEV,
+          };
+
+      defaultMetricOverrides[i].properPriorEnabled =
+        defaultMetricOverrides[i].properPriorEnabled ?? defaultValues.proper;
+      defaultMetricOverrides[i].properPriorMean =
+        defaultMetricOverrides[i].properPriorMean ?? defaultValues.mean;
+      defaultMetricOverrides[i].properPriorStdDev =
+        defaultMetricOverrides[i].properPriorStdDev ?? defaultValues.stddev;
+    }
   }
   return defaultMetricOverrides;
 }
@@ -79,7 +101,7 @@ export function fixMetricOverridesBeforeSaving(overrides: MetricOverride[]) {
       if (key === "id") continue;
       const v = overrides[i][key];
       // remove nullish values from payload
-      if (v === undefined || v === null || isNaN(v)) {
+      if (v === undefined || v === null || (key !== "windowType" && isNaN(v))) {
         delete overrides[i][key];
         continue;
       }
@@ -149,7 +171,7 @@ const EditMetricsForm: FC<{
       ctaEnabled={!hasMetricOverrideRiskError}
       submit={form.handleSubmit(async (value) => {
         const payload = cloneDeep<EditMetricsFormInterface>(value);
-        fixMetricOverridesBeforeSaving(payload.metricOverrides);
+        fixMetricOverridesBeforeSaving(value.metricOverrides || []);
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify(payload),

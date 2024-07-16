@@ -1,7 +1,11 @@
 import mongoose from "mongoose";
-import { omit } from "lodash";
 import { UpdateResult } from "mongodb";
 import { WatchInterface } from "../../types/watch";
+import {
+  ToInterface,
+  getCollection,
+  removeMongooseFields,
+} from "../util/mongo.util";
 
 const watchSchema = new mongoose.Schema({
   userId: String,
@@ -21,20 +25,16 @@ interface UpdateWatchOptions {
 }
 
 const WatchModel = mongoose.model<WatchInterface>("Watch", watchSchema);
+const COLLECTION = "watches";
 
-/**
- * Convert the Mongo document to a WatchInterface, omitting Mongo default fields __v, _id
- * @param doc
- */
-const toInterface = (doc: WatchDocument): WatchInterface => {
-  return omit(doc.toJSON<WatchDocument>(), ["__v", "_id"]);
-};
+const toInterface: ToInterface<WatchInterface> = (doc) =>
+  removeMongooseFields(doc);
 
 export async function getWatchedByUser(
   organization: string,
   userId: string
 ): Promise<WatchInterface | null> {
-  const watchDoc = await WatchModel.findOne({
+  const watchDoc = await getCollection(COLLECTION).findOne({
     userId,
     organization,
   });
@@ -44,12 +44,15 @@ export async function getWatchedByUser(
 export async function getExperimentWatchers(
   experimentId: string,
   organization: string
-): Promise<WatchInterface[]> {
-  const watchers = await WatchModel.find({
-    experiments: experimentId,
-    organization,
-  });
-  return watchers.map((watcher) => toInterface(watcher));
+): Promise<string[]> {
+  const watchers = await getCollection(COLLECTION)
+    .find({
+      experiments: experimentId,
+      organization,
+    })
+    .project({ userId: 1, _id: 0 })
+    .toArray();
+  return watchers.map((watcher) => watcher.userId);
 }
 
 export async function upsertWatch({

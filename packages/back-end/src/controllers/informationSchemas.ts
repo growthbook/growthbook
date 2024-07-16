@@ -18,9 +18,10 @@ export async function getInformationSchema(
   req: AuthRequest<null, { datasourceId: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
-  const datasource = await getDataSourceById(req.params.datasourceId, org.id);
+  const datasource = await getDataSourceById(context, req.params.datasourceId);
 
   if (!datasource) {
     res.status(404).json({
@@ -51,7 +52,8 @@ export async function getTableData(
   >,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
   const { datasourceId, tableId } = req.params;
 
@@ -68,8 +70,8 @@ export async function getTableData(
   }
 
   const datasource = await getDataSourceById(
-    informationSchema.datasourceId,
-    org.id
+    context,
+    informationSchema.datasourceId
   );
 
   if (!datasource) {
@@ -108,7 +110,7 @@ export async function getTableData(
     databaseName,
     tableSchema,
     tableName,
-  } = await fetchTableData(datasource, informationSchema, tableId);
+  } = await fetchTableData(context, datasource, informationSchema, tableId);
 
   if (!tableData) {
     res
@@ -180,9 +182,10 @@ export async function postInformationSchema(
   req: AuthRequest<null, { datasourceId: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
 
-  const datasource = await getDataSourceById(req.params.datasourceId, org.id);
+  const datasource = await getDataSourceById(context, req.params.datasourceId);
 
   if (!datasource) {
     res.status(404).json({
@@ -192,10 +195,9 @@ export async function postInformationSchema(
     return;
   }
 
-  req.checkPermissions(
-    "editDatasourceSettings",
-    datasource?.projects?.length ? datasource.projects : ""
-  );
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
 
   await queueCreateInformationSchema(datasource.id, org.id);
 
@@ -206,10 +208,11 @@ export async function putInformationSchema(
   req: AuthRequest<{ informationSchemaId: string }, { datasourceId: string }>,
   res: Response
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { informationSchemaId } = req.body;
 
-  const datasource = await getDataSourceById(req.params.datasourceId, org.id);
+  const datasource = await getDataSourceById(context, req.params.datasourceId);
 
   if (!datasource) {
     res.status(404).json({
@@ -219,10 +222,9 @@ export async function putInformationSchema(
     return;
   }
 
-  req.checkPermissions(
-    "editDatasourceSettings",
-    datasource?.projects?.length ? datasource.projects : ""
-  );
+  if (!context.permissions.canRunSchemaQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
 
   await queueUpdateInformationSchema(
     datasource.id,

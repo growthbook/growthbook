@@ -1,35 +1,39 @@
-import { FC, useState } from "react";
+import { FC } from "react";
 import { ApiKeyInterface } from "back-end/types/apikey";
-import { FaExclamationTriangle, FaKey } from "react-icons/fa";
+import { FaExclamationTriangle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
-import DeleteButton from "../DeleteButton/DeleteButton";
-import ApiKeysModal from "../Settings/ApiKeysModal";
-import Tooltip from "../Tooltip/Tooltip";
-import MoreMenu from "../Dropdown/MoreMenu";
-import ClickToReveal from "../Settings/ClickToReveal";
-import ClickToCopy from "../Settings/ClickToCopy";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import ClickToReveal from "@/components/Settings/ClickToReveal";
+import ClickToCopy from "@/components/Settings/ClickToCopy";
 import { getApiBaseUrl } from "./CodeSnippetModal";
+
+export function getPublishableKeys(
+  keys: ApiKeyInterface[],
+  project?: string
+): ApiKeyInterface[] {
+  return keys
+    .filter((k) => !k.secret)
+    .filter((k) => !project || !k.project || k.project === project);
+}
 
 const SDKEndpoints: FC<{
   keys: ApiKeyInterface[];
   mutate: () => void;
 }> = ({ keys = [], mutate }) => {
   const { apiCall } = useAuth();
-  const [open, setOpen] = useState<boolean>(false);
 
   const { getProjectById, projects, project } = useDefinitions();
 
   const environments = useEnvironments();
 
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
-  const publishableKeys = keys
-    .filter((k) => !k.secret)
-    .filter((k) => !project || !k.project || k.project === project);
-  const canManageKeys = permissions.check("manageEnvironments", "", []);
+  const publishableKeys = getPublishableKeys(keys, project);
 
   const envCounts = new Map();
   publishableKeys.forEach((k) => {
@@ -43,14 +47,7 @@ const SDKEndpoints: FC<{
 
   return (
     <div>
-      {open && canManageKeys && (
-        <ApiKeysModal
-          close={() => setOpen(false)}
-          onCreate={mutate}
-          secret={false}
-        />
-      )}
-      <h1>SDK Endpoints</h1>
+      <h1>Legacy SDK Endpoints</h1>
       <p>
         SDK Endpoints return a list of feature flags for an environment,
         formatted in a way our SDKs understand. The endpoints provide readonly
@@ -65,7 +62,7 @@ const SDKEndpoints: FC<{
               <th>Description</th>
               <th>Endpoint</th>
               <th>Encrypted?</th>
-              {canManageKeys && <th style={{ width: 30 }}></th>}
+              <th style={{ width: 30 }}></th>
             </tr>
           </thead>
           <tbody>
@@ -73,6 +70,15 @@ const SDKEndpoints: FC<{
               const env = key.environment ?? "production";
               const endpoint = getApiBaseUrl() + "/api/features/" + key.key;
               const envExists = environments?.some((e) => e.id === env);
+              const canManage = permissionsUtil.canCreateSDKConnection({
+                projects: [key.project || ""],
+                environment: key.environment || "",
+              });
+
+              const canDelete = permissionsUtil.canDeleteSDKConnection({
+                projects: [key.project || ""],
+                environment: key.environment || "",
+              });
 
               return (
                 <tr key={key.key}>
@@ -102,7 +108,7 @@ const SDKEndpoints: FC<{
                     <ClickToCopy>{endpoint}</ClickToCopy>
                   </td>
                   <td style={{ width: 295 }}>
-                    {canManageKeys && key.encryptSDK ? (
+                    {canManage && key.encryptSDK ? (
                       <ClickToReveal
                         valueWhenHidden="secret_abcdefghijklmnop123"
                         getValue={async () => {
@@ -124,9 +130,9 @@ const SDKEndpoints: FC<{
                       <div>No</div>
                     )}
                   </td>
-                  {canManageKeys && (
-                    <td>
-                      <MoreMenu>
+                  <td>
+                    <MoreMenu>
+                      {canDelete ? (
                         <DeleteButton
                           onClick={async () => {
                             await apiCall(`/keys`, {
@@ -142,25 +148,14 @@ const SDKEndpoints: FC<{
                           displayName="SDK Endpoint"
                           text="Delete endpoint"
                         />
-                      </MoreMenu>
-                    </td>
-                  )}
+                      ) : null}
+                    </MoreMenu>
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
-      )}
-      {canManageKeys && (
-        <button
-          className="btn btn-primary"
-          onClick={(e) => {
-            e.preventDefault();
-            setOpen(true);
-          }}
-        >
-          <FaKey /> Create New SDK Endpoint
-        </button>
       )}
     </div>
   );

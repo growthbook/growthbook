@@ -5,10 +5,9 @@ import {
   DataSourceInterfaceWithParams,
 } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
-import { checkDatasourceProjectPermissions } from "@/services/datasources";
-import usePermissions from "@/hooks/usePermissions";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import { DataSourceEditExperimentEventPropertiesModal } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceEditExperimentEventPropertiesModal";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 type DataSourceViewEditExperimentPropertiesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -20,14 +19,8 @@ export const DataSourceViewEditExperimentProperties: FC<DataSourceViewEditExperi
 }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit">("view");
 
-  const permissions = usePermissions();
-  canEdit =
-    canEdit &&
-    checkDatasourceProjectPermissions(
-      dataSource,
-      permissions,
-      "editDatasourceSettings"
-    );
+  const permissionsUtil = usePermissionsUtil();
+  canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
   const handleEdit = useCallback(() => {
     setUiMode("edit");

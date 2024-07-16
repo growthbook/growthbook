@@ -1,11 +1,12 @@
-import type { MetricStats } from "./metric";
+export { StatsEngine } from "../src/models/ProjectModel";
 
-export type StatsEngine = "bayesian" | "frequentist";
+import type { MetricStats } from "./metric";
 
 export type PValueCorrection = null | "benjamini-hochberg" | "holm-bonferroni";
 
 export type DifferenceType = "relative" | "absolute" | "scaled";
 
+export type RiskType = "relative" | "absolute";
 interface BaseVariationResponse {
   cr: number;
   value: number;
@@ -25,6 +26,7 @@ interface BaseVariationResponse {
 interface BayesianVariationResponse extends BaseVariationResponse {
   chanceToWin?: number;
   risk?: [number, number];
+  riskType?: RiskType;
 }
 
 interface FrequentistVariationResponse extends BaseVariationResponse {
@@ -57,3 +59,9 @@ export type ExperimentMetricAnalysis = {
     dimensions: StatsEngineDimensionResponse[];
   }[];
 }[];
+
+export type MultipleExperimentMetricAnalysis = {
+  id: string;
+  results: ExperimentMetricAnalysis;
+  error?: string;
+};

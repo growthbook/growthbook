@@ -67,12 +67,15 @@ export const postDimension = async (
   req: CreateDimensionRequest,
   res: Response<CreateDimensionResponse | PrivateApiErrorResponse>
 ) => {
-  req.checkPermissions("createDimensions");
+  const context = getContextFromReq(req);
 
-  const { org, userName } = getContextFromReq(req);
+  if (!context.permissions.canCreateDimension()) {
+    context.permissions.throwPermissionError();
+  }
+  const { org, userName } = context;
   const { datasource, name, sql, userIdType, description } = req.body;
 
-  const datasourceDoc = await getDataSourceById(datasource, org.id);
+  const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
@@ -127,9 +130,11 @@ export const putDimension = async (
   req: PutDimensionRequest,
   res: Response<PutDimensionResponse>
 ) => {
-  req.checkPermissions("createDimensions");
-
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  if (!context.permissions.canUpdateDimension()) {
+    context.permissions.throwPermissionError();
+  }
+  const { org } = context;
   const { id } = req.params;
   const dimension = await findDimensionById(id, org.id);
 
@@ -139,7 +144,7 @@ export const putDimension = async (
 
   const { datasource, name, sql, userIdType, owner, description } = req.body;
 
-  const datasourceDoc = await getDataSourceById(datasource, org.id);
+  const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
@@ -179,10 +184,12 @@ export const deleteDimension = async (
   req: DeleteDimensionRequest,
   res: Response<DeleteDimensionResponse | PrivateApiErrorResponse>
 ) => {
-  req.checkPermissions("createDimensions");
-
   const { id } = req.params;
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  if (!context.permissions.canDeleteDimension()) {
+    context.permissions.throwPermissionError();
+  }
+  const { org } = context;
   const dimension = await findDimensionById(id, org.id);
 
   if (!dimension) {

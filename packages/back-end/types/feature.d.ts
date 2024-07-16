@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type { FeatureDefinition, FeatureResult } from "@growthbook/growthbook";
+import { z } from "zod";
+import {
+  simpleSchemaFieldValidator,
+  simpleSchemaValidator,
+} from "../src/validators/features";
 import { UserRef } from "./user";
 import { FeatureRevisionInterface } from "./feature-revision";
 import { CustomFieldValues } from "./custom-fields";
@@ -10,6 +15,17 @@ export type FeatureValueType = "boolean" | "string" | "number" | "json";
 export interface FeatureEnvironment {
   enabled: boolean;
   rules: FeatureRule[];
+}
+
+export type SchemaField = z.infer<typeof simpleSchemaFieldValidator>;
+export type SimpleSchema = z.infer<typeof simpleSchemaValidator>;
+
+export interface JSONSchemaDef {
+  schemaType: "schema" | "simple";
+  schema: string;
+  simple: SimpleSchema;
+  date: Date;
+  enabled: boolean;
 }
 
 export type LegacyFeatureInterface = FeatureInterface & {
@@ -22,6 +38,9 @@ export type LegacyFeatureInterface = FeatureInterface & {
     publishedBy: UserRef;
   };
   draft?: FeatureDraftChanges;
+  // schemaType and simple may not exist in old feature documents
+  jsonSchema?: Omit<JSONSchemaDef, "schemaType" | "simple"> &
+    Partial<Pick<JSONSchemaDef, "schemaType" | "simple">>;
 };
 
 export interface FeatureDraftChanges {
@@ -50,11 +69,7 @@ export interface FeatureInterface {
   tags?: string[];
   environmentSettings: Record<string, FeatureEnvironment>;
   linkedExperiments?: string[];
-  jsonSchema?: {
-    schema: string;
-    date: Date;
-    enabled: boolean;
-  };
+  jsonSchema?: JSONSchemaDef;
   customFields?: CustomFieldValues;
 
   /** @deprecated */
@@ -62,6 +77,7 @@ export interface FeatureInterface {
   /** @deprecated */
   legacyDraftMigrated?: boolean;
   neverStale?: boolean;
+  prerequisites?: FeaturePrerequisite[];
 }
 type ScheduleRule = {
   timestamp: string | null;
@@ -80,6 +96,7 @@ export interface BaseRule {
   enabled?: boolean;
   scheduleRules?: ScheduleRule[];
   savedGroups?: SavedGroupTargeting[];
+  prerequisites?: FeaturePrerequisite[];
 }
 
 export interface ForceRule extends BaseRule {
@@ -114,6 +131,7 @@ export interface ExperimentRule extends BaseRule {
   trackingKey: string;
   hashAttribute: string;
   fallbackAttribute?: string;
+  hashVersion?: number;
   disableStickyBucketing?: boolean;
   bucketVersion?: number;
   minBucketVersion?: number;
@@ -146,4 +164,9 @@ export interface FeatureTestResult {
   defaultValue: boolean | string | object;
   log?: [string, any][];
   featureDefinition?: FeatureDefinition;
+}
+
+export interface FeaturePrerequisite {
+  id: string;
+  condition: string;
 }

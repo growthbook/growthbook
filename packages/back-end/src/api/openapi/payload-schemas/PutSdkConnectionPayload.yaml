@@ -1,0 +1,32 @@
+type: object
+properties:
+  name:
+    type: string
+  language:
+    type: string
+  sdkVersion:
+    type: string
+  environment:
+    type: string
+  projects:
+    type: array
+    items:
+      type: string
+  encryptPayload:
+    type: boolean
+  includeVisualExperiments:
+    type: boolean
+  includeDraftExperiments:
+    type: boolean
+  includeExperimentNames:
+    type: boolean
+  includeRedirectExperiments:
+    type: boolean
+  proxyEnabled:
+    type: boolean
+  proxyHost:
+    type: string
+  hashSecureAttributes:
+    type: boolean
+  remoteEvalEnabled:
+    type: boolean

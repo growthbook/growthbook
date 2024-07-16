@@ -1,12 +1,40 @@
 import { NotificationEventName } from "back-end/src/events/base-types";
 import React, { ReactNode, useMemo } from "react";
-import { BsCheck, BsQuestion, BsX } from "react-icons/bs";
+import {
+  PiQuestionLight,
+  PiXSquareLight,
+  PiCheckCircleLight,
+} from "react-icons/pi";
+import {
+  EventWebHookPayloadType,
+  EventWebHookMethod,
+} from "back-end/types/event-webhook";
+
+export type {
+  EventWebHookPayloadType,
+  EventWebHookMethod,
+} from "back-end/types/event-webhook";
+
+export const eventWebHookPayloadTypes = [
+  "raw",
+  "slack",
+  "discord",
+  "ms-teams",
+] as const;
+
+export const eventWebHookMethods = ["POST", "PUT", "PATCH"] as const;
 
 export type EventWebHookEditParams = {
   name: string;
   url: string;
   enabled: boolean;
   events: NotificationEventName[];
+  tags: string[];
+  environments: string[];
+  projects: string[];
+  payloadType: EventWebHookPayloadType;
+  method: EventWebHookMethod;
+  headers: string;
 };
 
 export const notificationEventNames = [
@@ -18,6 +46,8 @@ export const notificationEventNames = [
   "experiment.created",
   "experiment.updated",
   "experiment.deleted",
+  "experiment.warning",
+  "experiment.info",
   // User
   "user.login",
 ] as const;
@@ -52,6 +82,10 @@ export const eventWebHookEventOptions: {
     id: "experiment.deleted",
     name: "experiment.deleted",
   },
+  {
+    id: "experiment.warning",
+    name: "experiment.warning",
+  },
 ];
 
 export type EventWebHookModalMode =
@@ -66,17 +100,79 @@ export type EventWebHookModalMode =
  * @param state
  */
 export const useIconForState = (
-  state: "none" | "success" | "error"
+  state: "none" | "success" | "error",
+  { text }: { text: boolean } = { text: false }
 ): ReactNode =>
   useMemo(() => {
+    let invalidState: never;
+
     switch (state) {
-      case "none":
-        return <BsQuestion className="d-block text-muted" />;
-      case "success":
-        return <BsCheck className="d-block text-success" />;
-      case "error":
-        return <BsX className="d-block text-danger" />;
+      case "none": {
+        const icon = <PiQuestionLight className="d-block text-muted" />;
+        if (text)
+          return (
+            <span className="p-1 px-2 rounded-pill badge badge-light d-flex align-items-center">
+              {icon}{" "}
+              <span className="ml-1 mb-0 text-muted font-weight-normal">
+                Not ran
+              </span>
+            </span>
+          );
+        else return icon;
+      }
+      case "success": {
+        const icon = <PiCheckCircleLight className="d-block text-success" />;
+        if (text)
+          return (
+            <span className="p-1 px-2 rounded-pill badge badge-success-light d-flex align-items-center">
+              {icon}{" "}
+              <span className="ml-1 mb-0 text-success font-weight-normal">
+                Successful
+              </span>
+            </span>
+          );
+        else return icon;
+      }
+      case "error": {
+        const icon = <PiXSquareLight className="d-block text-danger" />;
+        if (text)
+          return (
+            <span className="p-1 px-2 rounded-pill badge badge-danger-light d-flex align-items-center">
+              {icon}{" "}
+              <span className="ml-1 mb-0 text-danger font-weight-normal">
+                Failed
+              </span>
+            </span>
+          );
+        else return icon;
+      }
       default:
-        return null;
+        invalidState = state;
+        throw new Error(`Invalid state: ${invalidState}`);
     }
-  }, [state]);
+  }, [state, text]);
+
+export const webhookIcon = {
+  discord: "/images/discord.png",
+  slack: "/images/slack.png",
+  raw: "/images/raw-webhook.png",
+} as const;
+
+export const displayedEvents = (
+  events: string[],
+  { maxEventsDisplay }: { maxEventsDisplay?: number } = {}
+) =>
+  [
+    ...events
+      .slice(0, maxEventsDisplay)
+      .map((event) => <code key={event}>{event}</code>),
+    ...(maxEventsDisplay && events.length > maxEventsDisplay ? ["..."] : []),
+  ].reduce(
+    (element, text) => (
+      <>
+        {element ? <>{element}, </> : null}
+        {text}
+      </>
+    ),
+    null
+  );

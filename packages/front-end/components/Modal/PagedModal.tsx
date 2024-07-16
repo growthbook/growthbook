@@ -8,8 +8,8 @@ import {
   ReactNode,
 } from "react";
 import { MdCheck } from "react-icons/md";
-import Modal from "../Modal";
-import { DocSection } from "../DocLink";
+import Modal from "@/components/Modal";
+import { DocSection } from "@/components/DocLink";
 
 type Props = {
   header: string;
@@ -125,7 +125,6 @@ const PagedModal: FC<Props> = (props) => {
           setStep(nextStep);
         }
       }}
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Element | null' is not assignable to type 'R... Remove this comment to see the full error message
       secondaryCTA={
         secondaryCTA ? (
           secondaryCTA

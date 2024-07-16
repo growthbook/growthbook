@@ -1,0 +1,19 @@
+summary: Get list of feature keys
+tags:
+  - features
+parameters:
+  - $ref: "../parameters.yaml#/projectId"
+operationId: getFeatureKeys
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl https://api.growthbook.io/api/v1/feature-keys?projectId=prj_5l652 \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: array
+          items:
+            type: string

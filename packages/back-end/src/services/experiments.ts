@@ -8,6 +8,11 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_METRIC_CAPPING,
+  DEFAULT_METRIC_CAPPING_VALUE,
+  DEFAULT_METRIC_WINDOW,
+  DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+  DEFAULT_PROPER_PRIOR_STDDEV,
 } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import {
@@ -17,22 +22,26 @@ import {
   getMatchingRules,
   MatchingRule,
   validateCondition,
+  isDefined,
 } from "shared/util";
 import {
   ExperimentMetricInterface,
-  getRegressionAdjustmentsForMetric,
+  getMetricSnapshotSettings,
   isFactMetric,
   isFactMetricId,
 } from "shared/experiments";
 import { orgHasPremiumFeature } from "enterprise";
 import { hoursBetween } from "shared/dates";
+import { MetricPriorSettings } from "@back-end/types/fact-table";
+import { promiseAllChunks } from "../util/promise";
 import { updateExperiment } from "../models/ExperimentModel";
+import { Context } from "../models/BaseModel";
 import {
+  ExperimentAnalysisParamsContextData,
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
-  MetricForSnapshot,
   SnapshotVariation,
 } from "../../types/experiment-snapshot";
 import {
@@ -63,7 +72,6 @@ import {
   LinkedFeatureState,
 } from "../../types/experiment";
 import { findDimensionById } from "../models/DimensionModel";
-import { findSegmentById } from "../models/SegmentModel";
 import {
   DEFAULT_CONVERSION_WINDOW_HOURS,
   EXPERIMENT_REFRESH_FREQUENCY,
@@ -81,34 +89,35 @@ import {
   ApiExperimentResults,
   ApiMetric,
 } from "../../types/openapi";
-import { MetricRegressionAdjustmentStatus } from "../../types/report";
+import { MetricSnapshotSettings } from "../../types/report";
 import {
   postExperimentValidator,
   postMetricValidator,
   putMetricValidator,
   updateExperimentValidator,
 } from "../validators/openapi";
-import { EventAuditUser } from "../events/event-types";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { findProjectById } from "../models/ProjectModel";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
-import { getFactMetric } from "../models/FactMetricModel";
 import { FactTableMap } from "../models/FactTableModel";
 import { StatsEngine } from "../../types/stats";
 import { getFeaturesByIds } from "../models/FeatureModel";
 import { getFeatureRevisionsByFeatureIds } from "../models/FeatureRevisionModel";
 import { ExperimentRefRule, FeatureRule } from "../../types/feature";
 import { ApiReqContext } from "../../types/api";
+import { ProjectInterface } from "../../types/project";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
-  analyzeExperimentMetric,
   analyzeExperimentResults,
   getMetricSettingsForStatsEngine,
+  getMetricsAndQueryDataForStatsEngine,
+  runSnapshotAnalyses,
+  runSnapshotAnalysis,
+  writeSnapshotAnalyses,
 } from "./stats";
 import { getEnvironmentIdsFromOrg } from "./organizations";
 
@@ -130,30 +139,31 @@ export async function createMetric(data: Partial<MetricInterface>) {
 }
 
 export async function getExperimentMetricById(
-  metricId: string,
-  orgId: string
+  context: Context,
+  metricId: string
 ): Promise<ExperimentMetricInterface | null> {
   if (isFactMetricId(metricId)) {
-    return getFactMetric(orgId, metricId);
+    return context.models.factMetrics.getById(metricId);
   }
-  return getMetricById(metricId, orgId);
+  return getMetricById(context, metricId);
 }
 
 export async function refreshMetric(
+  context: Context,
   metric: MetricInterface,
-  org: OrganizationInterface,
   metricAnalysisDays: number = DEFAULT_METRIC_ANALYSIS_DAYS
 ) {
   if (metric.datasource) {
     const integration = await getIntegrationFromDatasourceId(
-      metric.organization,
+      context,
       metric.datasource,
       true
     );
 
     let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
-      segment = (await findSegmentById(metric.segment, org.id)) || undefined;
+      segment =
+        (await context.models.segments.getById(metric.segment)) || undefined;
       if (!segment || segment.datasource !== metric.datasource) {
         throw new Error("Invalid user segment chosen");
       }
@@ -169,7 +179,11 @@ export async function refreshMetric(
     const to = new Date();
     to.setDate(to.getDate() + 1);
 
-    const queryRunner = new MetricAnalysisQueryRunner(metric, integration, org);
+    const queryRunner = new MetricAnalysisQueryRunner(
+      context,
+      metric,
+      integration
+    );
     await queryRunner.startAnalysis({
       from,
       to,
@@ -210,6 +224,7 @@ export function generateTrackingKey(name: string, n: number): string {
 
 export async function getManualSnapshotData(
   experiment: ExperimentInterface,
+  snapshotSettings: ExperimentSnapshotSettings,
   analysisSettings: ExperimentSnapshotAnalysisSettings,
   phaseIndex: number,
   users: number[],
@@ -232,9 +247,8 @@ export async function getManualSnapshotData(
     const stats = metrics[m];
     const metric = metricMap.get(m);
     if (!metric) return null;
-
     metricSettings[m] = {
-      ...getMetricSettingsForStatsEngine(metric, metricMap),
+      ...getMetricSettingsForStatsEngine(metric, metricMap, snapshotSettings),
       // no ratio or regression adjustment for manual snapshots
       statistic_type: "mean",
     };
@@ -257,7 +271,8 @@ export async function getManualSnapshotData(
     });
   });
 
-  const result = await analyzeExperimentMetric({
+  const result = await runSnapshotAnalysis({
+    id: experiment.id,
     variations: getReportVariations(experiment, phase),
     phaseLengthHours: Math.max(
       hoursBetween(phase.dateStarted, phase.dateEnded ?? new Date()),
@@ -304,7 +319,6 @@ export function getDefaultExperimentAnalysisSettings(
     dimensions: dimension ? [dimension] : [],
     regressionAdjusted:
       hasRegressionAdjustmentFeature &&
-      statsEngine === "frequentist" &&
       (regressionAdjustmentEnabled !== undefined
         ? regressionAdjustmentEnabled
         : organization.settings?.regressionAdjustmentEnabled ?? false),
@@ -325,19 +339,10 @@ export function getDefaultExperimentAnalysisSettings(
 }
 
 export function getAdditionalExperimentAnalysisSettings(
-  defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings,
-  experiment: ExperimentInterface
+  defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings
 ): ExperimentSnapshotAnalysisSettings[] {
-  // one analysis per possible baseline
   const additionalAnalyses: ExperimentSnapshotAnalysisSettings[] = [];
-  experiment.variations.forEach((v, i) => {
-    if (i > 0) {
-      additionalAnalyses.push({
-        ...defaultAnalysisSettings,
-        baselineVariationIndex: i,
-      });
-    }
-  });
+
   // for default baseline, get difference types
   additionalAnalyses.push({
     ...defaultAnalysisSettings,
@@ -348,22 +353,22 @@ export function getAdditionalExperimentAnalysisSettings(
     differenceType: "scaled",
   });
 
-  // Skip all of these additional analyses until we fix the performance issues
-  //return additionalAnalyses;
-  return [];
+  return additionalAnalyses;
 }
 
 export function getSnapshotSettings({
   experiment,
   phaseIndex,
   settings,
-  metricRegressionAdjustmentStatuses,
+  orgPriorSettings,
+  settingsForSnapshotMetrics,
   metricMap,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
   settings: ExperimentSnapshotAnalysisSettings;
-  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
+  orgPriorSettings: MetricPriorSettings | undefined;
+  settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
@@ -371,6 +376,12 @@ export function getSnapshotSettings({
     throw new Error("Invalid snapshot phase");
   }
 
+  const defaultPriorSettings = orgPriorSettings ?? {
+    override: false,
+    proper: false,
+    mean: 0,
+    stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+  };
   const metricSettings = [
     // Combine goals, guardrails, and activation metric and de-dupe the list
     ...new Set([
@@ -383,11 +394,11 @@ export function getSnapshotSettings({
       getMetricForSnapshot(
         m,
         metricMap,
-        metricRegressionAdjustmentStatuses,
+        settingsForSnapshotMetrics,
         experiment.metricOverrides
       )
     )
-    .filter(Boolean) as MetricForSnapshot[];
+    .filter(isDefined);
 
   return {
     manual: !experiment.datasource,
@@ -403,8 +414,8 @@ export function getSnapshotSettings({
     experimentId: experiment.trackingKey || experiment.id,
     goalMetrics: experiment.metrics,
     guardrailMetrics: experiment.guardrails || [],
-    regressionAdjustmentEnabled:
-      settings.statsEngine === "frequentist" && !!settings.regressionAdjusted,
+    regressionAdjustmentEnabled: !!settings.regressionAdjusted,
+    defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
     metricSettings: metricSettings,
     variations: experiment.variations.map((v, i) => ({
@@ -415,18 +426,39 @@ export function getSnapshotSettings({
   };
 }
 
-export async function createManualSnapshot(
-  experiment: ExperimentInterface,
-  phaseIndex: number,
-  users: number[],
+export async function createManualSnapshot({
+  experiment,
+  phaseIndex,
+  users,
+  metrics,
+  orgPriorSettings,
+  analysisSettings,
+  metricMap,
+  context,
+}: {
+  experiment: ExperimentInterface;
+  phaseIndex: number;
+  users: number[];
   metrics: {
     [key: string]: MetricStats[];
-  },
-  analysisSettings: ExperimentSnapshotAnalysisSettings,
-  metricMap: Map<string, ExperimentMetricInterface>
-) {
+  };
+  orgPriorSettings: MetricPriorSettings | undefined;
+  analysisSettings: ExperimentSnapshotAnalysisSettings;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  context: Context;
+}) {
+  const snapshotSettings = getSnapshotSettings({
+    experiment,
+    phaseIndex,
+    orgPriorSettings: orgPriorSettings,
+    settings: analysisSettings,
+    settingsForSnapshotMetrics: [],
+    metricMap,
+  });
+
   const { srm, variations } = await getManualSnapshotData(
     experiment,
+    snapshotSettings,
     analysisSettings,
     phaseIndex,
     users,
@@ -444,13 +476,7 @@ export async function createManualSnapshot(
     runStarted: new Date(),
     dateCreated: new Date(),
     status: "success",
-    settings: getSnapshotSettings({
-      experiment,
-      phaseIndex,
-      settings: analysisSettings,
-      metricRegressionAdjustmentStatuses: [],
-      metricMap,
-    }),
+    settings: snapshotSettings,
     unknownVariations: [],
     multipleExposures: 0,
     analyses: [
@@ -469,7 +495,7 @@ export async function createManualSnapshot(
     ],
   };
 
-  const snapshot = await createExperimentSnapshotModel(data);
+  const snapshot = await createExperimentSnapshotModel({ data, context });
 
   return snapshot;
 }
@@ -533,23 +559,21 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
 export async function createSnapshot({
   experiment,
   context,
-  user = null,
   phaseIndex,
   useCache = false,
   defaultAnalysisSettings,
   additionalAnalysisSettings,
-  metricRegressionAdjustmentStatuses,
+  settingsForSnapshotMetrics,
   metricMap,
   factTableMap,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
-  user?: EventAuditUser;
   phaseIndex: number;
   useCache?: boolean;
   defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings;
   additionalAnalysisSettings: ExperimentSnapshotAnalysisSettings[];
-  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
+  settingsForSnapshotMetrics: MetricSnapshotSettings[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
 }): Promise<ExperimentResultsQueryRunner> {
@@ -559,8 +583,9 @@ export async function createSnapshot({
   const snapshotSettings = getSnapshotSettings({
     experiment,
     phaseIndex,
+    orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
     settings: defaultAnalysisSettings,
-    metricRegressionAdjustmentStatuses,
+    settingsForSnapshotMetrics,
     metricMap,
   });
 
@@ -606,7 +631,6 @@ export async function createSnapshot({
   await updateExperiment({
     context,
     experiment,
-    user,
     changes: {
       lastSnapshotAttempt: new Date(),
       nextSnapshotAttempt: nextUpdate,
@@ -614,18 +638,18 @@ export async function createSnapshot({
     },
   });
 
-  const snapshot = await createExperimentSnapshotModel(data);
+  const snapshot = await createExperimentSnapshotModel({ data, context });
 
   const integration = await getIntegrationFromDatasourceId(
-    experiment.organization,
+    context,
     experiment.datasource,
     true
   );
 
   const queryRunner = new ExperimentResultsQueryRunner(
+    context,
     snapshot,
     integration,
-    organization,
     useCache
   );
   await queryRunner.startAnalysis({
@@ -639,19 +663,148 @@ export async function createSnapshot({
   return queryRunner;
 }
 
-export async function createSnapshotAnalysis({
-  experiment,
-  organization,
-  analysisSettings,
-  metricMap,
-  snapshot,
-}: {
+export type SnapshotAnalysisParams = {
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
   snapshot: ExperimentSnapshotInterface;
-}): Promise<void> {
+};
+
+async function getSnapshotAnalyses(
+  params: SnapshotAnalysisParams[],
+  context: ReqContext
+) {
+  const analysisParamsMap = new Map<
+    string,
+    ExperimentAnalysisParamsContextData
+  >();
+
+  // get queryMap for all snapshots
+  const queryMap = await getQueryMap(
+    context.org.id,
+    params.map((p) => p.snapshot.queries).flat()
+  );
+
+  const createAnalysisPromises: (() => Promise<void>)[] = [];
+  params.forEach(
+    (
+      { experiment, organization, analysisSettings, metricMap, snapshot },
+      i
+    ) => {
+      // check if analysis is possible
+      if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
+        throw new Error("Analysis not allowed with this snapshot");
+      }
+
+      const totalQueries = snapshot.queries.length;
+      const failedQueries = snapshot.queries.filter(
+        (q) => q.status === "failed"
+      );
+      const runningQueries = snapshot.queries.filter(
+        (q) => q.status === "running"
+      );
+
+      if (
+        runningQueries.length > 0 ||
+        failedQueries.length >= totalQueries / 2
+      ) {
+        throw new Error("Snapshot queries not available for analysis");
+      }
+      const analysis: ExperimentSnapshotAnalysis = {
+        results: [],
+        status: "running",
+        settings: analysisSettings,
+        dateCreated: new Date(),
+      };
+
+      // promise to add analysis to mongo record if it does not exist, overwrite if it does
+      createAnalysisPromises.push(() =>
+        addOrUpdateSnapshotAnalysis({
+          organization: organization.id,
+          id: snapshot.id,
+          analysis,
+          context,
+        })
+      );
+
+      const mdat = getMetricsAndQueryDataForStatsEngine(
+        queryMap,
+        metricMap,
+        snapshot.settings
+      );
+      const id = `${i}_${experiment.id}_${snapshot.id}`;
+      const variationNames = experiment.variations.map((v) => v.name);
+      const { queryResults, metricSettings, unknownVariations } = mdat;
+
+      analysisParamsMap.set(id, {
+        params: {
+          id,
+          coverage: snapshot.settings.coverage ?? 1,
+          phaseLengthHours: Math.max(
+            hoursBetween(
+              snapshot.settings.startDate,
+              snapshot.settings.endDate
+            ),
+            1
+          ),
+          variations: snapshot.settings.variations.map((v, i) => ({
+            ...v,
+            name: variationNames[i] || v.id,
+          })),
+          analyses: [analysisSettings],
+          queryResults: queryResults,
+          metrics: metricSettings,
+        },
+        context: {
+          // extra settings for multiple experiment approach
+          snapshotSettings: snapshot.settings,
+          organization: organization.id,
+          snapshot: snapshot.id,
+        },
+        data: {
+          unknownVariations: unknownVariations,
+          analysisObj: analysis,
+        },
+      });
+    }
+  );
+
+  // write running snapshots to db
+  if (createAnalysisPromises.length > 0) {
+    await promiseAllChunks(createAnalysisPromises, 10);
+  }
+
+  return analysisParamsMap;
+}
+
+export async function createSnapshotAnalyses(
+  params: SnapshotAnalysisParams[],
+  context: ReqContext
+): Promise<void> {
+  // creates snapshot analyses in mongo and gets analysis parameters
+  const analysisParamsMap = await getSnapshotAnalyses(params, context);
+
+  // calls stats engine to run analyses
+  const results = await runSnapshotAnalyses(
+    Array.from(analysisParamsMap.values()).map((v) => v.params)
+  );
+
+  // parses results and writes to mongo
+  await writeSnapshotAnalyses(results, analysisParamsMap, context);
+}
+
+export async function createSnapshotAnalysis(
+  params: SnapshotAnalysisParams,
+  context: Context
+): Promise<void> {
+  const {
+    snapshot,
+    analysisSettings,
+    organization,
+    experiment,
+    metricMap,
+  } = params;
   // check if analysis is possible
   if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
     throw new Error("Analysis not allowed with this snapshot");
@@ -671,7 +824,12 @@ export async function createSnapshotAnalysis({
     dateCreated: new Date(),
   };
   // and analysis to mongo record if it does not exist, overwrite if it does
-  addOrUpdateSnapshotAnalysis(organization.id, snapshot.id, analysis);
+  addOrUpdateSnapshotAnalysis({
+    organization: organization.id,
+    id: snapshot.id,
+    analysis,
+    context,
+  });
 
   // Format data correctly
   const queryMap: QueryMap = await getQueryMap(
@@ -691,7 +849,12 @@ export async function createSnapshotAnalysis({
   analysis.status = "success";
   analysis.error = undefined;
 
-  updateSnapshotAnalysis(organization.id, snapshot.id, analysis);
+  updateSnapshotAnalysis({
+    organization: organization.id,
+    id: snapshot.id,
+    analysis,
+    context,
+  });
 }
 
 function getExperimentMetric(
@@ -704,12 +867,11 @@ function getExperimentMetric(
     overrides: {},
   };
 
-  if (overrides?.conversionDelayHours) {
-    ret.overrides.conversionWindowStart = overrides.conversionDelayHours;
+  if (overrides?.delayHours) {
+    ret.overrides.delayHours = overrides.delayHours;
   }
-  if (overrides?.conversionWindowHours) {
-    ret.overrides.conversionWindowEnd =
-      overrides.conversionWindowHours + (overrides?.conversionDelayHours || 0);
+  if (overrides?.windowHours) {
+    ret.overrides.windowHours = overrides.windowHours;
   }
   if (overrides?.winRisk) {
     ret.overrides.winRiskThreshold = overrides.winRisk;
@@ -725,10 +887,10 @@ export async function toExperimentApiInterface(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface
 ): Promise<ApiExperiment> {
-  let project = null;
+  let project: ProjectInterface | null = null;
   const organization = context.org;
   if (experiment.project) {
-    project = await findProjectById(context, experiment.project);
+    project = await context.models.projects.getById(experiment.project);
   }
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -905,6 +1067,7 @@ export function toSnapshotApiInterface(
             const data = v.metrics[m];
             return {
               variationId: variationIds[i],
+              users: v.users,
               analyses: [
                 {
                   engine:
@@ -1029,18 +1192,22 @@ export function postMetricApiPayloadIsValid(
     }
 
     // Check capping args + capping values
-    const { capping, capValue } = behavior;
+    const { cappingSettings } = behavior;
 
-    const cappingExists = typeof capping !== "undefined" && capping !== null;
-    const capValueExists = typeof capValue !== "undefined";
+    const cappingExists =
+      typeof cappingSettings !== "undefined" && !!cappingSettings.type;
+    const capValueExists = typeof cappingSettings?.value !== "undefined";
     if (cappingExists !== capValueExists) {
       return {
         valid: false,
         error:
-          "Must specify both `behavior.capping` (as non-null) and `behavior.capValue` or neither.",
+          "Must specify both `behavior.cappingSettings.type` (as non-null) and `behavior.cappingSettings.value` or neither.",
       };
     }
-    if (capping === "percentile" && (capValue || 0) > 1) {
+    if (
+      cappingSettings?.type === "percentile" &&
+      (cappingSettings?.value || 0) > 1
+    ) {
       return {
         valid: false,
         error:
@@ -1268,11 +1435,13 @@ export function postMetricApiPayloadToMetricInterface(
     mixpanel,
     tags = [],
     projects = [],
+    managedBy = "",
   } = payload;
 
   const metric: Omit<MetricInterface, "dateCreated" | "dateUpdated" | "id"> = {
     datasource: datasourceId,
     description,
+    managedBy,
     name,
     organization: organization.id,
     owner,
@@ -1282,6 +1451,22 @@ export function postMetricApiPayloadToMetricInterface(
     ignoreNulls: false,
     queries: [],
     runStarted: null,
+    cappingSettings: {
+      type: DEFAULT_METRIC_CAPPING,
+      value: DEFAULT_METRIC_CAPPING_VALUE,
+    },
+    windowSettings: {
+      type: DEFAULT_METRIC_WINDOW,
+      delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+      windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
+      windowUnit: "hours",
+    },
+    priorSettings: {
+      override: false,
+      proper: false,
+      mean: 0,
+      stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+    },
     type,
     userIdColumns: (sqlBuilder?.identifierTypeColumns || []).reduce<
       Record<string, string>
@@ -1293,31 +1478,51 @@ export function postMetricApiPayloadToMetricInterface(
 
   // Assign all undefined behavior fields to the metric
   if (behavior) {
-    if (typeof behavior.capping !== "undefined") {
-      metric.capping = behavior.capping;
-      metric.capValue = behavior.capValue;
-    }
-    // handle old post requests
-    else if (typeof behavior.cap !== "undefined" && behavior.cap) {
-      metric.capping = "absolute";
-      metric.capValue = behavior.cap;
+    if (typeof behavior.cappingSettings !== "undefined") {
+      metric.cappingSettings = {
+        type:
+          behavior.cappingSettings.type === "none"
+            ? ""
+            : behavior.cappingSettings.type ?? "",
+        value: behavior.cappingSettings.value ?? DEFAULT_METRIC_CAPPING_VALUE,
+        ignoreZeros: behavior.cappingSettings.ignoreZeros,
+      };
+      // handle old post requests
+    } else if (typeof behavior.capping !== "undefined") {
+      metric.cappingSettings.type = behavior.capping ?? "";
+      metric.cappingSettings.value =
+        behavior.capValue ?? DEFAULT_METRIC_CAPPING_VALUE;
+    } else if (typeof behavior.cap !== "undefined" && behavior.cap) {
+      metric.cappingSettings.type = "absolute";
+      metric.cappingSettings.value = behavior.cap;
     }
 
-    if (typeof behavior.conversionWindowStart !== "undefined") {
+    if (typeof behavior.windowSettings !== "undefined") {
+      metric.windowSettings = {
+        type:
+          behavior.windowSettings.type === "none"
+            ? ""
+            : behavior?.windowSettings?.type ?? DEFAULT_METRIC_WINDOW,
+        delayHours:
+          behavior.windowSettings.delayHours ??
+          DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+        windowUnit: behavior.windowSettings.windowUnit ?? "hours",
+        windowValue:
+          behavior.windowSettings.windowValue ??
+          DEFAULT_CONVERSION_WINDOW_HOURS,
+      };
+    } else if (typeof behavior.conversionWindowStart !== "undefined") {
       // The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the Conversion Delay
-      metric.conversionDelayHours = behavior.conversionWindowStart;
-    }
+      metric.windowSettings.delayHours = behavior.conversionWindowStart;
 
-    if (
-      typeof behavior.conversionWindowEnd !== "undefined" &&
-      typeof behavior.conversionWindowStart !== "undefined"
-    ) {
       // The end of a Conversion Window relative to the exposure date, in hours.
       // This is equivalent to the Conversion Delay + Conversion Window Hours settings in the UI. In other words,
       // if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and
       // conversionWindowEnd to 72 (24+48).
-      metric.conversionWindowHours =
-        behavior.conversionWindowEnd - behavior.conversionWindowStart;
+      if (typeof behavior.conversionWindowEnd !== "undefined") {
+        metric.windowSettings.windowValue =
+          behavior.conversionWindowEnd - behavior.conversionWindowStart;
+      }
     }
 
     if (typeof behavior.maxPercentChange !== "undefined") {
@@ -1402,6 +1607,7 @@ export function putMetricApiPayloadToMetricInterface(
     tags,
     projects,
     type,
+    managedBy,
   } = payload;
 
   const metric: Partial<MetricInterface> = {
@@ -1419,28 +1625,40 @@ export function putMetricApiPayloadToMetricInterface(
       metric.inverse = behavior.goal === "decrease";
     }
 
-    if (typeof behavior.capping !== "undefined") {
-      metric.capping = behavior.capping;
-      if (behavior.capping !== null) {
-        metric.capValue = behavior.capValue;
-      }
+    if (typeof behavior.cappingSettings !== "undefined") {
+      metric.cappingSettings = {
+        ...behavior.cappingSettings,
+        type:
+          behavior.cappingSettings.type === "none"
+            ? ""
+            : behavior.cappingSettings.type ?? "",
+        value: behavior.cappingSettings.value ?? DEFAULT_METRIC_CAPPING_VALUE,
+        ignoreZeros: behavior.cappingSettings.ignoreZeros,
+      };
+    } else if (typeof behavior.capping !== "undefined") {
+      metric.cappingSettings = {
+        type: behavior.capping ?? DEFAULT_METRIC_CAPPING,
+        value: behavior.capValue ?? DEFAULT_METRIC_CAPPING_VALUE,
+      };
     }
 
     if (typeof behavior.conversionWindowStart !== "undefined") {
       // The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the Conversion Delay
-      metric.conversionDelayHours = behavior.conversionWindowStart;
-    }
+      metric.windowSettings = {
+        type: DEFAULT_METRIC_WINDOW,
+        delayHours: behavior.conversionWindowStart,
+        windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
+        windowUnit: "hours",
+      };
 
-    if (
-      typeof behavior.conversionWindowEnd !== "undefined" &&
-      typeof behavior.conversionWindowStart !== "undefined"
-    ) {
       // The end of a Conversion Window relative to the exposure date, in hours.
       // This is equivalent to the Conversion Delay + Conversion Window Hours settings in the UI. In other words,
       // if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and
       // conversionWindowEnd to 72 (24+48).
-      metric.conversionWindowHours =
-        behavior.conversionWindowEnd - behavior.conversionWindowStart;
+      if (typeof behavior.conversionWindowEnd !== "undefined") {
+        metric.windowSettings.windowValue =
+          behavior.conversionWindowEnd - behavior.conversionWindowStart;
+      }
     }
 
     if (typeof behavior.maxPercentChange !== "undefined") {
@@ -1530,6 +1748,10 @@ export function putMetricApiPayloadToMetricInterface(
     }
   }
 
+  if (managedBy !== undefined) {
+    metric.managedBy = managedBy;
+  }
+
   return metric;
 }
 
@@ -1540,16 +1762,9 @@ export function toMetricApiInterface(
 ): ApiMetric {
   const metricDefaults = organization.settings?.metricDefaults;
 
-  let conversionStart = metric.conversionDelayHours || 0;
-  const conversionEnd =
-    conversionStart +
-    (metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS);
-  if (!conversionStart && metric.earlyStart) {
-    conversionStart = -0.5;
-  }
-
   const obj: ApiMetric = {
     id: metric.id,
+    managedBy: metric.managedBy || "",
     name: metric.name,
     description: metric.description || "",
     dateCreated: metric.dateCreated?.toISOString() || "",
@@ -1562,8 +1777,15 @@ export function toMetricApiInterface(
     type: metric.type,
     behavior: {
       goal: metric.inverse ? "decrease" : "increase",
-      capping: metric.capping,
-      capValue: metric.capValue || 0,
+      cappingSettings: metric.cappingSettings
+        ? {
+            ...metric.cappingSettings,
+            type: metric.cappingSettings.type || "none",
+          }
+        : {
+            type: DEFAULT_METRIC_CAPPING || "none",
+            value: DEFAULT_METRIC_CAPPING_VALUE,
+          },
       minPercentChange:
         metric.minPercentChange ?? metricDefaults?.minPercentageChange ?? 0.005,
       maxPercentChange:
@@ -1572,8 +1794,24 @@ export function toMetricApiInterface(
         metric.minSampleSize ?? metricDefaults?.minimumSampleSize ?? 150,
       riskThresholdDanger: metric.loseRisk ?? 0.0125,
       riskThresholdSuccess: metric.winRisk ?? 0.0025,
-      conversionWindowStart: conversionStart,
-      conversionWindowEnd: conversionEnd,
+      windowSettings: metric.windowSettings
+        ? {
+            ...metric.windowSettings,
+            type: metric.windowSettings.type || "none",
+          }
+        : metricDefaults?.windowSettings
+        ? {
+            ...metricDefaults.windowSettings,
+            type: metricDefaults.windowSettings.type || "none",
+          }
+        : {
+            type: DEFAULT_METRIC_WINDOW || "none",
+            delayHours: metric.earlyStart
+              ? -0.5
+              : DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+            windowValue: DEFAULT_CONVERSION_WINDOW_HOURS,
+            windowUnit: "hours",
+          },
     },
   };
 
@@ -1702,8 +1940,9 @@ export function postExperimentApiPayloadToInterface(
     activationMetric: "",
     segment: "",
     queryFilter: "",
-    skipPartialData: false,
-    attributionModel: "firstExposure",
+    skipPartialData: payload.inProgressConversions === "strict",
+    attributionModel: payload.attributionModel || "firstExposure",
+    ...(payload.statsEngine ? { statsEngine: payload.statsEngine } : {}),
     variations:
       payload.variations.map((v) => ({
         ...v,
@@ -1756,6 +1995,9 @@ export function updateExperimentApiPayloadToInterface(
     variations,
     releasedVariationId,
     excludeFromPayload,
+    inProgressConversions,
+    attributionModel,
+    statsEngine,
   } = payload;
   return {
     ...(trackingKey ? { trackingKey } : {}),
@@ -1774,6 +2016,11 @@ export function updateExperimentApiPayloadToInterface(
     ...(status ? { status } : {}),
     ...(releasedVariationId !== undefined ? { releasedVariationId } : {}),
     ...(excludeFromPayload !== undefined ? { excludeFromPayload } : {}),
+    ...(inProgressConversions !== undefined
+      ? { skipPartialData: inProgressConversions === "strict" }
+      : {}),
+    ...(attributionModel !== undefined ? { attributionModel } : {}),
+    ...(statsEngine !== undefined ? { statsEngine } : {}),
     ...(variations
       ? {
           variations: variations?.map((v) => ({
@@ -1823,21 +2070,17 @@ export function updateExperimentApiPayloadToInterface(
   };
 }
 
-export async function getRegressionAdjustmentInfo(
-  experiment: ExperimentInterface,
-  organization: OrganizationInterface
+export async function getSettingsForSnapshotMetrics(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface
 ): Promise<{
   regressionAdjustmentEnabled: boolean;
-  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
+  settingsForSnapshotMetrics: MetricSnapshotSettings[];
 }> {
   let regressionAdjustmentEnabled = false;
-  const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
+  const settingsForSnapshotMetrics: MetricSnapshotSettings[] = [];
 
-  if (!experiment.regressionAdjustmentEnabled) {
-    return { regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses };
-  }
-
-  const metricMap = await getMetricMap(organization.id);
+  const metricMap = await getMetricMap(context);
 
   const allExperimentMetricIds = uniq([
     ...experiment.metrics,
@@ -1845,7 +2088,7 @@ export async function getRegressionAdjustmentInfo(
   ]);
   const allExperimentMetrics = allExperimentMetricIds
     .map((id) => metricMap.get(id))
-    .filter(Boolean);
+    .filter(isDefined);
 
   const denominatorMetrics = allExperimentMetrics
     .filter((m) => m && !isFactMetric(m) && m.denominator)
@@ -1856,26 +2099,24 @@ export async function getRegressionAdjustmentInfo(
 
   for (const metric of allExperimentMetrics) {
     if (!metric) continue;
-    const {
-      metricRegressionAdjustmentStatus,
-    } = getRegressionAdjustmentsForMetric({
+    const { metricSnapshotSettings } = getMetricSnapshotSettings({
       metric: metric,
       denominatorMetrics: denominatorMetrics,
       experimentRegressionAdjustmentEnabled:
         experiment.regressionAdjustmentEnabled ??
         DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-      organizationSettings: organization.settings,
+      organizationSettings: context.org.settings,
       metricOverrides: experiment.metricOverrides,
     });
-    if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {
+    if (metricSnapshotSettings.regressionAdjustmentEnabled) {
       regressionAdjustmentEnabled = true;
     }
-    metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
+    settingsForSnapshotMetrics.push(metricSnapshotSettings);
   }
   if (!experiment.regressionAdjustmentEnabled) {
     regressionAdjustmentEnabled = false;
   }
-  return { regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses };
+  return { regressionAdjustmentEnabled, settingsForSnapshotMetrics };
 }
 
 export function visualChangesetsHaveChanges({
@@ -1887,10 +2128,10 @@ export function visualChangesetsHaveChanges({
 }): boolean {
   // If there are visual change differences
   const oldVisualChanges = oldVisualChangeset.visualChanges.map(
-    ({ css, domMutations }) => ({ css, domMutations })
+    ({ css, js, domMutations }) => ({ css, js, domMutations })
   );
   const newVisualChanges = newVisualChangeset.visualChanges.map(
-    ({ css, domMutations }) => ({ css, domMutations })
+    ({ css, js, domMutations }) => ({ css, js, domMutations })
   );
   if (!isEqual(oldVisualChanges, newVisualChanges)) {
     return true;

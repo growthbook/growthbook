@@ -3,7 +3,7 @@ import { SDKLanguage } from "back-end/types/sdk-connection";
 import stringify from "json-stringify-pretty-compact";
 import { SDKAttributeSchema } from "back-end/types/organization";
 import { useAttributeSchema } from "@/services/features";
-import Code from "../Code";
+import Code from "@/components/SyntaxHighlighting/Code";
 
 function phpArrayFormat(json: unknown) {
   return stringify(json)
@@ -62,8 +62,7 @@ function getExampleAttributes({
         ? ["foo", "bar"].map((v) => sha256(v, secureAttributeSalt))
         : ["foo", "bar"];
     } else if (datatype === "enum") {
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      value = enumList.split(",").map((v) => v.trim())[0] ?? null;
+      value = enumList?.split(",").map((v) => v.trim())[0] ?? null;
     }
 
     // @ts-expect-error TS(2538) If you come across this, please fix it!: Type 'undefined' cannot be used as an index type.
@@ -82,6 +81,13 @@ export default function TargetingAttributeCodeSnippet({
   hashSecureAttributes?: boolean;
   secureAttributeSalt?: string;
 }) {
+  const introText = (
+    <span>
+      Replace the placeholders with your real targeting attribute values. This
+      enables you to target feature flags based on user attributes.
+    </span>
+  );
+
   const attributeSchema = useAttributeSchema();
   const exampleAttributes = getExampleAttributes({
     attributeSchema,
@@ -89,40 +95,103 @@ export default function TargetingAttributeCodeSnippet({
     secureAttributeSalt,
   });
 
+  if (language.match(/^nocode/)) {
+    const defaultAttributes = [
+      "id",
+      "url",
+      "path",
+      "host",
+      "query",
+      "deviceType",
+      "browser",
+      "utmSource",
+      "utmMedium",
+      "utmCampaign",
+      "utmTerm",
+      "utmContent",
+    ];
+    const additionalAttributes = Object.entries(exampleAttributes).filter(
+      ([k]) => !defaultAttributes.includes(k)
+    );
+
+    if (additionalAttributes.length) {
+      return (
+        <>
+          <p>
+            Some attributes are set automatically, but you will need to manually
+            set the following ones. This must be added BEFORE the GrowthBook
+            snippet.
+          </p>
+          {introText}
+          <Code
+            language="html"
+            code={`
+<script>
+window.growthbook_config = window.growthbook_config || {};
+window.growthbook_config.attributes = ${stringify(
+              Object.fromEntries(additionalAttributes)
+            )};
+</script>
+          `}
+          />
+        </>
+      );
+    }
+
+    return (
+      <>
+        <div>
+          All of your attributes are set automatically, no configuration
+          required.
+        </div>
+      </>
+    );
+  }
   if (language === "javascript") {
     return (
-      <Code
-        language="javascript"
-        code={`growthbook.setAttributes(${stringify(exampleAttributes)});`}
-      />
+      <>
+        {introText}
+        <Code
+          language="javascript"
+          code={`growthbook.setAttributes(${stringify(exampleAttributes)});`}
+        />
+      </>
     );
   }
   if (language === "react") {
     return (
-      <Code
-        language="tsx"
-        code={`growthbook.setAttributes(${stringify(exampleAttributes)});`}
-      />
+      <>
+        {introText}
+        <Code
+          language="tsx"
+          code={`growthbook.setAttributes(${stringify(exampleAttributes)});`}
+        />
+      </>
     );
   }
   if (language === "nodejs") {
     return (
-      <Code
-        language="javascript"
-        code={`
+      <>
+        {introText}
+        <Code
+          language="javascript"
+          code={`
 app.use(function(req, res, next) {
   req.growthbook.setAttributes(${indentLines(stringify(exampleAttributes), 2)});
   next();
 })
 `.trim()}
-      />
+        />
+      </>
     );
   }
   if (language === "android") {
     return (
-      <Code
-        language="kotlin"
-        code={`
+      <>
+        {introText}
+        <Code
+          language="kotlin"
+          code={`
 val attrs = HashMap<String, Any>()
 ${Object.keys(exampleAttributes)
   .map((k) => {
@@ -132,73 +201,91 @@ ${Object.keys(exampleAttributes)
 
 gb.setAttributes(attrs)
 `.trim()}
-      />
+        />
+      </>
     );
   }
   if (language === "ios") {
     return (
-      <Code
-        language="swift"
-        code={`
+      <>
+        {introText}
+        <Code
+          language="swift"
+          code={`
 var attrs = ${swiftArrayFormat(exampleAttributes)}
 gb.setAttributes(attrs)
     `.trim()}
-      />
+        />
+      </>
     );
   }
   if (language === "go") {
     return (
-      <Code
-        language="go"
-        code={`
+      <>
+        {introText}
+        <Code
+          language="go"
+          code={`
 gb.WithAttributes(growthbook.Attributes${JSON.stringify(
-          exampleAttributes,
-          null,
-          "\t"
-        )
-          .replace(/null/g, "nil")
-          .replace(/\n(\t+)\}/, ",\n$1}")})
-            `.trim()}
-      />
+            exampleAttributes,
+            null,
+            "\t"
+          )
+            .replace(/null/g, "nil")
+            .replace(/\n(\t+)\}/, ",\n$1}")})
+        `.trim()}
+        />
+      </>
     );
   }
   if (language === "ruby") {
     return (
-      <Code
-        language="ruby"
-        code={`gb.attributes=${stringify(exampleAttributes).replace(
-          /: null/g,
-          ": nil"
-        )}`}
-      />
+      <>
+        {introText}
+        <Code
+          language="ruby"
+          code={`gb.attributes=${stringify(exampleAttributes).replace(
+            /: null/g,
+            ": nil"
+          )}`}
+        />
+      </>
     );
   }
   if (language === "php") {
     return (
-      <Code
-        language="php"
-        code={`$growthbook->withAttributes(${phpArrayFormat(
-          exampleAttributes
-        )});`}
-      />
+      <>
+        {introText}
+        <Code
+          language="php"
+          code={`$growthbook->withAttributes(${phpArrayFormat(
+            exampleAttributes
+          )});`}
+        />
+      </>
     );
   }
   if (language === "python") {
     return (
-      <Code
-        language="python"
-        code={`gb.set_attributes(${stringify(exampleAttributes)
-          .replace(/: true/g, ": True")
-          .replace(/: false/g, ": False")
-          .replace(/: null/g, ": None")})`}
-      />
+      <>
+        {introText}
+        <Code
+          language="python"
+          code={`gb.set_attributes(${stringify(exampleAttributes)
+            .replace(/: true/g, ": True")
+            .replace(/: false/g, ": False")
+            .replace(/: null/g, ": None")})`}
+        />
+      </>
     );
   }
   if (language === "java") {
     return (
-      <Code
-        language="java"
-        code={`
+      <>
+        {introText}
+        <Code
+          language="java"
+          code={`
 JSONObject userAttributesObj = new JSONObject();
 ${Object.entries(exampleAttributes)
   .map(([key, value]) => {
@@ -210,14 +297,17 @@ ${Object.entries(exampleAttributes)
 String userAttributesJson = userAttributesObj.toString();
 growthBook.setAttributes(userAttributesJson);
             `.trim()}
-      />
+        />
+      </>
     );
   }
   if (language === "flutter") {
     return (
-      <Code
-        language="dart"
-        code={`
+      <>
+        {introText}
+        <Code
+          language="dart"
+          code={`
 val attrs = HashMap<String, Any>()
 ${Object.entries(exampleAttributes)
   .map(([key, value]) => {
@@ -226,14 +316,17 @@ ${Object.entries(exampleAttributes)
   .join("\n")}
 gb.setAttributes(attrs);
 `.trim()}
-      />
+        />
+      </>
     );
   }
   if (language === "csharp") {
     return (
-      <Code
-        language="csharp"
-        code={`
+      <>
+        {introText}
+        <Code
+          language="csharp"
+          code={`
 var attrs = new JObject();
 ${Object.entries(exampleAttributes)
   .map(([key, value]) => {
@@ -242,7 +335,32 @@ ${Object.entries(exampleAttributes)
   .join("\n")}
 gb.SetAttributes(attrs);
     `.trim()}
-      />
+        />
+      </>
+    );
+  }
+  if (language === "elixir") {
+    return (
+      <>
+        {introText}
+        <Code
+          language="elixir"
+          code={`
+attrs = %{
+${Object.entries(exampleAttributes)
+  .map(([key, value]) => {
+    return `  ${JSON.stringify(key)} => ${JSON.stringify(value)}`;
+  })
+  .join(",\n")}
+}
+
+context = %GrowthBook.Context{
+  features: features,
+  attributes: attrs
+}
+          `.trim()}
+        />
+      </>
     );
   }
 

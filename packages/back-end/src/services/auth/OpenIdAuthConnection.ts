@@ -37,6 +37,8 @@ if (USE_PROXY) {
   custom.setHttpOptionsDefaults(getHttpOptions());
 }
 
+const passthroughQueryParams = ["hypgen", "hypothesis"];
+
 // Micro-Cache with a TTL of 30 seconds, avoids hitting Mongo on every request
 const ssoConnectionCache = new MemoryCache(async (ssoConnectionId: string) => {
   const ssoConnection = await getSSOConnectionById(ssoConnectionId);
@@ -49,8 +51,12 @@ const ssoConnectionCache = new MemoryCache(async (ssoConnectionId: string) => {
 const clientMap: Map<SSOConnectionInterface, Client> = new Map();
 
 export class OpenIdAuthConnection implements AuthConnection {
-  async refresh(req: Request, refreshToken: string): Promise<TokensResponse> {
-    const { client } = await getConnectionFromRequest(req);
+  async refresh(
+    req: Request,
+    res: Response,
+    refreshToken: string
+  ): Promise<TokensResponse> {
+    const { client } = await getConnectionFromRequest(req, res);
 
     const tokenSet = await client.refresh(refreshToken);
 
@@ -68,7 +74,7 @@ export class OpenIdAuthConnection implements AuthConnection {
     req: Request,
     res: Response
   ): Promise<UnauthenticatedResponse> {
-    const { connection, client } = await getConnectionFromRequest(req);
+    const { connection, client } = await getConnectionFromRequest(req, res);
     const redirectURI = this.getRedirectURI(connection, client, req, res);
 
     // If there's an existing incomplete auth session for this Cloud SSO provider,
@@ -82,7 +88,7 @@ export class OpenIdAuthConnection implements AuthConnection {
     };
   }
   async processCallback(req: Request, res: Response): Promise<TokensResponse> {
-    const { connection, client } = await getConnectionFromRequest(req);
+    const { connection, client } = await getConnectionFromRequest(req, res);
 
     // Get rid of temporary codeVerifier cookie
     const checks = this.getAuthChecks(req);
@@ -120,8 +126,8 @@ export class OpenIdAuthConnection implements AuthConnection {
       expiresIn: this.getMaxAge(tokenSet),
     };
   }
-  async logout(req: Request): Promise<string> {
-    const { connection } = await getConnectionFromRequest(req);
+  async logout(req: Request, res: Response): Promise<string> {
+    const { connection } = await getConnectionFromRequest(req, res);
     if (connection?.metadata?.logout_endpoint) {
       return connection.metadata.logout_endpoint as string;
     }
@@ -133,7 +139,10 @@ export class OpenIdAuthConnection implements AuthConnection {
     next: NextFunction
   ): Promise<void> {
     try {
-      const { connection } = await getConnectionFromRequest(req as Request);
+      const { connection } = await getConnectionFromRequest(
+        req as Request,
+        res
+      );
 
       // Store the ssoConnectionId in the request
       req.loginMethod = connection;
@@ -209,7 +218,7 @@ export class OpenIdAuthConnection implements AuthConnection {
       code_challenge,
       code_challenge_method: "S256",
       state,
-      audience: (ssoConnection.metadata?.audience ||
+      audience: (ssoConnection.metadata?.audience ??
         ssoConnection.clientId) as string,
     });
 
@@ -219,13 +228,35 @@ export class OpenIdAuthConnection implements AuthConnection {
       }
     }
 
+    for (const [k, v] of Object.entries(req.query)) {
+      if (passthroughQueryParams.includes(k)) {
+        url += `&${k}=${v}`;
+      }
+    }
+
     return url;
   }
 }
 
-async function getConnectionFromRequest(req: Request) {
+async function getConnectionFromRequest(req: Request, res: Response) {
   // First, get the connection info
-  const ssoConnectionId = SSOConnectionIdCookie.getValue(req);
+  let ssoConnectionId = SSOConnectionIdCookie.getValue(req);
+
+  let persistSSOConnectionId = false;
+
+  // If there's no ssoConnectionId in the cookie, look in the querystring instead
+  // This is used for IdP-initiated Enterprise SSO on Cloud
+  if (IS_CLOUD && !ssoConnectionId) {
+    const ssoConnectionIdFromQuery = req.query.ssoId;
+    if (
+      ssoConnectionIdFromQuery &&
+      typeof ssoConnectionIdFromQuery === "string"
+    ) {
+      persistSSOConnectionId = true;
+      ssoConnectionId = ssoConnectionIdFromQuery;
+    }
+  }
+
   let connection: SSOConnectionInterface;
   if (IS_CLOUD && ssoConnectionId) {
     connection = await ssoConnectionCache.get(ssoConnectionId);
@@ -249,6 +280,11 @@ async function getConnectionFromRequest(req: Request) {
         : "none",
     });
     clientMap.set(connection, client);
+  }
+
+  // If we've made it this far, the connection was found and we should persist it in a cookie
+  if (persistSSOConnectionId && ssoConnectionId) {
+    SSOConnectionIdCookie.setValue(ssoConnectionId, req, res);
   }
 
   return { connection, client };

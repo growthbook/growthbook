@@ -56,7 +56,7 @@ import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
-import Tooltip from "../Tooltip/Tooltip";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn from "./ChanceToWinColumn";
 import MetricValueColumn from "./MetricValueColumn";
@@ -93,6 +93,8 @@ export type ResultsTableProps = {
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
   metricTags?: string[];
   isTabActive: boolean;
+  noStickyHeader?: boolean;
+  noTooltip?: boolean;
 };
 
 const ROW_HEIGHT = 56;
@@ -130,6 +132,8 @@ export default function ResultsTable({
   setMetricFilter,
   metricTags = [],
   isTabActive,
+  noStickyHeader,
+  noTooltip,
 }: ResultsTableProps) {
   // fix any potential filter conflicts
   if (variationFilter?.includes(baselineRow)) {
@@ -311,6 +315,7 @@ export default function ResultsTable({
     event: React.PointerEvent<HTMLElement>,
     settings?: TooltipHoverSettings
   ) => {
+    if (noTooltip) return;
     if (
       hoveredMetricRow !== null &&
       hoveredVariationRow !== null &&
@@ -400,6 +405,7 @@ export default function ResultsTable({
       tooltipData: {
         metricRow,
         metric,
+        metricSnapshotSettings: row.metricSnapshotSettings,
         dimensionName: dimension,
         dimensionValue: dimension ? row.label : undefined,
         variation,
@@ -468,7 +474,7 @@ export default function ResultsTable({
             <thead>
               <tr className="results-top-row">
                 <th
-                  className="axis-col header-label"
+                  className={clsx("axis-col header-label", { noStickyHeader })}
                   style={{
                     lineHeight: "15px",
                     width: 220 * tableCellScale,
@@ -513,7 +519,7 @@ export default function ResultsTable({
                   <>
                     <th
                       style={{ width: 120 * tableCellScale }}
-                      className="axis-col label"
+                      className={clsx("axis-col label", { noStickyHeader })}
                     >
                       <Tooltip
                         usePortal={true}
@@ -544,7 +550,7 @@ export default function ResultsTable({
                     </th>
                     <th
                       style={{ width: 120 * tableCellScale }}
-                      className="axis-col label"
+                      className={clsx("axis-col label", { noStickyHeader })}
                     >
                       <Tooltip
                         usePortal={true}
@@ -582,7 +588,7 @@ export default function ResultsTable({
                     </th>
                     <th
                       style={{ width: 120 * tableCellScale }}
-                      className="axis-col label"
+                      className={clsx("axis-col label", { noStickyHeader })}
                     >
                       {statsEngine === "bayesian" ? (
                         <div
@@ -618,7 +624,9 @@ export default function ResultsTable({
                       )}
                     </th>
                     <th
-                      className="axis-col graph-cell"
+                      className={clsx("axis-col graph-cell", {
+                        noStickyHeader,
+                      })}
                       style={{
                         width:
                           window.innerWidth < 900 ? graphCellWidth : undefined,
@@ -636,13 +644,14 @@ export default function ResultsTable({
                           graphWidth={graphCellWidth}
                           percent={differenceType === "relative"}
                           height={45}
-                          newUi={true}
                         />
                       </div>
                     </th>
                     <th
                       style={{ width: 150 * tableCellScale }}
-                      className="axis-col label text-right"
+                      className={clsx("axis-col label text-right", {
+                        noStickyHeader,
+                      })}
                     >
                       <div style={{ lineHeight: "15px", marginBottom: 2 }}>
                         <Tooltip
@@ -668,7 +677,10 @@ export default function ResultsTable({
                     </th>
                   </>
                 ) : (
-                  <th className="axis-col label" colSpan={5} />
+                  <th
+                    className={clsx("axis-col label", { noStickyHeader })}
+                    colSpan={5}
+                  />
                 )}
               </tr>
             </thead>
@@ -806,7 +818,6 @@ export default function ResultsTable({
                             className={clsx("value baseline", {
                               hover: isHovered,
                             })}
-                            newUi={true}
                           />
                         ) : (
                           <td />
@@ -818,7 +829,6 @@ export default function ResultsTable({
                           className={clsx("value", {
                             hover: isHovered,
                           })}
-                          newUi={true}
                         />
                         {j > 0 ? (
                           statsEngine === "bayesian" ? (
@@ -892,8 +902,6 @@ export default function ResultsTable({
                               height={
                                 compactResults ? ROW_HEIGHT + 10 : ROW_HEIGHT
                               }
-                              newUi={true}
-                              // className={}
                               isHovered={isHovered}
                               percent={differenceType === "relative"}
                               className={clsx(
@@ -930,7 +938,6 @@ export default function ResultsTable({
                               axisOnly={true}
                               graphWidth={graphCellWidth}
                               height={32}
-                              newUi={true}
                             />
                           )}
                         </td>
@@ -1010,7 +1017,6 @@ function drawEmptyRow({
           axisOnly={true}
           graphWidth={graphCellWidth}
           height={rowHeight}
-          newUi={true}
         />
       </td>
       <td />

@@ -2,6 +2,8 @@ import fs from "fs";
 import dotenv from "dotenv";
 import trimEnd from "lodash/trimEnd";
 import { stringToBoolean } from "shared/util";
+import { DEFAULT_METRIC_WINDOW_HOURS } from "shared/constants";
+import { z } from "zod";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";
@@ -14,12 +16,6 @@ export const LOG_LEVEL = process.env.LOG_LEVEL;
 
 export const IS_CLOUD = stringToBoolean(process.env.IS_CLOUD);
 export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
-
-if (!IS_CLOUD && IS_MULTI_ORG && !process.env.LICENSE_KEY) {
-  throw new Error(
-    "Must have a commercial license key to be allowed to have multiple organizations."
-  );
-}
 
 // Default to true
 export const ALLOW_SELF_ORG_CREATION = stringToBoolean(
@@ -130,7 +126,8 @@ export const EXPERIMENT_REFRESH_FREQUENCY =
   parseInt(process.env.EXPERIMENT_REFRESH_FREQUENCY || "") || 6;
 
 export const DEFAULT_CONVERSION_WINDOW_HOURS =
-  parseInt(process.env.DEFAULT_CONVERSION_WINDOW_HOURS || "") || 72;
+  parseInt(process.env.DEFAULT_CONVERSION_WINDOW_HOURS || "") ||
+  DEFAULT_METRIC_WINDOW_HOURS;
 
 // Update metrics every X hours
 export const METRIC_REFRESH_FREQUENCY =
@@ -168,6 +165,12 @@ export const SENTRY_DSN = process.env.SENTRY_DSN || "";
 export const STORE_SEGMENTS_IN_MONGO = stringToBoolean(
   process.env.STORE_SEGMENTS_IN_MONGO
 );
+
+// If set to false AND using a config file, don't allow creating metric via the UI
+export const ALLOW_CREATE_METRICS = stringToBoolean(
+  process.env.ALLOW_CREATE_METRICS
+);
+
 // Add a default secret access key via an environment variable
 // Only allowed while self-hosting and not multi org
 let secretAPIKey = IS_MULTI_ORG ? "" : process.env.SECRET_API_KEY || "";
@@ -189,13 +192,30 @@ export const PROXY_HOST_PUBLIC = process.env.PROXY_HOST_PUBLIC || "";
 
 // global webhooks
 const webhooksString = process.env.WEBHOOKS;
-let webhooks = [];
+const webhooksValidator = z.array(
+  z
+    .object({
+      url: z.string(),
+      headers: z.unknown().optional(),
+      signingKey: z.string().optional(),
+      method: z.enum(["GET", "POST", "PUT", "DELETE", "PURGE"]).optional(),
+      sendPayload: z.boolean().optional(),
+      payloadFormat: z
+        .enum(["standard", "standard-no-payload", "sdkPayload", "none"])
+        .optional(),
+    })
+    .strict()
+);
+let webhooks: z.infer<typeof webhooksValidator> = [];
 try {
-  webhooks = webhooksString ? JSON.parse(webhooksString) : [];
+  webhooks = webhooksString
+    ? webhooksValidator.parse(JSON.parse(webhooksString))
+    : [];
 } catch (error) {
-  throw Error(`webhooks in env file is malformed: ${webhooksString}`);
+  throw Error(`webhooks in env file is malformed: ${error.message}`);
 }
 export const WEBHOOKS = webhooks;
+export const WEBHOOK_PROXY = process.env.WEBHOOK_PROXY || "";
 
 /**
  * Allows custom configuration of the trust proxy settings as

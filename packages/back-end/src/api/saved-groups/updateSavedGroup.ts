@@ -1,5 +1,6 @@
 import { isEqual } from "lodash";
 import { validateCondition } from "shared/util";
+import { logger } from "../../util/logger";
 import { UpdateSavedGroupResponse } from "../../../types/openapi";
 import {
   getSavedGroupById,
@@ -15,7 +16,9 @@ export const updateSavedGroup = createApiRequestHandler(
   updateSavedGroupValidator
 )(
   async (req): Promise<UpdateSavedGroupResponse> => {
-    req.checkPermissions("manageSavedGroups");
+    if (!req.context.permissions.canUpdateSavedGroup()) {
+      req.context.permissions.throwPermissionError();
+    }
 
     const { name, values, condition, owner } = req.body;
 
@@ -81,7 +84,9 @@ export const updateSavedGroup = createApiRequestHandler(
 
     // If the values or key change, we need to invalidate cached feature rules
     if (fieldsToUpdate.values || fieldsToUpdate.condition) {
-      savedGroupUpdated(req.context, savedGroup.id);
+      savedGroupUpdated(req.context, savedGroup.id).catch((e) => {
+        logger.error(e, "Error refreshing SDK Payload on saved group update");
+      });
     }
 
     return {

@@ -23,6 +23,7 @@ export type EditSDKConnectionParams = {
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  includeRedirectExperiments?: boolean;
   remoteEvalEnabled?: boolean;
 };
 export type CreateSDKConnectionParams = {
@@ -39,23 +40,13 @@ export type CreateSDKConnectionParams = {
   includeVisualExperiments: boolean;
   includeDraftExperiments: boolean;
   includeExperimentNames: boolean;
+  includeRedirectExperiments: boolean;
   remoteEvalEnabled?: boolean;
 };
 
-export type SDKLanguage =
-  | "javascript"
-  | "nodejs"
-  | "react"
-  | "php"
-  | "ruby"
-  | "python"
-  | "go"
-  | "java"
-  | "csharp"
-  | "android"
-  | "ios"
-  | "flutter"
-  | "other";
+import { sdkLanguages } from "../src/util/constants";
+
+export type SDKLanguage = typeof sdkLanguages[number];
 
 export interface SDKConnectionInterface {
   id: string;
@@ -78,6 +69,7 @@ export interface SDKConnectionInterface {
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  includeRedirectExperiments?: boolean;
 
   // URL slug for fetching features from the API
   key: string;

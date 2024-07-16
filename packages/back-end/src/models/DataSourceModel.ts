@@ -20,7 +20,8 @@ import { upgradeDatasourceObject } from "../util/migrations";
 import { ApiDataSource } from "../../types/openapi";
 import { queueCreateInformationSchema } from "../jobs/createInformationSchema";
 import { IS_CLOUD } from "../util/secrets";
-import { findAllOrganizations } from "./OrganizationModel";
+import { ReqContext } from "../../types/organization";
+import { ApiReqContext } from "../../types/api";
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
@@ -59,58 +60,55 @@ export async function getInstallationDatasources(): Promise<
     throw new Error("Cannot get all installation data sources in cloud mode");
   }
   if (usingFileConfig()) {
-    const organizationId = (await findAllOrganizations(0, "", 1))
-      .organizations[0].id;
-    return getConfigDatasources(organizationId);
+    // We don't need the correct organization part of the response so passing "".
+    return getConfigDatasources("");
   }
   const docs: DataSourceDocument[] = await DataSourceModel.find();
   return docs.map(toInterface);
 }
 
 export async function getDataSourcesByOrganization(
-  organization: string
+  context: ReqContext | ApiReqContext
 ): Promise<DataSourceInterface[]> {
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
-    return getConfigDatasources(organization);
+    return getConfigDatasources(context.org.id);
   }
 
   const docs: DataSourceDocument[] = await DataSourceModel.find({
-    organization,
+    organization: context.org.id,
   });
 
-  return docs.map(toInterface);
+  const datasources = docs.map(toInterface);
+
+  return datasources.filter((ds) =>
+    context.permissions.canReadMultiProjectResource(ds.projects)
+  );
 }
 
-export async function getDataSourceById(id: string, organization: string) {
+export async function getDataSourceById(
+  context: ReqContext | ApiReqContext,
+  id: string
+) {
   // If using config.yml, immediately return the from there
   if (usingFileConfig()) {
     return (
-      getConfigDatasources(organization).filter((d) => d.id === id)[0] || null
+      getConfigDatasources(context.org.id).filter((d) => d.id === id)[0] || null
     );
   }
 
   const doc: DataSourceDocument | null = await DataSourceModel.findOne({
     id,
-    organization,
+    organization: context.org.id,
   });
 
-  return doc ? toInterface(doc) : null;
-}
-export async function getDataSourcesByIds(ids: string[], organization: string) {
-  // If using config.yml, immediately return the list from there
-  if (usingFileConfig()) {
-    return (
-      getConfigDatasources(organization).filter((d) => ids.includes(d.id)) || []
-    );
-  }
+  if (!doc) return null;
 
-  const docs: DataSourceDocument[] = await DataSourceModel.find({
-    id: { $in: ids },
-    organization,
-  });
+  const datasource = toInterface(doc);
 
-  return docs.map(toInterface);
+  return context.permissions.canReadMultiProjectResource(datasource.projects)
+    ? datasource
+    : null;
 }
 
 export async function removeProjectFromDatasources(
@@ -123,12 +121,6 @@ export async function removeProjectFromDatasources(
   );
 }
 
-export async function getOrganizationsWithDatasources(): Promise<string[]> {
-  if (usingFileConfig()) {
-    return [];
-  }
-  return await DataSourceModel.distinct("organization");
-}
 export async function deleteDatasourceById(id: string, organization: string) {
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Data sources managed by config.yml");
@@ -162,7 +154,7 @@ export async function deleteAllDataSourcesForAProject({
 }
 
 export async function createDataSource(
-  organization: string,
+  context: ReqContext,
   name: string,
   type: DataSourceType,
   params: DataSourceParams,
@@ -190,7 +182,7 @@ export async function createDataSource(
     id,
     name,
     description,
-    organization,
+    organization: context.org.id,
     type,
     settings,
     dateCreated: new Date(),
@@ -199,10 +191,11 @@ export async function createDataSource(
     projects,
   };
 
-  await testDataSourceConnection(datasource);
+  await testDataSourceConnection(context, datasource);
 
   // Add any missing exposure query ids and check query validity
   settings = await validateExposureQueriesAndAddMissingIds(
+    context,
     datasource,
     settings,
     true
@@ -212,12 +205,12 @@ export async function createDataSource(
     datasource
   )) as DataSourceDocument;
 
-  const integration = getSourceIntegrationObject(datasource);
+  const integration = getSourceIntegrationObject(context, datasource);
   if (
     integration.getInformationSchema &&
     integration.getSourceProperties().supportsInformationSchema
   ) {
-    await queueCreateInformationSchema(datasource.id, organization);
+    await queueCreateInformationSchema(datasource.id, context.org.id);
   }
 
   return toInterface(model);
@@ -225,6 +218,7 @@ export async function createDataSource(
 
 // Add any missing exposure query ids and validate any new, changed, or previously errored queries
 export async function validateExposureQueriesAndAddMissingIds(
+  context: ReqContext,
   datasource: DataSourceInterface,
   updates: Partial<DataSourceSettings>,
   forceCheckValidity: boolean = false
@@ -250,7 +244,7 @@ export async function validateExposureQueriesAndAddMissingIds(
           }
         }
         if (checkValidity) {
-          const integration = getSourceIntegrationObject(datasource);
+          const integration = getSourceIntegrationObject(context, datasource);
           exposure.error = await testQueryValidity(integration, exposure);
         }
       })
@@ -272,8 +266,8 @@ export function hasActualChanges(
 }
 
 export async function updateDataSource(
+  context: ReqContext | ApiReqContext,
   datasource: DataSourceInterface,
-  organization: string,
   updates: Partial<DataSourceInterface>
 ) {
   if (usingFileConfig()) {
@@ -282,6 +276,7 @@ export async function updateDataSource(
 
   if (updates.settings) {
     updates.settings = await validateExposureQueriesAndAddMissingIds(
+      context,
       datasource,
       updates.settings
     );
@@ -293,7 +288,7 @@ export async function updateDataSource(
   await DataSourceModel.updateOne(
     {
       id: datasource.id,
-      organization,
+      organization: context.org.id,
     },
     {
       $set: updates,

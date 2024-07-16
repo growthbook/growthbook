@@ -1,5 +1,9 @@
 import fs from "fs";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  isFactMetric,
+  quantileMetricType,
+} from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import { DataSourceInterface, DataSourceType } from "../../types/datasource";
 import {
@@ -26,6 +30,7 @@ import {
   ColumnInterface,
   FactMetricInterface,
   FactTableInterface,
+  MetricCappingSettings,
 } from "../../types/fact-table";
 
 const currentDate = new Date();
@@ -36,6 +41,16 @@ const endDate = new Date(endDateString); // but end it a bit early so we know it
 
 const USER_ID_TYPE = "user_id";
 const OUTPUT_DIR = "/tmp/json";
+
+function getTableString(engine: string) {
+  if (engine === "bigquery") {
+    return "sample.";
+  }
+  if (engine === "snowflake") {
+    return `"SAMPLE".`;
+  }
+  return "";
+}
 
 // helper methods
 function buildInterface(engine: string): DataSourceInterface {
@@ -54,18 +69,18 @@ function buildInterface(engine: string): DataSourceInterface {
             id: "user_id",
             name: "",
             userIdType: USER_ID_TYPE,
-            query: `SELECT\nuserId as user_id,timestamp as timestamp,experimentId as experiment_id,variationId as variation_id,browser\nFROM ${
-              engine === "bigquery" ? "sample." : ""
-            }experiment_viewed`,
+            query: `SELECT\nuserId as user_id,timestamp as timestamp,experimentId as experiment_id,variationId as variation_id,browser\nFROM ${getTableString(
+              engine
+            )}experiment_viewed`,
             dimensions: ["browser"],
           },
         ],
         identityJoins: [
           {
             ids: ["user_id", "anonymous_id"],
-            query: `SELECT DISTINCT\nuserId as user_id,anonymousId as anonymous_id\nFROM ${
-              engine === "bigquery" ? "sample." : ""
-            }orders`,
+            query: `SELECT DISTINCT\nuserId as user_id,anonymousId as anonymous_id\nFROM ${getTableString(
+              engine
+            )}orders`,
           },
         ],
       },
@@ -98,7 +113,7 @@ function buildDimension(
         // lazy way to build user table
         sql: `SELECT DISTINCT userId AS user_id, ${
           exp.dimensionMetric
-        } AS value FROM ${engine === "bigquery" ? "sample." : ""}orders`,
+        } AS value FROM ${getTableString(engine)}orders`,
         dateCreated: null,
         dateUpdated: null,
       },
@@ -126,9 +141,9 @@ function buildSegment(
       datasource: "",
       userIdType: USER_ID_TYPE,
       name: exp.segment,
-      sql: `SELECT DISTINCT\nuserId as user_id,CAST('2022-01-01' AS DATE) as date\nFROM ${
-        engine === "bigquery" ? "sample." : ""
-      }experiment_viewed\nWHERE browser = 'Chrome'`,
+      sql: `SELECT DISTINCT\nuserId as user_id,CAST('2022-01-01' AS DATE) as date\nFROM ${getTableString(
+        engine
+      )}experiment_viewed\nWHERE browser = 'Chrome'`,
       dateCreated: currentDate,
       dateUpdated: currentDate,
     };
@@ -137,9 +152,16 @@ function buildSegment(
   }
 }
 
-function addDatabaseToMetric(metric: MetricInterface): MetricInterface {
+function addDatabaseToMetric(
+  metric: MetricInterface,
+  engine: string
+): MetricInterface {
+  const tableString = getTableString(engine);
+  if (!tableString) {
+    return metric;
+  }
   const newMetric = { ...metric };
-  newMetric.sql = newMetric.sql?.replace("FROM ", "FROM sample.");
+  newMetric.sql = newMetric.sql?.replace("FROM ", `FROM ${tableString}`);
   return newMetric;
 }
 
@@ -151,6 +173,7 @@ type TestMetricConfig = {
   type: MetricType;
   ignoreNulls: boolean;
   sql: string;
+  cappingSettings?: MetricCappingSettings;
   denominator?: string;
 };
 import metricConfigData from "./json/metrics.json";
@@ -165,8 +188,22 @@ const baseMetric: Omit<
   owner: "",
   datasource: "",
   name: "",
-  conversionWindowHours: 72,
-  conversionDelayHours: 0,
+  windowSettings: {
+    type: "conversion",
+    delayHours: 0,
+    windowValue: 72,
+    windowUnit: "hours",
+  },
+  cappingSettings: {
+    type: "",
+    value: 0,
+  },
+  priorSettings: {
+    override: false,
+    proper: false,
+    mean: 0,
+    stddev: 0,
+  },
   description: "",
   inverse: false,
   dateCreated: null,
@@ -240,7 +277,7 @@ const filters: FactFilterInterface[] = (filterConfigData as FilterConfig[]).map(
 import factMetricConfigData from "./json/fact-metrics.json";
 type FactMetricConfig = Pick<
   FactMetricInterface,
-  "id" | "metricType" | "numerator"
+  "id" | "metricType" | "numerator" | "quantileSettings"
 >;
 const factMetricConfigs = factMetricConfigData as FactMetricConfig[];
 const baseFactMetric: Omit<
@@ -269,17 +306,30 @@ const baseFactMetric: Omit<
   // defaults that can be overriden in fact-metrics.json
   denominator: null,
 
-  conversionDelayHours: 0,
-  hasConversionWindow: true,
-  conversionWindowValue: 72,
-  conversionWindowUnit: "hours",
+  quantileSettings: null,
+
+  windowSettings: {
+    type: "conversion",
+    delayHours: 0,
+    windowValue: 72,
+    windowUnit: "hours",
+  },
+
+  cappingSettings: {
+    type: "",
+    value: 0,
+  },
+
+  priorSettings: {
+    override: false,
+    proper: false,
+    mean: 0,
+    stddev: 0,
+  },
 
   regressionAdjustmentDays: 14,
   regressionAdjustmentEnabled: false,
   regressionAdjustmentOverride: false,
-
-  capValue: 0,
-  capping: "",
 };
 
 const analysisFactMetrics: FactMetricInterface[] = factMetricConfigs.map(
@@ -349,6 +399,7 @@ type TestExperimentConfig = {
   queryFilter?: string;
   removeMultiplxposures?: boolean;
   metricOverrides?: MetricOverride[];
+  skippartialData?: boolean;
   guardrails?: string[];
 };
 const experimentConfigs = experimentConfigData as TestExperimentConfig[];
@@ -422,22 +473,35 @@ engines.forEach((engine) => {
     .supportsWritingTables;
 
   const factTablesCopy = cloneDeep<FactTableInterface[]>(factTables);
-  if (engine === "bigquery") {
-    factTablesCopy.forEach(
-      (ft) => (ft.sql = ft.sql?.replace("FROM ", "FROM sample."))
-    );
-  }
+  factTablesCopy.forEach(
+    (ft) =>
+      (ft.sql = ft.sql?.replace("FROM ", `FROM ${getTableString(engine)}`))
+  );
   const factTableMap = new Map(factTablesCopy.map((f) => [f.id, f]));
 
   experimentConfigs.forEach((experimentConfig) => {
-    const experiment: ExperimentInterface = {
-      ...baseExperiment,
-      ...experimentConfig,
-    };
     const jointMetrics: ExperimentMetricInterface[] = [
       ...analysisMetrics,
       ...analysisFactMetrics,
     ];
+
+    const metricOverrides: MetricOverride[] = [];
+    if (experimentConfig.metricOverrides) {
+      // apply override to all metrics
+      jointMetrics.forEach((metric) => {
+        metricOverrides.push({
+          ...(experimentConfig.metricOverrides?.[0] ?? {}),
+          id: metric.id,
+        });
+      });
+    }
+
+    const experiment: ExperimentInterface = {
+      ...baseExperiment,
+      ...experimentConfig,
+      metricOverrides: metricOverrides,
+      metrics: jointMetrics.map((m) => m.id),
+    };
 
     let activationMetric: MetricInterface | null = null;
     if (experiment.activationMetric) {
@@ -445,8 +509,8 @@ engines.forEach((engine) => {
         allActivationMetrics.find(
           (m) => m.id === experiment.activationMetric
         ) ?? null;
-      if (engine === "bigquery" && activationMetric) {
-        activationMetric = addDatabaseToMetric(activationMetric);
+      if (activationMetric) {
+        activationMetric = addDatabaseToMetric(activationMetric, engine);
       }
     }
 
@@ -482,7 +546,7 @@ engines.forEach((engine) => {
     analysisFactMetrics.forEach((m) => {
       // Skip grouping metrics with percentile caps if there's not an efficient implementation
       if (
-        m.capping === "percentile" &&
+        m.cappingSettings.type === "percentile" &&
         !integration.getSourceProperties().hasEfficientPercentiles
       ) {
         return;
@@ -518,13 +582,17 @@ engines.forEach((engine) => {
       dimensions: dimension ? [dimension] : [],
       segment: segment,
       unitsTableFullName: `${
-        engine === "bigquery" ? "sample." : ""
+        engine === "bigquery"
+          ? "sample."
+          : engine === "snowflake"
+          ? `"SAMPLE".GROWTHBOOK.`
+          : ""
       }growthbook_tmp_units_${experiment.id}`,
       includeIdJoins: true,
     };
 
     // RUN FACT METRICS GROUPED
-    Object.entries(groups).forEach(([groupName, group]) => {
+    Object.entries(groups).forEach(([groupName, group], i) => {
       const queryParams: ExperimentFactMetricsQueryParams = {
         activationMetric,
         dimensions: dimension ? [dimension] : [],
@@ -546,7 +614,7 @@ engines.forEach((engine) => {
         });
 
         if (pipelineEnabled) {
-          const unitsQueryFullName = `${unitsQueryParams.unitsTableFullName}_${groupName}`;
+          const unitsQueryFullName = `${unitsQueryParams.unitsTableFullName}_${i}`;
           const sql = integration.getExperimentFactMetricsQuery({
             ...queryParams,
             useUnitsTable: true,
@@ -568,13 +636,15 @@ engines.forEach((engine) => {
 
     // RUN FACT AND NON-FACT METRICS AS SINGLES
     jointMetrics.forEach((metric) => {
-      experiment.metrics = [metric.id];
+      if (
+        quantileMetricType(metric) &&
+        !integration.getSourceProperties().hasEfficientPercentiles
+      ) {
+        return;
+      }
       // if override in experiment config, have to set it to the right id
       let denominatorMetrics: MetricInterface[] = [];
 
-      if (experiment.metricOverrides) {
-        experiment.metricOverrides[0].id = metric.id;
-      }
       if (!isFactMetric(metric) && metric.denominator) {
         denominatorMetrics.push(
           ...expandDenominatorMetrics(metric.denominator, baseMetricMap)
@@ -583,9 +653,11 @@ engines.forEach((engine) => {
         );
       }
 
-      if (!isFactMetric(metric) && engine === "bigquery") {
-        metric = addDatabaseToMetric(metric);
-        denominatorMetrics = denominatorMetrics.map(addDatabaseToMetric);
+      if (!isFactMetric(metric)) {
+        metric = addDatabaseToMetric(metric, engine);
+        denominatorMetrics = denominatorMetrics.map((d) =>
+          addDatabaseToMetric(d, engine)
+        );
       }
 
       // non-pipeline version

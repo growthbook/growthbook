@@ -1,6 +1,30 @@
 {
   "versions": [
     {
+      "version": "1.1.0",
+      "capabilities": ["savedGroupReferences"]
+    },
+    {
+      "version": "1.0.1"
+    },
+    {
+      "version": "1.0.0"
+    },
+    {
+      "version": "0.26.0",
+      "capabilities": ["redirects"]
+    },
+    {
+      "version": "0.25.0"
+    },
+    {
+      "version": "0.24.0",
+      "capabilities": ["prerequisites"]
+    },
+    {
+      "version": "0.23.0"
+    },
+    {
       "version": "0.22.0",
       "capabilities": ["stickyBucketing"]
     },

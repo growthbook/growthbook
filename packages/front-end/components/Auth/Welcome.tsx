@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import track from "@/services/track";
 import { getApiHost } from "@/services/env";
-import Field from "../Forms/Field";
+import Field from "@/components/Forms/Field";
 import WelcomeFrame from "./WelcomeFrame";
 
 export default function Welcome({

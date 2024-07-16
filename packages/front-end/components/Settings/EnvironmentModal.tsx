@@ -1,11 +1,16 @@
 import { useForm } from "react-hook-form";
 import { Environment } from "back-end/types/organization";
+import React, { useMemo } from "react";
+import { FaExclamationTriangle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
-import Toggle from "../Forms/Toggle";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import Toggle from "@/components/Forms/Toggle";
 
 export default function EnvironmentModal({
   existing,
@@ -22,11 +27,40 @@ export default function EnvironmentModal({
       description: existing.description || "",
       toggleOnList: existing.toggleOnList || false,
       defaultState: existing.defaultState ?? true,
+      projects: existing.projects || [],
     },
   });
   const { apiCall } = useAuth();
   const environments = useEnvironments();
+
+  const { data: sdkConnectionData } = useSDKConnections();
+  const sdkConnections = useMemo(() => {
+    if (!existing.id) return [];
+    if (!sdkConnectionData?.connections) return [];
+    return sdkConnectionData?.connections?.filter((c) => {
+      return c.environment === existing.id;
+    });
+  }, [sdkConnectionData, existing.id]);
+
+  const selectedProjects = form.watch("projects") ?? [];
+  const removedProjects = (existing?.projects ?? []).filter(
+    (p) => !selectedProjects.includes(p)
+  );
+  const addedProjects = selectedProjects.filter(
+    (p) => !(existing?.projects ?? []).includes(p)
+  );
+  const hasMoreSpecificProjectFilter =
+    (removedProjects.length > 0 && selectedProjects.length > 0) ||
+    ((existing?.projects ?? []).length === 0 && addedProjects.length > 0);
+
   const { refreshOrganization } = useUser();
+
+  const { projects } = useDefinitions();
+
+  const projectsOptions = projects.map((p) => ({
+    label: p.name,
+    value: p.id,
+  }));
 
   return (
     <Modal
@@ -46,9 +80,15 @@ export default function EnvironmentModal({
           env.description = value.description;
           env.toggleOnList = value.toggleOnList;
           env.defaultState = value.defaultState;
+          env.projects = value.projects;
+          await apiCall(`/environment/${existing.id}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              environment: env,
+            }),
+          });
         } else {
-          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          if (!value.id.match(/^[A-Za-z][A-Za-z0-9_-]*$/)) {
+          if (!value.id?.match(/^[A-Za-z][A-Za-z0-9_-]*$/)) {
             throw new Error(
               "Environment id is invalid. Must start with a letter and can only contain letters, numbers, hyphens, and underscores."
             );
@@ -56,44 +96,29 @@ export default function EnvironmentModal({
           if (newEnvs.find((e) => e.id === value.id)) {
             throw new Error("Environment id is already in use");
           }
-          newEnvs.push({
-            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-            id: value.id.toLowerCase(),
+          const newEnv: Environment = {
+            id: value.id?.toLowerCase() || "",
             description: value.description,
             toggleOnList: value.toggleOnList,
             defaultState: value.defaultState,
+            projects: value.projects,
+          };
+          await apiCall(`/environment`, {
+            method: "POST",
+            body: JSON.stringify({
+              environment: newEnv,
+            }),
           });
         }
-
-        // Add/edit environment
-        await apiCall(`/organization`, {
-          method: "PUT",
-          body: JSON.stringify({
-            settings: {
-              environments: newEnvs,
-            },
-          }),
-        });
 
         // Update environments list in UI
         await refreshOrganization();
 
-        // Create API key for environment if it doesn't exist yet
-        await apiCall(`/keys?preferExisting=true`, {
-          method: "POST",
-          body: JSON.stringify({
-            description: `${value.id} SDK Key`,
-            environment: value.id,
-          }),
-        });
-
-        await onSuccess();
+        onSuccess();
       })}
     >
       {!existing.id && (
         <Field
-          // @ts-expect-error TS(2783) If you come across this, please fix it!: 'name' is specified more than once, so this usage ... Remove this comment to see the full error message
-          name="Environment"
           maxLength={30}
           required
           pattern="^[A-Za-z][A-Za-z0-9_-]*$"
@@ -102,9 +127,14 @@ export default function EnvironmentModal({
           label="Id"
           helpText={
             <>
-              Only letters, numbers, hyphens, and underscores allowed. No
-              spaces. Valid examples: <code>prod</code>, <code>qa-1</code>,{" "}
-              <code>john_dev</code>
+              <div>
+                Only letters, numbers, hyphens, and underscores allowed. No
+                spaces.
+              </div>
+              <div>
+                Valid examples: <code>prod</code>, <code>qa-1</code>,{" "}
+                <code>john_dev</code>
+              </div>
             </>
           }
         />
@@ -115,6 +145,25 @@ export default function EnvironmentModal({
         placeholder=""
         textarea
       />
+      <div className="mb-4">
+        <MultiSelectField
+          label="Projects"
+          placeholder="All Projects"
+          value={form.watch("projects") || []}
+          onChange={(projects) => form.setValue("projects", projects)}
+          options={projectsOptions}
+          sort={false}
+          closeMenuOnSelect={true}
+        />
+        {hasMoreSpecificProjectFilter && sdkConnections.length > 0 && (
+          <div className="alert alert-warning">
+            <FaExclamationTriangle /> You have made the projects filter more
+            restrictive than before. {sdkConnections.length} SDK Connection
+            {sdkConnections.length === 1 ? "" : "s"} using this environment may
+            be impacted.
+          </div>
+        )}
+      </div>
       <div className="mb-3">
         <Toggle
           id={"defaultToggle"}
@@ -135,14 +184,6 @@ export default function EnvironmentModal({
         }}
       />{" "}
       <label htmlFor="toggle">Show toggle on feature list </label>
-      {!existing.id && (
-        <div>
-          <small className="d-inline-block text-muted mt-3 mb-0">
-            Each new environment key will have an API key automatically
-            generated for it
-          </small>
-        </div>
-      )}
     </Modal>
   );
 }

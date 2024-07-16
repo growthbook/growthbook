@@ -4,13 +4,6 @@ import { ApiErrorResponse } from "../../../types/api";
 import { getContextFromReq } from "../../services/organizations";
 import { ProjectInterface, ProjectSettings } from "../../../types/project";
 import {
-  createProject,
-  deleteProjectById,
-  findProjectById,
-  updateProject,
-  updateProjectSettings,
-} from "../../models/ProjectModel";
-import {
   deleteAllDataSourcesForAProject,
   removeProjectFromDatasources,
 } from "../../models/DataSourceModel";
@@ -55,12 +48,14 @@ export const postProject = async (
     EventAuditUserForResponseLocals
   >
 ) => {
-  req.checkPermissions("manageProjects", "");
+  const context = getContextFromReq(req);
 
+  if (!context.permissions.canCreateProjects()) {
+    context.permissions.throwPermissionError();
+  }
   const { name, description } = req.body;
-  const { org } = getContextFromReq(req);
 
-  const doc = await createProject(org.id, {
+  const doc = await context.models.projects.create({
     name,
     description,
   });
@@ -99,11 +94,14 @@ export const putProject = async (
   >
 ) => {
   const { id } = req.params;
-  req.checkPermissions("manageProjects", id);
 
   const context = getContextFromReq(req);
 
-  const project = await findProjectById(context, id);
+  if (!context.permissions.canUpdateProject(id)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const project = await context.models.projects.getById(id);
 
   if (!project) {
     res.status(404).json({
@@ -114,10 +112,9 @@ export const putProject = async (
 
   const { name, description } = req.body;
 
-  await updateProject(id, project.organization, {
+  await context.models.projects.updateById(id, {
     name,
     description,
-    dateUpdated: new Date(),
   });
 
   res.status(200).json({
@@ -166,19 +163,22 @@ export const deleteProject = async (
     deleteSlackIntegrations = false,
     deleteDataSources = false,
   } = req.query;
-
-  req.checkPermissions("manageProjects", id);
-
   const context = getContextFromReq(req);
+
+  if (!context.permissions.canDeleteProject(id)) {
+    context.permissions.throwPermissionError();
+  }
   const { org } = context;
 
-  await deleteProjectById(id, org.id);
+  await context.models.projects.deleteById(id);
 
   // Cleanup functions from other models
   // Clean up data sources
   if (deleteDataSources) {
     try {
-      req.checkPermissions("createDatasources", id);
+      if (!context.permissions.canDeleteDataSource({ projects: [id] })) {
+        context.permissions.throwPermissionError();
+      }
 
       await deleteAllDataSourcesForAProject({
         projectId: id,
@@ -197,12 +197,12 @@ export const deleteProject = async (
   // Clean up metrics
   if (deleteMetrics) {
     try {
-      req.checkPermissions("createAnalyses", id);
-
+      if (!context.permissions.canDeleteMetric({ projects: [id] })) {
+        context.permissions.throwPermissionError();
+      }
       await deleteAllMetricsForAProject({
         projectId: id,
         context,
-        user: res.locals.eventAudit,
       });
     } catch (e) {
       return res.json({
@@ -217,12 +217,13 @@ export const deleteProject = async (
   // Clean up features
   if (deleteFeatures) {
     try {
-      req.checkPermissions("manageFeatures", id);
+      if (!context.permissions.canDeleteFeature({ project: id })) {
+        context.permissions.throwPermissionError();
+      }
 
       await deleteAllFeaturesForAProject({
         projectId: id,
         context,
-        user: res.locals.eventAudit,
       });
     } catch (e) {
       return res.json({
@@ -231,18 +232,18 @@ export const deleteProject = async (
       });
     }
   } else {
-    await removeProjectFromFeatures(id, context, res.locals.eventAudit);
+    await removeProjectFromFeatures(context, id);
   }
 
   // Clean up experiments
   if (deleteExperiments) {
     try {
-      req.checkPermissions("createAnalyses", id);
-
+      if (!context.permissions.canDeleteExperiment({ project: id })) {
+        context.permissions.throwPermissionError();
+      }
       await deleteAllExperimentsForAProject({
         projectId: id,
         context,
-        user: res.locals.eventAudit,
       });
     } catch (e) {
       return res.json({
@@ -251,13 +252,15 @@ export const deleteProject = async (
       });
     }
   } else {
-    await removeProjectFromExperiments(id, context, res.locals.eventAudit);
+    await removeProjectFromExperiments(context, id);
   }
 
   // Clean up Slack integrations
   if (deleteSlackIntegrations) {
     try {
-      req.checkPermissions("manageIntegrations");
+      if (!context.permissions.canManageIntegrations()) {
+        context.permissions.throwPermissionError();
+      }
 
       await deleteAllSlackIntegrationsForAProject({
         projectId: id,
@@ -303,11 +306,14 @@ export const putProjectSettings = async (
   res: Response<PutProjectSettingsResponse | ApiErrorResponse>
 ) => {
   const { id } = req.params;
-  req.checkPermissions("manageProjects", id);
 
   const context = getContextFromReq(req);
 
-  const project = await findProjectById(context, id);
+  if (!context.permissions.canUpdateProject(id)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const project = await context.models.projects.getById(id);
 
   if (!project) {
     res.status(404).json({
@@ -318,7 +324,7 @@ export const putProjectSettings = async (
 
   const { settings } = req.body;
 
-  await updateProjectSettings(id, project.organization, settings);
+  await context.models.projects.update(project, { settings });
 
   res.status(200).json({
     status: 200,

@@ -48,10 +48,12 @@ export default function LinkedChange({
                   {additionalBadge}
                 </div>
                 <div className="col-auto ml-auto">
-                  <Link href={`/features/${feature?.id}`} className="ml-4">
-                    <a onClick={(e) => e.stopPropagation()}>
-                      View Feature <FaExternalLinkAlt />
-                    </a>
+                  <Link
+                    href={`/features/${feature?.id}`}
+                    className="ml-4"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    View Feature <FaExternalLinkAlt />
                   </Link>
                 </div>
               </>

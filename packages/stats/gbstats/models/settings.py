@@ -1,12 +1,12 @@
-from typing import Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic.dataclasses import dataclass
 
 # Types
 DifferenceType = Literal["relative", "absolute", "scaled"]
 StatsEngine = Literal["bayesian", "frequentist"]
-StatisticType = Literal["ratio", "mean", "mean_ra"]
-MetricType = Literal["binomial", "count"]
+StatisticType = Literal["ratio", "mean", "mean_ra", "quantile_event", "quantile_unit"]
+MetricType = Literal["binomial", "count", "quantile"]
 
 
 @dataclass
@@ -43,8 +43,12 @@ class MetricSettingsForStatsEngine:
     statistic_type: StatisticType
     main_metric_type: MetricType
     inverse: bool = False
+    prior_proper: bool = False
+    prior_mean: float = 0
+    prior_stddev: float = 0.1
     denominator_metric_type: Optional[MetricType] = None
     covariate_metric_type: Optional[MetricType] = None
+    quantile_value: Optional[float] = None
 
 
 @dataclass
@@ -52,3 +56,9 @@ class DataForStatsEngine:
     metrics: Dict[str, MetricSettingsForStatsEngine]
     analyses: List[AnalysisSettingsForStatsEngine]
     query_results: List[QueryResultsForStatsEngine]
+
+
+@dataclass
+class ExperimentDataForStatsEngine:
+    id: str
+    data: Dict[str, Any]

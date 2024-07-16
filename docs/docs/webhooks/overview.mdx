@@ -1,0 +1,73 @@
+---
+title: Webhooks Overview
+description: An overview of the various webhooks that exist in GrowthBook
+sidebar_label: Overview
+slug: /app/webhooks
+---
+
+GrowthBook provides a variety of different outbound webhooks, all of which enable push communication from the GrowthBook server to applications. We will briefly discuss the different types of webhooks that GrowthBook supports and when you might want to use them.
+
+### Event Webhooks
+
+**See: [Event Webhooks](/app/webhooks/event-webhooks)**<br />
+Access via: **Settings → Webhooks**
+
+These trigger when GrowthBook's state changes. For example, sending a detailed message about how a feature was modified or a new experiment was created. Filterable by project, environment, and event type(s).
+
+##### Common Use Cases:
+
+- Pinging an internal monitoring service
+- Maintaining a custom audit log
+- Messaging on Slack or Discord
+
+Event webhooks can be formatted for Slack and Discord out of the box. For integration details, see:
+
+- [Slack Integration](/integrations/slack)
+- [Discord Integration](/integrations/discord)
+
+### SDK Webhooks
+
+**See: [SDK Webhooks](/app/webhooks/sdk-webhooks)**<br />
+Access via: **SDK Configuration → SDK Connections**, choose a connection, click **Add Webhook**
+
+These are tightly coupled with your SDK Connections. They trigger whenever the connection's SDK payload (feature and experiment definitions) changes. They can optionally send the new SDK payload.
+
+##### Common Use Cases:
+
+- Updating or flushing CDN cache
+- Updating a cache microservice
+- Pushing feature/experiment updates to your application
+
+### Global SDK Webhooks
+
+**See: [Global SDK Webhooks](/app/webhooks/global-sdk-webhooks)**
+
+Global SDK Webhooks are limited to self-hosted users only.
+
+These are similar to SDK webhooks, but are not limited to a single SDK Connection. Instead, GrowthBook will fire _all_ SDK Connection changes to one or more webhooks, which are defined via environment variables.
+
+##### Use Cases:
+
+- For larger organizations, this saves the trouble of needing to manually configure hundreds of individual SDK Webhooks for each connection.
+- This pattern is especially common for multi-org installations of GrowthBook.
+
+### GrowthBook Proxy Webhook
+
+**See: [GrowthBook Proxy documentation](/self-host/proxy)**
+
+Similar to SDK webhooks, this webhook is a special use webhook for communicating with the GrowthBook Proxy. Unlike SDK webhooks, proxy webhooks are not customizable.
+
+- Self-hosted users should configure a single global proxy webhook using environment variables.
+- Cloud users may optionally configure a GrowthBook Proxy webhook for each SDK Connection.
+
+## Notable Mentions
+
+Less common or soon-to-be-deprecated webhooks:
+
+### Legacy Webhooks
+
+These function similarly to SDK Webhooks. They should not be used going forward; existing legacy webhooks will likely be migrated to SDK Webhooks during a future GrowthBook version release.
+
+### Fastly CDN Purge Webhook
+
+If you are using Fastly as your CDN, and have defined surrogate keys for each SDK endpoint, you can pass `FASTLY_SERVICE_ID` and `FASTLY_API_TOKEN` into your environment variables to enable automatic cache purging. However, we recommend using SDK Webhooks for more control and flexibility.

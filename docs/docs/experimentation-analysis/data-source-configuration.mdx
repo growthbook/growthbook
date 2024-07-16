@@ -5,6 +5,8 @@ sidebar_label: Data Source Configuration
 slug: /app/datasources
 ---
 
+import Anchor from '@site/src/components/Anchor'
+
 # Data Source Configuration
 
 ## Overview
@@ -49,7 +51,7 @@ An experiment assignment query returns which users were part of which experiment
 
 :::tip
 
-Assignment queries are one-half of the queries that are used to generate experiment results, the other being metric queries. Assignment queries can be edited from the `Metrics and Data` -> `Data Sources` page.
+Assignment queries are one-half of the queries that are used to generate experiment results, the other being metric queries. Assignment queries can be edited from the `Metrics and Data` → `Data Sources` page.
 
 :::
 
@@ -100,7 +102,7 @@ SELECT user_id, device_id FROM logins
 
 #### SQL Templates
 
-We use {{[Handlebars](https://handlebarsjs.com/guide/#language-features)}} to compile the assignment sql, identity queries, etc. into what is actually called to your database.
+We use \{\{[Handlebars](https://handlebarsjs.com/guide/#language-features)\}\} to compile the assignment sql, identity queries, etc. into what is actually called to your database.
 
 You can use any of the in-built variables that Growthbook automatically sets:
 
@@ -120,7 +122,7 @@ You can also use any of the in-built helper functions:
 - **replace [str]&nbsp;[pattern]&nbsp;[replacement]** - Replace all occurences of a regular expression with something else. ex. `{{replace "My%%%Database!" "\[^a-zA-Z\]" ""}}` compiles to `MyDatabase`
 - **snakecase [str]** - ex. `{{pascalcase "My database"}}` compiles to `my_database`.
 - **uppercase [str]** - ex. `{{uppercase "My database"}}` compiles to `MY DATABASE`.
-  <a id="dateformat"/>
+  <Anchor id="dateformat"/>
 - **date [date]&nbsp;[format]** - Format an ISO date according to this [format](https://date-fns.org/v2.29.3/docs/format), being careful not to mix up months (MM) and minutes (mm). ex. `{{date startDateISO "yyyyMMdd"}}` might compile to `20230130`. The most common codes are:
 
 <ul>
@@ -156,7 +158,7 @@ WHERE
 
 :::note
 
-The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use <code>'{{&nbsp;startDate&nbsp;}}'</code> instead of just <code>{{&nbsp;startDate&nbsp;}}</code>)
+The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use `'{{&nbsp;startDate&nbsp;}}'` instead of just `{{&nbsp;startDate&nbsp;}}`)
 
 :::
 

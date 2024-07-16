@@ -9,6 +9,7 @@ import {
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import Link from "next/link";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
@@ -18,9 +19,7 @@ import { DataSourceInlineEditIdentityJoins } from "@/components/Settings/EditDat
 import { ExperimentAssignmentQueries } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries";
 import { DataSourceViewEditExperimentProperties } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
 import { DataSourceJupyterNotebookQuery } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
-import { checkDatasourceProjectPermissions } from "@/services/datasources";
 import ProjectBadges from "@/components/ProjectBadges";
-import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import DataSourceForm from "@/components/Settings/DataSourceForm";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -32,6 +31,7 @@ import DataSourcePipeline from "@/components/Settings/EditDataSource/DataSourceP
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -41,7 +41,7 @@ function quotePropertyName(name: string) {
 }
 
 const DataSourcePage: FC = () => {
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
   const [editConn, setEditConn] = useState(false);
   const [viewSchema, setViewSchema] = useState(false);
   const router = useRouter();
@@ -57,10 +57,15 @@ const DataSourcePage: FC = () => {
   const { apiCall } = useAuth();
   const { organization, hasCommercialFeature } = useUser();
 
-  const canEdit =
-    (d &&
-      checkDatasourceProjectPermissions(d, permissions, "createDatasources") &&
-      !hasFileConfig()) ||
+  const canDelete =
+    (d && permissionsUtil.canDeleteDataSource(d) && !hasFileConfig()) || false;
+
+  const canUpdateConnectionParams =
+    (d && permissionsUtil.canUpdateDataSourceParams(d) && !hasFileConfig()) ||
+    false;
+
+  const canUpdateDataSourceSettings =
+    (d && permissionsUtil.canUpdateDataSourceSettings(d) && !hasFileConfig()) ||
     false;
 
   const pipelineEnabled =
@@ -174,11 +179,15 @@ const DataSourcePage: FC = () => {
           Projects:{" "}
           {d?.projects?.length || 0 > 0 ? (
             <ProjectBadges
+              resourceType="data source"
               projectIds={d.projects}
               className="badge-ellipsis align-middle"
             />
           ) : (
-            <ProjectBadges className="badge-ellipsis align-middle" />
+            <ProjectBadges
+              resourceType="data source"
+              className="badge-ellipsis align-middle"
+            />
           )}
         </div>
       </div>
@@ -186,19 +195,22 @@ const DataSourcePage: FC = () => {
       <div className="row">
         <div className="col-md-12">
           <div className="mb-3">
-            {canEdit && (
+            {(canUpdateConnectionParams ||
+              canUpdateDataSourceSettings ||
+              canDelete) && (
               <div className="d-md-flex w-100 justify-content-between">
                 <div>
-                  <button
-                    className="btn btn-outline-primary mr-2 mt-1 font-weight-bold"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setEditConn(true);
-                    }}
-                  >
-                    <FaKey /> Edit Connection Info
-                  </button>
-
+                  {canUpdateConnectionParams ? (
+                    <button
+                      className="btn btn-outline-primary mr-2 mt-1 font-weight-bold"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setEditConn(true);
+                      }}
+                    >
+                      <FaKey /> Edit Connection Info
+                    </button>
+                  ) : null}
                   <DocLink
                     className="btn btn-outline-secondary mr-2 mt-1 font-weight-bold"
                     docSection={d.type as DocSection}
@@ -217,10 +229,16 @@ const DataSourcePage: FC = () => {
                       <FaDatabase /> View Schema Browser
                     </button>
                   )}
+                  <Link
+                    className="btn btn-outline-info mr-2 mt-1 font-weight-bold"
+                    href={`/datasources/queries/${did}`}
+                  >
+                    <FaDatabase /> View Queries
+                  </Link>
                 </div>
 
                 <div>
-                  {canEdit && (
+                  {canDelete && (
                     <DeleteButton
                       displayName={d.name}
                       className="font-weight-bold mt-1"
@@ -250,7 +268,7 @@ const DataSourcePage: FC = () => {
                   dataSource={d}
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
-                  canEdit={canEdit}
+                  canEdit={canUpdateDataSourceSettings}
                 />
               </div>
 
@@ -313,7 +331,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
                   dataSource={d}
-                  canEdit={canEdit}
+                  canEdit={canUpdateDataSourceSettings}
                 />
               </div>
 
@@ -323,7 +341,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     dataSource={d}
                     onSave={updateDataSourceSettings}
                     onCancel={() => undefined}
-                    canEdit={canEdit}
+                    canEdit={canUpdateDataSourceSettings}
                   />
                 </div>
               ) : null}
@@ -333,11 +351,14 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   dataSource={d}
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
-                  canEdit={canEdit}
+                  canEdit={canUpdateDataSourceSettings}
                 />
               </div>
               <div className="my-3 p-3 rounded border bg-white">
-                <DataSourceMetrics dataSource={d} canEdit={canEdit} />
+                <DataSourceMetrics
+                  dataSource={d}
+                  canEdit={canUpdateDataSourceSettings}
+                />
               </div>
 
               <div className="my-3 p-3 rounded border bg-white">
@@ -345,7 +366,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   dataSource={d}
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
-                  canEdit={canEdit}
+                  canEdit={canUpdateDataSourceSettings}
                 />
               </div>
 
@@ -355,7 +376,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     dataSource={d}
                     onSave={updateDataSourceSettings}
                     onCancel={() => undefined}
-                    canEdit={canEdit}
+                    canEdit={canUpdateDataSourceSettings}
                   />
                 </div>
               ) : null}

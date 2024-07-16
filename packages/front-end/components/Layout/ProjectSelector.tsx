@@ -1,14 +1,14 @@
 import clsx from "clsx";
 import { FaCaretDown } from "react-icons/fa";
-import { FC } from "react";
+import { FC, useEffect } from "react";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import { useSearch } from "@/services/search";
 import usePermissions from "@/hooks/usePermissions";
-import Dropdown from "../Dropdown/Dropdown";
-import DropdownLink from "../Dropdown/DropdownLink";
+import Dropdown from "@/components/Dropdown/Dropdown";
+import DropdownLink from "@/components/Dropdown/DropdownLink";
 import LetterAvatar from "./LetterAvatar";
 
 const demoBadge = {
@@ -101,11 +101,16 @@ export default function ProjectSelector() {
     searchFields: ["name^3", "description"],
   });
 
+  useEffect(() => {
+    if (projects?.length === 1 && !permissions.check("readData", "")) {
+      setProject(projects[0].id);
+    }
+  }, [projects, permissions, setProject]);
+
   if (!projects.length) return null;
 
   // If globalRole doesn't give readAccess & user can only access 1 project, don't show dropdown
-  if (projects.length === 1 && !permissions.check("readData")) {
-    setProject(projects[0].id);
+  if (projects.length === 1 && !permissions.check("readData", "")) {
     return (
       <li
         style={{

@@ -1,33 +1,26 @@
 import { Request, Response, NextFunction } from "express";
-import {
-  getApiKeyReadAccessFilter,
-  getReadAccessFilter,
-  hasPermission,
-} from "shared/permissions";
+import { hasPermission } from "shared/permissions";
+import { licenseInit } from "enterprise";
 import { ApiRequestLocals } from "../../types/api";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
-import {
-  getEnvironmentIdsFromOrg,
-  getOrganizationById,
-} from "../services/organizations";
+import { getOrganizationById } from "../services/organizations";
 import { getCustomLogProps } from "../util/logger";
 import { EventAuditUserApiKey } from "../events/event-types";
 import { isApiKeyForUserInOrganization } from "../util/api-key.util";
-import {
-  MemberRole,
-  OrganizationInterface,
-  Permission,
-} from "../../types/organization";
+import { OrganizationInterface, Permission } from "../../types/organization";
 import {
   getUserPermissions,
   roleToPermissionMap,
 } from "../util/organization.util";
 import { ApiKeyInterface } from "../../types/apikey";
-import { insertAudit } from "../models/AuditModel";
 import { getTeamsForOrganization } from "../models/TeamModel";
 import { TeamInterface } from "../../types/team";
-import { getUserById } from "../services/users";
-import { initializeLicense } from "../services/licenseData";
+import { getUserById } from "../models/UserModel";
+import {
+  getLicenseMetaData,
+  getUserCodesForOrg,
+} from "../services/licenseData";
+import { ReqContextClass } from "../services/context";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
@@ -123,18 +116,20 @@ export default function authenticateApiRequestMiddleware(
 
       const teams = await getTeamsForOrganization(org.id);
 
-      req.context = {
-        org,
-        userId: req.user?.id,
-        email: req.user?.email,
-        environments: getEnvironmentIdsFromOrg(org),
-        userName: req.user?.name,
-        readAccessFilter: userId
-          ? getReadAccessFilter(
-              getUserPermissions(userId, req.organization, teams)
-            )
-          : getApiKeyReadAccessFilter(role),
+      const eventAudit: EventAuditUserApiKey = {
+        type: "api_key",
+        apiKey: id || "unknown",
       };
+
+      req.context = new ReqContextClass({
+        org,
+        auditUser: eventAudit,
+        teams,
+        user: req.user,
+        role: role,
+        apiKey: id,
+        req,
+      });
 
       // Check permissions for user API keys
       req.checkPermissions = (
@@ -168,26 +163,15 @@ export default function authenticateApiRequestMiddleware(
       // Add user info to logger
       res.log = req.log = req.log.child(getCustomLogProps(req as Request));
 
-      const eventAudit: EventAuditUserApiKey = {
-        type: "api_key",
-        apiKey: id || "unknown",
-      };
       req.eventAudit = eventAudit;
 
       // Add audit method to req
       req.audit = async (data) => {
-        await insertAudit({
-          ...data,
-          user: {
-            apiKey: req.apiKey,
-          },
-          organization: org.id,
-          dateCreated: new Date(),
-        });
+        await req.context.auditLog(data);
       };
 
       // init license for org if it exists
-      await initializeLicense(req.organization.licenseKey);
+      await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
 
       // Continue to the actual request handler
       next();
@@ -268,7 +252,7 @@ export function verifyApiKeyPermission({
     // Because of the JIT migration, `role` will always be set here, even for old secret keys
     // This will check a valid role is provided.
     const rolePermissions = roleToPermissionMap(
-      apiKey.role as MemberRole,
+      apiKey.role as string,
       organization
     );
 

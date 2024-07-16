@@ -6,7 +6,7 @@ import { createApiRequestHandler } from "../../util/handler";
 import { postFeatureValidator } from "../../validators/openapi";
 import { createFeature, getFeature } from "../../models/FeatureModel";
 import { getExperimentMapForFeature } from "../../models/ExperimentModel";
-import { FeatureInterface } from "../../../types/feature";
+import { FeatureInterface, JSONSchemaDef } from "../../../types/feature";
 import { getEnabledEnvironments } from "../../util/features";
 import {
   addIdsToRules,
@@ -17,6 +17,7 @@ import {
 import { auditDetailsCreate } from "../../services/audit";
 import { OrganizationInterface } from "../../../types/organization";
 import { getEnvironments } from "../../services/organizations";
+import { addTags } from "../../models/TagModel";
 
 export type ApiFeatureEnvSettings = NonNullable<
   z.infer<typeof postFeatureValidator.bodySchema>["environments"]
@@ -43,8 +44,10 @@ export const parseJsonSchemaForEnterprise = (
   org: OrganizationInterface,
   jsonSchema: string | undefined
 ) => {
-  const jsonSchemaWrapper = {
+  const jsonSchemaWrapper: JSONSchemaDef = {
+    schemaType: "schema",
     schema: "",
+    simple: { type: "object", fields: [] },
     date: new Date(),
     enabled: false,
   };
@@ -64,20 +67,28 @@ export const parseJsonSchemaForEnterprise = (
 
 export const postFeature = createApiRequestHandler(postFeatureValidator)(
   async (req): Promise<PostFeatureResponse> => {
-    req.checkPermissions("manageFeatures", req.body.project);
+    if (!req.context.permissions.canCreateFeature(req.body)) {
+      req.context.permissions.throwPermissionError();
+    }
 
     const existing = await getFeature(req.context, req.body.id);
     if (existing) {
       throw new Error(`Feature id '${req.body.id}' already exists.`);
     }
 
-    const orgEnvs = getEnvironments(req.organization);
+    const orgEnvs = getEnvironments(req.context.org);
 
     // ensure environment keys are valid
     validateEnvKeys(
       orgEnvs.map((e) => e.id),
       Object.keys(req.body.environments ?? {})
     );
+
+    const tags = req.body.tags || [];
+
+    if (tags.length > 0) {
+      await addTags(req.context.org.id, tags);
+    }
 
     const feature: FeatureInterface = {
       defaultValue: req.body.defaultValue ?? "",
@@ -87,11 +98,12 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       project: req.body.project || "",
       dateCreated: new Date(),
       dateUpdated: new Date(),
-      organization: req.organization.id,
-      id: req.body.id.toLowerCase(),
+      organization: req.context.org.id,
+      id: req.body.id,
       archived: !!req.body.archived,
       version: 1,
       environmentSettings: {},
+      tags,
     };
 
     const environmentSettings = createInterfaceEnvSettingsFromApiEnvSettings(
@@ -103,7 +115,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
     feature.environmentSettings = environmentSettings;
 
     const jsonSchema = parseJsonSchemaForEnterprise(
-      req.organization,
+      req.context.org,
       req.body.jsonSchema
     );
 
@@ -112,18 +124,23 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
     // ensure default value matches value type
     feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
 
-    req.checkPermissions(
-      "publishFeatures",
-      feature.project,
-      getEnabledEnvironments(
+    if (
+      !req.context.permissions.canPublishFeature(
         feature,
-        orgEnvs.map((e) => e.id)
+        Array.from(
+          getEnabledEnvironments(
+            feature,
+            orgEnvs.map((e) => e.id)
+          )
+        )
       )
-    );
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
 
     addIdsToRules(feature.environmentSettings, feature.id);
 
-    await createFeature(req.context, req.eventAudit, feature);
+    await createFeature(req.context, feature);
 
     await req.audit({
       event: "feature.create",
