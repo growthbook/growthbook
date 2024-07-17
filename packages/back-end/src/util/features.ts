@@ -24,11 +24,9 @@ function getSavedGroupCondition(
 ): null | ConditionInterface {
   const group = groupMap.get(groupId);
   if (!group) return null;
-  if (group.type === "condition") {
+  if (group.type === "condition" && group.condition) {
     try {
-      const cond = JSON.parse(
-        replaceSavedGroupsInCondition(group.condition || "{}", groupMap)
-      );
+      const cond = JSON.parse(group.condition);
       return include ? cond : { $not: cond };
     } catch (e) {
       return null;
