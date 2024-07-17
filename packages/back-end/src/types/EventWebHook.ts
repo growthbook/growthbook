@@ -2,7 +2,6 @@ export const eventWebHookPayloadTypes = [
   "raw",
   "slack",
   "discord",
-  "ms-teams",
 ] as const;
 
 export type EventWebHookPayloadType = typeof eventWebHookPayloadTypes[number];

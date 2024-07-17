@@ -19,7 +19,6 @@ export const eventWebHookPayloadTypes = [
   "raw",
   "slack",
   "discord",
-  "ms-teams",
 ] as const;
 
 export const eventWebHookMethods = ["POST", "PUT", "PATCH"] as const;
