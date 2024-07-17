@@ -5,6 +5,8 @@ import {
   scrubFeatures,
   scrubSavedGroups,
 } from "../src/sdk-versioning";
+import { getSavedGroupsValuesFromInterfaces } from "../util";
+import { SavedGroupInterface } from "../src/types";
 
 const baseConnection: SDKConnectionInterface = {
   id: "sdk-123",
@@ -69,6 +71,30 @@ describe("getConnectionSDKCapabilities", () => {
 });
 
 describe("payload scrubbing", () => {
+  const savedGroups: SavedGroupInterface[] = [
+    {
+      id: "legacy_group_id",
+      organization: baseConnection.organization,
+      groupName: "legacy group name",
+      owner: "test user",
+      dateCreated: new Date(2020, 1, 5, 10, 0, 0),
+      dateUpdated: new Date(2020, 1, 5, 10, 0, 0),
+      type: "list",
+      values: ["1", "2", "3"],
+      passByReferenceOnly: false,
+    },
+    {
+      id: "large_group_id",
+      organization: baseConnection.organization,
+      groupName: "large group name",
+      owner: "test user",
+      dateCreated: new Date(2020, 1, 5, 10, 0, 0),
+      dateUpdated: new Date(2020, 1, 5, 10, 0, 0),
+      type: "list",
+      values: ["4", "5", "6"],
+      passByReferenceOnly: true,
+    },
+  ];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sdkPayload: any = {
     features: {
@@ -96,7 +122,15 @@ describe("payload scrubbing", () => {
           {
             condition: {
               id: {
-                $inGroup: "group_id",
+                $inGroup: "legacy_group_id",
+              },
+            },
+            force: "variant",
+          },
+          {
+            condition: {
+              id: {
+                $inGroup: "large_group_id",
               },
             },
             force: "variant",
@@ -141,9 +175,7 @@ describe("payload scrubbing", () => {
         coverage: 1,
       },
     ],
-    savedGroups: {
-      group_id: ["1", "2", "3"],
-    },
+    savedGroups: getSavedGroupsValuesFromInterfaces(savedGroups),
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -174,6 +206,14 @@ describe("payload scrubbing", () => {
             condition: {
               id: {
                 $in: ["1", "2", "3"],
+              },
+            },
+            force: "variant",
+          },
+          {
+            condition: {
+              id: {
+                $in: [],
               },
             },
             force: "variant",
@@ -253,6 +293,14 @@ describe("payload scrubbing", () => {
             },
             force: "variant",
           },
+          {
+            condition: {
+              id: {
+                $in: [],
+              },
+            },
+            force: "variant",
+          },
         ],
       },
     },
@@ -306,7 +354,7 @@ describe("payload scrubbing", () => {
     const scrubbedFeatures = scrubFeatures(
       scrubbed.features,
       capabilities,
-      sdkPayload.savedGroups
+      savedGroups
     );
     scrubbed.features = scrubbedFeatures;
 
@@ -327,7 +375,7 @@ describe("payload scrubbing", () => {
     const scrubbedFeatures = scrubFeatures(
       scrubbed.features,
       capabilities,
-      sdkPayload.savedGroups
+      savedGroups
     );
     scrubbed.features = scrubbedFeatures;
     scrubbed.savedGroups = scrubSavedGroups(scrubbed.savedGroups, capabilities);
@@ -349,7 +397,7 @@ describe("payload scrubbing", () => {
     const scrubbedFeatures = scrubFeatures(
       scrubbed.features,
       capabilities,
-      sdkPayload.savedGroups
+      savedGroups
     );
     scrubbed.savedGroups = scrubSavedGroups(scrubbed.savedGroups, capabilities);
     scrubbed.features = scrubbedFeatures;
@@ -372,7 +420,7 @@ describe("payload scrubbing", () => {
     const scrubbedFeatures = scrubFeatures(
       scrubbed.features,
       capabilities,
-      sdkPayload.savedGroups
+      savedGroups
     );
     scrubbed.savedGroups = scrubSavedGroups(scrubbed.savedGroups, capabilities);
     scrubbed.features = scrubbedFeatures;
