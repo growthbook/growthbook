@@ -140,7 +140,6 @@ export function getColumnRefFormatter(
   columnRef: ColumnRef,
   getFactTableById: (id: string) => FactTableInterface | null
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
-  console.log(columnRef);
   if (
     columnRef.column === "$$count" ||
     columnRef.column === "$$distinctUsers"
