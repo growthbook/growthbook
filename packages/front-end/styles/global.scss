@@ -3121,6 +3121,11 @@ td.disabled {
 .gb-select-wrapper.disabled {
   cursor: not-allowed;
 }
+.gb-select-wrapper.error .gb-select__control,
+.form-group.error .gb-multi-select__control {
+  border-color: colors.$danger !important;
+}
+
 .gb-select--is-disabled {
   .gb-select__control {
     background-color: var(--disabled-background) !important;
