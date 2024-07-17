@@ -12,10 +12,13 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import track from "@/services/track";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Modal from "../Modal";
-import Field from "../Forms/Field";
-import Toggle from "../Forms/Toggle";
-import SelectField, { GroupedValue, SingleValue } from "../Forms/SelectField";
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import Toggle from "@/components/Forms/Toggle";
+import SelectField, {
+  GroupedValue,
+  SingleValue,
+} from "@/components/Forms/SelectField";
 
 export default function CustomFieldModal({
   existing,

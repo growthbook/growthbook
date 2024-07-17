@@ -2,10 +2,10 @@ import { FC, useEffect, useMemo, useState } from "react";
 import { CustomField, CustomFieldSection } from "back-end/types/custom-fields";
 import { UseFormReturn } from "react-hook-form";
 import { filterCustomFieldsForSectionAndProject } from "@/hooks/useCustomFields";
-import Field from "../Forms/Field";
-import SelectField from "../Forms/SelectField";
-import MultiSelectField from "../Forms/MultiSelectField";
-import Toggle from "../Forms/Toggle";
+import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import Toggle from "@/components/Forms/Toggle";
 
 const CustomFieldInput: FC<{
   customFields: CustomField[];

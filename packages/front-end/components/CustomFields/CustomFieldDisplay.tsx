@@ -11,8 +11,8 @@ import {
   filterCustomFieldsForSectionAndProject,
 } from "@/hooks/useCustomFields";
 import Markdown from "@/components/Markdown/Markdown";
-import HeaderWithEdit from "../Layout/HeaderWithEdit";
-import Modal from "../Modal";
+import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
+import Modal from "@/components/Modal";
 import CustomFieldInput from "./CustomFieldInput";
 
 const CustomFieldDisplay: FC<{

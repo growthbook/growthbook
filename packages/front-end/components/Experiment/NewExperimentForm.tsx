@@ -45,7 +45,10 @@ import TagsInput from "@/components/Tags/TagsInput";
 import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
 import Field from "@/components/Forms/Field";
-import SelectField, { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
+import SelectField, {
+  GroupedValue,
+  SingleValue,
+} from "@/components/Forms/SelectField";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import ConditionInput from "@/components/Features/ConditionInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";

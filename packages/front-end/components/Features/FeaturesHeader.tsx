@@ -102,20 +102,20 @@ export default function FeaturesHeader({
           <div className="pagecontents mx-auto px-3">
             {projectId ===
               getDemoDatasourceProjectIdForOrganization(organization.id) && (
-                <div className="alert alert-info mb-3 d-flex align-items-center">
-                  <div className="flex-1">
-                    This feature is part of our sample dataset and shows how
-                    Feature Flags and Experiments can be linked together. You can
-                    delete this once you are done exploring.
-                  </div>
-                  <div style={{ width: 180 }} className="ml-2">
-                    <DeleteDemoDatasourceButton
-                      onDelete={() => router.push("/features")}
-                      source="feature"
-                    />
-                  </div>
+              <div className="alert alert-info mb-3 d-flex align-items-center">
+                <div className="flex-1">
+                  This feature is part of our sample dataset and shows how
+                  Feature Flags and Experiments can be linked together. You can
+                  delete this once you are done exploring.
                 </div>
-              )}
+                <div style={{ width: 180 }} className="ml-2">
+                  <DeleteDemoDatasourceButton
+                    onDelete={() => router.push("/features")}
+                    source="feature"
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="row align-items-center mb-2">
               <div className="col-auto d-flex align-items-center">
@@ -187,7 +187,7 @@ export default function FeaturesHeader({
                       <ConfirmButton
                         onClick={async () => {
                           await apiCall(`/feature/${feature.id}/archive`, {
-                            method: "POST"
+                            method: "POST",
                           });
                           mutate();
                         }}
@@ -244,9 +244,9 @@ export default function FeaturesHeader({
                         displayName="Feature"
                         onClick={async () => {
                           await apiCall(`/feature/${feature.id}`, {
-                            method: "DELETE"
+                            method: "DELETE",
                           });
-                          router.push("/features");
+                          await router.push("/features");
                         }}
                         className="dropdown-item text-danger"
                         text="Delete"
@@ -379,8 +379,8 @@ export default function FeaturesHeader({
                     await apiCall(`/feature/${feature.id}`, {
                       method: "PUT",
                       body: JSON.stringify({
-                        description
-                      })
+                        description,
+                      }),
                     });
                     track("Update Feature Description");
                     mutate();
@@ -443,7 +443,7 @@ export default function FeaturesHeader({
             close={() => setDuplicateModal(false)}
             onSuccess={async (feature) => {
               const url = `/features/${feature.id}`;
-              router.push(url);
+              await router.push(url);
             }}
             featureToDuplicate={feature}
           />
