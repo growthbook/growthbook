@@ -139,7 +139,7 @@ export const postCustomField = async (
   }
 
   await req.audit({
-    event: "customField.created",
+    event: "customField.create",
     entity: {
       object: "customField",
       id: customField.id,
@@ -214,7 +214,7 @@ export const postReorderCustomFields = async (
   }
 
   await req.audit({
-    event: "customField.updated",
+    event: "customField.update",
     entity: {
       object: "customField",
       id: newCustomField.id,
@@ -305,7 +305,7 @@ export const putCustomField = async (
   const updatedCustomField = { ...customField, ...changes };
 
   await req.audit({
-    event: "customField.updated",
+    event: "customField.update",
     entity: {
       object: "customField",
       id: updatedCustomField.id,
@@ -365,7 +365,7 @@ export const deleteCustomField = async (
   await deleteCustomFieldById(id, org.id);
 
   await req.audit({
-    event: "customField.deleted",
+    event: "customField.delete",
     entity: {
       object: "customField",
       id: id,
