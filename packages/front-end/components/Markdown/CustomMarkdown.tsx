@@ -25,12 +25,12 @@ interface Props {
 }
 
 const CustomMarkdown: React.FC<Props> = ({ page, variables }) => {
-  const { name, organization } = useUser();
+  const { name, organization, hasCommercialFeature } = useUser();
   const settings = useOrgSettings();
   const settingName = PAGE_TO_SETTING_NAME[page];
   const markdown = settings[settingName];
 
-  if (!markdown) return null;
+  if (!markdown || !hasCommercialFeature("custom-markdown")) return null;
 
   const baseVariables = {
     user: name,

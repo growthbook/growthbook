@@ -60,7 +60,8 @@ export type CommercialFeature =
   | "redirects"
   | "multiple-sdk-webhooks"
   | "custom-roles"
-  | "quantile-metrics";
+  | "quantile-metrics"
+  | "custom-markdown";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface LicenseInterface {
@@ -216,6 +217,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "multiple-sdk-webhooks",
     "quantile-metrics",
     "custom-roles",
+    "custom-markdown",
   ]),
 };
 

@@ -8,6 +8,7 @@ import { useUser } from "@/services/UserContext";
 import TempMessage from "@/components/TempMessage";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const SaveMessage = ({ showMessage, close }) => {
   return (
@@ -29,6 +30,7 @@ const SaveMessage = ({ showMessage, close }) => {
 const CustomMarkdown: React.FC = () => {
   const { refreshOrganization, settings } = useUser();
   const { apiCall } = useAuth();
+  const permissionsUtil = usePermissionsUtil();
   const [saveMsg, setSaveMsg] = useState(false);
 
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
@@ -69,6 +71,16 @@ const CustomMarkdown: React.FC = () => {
     setSaveMsg(true);
   });
 
+  if (!permissionsUtil.canManageOrgSettings()) {
+    return (
+      <div className="container-fluid pagecontents">
+        <div className="alert alert-danger">
+          You do not have access to view this page.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container-fluid pagecontents">
       <div className="mb-4">
@@ -88,7 +100,6 @@ const CustomMarkdown: React.FC = () => {
         open
         inline
         submit={async () => await saveSettings()}
-        autoCloseOnSubmit={false}
         secondaryCTA={
           <SaveMessage showMessage={saveMsg} close={() => setSaveMsg(false)} />
         }

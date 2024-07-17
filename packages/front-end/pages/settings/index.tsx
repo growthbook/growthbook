@@ -29,6 +29,7 @@ import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetri
 import ExperimentSettings from "@/components/GeneralSettings/ExperimentSettings";
 import MetricsSettings from "@/components/GeneralSettings/MetricsSettings";
 import FeaturesSettings from "@/components/GeneralSettings/FeaturesSettings";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 
@@ -343,7 +344,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <ExperimentSettings
               cronString={cronString}
               updateCronString={updateCronString}
-              hasCommercialFeature={hasCommercialFeature}
             />
 
             <div className="divider border-bottom mb-3 mt-3" />
@@ -383,12 +383,20 @@ const GeneralSettingsPage = (): React.ReactElement => {
           <div className="my-3 bg-white p-3 border">
             <div className="row">
               <div className="col-sm-3">
-                <h4>Custom Markdown</h4>
+                <PremiumTooltip commercialFeature="custom-markdown">
+                  <h4>Custom Markdown</h4>
+                </PremiumTooltip>
               </div>
               <div className="col-sm-9">
-                <Link href="/settings/custom-markdown">
-                  View Custom Markdown Settings
-                </Link>
+                {hasCommercialFeature("custom-markdown") ? (
+                  <Link href="/settings/custom-markdown">
+                    View Custom Markdown Settings
+                  </Link>
+                ) : (
+                  <span className="text-muted">
+                    View Custom Markdown Settings
+                  </span>
+                )}
               </div>
             </div>
           </div>
