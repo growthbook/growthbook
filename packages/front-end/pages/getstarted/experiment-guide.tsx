@@ -297,7 +297,7 @@ const ExperimentGuide = (): React.ReactElement => {
             {generatedHypothesis && generatedHypothesis.experiment ? (
               <div className="row">
                 <div className="col-sm-auto">
-                  {hasExperiments ? (
+                  {hasStartedExperiment ? (
                     <PiCheckCircleFill
                       className="mt-1"
                       style={{
@@ -326,7 +326,9 @@ const ExperimentGuide = (): React.ReactElement => {
                     style={{
                       fontSize: "17px",
                       fontWeight: 600,
-                      textDecoration: hasExperiments ? "line-through" : "none",
+                      textDecoration: hasStartedExperiment
+                        ? "line-through"
+                        : "none",
                     }}
                     onClick={() =>
                       setStep({
