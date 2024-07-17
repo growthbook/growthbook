@@ -2,6 +2,7 @@ import React, { FC, useCallback, useState } from "react";
 import z from "zod";
 import { useForm } from "react-hook-form";
 import { NotificationEventName } from "back-end/src/events/base-types";
+import clsx from "clsx";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Field from "@/components/Forms/Field";
@@ -20,7 +21,6 @@ import {
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import TagsInput from "@/components/Tags/TagsInput";
-import clsx from "clsx";
 
 type EventWebHookAddEditModalProps = {
   isOpen: boolean;
@@ -95,7 +95,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
 
   const filteredValues = useCallback(
     (values) => ({ ...values, ...forcedParams }),
-    [forcedParams],
+    [forcedParams]
   );
 
   const handleSubmit = form.handleSubmit(async (rawValues) => {
@@ -388,7 +388,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
                 onChange={(selected: string[]) => {
                   form.setValue(
                     "tags",
-                    selected.map((item) => item),
+                    selected.map((item) => item)
                   );
                   handleFormValidation();
                 }}
