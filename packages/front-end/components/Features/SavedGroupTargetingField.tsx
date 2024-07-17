@@ -1,6 +1,6 @@
 import { SavedGroupTargeting } from "back-end/types/feature";
 import { FaMinusCircle, FaPlusCircle } from "react-icons/fa";
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -29,23 +29,47 @@ export default function SavedGroupTargetingField({
   const {
     supportedConnections,
     unsupportedConnections,
+    unversionedConnections,
   } = useLargeSavedGroupSupport(project);
 
   const largeSavedGroups = useMemo(
     () =>
-      value
-        .flatMap((savedGroupTargeting) => savedGroupTargeting.ids)
-        .filter((sgid) => getSavedGroupById(sgid)?.passByReferenceOnly),
-    [value, getSavedGroupById]
+      new Set(
+        savedGroups
+          .filter((savedGroup) => savedGroup?.passByReferenceOnly)
+          .map((group) => group.id)
+      ),
+    [savedGroups]
   );
 
+  const selectedLargeSavedGroups = useMemo(
+    () =>
+      value
+        .flatMap((savedGroupTargeting) => savedGroupTargeting.ids)
+        .filter((sgid) => largeSavedGroups.has(sgid)),
+    [value, largeSavedGroups]
+  );
+
+  const [localTargetingIssues, setLocalTargetingIssues] = useState(false);
+
   useEffect(() => {
-    if (largeSavedGroups.length > 0 && supportedConnections.length === 0) {
+    if (
+      selectedLargeSavedGroups.length > 0 &&
+      supportedConnections.length === 0
+    ) {
       setSavedGroupTargetingSdkIssues(true);
+      setLocalTargetingIssues(true);
     } else {
       setSavedGroupTargetingSdkIssues(false);
+      setLocalTargetingIssues(false);
     }
-  }, [largeSavedGroups, supportedConnections, setSavedGroupTargetingSdkIssues]);
+  }, [
+    selectedLargeSavedGroups,
+    supportedConnections,
+    setSavedGroupTargetingSdkIssues,
+  ]);
+
+  console.log("Local targeting issues", localTargetingIssues);
 
   if (!savedGroups.length) return null;
 
@@ -56,140 +80,144 @@ export default function SavedGroupTargetingField({
 
   const conflicts = getSavedGroupTargetingConflicts(value);
 
+  if (value.length === 0) {
+    return (
+      <div>
+        <div className="font-italic text-muted mr-3">
+          No saved group targeting applied.
+        </div>
+        <div
+          className="d-inline-block ml-1 mt-2 link-purple font-weight-bold cursor-pointer"
+          onClick={(e) => {
+            e.preventDefault();
+            setValue([
+              ...value,
+              {
+                match: "any",
+                ids: [],
+              },
+            ]);
+          }}
+        >
+          <FaPlusCircle className="mr-1" />
+          Add group targeting
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="form-group my-4">
       <label>Target by Saved Groups</label>
+      {largeSavedGroups.size > 0 && (
+        <LargeSavedGroupSupportWarning
+          type="targeting_rule"
+          supportedConnections={supportedConnections}
+          unsupportedConnections={unsupportedConnections}
+          unversionedConnections={unversionedConnections}
+        />
+      )}
       <div>
-        {value.length > 0 ? (
-          <div className="appbox bg-light px-3 py-3">
-            {conflicts.length > 0 && (
-              <div className="alert alert-danger">
-                <strong>Error:</strong> You have a conflict in your rules with
-                the following groups:{" "}
-                {conflicts.map((c) => (
-                  <span key={c} className="badge badge-danger mr-1">
-                    {getSavedGroupById(c)?.groupName || c}
-                  </span>
-                ))}
-              </div>
-            )}
-            {largeSavedGroups.length > 0 && (
-              <LargeSavedGroupSupportWarning
-                type="targeting_rule"
-                supportedConnections={supportedConnections}
-                unsupportedConnections={unsupportedConnections}
-              />
-            )}
-            {value.map((v, i) => {
-              return (
-                <div className="row align-items-center mb-3" key={i}>
-                  <div className="col-auto" style={{ width: 70 }}>
-                    {i === 0 ? "In" : "AND"}
-                  </div>
-                  <div className="col-auto">
-                    <SelectField
-                      value={v.match}
-                      onChange={(match) => {
-                        const newValue = [...value];
-                        newValue[i] = { ...v };
-                        newValue[i].match = match as "all" | "any" | "none";
-                        setValue(newValue);
-                      }}
-                      sort={false}
-                      options={[
-                        {
-                          value: "any",
-                          label: "Any of",
-                        },
-                        {
-                          value: "all",
-                          label: "All of",
-                        },
-                        {
-                          value: "none",
-                          label: "None of",
-                        },
-                      ]}
-                    />
-                  </div>
-                  <div className="col">
-                    <MultiSelectField
-                      value={v.ids}
-                      onChange={(ids) => {
-                        const newValue = [...value];
-                        newValue[i] = { ...v };
-                        newValue[i].ids = ids;
-                        setValue(newValue);
-                      }}
-                      options={options}
-                      required
-                      placeholder="Select groups..."
-                      closeMenuOnSelect={true}
-                      formatOptionLabel={({ value, label }) => {
-                        const group = getSavedGroupById(value);
-                        if (!group) return label;
-                        return <SavedGroupNameWithBadge savedGroup={group} />;
-                      }}
-                    />
-                  </div>
-                  <div className="col-auto ml-auto">
-                    <button
-                      className="btn btn-link text-danger"
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        const newValue = [...value];
-                        newValue.splice(i, 1);
-                        setValue(newValue);
-                      }}
-                    >
-                      <FaMinusCircle className="mr-1" />
-                      remove
-                    </button>
-                  </div>
+        <div className="appbox bg-light px-3 py-3">
+          {conflicts.length > 0 && (
+            <div className="alert alert-danger">
+              <strong>Error:</strong> You have a conflict in your rules with the
+              following groups:{" "}
+              {conflicts.map((c) => (
+                <span key={c} className="badge badge-danger mr-1">
+                  {getSavedGroupById(c)?.groupName || c}
+                </span>
+              ))}
+            </div>
+          )}
+          {value.map((v, i) => {
+            return (
+              <div className="row align-items-center mb-3" key={i}>
+                <div className="col-auto" style={{ width: 70 }}>
+                  {i === 0 ? "In" : "AND"}
                 </div>
-              );
-            })}
-            <span
-              className="link-purple font-weight-bold cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                setValue([
-                  ...value,
-                  {
-                    match: "any",
-                    ids: [],
-                  },
-                ]);
-              }}
-            >
-              <FaPlusCircle className="mr-1" />
-              Add another condition
-            </span>
-          </div>
-        ) : (
-          <div>
-            <div className="font-italic text-muted mr-3">
-              No saved group targeting applied.
-            </div>
-            <div
-              className="d-inline-block ml-1 mt-2 link-purple font-weight-bold cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                setValue([
-                  ...value,
-                  {
-                    match: "any",
-                    ids: [],
-                  },
-                ]);
-              }}
-            >
-              <FaPlusCircle className="mr-1" />
-              Add group targeting
-            </div>
-          </div>
-        )}
+                <div className="col-auto">
+                  <SelectField
+                    value={v.match}
+                    onChange={(match) => {
+                      const newValue = [...value];
+                      newValue[i] = { ...v };
+                      newValue[i].match = match as "all" | "any" | "none";
+                      setValue(newValue);
+                    }}
+                    sort={false}
+                    options={[
+                      {
+                        value: "any",
+                        label: "Any of",
+                      },
+                      {
+                        value: "all",
+                        label: "All of",
+                      },
+                      {
+                        value: "none",
+                        label: "None of",
+                      },
+                    ]}
+                  />
+                </div>
+                <div className="col">
+                  <MultiSelectField
+                    value={v.ids}
+                    onChange={(ids) => {
+                      const newValue = [...value];
+                      newValue[i] = { ...v };
+                      newValue[i].ids = ids;
+                      setValue(newValue);
+                    }}
+                    options={options}
+                    required
+                    placeholder="Select groups..."
+                    closeMenuOnSelect={true}
+                    formatOptionLabel={({ value, label }) => {
+                      const group = getSavedGroupById(value);
+                      if (!group) return label;
+                      return <SavedGroupNameWithBadge savedGroup={group} />;
+                    }}
+                    customClassName={localTargetingIssues ? "error" : ""}
+                  />
+                </div>
+                <div className="col-auto ml-auto">
+                  <button
+                    className="btn btn-link text-danger"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const newValue = [...value];
+                      newValue.splice(i, 1);
+                      setValue(newValue);
+                    }}
+                  >
+                    <FaMinusCircle className="mr-1" />
+                    remove
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          <span
+            className="link-purple font-weight-bold cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              setValue([
+                ...value,
+                {
+                  match: "any",
+                  ids: [],
+                },
+              ]);
+            }}
+          >
+            <FaPlusCircle className="mr-1" />
+            Add another condition
+          </span>
+        </div>
       </div>
     </div>
   );

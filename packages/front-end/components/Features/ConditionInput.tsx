@@ -62,9 +62,20 @@ export default function ConditionInput(props: Props) {
   const {
     supportedConnections,
     unsupportedConnections,
+    unversionedConnections,
   } = useLargeSavedGroupSupport(props.project);
 
   const largeSavedGroups = useMemo(
+    () =>
+      new Set(
+        savedGroups
+          .filter((savedGroup) => savedGroup?.passByReferenceOnly)
+          .map((group) => group.id)
+      ),
+    [savedGroups]
+  );
+
+  const selectedLargeSavedGroups = useMemo(
     () =>
       conds
         .filter((condition) =>
@@ -75,14 +86,21 @@ export default function ConditionInput(props: Props) {
     [conds, getSavedGroupById]
   );
 
+  const [localTargetingIssues, setLocalTargetingIssues] = useState(false);
+
   useEffect(() => {
-    if (largeSavedGroups.length > 0 && supportedConnections.length === 0) {
+    if (
+      selectedLargeSavedGroups.length > 0 &&
+      supportedConnections.length === 0
+    ) {
       props.setAttributeTargetingSdkIssues(true);
+      setLocalTargetingIssues(true);
     } else {
       props.setAttributeTargetingSdkIssues(false);
+      setLocalTargetingIssues(false);
     }
   }, [
-    largeSavedGroups,
+    selectedLargeSavedGroups,
     supportedConnections,
     props.setAttributeTargetingSdkIssues,
   ]);
@@ -117,11 +135,12 @@ export default function ConditionInput(props: Props) {
     return (
       <div className="form-group my-4">
         <label className={props.labelClassName || ""}>{title}</label>
-        {largeSavedGroups.length > 0 && (
+        {largeSavedGroups.size > 0 && (
           <LargeSavedGroupSupportWarning
             type="targeting_rule"
             supportedConnections={supportedConnections}
             unsupportedConnections={unsupportedConnections}
+            unversionedConnections={unversionedConnections}
           />
         )}
         <div className="appbox bg-light px-3 py-3">
@@ -197,11 +216,12 @@ export default function ConditionInput(props: Props) {
   return (
     <div className="form-group my-4">
       <label className={props.labelClassName || ""}>{title}</label>
-      {largeSavedGroups.length > 0 && (
+      {largeSavedGroups.size > 0 && (
         <LargeSavedGroupSupportWarning
           type="targeting_rule"
           supportedConnections={supportedConnections}
           unsupportedConnections={unsupportedConnections}
+          unversionedConnections={unversionedConnections}
         />
       )}
       <div className="appbox bg-light px-3 pb-3">
@@ -423,6 +443,7 @@ export default function ConditionInput(props: Props) {
                       initialOption="Choose group..."
                       containerClassName="col-sm-12 col-md mb-2"
                       required
+                      className={localTargetingIssues ? "error" : ""}
                     />
                   ) : ["$in", "$nin"].includes(operator) ? (
                     <div className="d-flex align-items-end flex-column col-sm-12 col-md mb-1">

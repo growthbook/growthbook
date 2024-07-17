@@ -60,6 +60,7 @@ export const IdListMemberInput: FC<{
   const {
     supportedConnections,
     unsupportedConnections,
+    unversionedConnections,
   } = useLargeSavedGroupSupport();
 
   const resetFile = () => {
@@ -143,6 +144,7 @@ export const IdListMemberInput: FC<{
               type="saved_group_creation"
               supportedConnections={supportedConnections}
               unsupportedConnections={unsupportedConnections}
+              unversionedConnections={unversionedConnections}
             />
           )}
           {(passByReferenceOnly || supportedConnections.length > 0) && (
@@ -270,7 +272,9 @@ export const IdListMemberInput: FC<{
             />
           )}
           <div className="row justify-content-end">
-            <span className="mr-1">Remaining: {limit - values.length}</span>
+            <span className="mr-1">
+              Items remaining: {limit - values.length}
+            </span>
             <a
               href="#"
               style={{ fontSize: "0.8em" }}
