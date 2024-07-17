@@ -102,6 +102,7 @@ const ExperimentGuide = (): React.ReactElement => {
         (e) => e.project !== demoProjectId && e.status !== "draft"
       );
 
+  // if coming from hypothesis generator, show slightly different UI
   const title = generatedHypothesis
     ? "Run an Auto-generated Website Experiment"
     : "Run an Experiment";
@@ -172,6 +173,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     setStep({
                       step: "Integrate the GrowthBook SDK into your app",
                       source: "experiments",
+                      sourceParams: params.hypId ? `hypId=${params.hypId}` : "",
                       stepKey: "sdk",
                     })
                   }
@@ -225,6 +227,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     setStep({
                       step: "Review or Add Environments",
                       source: "experiments",
+                      sourceParams: params.hypId ? `hypId=${params.hypId}` : "",
                       stepKey: "environments",
                     })
                   }
@@ -276,6 +279,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     setStep({
                       step: "Customize Targeting Attributes",
                       source: "experiments",
+                      sourceParams: params.hypId ? `hypId=${params.hypId}` : "",
                       stepKey: "attributes",
                     })
                   }
@@ -290,32 +294,47 @@ const ExperimentGuide = (): React.ReactElement => {
               </div>
             </div>
 
-            {generatedHypothesis ? (
+            {generatedHypothesis && generatedHypothesis.experiment ? (
               <div className="row">
                 <div className="col-sm-auto">
-                  <div
-                    style={{
-                      borderRadius: "50%",
-                      borderStyle: "solid",
-                      borderWidth: "0.6px",
-                      borderColor: "#D3D4DB",
-                      width: "15px",
-                      height: "15px",
-                      margin: "2px",
-                    }}
-                  />
+                  {hasExperiments ? (
+                    <PiCheckCircleFill
+                      className="mt-1"
+                      style={{
+                        fill: "#56BA9F",
+                        width: "18.5px",
+                        height: "18.5px",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        borderRadius: "50%",
+                        borderStyle: "solid",
+                        borderWidth: "0.6px",
+                        borderColor: "#D3D4DB",
+                        width: "15px",
+                        height: "15px",
+                        margin: "2px",
+                      }}
+                    />
+                  )}
                 </div>
                 <div className="col">
                   <Link
-                    href="/experiments"
+                    href={`/experiment/${generatedHypothesis.experiment}`}
                     style={{
                       fontSize: "17px",
                       fontWeight: 600,
+                      textDecoration: hasExperiments ? "line-through" : "none",
                     }}
                     onClick={() =>
                       setStep({
                         step: "Edit Your Organization’s First Experiment",
                         source: "experiments",
+                        sourceParams: params.hypId
+                          ? `hypId=${params.hypId}`
+                          : "",
                         stepKey: "createExperiment",
                       })
                     }
