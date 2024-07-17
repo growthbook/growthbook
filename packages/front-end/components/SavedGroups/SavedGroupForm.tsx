@@ -402,6 +402,12 @@ const SavedGroupForm: FC<{
       })}
       error={errorMessage}
     >
+      {current.type === "condition" && (
+        <div className="form-group">
+          Updating this group will automatically update any associated Features
+          and Experiments.
+        </div>
+      )}
       <Field
         label={`${type === "list" ? "List" : "Group"} Name`}
         labelClassName="font-weight-bold"

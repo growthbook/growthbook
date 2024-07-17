@@ -430,7 +430,8 @@ export default function ConditionInput(props: Props) {
                     savedGroupOptions.length > 0 ? (
                     <SelectField
                       options={savedGroupOptions}
-                      formatOptionLabel={({ value, label }) => {
+                      formatOptionLabel={({ value, label }, { context }) => {
+                        if (context === "value") return label;
                         const group = getSavedGroupById(value);
                         if (!group) return label;
                         return <SavedGroupNameWithBadge savedGroup={group} />;

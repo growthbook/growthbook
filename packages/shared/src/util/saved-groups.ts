@@ -9,9 +9,7 @@ export function getSavedGroupsValuesFromGroupMap(
     Array.from(groupMap.entries())
       .filter(
         ([_id, groupMapVal]) =>
-          groupMapVal.type === "list" &&
-          groupMapVal.values !== undefined &&
-          groupMapVal.passByReferenceOnly === true
+          groupMapVal.type === "list" && groupMapVal.values !== undefined
       )
       .map(([id, groupMapVal]) => [id, groupMapVal.values])
     // TODO: maybe fix type inference
@@ -25,9 +23,7 @@ export function getSavedGroupsValuesFromInterfaces(
     savedGroups
       .filter(
         (savedGroup) =>
-          savedGroup.type === "list" &&
-          savedGroup.values !== undefined &&
-          savedGroup.passByReferenceOnly === true
+          savedGroup.type === "list" && savedGroup.values !== undefined
       )
       .map((savedGroup) => [savedGroup.id, savedGroup.values])
     // TODO: maybe fix type inference

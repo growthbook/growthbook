@@ -244,10 +244,6 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       true
     );
 
-    const savedGroupReferencesSupported = capabilities.includes(
-      "savedGroupReferences"
-    );
-
     const defs = await getFeatureDefinitions({
       context,
       capabilities,
@@ -259,7 +255,6 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       includeExperimentNames,
       includeRedirectExperiments,
       hashSecureAttributes,
-      savedGroupReferencesSupported,
     });
 
     // The default is Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)

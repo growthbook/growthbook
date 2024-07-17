@@ -111,8 +111,7 @@ describe("getParsedCondition", () => {
       getParsedCondition(
         groupMap,
         JSON.stringify({ id: { $inGroup: "a" } }),
-        [],
-        true
+        []
       )
     ).toEqual({
       id: { $inGroup: "a" },
@@ -120,72 +119,48 @@ describe("getParsedCondition", () => {
 
     // Single saved group
     expect(
-      getParsedCondition(groupMap, "", [{ match: "any", ids: ["a"] }], true)
+      getParsedCondition(groupMap, "", [{ match: "any", ids: ["a"] }])
     ).toEqual({
       id_a: {
         $inGroup: "a",
       },
     });
 
-    // Single saved group without savedGroupReferences support
+    // Legacy saved group still uses inGroup operator (to be scrubbed later)
     expect(
-      getParsedCondition(groupMap, "", [{ match: "any", ids: ["a"] }], false)
+      getParsedCondition(groupMap, "", [{ match: "any", ids: ["legacy"] }])
     ).toEqual({
       id_a: {
-        $in: [],
-      },
-    });
-
-    // Legacy saved group without savedGroupReferences support
-    expect(
-      getParsedCondition(
-        groupMap,
-        "",
-        [{ match: "any", ids: ["legacy"] }],
-        false
-      )
-    ).toEqual({
-      id_a: {
-        $in: ["0", "1"],
+        $inGroup: "legacy",
       },
     });
 
     // Only 1 valid saved group
     expect(
-      getParsedCondition(
-        groupMap,
-        "",
-        [
-          { match: "any", ids: ["b", "empty", "g"] },
-          { match: "all", ids: ["g", "empty"] },
-        ],
-        true
-      )
+      getParsedCondition(groupMap, "", [
+        { match: "any", ids: ["b", "empty", "g"] },
+        { match: "all", ids: ["g", "empty"] },
+      ])
     ).toEqual({
       id_b: { $inGroup: "b" },
     });
 
     // Condition + a bunch of saved groups
     expect(
-      getParsedCondition(
-        groupMap,
-        JSON.stringify({ country: "US" }),
-        [
-          {
-            match: "all",
-            ids: ["a", "b", "x"],
-          },
-          {
-            match: "any",
-            ids: ["c", "d"],
-          },
-          {
-            match: "none",
-            ids: ["e", "f"],
-          },
-        ],
-        true
-      )
+      getParsedCondition(groupMap, JSON.stringify({ country: "US" }), [
+        {
+          match: "all",
+          ids: ["a", "b", "x"],
+        },
+        {
+          match: "any",
+          ids: ["c", "d"],
+        },
+        {
+          match: "none",
+          ids: ["e", "f"],
+        },
+      ])
     ).toEqual({
       $and: [
         // Attribute targeting
