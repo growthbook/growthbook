@@ -20,8 +20,7 @@ import { getCurrentEnabledState } from "./scheduleRules";
 function getSavedGroupCondition(
   groupId: string,
   groupMap: GroupMap,
-  include: boolean,
-  savedGroupReferencesSupported?: boolean
+  include: boolean
 ): null | ConditionInterface {
   const group = groupMap.get(groupId);
   if (!group) return null;
@@ -37,16 +36,6 @@ function getSavedGroupCondition(
   }
 
   if (!group.attributeKey) return null;
-  if (!savedGroupReferencesSupported) {
-    return {
-      [group.attributeKey]: {
-        // This explicitly filters non-legacy (passByReferenceOnly) saved groups from being sent with unsupported sdk connections
-        [include ? "$in" : "$nin"]: group.passByReferenceOnly
-          ? []
-          : group.values || [],
-      },
-    };
-  }
 
   return {
     [group.attributeKey]: { [include ? "$inGroup" : "$notInGroup"]: groupId },
@@ -56,8 +45,7 @@ function getSavedGroupCondition(
 export function getParsedCondition(
   groupMap: GroupMap,
   condition?: string,
-  savedGroups?: SavedGroupTargeting[],
-  savedGroupReferencesSupported?: boolean
+  savedGroups?: SavedGroupTargeting[]
 ) {
   const conditions: ConditionInterface[] = [];
   if (condition && condition !== "{}") {
@@ -87,12 +75,7 @@ export function getParsedCondition(
       // Add each group as a separate top-level AND
       if (match === "all") {
         groupIds.forEach((groupId) => {
-          const cond = getSavedGroupCondition(
-            groupId,
-            groupMap,
-            true,
-            savedGroupReferencesSupported
-          );
+          const cond = getSavedGroupCondition(groupId, groupMap, true);
           if (cond) conditions.push(cond);
         });
       }
@@ -100,12 +83,7 @@ export function getParsedCondition(
       else if (match === "any") {
         const ors: ConditionInterface[] = [];
         groupIds.forEach((groupId) => {
-          const cond = getSavedGroupCondition(
-            groupId,
-            groupMap,
-            true,
-            savedGroupReferencesSupported
-          );
+          const cond = getSavedGroupCondition(groupId, groupMap, true);
           if (cond) ors.push(cond);
         });
 
@@ -121,12 +99,7 @@ export function getParsedCondition(
       // Add each group as a separate top-level AND with a NOT condition
       else if (match === "none") {
         groupIds.forEach((groupId) => {
-          const cond = getSavedGroupCondition(
-            groupId,
-            groupMap,
-            false,
-            savedGroupReferencesSupported
-          );
+          const cond = getSavedGroupCondition(groupId, groupMap, false);
           if (cond) conditions.push(cond);
         });
       }
@@ -338,7 +311,6 @@ export function getFeatureDefinition({
   experimentMap,
   revision,
   returnRuleId = false,
-  savedGroupReferencesSupported,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -346,7 +318,6 @@ export function getFeatureDefinition({
   experimentMap: Map<string, ExperimentInterface>;
   revision?: FeatureRevisionInterface;
   returnRuleId?: boolean;
-  savedGroupReferencesSupported?: boolean;
 }): FeatureDefinitionWithProject | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -366,12 +337,7 @@ export function getFeatureDefinition({
   // convert prerequisites to force rules:
   const prerequisiteRules = (feature.prerequisites ?? [])
     ?.map((p) => {
-      const condition = getParsedCondition(
-        groupMap,
-        p.condition,
-        undefined,
-        savedGroupReferencesSupported
-      );
+      const condition = getParsedCondition(groupMap, p.condition, undefined);
       if (!condition) return null;
       return {
         parentConditions: [
@@ -413,8 +379,7 @@ export function getFeatureDefinition({
           const condition = getParsedCondition(
             groupMap,
             phase.condition,
-            phase.savedGroups,
-            savedGroupReferencesSupported
+            phase.savedGroups
           );
           if (condition) {
             rule.condition = condition;
@@ -492,8 +457,7 @@ export function getFeatureDefinition({
         const condition = getParsedCondition(
           groupMap,
           r.condition,
-          r.savedGroups,
-          savedGroupReferencesSupported
+          r.savedGroups
         );
         if (condition) {
           rule.condition = condition;
@@ -504,8 +468,7 @@ export function getFeatureDefinition({
             const condition = getParsedCondition(
               groupMap,
               p.condition,
-              undefined,
-              savedGroupReferencesSupported
+              undefined
             );
             if (!condition) return null;
             return {

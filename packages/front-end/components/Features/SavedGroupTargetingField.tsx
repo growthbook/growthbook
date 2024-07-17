@@ -175,7 +175,8 @@ export default function SavedGroupTargetingField({
                     required
                     placeholder="Select groups..."
                     closeMenuOnSelect={true}
-                    formatOptionLabel={({ value, label }) => {
+                    formatOptionLabel={({ value, label }, { context }) => {
+                      if (context === "value") return label;
                       const group = getSavedGroupById(value);
                       if (!group) return label;
                       return <SavedGroupNameWithBadge savedGroup={group} />;

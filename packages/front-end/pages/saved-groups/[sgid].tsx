@@ -166,9 +166,9 @@ export default function EditSavedGroupPage() {
         }}
       >
         <>
-          <div className="alert alert-warning mt-2 p-3">
-            <FaExclamationTriangle /> Updating this group will automatically
-            update any feature or experiment that references it.
+          <div className="form-group">
+            Updating this list will automatically update any associated Features
+            and Experiments.
           </div>
           <IdListMemberInput
             values={membersToAdd}
