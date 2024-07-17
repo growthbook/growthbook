@@ -5,6 +5,8 @@ import {
   PROJECT_SCOPED_PERMISSIONS,
   Policy,
 } from "shared/permissions";
+import { z } from "zod";
+import { environment } from "@back-end/src/routers/environment/environment.validators";
 import type { ReqContextClass } from "../src/services/context";
 import { attributeDataTypes } from "../src/util/organization.util";
 import { AttributionModel, ImplementationType } from "./experiment";
@@ -153,13 +155,7 @@ export type ExperimentUpdateSchedule = {
   hours?: number;
 };
 
-export type Environment = {
-  id: string;
-  description?: string;
-  toggleOnList?: boolean;
-  defaultState?: boolean;
-  projects?: string[];
-};
+export type Environment = z.infer<typeof environment>;
 
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
