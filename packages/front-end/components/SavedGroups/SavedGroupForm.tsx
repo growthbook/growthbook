@@ -121,7 +121,7 @@ export const IdListMemberInput: FC<{
             }}
           />
           <label className="m-0" htmlFor="enterValues">
-            Manually enter values (Limit: 100)
+            Manually enter values (Limit: {limit})
           </label>
         </div>
         <div className="cursor-pointer row align-items-center ml-0 mr-0">
@@ -254,12 +254,16 @@ export const IdListMemberInput: FC<{
               placeholder="Use commas to separate values"
               minRows={1}
               onChange={(e) => {
-                setValues(
-                  e.target.value
-                    .split(",")
-                    .map((val) => val.trim())
-                    .slice(0, 100)
-                );
+                if (e.target.value === "") {
+                  setValues([]);
+                } else {
+                  setValues(
+                    e.target.value
+                      .split(",")
+                      .map((val) => val.trim())
+                      .slice(0, limit)
+                  );
+                }
               }}
             />
           ) : (
@@ -269,7 +273,7 @@ export const IdListMemberInput: FC<{
               labelClassName="font-weight-bold"
               value={values}
               onChange={(values) => {
-                setValues(values.slice(0, 100));
+                setValues(values.slice(0, limit));
               }}
               placeholder="Separate values using the 'Enter' key"
               delimiters={["Enter", "Tab"]}
