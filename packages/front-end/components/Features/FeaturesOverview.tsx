@@ -72,6 +72,7 @@ import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CopyRuleModal from "@/components/Features/CopyRuleModal";
+import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -287,6 +288,13 @@ export default function FeaturesOverview({
 
   const canEdit = permissionsUtil.canViewFeatureModal(projectId);
   const canEditDrafts = permissionsUtil.canManageFeatureDrafts(feature);
+
+  const variables = {
+    featureKey: feature.id,
+    featureType: feature.valueType,
+    tags: feature.tags || [],
+  };
+
   const renderStatusCopy = () => {
     switch (revision.status) {
       case "approved":
@@ -337,6 +345,9 @@ export default function FeaturesOverview({
   return (
     <>
       <div className="contents container-fluid pagecontents">
+        <div className="mt-3">
+          <CustomMarkdown page={"experiment"} variables={variables} />
+        </div>
         <h3 className="mt-4 mb-3">Enabled Environments</h3>
         <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
           <div className="mb-2">
