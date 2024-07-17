@@ -510,12 +510,9 @@ export default function FactMetricModal({
         // reset numerator for proportion metrics
         if (
           values.metricType === "proportion" &&
-          !["$$count", "$$distinctUser"].includes(values.numerator.column)
+          values.numerator.column !== "$$distinctUsers"
         ) {
-          values.numerator = {
-            ...values.numerator,
-            column: "$$count",
-          };
+          values.numerator.column = "$$distinctUsers";
         }
 
         if (!selectedDataSource) throw new Error("Must select a data source");
