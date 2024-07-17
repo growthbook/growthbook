@@ -108,7 +108,6 @@ export const cancellableFetch = async (
     if (
       useWebhookProxy &&
       WEBHOOK_PROXY &&
-      process.env.GROWTHBOOK_API_KEY &&
       e.name === "FetchError" &&
       e.code === "ECONNREFUSED"
     ) {
