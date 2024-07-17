@@ -210,6 +210,13 @@ Below is the same code, minified:
 const getUUID=()=>{const a=(a,b)=>{var c=new Date;c.setTime(c.getTime()+86400000*400),document.cookie=a+"="+b+";path=/;expires="+c.toGMTString()};let b=(b=>{let c=`; ${document.cookie}`,d=c.split(`; ${b}=`);if(2===d.length){let c=d.pop().split(";").shift();return a(b,c),c}})("gbuuid");if(b)return b;const c=(()=>window?.crypto?.randomUUID?window.crypto.randomUUID():"10000000-1000-4000-8000-100000000000".replace(/[018]/g,a=>(a^crypto.getRandomValues(new Uint8Array(1))[0]&15>>a/4).toString(16)))();return a("gbuuid",c),c};
 ```
 
+## How do I update the refresh rate for experiment data?
+
+Go to **Settings** → **General** → **Experiment Settings**. Change the **Experiment Auto-Update Frequency** field to the desired values. Save your changes.
+
+![Setting to update experiment data refresh](/images/experiment-refresh.png)
+
+
 ---
 
 ## Can't find your question?
