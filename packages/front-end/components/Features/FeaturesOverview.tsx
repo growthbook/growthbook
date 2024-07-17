@@ -346,7 +346,7 @@ export default function FeaturesOverview({
     <>
       <div className="contents container-fluid pagecontents">
         <div className="mt-3">
-          <CustomMarkdown page={"experiment"} variables={variables} />
+          <CustomMarkdown page={"feature"} variables={variables} />
         </div>
         <h3 className="mt-4 mb-3">Enabled Environments</h3>
         <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
