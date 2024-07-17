@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { isEqual } from "lodash";
-import { validateCondition } from "shared/util";
+import { LARGE_GROUP_SIZE_LIMIT_BYTES, validateCondition } from "shared/util";
 import { SavedGroupInterface } from "shared/src/types";
 import { logger } from "../../util/logger";
 import { AuthRequest } from "../../types/AuthRequest";
@@ -121,8 +121,17 @@ export const postSavedGroup = async (
     throw new Error("Description must be at most 100 characters");
   }
 
+  const uniqValues = [...new Set(values)];
+  if (
+    new Blob([JSON.stringify(uniqValues)]).size > LARGE_GROUP_SIZE_LIMIT_BYTES
+  ) {
+    throw new Error(
+      `The maximum size for a list is ${LARGE_GROUP_SIZE_LIMIT_BYTES}.`
+    );
+  }
+
   const savedGroup = await createSavedGroup(org.id, {
-    values,
+    values: uniqValues,
     type,
     condition,
     groupName,
@@ -191,7 +200,7 @@ export const getSavedGroup = async (
 
 // endregion GET /saved-groups/:id
 
-// region POST /saved-groups/:id/add-member/:mid
+// region POST /saved-groups/:id/add-members
 
 type PostSavedGroupAddMembersRequest = AuthRequest<
   { members: string[]; passByReferenceOnly?: boolean },
@@ -203,7 +212,7 @@ type PostSavedGroupAddMembersResponse = {
 };
 
 /**
- * POST /saved-groups/:id/add-member/:mid
+ * POST /saved-groups/:id/add-members
  * Update one saved-group resource by adding the specified member
  * @param req
  * @param res
@@ -243,9 +252,17 @@ export const postSavedGroupAddMembers = async (
     throw new Error("Must provide a list of members to remove");
   }
 
-  const newValues = new Set([...(savedGroup.values || []), ...members]);
+  const newValues = [...new Set([...(savedGroup.values || []), ...members])];
+  if (
+    new Blob([JSON.stringify(newValues)]).size > LARGE_GROUP_SIZE_LIMIT_BYTES
+  ) {
+    throw new Error(
+      `The maximum size for a list is ${LARGE_GROUP_SIZE_LIMIT_BYTES}. Adding these members to the list would exceed the limit.`
+    );
+  }
+
   const changes = await updateSavedGroupById(id, org.id, {
-    values: [...newValues],
+    values: newValues,
     passByReferenceOnly:
       passByReferenceOnly || savedGroup.passByReferenceOnly || false,
   });
@@ -269,7 +286,7 @@ export const postSavedGroupAddMembers = async (
   });
 };
 
-// endregion POST /saved-groups/:id/add-member/:mid
+// endregion POST /saved-groups/:id/add-members
 
 // region POST /saved-groups/:id/remove-members
 

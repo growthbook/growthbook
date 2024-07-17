@@ -4,7 +4,11 @@ import {
   UpdateSavedGroupProps,
 } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
-import { SMALL_GROUP_SIZE_LIMIT, validateAndFixCondition } from "shared/util";
+import {
+  LARGE_GROUP_SIZE_LIMIT_BYTES,
+  SMALL_GROUP_SIZE_LIMIT,
+  validateAndFixCondition,
+} from "shared/util";
 import {
   FaCheckCircle,
   FaExclamationTriangle,
@@ -177,7 +181,7 @@ export const IdListMemberInput: FC<{
                       setFileErrorMessage("Only .csv file types are supported");
                       return;
                     }
-                    if (file.size > 1024 * 1024) {
+                    if (file.size > LARGE_GROUP_SIZE_LIMIT_BYTES) {
                       setFileErrorMessage("File size must be less than 1 MB");
                       return;
                     }

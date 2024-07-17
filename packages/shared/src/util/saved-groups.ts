@@ -1,6 +1,7 @@
 import { GroupMap, SavedGroupsValues, SavedGroupInterface } from "../types";
 
 export const SMALL_GROUP_SIZE_LIMIT = 100;
+export const LARGE_GROUP_SIZE_LIMIT_BYTES = 1024 * 1024;
 
 export function getSavedGroupsValuesFromGroupMap(
   groupMap: GroupMap
