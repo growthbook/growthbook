@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { RxDesktop } from "react-icons/rx";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { datetime, ago } from "shared/dates";
+import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
@@ -46,11 +46,15 @@ const ExperimentsPage = (): React.ReactElement => {
     getProjectById,
   } = useDefinitions();
 
-  const { experiments: allExperiments, error, loading } = useExperiments(
-    project
-  );
-
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
+
+  const {
+    experiments: allExperiments,
+    error,
+    loading,
+    hasArchived,
+  } = useExperiments(project, tabs.includes("archived"));
+
   const tagsFilter = useTagsFilter("experiments");
   const [showMineOnly, setShowMineOnly] = useLocalStorage(
     "showMyExperimentsOnly",
@@ -225,8 +229,6 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const canAdd = permissionsUtil.canViewExperimentModal(project);
 
-  const hasArchivedExperiments = experiments.some((item) => item.archived);
-
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
 
@@ -315,8 +317,7 @@ const ExperimentsPage = (): React.ReactElement => {
                     (tab, i) => {
                       const active = tabs.includes(tab);
 
-                      if (tab === "archived" && !hasArchivedExperiments)
-                        return null;
+                      if (tab === "archived" && !hasArchived) return null;
 
                       return (
                         <button
@@ -327,7 +328,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             "rounded-left": i === 0,
                             "rounded-right":
                               tab === "archived" ||
-                              (tab === "stopped" && !hasArchivedExperiments),
+                              (tab === "stopped" && !hasArchived),
                           })}
                           style={{
                             fontSize: "1em",
@@ -352,9 +353,11 @@ const ExperimentsPage = (): React.ReactElement => {
                             {tab.slice(0, 1).toUpperCase()}
                             {tab.slice(1)}
                           </span>
-                          <span className="badge bg-white border text-dark mr-2">
-                            {tabCounts[tab] || 0}
-                          </span>
+                          {tab !== "archived" && (
+                            <span className="badge bg-white border text-dark mr-2">
+                              {tabCounts[tab] || 0}
+                            </span>
+                          )}
                         </button>
                       );
                     }
@@ -504,7 +507,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             : e.tab === "archived"
                             ? "updated"
                             : ""}{" "}
-                          {ago(e.date)}
+                          {date(e.date)}
                         </td>
                         <td className="nowrap" data-title="Summary:">
                           {e.archived ? (

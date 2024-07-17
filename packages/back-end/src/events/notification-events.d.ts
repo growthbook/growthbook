@@ -7,8 +7,8 @@ import { UserLoginAuditableProperties } from "./event-types";
 // region User
 
 export type UserLoginNotificationEvent = NotificationEventPayload<
-  "user.login",
   "user",
+  "user.login",
   {
     current: UserLoginAuditableProperties;
   }
@@ -19,16 +19,16 @@ export type UserLoginNotificationEvent = NotificationEventPayload<
 // region Feature
 
 export type FeatureCreatedNotificationEvent = NotificationEventPayload<
-  "feature.created",
   "feature",
+  "feature.created",
   {
     current: ApiFeature;
   }
 >;
 
 export type FeatureUpdatedNotificationEvent = NotificationEventPayload<
-  "feature.updated",
   "feature",
+  "feature.updated",
   {
     current: ApiFeature;
     previous: ApiFeature;
@@ -36,8 +36,8 @@ export type FeatureUpdatedNotificationEvent = NotificationEventPayload<
 >;
 
 export type FeatureDeletedNotificationEvent = NotificationEventPayload<
-  "feature.deleted",
   "feature",
+  "feature.deleted",
   {
     previous: ApiFeature;
   }
@@ -48,16 +48,16 @@ export type FeatureDeletedNotificationEvent = NotificationEventPayload<
 // region Experiment
 
 export type ExperimentCreatedNotificationEvent = NotificationEventPayload<
-  "experiment.created",
   "experiment",
+  "experiment.created",
   {
     current: ApiExperiment;
   }
 >;
 
 export type ExperimentUpdatedNotificationEvent = NotificationEventPayload<
-  "experiment.updated",
   "experiment",
+  "experiment.updated",
   {
     current: ApiExperiment;
     previous: ApiExperiment;
@@ -65,28 +65,28 @@ export type ExperimentUpdatedNotificationEvent = NotificationEventPayload<
 >;
 
 export type ExperimentDeletedNotificationEvent = NotificationEventPayload<
-  "experiment.deleted",
   "experiment",
+  "experiment.deleted",
   {
     previous: ApiExperiment;
   }
 >;
 
 export type ExperimentInfoNotificationEvent = NotificationEventPayload<
-  "experiment.info",
   "experiment",
+  "experiment.info",
   null
 >;
 
 export type ExperimentWarningNotificationEvent = NotificationEventPayload<
-  "experiment.warning",
   "experiment",
+  "experiment.warning",
   ExperimentWarningNotificationPayload
 >;
 
 export type WebhookTestEvent = NotificationEventPayload<
-  "webhook.test",
   "webhook",
+  "webhook.test",
   { webhookId: string }
 >;
 
