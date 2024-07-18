@@ -106,6 +106,13 @@ const ExperimentGuide = (): React.ReactElement => {
   const title = generatedHypothesis
     ? "Run an Auto-generated Website Experiment"
     : "Run an Experiment";
+  const generatedExp = experiments.find(
+    (e) => e.id === generatedHypothesis?.experiment
+  );
+  const hasStartedGeneratedExp =
+    generatedHypothesis && generatedExp
+      ? generatedExp.status !== "draft"
+      : false;
 
   return (
     <div className={clsx(styles.getStartedPage, "container pagecontents p-4")}>
@@ -297,7 +304,7 @@ const ExperimentGuide = (): React.ReactElement => {
             {generatedHypothesis && generatedHypothesis.experiment ? (
               <div className="row">
                 <div className="col-sm-auto">
-                  {hasStartedExperiment ? (
+                  {hasStartedGeneratedExp ? (
                     <PiCheckCircleFill
                       className="mt-1"
                       style={{
@@ -326,7 +333,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     style={{
                       fontSize: "17px",
                       fontWeight: 600,
-                      textDecoration: hasStartedExperiment
+                      textDecoration: hasStartedGeneratedExp
                         ? "line-through"
                         : "none",
                     }}
