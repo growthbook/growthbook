@@ -43,7 +43,7 @@ router.post(
 );
 
 router.post(
-  "/:id/add-members",
+  "/:id/add-items",
   validateRequestMiddleware({
     params: z
       .object({
@@ -52,16 +52,16 @@ router.post(
       .strict(),
     body: z
       .object({
-        members: z.array(z.string()),
+        items: z.array(z.string()),
         passByReferenceOnly: z.boolean().optional(),
       })
       .strict(),
   }),
-  savedGroupController.postSavedGroupAddMembers
+  savedGroupController.postSavedGroupAddItems
 );
 
 router.post(
-  "/:id/remove-members",
+  "/:id/remove-items",
   validateRequestMiddleware({
     params: z
       .object({
@@ -70,12 +70,12 @@ router.post(
       .strict(),
     body: z
       .object({
-        members: z.array(z.string()),
+        items: z.array(z.string()),
         passByReferenceOnly: z.boolean().optional(),
       })
       .strict(),
   }),
-  savedGroupController.postSavedGroupRemoveMembers
+  savedGroupController.postSavedGroupRemoveItems
 );
 
 router.put(

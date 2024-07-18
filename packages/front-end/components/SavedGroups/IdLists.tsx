@@ -4,6 +4,7 @@ import { getMatchingRules, truncateString } from "shared/util";
 import Link from "next/link";
 import { SavedGroupInterface } from "shared/src/types";
 import { FaMagnifyingGlass } from "react-icons/fa6";
+import { PiInfoFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
@@ -111,6 +112,12 @@ export default function IdLists({ groups, mutate }: Props) {
         For example, create a &quot;Beta Testers&quot; group identified by a
         specific set of <code>device_id</code> values.
       </p>
+      {idLists.some((list) => list.passByReferenceOnly) && (
+        <p>
+          <PiInfoFill /> Too many large lists will cause too large of a payload,
+          and your server may not support it.
+        </p>
+      )}
       {idLists.length > 0 && (
         <>
           <div className="row mb-4 align-items-center">

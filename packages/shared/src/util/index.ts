@@ -233,3 +233,15 @@ export function truncateString(s: string, numChars: number) {
   }
   return s;
 }
+
+export function formatByteSizeString(numBytes: number, decimalPlaces = 1) {
+  if (numBytes == 0) return "0 Bytes";
+  const k = 1024,
+    sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"],
+    i = Math.floor(Math.log(numBytes) / Math.log(k));
+  return (
+    parseFloat((numBytes / Math.pow(k, i)).toFixed(decimalPlaces)) +
+    " " +
+    sizes[i]
+  );
+}

@@ -31,7 +31,7 @@ import LargeSavedGroupSupportWarning, {
   useLargeSavedGroupSupport,
 } from "./LargeSavedGroupSupportWarning";
 
-export const IdListMemberInput: FC<{
+export const IdListItemInput: FC<{
   values: string[];
   attributeKey: string;
   passByReferenceOnly: boolean;
@@ -485,7 +485,7 @@ const SavedGroupForm: FC<{
             helpText={current.attributeKey && "This field cannot be edited."}
           />
           {!current.id && (
-            <IdListMemberInput
+            <IdListItemInput
               values={form.watch("values") || []}
               attributeKey={form.watch("attributeKey") || "ID"}
               passByReferenceOnly={current?.passByReferenceOnly || false}
