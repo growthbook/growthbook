@@ -125,7 +125,7 @@ const StopExperimentForm: FC<{
               );
             }
           }}
-          initialOption="Pick one..."
+          placeholder="Pick one..."
           required
           options={[
             { label: "Did Not Finish", value: "dnf" },
