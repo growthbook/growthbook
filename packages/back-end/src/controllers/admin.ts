@@ -40,6 +40,7 @@ export async function putOrganization(
     name: string;
     externalId: string;
     licenseKey: string;
+    ownerEmail?: string;
   }>,
   res: Response
 ) {
@@ -50,7 +51,7 @@ export async function putOrganization(
     });
   }
 
-  const { orgId, name, externalId, licenseKey } = req.body;
+  const { orgId, name, externalId, licenseKey, ownerEmail } = req.body;
   const updates: Partial<OrganizationInterface> = {};
   const orig: Partial<OrganizationInterface> = {};
   const org = await getOrganizationById(orgId);
@@ -74,6 +75,10 @@ export async function putOrganization(
     updates.licenseKey = licenseKey.trim();
     orig.licenseKey = org.licenseKey;
     await setLicenseKey(org, updates.licenseKey);
+  }
+  if (ownerEmail) {
+    updates.ownerEmail = ownerEmail;
+    orig.ownerEmail = org.ownerEmail;
   }
 
   await updateOrganization(org.id, updates);

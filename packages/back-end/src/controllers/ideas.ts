@@ -11,7 +11,7 @@ import {
 import { IdeaInterface } from "../../types/idea";
 import { addTagsDiff } from "../models/TagModel";
 import { Vote } from "../../types/vote";
-import { getContextFromReq, userHasAccess } from "../services/organizations";
+import { getContextFromReq } from "../services/organizations";
 import {
   getImpactEstimate,
   ImpactEstimateModel,
@@ -94,18 +94,10 @@ export async function getIdea(
 
   const idea = await getIdeaById(id);
 
-  if (!idea) {
-    res.status(403).json({
+  if (!idea || idea.organization !== context.org.id) {
+    res.status(404).json({
       status: 404,
       message: "Idea not found",
-    });
-    return;
-  }
-
-  if (!(await userHasAccess(req, idea.organization))) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this idea",
     });
     return;
   }

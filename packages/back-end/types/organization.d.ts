@@ -5,6 +5,8 @@ import {
   PROJECT_SCOPED_PERMISSIONS,
   Policy,
 } from "shared/permissions";
+import { z } from "zod";
+import { environment } from "@back-end/src/routers/environment/environment.validators";
 import type { ReqContextClass } from "../src/services/context";
 import { attributeDataTypes } from "../src/util/organization.util";
 import { AttributionModel, ImplementationType } from "./experiment";
@@ -95,11 +97,14 @@ export interface Member extends MemberRoleWithProjects {
   lastLoginDate?: Date;
 }
 
-export interface ExpandedMember extends Member {
+export interface ExpandedMemberInfo {
   email: string;
   name: string;
   verified: boolean;
+  numTeams?: number;
 }
+
+export type ExpandedMember = Member & ExpandedMemberInfo;
 
 export interface NorthStarMetric {
   //enabled: boolean;
@@ -122,11 +127,12 @@ export interface MetricDefaults {
 
 export interface Namespaces {
   name: string;
+  label: string;
   description: string;
   status: "active" | "inactive";
 }
 
-export type SDKAttributeFormat = "" | "version";
+export type SDKAttributeFormat = "" | "version" | "date";
 
 export type SDKAttributeType = typeof attributeDataTypes[number];
 
@@ -149,13 +155,7 @@ export type ExperimentUpdateSchedule = {
   hours?: number;
 };
 
-export type Environment = {
-  id: string;
-  description?: string;
-  toggleOnList?: boolean;
-  defaultState?: boolean;
-  projects?: string[];
-};
+export type Environment = z.infer<typeof environment>;
 
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
@@ -195,6 +195,7 @@ export interface OrganizationSettings {
   killswitchConfirmation?: boolean;
   requireReviews?: boolean | RequireReview[];
   defaultDataSource?: string;
+  testQueryDays?: number;
   disableMultiMetricQueries?: boolean;
   useStickyBucketing?: boolean;
   useFallbackAttributes?: boolean;
