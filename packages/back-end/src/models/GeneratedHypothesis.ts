@@ -110,7 +110,6 @@ export const findOrCreateGeneratedHypothesis = async (
       {
         coverage: 1,
         dateStarted: new Date(),
-        dateEnded: new Date(),
         name: "Main",
         reason: "",
         variationWeights: [0.5, 0.5],
@@ -142,15 +141,15 @@ export const findOrCreateGeneratedHypothesis = async (
     await createVisualChangeset({
       experiment: createdExperiment,
       context,
-      urlPatterns: sdk_payload.urlPatterns,
-      editorUrl: sdk_payload.targetUrl,
+      urlPatterns: sdk_payload.experiments[0].urlPatterns,
+      editorUrl: sdk_payload.experiments[0].targetUrl,
       visualChanges: [
         {
           description: "",
           id: uniqid("vc_"),
           css: "",
           js: "",
-          domMutations: sdk_payload.variations[0].domMutations,
+          domMutations: sdk_payload.experiments[0].variations[0].domMutations,
           variation: createdExperiment.variations[0].id,
         },
         {
@@ -158,7 +157,7 @@ export const findOrCreateGeneratedHypothesis = async (
           id: uniqid("vc_"),
           css: "",
           js: "",
-          domMutations: sdk_payload.variations[1].domMutations,
+          domMutations: sdk_payload.experiments[0].variations[1].domMutations,
           variation: createdExperiment.variations[1].id,
         },
       ],
