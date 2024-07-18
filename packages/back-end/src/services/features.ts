@@ -1226,7 +1226,7 @@ export function applySavedGroupHashing(
   salt: string
 ): SavedGroupsValues {
   return Object.fromEntries(
-    Object.entries(savedGroups).map(([savedGroupId, savedGroupMembers]) => {
+    Object.entries(savedGroups).map(([savedGroupId, savedGroupItems]) => {
       const attribute = attributes.find(
         (attr) => attr.property === savedGroupAttributeKeys[savedGroupId]
       );
@@ -1234,14 +1234,14 @@ export function applySavedGroupHashing(
         ? [
             savedGroupId,
             hashStrings({
-              obj: savedGroupMembers,
+              obj: savedGroupItems,
               salt,
               attributes,
               attribute,
               doHash: attribute.hashAttribute,
             }),
           ]
-        : [savedGroupId, savedGroupMembers];
+        : [savedGroupId, savedGroupItems];
     })
   );
 }

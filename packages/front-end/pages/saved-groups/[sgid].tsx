@@ -13,7 +13,7 @@ import Pagination from "@/components/Pagination";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import SavedGroupForm, {
-  IdListMemberInput,
+  IdListItemInput,
 } from "@/components/SavedGroups/SavedGroupForm";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useEnvironments, useFeaturesList } from "@/services/features";
@@ -21,6 +21,7 @@ import { getSavedGroupMessage } from "@/pages/saved-groups";
 import EditButton from "@/components/EditButton/EditButton";
 import Modal from "@/components/Modal";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 const NUM_PER_PAGE = 10;
 
@@ -35,8 +36,8 @@ export default function EditSavedGroupPage() {
   const environments = useEnvironments();
   const { data: sdkConnectionData } = useSDKConnections();
   const [sortNewestFirst, setSortNewestFirst] = useState<boolean>(true);
-  const [addMembers, setAddMembers] = useState<boolean>(false);
-  const [membersToAdd, setMembersToAdd] = useState<string[]>([]);
+  const [addItems, setAddItems] = useState<boolean>(false);
+  const [itemsToAdd, setItemsToAdd] = useState<string[]>([]);
 
   const values = savedGroup?.values || [];
   const [currentPage, setCurrentPage] = useState(1);
@@ -128,10 +129,25 @@ export default function EditSavedGroupPage() {
     return getSavedGroupMessage(featuresReferencingSavedGroup);
   }, [featuresReferencingSavedGroup]);
 
-  if (!savedGroup || savedGroup.type !== "list" || error) {
+  if (!data || !savedGroup) {
+    return <LoadingOverlay />;
+  }
+
+  if (error) {
     return (
       <div className="alert alert-danger">
-        There was an error loading the saved group.
+        An error occurred: {error.message}
+      </div>
+    );
+  }
+
+  if (savedGroup.type !== "list") {
+    return (
+      <div className="alert alert-danger">
+        This type of Saved Group isn&apos;t supported. Return to your{" "}
+        <Link className="text-error-muted underline" href="/saved-groups">
+          saved groups
+        </Link>
       </div>
     );
   }
@@ -140,29 +156,29 @@ export default function EditSavedGroupPage() {
     <>
       <Modal
         close={() => {
-          setAddMembers(false);
-          setMembersToAdd([]);
+          setAddItems(false);
+          setItemsToAdd([]);
         }}
-        open={addMembers}
+        open={addItems}
         size="lg"
         header={`Add ${savedGroup.attributeKey}s to List`}
         cta="Save"
         ctaEnabled={
-          membersToAdd.length > 0 &&
+          itemsToAdd.length > 0 &&
           !disableSubmit &&
           !convertingLegacyWithUnsupportedConnections
         }
         submit={async () => {
-          await apiCall(`/saved-groups/${savedGroup.id}/add-members`, {
+          await apiCall(`/saved-groups/${savedGroup.id}/add-items`, {
             method: "POST",
             body: JSON.stringify({
-              members: membersToAdd,
+              items: itemsToAdd,
               passByReferenceOnly,
             }),
           });
-          const newValues = new Set([...values, ...membersToAdd]);
+          const newValues = new Set([...values, ...itemsToAdd]);
           mutateValues([...newValues]);
-          setMembersToAdd([]);
+          setItemsToAdd([]);
         }}
       >
         <>
@@ -170,12 +186,12 @@ export default function EditSavedGroupPage() {
             Updating this list will automatically update any associated Features
             and Experiments.
           </div>
-          <IdListMemberInput
-            values={membersToAdd}
+          <IdListItemInput
+            values={itemsToAdd}
             attributeKey={savedGroup.attributeKey || "ID"}
             passByReferenceOnly={savedGroup.passByReferenceOnly || false}
             limit={SMALL_GROUP_SIZE_LIMIT - values.length}
-            setValues={(newValues) => setMembersToAdd(newValues)}
+            setValues={(newValues) => setItemsToAdd(newValues)}
             setPassByReferenceOnly={setPassByReferenceOnly}
             setDisableSubmit={setDisableSubmit}
           />
@@ -273,7 +289,7 @@ export default function EditSavedGroupPage() {
                   className="btn btn-outline-primary"
                   onClick={(e) => {
                     e.preventDefault();
-                    setAddMembers(true);
+                    setAddItems(true);
                   }}
                 >
                   <div className="row align-items-center m-0 p-1">
@@ -292,16 +308,16 @@ export default function EditSavedGroupPage() {
                   <>
                     <DeleteButton
                       text={`Delete Selected (${selected.size})`}
-                      title={`Delete selected member${
+                      title={`Delete selected item${
                         selected.size > 1 ? "s" : ""
                       }`}
                       getConfirmationContent={async () => ""}
                       onClick={async () => {
                         await apiCall(
-                          `/saved-groups/${savedGroup.id}/remove-members`,
+                          `/saved-groups/${savedGroup.id}/remove-items`,
                           {
                             method: "POST",
-                            body: JSON.stringify({ members: [...selected] }),
+                            body: JSON.stringify({ items: [...selected] }),
                           }
                         );
                         const newValues = values.filter(
@@ -312,7 +328,7 @@ export default function EditSavedGroupPage() {
                       }}
                       link={true}
                       useIcon={true}
-                      displayName={`${selected.size} selected member${
+                      displayName={`${selected.size} selected item${
                         selected.size > 1 ? "s" : ""
                       }`}
                     />

@@ -1,6 +1,10 @@
 import type { Response } from "express";
 import { isEqual } from "lodash";
-import { LARGE_GROUP_SIZE_LIMIT_BYTES, validateCondition } from "shared/util";
+import {
+  formatByteSizeString,
+  LARGE_GROUP_SIZE_LIMIT_BYTES,
+  validateCondition,
+} from "shared/util";
 import { SavedGroupInterface } from "shared/src/types";
 import { logger } from "../../util/logger";
 import { AuthRequest } from "../../types/AuthRequest";
@@ -126,7 +130,9 @@ export const postSavedGroup = async (
     new Blob([JSON.stringify(uniqValues)]).size > LARGE_GROUP_SIZE_LIMIT_BYTES
   ) {
     throw new Error(
-      `The maximum size for a list is ${LARGE_GROUP_SIZE_LIMIT_BYTES}.`
+      `The maximum size for a list is ${formatByteSizeString(
+        LARGE_GROUP_SIZE_LIMIT_BYTES
+      )}.`
     );
   }
 
@@ -200,31 +206,31 @@ export const getSavedGroup = async (
 
 // endregion GET /saved-groups/:id
 
-// region POST /saved-groups/:id/add-members
+// region POST /saved-groups/:id/add-items
 
-type PostSavedGroupAddMembersRequest = AuthRequest<
-  { members: string[]; passByReferenceOnly?: boolean },
+type PostSavedGroupAddItemsRequest = AuthRequest<
+  { items: string[]; passByReferenceOnly?: boolean },
   { id: string }
 >;
 
-type PostSavedGroupAddMembersResponse = {
+type PostSavedGroupAddItemsResponse = {
   status: 200;
 };
 
 /**
- * POST /saved-groups/:id/add-members
- * Update one saved-group resource by adding the specified member
+ * POST /saved-groups/:id/add-items
+ * Update one saved-group resource by adding the specified list of items
  * @param req
  * @param res
  */
-export const postSavedGroupAddMembers = async (
-  req: PostSavedGroupAddMembersRequest,
-  res: Response<PostSavedGroupAddMembersResponse | ApiErrorResponse>
+export const postSavedGroupAddItems = async (
+  req: PostSavedGroupAddItemsRequest,
+  res: Response<PostSavedGroupAddItemsResponse | ApiErrorResponse>
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
   const { id } = req.params;
-  const { members, passByReferenceOnly } = req.body;
+  const { items, passByReferenceOnly } = req.body;
 
   if (!id) {
     throw new Error("Must specify saved group id");
@@ -241,23 +247,25 @@ export const postSavedGroupAddMembers = async (
   }
 
   if (savedGroup.type !== "list") {
-    throw new Error("Can only add members to ID list saved groups");
+    throw new Error("Can only add items to ID list saved groups");
   }
 
-  if (!members) {
-    throw new Error("Must specify member ids to remove from group");
+  if (!items) {
+    throw new Error("Must specify items to add to group");
   }
 
-  if (!Array.isArray(members)) {
-    throw new Error("Must provide a list of members to remove");
+  if (!Array.isArray(items)) {
+    throw new Error("Must provide a list of items to add");
   }
 
-  const newValues = [...new Set([...(savedGroup.values || []), ...members])];
+  const newValues = [...new Set([...(savedGroup.values || []), ...items])];
   if (
     new Blob([JSON.stringify(newValues)]).size > LARGE_GROUP_SIZE_LIMIT_BYTES
   ) {
     throw new Error(
-      `The maximum size for a list is ${LARGE_GROUP_SIZE_LIMIT_BYTES}. Adding these members to the list would exceed the limit.`
+      `The maximum size for a list is ${formatByteSizeString(
+        LARGE_GROUP_SIZE_LIMIT_BYTES
+      )}. Adding these items to the list would exceed the limit.`
     );
   }
 
@@ -286,33 +294,33 @@ export const postSavedGroupAddMembers = async (
   });
 };
 
-// endregion POST /saved-groups/:id/add-members
+// endregion POST /saved-groups/:id/add-items
 
-// region POST /saved-groups/:id/remove-members
+// region POST /saved-groups/:id/remove-items
 
-type PostSavedGroupRemoveMembersRequest = AuthRequest<
-  { members: string[]; passByReferenceOnly?: boolean },
+type PostSavedGroupRemoveItemsRequest = AuthRequest<
+  { items: string[]; passByReferenceOnly?: boolean },
   { id: string }
 >;
 
-type PostSavedGroupRemoveMembersResponse = {
+type PostSavedGroupRemoveItemsResponse = {
   status: 200;
 };
 
 /**
- * POST /saved-groups/:id/remove-members
- * Update one saved-group resource by removing the specified list of members
+ * POST /saved-groups/:id/remove-items
+ * Update one saved-group resource by removing the specified list of items
  * @param req
  * @param res
  */
-export const postSavedGroupRemoveMembers = async (
-  req: PostSavedGroupRemoveMembersRequest,
-  res: Response<PostSavedGroupRemoveMembersResponse | ApiErrorResponse>
+export const postSavedGroupRemoveItems = async (
+  req: PostSavedGroupRemoveItemsRequest,
+  res: Response<PostSavedGroupRemoveItemsResponse | ApiErrorResponse>
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
   const { id } = req.params;
-  const { members } = req.body;
+  const { items } = req.body;
 
   if (!id) {
     throw new Error("Must specify saved group id");
@@ -329,18 +337,18 @@ export const postSavedGroupRemoveMembers = async (
   }
 
   if (savedGroup.type !== "list") {
-    throw new Error("Can only remove members from ID list saved groups");
+    throw new Error("Can only remove items from ID list saved groups");
   }
 
-  if (!members) {
-    throw new Error("Must specify member ids to remove from group");
+  if (!items) {
+    throw new Error("Must specify items to remove from group");
   }
 
-  if (!Array.isArray(members)) {
-    throw new Error("Must provide a list of members to remove");
+  if (!Array.isArray(items)) {
+    throw new Error("Must provide a list of items to remove");
   }
 
-  const toRemove = new Set(members);
+  const toRemove = new Set(items);
   const newValues = (savedGroup.values || []).filter(
     (value) => !toRemove.has(value)
   );
@@ -367,7 +375,7 @@ export const postSavedGroupRemoveMembers = async (
   });
 };
 
-// endregion POST /saved-groups/:id/remove-members
+// endregion POST /saved-groups/:id/remove-items
 
 // region PUT /saved-groups/:id
 
