@@ -1,6 +1,6 @@
 import React, { FC, useCallback, useState } from "react";
 import z from "zod";
-import { useForm } from "react-hook-form";
+import { useForm, UseFormReturn } from "react-hook-form";
 import { NotificationEventName } from "back-end/src/events/base-types";
 import clsx from "clsx";
 import Modal from "@/components/Modal";
@@ -48,104 +48,34 @@ const eventWebHookPayloadValues: { [k in EventWebHookPayloadType]: string } = {
   discord: "Discord",
 } as const;
 
-export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
-  isOpen,
-  onClose,
-  onSubmit,
-  mode,
-  error,
+type Form = UseFormReturn<EventWebHookEditParams>;
+
+const EventWebHookAddEditSettings = ({
+  form,
+  handleFormValidation,
+  validHeaders,
+  forcedParams,
+}: {
+  form: Form;
+  handleFormValidation: () => void;
+  validHeaders: boolean;
+  forcedParams?: {
+    method: EventWebHookMethod;
+    headers: string;
+  };
 }) => {
-  const [ctaEnabled, setCtaEnabled] = useState(false);
-  const [validHeaders, setValidHeaders] = useState(true);
   const environmentSettings = useEnvironments();
   const environments = environmentSettings.map((env) => env.id);
-
-  const validateHeaders = (headers: string) => {
-    try {
-      JSON.parse(headers);
-      setValidHeaders(true);
-      return true;
-    } catch (error) {
-      setValidHeaders(false);
-      return false;
-    }
-  };
-
-  const { projects, tags } = useDefinitions();
-
-  const form = useForm<EventWebHookEditParams>({
-    defaultValues:
-      mode.mode === "edit"
-        ? mode.data
-        : {
-            name: "",
-            events: [],
-            url: "",
-            enabled: true,
-            environments: [],
-            projects: [],
-            tags: [],
-            payloadType: "raw",
-            method: "POST",
-            headers: "{}",
-          },
-  });
-
-  const forcedParams = forcedParamsMap[form.watch("payloadType")];
-
-  const filteredValues = useCallback(
-    (values) => ({ ...values, ...forcedParams }),
-    [forcedParams]
-  );
-
-  const handleSubmit = form.handleSubmit(async (rawValues) => {
-    const values = filteredValues(rawValues);
-    onSubmit({ ...values, headers: JSON.parse(values.headers) });
-  });
-
-  const modalTitle =
-    mode.mode == "edit" ? "Edit Webhook" : "Create New Webhook";
-  const buttonText = mode.mode == "edit" ? "Save" : "Create";
-
-  const handleFormValidation = useCallback(() => {
-    const formValues = filteredValues(form.getValues());
-    if (!validateHeaders(formValues.headers)) return setCtaEnabled(false);
-
-    const schema = z.object({
-      url: z.string().url(),
-      name: z.string().trim().min(2),
-      enabled: z.boolean(),
-      events: z.array(z.enum(notificationEventNames)).min(1),
-      payloadType: z.enum(eventWebHookPayloadTypes),
-      tags: z.array(z.string()),
-      projects: z.array(z.string()),
-      environments: z.array(z.string()),
-      method: z.enum(eventWebHookMethods),
-      headers: z.string(),
-    });
-
-    setCtaEnabled(schema.safeParse(formValues).success);
-  }, [filteredValues, form]);
 
   const selectedPayloadType = form.watch("payloadType");
   const selectedEnvironments = form.watch("environments");
   const selectedProjects = form.watch("projects");
   const selectedTags = form.watch("tags");
 
-  if (!isOpen) return null;
+  const { projects, tags } = useDefinitions();
 
   return (
-    <Modal
-      header={modalTitle}
-      cta={buttonText}
-      close={onClose}
-      open={isOpen}
-      submit={handleSubmit}
-      error={error ?? undefined}
-      ctaEnabled={ctaEnabled}
-      bodyClassName="mt-2"
-      size="lg"
-    >
+    <>
       <SelectField
         label={<b>Payload Type</b>}
         value={form.watch("payloadType")}
@@ -397,6 +327,105 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
           </div>
         </div>
       </div>
+    </>
+  );
+};
+
+export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  mode,
+  error,
+}) => {
+  const [ctaEnabled, setCtaEnabled] = useState(false);
+  const [validHeaders, setValidHeaders] = useState(true);
+
+  const validateHeaders = (headers: string) => {
+    try {
+      JSON.parse(headers);
+      setValidHeaders(true);
+      return true;
+    } catch (error) {
+      setValidHeaders(false);
+      return false;
+    }
+  };
+
+  const form = useForm<EventWebHookEditParams>({
+    defaultValues:
+      mode.mode === "edit"
+        ? mode.data
+        : {
+            name: "",
+            events: [],
+            url: "",
+            enabled: true,
+            environments: [],
+            projects: [],
+            tags: [],
+            payloadType: "raw",
+            method: "POST",
+            headers: "{}",
+          },
+  });
+
+  const forcedParams = forcedParamsMap[form.watch("payloadType")];
+
+  const filteredValues = useCallback(
+    (values) => ({ ...values, ...forcedParams }),
+    [forcedParams]
+  );
+
+  const handleSubmit = form.handleSubmit(async (rawValues) => {
+    const values = filteredValues(rawValues);
+    onSubmit({ ...values, headers: JSON.parse(values.headers) });
+  });
+
+  const modalTitle =
+    mode.mode == "edit" ? "Edit Webhook" : "Create New Webhook";
+  const buttonText = mode.mode == "edit" ? "Save" : "Create";
+
+  const handleFormValidation = useCallback(() => {
+    const formValues = filteredValues(form.getValues());
+    if (!validateHeaders(formValues.headers)) return setCtaEnabled(false);
+
+    const schema = z.object({
+      url: z.string().url(),
+      name: z.string().trim().min(2),
+      enabled: z.boolean(),
+      events: z.array(z.enum(notificationEventNames)).min(1),
+      payloadType: z.enum(eventWebHookPayloadTypes),
+      tags: z.array(z.string()),
+      projects: z.array(z.string()),
+      environments: z.array(z.string()),
+      method: z.enum(eventWebHookMethods),
+      headers: z.string(),
+    });
+
+    setCtaEnabled(schema.safeParse(formValues).success);
+  }, [filteredValues, form]);
+
+  if (!isOpen) return null;
+
+  return (
+    <Modal
+      header={modalTitle}
+      cta={buttonText}
+      close={onClose}
+      open={isOpen}
+      submit={handleSubmit}
+      error={error ?? undefined}
+      ctaEnabled={ctaEnabled}
+      bodyClassName="mt-2"
+      size="lg"
+    >
+      <EventWebHookAddEditSettings
+        form={form}
+        handleFormValidation={handleFormValidation}
+        validHeaders={validHeaders}
+        forcedParams={forcedParams}
+      />
     </Modal>
   );
 };
