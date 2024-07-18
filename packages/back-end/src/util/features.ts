@@ -335,7 +335,7 @@ export function getFeatureDefinition({
   // convert prerequisites to force rules:
   const prerequisiteRules = (feature.prerequisites ?? [])
     ?.map((p) => {
-      const condition = getParsedCondition(groupMap, p.condition, undefined);
+      const condition = getParsedCondition(groupMap, p.condition);
       if (!condition) return null;
       return {
         parentConditions: [
@@ -463,11 +463,7 @@ export function getFeatureDefinition({
 
         const prerequisites = (r?.prerequisites ?? [])
           ?.map((p) => {
-            const condition = getParsedCondition(
-              groupMap,
-              p.condition,
-              undefined
-            );
+            const condition = getParsedCondition(groupMap, p.condition);
             if (!condition) return null;
             return {
               id: p.id,
