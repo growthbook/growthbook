@@ -20,6 +20,7 @@ export interface Props {
   invalidProjectMessage?: string;
   sort?: boolean;
   className?: string;
+  skipMargin?: boolean;
 }
 
 export default function ProjectBadges({
@@ -29,6 +30,7 @@ export default function ProjectBadges({
   invalidProjectMessage = "This project is invalid",
   sort = true,
   className = "badge-ellipsis short",
+  skipMargin = false,
 }: Props) {
   const { projects, project } = useDefinitions();
   if (!projectIds) {
@@ -40,7 +42,7 @@ export default function ProjectBadges({
           !project ? "badge-primary bg-purple" : "badge-gray",
           className
         )}
-        skipMargin={true}
+        skipMargin={skipMargin}
       />
     );
   }
@@ -88,7 +90,7 @@ export default function ProjectBadges({
               project === p?.id ? "badge-primary bg-purple" : "badge-gray",
               className
             )}
-            skipMargin={i === 0}
+            skipMargin={skipMargin || i === 0}
           />
         );
       })}
