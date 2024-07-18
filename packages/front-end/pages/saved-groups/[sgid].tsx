@@ -233,8 +233,7 @@ export default function EditSavedGroupPage() {
         ]}
       />
       <div className="p-3 container-fluid pagecontents">
-        {/* TODO: more responsive styling */}
-        <div style={{ maxWidth: "800px" }}>
+        <div>
           <div className="row m-0 align-items-center mb-2 justify-content-between">
             <h1 className="">{savedGroup.groupName}</h1>
             <div>
