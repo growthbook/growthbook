@@ -133,7 +133,11 @@ export const findOrCreateGeneratedHypothesis = async (
   });
 
   // create feature flag or visual change
-  if (sdk_payload) {
+  if (
+    sdk_payload?.urlPatterns &&
+    sdk_payload?.targetUrl &&
+    sdk_payload?.variations?.[0]?.domMutations
+  ) {
     // visual change
     await createVisualChangeset({
       experiment: createdExperiment,
