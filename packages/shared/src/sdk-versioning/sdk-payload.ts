@@ -38,6 +38,11 @@ const stickyBucketingKeys = [
 ];
 const prerequisiteKeys = ["parentConditions"];
 
+const savedGroupOperatorReplacements = {
+  $inGroup: "$in",
+  $notInGroup: "$nin",
+};
+
 export const scrubFeatures = (
   features: Record<string, FeatureDefinitionWithProject>,
   capabilities: SDKCapability[],
@@ -195,7 +200,7 @@ const replaceSavedGroups: (
   return ([key, value], object) => {
     if (key === "$inGroup" || key === "$notInGroup") {
       const group = savedGroups[value];
-      object[key.replace("Group", "")] = group?.passByReferenceOnly
+      object[savedGroupOperatorReplacements[key]] = group?.passByReferenceOnly
         ? []
         : group?.values || [];
       delete object[key];

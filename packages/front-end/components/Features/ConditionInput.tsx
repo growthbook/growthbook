@@ -91,7 +91,8 @@ export default function ConditionInput(props: Props) {
   useEffect(() => {
     if (
       selectedLargeSavedGroups.length > 0 &&
-      supportedConnections.length === 0
+      supportedConnections.length === 0 &&
+      unversionedConnections.length === 0
     ) {
       props.setAttributeTargetingSdkIssues(true);
       setLocalTargetingIssues(true);
@@ -102,6 +103,7 @@ export default function ConditionInput(props: Props) {
   }, [
     selectedLargeSavedGroups,
     supportedConnections,
+    unversionedConnections,
     props.setAttributeTargetingSdkIssues,
   ]);
 
