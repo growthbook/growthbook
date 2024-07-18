@@ -55,7 +55,8 @@ export default function SavedGroupTargetingField({
   useEffect(() => {
     if (
       selectedLargeSavedGroups.length > 0 &&
-      supportedConnections.length === 0
+      supportedConnections.length === 0 &&
+      unversionedConnections.length === 0
     ) {
       setSavedGroupTargetingSdkIssues(true);
       setLocalTargetingIssues(true);
@@ -66,6 +67,7 @@ export default function SavedGroupTargetingField({
   }, [
     selectedLargeSavedGroups,
     supportedConnections,
+    unversionedConnections,
     setSavedGroupTargetingSdkIssues,
   ]);
 
