@@ -42,7 +42,7 @@ export default function ProjectBadges({
           !project ? "badge-primary bg-purple" : "badge-gray",
           className
         )}
-        skipMargin={skipMargin}
+        skipMargin={true}
       />
     );
   }
