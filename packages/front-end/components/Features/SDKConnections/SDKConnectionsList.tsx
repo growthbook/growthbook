@@ -159,9 +159,10 @@ export default function SDKConnectionsList() {
                         />
                       )}
                       <div
-                        className={clsx("d-flex align-items-center", {
+                        className={clsx("d-flex flex-wrap align-items-center", {
                           "small mt-1": showAllEnvironmentProjects,
                         })}
+                        style={{ gap: "0.5rem" }}
                       >
                         <ProjectBadges
                           projectIds={
@@ -172,6 +173,7 @@ export default function SDKConnectionsList() {
                           invalidProjectIds={disallowedProjectIds}
                           invalidProjectMessage="This project is not allowed in the selected environment and will not be included in the SDK payload."
                           resourceType="sdk connection"
+                          skipMargin={true}
                         />
                       </div>
                     </td>
