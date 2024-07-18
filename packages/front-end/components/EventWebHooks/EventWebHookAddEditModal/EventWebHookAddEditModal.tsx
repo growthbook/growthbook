@@ -1,8 +1,10 @@
-import React, { FC, useCallback, useState } from "react";
+import React, { FC, useCallback, useEffect, useMemo, useState } from "react";
 import z from "zod";
 import { useForm, UseFormReturn } from "react-hook-form";
 import { NotificationEventName } from "back-end/src/events/base-types";
 import clsx from "clsx";
+import { PiCheckCircleFill, PiXSquare } from "react-icons/pi";
+import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Field from "@/components/Forms/Field";
@@ -49,6 +51,92 @@ const eventWebHookPayloadValues: { [k in EventWebHookPayloadType]: string } = {
 } as const;
 
 type Form = UseFormReturn<EventWebHookEditParams>;
+
+type ConfirmState =
+  | { type: "idle" }
+  | { type: "sent" }
+  | { type: "success" }
+  | { type: "error"; message: string };
+
+const EventWebHookAddConfirm = ({ form }: { form: Form }) => {
+  const [state, setState] = useState<ConfirmState>({ type: "idle" });
+  const { apiCall } = useAuth();
+
+  const onTestWebhook = useCallback(async () => {
+    setState({ type: "sent" });
+
+    try {
+      const response = await apiCall<{
+        error?: string;
+      }>("/event-webhooks/test-params", {
+        method: "POST",
+        body: JSON.stringify({
+          name: form.watch("name"),
+          method: form.watch("method"),
+          url: form.watch("url"),
+        }),
+      });
+
+      if (response.error) {
+        setState({
+          type: "error",
+          message: `Webhook test failed: ${response.error || "Unknown error"}`,
+        });
+        return;
+      }
+
+      setState({ type: "success" });
+    } catch (e) {
+      setState({ type: "error", message: "Unknown error" });
+    }
+  }, [setState, apiCall, form]);
+
+  return (
+    <div className="mx-2 mb-5">
+      <p className="mb-0">
+        We recommend testing your connection to ensure your settings are
+        correct.
+      </p>
+      <p className="mt-0 text-danger">
+        <b>Important:</b> Do not navigate away from this modal, or your changes
+        will not be saved.
+      </p>
+
+      <button
+        className="btn btn-outline-primary mr-2 mb-2"
+        disabled={state.type === "sent"}
+        onClick={onTestWebhook}
+      >
+        {state.type === "sent" ? (
+          <>
+            <span className="mr-2">
+              <PiCheckCircleFill />
+            </span>{" "}
+            Test Sent
+          </>
+        ) : (
+          "Test Connection"
+        )}
+      </button>
+
+      <div className="mt-2 d-flex align-items-center">
+        {state.type === "success" && (
+          <p className="text-success">
+            <PiCheckCircleFill /> Test Sucessful!
+          </p>
+        )}
+        {state.type === "error" && (
+          <p className="text-danger">
+            <PiXSquare /> Test Failed: {state.message}
+          </p>
+        )}
+        {state.type !== "error" && state.type !== "success" && (
+          <p className="invisible">Placeholder for height</p>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const EventWebHookAddEditSettings = ({
   form,
@@ -331,6 +419,14 @@ const EventWebHookAddEditSettings = ({
   );
 };
 
+type Step = "create" | "confirm" | "edit";
+
+const buttonText = {
+  create: "Next >",
+  confirm: "Create",
+  edit: "Save",
+} as const;
+
 export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   isOpen,
   onClose,
@@ -338,8 +434,9 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   mode,
   error,
 }) => {
-  const [ctaEnabled, setCtaEnabled] = useState(false);
+  const [submitEnabled, setSubmitEnabled] = useState(false);
   const [validHeaders, setValidHeaders] = useState(true);
+  const [step, setStep] = useState<Step>(mode.mode);
 
   const validateHeaders = (headers: string) => {
     try {
@@ -377,18 +474,22 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
     [forcedParams]
   );
 
-  const handleSubmit = form.handleSubmit(async (rawValues) => {
-    const values = filteredValues(rawValues);
-    onSubmit({ ...values, headers: JSON.parse(values.headers) });
-  });
+  const handleSubmit = useMemo(() => {
+    if (step === "create" && form.watch("payloadType") !== "raw")
+      return () => setStep("confirm");
+
+    return form.handleSubmit(async (rawValues) => {
+      const values = filteredValues(rawValues);
+      onSubmit({ ...values, headers: JSON.parse(values.headers) });
+    });
+  }, [step, onSubmit, form, filteredValues]);
 
   const modalTitle =
     mode.mode == "edit" ? "Edit Webhook" : "Create New Webhook";
-  const buttonText = mode.mode == "edit" ? "Save" : "Create";
 
   const handleFormValidation = useCallback(() => {
     const formValues = filteredValues(form.getValues());
-    if (!validateHeaders(formValues.headers)) return setCtaEnabled(false);
+    if (!validateHeaders(formValues.headers)) return setSubmitEnabled(false);
 
     const schema = z.object({
       url: z.string().url(),
@@ -403,29 +504,53 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       headers: z.string(),
     });
 
-    setCtaEnabled(schema.safeParse(formValues).success);
+    setSubmitEnabled(schema.safeParse(formValues).success);
   }, [filteredValues, form]);
+
+  useEffect(handleFormValidation);
 
   if (!isOpen) return null;
 
   return (
     <Modal
       header={modalTitle}
-      cta={buttonText}
-      close={onClose}
+      cta={buttonText[step]}
+      includeCloseCta={false}
       open={isOpen}
-      submit={handleSubmit}
       error={error ?? undefined}
-      ctaEnabled={ctaEnabled}
       bodyClassName="mt-2"
       size="lg"
+      secondaryCTA={
+        step === "confirm" ? (
+          <button className="btn btn-link" onClick={() => setStep("create")}>
+            {"< Back"}
+          </button>
+        ) : (
+          <button className="btn btn-link" onClick={onClose}>
+            Close
+          </button>
+        )
+      }
+      tertiaryCTA={
+        <button
+          disabled={!submitEnabled}
+          onClick={handleSubmit}
+          className="btn btn-primary"
+        >
+          {buttonText[step]}
+        </button>
+      }
     >
-      <EventWebHookAddEditSettings
-        form={form}
-        handleFormValidation={handleFormValidation}
-        validHeaders={validHeaders}
-        forcedParams={forcedParams}
-      />
+      {step === "confirm" ? (
+        <EventWebHookAddConfirm form={form} />
+      ) : (
+        <EventWebHookAddEditSettings
+          form={form}
+          handleFormValidation={handleFormValidation}
+          validHeaders={validHeaders}
+          forcedParams={forcedParams}
+        />
+      )}
     </Modal>
   );
 };

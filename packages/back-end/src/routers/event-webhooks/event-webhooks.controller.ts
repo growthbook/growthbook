@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import fetch from "node-fetch";
 import { PrivateApiErrorResponse } from "../../../types/api";
 import {
   EventWebHookInterface,
@@ -303,6 +304,52 @@ export const toggleEventWebHook = async (
 };
 
 // endregion /event-webhooks/toggle
+
+// region POST /event-webhooks/test-params
+
+const testParamsPayload = (name) => ({
+  text: `Hi there! This is a test event from GrowthBook to see if the params for webhook ${name} are correct.`,
+  blocks: [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*Hi there! 👋*\nThis is a *test event* from GrowthBook to see if the params for webhook ${name} are correct.`,
+      },
+    },
+  ],
+});
+
+type PostTestWebHooksParamsRequest = AuthRequest & {
+  body: {
+    name: string;
+    method: EventWebHookMethod;
+    url: string;
+  };
+};
+
+export const testWebHookParams = async (
+  req: PostTestWebHooksParamsRequest,
+  res: Response<{ success: boolean } | PrivateApiErrorResponse>
+) => {
+  try {
+    const response = await fetch(req.body.url, {
+      method: req.body.method,
+      body: JSON.stringify(testParamsPayload(req.body.name)),
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (response.ok) return res.json({ success: true });
+
+    return res.status(403).json({
+      error: `Request failed: ${response.status} - ${response.statusText}`,
+    });
+  } catch (e) {
+    return res.status(403).json({ error: `Request failed: ${e}` });
+  }
+};
+
+// endregion /event-webhooks/test-params
 
 // region POST /event-webhooks/test
 
