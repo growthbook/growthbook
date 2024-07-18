@@ -6,6 +6,7 @@ import { pick, omit } from "lodash";
 import cloneDeep from "lodash/cloneDeep";
 import { getAutoExperimentChangeType } from "@growthbook/growthbook";
 import { SavedGroupsValues, SavedGroupInterface } from "../types";
+import { NodeHandler, recursiveWalk } from "../util";
 import { SDKCapability } from "./index";
 
 const strictFeatureKeys = ["defaultValue", "rules"];
@@ -36,27 +37,6 @@ const stickyBucketingKeys = [
   "minBucketVersion",
 ];
 const prerequisiteKeys = ["parentConditions"];
-
-// eslint-disable-next-line
-type Node = [string, any];
-// eslint-disable-next-line
-export type NodeHandler = (node: Node, object: any) => void;
-
-// Recursively traverses the given object and calls onNode on each key/value pair.
-// If onNode modifies the object in place, it walks the new values as they're inserted, updated, or deleted
-// eslint-disable-next-line
-export const recursiveWalk = (object: any, onNode: NodeHandler) => {
-  // Base case: stop recursion once you hit a primitive or null
-  if (object === null || typeof object !== "object") {
-    return;
-  }
-  // If currently walking over an object or array, iterate the entries and call onNode before recurring
-  Object.entries(object).forEach((node) => {
-    onNode(node, object);
-    // Recompute the reference for the recursive call as the key may have changed
-    recursiveWalk(object[node[0]], onNode);
-  });
-};
 
 export const scrubFeatures = (
   features: Record<string, FeatureDefinitionWithProject>,

@@ -19,10 +19,10 @@ import {
   validateFeatureValue,
   getSavedGroupsValuesFromGroupMap,
   getSavedGroupsValuesFromInterfaces,
-} from "shared/util";
-import {
   NodeHandler,
   recursiveWalk,
+} from "shared/util";
+import {
   scrubExperiments,
   scrubFeatures,
   scrubSavedGroups,
