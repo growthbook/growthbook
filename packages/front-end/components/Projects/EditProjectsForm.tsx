@@ -2,7 +2,7 @@ import { FC } from "react";
 import { useForm } from "react-hook-form";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import useProjectOptions from "@/hooks/useProjectOptions";
 
 const EditProjectsForm: FC<{
   value: string[];
@@ -12,16 +12,11 @@ const EditProjectsForm: FC<{
   mutate: () => void;
   entityName?: string;
 }> = ({ value = [], permissionRequired, save, cancel, mutate, entityName }) => {
-  const { projects: orgProjects } = useDefinitions();
   const form = useForm({
     defaultValues: {
       projects: value,
     },
   });
-
-  const projectOptions = orgProjects.filter((project) =>
-    permissionRequired(project.id)
-  );
 
   return (
     <Modal
@@ -38,10 +33,7 @@ const EditProjectsForm: FC<{
         label="Projects"
         placeholder="All projects"
         value={form.watch("projects")}
-        options={projectOptions.map((p) => ({
-          value: p.id,
-          label: p.name,
-        }))}
+        options={useProjectOptions(permissionRequired, value)}
         onChange={(v) => form.setValue("projects", v)}
         customClassName="label-overflow-ellipsis"
         helpText={`Assign this ${entityName} to specific projects`}

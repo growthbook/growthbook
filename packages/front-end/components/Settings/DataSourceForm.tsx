@@ -19,6 +19,7 @@ import ConnectionSettings from "@/components/Settings/ConnectionSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ensureAndReturn } from "@/types/utils";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useProjectOptions from "@/hooks/useProjectOptions";
 import EditSchemaOptions from "./EditSchemaOptions";
 
 const typeOptions = dataSourceConnections;
@@ -51,6 +52,17 @@ const DataSourceForm: FC<{
   >();
   const [hasError, setHasError] = useState(false);
   const permissionsUtil = usePermissionsUtil();
+
+  const permissionRequired = existing
+    ? (project: string) =>
+        permissionsUtil.canUpdateDataSourceParams({ projects: [project] })
+    : (project: string) =>
+        permissionsUtil.canCreateDataSource({ projects: [project] });
+
+  const projectOptions = useProjectOptions(
+    permissionRequired,
+    datasource?.projects || []
+  );
 
   useEffect(() => {
     track("View Datasource Form", {
@@ -245,17 +257,7 @@ const DataSourceForm: FC<{
             label="Projects"
             placeholder="All projects"
             value={datasource.projects || []}
-            options={projects
-              .filter((project) =>
-                existing
-                  ? permissionsUtil.canUpdateDataSourceParams({
-                      projects: [project.id],
-                    })
-                  : permissionsUtil.canCreateDataSource({
-                      projects: [project.id],
-                    })
-              )
-              .map((p) => ({ value: p.id, label: p.name }))}
+            options={projectOptions}
             onChange={(v) => onManualChange("projects", v)}
             customClassName="label-overflow-ellipsis"
             helpText="Assign this data source to specific projects"

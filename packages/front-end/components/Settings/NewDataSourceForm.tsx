@@ -29,6 +29,7 @@ import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
 import { GBCircleArrowLeft } from "@/components/Icons";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useProjectOptions from "@/hooks/useProjectOptions";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
 import styles from "./NewDataSourceForm.module.scss";
@@ -144,6 +145,11 @@ const NewDataSourceForm: FC<{
         projectId: p.id,
         organizationId: orgId || "",
       })
+  );
+
+  const projectOptions = useProjectOptions(
+    (project) => permissionsUtil.canCreateDataSource({ projects: [project] }),
+    data.projects || []
   );
 
   if (!datasource) {
@@ -550,13 +556,7 @@ const NewDataSourceForm: FC<{
               label="Projects"
               placeholder="All projects"
               value={datasource.projects || []}
-              options={projects
-                .filter((project) =>
-                  permissionsUtil.canCreateDataSource({
-                    projects: [project.id],
-                  })
-                )
-                .map((p) => ({ value: p.id, label: p.name }))}
+              options={projectOptions}
               onChange={(v) => onManualChange("projects", v)}
               customClassName="label-overflow-ellipsis"
               helpText="Assign this data source to specific projects"

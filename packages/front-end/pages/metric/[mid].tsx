@@ -321,6 +321,7 @@ const MetricPage: FC = () => {
       {editProjects && (
         <EditProjectsForm
           cancel={() => setEditProjects(false)}
+          entityName="Metric"
           mutate={mutate}
           value={metric.projects || []}
           permissionRequired={(project) =>

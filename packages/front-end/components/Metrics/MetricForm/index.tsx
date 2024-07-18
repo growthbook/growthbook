@@ -46,6 +46,7 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
+import useProjectOptions from "@/hooks/useProjectOptions";
 import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
 import { MetricDelayHours } from "./MetricDelayHours";
@@ -597,6 +598,11 @@ const MetricForm: FC<MetricFormProps> = ({
     disabledMessage = "You don't have permission to create metrics.";
   }
 
+  const projectOptions = useProjectOptions(
+    (project) => permissionsUtil.canCreateMetric({ projects: [project] }),
+    form.watch("projects") || []
+  );
+
   // If creating a Fact Metric instead
   if (allowFactMetrics && factMetric) {
     return (
@@ -717,11 +723,7 @@ const MetricForm: FC<MetricFormProps> = ({
                 label="Projects"
                 placeholder="All projects"
                 value={value.projects || []}
-                options={projects
-                  .filter((project) =>
-                    permissionsUtil.canCreateMetric({ projects: [project.id] })
-                  )
-                  .map((p) => ({ value: p.id, label: p.name }))}
+                options={projectOptions}
                 onChange={(v) => form.setValue("projects", v)}
                 customClassName="label-overflow-ellipsis"
                 helpText="Assign this metric to specific projects"

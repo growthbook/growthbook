@@ -18,6 +18,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useProjectOptions from "@/hooks/useProjectOptions";
 import MinSDKVersionsList from "./MinSDKVersionsList";
 
 export interface Props {
@@ -56,6 +57,17 @@ export default function AttributeModal({ close, attribute }: Props) {
     "number",
     "secureString",
   ];
+
+  const permissionRequired = attribute
+    ? (project: string) =>
+        permissionsUtil.canUpdateAttribute({ projects: [project] }, {})
+    : (project: string) =>
+        permissionsUtil.canCreateAttribute({ projects: [project] });
+
+  const projectOptions = useProjectOptions(
+    permissionRequired,
+    form.watch("projects") || []
+  );
 
   return (
     <Modal
@@ -143,18 +155,7 @@ export default function AttributeModal({ close, attribute }: Props) {
             label="Projects"
             placeholder="All projects"
             value={form.watch("projects") || []}
-            options={projects
-              .filter((project) =>
-                attribute
-                  ? permissionsUtil.canUpdateAttribute(
-                      { projects: [project.id] },
-                      {}
-                    )
-                  : permissionsUtil.canCreateAttribute({
-                      projects: [project.id],
-                    })
-              )
-              .map((p) => ({ value: p.id, label: p.name }))}
+            options={projectOptions}
             onChange={(v) => form.setValue("projects", v)}
             customClassName="label-overflow-ellipsis"
             helpText="Assign this attribute to specific projects"

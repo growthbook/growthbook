@@ -41,6 +41,7 @@ import Tab from "@/components/Tabs/Tab";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useProjectOptions from "@/hooks/useProjectOptions";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import {
   LanguageType,
@@ -208,25 +209,23 @@ export default function SDKConnectionForm({
     selectedEnvironment
   );
 
-  const projectsOptions = [...filteredProjects, ...disallowedProjects]
-    .filter((project) =>
-      edit
-        ? permissionsUtil.canUpdateSDKConnection(
-            {
-              projects: [project.id],
-              environment: form.watch("environment"),
-            },
-            {}
-          )
-        : permissionsUtil.canCreateSDKConnection({
-            projects: [project.id],
-            environment: form.watch("environment"),
-          })
-    )
-    .map((p) => ({
-      label: p.name,
-      value: p.id,
-    }));
+  const permissionRequired = edit
+    ? (project: string) =>
+        permissionsUtil.canUpdateSDKConnection(
+          { projects: [project], environment: form.watch("environment") },
+          {}
+        )
+    : (project: string) =>
+        permissionsUtil.canCreateSDKConnection({
+          projects: [project],
+          environment: form.watch("environment"),
+        });
+
+  const projectsOptions = useProjectOptions(
+    permissionRequired,
+    form.watch("projects") || [],
+    [...filteredProjects, ...disallowedProjects]
+  );
   const selectedValidProjects = selectedProjects?.filter((p) => {
     return disallowedProjects?.find((dp) => dp.id === p) === undefined;
   });
