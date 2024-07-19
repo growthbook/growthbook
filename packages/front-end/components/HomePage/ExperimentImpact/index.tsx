@@ -146,8 +146,6 @@ export default function ExperimentImpact({
 
   // 1 get all snapshots
   // 2 check for snapshots w/o impact
-  // 3 if snapshots exist w/o impact analysis object
-
   const fetchSnapshots = useCallback(async () => {
     setLoading(true);
     const queryIds = experimentIds
@@ -185,15 +183,11 @@ export default function ExperimentImpact({
     [apiCall]
   );
 
-  useEffect(
-    () => {
-      // 1 gets latest non-dimension snapshot from latest phase
-      // and  2 check for snapshots w/o impact
-      fetchSnapshots();
-    },
+  useEffect(() => {
+    // 1 gets latest non-dimension snapshot from latest phase
+    fetchSnapshots();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
+  }, []);
 
   const scaleImpactAndSetMissingExperiments = (
     experiments: ExperimentInterfaceStringDates[],
@@ -402,6 +396,7 @@ export default function ExperimentImpact({
     };
   };
 
+  // 2 check for snapshots w/o impact and update data
   const {
     summaryObj,
     nExpsUsedForAdjustment,
