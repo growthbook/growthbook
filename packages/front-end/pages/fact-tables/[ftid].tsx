@@ -185,6 +185,9 @@ export default function FactTablePage() {
             {getDatasourceById(factTable.datasource)?.name || "Unknown"}
           </Link>
         </div>
+        {factTable.owner && (
+          <div className="col-auto">Owner: {factTable.owner}</div>
+        )}
       </div>
 
       <div className="appbox p-3 bg-white mb-3">

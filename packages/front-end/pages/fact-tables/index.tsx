@@ -279,6 +279,7 @@ export default function FactTablesPage() {
                 <SortableTH field="userIdTypes">Identifier Types</SortableTH>
                 <SortableTH field="numMetrics">Metrics</SortableTH>
                 <SortableTH field="numFilters">Filters</SortableTH>
+                <SortableTH field="dateUpdated">Owner</SortableTH>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
               </tr>
             </thead>
@@ -323,6 +324,7 @@ export default function FactTablesPage() {
                   </td>
                   <td>{f.numMetrics}</td>
                   <td>{f.numFilters}</td>
+                  <td>{f.owner}</td>
                   <td>{f.dateUpdated ? date(f.dateUpdated) : null}</td>
                 </tr>
               ))}
