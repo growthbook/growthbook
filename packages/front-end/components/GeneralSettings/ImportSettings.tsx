@@ -78,8 +78,7 @@ export default function ImportSettings({
             service.
           </p>
           <Link href="/importing" className="btn btn-primary">
-            <FaUpload />
-            Import from another service
+            <FaUpload className="mr-1" /> Import from another service
           </Link>
         </div>
       )}
