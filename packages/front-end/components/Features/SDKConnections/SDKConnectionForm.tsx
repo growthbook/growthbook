@@ -209,17 +209,17 @@ export default function SDKConnectionForm({
     selectedEnvironment
   );
 
-  const permissionRequired = edit
-    ? (project: string) =>
-        permissionsUtil.canUpdateSDKConnection(
+  const permissionRequired = (project: string) => {
+    return edit
+      ? permissionsUtil.canUpdateSDKConnection(
           { projects: [project], environment: form.watch("environment") },
           {}
         )
-    : (project: string) =>
-        permissionsUtil.canCreateSDKConnection({
+      : permissionsUtil.canCreateSDKConnection({
           projects: [project],
           environment: form.watch("environment"),
         });
+  };
 
   const projectsOptions = useProjectOptions(
     permissionRequired,

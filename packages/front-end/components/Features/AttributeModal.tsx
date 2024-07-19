@@ -58,11 +58,11 @@ export default function AttributeModal({ close, attribute }: Props) {
     "secureString",
   ];
 
-  const permissionRequired = attribute
-    ? (project: string) =>
-        permissionsUtil.canUpdateAttribute({ projects: [project] }, {})
-    : (project: string) =>
-        permissionsUtil.canCreateAttribute({ projects: [project] });
+  const permissionRequired = (project: string) => {
+    return attribute
+      ? permissionsUtil.canUpdateAttribute({ projects: [project] }, {})
+      : permissionsUtil.canCreateAttribute({ projects: [project] });
+  };
 
   const projectOptions = useProjectOptions(
     permissionRequired,

@@ -53,11 +53,11 @@ const DataSourceForm: FC<{
   const [hasError, setHasError] = useState(false);
   const permissionsUtil = usePermissionsUtil();
 
-  const permissionRequired = existing
-    ? (project: string) =>
-        permissionsUtil.canUpdateDataSourceParams({ projects: [project] })
-    : (project: string) =>
-        permissionsUtil.canCreateDataSource({ projects: [project] });
+  const permissionRequired = (project: string) => {
+    return existing
+      ? permissionsUtil.canUpdateDataSourceParams({ projects: [project] })
+      : permissionsUtil.canCreateDataSource({ projects: [project] });
+  };
 
   const projectOptions = useProjectOptions(
     permissionRequired,
