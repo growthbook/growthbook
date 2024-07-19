@@ -32,6 +32,9 @@ const EditProjectForm: FC<{
     },
   });
 
+  // If user has the permission required globally (E.G. canCreateFeature), show the "None" option, otherwise, don't show initial option
+  const initialOption = permissionRequired("") ? "None" : "";
+
   return (
     <Modal
       header={"Edit Project"}
@@ -56,7 +59,7 @@ const EditProjectForm: FC<{
           permissionRequired,
           current ? [current] : []
         )}
-        initialOption="None"
+        initialOption={initialOption}
         autoFocus={true}
       />
     </Modal>
