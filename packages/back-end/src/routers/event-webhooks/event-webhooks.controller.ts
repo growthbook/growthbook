@@ -307,7 +307,7 @@ export const toggleEventWebHook = async (
 
 // region POST /event-webhooks/test-params
 
-const testParamsPayload = (name) => ({
+const testParamsPayload = (name: string) => ({
   text: `Hi there! This is a test event from GrowthBook to see if the params for webhook ${name} are correct.`,
   blocks: [
     {
@@ -342,10 +342,13 @@ export const testWebHookParams = async (
     if (response.ok) return res.json({ success: true });
 
     return res.status(403).json({
-      error: `Request failed: ${response.status} - ${response.statusText}`,
+      status: 403,
+      message: `Request failed: ${response.status} - ${response.statusText}`,
     });
   } catch (e) {
-    return res.status(403).json({ error: `Request failed: ${e}` });
+    return res
+      .status(403)
+      .json({ status: 403, message: `Request failed: ${e}` });
   }
 };
 
