@@ -220,14 +220,17 @@ export default function ExperimentImpactTab({
                       className="ml-1"
                       body={
                         <>
-                          <div
-                            className={anyNullImpact ? "mb-2" : ""}
-                          >{`This Daily Scaled Impact, available in your Experiment Results under the "Scaled Impact" Difference Type, is adjusted if de-biasing is set to true and multiplied by 365 to yield the Annual Adjusted Scaled Impact.`}</div>
+                          <div className={anyNullImpact ? "mb-2" : ""}>
+                            {`This Daily Scaled Impact, available in your Experiment
+                              Results under the "Scaled Impact" Difference Type, is 
+                              adjusted if de-biasing is set to true and multiplied by
+                              365 to yield the Annual Adjusted Scaled Impact.`}
+                          </div>
                           {anyNullImpact ? (
                             <div>
-                              {
-                                "N/A values occur if we were unable to compute scaled impact for that experiment, perhaps due to stale experiment data."
-                              }
+                              {`N/A values occur if we were unable to compute scaled
+                                impact for that experiment, perhaps due to stale
+                                experiment data.`}
                             </div>
                           ) : null}
                         </>
