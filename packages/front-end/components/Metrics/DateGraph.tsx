@@ -192,6 +192,11 @@ const DateGraph: FC<DateGraphProps> = ({
   const formatter = getMetricFormatter(type);
   const formatterOptions = { currency: displayCurrency };
 
+  const [
+    highlightExp,
+    setHighlightExp,
+  ] = useState<null | ExperimentDisplayData>(null);
+
   const data = useMemo(
     () =>
       dates.map((row, i) => {
@@ -234,11 +239,6 @@ const DateGraph: FC<DateGraphProps> = ({
   // in future we might want to mark the different phases or percent traffic in this as different colors
   const experimentDates: ExperimentDisplayData[] = [];
   const bands = new Map();
-
-  const [
-    highlightExp,
-    setHighlightExp,
-  ] = useState<null | ExperimentDisplayData>(null);
 
   if (experiments && experiments.length > 0) {
     experiments.forEach((e) => {
