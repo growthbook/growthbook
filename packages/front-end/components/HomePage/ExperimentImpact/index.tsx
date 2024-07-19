@@ -81,6 +81,217 @@ type ExperimentImpactSummary = {
   others: ExperimentImpactData;
 };
 
+function scaleImpactAndSetMissingExperiments({
+  experiments,
+  snapshots,
+  metric,
+  selectedProjects,
+  startDate,
+  endDate,
+  adjusted,
+}: {
+  experiments: ExperimentInterfaceStringDates[];
+  snapshots: ExperimentSnapshotInterface[] | undefined;
+  metric: string;
+  selectedProjects: string[];
+  startDate: string;
+  endDate: string | undefined;
+  adjusted: boolean;
+}): {
+  summaryObj: ExperimentImpactSummary | null;
+  nExpsUsedForAdjustment: number;
+  experimentsWithNoImpact: string[];
+} {
+  // experiments that fit the filter
+  const exps = experiments
+    .filter((e) => {
+      if (!e.phases.length) return false;
+      const experimentEndDate = getValidDate(
+        e.phases[e.phases.length - 1]?.dateEnded
+      );
+      const filterStartDate = getValidDate(startDate);
+      const filterEndDate = getValidDate(endDate ?? new Date());
+
+      const endedAfterStart = experimentEndDate > filterStartDate;
+      const endedBeforeEnd = experimentEndDate < filterEndDate;
+      const isRunningAndEndInFuture =
+        e.status === "running" &&
+        (!endDate || getValidDate(endDate) > new Date());
+
+      const fitsDateFilter =
+        (endedAfterStart && endedBeforeEnd) || isRunningAndEndInFuture;
+      const hasMetric = [...e.metrics, ...(e.guardrails ?? [])].find(
+        (m) => m === metric
+      );
+      const inSelectedProject =
+        selectedProjects.includes(e.project ?? "") || !selectedProjects.length;
+
+      return hasMetric && fitsDateFilter && inSelectedProject;
+    })
+    .sort(
+      (a, b) =>
+        getValidDate(
+          b.phases[b.phases.length - 1].dateEnded ?? new Date()
+        ).getTime() -
+        getValidDate(
+          a.phases[a.phases.length - 1].dateEnded ?? new Date()
+        ).getTime()
+    );
+
+  let nExpsUsedForAdjustment = 0;
+  const experimentsWithNoImpact: string[] = [];
+  const experimentImpacts = new Map<string, ExperimentWithImpact>();
+  let summaryObj: ExperimentImpactSummary | null = null;
+  if (snapshots && exps) {
+    // use largest experiment for population sampling variance
+    const maxUnits = 0;
+    let overallSE: number | null = null;
+    const allScaledImpacts: number[] = [];
+    exps.forEach((e) => {
+      const s = snapshots.find((s) => s.experiment === e.id);
+
+      const summary =
+        e.results === "won" && !!e.winner && e.status === "stopped"
+          ? "winner"
+          : e.results === "lost" && e.status === "stopped"
+          ? "loser"
+          : "other";
+
+      const ei: ExperimentWithImpact = {
+        experiment: e,
+        type: summary,
+        variationImpact: [],
+      };
+
+      if (s) {
+        const defaultAnalysis = getSnapshotAnalysis(s);
+        const defaultSettings = defaultAnalysis?.settings;
+        const scaledAnalysis = defaultSettings
+          ? getSnapshotAnalysis(s, {
+              ...defaultSettings,
+              differenceType: "scaled",
+            })
+          : null;
+        console.log(ei.experiment.id);
+
+        if (scaledAnalysis && scaledAnalysis.results.length) {
+          // count experiments used for James-Stein adjustment
+          nExpsUsedForAdjustment += 1;
+
+          // no dim so always get first value
+          const res = scaledAnalysis.results[0];
+          res.variations.forEach((v, i) => {
+            if (i !== 0) {
+              const se = v?.metrics[metric]?.uplift?.stddev ?? 0;
+              const impact = v?.metrics[metric]?.expected ?? 0;
+              ei.variationImpact.push({
+                scaledImpact: impact,
+                selected: e.winner === i,
+                se: se,
+              });
+
+              allScaledImpacts.push(impact);
+
+              const totalUnits = v.users + res.variations[0].users;
+              if (totalUnits > maxUnits && se > 0) {
+                overallSE = se;
+              }
+            }
+          });
+        } else {
+          if (defaultAnalysis && defaultAnalysis.status === "success") {
+            ei.error =
+              "No snapshot with scaled impact available. Click calculate button above.";
+            experimentsWithNoImpact.push(e.id);
+          } else {
+            ei.error =
+              "No results available. Check experiment results for errors.";
+          }
+        }
+      } else {
+        ei.error =
+          "No results available. Run experiment update on experiment page.";
+      }
+      experimentImpacts.set(e.id, ei);
+      console.log(ei);
+    });
+
+    const adjustment = jamesSteinAdjustment(allScaledImpacts, overallSE ?? 0);
+
+    const applyAdjustment = adjusted && nExpsUsedForAdjustment >= 5;
+    summaryObj = {
+      winners: {
+        totalAdjustedImpact: 0,
+        totalAdjustedImpactVariance: 0,
+        experiments: [],
+      },
+      losers: {
+        totalAdjustedImpact: 0,
+        totalAdjustedImpactVariance: 0,
+        experiments: [],
+      },
+      others: {
+        totalAdjustedImpact: 0,
+        totalAdjustedImpactVariance: 0,
+        experiments: [],
+      },
+    };
+    for (const e of experimentImpacts.values()) {
+      let experimentImpact: number | null = null;
+      let experimentAdjustedImpact: number | null = null;
+      let experimentAdjustedImpactStdDev: number | null = null;
+
+      e.variationImpact.forEach((v, vi) => {
+        const adjustedImpact =
+          adjustment.mean +
+          (1 - adjustment.adjustment) * (v.scaledImpact - adjustment.mean);
+        v.scaledImpactAdjusted = applyAdjustment
+          ? adjustedImpact
+          : v.scaledImpact;
+
+        if (e.type === "winner" && v.selected) {
+          e.keyVariationId = vi + 1;
+          experimentImpact = v.scaledImpact;
+          experimentAdjustedImpact = v.scaledImpactAdjusted;
+          experimentAdjustedImpactStdDev = v.se;
+        } else if (e.type === "loser") {
+          // only include biggest loser for "savings"
+          if (v.scaledImpact < (experimentImpact ?? Infinity)) {
+            e.keyVariationId = vi + 1;
+            experimentImpact = v.scaledImpact;
+            experimentAdjustedImpact = v.scaledImpactAdjusted;
+            experimentAdjustedImpactStdDev = v.se;
+          }
+        }
+      });
+
+      if (e.type === "winner") {
+        summaryObj.winners.totalAdjustedImpact += experimentAdjustedImpact ?? 0;
+        summaryObj.winners.totalAdjustedImpactVariance += Math.pow(
+          experimentAdjustedImpactStdDev ?? 0,
+          2
+        );
+        summaryObj.winners.experiments.push(e);
+      } else if (e.type === "loser") {
+        // invert sign of lost impact
+        summaryObj.losers.totalAdjustedImpact -= experimentAdjustedImpact ?? 0;
+        summaryObj.losers.totalAdjustedImpactVariance += Math.pow(
+          experimentAdjustedImpactStdDev ?? 0,
+          2
+        );
+        summaryObj.losers.experiments.push(e);
+      } else {
+        summaryObj.others.experiments.push(e);
+      }
+    }
+  }
+  return {
+    summaryObj,
+    nExpsUsedForAdjustment,
+    experimentsWithNoImpact,
+  };
+}
+
 export default function ExperimentImpact({
   experiments,
 }: {
@@ -182,208 +393,6 @@ export default function ExperimentImpact({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const scaleImpactAndSetMissingExperiments = (
-    experiments: ExperimentInterfaceStringDates[],
-    snapshots: ExperimentSnapshotInterface[] | undefined,
-    metric: string,
-    selectedProjects: string[],
-    startDate: string,
-    endDate: string | undefined,
-    adjusted: boolean
-  ) => {
-    // experiments that fit the filter
-    const exps = experiments
-      .filter((e) => {
-        if (!e.phases.length) return false;
-        const experimentEndDate = getValidDate(
-          e.phases[e.phases.length - 1]?.dateEnded
-        );
-        const filterStartDate = getValidDate(startDate);
-        const filterEndDate = getValidDate(endDate ?? new Date());
-
-        const endedAfterStart = experimentEndDate > filterStartDate;
-        const endedBeforeEnd = experimentEndDate < filterEndDate;
-        const isRunningAndEndInFuture =
-          e.status === "running" &&
-          (!endDate || getValidDate(endDate) > new Date());
-
-        const fitsDateFilter =
-          (endedAfterStart && endedBeforeEnd) || isRunningAndEndInFuture;
-        const hasMetric = [...e.metrics, ...(e.guardrails ?? [])].find(
-          (m) => m === metric
-        );
-        const inSelectedProject =
-          selectedProjects.includes(e.project ?? "") ||
-          !selectedProjects.length;
-
-        return hasMetric && fitsDateFilter && inSelectedProject;
-      })
-      .sort(
-        (a, b) =>
-          getValidDate(
-            b.phases[b.phases.length - 1].dateEnded ?? new Date()
-          ).getTime() -
-          getValidDate(
-            a.phases[a.phases.length - 1].dateEnded ?? new Date()
-          ).getTime()
-      );
-
-    let nExpsUsedForAdjustment = 0;
-    const experimentsWithNoImpact: string[] = [];
-    const experimentImpacts = new Map<string, ExperimentWithImpact>();
-    let summaryObj: ExperimentImpactSummary | null = null;
-    if (snapshots && exps) {
-      // use largest experiment for population sampling variance
-      const maxUnits = 0;
-      let overallSE: number | null = null;
-      const allScaledImpacts: number[] = [];
-      exps.forEach((e) => {
-        const s = snapshots.find((s) => s.experiment === e.id);
-
-        const summary =
-          e.results === "won" && !!e.winner && e.status === "stopped"
-            ? "winner"
-            : e.results === "lost" && e.status === "stopped"
-            ? "loser"
-            : "other";
-
-        const ei: ExperimentWithImpact = {
-          experiment: e,
-          type: summary,
-          variationImpact: [],
-        };
-
-        if (s) {
-          const defaultAnalysis = getSnapshotAnalysis(s);
-          const defaultSettings = defaultAnalysis?.settings;
-          const scaledAnalysis = defaultSettings
-            ? getSnapshotAnalysis(s, {
-                ...defaultSettings,
-                differenceType: "scaled",
-              })
-            : null;
-          console.log(ei.experiment.id);
-
-          if (scaledAnalysis && scaledAnalysis.results.length) {
-            // count experiments used for James-Stein adjustment
-            nExpsUsedForAdjustment += 1;
-
-            // no dim so always get first value
-            const res = scaledAnalysis.results[0];
-            res.variations.forEach((v, i) => {
-              if (i !== 0) {
-                const se = v?.metrics[metric]?.uplift?.stddev ?? 0;
-                const impact = v?.metrics[metric]?.expected ?? 0;
-                ei.variationImpact.push({
-                  scaledImpact: impact,
-                  selected: e.winner === i,
-                  se: se,
-                });
-
-                allScaledImpacts.push(impact);
-
-                const totalUnits = v.users + res.variations[0].users;
-                if (totalUnits > maxUnits && se > 0) {
-                  overallSE = se;
-                }
-              }
-            });
-          } else {
-            if (defaultAnalysis && defaultAnalysis.status === "success") {
-              ei.error =
-                "No snapshot with scaled impact available. Click calculate button above.";
-              experimentsWithNoImpact.push(e.id);
-            } else {
-              ei.error =
-                "No results available. Check experiment results for errors.";
-            }
-          }
-        } else {
-          ei.error =
-            "No results available. Run experiment update on experiment page.";
-        }
-        experimentImpacts.set(e.id, ei);
-        console.log(ei);
-      });
-
-      const adjustment = jamesSteinAdjustment(allScaledImpacts, overallSE ?? 0);
-
-      const applyAdjustment = adjusted && nExpsUsedForAdjustment >= 5;
-      summaryObj = {
-        winners: {
-          totalAdjustedImpact: 0,
-          totalAdjustedImpactVariance: 0,
-          experiments: [],
-        },
-        losers: {
-          totalAdjustedImpact: 0,
-          totalAdjustedImpactVariance: 0,
-          experiments: [],
-        },
-        others: {
-          totalAdjustedImpact: 0,
-          totalAdjustedImpactVariance: 0,
-          experiments: [],
-        },
-      };
-      for (const e of experimentImpacts.values()) {
-        let experimentImpact: number | null = null;
-        let experimentAdjustedImpact: number | null = null;
-        let experimentAdjustedImpactStdDev: number | null = null;
-
-        e.variationImpact.forEach((v, vi) => {
-          const adjustedImpact =
-            adjustment.mean +
-            (1 - adjustment.adjustment) * (v.scaledImpact - adjustment.mean);
-          v.scaledImpactAdjusted = applyAdjustment
-            ? adjustedImpact
-            : v.scaledImpact;
-
-          if (e.type === "winner" && v.selected) {
-            e.keyVariationId = vi + 1;
-            experimentImpact = v.scaledImpact;
-            experimentAdjustedImpact = v.scaledImpactAdjusted;
-            experimentAdjustedImpactStdDev = v.se;
-          } else if (e.type === "loser") {
-            // only include biggest loser for "savings"
-            if (v.scaledImpact < (experimentImpact ?? Infinity)) {
-              e.keyVariationId = vi + 1;
-              experimentImpact = v.scaledImpact;
-              experimentAdjustedImpact = v.scaledImpactAdjusted;
-              experimentAdjustedImpactStdDev = v.se;
-            }
-          }
-        });
-
-        if (e.type === "winner") {
-          summaryObj.winners.totalAdjustedImpact +=
-            experimentAdjustedImpact ?? 0;
-          summaryObj.winners.totalAdjustedImpactVariance += Math.pow(
-            experimentAdjustedImpactStdDev ?? 0,
-            2
-          );
-          summaryObj.winners.experiments.push(e);
-        } else if (e.type === "loser") {
-          // invert sign of lost impact
-          summaryObj.losers.totalAdjustedImpact -=
-            experimentAdjustedImpact ?? 0;
-          summaryObj.losers.totalAdjustedImpactVariance += Math.pow(
-            experimentAdjustedImpactStdDev ?? 0,
-            2
-          );
-          summaryObj.losers.experiments.push(e);
-        } else {
-          summaryObj.others.experiments.push(e);
-        }
-      }
-    }
-    return {
-      summaryObj,
-      nExpsUsedForAdjustment,
-      experimentsWithNoImpact,
-    };
-  };
-
   // 2 check for snapshots w/o impact and update data
   const {
     summaryObj,
@@ -391,15 +400,15 @@ export default function ExperimentImpact({
     experimentsWithNoImpact,
   } = useMemo(
     () =>
-      scaleImpactAndSetMissingExperiments(
+      scaleImpactAndSetMissingExperiments({
         experiments,
         snapshots,
         metric,
         selectedProjects,
         startDate,
         endDate,
-        adjusted
-      ),
+        adjusted,
+      }),
     [
       experiments,
       snapshots,
