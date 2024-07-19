@@ -38,7 +38,7 @@
     "react": "^16.8.0-0 || ^17.0.0-0 || ^18.0.0-0"
   },
   "dependencies": {
-    "@growthbook/growthbook": "^1.1.0"
+    "@growthbook/growthbook": "^1.1.1"
   },
   "devDependencies": {
     "@babel/cli": "^7.19.3",

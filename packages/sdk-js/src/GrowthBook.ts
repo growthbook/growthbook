@@ -1934,10 +1934,9 @@ export class GrowthBook<
     data?: FeatureApiResponse
   ): Record<string, string> {
     const attributes: Record<string, string> = {};
-    this._ctx.stickyBucketIdentifierAttributes = !this._ctx
-      .stickyBucketIdentifierAttributes
-      ? this._deriveStickyBucketIdentifierAttributes(data)
-      : this._ctx.stickyBucketIdentifierAttributes;
+    this._ctx.stickyBucketIdentifierAttributes = this._deriveStickyBucketIdentifierAttributes(
+      data
+    );
     this._ctx.stickyBucketIdentifierAttributes.forEach((attr) => {
       const { hashValue } = this._getHashAttribute(attr);
       attributes[attr] = toString(hashValue);
