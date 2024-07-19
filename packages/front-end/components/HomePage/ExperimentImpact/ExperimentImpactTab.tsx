@@ -39,7 +39,7 @@ export default function ExperimentImpactTab({
       e.experiment.variations.forEach((v, i) => {
         if (i === 0) return;
         if (experimentImpactType !== "other" && i !== e.keyVariationId) return;
-        const impact = e.impact?.variations?.[i - 1];
+        const impact = e.variationImpact?.[i - 1];
         if (!impact) {
           anyNullImpact = true;
         }

@@ -53,33 +53,20 @@ export function formatImpact(
   );
 }
 
-type ExperimentImpactFilters = {
-  startDate: string;
-  endDate: string;
-  projects: string[];
-  metric: string;
-  adjusted: boolean;
-};
-
-type ExperimentImpact = {
-  inSample: boolean;
-  variations: {
+export type ExperimentImpactType = "winner" | "loser" | "other";
+type ExperimentWithImpact = {
+  experiment: ExperimentInterfaceStringDates;
+  variationImpact: {
     scaledImpact: number;
     scaledImpactAdjusted?: number;
     se: number;
     selected: boolean;
   }[];
-};
-
-type ExperimentWithImpact = {
-  keyVariationId?: number;
-  impact: ExperimentImpact;
   type: ExperimentImpactType;
-  experiment: ExperimentInterfaceStringDates;
+  keyVariationId?: number;
   error?: string;
 };
 
-export type ExperimentImpactType = "winner" | "loser" | "other";
 export type ExperimentImpactTab = ExperimentImpactType | "summary";
 
 export type ExperimentImpactData = {
@@ -116,7 +103,13 @@ export default function ExperimentImpact({
   // last 180 days by default
   defaultStartDate.setDate(defaultStartDate.getDate() - 180);
 
-  const form = useForm<ExperimentImpactFilters>({
+  const form = useForm<{
+    startDate: string;
+    endDate: string;
+    projects: string[];
+    metric: string;
+    adjusted: boolean;
+  }>({
     defaultValues: {
       startDate: defaultStartDate.toISOString().substring(0, 10),
       endDate: "",
@@ -257,10 +250,7 @@ export default function ExperimentImpact({
         const ei: ExperimentWithImpact = {
           experiment: e,
           type: summary,
-          impact: {
-            inSample: true,
-            variations: [],
-          },
+          variationImpact: [],
         };
 
         if (s) {
@@ -284,7 +274,7 @@ export default function ExperimentImpact({
               if (i !== 0) {
                 const se = v?.metrics[metric]?.uplift?.stddev ?? 0;
                 const impact = v?.metrics[metric]?.expected ?? 0;
-                ei.impact.variations.push({
+                ei.variationImpact.push({
                   scaledImpact: impact,
                   selected: e.winner === i,
                   se: se,
@@ -337,55 +327,53 @@ export default function ExperimentImpact({
         },
       };
       for (const e of experimentImpacts.values()) {
-        if (e?.impact?.inSample) {
-          let experimentImpact: number | null = null;
-          let experimentAdjustedImpact: number | null = null;
-          let experimentAdjustedImpactStdDev: number | null = null;
+        let experimentImpact: number | null = null;
+        let experimentAdjustedImpact: number | null = null;
+        let experimentAdjustedImpactStdDev: number | null = null;
 
-          e.impact.variations.forEach((v, vi) => {
-            const adjustedImpact =
-              adjustment.mean +
-              (1 - adjustment.adjustment) * (v.scaledImpact - adjustment.mean);
-            v.scaledImpactAdjusted = applyAdjustment
-              ? adjustedImpact
-              : v.scaledImpact;
+        e.variationImpact.forEach((v, vi) => {
+          const adjustedImpact =
+            adjustment.mean +
+            (1 - adjustment.adjustment) * (v.scaledImpact - adjustment.mean);
+          v.scaledImpactAdjusted = applyAdjustment
+            ? adjustedImpact
+            : v.scaledImpact;
 
-            if (e.type === "winner" && v.selected) {
+          if (e.type === "winner" && v.selected) {
+            e.keyVariationId = vi + 1;
+            experimentImpact = v.scaledImpact;
+            experimentAdjustedImpact = v.scaledImpactAdjusted;
+            experimentAdjustedImpactStdDev = v.se;
+          } else if (e.type === "loser") {
+            // only include biggest loser for "savings"
+            if (v.scaledImpact < (experimentImpact ?? Infinity)) {
               e.keyVariationId = vi + 1;
               experimentImpact = v.scaledImpact;
               experimentAdjustedImpact = v.scaledImpactAdjusted;
               experimentAdjustedImpactStdDev = v.se;
-            } else if (e.type === "loser") {
-              // only include biggest loser for "savings"
-              if (v.scaledImpact < (experimentImpact ?? Infinity)) {
-                e.keyVariationId = vi + 1;
-                experimentImpact = v.scaledImpact;
-                experimentAdjustedImpact = v.scaledImpactAdjusted;
-                experimentAdjustedImpactStdDev = v.se;
-              }
             }
-          });
-
-          if (e.type === "winner") {
-            summaryObj.winners.totalAdjustedImpact +=
-              experimentAdjustedImpact ?? 0;
-            summaryObj.winners.totalAdjustedImpactVariance += Math.pow(
-              experimentAdjustedImpactStdDev ?? 0,
-              2
-            );
-            summaryObj.winners.experiments.push(e);
-          } else if (e.type === "loser") {
-            // invert sign of lost impact
-            summaryObj.losers.totalAdjustedImpact -=
-              experimentAdjustedImpact ?? 0;
-            summaryObj.losers.totalAdjustedImpactVariance += Math.pow(
-              experimentAdjustedImpactStdDev ?? 0,
-              2
-            );
-            summaryObj.losers.experiments.push(e);
-          } else {
-            summaryObj.others.experiments.push(e);
           }
+        });
+
+        if (e.type === "winner") {
+          summaryObj.winners.totalAdjustedImpact +=
+            experimentAdjustedImpact ?? 0;
+          summaryObj.winners.totalAdjustedImpactVariance += Math.pow(
+            experimentAdjustedImpactStdDev ?? 0,
+            2
+          );
+          summaryObj.winners.experiments.push(e);
+        } else if (e.type === "loser") {
+          // invert sign of lost impact
+          summaryObj.losers.totalAdjustedImpact -=
+            experimentAdjustedImpact ?? 0;
+          summaryObj.losers.totalAdjustedImpactVariance += Math.pow(
+            experimentAdjustedImpactStdDev ?? 0,
+            2
+          );
+          summaryObj.losers.experiments.push(e);
+        } else {
+          summaryObj.others.experiments.push(e);
         }
       }
     }
@@ -535,12 +523,6 @@ export default function ExperimentImpact({
                   <button
                     className="btn btn-sm btn-primary"
                     onClick={() =>
-                      // only show banner if filtered experiments are missing
-                      // scaled impact (e.g. expsNeedingScaledImpact)
-                      // but try to update all experiments including those
-                      // in background that may be used to debias
-                      // (e.g. experimentsWithNoImpact)
-                      //
                       updateSnapshots(experimentsWithNoImpact).then(
                         fetchSnapshots
                       )
