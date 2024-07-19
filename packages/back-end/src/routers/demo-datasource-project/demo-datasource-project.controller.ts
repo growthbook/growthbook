@@ -188,10 +188,10 @@ export const postDemoDatasourceProject = async (
   );
 
   if (existingDemoProject) {
-    const existingExperiments = await getAllExperiments(
-      context,
-      existingDemoProject.id
-    );
+    const existingExperiments = await getAllExperiments(context, {
+      project: existingDemoProject.id,
+      includeArchived: true,
+    });
 
     res.status(200).json({
       status: 200,

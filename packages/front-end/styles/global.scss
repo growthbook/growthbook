@@ -5,7 +5,6 @@
 @import "bootstrap-variable-overrides";
 
 @import "bootstrap/scss/bootstrap.scss";
-@import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap");
 
 // Bootstrap theme overrides must be loaded AFTER Bootstrap
 @import "_bootstrap-theme-overrides";
@@ -18,8 +17,6 @@ main {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
-    sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   -webkit-font-smoothing: antialiased;
   background-color: var(--background-color);
   color: var(--text-color-main);
@@ -33,6 +30,16 @@ body {
   color: var(--text-color-muted) !important;
 }
 
+.dropdown-text-color {
+  &:focus {
+    svg {
+      color: white;
+    }
+  }
+  svg {
+    color: var(--text-color-muted);
+  }
+}
 .text-ellipsis {
   overflow: hidden;
   white-space: nowrap;
@@ -692,14 +699,6 @@ pre {
       font-weight: normal;
     }
   }
-  .draw,
-  .non-significant {
-    //font-weight: normal;
-    //color: #707070;
-    //&.hover {
-    //  color: #888888;
-    //}
-  }
   .won {
     color: #09ac17;
     font-weight: bold;
@@ -819,6 +818,10 @@ main.main.report {
 }
 .highlight {
   background-color: var(--table-row-highlight-background-color);
+}
+
+.webhook-filters .select-all .gb-multi-select__control {
+  background-color: var(--table-row-highlight-background-color) !important;
 }
 
 .experiment-switch-page {
@@ -1355,7 +1358,6 @@ main.main.report {
   position: relative;
   min-height: 100vh;
   font-size: 1rem;
-  font-family: Poppins, "Helvetica Neue", Arial, sans-serif;
 
   .welcomemodal {
     @media (max-width: 575px) {
@@ -1810,6 +1812,14 @@ main.main.report {
     font-size: 10px;
     padding: 0.15rem 0.35rem;
   }
+}
+
+.badge-success-light {
+  background-color: var(--win-background);
+}
+
+.badge-danger-light {
+  background-color: var(--lose-background);
 }
 
 .tooltip-experimentDateGraph {
@@ -3254,4 +3264,17 @@ input:disabled {
   // background-color: var(--alert-danger-background);
   // border-color: var(--alert-danger-border-color);
   color: var(--alert-warning-text-color);
+}
+.gb-header-breadcrumb {
+  .gb-header-breadcrumb-link {
+    color: var(--text-color-primary);
+  }
+}
+.enterprise-text-color {
+  color: var(--text-color-enterprise);
+}
+
+.table-column-fit-width {
+  width: 1px;
+  white-space: nowrap;
 }

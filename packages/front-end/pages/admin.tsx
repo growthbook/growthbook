@@ -80,6 +80,7 @@ function OrganizationRow({
           currentName={organization.name}
           currentExternalId={organization.externalId || ""}
           currentLicenseKey={organization.licenseKey || ""}
+          currentOwner={organization.ownerEmail}
           onEdit={onEdit}
           close={() => setEditOrgModalOpen(false)}
         />
@@ -198,8 +199,7 @@ const Admin: FC = () => {
 
   const { orgId, setOrgId, setSpecialOrg, apiCall } = useAuth();
 
-  const { superAdmin } = useUser();
-
+  const { license, superAdmin } = useUser();
   const [orgs, setOrgs] = useState<OrganizationInterface[]>([]);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState("");
@@ -243,6 +243,13 @@ const Admin: FC = () => {
     return (
       <div className="alert alert-danger">
         Only super admins can view this page
+      </div>
+    );
+  }
+  if (!isCloud() && license?.plan != "enterprise") {
+    return (
+      <div className="alert alert-danger">
+        You must be on an enterprise license to view this page
       </div>
     );
   }

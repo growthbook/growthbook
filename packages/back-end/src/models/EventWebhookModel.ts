@@ -6,7 +6,7 @@ import mongoose from "mongoose";
 import intersection from "lodash/intersection";
 import {
   NotificationEventName,
-  notificationEventNames,
+  zodNotificationEventNamesEnum,
 } from "../events/base-types";
 import { errorStringFromZodResult } from "../util/validation";
 import { EventWebHookInterface } from "../../types/event-webhook";
@@ -114,7 +114,7 @@ const eventWebHookSchema = new mongoose.Schema({
     required: true,
     validate: {
       validator(value: unknown) {
-        const zodSchema = z.array(z.enum(notificationEventNames)).min(1);
+        const zodSchema = z.array(z.enum(zodNotificationEventNamesEnum)).min(1);
 
         const result = zodSchema.safeParse(value);
 
@@ -287,10 +287,17 @@ export const deleteOrganizationventWebHook = async (
   return result.deletedCount > 0;
 };
 
-type UpdateEventWebHookAttributes = {
+export type UpdateEventWebHookAttributes = {
   name?: string;
   url?: string;
+  enabled?: boolean;
   events?: NotificationEventName[];
+  tags?: string[];
+  environments?: string[];
+  projects?: string[];
+  payloadType?: EventWebHookPayloadType;
+  method?: EventWebHookMethod;
+  headers?: Record<string, string>;
 };
 
 /**

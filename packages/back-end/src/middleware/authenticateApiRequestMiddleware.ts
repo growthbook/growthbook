@@ -7,7 +7,7 @@ import { getCustomLogProps } from "../util/logger";
 import { EventAuditUserApiKey } from "../events/event-types";
 import { isApiKeyForUserInOrganization } from "../util/api-key.util";
 import { getTeamsForOrganization } from "../models/TeamModel";
-import { getUserById } from "../services/users";
+import { getUserById } from "../models/UserModel";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,

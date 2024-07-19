@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { ago, datetime } from "shared/dates";
+import { date, datetime } from "shared/dates";
 import {
   featureHasEnvironment,
   filterEnvironmentsByFeature,
@@ -45,6 +45,7 @@ import Tab from "@/components/Tabs/Tab";
 import Tabs from "@/components/Tabs/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
+import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
@@ -76,7 +77,8 @@ export default function FeaturesPage() {
     loading,
     error,
     mutate,
-  } = useFeaturesList();
+    hasArchived,
+  } = useFeaturesList(true, showArchived);
 
   const { usage, usageDomain } = useRealtimeData(
     allFeatures,
@@ -346,7 +348,7 @@ export default function FeaturesPage() {
                       ) : null}
                     </td>
                     <td title={datetime(feature.dateUpdated)}>
-                      {ago(feature.dateUpdated)}
+                      {date(feature.dateUpdated)}
                     </td>
                     {showGraphs && (
                       <td style={{ width: 170 }}>
@@ -537,7 +539,7 @@ export default function FeaturesPage() {
   const hasFeatures = features.length > 0;
 
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
-  const showArchivedToggle = features.some((f) => f.archived);
+  const showArchivedToggle = hasArchived;
 
   const canCreateFeatures = permissionsUtil.canManageFeatureDrafts({
     project,
@@ -555,6 +557,7 @@ export default function FeaturesPage() {
             mutate({
               features: [...features, feature],
               linkedExperiments: experiments,
+              hasArchived,
             });
           }}
           featureToDuplicate={featureToDuplicate || undefined}
@@ -598,6 +601,9 @@ export default function FeaturesPage() {
         GrowthBook UI. For example, turn on/off a sales banner or change the
         title of your pricing page.{" "}
       </p>
+      <div className="mt-3">
+        <CustomMarkdown page={"featureList"} />
+      </div>
       {!hasFeatures ? (
         <>
           <div

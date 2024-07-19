@@ -26,6 +26,7 @@ import { ExperimentInterface } from "../../types/experiment";
 import { DataSourceInterface } from "../../types/datasource";
 import { getExperimentsByIds } from "../models/ExperimentModel";
 import { getDataSourcesByOrganization } from "../models/DataSourceModel";
+import { SegmentModel } from "../models/SegmentModel";
 
 export type ForeignRefTypes = {
   experiment: ExperimentInterface;
@@ -38,12 +39,14 @@ export class ReqContextClass {
     factMetrics: FactMetricModel;
     projects: ProjectModel;
     urlRedirects: UrlRedirectModel;
+    segments: SegmentModel;
   };
   private initModels() {
     this.models = {
       factMetrics: new FactMetricModel(this),
       projects: new ProjectModel(this),
       urlRedirects: new UrlRedirectModel(this),
+      segments: new SegmentModel(this),
     };
   }
 
@@ -195,9 +198,11 @@ export class ReqContextClass {
 
   // Cache projects since they are needed many places in the code
   private _projects: ProjectInterface[] | null = null;
-  public async getProjects() {
+  public async getProjects(): Promise<ProjectInterface[]> {
     if (this._projects === null) {
-      this._projects = await this.models.projects.getAll();
+      const projects = await this.models.projects.getAll();
+      this._projects = projects;
+      return projects;
     }
     return this._projects;
   }

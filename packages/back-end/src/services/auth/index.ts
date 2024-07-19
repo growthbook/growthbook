@@ -3,11 +3,14 @@ import { licenseInit, SSO_CONFIG } from "enterprise";
 import { logger } from "../../util/logger";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
-import { markUserAsVerified, UserModel } from "../../models/UserModel";
+import {
+  hasUser,
+  markUserAsVerified,
+  getUserByEmail,
+} from "../../models/UserModel";
 import { getOrganizationById, validateLoginMethod } from "../organizations";
 import { UserInterface } from "../../../types/user";
 import { AuditInterface } from "../../../types/audit";
-import { getUserByEmail } from "../users";
 import { hasOrganization, updateMember } from "../../models/OrganizationModel";
 import {
   IdTokenCookie,
@@ -60,7 +63,7 @@ async function getUserFromJWT(token: IdToken): Promise<null | UserInterface> {
     }
   }
 
-  return user.toJSON<UserInterface>();
+  return user;
 }
 function getInitialDataFromJWT(user: IdToken): JWTInfo {
   return {
@@ -231,13 +234,10 @@ export function validatePasswordFormat(password?: string): string {
 }
 
 export async function isNewInstallation() {
-  const doc = await hasOrganization();
-  if (doc) {
+  if (await hasOrganization()) {
     return false;
   }
-
-  const doc2 = await UserModel.findOne();
-  if (doc2) {
+  if (await hasUser()) {
     return false;
   }
 

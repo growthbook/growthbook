@@ -64,6 +64,9 @@ const config = {
             require.resolve("modern-normalize/modern-normalize.css"),
           ],
         },
+        gtag: {
+          trackingID: "G-3W683MDLMQ",
+        },
       }),
     ],
     [
@@ -175,8 +178,8 @@ const config = {
         },
       ],
       prism: {
-        theme: require('prism-react-renderer').themes.github,
-        darkTheme: require('prism-react-renderer').themes.dracula,
+        theme: require("prism-react-renderer").themes.github,
+        darkTheme: require("prism-react-renderer").themes.dracula,
         additionalLanguages: [
           "csharp",
           "ruby",

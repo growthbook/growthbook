@@ -11,7 +11,7 @@ import { ScimError, ScimUser, ScimUserPostRequest } from "../../../types/scim";
 import {
   createUser as createNewUser,
   getUserByEmail,
-} from "../../services/users";
+} from "../../models/UserModel";
 
 export async function createUser(
   req: ScimUserPostRequest,
