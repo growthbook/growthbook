@@ -279,7 +279,7 @@ export default function FactTablesPage() {
                 <SortableTH field="userIdTypes">Identifier Types</SortableTH>
                 <SortableTH field="numMetrics">Metrics</SortableTH>
                 <SortableTH field="numFilters">Filters</SortableTH>
-                <SortableTH field="dateUpdated">Owner</SortableTH>
+                <SortableTH field="owner">Owner</SortableTH>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
               </tr>
             </thead>
