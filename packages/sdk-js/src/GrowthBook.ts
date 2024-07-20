@@ -48,6 +48,7 @@ import {
   isURLTargeted,
   loadSDKVersion,
   mergeQueryStrings,
+  promiseTimeout,
   toString,
 } from "./util";
 import { evalCondition } from "./mongrule";
@@ -102,6 +103,7 @@ export class GrowthBook<
   >;
   private _triggeredExpKeys: Set<string>;
   private _initialized: boolean;
+  private _activeTrackingCall: Promise<void>;
   private _deferredTrackingCalls: Map<string, TrackingData>;
 
   private _payload: FeatureApiResponse | undefined;
@@ -131,6 +133,7 @@ export class GrowthBook<
     this._triggeredExpKeys = new Set();
     this._initialized = false;
     this._redirectedUrl = "";
+    this._activeTrackingCall = Promise.resolve();
     this._deferredTrackingCalls = new Map();
     this._autoExperimentsAllowed = !context.disableExperimentsOnLoad;
 
@@ -733,13 +736,19 @@ export class GrowthBook<
         if (navigate) {
           if (isBrowser) {
             this._setAntiFlicker();
-            window.setTimeout(() => {
+            // Wait for the max of: 1. the possibly-async tracking call, 2. navigateDelay
+            Promise.all([
+              promiseTimeout(this._activeTrackingCall, 8000),
+              new Promise((resolve) =>
+                window.setTimeout(resolve, this._ctx.navigateDelay ?? 100)
+              ),
+            ]).then(() => {
               try {
                 navigate(url);
               } catch (e) {
                 console.error(e);
               }
-            }, this._ctx.navigateDelay ?? 100);
+            });
           } else {
             try {
               navigate(url);
@@ -1483,7 +1492,8 @@ export class GrowthBook<
     }
 
     // 14. Fire the tracking callback
-    this._track(experiment, result);
+    // Store the promise in case we're awaiting it (ex: browser url redirects)
+    this._activeTrackingCall = this._track(experiment, result);
 
     // 14.1 Keep track of completed changeIds
     "changeId" in experiment &&
@@ -1519,18 +1529,19 @@ export class GrowthBook<
     );
   }
 
-  public fireDeferredTrackingCalls() {
+  public async fireDeferredTrackingCalls() {
     if (!this._ctx.trackingCallback) return;
 
+    const promises: ReturnType<TrackingCallback>[] = [];
     this._deferredTrackingCalls.forEach((call: TrackingData) => {
       if (!call || !call.experiment || !call.result) {
         console.error("Invalid deferred tracking call", { call: call });
       } else {
-        this._track(call.experiment, call.result);
+        promises.push(this._track(call.experiment, call.result));
       }
     });
-
     this._deferredTrackingCalls.clear();
+    await Promise.all(promises);
   }
 
   public setTrackingCallback(callback: TrackingCallback) {
@@ -1550,7 +1561,7 @@ export class GrowthBook<
     );
   }
 
-  private _track<T>(experiment: Experiment<T>, result: Result<T>) {
+  private async _track<T>(experiment: Experiment<T>, result: Result<T>) {
     const k = this._getTrackKey(experiment, result);
 
     if (!this._ctx.trackingCallback) {
@@ -1566,7 +1577,7 @@ export class GrowthBook<
     this._trackedExperiments.add(k);
 
     try {
-      this._ctx.trackingCallback(experiment, result);
+      await this._ctx.trackingCallback(experiment, result);
     } catch (e) {
       console.error(e);
     }

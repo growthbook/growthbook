@@ -164,7 +164,7 @@ export interface TrackingData {
 export type TrackingCallback = (
   experiment: Experiment<any>,
   result: Result<any>
-) => void;
+) => Promise<void> | void;
 
 export type NavigateCallback = (url: string) => void | Promise<void>;
 
