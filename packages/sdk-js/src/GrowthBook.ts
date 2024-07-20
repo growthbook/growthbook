@@ -105,6 +105,7 @@ export class GrowthBook<
   private _initialized: boolean;
   private _activeTrackingCall: Promise<void>;
   private _deferredTrackingCalls: Map<string, TrackingData>;
+  private _unsetAntiFlickerTimeout: number | undefined;
 
   private _payload: FeatureApiResponse | undefined;
   private _decryptedPayload: FeatureApiResponse | undefined;
@@ -686,6 +687,7 @@ export class GrowthBook<
     if (isBlocked) {
       process.env.NODE_ENV !== "production" &&
         this.log("Auto experiment blocked", { id: experiment.key });
+      this._unsetAntiFlicker();
     }
 
     // Run the experiment (if blocked exclude)
@@ -713,11 +715,12 @@ export class GrowthBook<
     if (result.inExperiment) {
       const changeType = getAutoExperimentChangeType(experiment);
 
-      if (
-        changeType === "redirect" &&
-        result.value.urlRedirect &&
-        experiment.urlPatterns
-      ) {
+      if (changeType === "redirect") {
+        if (!result.value.urlRedirect || !experiment.urlPatterns) {
+          this._unsetAntiFlicker();
+          return result;
+        }
+
         const url = experiment.persistQueryString
           ? mergeQueryStrings(this._getContextUrl(), result.value.urlRedirect)
           : result.value.urlRedirect;
@@ -729,13 +732,14 @@ export class GrowthBook<
               id: experiment.key,
             }
           );
+          this._unsetAntiFlicker();
           return result;
         }
         this._redirectedUrl = url;
         const navigate = this._getNavigateFunction();
         if (navigate) {
           if (isBrowser) {
-            this._setAntiFlicker();
+            this._setAntiFlicker(true);
             // Wait for the possibly-async tracking callback, bound by min and max delays
             Promise.all([
               promiseTimeout(
@@ -1768,19 +1772,38 @@ export class GrowthBook<
     return null;
   }
 
-  private _setAntiFlicker() {
+  private _setAntiFlicker(skipUnset: boolean = false) {
     if (!this._ctx.antiFlicker || !isBrowser) return;
+    if (this._ctx.disableUrlRedirectExperiments) return;
     try {
-      const styleTag = document.createElement("style");
-      styleTag.innerHTML =
-        ".gb-anti-flicker { opacity: 0 !important; pointer-events: none; }";
-      document.head.appendChild(styleTag);
+      window.clearTimeout(this._unsetAntiFlickerTimeout);
+
+      if (!document.getElementById("gb-anti-flicker-style")) {
+        const styleTag = document.createElement("style");
+        styleTag.setAttribute("id", "gb-anti-flicker-style");
+        styleTag.innerHTML =
+          ".gb-anti-flicker { opacity: 0 !important; pointer-events: none; }";
+        document.head.appendChild(styleTag);
+      }
       document.documentElement.classList.add("gb-anti-flicker");
 
-      // Fallback if GrowthBook fails to load in specified time or 3.5 seconds
-      setTimeout(() => {
-        document.documentElement.classList.remove("gb-anti-flicker");
-      }, this._ctx.antiFlickerTimeout ?? 3500);
+      // Fallback if GrowthBook fails to load in specified time or 3.5 seconds.
+      // Will be cancelled if an actual redirection begins
+      if (!skipUnset) {
+        this._unsetAntiFlickerTimeout = window.setTimeout(
+          () => this._unsetAntiFlicker(),
+          this._ctx.antiFlickerTimeout ?? 3500
+        );
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  private _unsetAntiFlicker() {
+    if (!this._ctx.antiFlicker || !isBrowser) return;
+    try {
+      document.documentElement.classList.remove("gb-anti-flicker");
     } catch (e) {
       console.error(e);
     }
