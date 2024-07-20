@@ -106,6 +106,7 @@ export class GrowthBook<
   private _activeTrackingCall: Promise<void>;
   private _deferredTrackingCalls: Map<string, TrackingData>;
   private _unsetAntiFlickerTimeout: number | undefined;
+  private _isNavigating: boolean;
 
   private _payload: FeatureApiResponse | undefined;
   private _decryptedPayload: FeatureApiResponse | undefined;
@@ -137,6 +138,7 @@ export class GrowthBook<
     this._activeTrackingCall = Promise.resolve();
     this._deferredTrackingCalls = new Map();
     this._autoExperimentsAllowed = !context.disableExperimentsOnLoad;
+    this._isNavigating = false;
 
     if (context.remoteEval) {
       if (context.decryptionKey) {
@@ -751,7 +753,10 @@ export class GrowthBook<
               ),
             ]).then(() => {
               try {
-                navigate(url);
+                if (!this._isNavigating) {
+                  this._isNavigating = true;
+                  navigate(url);
+                }
               } catch (e) {
                 console.error(e);
               }
