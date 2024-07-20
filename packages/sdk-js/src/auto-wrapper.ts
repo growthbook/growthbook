@@ -233,20 +233,43 @@ if (
 const gb = new GrowthBook({
   ...dataContext,
   remoteEval: !!dataContext.remoteEval,
-  trackingCallback: (e, r) => {
-    const p = { experiment_id: e.key, variation_id: r.key };
+  trackingCallback: async (e, r) => {
+    const promises: Promise<unknown>[] = [];
+    const eventParams = { experiment_id: e.key, variation_id: r.key };
 
     // GA4 - gtag
-    window.gtag && window.gtag("event", "experiment_viewed", p);
+    if (window.gtag) {
+      let gtagResolve;
+      const gtagPromise = new Promise((resolve) => {
+        gtagResolve = resolve;
+      });
+      promises.push(gtagPromise);
+      window.gtag("event", "experiment_viewed", {
+        ...eventParams,
+        event_callback: gtagResolve,
+      });
+    }
 
     // GTM - dataLayer
-    window.dataLayer &&
-      window.dataLayer.push({ event: "experiment_viewed", ...p });
+    if (window.dataLayer) {
+      let datalayerResolve;
+      const datalayerPromise = new Promise((resolve) => {
+        datalayerResolve = resolve;
+      });
+      promises.push(datalayerPromise);
+      window.dataLayer.push({
+        event: "experiment_viewed",
+        ...eventParams,
+        eventCallback: datalayerResolve,
+      });
+    }
 
     // Segment - analytics.js
-    window.analytics &&
-      window.analytics.track &&
-      window.analytics.track("Experiment Viewed", p);
+    if (window.analytics && window.analytics.track) {
+      window.analytics.track("Experiment Viewed", eventParams);
+    }
+
+    await Promise.all(promises);
   },
   ...windowContext,
   attributes: getAttributes(),
