@@ -736,9 +736,12 @@ export class GrowthBook<
         if (navigate) {
           if (isBrowser) {
             this._setAntiFlicker();
-            // Wait for the max of: 1. the possibly-async tracking call, 2. navigateDelay
+            // Wait for the possibly-async tracking callback, bound by min and max delays
             Promise.all([
-              promiseTimeout(this._activeTrackingCall, 8000),
+              promiseTimeout(
+                this._activeTrackingCall,
+                this._ctx.maxNavigateDelay ?? 10000
+              ),
               new Promise((resolve) =>
                 window.setTimeout(resolve, this._ctx.navigateDelay ?? 100)
               ),

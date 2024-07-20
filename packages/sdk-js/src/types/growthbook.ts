@@ -232,6 +232,7 @@ export interface Context {
   remoteEval?: boolean;
   navigate?: NavigateCallback;
   navigateDelay?: number;
+  maxNavigateDelay?: number;
   antiFlicker?: boolean;
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
