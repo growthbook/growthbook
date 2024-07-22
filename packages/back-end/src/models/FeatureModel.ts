@@ -391,7 +391,7 @@ async function logFeatureUpdatedEvent(
     previous.id,
     previous.version
   );
-  const currentApiFeature = await getApiFeatureObj({
+  const currentApiFeature = getApiFeatureObj({
     feature: current,
     organization: context.org,
     groupMap,
