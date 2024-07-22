@@ -528,7 +528,8 @@ export async function cleanUpPreviousRevisions(
 }
 export async function getFeatureRevisionsByFeaturesCurrentVersion(
   features: FeatureInterface[]
-): Promise<FeatureRevisionInterface[]> {
+): Promise<FeatureRevisionInterface[] | null> {
+  if (features.length === 0) return null;
   const docs = await FeatureRevisionModel.find({
     $or: features.map((f) => ({
       featureId: f.id,
