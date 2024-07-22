@@ -123,6 +123,20 @@ router.put(
 );
 
 router.post(
+  "/event-webhooks/test-params",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        name: z.string().trim().min(1),
+        method: z.enum(eventWebHookMethods),
+        url: z.string().trim().min(1),
+      })
+      .strict(),
+  }),
+  eventWebHooksController.testWebHookParams
+);
+
+router.post(
   "/event-webhooks/test",
   validateRequestMiddleware({
     body: z

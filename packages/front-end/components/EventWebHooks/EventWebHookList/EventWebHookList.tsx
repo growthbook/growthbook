@@ -154,6 +154,7 @@ export const EventWebHookListContainer = () => {
           handleCreateError(response.error || "Unknown error");
         } else {
           setCreateError(null);
+          setIsModalOpen(false);
           mutate();
         }
       } catch (e) {
