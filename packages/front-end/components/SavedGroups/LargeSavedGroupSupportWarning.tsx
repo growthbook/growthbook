@@ -47,6 +47,7 @@ type LargeSavedGroupSupportWarningProps = {
   supportedConnections: SDKConnectionInterface[];
   unsupportedConnections: SDKConnectionInterface[];
   unversionedConnections: SDKConnectionInterface[];
+  upgradeWarningToError?: boolean;
 };
 
 export default function LargeSavedGroupSupportWarning({
@@ -54,6 +55,7 @@ export default function LargeSavedGroupSupportWarning({
   supportedConnections,
   unsupportedConnections,
   unversionedConnections,
+  upgradeWarningToError,
 }: LargeSavedGroupSupportWarningProps) {
   if (
     unsupportedConnections.length === 0 &&
@@ -64,10 +66,12 @@ export default function LargeSavedGroupSupportWarning({
   const supportCertainty =
     unsupportedConnections.length > 0 ? "don't" : "might not";
 
+  const warningLevel = upgradeWarningToError ? "danger" : "warning";
+
   const containerClassName =
     type === "saved_group_creation"
-      ? "alert alert-warning mt-2 p-3"
-      : "text-warning-muted";
+      ? `alert alert-${warningLevel} mt-2 p-3`
+      : `text-${warningLevel}-muted`;
 
   return (
     <div className={containerClassName}>
@@ -77,7 +81,7 @@ export default function LargeSavedGroupSupportWarning({
         : "Your"}{" "}
       SDK connections {supportCertainty} support lists with more than{" "}
       {SMALL_GROUP_SIZE_LIMIT} items.{" "}
-      <Link className="text-warning-muted underline" href="/sdks">
+      <Link className={`text-${warningLevel}-muted underline`} href="/sdks">
         View SDKs&gt;
       </Link>
     </div>

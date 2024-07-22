@@ -12,9 +12,7 @@ import PageHead from "@/components/Layout/PageHead";
 import Pagination from "@/components/Pagination";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
-import SavedGroupForm, {
-  IdListItemInput,
-} from "@/components/SavedGroups/SavedGroupForm";
+import SavedGroupForm from "@/components/SavedGroups/SavedGroupForm";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { getSavedGroupMessage } from "@/pages/saved-groups";
@@ -22,6 +20,7 @@ import EditButton from "@/components/EditButton/EditButton";
 import Modal from "@/components/Modal";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
 
 const NUM_PER_PAGE = 10;
 
@@ -161,7 +160,7 @@ export default function EditSavedGroupPage() {
         }}
         open={addItems}
         size="lg"
-        header={`Add ${savedGroup.attributeKey}s to List`}
+        header="Add Items to List"
         cta="Save"
         ctaEnabled={
           itemsToAdd.length > 0 &&
@@ -188,11 +187,14 @@ export default function EditSavedGroupPage() {
           </div>
           <IdListItemInput
             values={itemsToAdd}
-            attributeKey={savedGroup.attributeKey || "ID"}
             passByReferenceOnly={savedGroup.passByReferenceOnly || false}
-            limit={SMALL_GROUP_SIZE_LIMIT - values.length}
+            bypassSmallListSizeLimit={
+              (savedGroup?.values || []).length > SMALL_GROUP_SIZE_LIMIT &&
+              !savedGroup?.passByReferenceOnly
+            }
             setValues={(newValues) => setItemsToAdd(newValues)}
             setPassByReferenceOnly={setPassByReferenceOnly}
+            disableSubmit={disableSubmit}
             setDisableSubmit={setDisableSubmit}
           />
           {convertingLegacyWithUnsupportedConnections && (

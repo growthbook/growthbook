@@ -71,8 +71,6 @@ export default function SavedGroupTargetingField({
     setSavedGroupTargetingSdkIssues,
   ]);
 
-  console.log("Local targeting issues", localTargetingIssues);
-
   if (!savedGroups.length) return null;
 
   const options = savedGroups.map((s) => ({
@@ -117,6 +115,7 @@ export default function SavedGroupTargetingField({
           supportedConnections={supportedConnections}
           unsupportedConnections={unsupportedConnections}
           unversionedConnections={unversionedConnections}
+          upgradeWarningToError={localTargetingIssues}
         />
       )}
       <div>
