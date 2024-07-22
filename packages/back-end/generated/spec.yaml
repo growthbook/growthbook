@@ -946,6 +946,8 @@ paths:
                   type: boolean
                 remoteEvalEnabled:
                   type: boolean
+                savedGroupReferencesEnabled:
+                  type: boolean
       responses:
         '200':
           content:
@@ -1030,6 +1032,8 @@ paths:
                 hashSecureAttributes:
                   type: boolean
                 remoteEvalEnabled:
+                  type: boolean
+                savedGroupReferencesEnabled:
                   type: boolean
       responses:
         '200':
@@ -4814,6 +4818,8 @@ components:
         hashSecureAttributes:
           type: boolean
         remoteEvalEnabled:
+          type: boolean
+        savedGroupReferencesEnabled:
           type: boolean
     Experiment:
       type: object

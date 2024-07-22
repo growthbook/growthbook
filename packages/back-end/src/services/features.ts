@@ -504,6 +504,7 @@ export type FeatureDefinitionsResponseArgs = {
   capabilities: SDKCapability[];
   savedGroups: SavedGroupInterface[];
   savedGroupAttributeKeys?: Record<string, string>;
+  savedGroupReferencesEnabled?: boolean;
 };
 async function getFeatureDefinitionsResponse({
   features,
@@ -520,6 +521,7 @@ async function getFeatureDefinitionsResponse({
   capabilities,
   savedGroups,
   savedGroupAttributeKeys,
+  savedGroupReferencesEnabled = false,
 }: FeatureDefinitionsResponseArgs) {
   if (!includeDraftExperiments) {
     experiments = experiments?.filter((e) => e.status !== "draft") || [];
@@ -596,9 +598,23 @@ async function getFeatureDefinitionsResponse({
     }
   }
 
-  features = scrubFeatures(features, capabilities, savedGroups);
-  experiments = scrubExperiments(experiments, capabilities, savedGroups);
-  const scrubbedSavedGroups = scrubSavedGroups(savedGroupsValues, capabilities);
+  features = scrubFeatures(
+    features,
+    capabilities,
+    savedGroups,
+    savedGroupReferencesEnabled
+  );
+  experiments = scrubExperiments(
+    experiments,
+    capabilities,
+    savedGroups,
+    savedGroupReferencesEnabled
+  );
+  const scrubbedSavedGroups = scrubSavedGroups(
+    savedGroupsValues,
+    capabilities,
+    savedGroupReferencesEnabled
+  );
 
   const includeAutoExperiments =
     !!includeRedirectExperiments || !!includeVisualExperiments;
@@ -660,6 +676,7 @@ export type FeatureDefinitionArgs = {
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   hashSecureAttributes?: boolean;
+  savedGroupReferencesEnabled?: boolean;
 };
 
 export type FeatureDefinitionSDKPayload = {
@@ -683,6 +700,7 @@ export async function getFeatureDefinitions({
   includeExperimentNames,
   includeRedirectExperiments,
   hashSecureAttributes,
+  savedGroupReferencesEnabled,
 }: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
   // Return cached payload from Mongo if exists
   try {
@@ -738,6 +756,7 @@ export async function getFeatureDefinitions({
         capabilities,
         savedGroups: usedSavedGroups || [],
         savedGroupAttributeKeys,
+        savedGroupReferencesEnabled,
       });
     }
   } catch (e) {
@@ -848,6 +867,7 @@ export async function getFeatureDefinitions({
     capabilities,
     savedGroups,
     savedGroupAttributeKeys,
+    savedGroupReferencesEnabled,
   });
 }
 
