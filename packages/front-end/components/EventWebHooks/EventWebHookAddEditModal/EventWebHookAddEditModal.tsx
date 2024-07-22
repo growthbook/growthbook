@@ -421,11 +421,31 @@ const EventWebHookAddEditSettings = ({
 
 type Step = "create" | "confirm" | "edit";
 
-const buttonText = {
-  create: "Next >",
-  confirm: "Create",
-  edit: "Save",
-} as const;
+const buttonText = ({
+  step,
+  payloadType,
+}: {
+  step: Step;
+  payloadType: EventWebHookPayloadType;
+}) => {
+  let invalidStep: never;
+
+  switch (step) {
+    case "create":
+      if (payloadType === "raw") return "Create";
+      return "Next >";
+
+    case "confirm":
+      return "Create";
+
+    case "edit":
+      return "Save";
+
+    default:
+      invalidStep = step;
+      throw new Error(`Invalid step: ${invalidStep}`);
+  }
+};
 
 export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   isOpen,
@@ -514,7 +534,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   return (
     <Modal
       header={modalTitle}
-      cta={buttonText[step]}
+      cta={buttonText({ step, payloadType: form.watch("payloadType") })}
       includeCloseCta={false}
       open={isOpen}
       error={error ?? undefined}
@@ -537,7 +557,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
           onClick={handleSubmit}
           className="btn btn-primary"
         >
-          {buttonText[step]}
+          {buttonText({ step, payloadType: form.watch("payloadType") })}
         </button>
       }
     >
