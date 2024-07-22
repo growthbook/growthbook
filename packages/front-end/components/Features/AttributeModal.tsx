@@ -152,7 +152,16 @@ export default function AttributeModal({ close, attribute }: Props) {
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
-            label="Projects"
+            label={
+              <>
+                Projects{" "}
+                <Tooltip
+                  body={`The dropdown below has been filtered to only include projects where you have permission to ${
+                    attribute ? "update" : "create"
+                  } Attributes.`}
+                />
+              </>
+            }
             placeholder="All projects"
             value={form.watch("projects") || []}
             options={projectOptions}

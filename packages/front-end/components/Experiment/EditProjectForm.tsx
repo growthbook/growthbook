@@ -7,6 +7,7 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 
 const EditProjectForm: FC<{
   apiEndpoint: string;
+  label: ReactElement;
   permissionRequired: (projectId: string) => boolean;
   current?: string;
   additionalMessage?: string | ReactElement | null;
@@ -23,6 +24,7 @@ const EditProjectForm: FC<{
   method = "POST",
   additionalMessage,
   ctaEnabled = true,
+  label,
 }) => {
   const { apiCall } = useAuth();
 
@@ -52,7 +54,7 @@ const EditProjectForm: FC<{
     >
       {additionalMessage}
       <SelectField
-        label="Project"
+        label={label}
         value={form.watch("project")}
         onChange={(v) => form.setValue("project", v)}
         options={useProjectOptions(

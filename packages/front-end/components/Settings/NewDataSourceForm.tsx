@@ -30,6 +30,7 @@ import Modal from "@/components/Modal";
 import { GBCircleArrowLeft } from "@/components/Icons";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
 import styles from "./NewDataSourceForm.module.scss";
@@ -553,7 +554,16 @@ const NewDataSourceForm: FC<{
         {projects?.length > 0 && (
           <div className="form-group">
             <MultiSelectField
-              label="Projects"
+              label={
+                <>
+                  Projects{" "}
+                  <Tooltip
+                    body={`The dropdown below has been filtered to only include projects where you have permission to ${
+                      existing ? "update" : "create"
+                    } Data Sources.`}
+                  />
+                </>
+              }
               placeholder="All projects"
               value={datasource.projects || []}
               options={projectOptions}

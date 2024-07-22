@@ -245,6 +245,16 @@ export default function FactMetricPage() {
       )}
       {editProjectsOpen && (
         <EditProjectsForm
+          label={
+            <>
+              Projects{" "}
+              <Tooltip
+                body={
+                  "The dropdown below has been filtered to only include projects where you have permission to update Metrics"
+                }
+              />
+            </>
+          }
           value={factMetric.projects}
           permissionRequired={(project) =>
             permissionsUtil.canUpdateFactMetric({ projects: [project] }, {})

@@ -503,7 +503,12 @@ export default function SDKConnectionForm({
 
         <div className="mb-4">
           <label>
-            Filter by Projects
+            Filter by Projects{" "}
+            <Tooltip
+              body={`The dropdown below has been filtered to only include projects where you have permission to ${
+                edit ? "update" : "create"
+              } SDK Connections.`}
+            />
             {!!selectedProjects?.length && (
               <> ({selectedValidProjects?.length ?? 0})</>
             )}

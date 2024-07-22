@@ -20,6 +20,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { ensureAndReturn } from "@/types/utils";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import EditSchemaOptions from "./EditSchemaOptions";
 
 const typeOptions = dataSourceConnections;
@@ -254,7 +255,16 @@ const DataSourceForm: FC<{
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
-            label="Projects"
+            label={
+              <>
+                Projects{" "}
+                <Tooltip
+                  body={`The dropdown below has been filtered to only include projects where you have permission to ${
+                    existing ? "update" : "create"
+                  } Data Sources.`}
+                />
+              </>
+            }
             placeholder="All projects"
             value={datasource.projects || []}
             options={projectOptions}

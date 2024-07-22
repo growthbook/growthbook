@@ -29,6 +29,7 @@ import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const ExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -164,6 +165,16 @@ const ExperimentPage = (): ReactElement => {
       )}
       {projectModalOpen && (
         <EditProjectForm
+          label={
+            <>
+              Projects{" "}
+              <Tooltip
+                body={
+                  "The dropdown below has been filtered to only include projects where you have permission to update Experiments"
+                }
+              />
+            </>
+          }
           cancel={() => setProjectModalOpen(false)}
           permissionRequired={(project) =>
             permissionsUtil.canUpdateExperiment({ project }, {})

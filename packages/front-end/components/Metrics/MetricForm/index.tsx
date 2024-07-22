@@ -47,6 +47,7 @@ import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
 import { MetricDelayHours } from "./MetricDelayHours";
@@ -720,7 +721,16 @@ const MetricForm: FC<MetricFormProps> = ({
           {projects?.length > 0 && (
             <div className="form-group">
               <MultiSelectField
-                label="Projects"
+                label={
+                  <>
+                    Projects{" "}
+                    <Tooltip
+                      body={`The dropdown below has been filtered to only include projects where you have permission to ${
+                        edit ? "update" : "create"
+                      } Metrics.`}
+                    />
+                  </>
+                }
                 placeholder="All projects"
                 value={value.projects || []}
                 options={projectOptions}

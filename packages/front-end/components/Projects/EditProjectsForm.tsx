@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, ReactElement } from "react";
 import { useForm } from "react-hook-form";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -10,8 +10,17 @@ const EditProjectsForm: FC<{
   save: (projects: string[]) => Promise<void>;
   cancel: () => void;
   mutate: () => void;
+  label: ReactElement;
   entityName?: string;
-}> = ({ value = [], permissionRequired, save, cancel, mutate, entityName }) => {
+}> = ({
+  value = [],
+  permissionRequired,
+  save,
+  cancel,
+  mutate,
+  entityName,
+  label,
+}) => {
   const form = useForm({
     defaultValues: {
       projects: value,
@@ -30,7 +39,7 @@ const EditProjectsForm: FC<{
       cta="Save"
     >
       <MultiSelectField
-        label="Projects"
+        label={label}
         placeholder="All projects"
         value={form.watch("projects")}
         options={useProjectOptions(permissionRequired, value)}

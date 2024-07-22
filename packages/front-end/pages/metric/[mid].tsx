@@ -320,6 +320,16 @@ const MetricPage: FC = () => {
       )}
       {editProjects && (
         <EditProjectsForm
+          label={
+            <>
+              Projects{" "}
+              <Tooltip
+                body={
+                  "The dropdown below has been filtered to only include projects where you have permission to update Metrics"
+                }
+              />
+            </>
+          }
           cancel={() => setEditProjects(false)}
           entityName="Metric"
           mutate={mutate}
