@@ -79,6 +79,7 @@ export interface SDKConnectionInterface {
   proxy: ProxyConnection;
 
   remoteEvalEnabled?: boolean;
+  savedGroupReferencesEnabled?: boolean;
 }
 
 export interface ProxyTestResult {

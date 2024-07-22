@@ -46,7 +46,8 @@ const savedGroupOperatorReplacements = {
 export const scrubFeatures = (
   features: Record<string, FeatureDefinitionWithProject>,
   capabilities: SDKCapability[],
-  savedGroups: SavedGroupInterface[]
+  savedGroups: SavedGroupInterface[],
+  savedGroupReferencesEnabled: boolean
 ): Record<string, FeatureDefinitionWithProject> => {
   const allowedFeatureKeys = [...strictFeatureKeys];
   const allowedFeatureRuleKeys = [...strictFeatureRuleKeys];
@@ -59,7 +60,7 @@ export const scrubFeatures = (
   if (capabilities.includes("prerequisites")) {
     allowedFeatureRuleKeys.push(...prerequisiteKeys);
   }
-  if (!capabilities.includes("savedGroupReferences")) {
+  if (!savedGroupReferencesEnabled) {
     const savedGroupsMap = Object.fromEntries(
       savedGroups.map((group) => [group.id, group])
     );
@@ -125,13 +126,14 @@ export const scrubFeatures = (
 export const scrubExperiments = (
   experiments: AutoExperimentWithProject[],
   capabilities: SDKCapability[],
-  savedGroups: SavedGroupInterface[]
+  savedGroups: SavedGroupInterface[],
+  savedGroupReferencesEnabled: boolean
 ): AutoExperimentWithProject[] => {
   const removedExperimentKeys: string[] = [];
   const supportsPrerequisites = capabilities.includes("prerequisites");
   const supportsRedirects = capabilities.includes("redirects");
 
-  if (!capabilities.includes("savedGroupReferences")) {
+  if (!savedGroupReferencesEnabled) {
     const savedGroupsMap = Object.fromEntries(
       savedGroups.map((group) => [group.id, group])
     );
@@ -185,9 +187,10 @@ export const scrubExperiments = (
 
 export const scrubSavedGroups = (
   savedGroupsValues: SavedGroupsValues,
-  capabilities: SDKCapability[]
+  _capabilities: SDKCapability[],
+  savedGroupReferencesEnabled: boolean
 ): SavedGroupsValues | undefined => {
-  if (!capabilities.includes("savedGroupReferences")) {
+  if (!savedGroupReferencesEnabled) {
     return undefined;
   }
   return savedGroupsValues;
