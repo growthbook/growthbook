@@ -507,6 +507,14 @@ export default function FactMetricModal({
           values.denominator = null;
         }
 
+        // reset numerator for proportion metrics
+        if (
+          values.metricType === "proportion" &&
+          values.numerator.column !== "$$distinctUsers"
+        ) {
+          values.numerator.column = "$$distinctUsers";
+        }
+
         if (!selectedDataSource) throw new Error("Must select a data source");
 
         // Correct percent values

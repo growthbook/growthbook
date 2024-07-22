@@ -8,6 +8,7 @@ const docSections = {
   experimentResults: "/app/experiment-results",
   stickyBucketing: "/app/sticky-bucketing",
   metrics: "/app/metrics",
+  factTables: "/app/fact-tables",
   dimensions: "/app/dimensions",
   datasources: "/app/datasources",
   dashboard: "/app/experiment-configuration",
@@ -113,22 +114,25 @@ interface DocLinkProps {
   children: ReactNode;
 }
 
+export const docUrl = (docSection: DocSection, fallBackSection = "home") => {
+  const docsPath = docSections[docSection]
+    ? docSections[docSection]
+    : docSections[fallBackSection]
+    ? docSections[fallBackSection]
+    : "";
+
+  return docsOrigin + docsPath;
+};
+
 export function DocLink({
   docSection,
   fallBackSection = "home",
   className = "",
   children,
 }: DocLinkProps) {
-  const docsPath = docSections[docSection]
-    ? docSections[docSection]
-    : docSections[fallBackSection]
-    ? docSections[fallBackSection]
-    : "";
-  const docUrl = docsOrigin + docsPath;
-
   return (
     <a
-      href={docUrl}
+      href={docUrl(docSection, fallBackSection)}
       target="_blank"
       rel="noopener noreferrer"
       className={className}

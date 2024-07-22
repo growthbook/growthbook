@@ -17,8 +17,13 @@ import {
 } from "@dnd-kit/sortable";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
-import { getRules, isRuleFullyCovered } from "@/services/features";
+import {
+  getRules,
+  isRuleDisabled,
+  isRuleFullyCovered,
+} from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { Rule, SortableRule } from "./Rule";
 
 export default function RuleList({
@@ -46,6 +51,10 @@ export default function RuleList({
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
 }) {
   const { apiCall } = useAuth();
+  const [hideDisabled, setHideDisabled] = useLocalStorage(
+    `hide-disabled-rules-${environment}`,
+    false
+  );
   const [activeId, setActiveId] = useState<string | null>(null);
   const [items, setItems] = useState(getRules(feature, environment));
   const permissionsUtil = usePermissionsUtil();
@@ -61,10 +70,20 @@ export default function RuleList({
     })
   );
 
+  const disabledRules = items.filter((r) => isRuleDisabled(r, experimentsMap));
+  const showInactiveToggle = items.length > 3 && disabledRules.length;
+
   if (!items.length) {
     return (
       <div className="px-3 mb-3">
         <em>None</em>
+      </div>
+    );
+  }
+  if (disabledRules.length === items.length && hideDisabled) {
+    return (
+      <div className="px-3 mb-3">
+        <em>No Active Rules</em>
       </div>
     );
   }
@@ -136,6 +155,19 @@ export default function RuleList({
         setActiveId(active.id);
       }}
     >
+      {showInactiveToggle ? (
+        <div className="d-flex justify-content-end pt-2 pr-3">
+          <label className="mb-0">
+            <input
+              type="checkbox"
+              className="form-check-input"
+              checked={hideDisabled}
+              onChange={(e) => setHideDisabled(e.target.checked)}
+            />
+            only show active rules
+          </label>
+        </div>
+      ) : null}
       <SortableContext items={items} strategy={verticalListSortingStrategy}>
         {items.map(({ ...rule }, i) => (
           <SortableRule
@@ -152,6 +184,7 @@ export default function RuleList({
             setVersion={setVersion}
             locked={locked}
             experimentsMap={experimentsMap}
+            hideDisabled={hideDisabled}
           />
         ))}
       </SortableContext>

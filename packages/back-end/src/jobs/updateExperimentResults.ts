@@ -179,8 +179,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       phaseIndex: experiment.phases.length - 1,
       defaultAnalysisSettings: analysisSettings,
       additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
-        analysisSettings,
-        experiment
+        analysisSettings
       ),
       settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
       metricMap,

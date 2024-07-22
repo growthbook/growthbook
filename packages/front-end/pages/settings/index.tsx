@@ -8,8 +8,10 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
+  DEFAULT_TEST_QUERY_DAYS,
 } from "shared/constants";
 import { OrganizationSettings } from "@back-end/types/organization";
+import Link from "next/link";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
@@ -19,15 +21,15 @@ import {
   useOrganizationMetricDefaults,
 } from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
-import SelectField from "@/components/Forms/SelectField";
 import { useCurrency } from "@/hooks/useCurrency";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import OrganizationAndLicenseSettings from "@/components/GeneralSettings/OrganizationAndLicenseSettings";
 import ImportSettings from "@/components/GeneralSettings/ImportSettings";
 import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetricSettings";
 import ExperimentSettings from "@/components/GeneralSettings/ExperimentSettings";
 import MetricsSettings from "@/components/GeneralSettings/MetricsSettings";
 import FeaturesSettings from "@/components/GeneralSettings/FeaturesSettings";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 
@@ -60,7 +62,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     setCodeRefsBranchesToFilterStr,
   ] = useState<string>("");
   const displayCurrency = useCurrency();
-  const { datasources } = useDefinitions();
 
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
 
@@ -120,6 +121,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         },
       ],
       defaultDataSource: settings.defaultDataSource || "",
+      testQueryDays: DEFAULT_TEST_QUERY_DAYS,
       useStickyBucketing: false,
       useFallbackAttributes: false,
       codeReferencesEnabled: false,
@@ -127,6 +129,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
       codeRefsPlatformUrl: "",
       featureKeyExample: "",
       featureRegexValidator: "",
+      featureListMarkdown: settings.featureListMarkdown || "",
+      featurePageMarkdown: settings.featurePageMarkdown || "",
+      experimentListMarkdown: settings.experimentListMarkdown || "",
+      metricListMarkdown: settings.metricListMarkdown || "",
+      metricPageMarkdown: settings.metricPageMarkdown || "",
     },
   });
   const { apiCall } = useAuth();
@@ -337,7 +344,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <ExperimentSettings
               cronString={cronString}
               updateCronString={updateCronString}
-              hasCommercialFeature={hasCommercialFeature}
             />
 
             <div className="divider border-bottom mb-3 mt-3" />
@@ -350,27 +356,25 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
             <div className="divider border-bottom mb-3 mt-3" />
 
+            <DatasourceSettings />
+          </div>
+          <div className="my-3 bg-white p-3 border">
             <div className="row">
-              <div className="col-sm-3">
-                <h4>Data Source Settings</h4>
+              <div className="col-sm-3 h4">
+                <PremiumTooltip commercialFeature="custom-markdown">
+                  Custom Markdown
+                </PremiumTooltip>
               </div>
               <div className="col-sm-9">
-                <>
-                  <SelectField
-                    label="Default Data Source (Optional)"
-                    value={form.watch("defaultDataSource") || ""}
-                    options={datasources.map((d) => ({
-                      label: d.name,
-                      value: d.id,
-                    }))}
-                    onChange={(v: string) =>
-                      form.setValue("defaultDataSource", v)
-                    }
-                    isClearable={true}
-                    placeholder="Select a data source..."
-                    helpText="The default data source is the default data source selected when creating metrics and experiments."
-                  />
-                </>
+                {hasCommercialFeature("custom-markdown") ? (
+                  <Link href="/settings/custom-markdown">
+                    View Custom Markdown Settings
+                  </Link>
+                ) : (
+                  <span className="text-muted">
+                    View Custom Markdown Settings
+                  </span>
+                )}
               </div>
             </div>
           </div>

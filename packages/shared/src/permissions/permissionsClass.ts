@@ -659,8 +659,7 @@ export class Permissions {
     );
   };
 
-  //TODO: Refactor this into two separate methods and eliminate updating envs from organizations.controller.putOrganization - Github Issue #2494
-  public canCreateOrUpdateEnvironment = (
+  public canCreateEnvironment = (
     environment: Pick<Environment, "projects" | "id">
   ): boolean => {
     return this.checkEnvFilterPermission(
@@ -668,6 +667,23 @@ export class Permissions {
         projects: environment.projects || [],
       },
       [environment.id],
+      "manageEnvironments"
+    );
+  };
+
+  public canUpdateEnvironment = (
+    existing: Pick<Environment, "projects" | "id">,
+    updates: Pick<Environment, "projects">
+  ): boolean => {
+    const updateObj: { projects?: string[]; environment?: string } = {};
+
+    if ("projects" in updates) {
+      updateObj.projects = updates.projects;
+    }
+
+    return this.checkEnvFilterUpdatePermission(
+      { projects: existing.projects || [], environment: existing.id },
+      updateObj,
       "manageEnvironments"
     );
   };

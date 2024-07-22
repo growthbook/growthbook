@@ -93,7 +93,7 @@ export default function CopyRuleModal({
         <span className={`badge badge-gray`}>
           {rules.length} {ruleTxt}
         </span>{" "}
-        from <span className="text-indigo h5">{environment}</span> to...
+        from <span className="text-purple h5">{environment}</span> to...
       </div>
       {envs.length > 1 ? (
         <>
@@ -133,7 +133,7 @@ export default function CopyRuleModal({
                   }}
                   checked={selectedEnvironments?.[env] ?? false}
                 />
-                <span className="h5 mr-1 text-indigo">{env}</span>
+                <span className="h5 mr-1 text-purple">{env}</span>
                 <span className={`badge badge-gray ml-2`}>
                   {rules.length} rule{rules.length !== 1 ? "s" : ""}
                 </span>

@@ -45,6 +45,7 @@ import Tab from "@/components/Tabs/Tab";
 import Tabs from "@/components/Tabs/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
+import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
@@ -600,6 +601,9 @@ export default function FeaturesPage() {
         GrowthBook UI. For example, turn on/off a sales banner or change the
         title of your pricing page.{" "}
       </p>
+      <div className="mt-3">
+        <CustomMarkdown page={"featureList"} />
+      </div>
       {!hasFeatures ? (
         <>
           <div

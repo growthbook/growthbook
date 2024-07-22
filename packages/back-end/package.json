@@ -90,7 +90,7 @@
     "openid-client": "^5.1.10",
     "pg": "^8.9.0",
     "pino-http": "^8.2.1",
-    "presto-client": "^0.11.2",
+    "presto-client": "^1.1.0",
     "proxy-agent": "^6.3.1",
     "python-shell": "^3.0.0",
     "saslprep": "^1.0.0",

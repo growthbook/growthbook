@@ -205,7 +205,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => true,
+        canUpdateEnvironment: () => true,
       },
     });
 
@@ -279,7 +279,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => true,
+        canUpdateEnvironment: () => true,
       },
     });
 
@@ -321,7 +321,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => true,
+        canUpdateEnvironment: () => true,
       },
     });
 
@@ -366,7 +366,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => false,
+        canUpdateEnvironment: () => false,
         throwPermissionError: () => {
           throw new Error("permission error");
         },
@@ -414,7 +414,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => true,
+        canCreateEnvironment: () => true,
       },
     });
 
@@ -498,7 +498,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => true,
+        canCreateEnvironment: () => true,
       },
     });
 
@@ -541,7 +541,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => true,
+        canCreateEnvironment: () => true,
       },
     });
 
@@ -586,7 +586,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => false,
+        canCreateEnvironment: () => false,
         throwPermissionError: () => {
           throw new Error("permission error");
         },
@@ -636,7 +636,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => true,
+        canCreateEnvironment: () => true,
       },
     });
 

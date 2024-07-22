@@ -50,6 +50,8 @@ export function getHttpOptions(url?: string, useWebhookProxy = false) {
         getProxyForUrl: () => WEBHOOK_PROXY,
       }),
     };
+  } else if (WEBHOOK_PROXY) {
+    logger.debug("not using webhook proxy");
   }
 
   if (USE_PROXY) {
