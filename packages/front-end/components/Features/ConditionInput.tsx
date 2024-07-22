@@ -143,6 +143,7 @@ export default function ConditionInput(props: Props) {
             supportedConnections={supportedConnections}
             unsupportedConnections={unsupportedConnections}
             unversionedConnections={unversionedConnections}
+            upgradeWarningToError={localTargetingIssues}
           />
         )}
         <div className="appbox bg-light px-3 py-3">
@@ -224,6 +225,7 @@ export default function ConditionInput(props: Props) {
           supportedConnections={supportedConnections}
           unsupportedConnections={unsupportedConnections}
           unversionedConnections={unversionedConnections}
+          upgradeWarningToError={localTargetingIssues}
         />
       )}
       <div className="appbox bg-light px-3 pb-3">
