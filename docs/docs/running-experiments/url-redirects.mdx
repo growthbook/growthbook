@@ -21,9 +21,9 @@ You then specify "Destination URLs" for each of your variations. You can also tu
 
 When a user visits the Original URL and is included in the experiment, they will be assigned a variation. Then, an "Experiment Viewed" event will be sent to your data warehouse. After a short delay (default `100ms`) to allow for the tracking event to finish, the user will be redirected to the destination URL.
 
-### Redirects to the same URL with the addition of query params
+### Redirecting when only query params change
 
-For redirect tests where you want to redirect a user to the same page with different query params you'll need to include the query params you plan to use in the original URL with no value for our targeting to work correctly. (i.e. if you want to redirect a user to `http://www.growthbook.io/test?abc=123` from `http://www.growthbook.io/test`, your original URL will need to be `http://www.growthbook.io/test?abc`)
+Setting up tests where the redirect URL only varies from the original by the query parameters requires special consideration. You'll need to include the query params you plan to use in the original URL with no value entered in order for our URL targeting to work correctly (i.e. if you want to redirect a user to `http://www.growthbook.io/test?abc=123` from `http://www.growthbook.io/test`, your original URL will need to be `http://www.growthbook.io/test?abc`).
 
 ## Implementation
 
