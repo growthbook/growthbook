@@ -653,7 +653,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     });
   }
   const context = getContextFromReq(req);
-  const { org } = context;
+  const { org, userId } = context;
   const {
     invites,
     members,
