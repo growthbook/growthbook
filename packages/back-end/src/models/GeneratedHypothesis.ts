@@ -132,24 +132,25 @@ export const findOrCreateGeneratedHypothesis = async (
   });
 
   // create feature flag or visual change
+  const payload = sdk_payload?.experiments?.[0];
   if (
-    sdk_payload?.urlPatterns &&
-    sdk_payload?.targetUrl &&
-    sdk_payload?.variations?.[0]?.domMutations
+    payload?.urlPatterns &&
+    payload?.targetUrl &&
+    payload?.variations?.[0]?.domMutations
   ) {
     // visual change
     await createVisualChangeset({
       experiment: createdExperiment,
       context,
-      urlPatterns: sdk_payload.experiments[0].urlPatterns,
-      editorUrl: sdk_payload.experiments[0].targetUrl,
+      urlPatterns: payload?.urlPatterns,
+      editorUrl: payload?.targetUrl,
       visualChanges: [
         {
           description: "",
           id: uniqid("vc_"),
           css: "",
           js: "",
-          domMutations: sdk_payload.experiments[0].variations[0].domMutations,
+          domMutations: payload?.variations[0].domMutations,
           variation: createdExperiment.variations[0].id,
         },
         {
@@ -157,7 +158,7 @@ export const findOrCreateGeneratedHypothesis = async (
           id: uniqid("vc_"),
           css: "",
           js: "",
-          domMutations: sdk_payload.experiments[0].variations[1].domMutations,
+          domMutations: payload?.variations[1].domMutations,
           variation: createdExperiment.variations[1].id,
         },
       ],
