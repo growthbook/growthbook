@@ -56,19 +56,15 @@ export default function PopulationChooser({
             label: "Fact Table",
             options: [
               {
-                label: `Fact Table (default)`,
+                label: `Entire Fact Table (default)`,
                 value: "factTable",
-              },
-              {
-                label: `Fact Table matching Filter`,
-                value: "metric",
               },
             ],
           },
           ...(availableSegments.length > 0
             ? [
                 {
-                  label: `External`,
+                  label: `Requires Join`,
                   options: [...availableSegments, ...availableExposureQueries],
                 },
               ]

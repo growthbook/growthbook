@@ -273,7 +273,16 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
           <div className="col-auto form-inline pr-5">
             <IdentifierChooser
               value={watch("userIdType")}
-              setValue={(v) => setValue("userIdType", v)}
+              setValue={(v) => {
+                // reset population chooser
+                // if id type changes as possible joins
+                // may have changed
+                if (v!== watch("userIdType")) {
+                  setValue("populationType", "factTable");
+                  setValue("populationId", null);
+                }
+                setValue("userIdType", v)
+              }}
               factTableId={factMetric.numerator.factTableId}
             />
           </div>
@@ -389,7 +398,9 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                             <p>
                               This figure shows the average metric value on a
                               day divided by number of unique units (e.g. users)
-                              in the metric source on that day.
+                              <b> in the population</b> on that day. This means this
+                              time series only shows users in <b>both</b> the fact table
+                              and the population on that day.
                             </p>
                             <p>
                               The standard deviation shows the spread of the

@@ -627,7 +627,8 @@ export default abstract class SqlIntegration
       __segment as (${this.getSegmentCTE(
         segment,
         settings.userIdType,
-        idJoinMap
+        idJoinMap,
+        { startDate: settings.startDate, endDate: settings.endDate ?? undefined }
       )}),
       __population AS (
         SELECT DISTINCT
@@ -644,7 +645,7 @@ export default abstract class SqlIntegration
       ),`;
     }
 
-    return "";
+    return ""
   }
 
   getMetricAnalysisStatisticClauses(
@@ -695,7 +696,6 @@ export default abstract class SqlIntegration
       "m0"
     );
 
-    // TODO FIX SUM
     const createHistogram = metric.metricType === "mean";
     const finalValueColumn = this.capCoalesceValue(
       "value",
@@ -739,7 +739,6 @@ export default abstract class SqlIntegration
           SELECT
           ${populationSQL ? "p" : "f"}.${baseIdType} AS ${baseIdType}
             , ${this.dateTrunc("timestamp")} AS date
-            -- TODO dimension
             , ${this.getAggregateMetricColumn(
               metricData.metric,
               false,
@@ -4018,7 +4017,7 @@ export default abstract class SqlIntegration
       metricCols.push(`-- ${m.name}
       ${column} as m${i}_value`);
 
-      if (addFiltersToWhere) {
+      if (addFiltersToWhere && filters.length) {
         filterWhere.push(`(${filters.join(" AND ")})`);
       }
 
@@ -4042,7 +4041,7 @@ export default abstract class SqlIntegration
         metricCols.push(`-- ${m.name} (denominator)
         ${column} as m${i}_denominator`);
 
-        if (addFiltersToWhere) {
+        if (addFiltersToWhere && filters.length) {
           filterWhere.push(`(${filters.join(" AND ")})`);
         }
       }
