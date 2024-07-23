@@ -218,6 +218,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "quantile-metrics",
     "custom-roles",
     "custom-markdown",
+    "experiment-impact",
   ]),
 };
 
