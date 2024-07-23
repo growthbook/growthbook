@@ -57,10 +57,13 @@ export async function getAllUsersFiltered(
   search?: string
 ): Promise<UserInterface[]> {
   const query: {
-    $or?: [{ name: unknown }, { email: string }];
+    $or?: [{ name: unknown }, { email: unknown }];
   } = {};
   if (search) {
-    query["$or"] = [{ name: { $regex: search + ".*" } }, { email: search }];
+    query["$or"] = [
+      { name: { $regex: `${search}.*`, $options: "i" } },
+      { email: { $regex: `${search}`, $options: "i" } },
+    ];
   }
 
   const docs = await getCollection(COLLECTION)
@@ -78,10 +81,13 @@ export async function getAllUsersFiltered(
 
 export async function getTotalNumUsers(search?: string): Promise<number> {
   const query: {
-    $or?: [{ name: unknown }, { email: string }];
+    $or?: [{ name: unknown }, { email: unknown }];
   } = {};
   if (search) {
-    query["$or"] = [{ name: { $regex: search + ".*" } }, { email: search }];
+    query["$or"] = [
+      { name: { $regex: `${search}.*`, $options: "i" } },
+      { email: { $regex: `${search}`, $options: "i" } },
+    ];
   }
   return await getCollection(COLLECTION).countDocuments(query);
 }
