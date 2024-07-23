@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { ReqContext } from "@back-end/types/organization";
 import { GeneratedHypothesisInterface } from "@back-end/types/generated-hypothesis";
 import { ExperimentInterface } from "@back-end/types/experiment";
-import { createExperiment, getExperimentById } from "./ExperimentModel";
+import { createExperiment } from "./ExperimentModel";
 import { upsertWatch } from "./WatchModel";
 import { createVisualChangeset } from "./VisualChangesetModel";
 import { createFeature } from "./FeatureModel";
@@ -163,7 +163,6 @@ export const findOrCreateGeneratedHypothesis = async (
         },
       ],
     });
-    // TODO enable pro trial if they are not already enabled
   } else {
     // linked feature flag
     const featureId = `${slug}-feature-flag`;
@@ -214,6 +213,7 @@ export const findOrCreateGeneratedHypothesis = async (
     });
   }
 
+  // link hypothesis to experiment
   const created = await GeneratedHypothesisModel.create({
     id: uniqid("genhyp_"),
     uuid,
@@ -225,44 +225,4 @@ export const findOrCreateGeneratedHypothesis = async (
   });
 
   return toInterface(created);
-};
-
-export const linkExperimentToHypothesis = async (
-  context: ReqContext,
-  hypothesisId: string,
-  experimentId: string
-) => {
-  const existing = await GeneratedHypothesisModel.findOne({
-    id: hypothesisId,
-    organization: context.org.id,
-  });
-  if (!existing) throw new Error("Hypothesis not found");
-  const experiment = await getExperimentById(context, experimentId);
-  if (!experiment) throw new Error("Experiment not found");
-  await GeneratedHypothesisModel.updateOne(
-    {
-      id: hypothesisId,
-      organization: context.org.id,
-    },
-    {
-      $set: {
-        experiment: experiment.id,
-      },
-    }
-  );
-  const updated = await GeneratedHypothesisModel.findOne({
-    id: hypothesisId,
-    organization: context.org.id,
-  });
-  return updated;
-};
-
-export const getGeneratedHypothesisById = async (
-  context: ReqContext,
-  id: string
-) => {
-  return await GeneratedHypothesisModel.findOne({
-    id,
-    organization: context.org.id,
-  });
 };

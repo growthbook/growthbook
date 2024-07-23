@@ -727,11 +727,6 @@ app.get(
   }
 );
 
-app.post(
-  "/link-generated-hypothesis",
-  experimentsController.linkGeneratedHypothesis
-);
-
 // Meta info
 app.get("/meta/ai", (req, res) => {
   res.json({

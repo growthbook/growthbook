@@ -102,10 +102,6 @@ import { getFactTableMap } from "../models/FactTableModel";
 import { OrganizationSettings, ReqContext } from "../../types/organization";
 import { CreateURLRedirectProps } from "../../types/url-redirect";
 import { logger } from "../util/logger";
-import {
-  getGeneratedHypothesisById,
-  linkExperimentToHypothesis,
-} from "../models/GeneratedHypothesis";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -2630,32 +2626,5 @@ export async function findOrCreateVisualEditorToken(
 
   res.status(200).json({
     key: visualEditorKey.key,
-  });
-}
-export async function linkGeneratedHypothesis(
-  req: AuthRequest<{
-    expId: string;
-    hypId: string;
-  }>,
-  res: Response
-) {
-  const context = getContextFromReq(req);
-  const experiment = await getExperimentById(context, req.body.expId);
-
-  if (!experiment) throw new Error("Experiment not found");
-
-  const generatedHyp = await getGeneratedHypothesisById(
-    context,
-    req.body.hypId
-  );
-
-  if (!generatedHyp) throw new Error("Generated hypothesis not found");
-
-  await linkExperimentToHypothesis(context, generatedHyp.id, experiment.id);
-
-  const updated = await getExperimentById(context, req.body.expId);
-
-  res.json({
-    experiment: updated,
   });
 }
