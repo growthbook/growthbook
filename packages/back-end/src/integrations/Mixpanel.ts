@@ -670,6 +670,7 @@ function is${name}(event) {
 
   private getConversionWindowCondition(
     metric: MetricInterface,
+    experimentEnd: Date,
     conversionWindowStart: string = ""
   ) {
     const windowHours = getConversionWindowHours(metric.windowSettings);
@@ -686,8 +687,10 @@ function is${name}(event) {
     }
     // if lookback window, add additional lookback start
     if (metric.windowSettings.type === "lookback") {
-      const lookbackStart = windowHours * 60 * 60 * 1000;
-      checks.push(`event.time - ${conversionWindowStart} >= ${lookbackStart}`);
+      const lookbackLength = windowHours * 60 * 60 * 1000;
+      checks.push(
+        `${experimentEnd.getTime()} - event.time <= ${lookbackLength}`
+      );
     }
     return checks.length ? checks.join(" && ") : "";
   }
