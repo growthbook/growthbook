@@ -1007,6 +1007,7 @@ export interface components {
         releasedVariationId: string;
         excludeFromPayload: boolean;
       };
+      regressionAdjustmentEnabled?: boolean;
     };
     ExperimentMetric: {
       metricId: string;
@@ -3392,6 +3393,7 @@ export interface operations {
                   releasedVariationId: string;
                   excludeFromPayload: boolean;
                 };
+                regressionAdjustmentEnabled?: boolean;
               })[];
           }) & {
             limit: number;
@@ -3487,6 +3489,8 @@ export interface operations {
                 })[];
               variationWeights?: (number)[];
             })[];
+          /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
+          regressionAdjustmentEnabled?: boolean;
         };
       };
     };
@@ -3598,6 +3602,7 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              regressionAdjustmentEnabled?: boolean;
             };
           };
         };
@@ -3720,6 +3725,7 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              regressionAdjustmentEnabled?: boolean;
             };
           };
         };
@@ -3811,6 +3817,8 @@ export interface operations {
                 })[];
               variationWeights?: (number)[];
             })[];
+          /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
+          regressionAdjustmentEnabled?: boolean;
         };
       };
     };
@@ -3922,6 +3930,7 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              regressionAdjustmentEnabled?: boolean;
             };
           };
         };
@@ -4882,6 +4891,7 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              regressionAdjustmentEnabled?: boolean;
             };
           };
         };
