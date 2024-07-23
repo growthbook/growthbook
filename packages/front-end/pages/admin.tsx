@@ -596,7 +596,7 @@ const Admin: FC = () => {
           }
         }}
       >
-        <Tab display="Organizations" id="organizations">
+        <Tab display="Organizations" id="organizations" padding={false}>
           <button
             className="btn btn-primary float-right"
             onClick={(e) => {
@@ -606,7 +606,6 @@ const Admin: FC = () => {
           >
             <FaPlus /> New Organization
           </button>
-          <p>Click an organization name below to switch to it.</p>
           <div className="mb-2 row align-items-center">
             <div className="col-auto">
               <form
@@ -703,7 +702,7 @@ const Admin: FC = () => {
             </div>
           )}
         </Tab>
-        <Tab display="Members" id="members">
+        <Tab display="Members" id="members" padding={false}>
           <div className="mb-2 row align-items-center">
             <div className="col-auto">
               <form
