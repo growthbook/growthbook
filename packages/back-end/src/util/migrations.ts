@@ -180,6 +180,8 @@ FROM
 export function upgradeDatasourceObject(
   datasource: DataSourceInterface
 ): DataSourceInterface {
+  datasource.settings = datasource.settings || {};
+
   const settings = datasource.settings;
 
   // Add default randomization units
