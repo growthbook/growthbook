@@ -1,4 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
+import { getConversionWindowHours } from "shared/experiments";
 import { ReqContext } from "../../types/organization";
 import {
   DataSourceInterface,
@@ -23,7 +24,6 @@ import {
   PastExperimentQueryResponse,
   SourceIntegrationInterface,
 } from "../types/Integration";
-import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import {
   conditionToJavascript,
   getAggregateFunctions,
@@ -283,18 +283,24 @@ export default class Mixpanel implements SourceIntegrationInterface {
             }
 
             ${metrics
-              .map(
-                (metric, i) => `// Metric - ${metric.name}
-              if(isMetric${i}(event) && ${this.getConversionWindowCondition(
+              .map((metric, i) => {
+                const conversionWindowCondition = this.getConversionWindowCondition(
                   metric,
                   "state.start"
-                )}) {
-                state.m${i}.push(${this.getMetricValueExpression(
+                );
+
+                return `// Metric - ${metric.name}
+                    if(isMetric${i}(event) ${
+                  conversionWindowCondition
+                    ? `&& ${conversionWindowCondition}`
+                    : ""
+                }) {
+                      state.m${i}.push(${this.getMetricValueExpression(
                   metric.column
                 )});
-              }
-            `
-              )
+                    }
+                  `;
+              })
               .join("")}
           }
           return state;
@@ -666,19 +672,24 @@ function is${name}(event) {
     metric: MetricInterface,
     conversionWindowStart: string = ""
   ) {
+    const windowHours = getConversionWindowHours(metric.windowSettings);
     const checks: string[] = [];
     const start = (metric.windowSettings.delayHours || 0) * 60 * 60 * 1000;
-    const end =
-      start +
-      (metric.windowSettings.windowValue || DEFAULT_CONVERSION_WINDOW_HOURS) *
-        60 *
-        60 *
-        1000;
+    // and conversion delay
     if (start) {
       checks.push(`event.time - ${conversionWindowStart} >= ${start}`);
     }
-    checks.push(`event.time - ${conversionWindowStart} < ${end}`);
-    return checks.join(" && ");
+    // if conversion window, add conversion end
+    if (metric.windowSettings.type === "conversion") {
+      const end = start + windowHours * 60 * 60 * 1000;
+      checks.push(`event.time - ${conversionWindowStart} < ${end}`);
+    }
+    // if lookback window, add additional lookback start
+    if (metric.windowSettings.type === "lookback") {
+      const lookbackStart = windowHours * 60 * 60 * 1000;
+      checks.push(`event.time - ${conversionWindowStart} >= ${lookbackStart}`);
+    }
+    return checks.length ? checks.join(" && ") : "";
   }
 
   private getValidMetricCondition(metric: MetricInterface) {
