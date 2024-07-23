@@ -675,7 +675,7 @@ function is${name}(event) {
     const windowHours = getConversionWindowHours(metric.windowSettings);
     const checks: string[] = [];
     const start = (metric.windowSettings.delayHours || 0) * 60 * 60 * 1000;
-    // and conversion delay
+    // add conversion delay
     if (start) {
       checks.push(`event.time - ${conversionWindowStart} >= ${start}`);
     }
