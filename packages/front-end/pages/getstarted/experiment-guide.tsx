@@ -339,7 +339,7 @@ const ExperimentGuide = (): React.ReactElement => {
                     }}
                     onClick={() =>
                       setStep({
-                        step: "Edit Your Organization’s First Experiment",
+                        step: "Editing Your Auto-generated Experiment",
                         source: "experiments",
                         sourceParams: params.hypId
                           ? `hypId=${params.hypId}`
