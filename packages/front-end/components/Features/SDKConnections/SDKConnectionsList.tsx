@@ -292,7 +292,18 @@ export default function SDKConnectionsList() {
             </div>
           ) : null}
         </>
-      ) : null}
+      ) : (
+        <>
+          {connections.length === 0 ? (
+            <div className="appbox p-5 text-center">
+              <p>
+                You do not have permission to create SDK connections. Please
+                contact your account administrator
+              </p>
+            </div>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }
