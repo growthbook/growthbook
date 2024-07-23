@@ -39,11 +39,14 @@ export async function initializeSdk() {
   });
 
   try {
-    // While individual gb instances are not streaming to avoid weird edge cases where a feature's value changes mid request
+    // We have streamining false here to avoid weird edge cases where a feature's value changes mid request
     // However by running prefetchPayload above we still get up to the moment data.
-    await gb.init({
+    // We don't await here to avoid infinte loops in case someone tries to use GB within the feature's endpoint.
+    gb.init({
       streaming: false,
       timeout: 1000,
+    }).catch((e: Error) => {
+      logger.error(e, "Failed to initialize GrowthBook");
     });
   } catch (e) {
     logger.error(e, "Failed to load features from GrowthBook");
