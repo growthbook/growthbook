@@ -23,7 +23,10 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
     });
 
     if (
-      !req.context.permissions.canCreateOrUpdateEnvironment(updatedEnvironment)
+      !req.context.permissions.canUpdateEnvironment(
+        environment,
+        updatedEnvironment
+      )
     )
       req.context.permissions.throwPermissionError();
 

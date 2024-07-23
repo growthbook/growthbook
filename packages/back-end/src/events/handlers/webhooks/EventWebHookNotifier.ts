@@ -131,10 +131,6 @@ export class EventWebHookNotifier implements Notifier {
           return { content: data.text };
         }
 
-        case "ms-teams":
-          // TODO: not implemented
-          return eventPayload;
-
         default:
           invalidPayloadType = payloadType;
           throw `Invalid payload type: ${invalidPayloadType}`;

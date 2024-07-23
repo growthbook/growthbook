@@ -69,6 +69,7 @@ import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
+import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -85,6 +86,8 @@ const MetricPage: FC = () => {
     segments,
   } = useDefinitions();
   const settings = useOrgSettings();
+  const { organization } = useUser();
+
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
   const [editing, setEditing] = useState(false);
   const [editTags, setEditTags] = useState(false);
@@ -106,8 +109,6 @@ const MetricPage: FC = () => {
   const onHoverCallback = (ret: { d: number | null }) => {
     setHoverDate(ret.d);
   };
-
-  const { organization } = useUser();
 
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
@@ -182,6 +183,13 @@ const MetricPage: FC = () => {
       <>Not available for metrics with custom aggregations.</>
     );
   }
+
+  const variables = {
+    metricName: metric.name,
+    tags: metric.tags || [],
+    metricType: metric.type,
+    metricDatasource: datasource?.name || "",
+  };
 
   const getMetricUsage = (metric: MetricInterface) => {
     return async (): Promise<ReactElement | null> => {
@@ -320,9 +328,23 @@ const MetricPage: FC = () => {
       )}
       {editProjects && (
         <EditProjectsForm
+          label={
+            <>
+              Projects{" "}
+              <Tooltip
+                body={
+                  "The dropdown below has been filtered to only include projects where you have permission to update Metrics"
+                }
+              />
+            </>
+          }
           cancel={() => setEditProjects(false)}
+          entityName="Metric"
           mutate={mutate}
-          projects={metric.projects || []}
+          value={metric.projects || []}
+          permissionRequired={(project) =>
+            permissionsUtil.canUpdateMetric({ projects: [project] }, {})
+          }
           save={async (projects) => {
             await apiCall(`/metric/${metric.id}`, {
               method: "PUT",
@@ -477,6 +499,10 @@ const MetricPage: FC = () => {
             </a>
           )}
         </div>
+      </div>
+
+      <div className="mt-3">
+        <CustomMarkdown page={"metric"} variables={variables} />
       </div>
 
       <div className="row">

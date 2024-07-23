@@ -15,12 +15,7 @@ export type {
   EventWebHookMethod,
 } from "back-end/types/event-webhook";
 
-export const eventWebHookPayloadTypes = [
-  "raw",
-  "slack",
-  "discord",
-  "ms-teams",
-] as const;
+export const eventWebHookPayloadTypes = ["raw", "slack", "discord"] as const;
 
 export const eventWebHookMethods = ["POST", "PUT", "PATCH"] as const;
 

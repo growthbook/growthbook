@@ -74,8 +74,9 @@ function toInterface(doc: FactTableDocument): FactTableInterface {
 
 function createPropsToInterface(
   context: ReqContext | ApiReqContext,
-  props: CreateFactTableProps
+  rawProps: CreateFactTableProps
 ): FactTableInterface {
+  const props = { ...rawProps, owner: rawProps.owner || context.userName };
   const id = props.id || uniqid("ftb_");
   if (!id.match(/^[-a-zA-Z0-9_]+$/)) {
     throw new Error(

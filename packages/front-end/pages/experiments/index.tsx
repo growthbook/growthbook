@@ -36,6 +36,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import { useAuth } from "@/services/auth";
+import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 
 const NUM_PER_PAGE = 20;
 
@@ -310,6 +311,7 @@ const ExperimentsPage = (): React.ReactElement => {
               </div>
             )}
           </div>
+          <CustomMarkdown page={"experimentList"} />
           {!hasExperiments ? (
             <div
               className="appbox d-flex flex-column align-items-center"

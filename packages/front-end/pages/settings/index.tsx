@@ -11,6 +11,7 @@ import {
   DEFAULT_TEST_QUERY_DAYS,
 } from "shared/constants";
 import { OrganizationSettings } from "@back-end/types/organization";
+import Link from "next/link";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
@@ -27,6 +28,7 @@ import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetri
 import ExperimentSettings from "@/components/GeneralSettings/ExperimentSettings";
 import MetricsSettings from "@/components/GeneralSettings/MetricsSettings";
 import FeaturesSettings from "@/components/GeneralSettings/FeaturesSettings";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
@@ -127,6 +129,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
       codeRefsPlatformUrl: "",
       featureKeyExample: "",
       featureRegexValidator: "",
+      featureListMarkdown: settings.featureListMarkdown || "",
+      featurePageMarkdown: settings.featurePageMarkdown || "",
+      experimentListMarkdown: settings.experimentListMarkdown || "",
+      metricListMarkdown: settings.metricListMarkdown || "",
+      metricPageMarkdown: settings.metricPageMarkdown || "",
     },
   });
   const { apiCall } = useAuth();
@@ -337,7 +344,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <ExperimentSettings
               cronString={cronString}
               updateCronString={updateCronString}
-              hasCommercialFeature={hasCommercialFeature}
             />
 
             <div className="divider border-bottom mb-3 mt-3" />
@@ -351,6 +357,26 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <div className="divider border-bottom mb-3 mt-3" />
 
             <DatasourceSettings />
+          </div>
+          <div className="my-3 bg-white p-3 border">
+            <div className="row">
+              <div className="col-sm-3 h4">
+                <PremiumTooltip commercialFeature="custom-markdown">
+                  Custom Markdown
+                </PremiumTooltip>
+              </div>
+              <div className="col-sm-9">
+                {hasCommercialFeature("custom-markdown") ? (
+                  <Link href="/settings/custom-markdown">
+                    View Custom Markdown Settings
+                  </Link>
+                ) : (
+                  <span className="text-muted">
+                    View Custom Markdown Settings
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

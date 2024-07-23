@@ -611,6 +611,7 @@ pre {
   tbody {
     tr:not(.noborder) {
       box-shadow: rgba(102, 102, 102, 0.125) 0 -1px inset;
+
       &:not(.results-label-row) {
         td:not(.graph-cell):not(:last-child) {
           box-shadow: rgba(102, 102, 102, 0.125) -1px 0 inset;
@@ -621,12 +622,15 @@ pre {
 
   table-layout: fixed;
   width: 100%;
+
   th,
   td {
     padding: 0 10px;
   }
+
   th {
     vertical-align: bottom;
+
     &.axis-col {
       &:not(.noStickyHeader) {
         position: sticky;
@@ -642,10 +646,12 @@ pre {
       &.graph-cell {
         z-index: 801;
       }
+
       &.header-label {
         padding-bottom: 5px;
         font-size: 16px;
       }
+
       &.label {
         color: var(--text-link-hover-color);
         font-size: 13px;
@@ -653,6 +659,9 @@ pre {
       }
     }
   }
+}
+.experiment-results,
+.impact-results {
   .value,
   .chance,
   .change {
@@ -818,6 +827,10 @@ main.main.report {
 }
 .highlight {
   background-color: var(--table-row-highlight-background-color);
+}
+
+.webhook-filters .select-all .gb-multi-select__control {
+  background-color: var(--table-row-highlight-background-color) !important;
 }
 
 .experiment-switch-page {
