@@ -63,6 +63,7 @@ export async function putOrganization(
     ownerEmail?: string;
     verifiedDomain?: string;
     autoApproveMembers?: boolean;
+    enterprise?: boolean;
   }>,
   res: Response
 ) {
@@ -81,6 +82,7 @@ export async function putOrganization(
     ownerEmail,
     verifiedDomain,
     autoApproveMembers,
+    enterprise,
   } = req.body;
   const updates: Partial<OrganizationInterface> = {};
   const orig: Partial<OrganizationInterface> = {};
@@ -117,6 +119,10 @@ export async function putOrganization(
   if (autoApproveMembers !== org.autoApproveMembers) {
     updates.autoApproveMembers = autoApproveMembers;
     orig.autoApproveMembers = org.autoApproveMembers;
+  }
+  if (enterprise !== org.enterprise) {
+    updates.enterprise = enterprise;
+    orig.enterprise = org.enterprise;
   }
 
   await updateOrganization(org.id, updates);

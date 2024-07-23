@@ -16,6 +16,7 @@ const EditOrganization: FC<{
   currentOwner: string;
   currentDomain: string;
   currentAutoApproveMembers: boolean;
+  currentLegacyEnterprise: boolean;
 }> = ({
   onEdit,
   close,
@@ -28,11 +29,15 @@ const EditOrganization: FC<{
   currentOwner,
   currentDomain,
   currentAutoApproveMembers,
+  currentLegacyEnterprise,
 }) => {
   const [name, setName] = useState(currentName);
   const [owner, setOwner] = useState(currentOwner);
   const [externalId, setExternalId] = useState(currentExternalId);
   const [licenseKey, setLicenseKey] = useState(currentLicenseKey);
+  const [legacyEnterprise, setLegacyEnterprise] = useState(
+    currentLegacyEnterprise
+  );
   const [verifiedDomain, setVerifiedDomain] = useState(currentDomain);
   const [autoApproveMembers, setAutoApproveMembers] = useState(
     currentAutoApproveMembers
@@ -54,6 +59,7 @@ const EditOrganization: FC<{
         ownerEmail: owner,
         verifiedDomain,
         autoApproveMembers,
+        enterprise: legacyEnterprise,
       }),
     });
     onEdit();
@@ -189,6 +195,23 @@ const EditOrganization: FC<{
             setValue={setAutoApproveMembers}
           />
         </div>
+        {isCloud() ? (
+          <div className="mt-3">
+            Enable Enterprise
+            <Toggle
+              className="ml-2"
+              id="legacyEnterpriseToggle"
+              value={legacyEnterprise}
+              setValue={setLegacyEnterprise}
+            />
+            <div>
+              <span className="text-muted small">
+                Organizations with enterprise enabled this way are not billed,
+                and will not expire.
+              </span>
+            </div>
+          </div>
+        ) : null}
       </div>
     </Modal>
   );

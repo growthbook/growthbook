@@ -130,6 +130,7 @@ function OrganizationRow({
           currentOwner={organization.ownerEmail}
           currentDomain={organization.verifiedDomain || ""}
           currentAutoApproveMembers={organization.autoApproveMembers || false}
+          currentLegacyEnterprise={organization.enterprise || false}
           onEdit={onEdit}
           close={() => setEditOrgModalOpen(false)}
         />
@@ -496,7 +497,6 @@ const Admin: FC = () => {
           ssoConnections: ssoInfoProps[];
           total: number;
         }>(`/admin/organizations?${params.toString()}`);
-        //console.log("got orgs", res.organizations);
         setOrgs(res.organizations);
         setTotal(res.total);
         setSsoConnections(res.ssoConnections);
