@@ -1,16 +1,13 @@
 import { Request, Response, NextFunction } from "express";
 import { hasPermission } from "shared/permissions";
+import { licenseInit } from "enterprise";
 import { ApiRequestLocals } from "../../types/api";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import { getOrganizationById } from "../services/organizations";
 import { getCustomLogProps } from "../util/logger";
 import { EventAuditUserApiKey } from "../events/event-types";
 import { isApiKeyForUserInOrganization } from "../util/api-key.util";
-import {
-  MemberRole,
-  OrganizationInterface,
-  Permission,
-} from "../../types/organization";
+import { OrganizationInterface, Permission } from "../../types/organization";
 import {
   getUserPermissions,
   roleToPermissionMap,
@@ -18,8 +15,11 @@ import {
 import { ApiKeyInterface } from "../../types/apikey";
 import { getTeamsForOrganization } from "../models/TeamModel";
 import { TeamInterface } from "../../types/team";
-import { getUserById } from "../services/users";
-import { initializeLicenseForOrg } from "../services/licenseData";
+import { getUserById } from "../models/UserModel";
+import {
+  getLicenseMetaData,
+  getUserCodesForOrg,
+} from "../services/licenseData";
 import { ReqContextClass } from "../services/context";
 
 export default function authenticateApiRequestMiddleware(
@@ -126,7 +126,7 @@ export default function authenticateApiRequestMiddleware(
         auditUser: eventAudit,
         teams,
         user: req.user,
-        role: role as MemberRole | undefined,
+        role: role,
         apiKey: id,
         req,
       });
@@ -168,7 +168,7 @@ export default function authenticateApiRequestMiddleware(
       };
 
       // init license for org if it exists
-      await initializeLicenseForOrg(req.organization);
+      await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
 
       // Continue to the actual request handler
       next();
@@ -257,7 +257,7 @@ export function verifyApiKeyPermission({
     // Because of the JIT migration, `role` will always be set here, even for old secret keys
     // This will check a valid role is provided.
     const rolePermissions = roleToPermissionMap(
-      apiKey.role as MemberRole,
+      apiKey.role as string,
       organization
     );
 

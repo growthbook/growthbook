@@ -1,7 +1,9 @@
-import fetch, { RequestInfo, RequestInit, Response } from "node-fetch";
+import fetch, { RequestInit, Response } from "node-fetch";
 import { ProxyAgent } from "proxy-agent";
 import { logger } from "./logger";
-import { USE_PROXY } from "./secrets";
+import { USE_PROXY, WEBHOOK_PROXY } from "./secrets";
+
+let useWebhookProxy = true;
 
 export type CancellableFetchCriteria = {
   maxContentSize: number;
@@ -14,22 +16,40 @@ export type CancellableFetchReturn = {
   stringBody: string;
 };
 
-export function getHttpOptions() {
+export function getHttpOptions(url?: string) {
+  // if there is a ?proxy argument in the url, use that as the proxy
+  if (url) {
+    // parse the url and extract the proxy argument
+    const urlObj = new URL(url);
+    const proxy = urlObj.searchParams.get("proxy_test");
+    if (proxy) {
+      return {
+        agent: new ProxyAgent({
+          getProxyForUrl: () => proxy,
+        }),
+      };
+    }
+  }
+
+  if (useWebhookProxy && WEBHOOK_PROXY) {
+    logger.debug("using webhook proxy");
+    return {
+      agent: new ProxyAgent({
+        getProxyForUrl: () => WEBHOOK_PROXY,
+      }),
+    };
+  } else if (WEBHOOK_PROXY) {
+    logger.debug("not using webhook proxy");
+  }
+
   if (USE_PROXY) {
     return { agent: new ProxyAgent() };
   }
   return {};
 }
 
-/**
- * Performs a request with the optionally provided {@link AbortController}.
- * Aborts the request if any of the limits in the abortOptions are exceeded.
- * @param url
- * @param fetchOptions
- * @param abortOptions
- */
 export const cancellableFetch = async (
-  url: RequestInfo,
+  url: string,
   fetchOptions: RequestInit,
   abortOptions: CancellableFetchCriteria
 ): Promise<CancellableFetchReturn> => {
@@ -63,7 +83,7 @@ export const cancellableFetch = async (
   try {
     response = await fetch(url, {
       signal: abortController.signal,
-      ...getHttpOptions(),
+      ...getHttpOptions(url),
       ...fetchOptions,
     });
 
@@ -73,8 +93,6 @@ export const cancellableFetch = async (
       stringBody,
     };
   } catch (e) {
-    logger.error(e, "cancellableFetch -> readResponseBody");
-
     if (e.name === "AbortError" && response) {
       logger.warn(e, `Response aborted due to content size: ${received}`);
 
@@ -82,6 +100,19 @@ export const cancellableFetch = async (
         responseWithoutBody: response,
         stringBody,
       };
+    }
+
+    // If we are using the webhook proxy then any ECONNREFUSED error would come from the proxy itself.
+    // If the endpoint would have been down but the proxy was up, we would have gotten a 502 from the proxy instead.
+    // Hence if we see one we can be sure the webhook proxy is having issues and it is best to disable it.
+    if (
+      useWebhookProxy &&
+      WEBHOOK_PROXY &&
+      e.name === "FetchError" &&
+      e.code === "ECONNREFUSED"
+    ) {
+      logger.error("Disabling webhook proxy");
+      useWebhookProxy = false;
     }
 
     throw e;

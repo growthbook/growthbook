@@ -60,6 +60,14 @@ const proxyUpdate = trackJob(
       return;
     }
 
+    if (!useCloudProxy && !connection.proxy.host) {
+      logger.error("proxyUpdate: Proxy host is missing", {
+        connectionId,
+        useCloudProxy,
+      });
+      return;
+    }
+
     const environmentDoc = context.org?.settings?.environments?.find(
       (e) => e.id === connection.environment
     );

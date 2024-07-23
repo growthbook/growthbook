@@ -1,5 +1,47 @@
 # Changelog
 
+## **1.1.0** - July 1, 2024
+
+- Fix package.json ESM exports. Can now load the SDK in Astro and Node (with `type="module"`) without errors.
+- Support for larger saved groups (up to 1MB)
+  - New `$inGroup` and `$notInGroup` condition operators which check for membership of a given group ID
+  - New `savedGroups` and `encryptedSavedGroups` payload keys define the members for each saved group
+  - Optimization to prevent including a saved group's members multiple times in one payload
+
+## **1.0.1** - June 11, 2024
+
+- Small refactor to avoid circular dependency warning
+- Fix bug preventing multiple logical targeting operators at the same level (`$or`, `$and`, etc.)
+- Fix typings for timeouts (NodeJS.Timeout vs NodeJS.Timer)
+
+## **1.0.0** - May 1, 2024
+
+- New `init` and `initSync` functions as a replacement for `loadFeatures`.
+- Support payload import/export via `init({ payload })`, `setPayload`, `getPayload`, and `getDecryptedPayload`. Makes it easier to share data between front-end, back-end, and other services.
+- Ability to block or control experiments by various context properties
+  - `blockedChangeIds` targets individual experiments
+  - `disableVisualExperiments` prevents visual experiments from running
+  - `disableJsInjection` blocks any visual experiments which write <script\> code
+  - `disableUrlRedirectExperiments` prevents redirect experiments from running
+  - `disableCrossOriginUrlRedirectExperiments` blocks redirects if the origin changes
+  - `disableExperimentsOnLoad` prevents AutoExperiments from running automatically; `triggerAutoExperiments` manually triggers them.
+- Provide a custom DOM mutation method by setting context `applyDomChangesCallback`. Useful for server-side rendering visual experiments.
+- Fix bug when passing in `stickyBucketAssignmentDocs` to the GrowthBook constructor
+- New `jsInjectionNonce` setting to add a nonce onto any injected <script\> tags. This provides a safer alternative to allowing `unsafe-inline` in your Content Security Policy.
+- Get a list of triggered experiments by their `changeId` (a new, more-specific AutoExperiment identifier) via `getCompletedChangeIds`.
+- Disable in-memory cache via `configureCache({ disableCache: true })` or the new GrowthBook constructor option `disableCache`.
+- Easier streaming customization via `init({ streaming: true })`.
+- Prefetch payloads (and optionally begin streaming) before you create a GrowthBook instance with `prefetchPayload()`.
+- New `debug` setting to turn on debug logging
+- Changed the behavior of the `enableDevMode` option. Previously, setting this to true also disabled the SDK cache by default. Now, it does not and you must specify the additional setting `disableCache: true` to keep the same behavior as before.
+- Network requests are no longer started when creating a GrowthBook instance. It now waits until `loadFeatures` (or the new `init`) is called.
+- Many improvements to `auto.min.js` script
+  - Payload hydration via `payload` context property
+  - Support sticky bucketing via `useStickyBucketService` context property (accepts "cookie" and "localStorage"); override cookie or localStorage key via `stickyBucketPrefix` context property.
+  - Hydrate sticky bucket docs by setting context `stickyBucketAssignmentDocs` (useful for SSR hydration without reliance on cookies)
+  - Customize attributes/cookies via `uuidCookieName` (default "gbuuid") and `uuidKey` (default "id").
+  - Force a uuid cookie write on load via `persistUuidOnLoad` (useful for SSR hydration)
+
 ## **0.36.0** - Mar 21, 2024
 
 - Support for URL Redirect tests. New context options `navigate` (default `(url) => window.location.replace(url)`) and `navigateDelay` (default 100ms) for browsers. Plus, new method `getRedirectUrl()` for back-end/edge implementations.

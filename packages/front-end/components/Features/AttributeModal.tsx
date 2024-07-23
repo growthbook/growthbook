@@ -5,6 +5,7 @@ import {
   SDKAttributeType,
 } from "back-end/types/organization";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
+import React from "react";
 import { useAttributeSchema } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -16,6 +17,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useProjectOptions from "@/hooks/useProjectOptions";
 import MinSDKVersionsList from "./MinSDKVersionsList";
 
 export interface Props {
@@ -25,6 +28,7 @@ export interface Props {
 
 export default function AttributeModal({ close, attribute }: Props) {
   const { projects, project } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
   const { refreshOrganization } = useUser();
 
   const { apiCall } = useAuth();
@@ -35,6 +39,7 @@ export default function AttributeModal({ close, attribute }: Props) {
   const form = useForm<SDKAttribute>({
     defaultValues: {
       property: attribute || "",
+      description: current?.description || "",
       datatype: current?.datatype || "string",
       projects: attribute ? current?.projects || [] : project ? [project] : [],
       format: current?.format || "",
@@ -52,6 +57,17 @@ export default function AttributeModal({ close, attribute }: Props) {
     "number",
     "secureString",
   ];
+
+  const permissionRequired = (project: string) => {
+    return attribute
+      ? permissionsUtil.canUpdateAttribute({ projects: [project] }, {})
+      : permissionsUtil.canCreateAttribute({ projects: [project] });
+  };
+
+  const projectOptions = useProjectOptions(
+    permissionRequired,
+    form.watch("projects") || []
+  );
 
   return (
     <Modal
@@ -82,6 +98,7 @@ export default function AttributeModal({ close, attribute }: Props) {
         const attributeObj: SDKAttribute & { previousName?: string } = {
           property: value.property,
           datatype: value.datatype,
+          description: value.description,
           projects: value.projects,
           format: value.format,
           enum: value.enum,
@@ -103,7 +120,16 @@ export default function AttributeModal({ close, attribute }: Props) {
         refreshOrganization();
       })}
     >
-      <Field label="Attribute" {...form.register("property")} />
+      <Field
+        label={
+          <>
+            Attribute{" "}
+            <Tooltip body={"This is the attribute name used in the SDK"} />
+          </>
+        }
+        required={true}
+        {...form.register("property")}
+      />
       {attribute && form.watch("property") !== attribute ? (
         <div className="alert alert-warning">
           Be careful changing the attribute name. Any existing targeting
@@ -111,13 +137,34 @@ export default function AttributeModal({ close, attribute }: Props) {
           and will still reference the old attribute name.
         </div>
       ) : null}
+      <div className="form-group">
+        <Field
+          className="form-control"
+          label={
+            <>
+              Description <small className="text-muted">(optional)</small>
+            </>
+          }
+          {...form.register("description")}
+          textarea={true}
+        />
+      </div>
       {projects?.length > 0 && (
         <div className="form-group">
           <MultiSelectField
-            label="Projects"
+            label={
+              <>
+                Projects{" "}
+                <Tooltip
+                  body={`The dropdown below has been filtered to only include projects where you have permission to ${
+                    attribute ? "update" : "create"
+                  } Attributes.`}
+                />
+              </>
+            }
             placeholder="All projects"
             value={form.watch("projects") || []}
-            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            options={projectOptions}
             onChange={(v) => form.setValue("projects", v)}
             customClassName="label-overflow-ellipsis"
             helpText="Assign this attribute to specific projects"
@@ -190,7 +237,10 @@ export default function AttributeModal({ close, attribute }: Props) {
             value={form.watch(`format`) || "none"}
             onChange={(v) => form.setValue(`format`, v as SDKAttributeFormat)}
             initialOption="None"
-            options={[{ value: "version", label: "Version string" }]}
+            options={[
+              { value: "version", label: "Version string" },
+              { value: "date", label: "Date string" },
+            ]}
             sort={false}
             helpText="Affects the targeting attribute UI and string comparison logic. More formats coming soon."
           />

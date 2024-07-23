@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
-import { hasReadAccess } from "shared/permissions";
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -23,7 +22,6 @@ import { queueCreateInformationSchema } from "../jobs/createInformationSchema";
 import { IS_CLOUD } from "../util/secrets";
 import { ReqContext } from "../../types/organization";
 import { ApiReqContext } from "../../types/api";
-import { findAllOrganizations } from "./OrganizationModel";
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
@@ -62,9 +60,8 @@ export async function getInstallationDatasources(): Promise<
     throw new Error("Cannot get all installation data sources in cloud mode");
   }
   if (usingFileConfig()) {
-    const organizationId = (await findAllOrganizations(0, "", 1))
-      .organizations[0].id;
-    return getConfigDatasources(organizationId);
+    // We don't need the correct organization part of the response so passing "".
+    return getConfigDatasources("");
   }
   const docs: DataSourceDocument[] = await DataSourceModel.find();
   return docs.map(toInterface);
@@ -85,7 +82,7 @@ export async function getDataSourcesByOrganization(
   const datasources = docs.map(toInterface);
 
   return datasources.filter((ds) =>
-    hasReadAccess(context.readAccessFilter, ds.projects || [])
+    context.permissions.canReadMultiProjectResource(ds.projects)
   );
 }
 
@@ -109,7 +106,7 @@ export async function getDataSourceById(
 
   const datasource = toInterface(doc);
 
-  return hasReadAccess(context.readAccessFilter, datasource.projects)
+  return context.permissions.canReadMultiProjectResource(datasource.projects)
     ? datasource
     : null;
 }

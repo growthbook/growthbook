@@ -1,5 +1,15 @@
 import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
+import { triggerSingleSDKWebhookJobs } from "../../jobs/updateAllJobs";
+import {
+  CreateSdkWebhookProps,
+  WebhookInterface,
+} from "../../../types/webhook";
+import {
+  countSdkWebhooksByOrg,
+  createSdkWebhook,
+  findAllSdkWebhooksByConnection,
+} from "../../models/WebhookModel";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getContextFromReq } from "../../services/organizations";
 import {
@@ -39,12 +49,13 @@ export const postSDKConnection = async (
     connection: SDKConnectionInterface;
   }>
 ) => {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const params = req.body;
 
-  req.checkPermissions("manageEnvironments", params.projects, [
-    params.environment,
-  ]);
+  if (!context.permissions.canCreateSDKConnection(params)) {
+    context.permissions.throwPermissionError();
+  }
 
   let encryptPayload = false;
   if (orgHasPremiumFeature(org, "encrypt-features-endpoint")) {
@@ -73,7 +84,8 @@ export const postSDKConnection = async (
     remoteEvalEnabled,
     organization: org.id,
   });
-
+  const isUsingProxy = !!(doc.proxy.enabled && doc.proxy.host);
+  triggerSingleSDKWebhookJobs(context, doc, {}, doc.proxy, isUsingProxy);
   res.status(200).json({
     status: 200,
     connection: doc,
@@ -92,11 +104,9 @@ export const putSDKConnection = async (
     throw new Error("Could not find SDK Connection");
   }
 
-  const projects = [...connection.projects, ...(req.body.projects || [])];
-
-  req.checkPermissions("manageEnvironments", projects, [
-    connection.environment,
-  ]);
+  if (!context.permissions.canUpdateSDKConnection(connection, req.body)) {
+    context.permissions.throwPermissionError();
+  }
 
   let encryptPayload = req.body.encryptPayload || false;
   const encryptionPermitted = orgHasPremiumFeature(
@@ -130,7 +140,6 @@ export const putSDKConnection = async (
     hashSecureAttributes,
     remoteEvalEnabled,
   });
-
   res.status(200).json({
     status: 200,
   });
@@ -148,9 +157,9 @@ export const deleteSDKConnection = async (
     throw new Error("Could not find SDK Connection");
   }
 
-  req.checkPermissions("manageEnvironments", connection.projects, [
-    connection.environment,
-  ]);
+  if (!context.permissions.canDeleteSDKConnection(connection)) {
+    context.permissions.throwPermissionError();
+  }
 
   await deleteSDKConnectionById(context.org.id, id);
 
@@ -163,7 +172,7 @@ export const checkSDKConnectionProxyStatus = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{
     status: 200;
-    result: ProxyTestResult;
+    result?: ProxyTestResult;
   }>
 ) => {
   const { id } = req.params;
@@ -181,3 +190,66 @@ export const checkSDKConnectionProxyStatus = async (
     result,
   });
 };
+
+export const getSDKConnectionWebhooks = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{
+    status: 200;
+    webhooks: WebhookInterface[];
+  }>
+) => {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  const conn = await findSDKConnectionById(context, id);
+  if (!conn) {
+    throw new Error("Could not find SDK connection");
+  }
+
+  const webhooks = await findAllSdkWebhooksByConnection(context, id);
+
+  // If user does not have write access, remove the shared secret
+  if (!context.permissions.canUpdateSDKWebhook(conn)) {
+    webhooks.forEach((w) => {
+      w.signingKey = "";
+    });
+  }
+
+  res.status(200).json({
+    status: 200,
+    webhooks,
+  });
+};
+
+export async function postSDKConnectionWebhook(
+  req: AuthRequest<CreateSdkWebhookProps, { id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  const { id } = req.params;
+  const connection = await findSDKConnectionById(context, id);
+  if (!connection) {
+    throw new Error("Could not find SDK Connection");
+  }
+
+  if (!context.permissions.canCreateSDKWebhook(connection)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const webhookcount = await countSdkWebhooksByOrg(org.id);
+  const canAddMultipleSdkWebhooks = orgHasPremiumFeature(
+    org,
+    "multiple-sdk-webhooks"
+  );
+  if (!canAddMultipleSdkWebhooks && webhookcount > 0) {
+    throw new Error("your webhook limit has been reached");
+  }
+
+  const webhook = await createSdkWebhook(context, id, req.body);
+  return res.status(200).json({
+    status: 200,
+    webhook,
+  });
+}

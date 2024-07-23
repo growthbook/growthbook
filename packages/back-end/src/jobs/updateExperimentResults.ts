@@ -14,7 +14,7 @@ import {
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
   getExperimentMetricById,
-  getRegressionAdjustmentInfo,
+  getSettingsForSnapshotMetrics,
 } from "../services/experiments";
 import {
   getConfidenceLevelsForOrg,
@@ -27,7 +27,6 @@ import { notifyAutoUpdate } from "../services/experimentNotifications";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import { logger } from "../util/logger";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
-import { findProjectById } from "../models/ProjectModel";
 import { getExperimentWatchers } from "../models/WatchModel";
 import { getFactTableMap } from "../models/FactTableModel";
 import { ApiReqContext } from "../../types/api";
@@ -126,14 +125,24 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
   let project = null;
   if (experiment.project) {
-    project = await findProjectById(context, experiment.project);
+    project = await context.models.projects.getById(experiment.project);
   }
   const { settings: scopedSettings } = getScopedSettings({
     organization: context.org,
     project: project ?? undefined,
   });
 
-  if (organization?.settings?.updateSchedule?.type === "never") return;
+  if (organization?.settings?.updateSchedule?.type === "never") {
+    // Disable auto snapshots for the experiment so it doesn't keep trying to update
+    await updateExperiment({
+      context,
+      experiment,
+      changes: {
+        autoSnapshots: false,
+      },
+    });
+    return;
+  }
 
   try {
     logger.info("Start Refreshing Results for experiment " + experimentId);
@@ -151,8 +160,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
     const {
       regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatuses,
-    } = await getRegressionAdjustmentInfo(context, experiment);
+      settingsForSnapshotMetrics,
+    } = await getSettingsForSnapshotMetrics(context, experiment);
 
     const analysisSettings = getDefaultExperimentAnalysisSettings(
       experiment.statsEngine || scopedSettings.statsEngine.value,
@@ -170,11 +179,9 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       phaseIndex: experiment.phases.length - 1,
       defaultAnalysisSettings: analysisSettings,
       additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
-        analysisSettings,
-        experiment
+        analysisSettings
       ),
-      metricRegressionAdjustmentStatuses:
-        metricRegressionAdjustmentStatuses || [],
+      settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
       metricMap,
       factTableMap,
       useCache: true,
@@ -236,9 +243,7 @@ async function sendSignificanceEmail(
 
   try {
     // get the org confidence level settings:
-    const { ciUpper, ciLower } = await getConfidenceLevelsForOrg(
-      experiment.organization
-    );
+    const { ciUpper, ciLower } = getConfidenceLevelsForOrg(context);
 
     // check this and the previous snapshot to see if anything changed:
     const experimentChanges: string[] = [];
@@ -296,10 +301,9 @@ async function sendSignificanceEmail(
         experiment.id,
         experiment.organization
       );
-      const userIds = watchers.map((w) => w.userId);
 
       await sendExperimentChangesEmail(
-        userIds,
+        watchers,
         experiment.id,
         experiment.name,
         experimentChanges

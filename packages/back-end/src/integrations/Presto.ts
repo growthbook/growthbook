@@ -1,5 +1,6 @@
 /// <reference types="../../typings/presto-client" />
 import { Client, IPrestoClientOptions } from "presto-client";
+import { QueryStatistics } from "@back-end/types/query";
 import { decryptDataSourceParams } from "../services/datasource";
 import { PrestoConnectionParams } from "../../types/integrations/presto";
 import { FormatDialect } from "../util/sql";
@@ -10,9 +11,7 @@ import SqlIntegration from "./SqlIntegration";
 type Row = any;
 
 export default class Presto extends SqlIntegration {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  params: PrestoConnectionParams;
+  params!: PrestoConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<PrestoConnectionParams>(
@@ -33,15 +32,20 @@ export default class Presto extends SqlIntegration {
       host: this.params.host,
       port: this.params.port,
       user: "growthbook",
-      source: "nodejs-client",
-      basic_auth: {
-        user: this.params.username,
-        password: this.params.password,
-      },
+      source: this.params?.source || "growthbook",
       schema: this.params.schema,
       catalog: this.params.catalog,
       checkInterval: 500,
     };
+    if (!this.params?.authType || this.params?.authType === "basicAuth") {
+      configOptions.basic_auth = {
+        user: this.params.username || "",
+        password: this.params.password || "",
+      };
+    }
+    if (this.params?.authType === "customAuth") {
+      configOptions.custom_auth = this.params.customAuth || "";
+    }
     if (this.params?.ssl) {
       configOptions.ssl = {
         ca: this.params?.caCert,
@@ -55,6 +59,7 @@ export default class Presto extends SqlIntegration {
     return new Promise<QueryResponse>((resolve, reject) => {
       let cols: string[];
       const rows: Row[] = [];
+      const statistics: QueryStatistics = {};
 
       client.execute({
         query: sql,
@@ -67,7 +72,7 @@ export default class Presto extends SqlIntegration {
         error: (error) => {
           reject(error);
         },
-        data: (error, data) => {
+        data: (error, data, _, stats) => {
           if (error) return;
 
           data.forEach((d) => {
@@ -77,9 +82,15 @@ export default class Presto extends SqlIntegration {
             });
             rows.push(row);
           });
+
+          if (stats) {
+            statistics.executionDurationMs = Number(stats.wallTimeMillis);
+            statistics.bytesProcessed = Number(stats.processedBytes);
+            statistics.rowsProcessed = Number(stats.processedRows);
+          }
         },
         success: () => {
-          resolve({ rows: rows });
+          resolve({ rows: rows, statistics: statistics });
         },
       });
     });

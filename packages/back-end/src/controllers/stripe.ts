@@ -3,6 +3,7 @@ import { Stripe } from "stripe";
 import {
   LicenseServerError,
   getLicense,
+  licenseInit,
   postCreateBillingSessionToLicenseServer,
   postNewProSubscriptionToLicenseServer,
   postNewProTrialSubscriptionToLicenseServer,
@@ -28,7 +29,10 @@ import { SubscriptionQuote } from "../../types/organization";
 import { sendStripeTrialWillEndEmail } from "../services/email";
 import { logger } from "../util/logger";
 import { updateOrganization } from "../models/OrganizationModel";
-import { initializeLicenseForOrg } from "../services/licenseData";
+import {
+  getLicenseMetaData,
+  getUserCodesForOrg,
+} from "../services/licenseData";
 
 function withLicenseServerErrorHandling<T>(
   fn: (req: AuthRequest<T>, res: Response) => Promise<void>
@@ -54,11 +58,15 @@ export const postNewProTrialSubscription = withLicenseServerErrorHandling(
     req: AuthRequest<{ name: string; email?: string }>,
     res: Response
   ) {
-    req.checkPermissions("manageBilling");
-
     const { name: nameFromForm, email: emailFromForm } = req.body;
 
-    const { org, userName, email } = getContextFromReq(req);
+    const context = getContextFromReq(req);
+
+    const { org, userName, email } = context;
+
+    if (!context.permissions.canManageBilling()) {
+      context.permissions.throwPermissionError();
+    }
 
     const qty = getNumberOfUniqueMembersAndInvites(org);
 
@@ -75,7 +83,7 @@ export const postNewProTrialSubscription = withLicenseServerErrorHandling(
       if (org.licenseKey !== result.license.id) {
         throw new Error("Your organization already has a license key.");
       }
-      await initializeLicenseForOrg(org, true);
+      await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
     }
 
     res.status(200).json(result);
@@ -84,15 +92,19 @@ export const postNewProTrialSubscription = withLicenseServerErrorHandling(
 
 export const postNewProSubscription = withLicenseServerErrorHandling(
   async function (req: AuthRequest<{ returnUrl: string }>, res: Response) {
-    req.checkPermissions("manageBilling");
-
     let { returnUrl } = req.body;
 
     if (returnUrl?.[0] !== "/") {
       returnUrl = "/settings/billing";
     }
 
-    const { org, userName } = getContextFromReq(req);
+    const context = getContextFromReq(req);
+
+    if (!context.permissions.canManageBilling()) {
+      context.permissions.throwPermissionError();
+    }
+
+    const { org, userName } = context;
 
     const qty = getNumberOfUniqueMembersAndInvites(org);
 
@@ -111,9 +123,13 @@ export const postNewProSubscription = withLicenseServerErrorHandling(
 );
 
 export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
-  req.checkPermissions("manageBilling");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { org } = context;
 
   let discountAmount, discountMessage, unitPrice, currentSeatsPaidFor;
 
@@ -160,9 +176,13 @@ export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
 
 export const postCreateBillingSession = withLicenseServerErrorHandling(
   async function (req: AuthRequest, res: Response) {
-    req.checkPermissions("manageBilling");
+    const context = getContextFromReq(req);
 
-    const { org } = getContextFromReq(req);
+    if (!context.permissions.canManageBilling()) {
+      context.permissions.throwPermissionError();
+    }
+
+    const { org } = context;
 
     const license = await getLicense(org.licenseKey);
 
@@ -198,8 +218,13 @@ export const postSubscriptionSuccess = withLicenseServerErrorHandling(
     req: AuthRequest<{ checkoutSessionId: string }>,
     res: Response
   ) {
-    req.checkPermissions("manageBilling");
-    const { org } = getContextFromReq(req);
+    const context = getContextFromReq(req);
+
+    if (!context.permissions.canManageBilling()) {
+      context.permissions.throwPermissionError();
+    }
+
+    const { org } = context;
     const result = await postNewSubscriptionSuccessToLicenseServer(
       req.body.checkoutSessionId
     );
@@ -207,7 +232,7 @@ export const postSubscriptionSuccess = withLicenseServerErrorHandling(
     await updateOrganization(org.id, { licenseKey: result.id });
 
     // update license info from the license server as it will have changed.
-    await initializeLicenseForOrg(req.organization, true);
+    await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 
     res.status(200).json({
       status: 200,

@@ -1,33 +1,41 @@
 import { Response } from "express";
-
 import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { getAffectedEnvsForExperiment } from "shared/util";
-import { getAllMetricRegressionAdjustmentStatuses } from "shared/experiments";
+import {
+  getAffectedEnvsForExperiment,
+  getSnapshotAnalysis,
+  isDefined,
+} from "shared/util";
+import { getAllMetricSettingsForSnapshot } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
+import { DataSourceInterface } from "@back-end/types/datasource";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
+  SnapshotAnalysisParams,
   createManualSnapshot,
   createSnapshot,
+  createSnapshotAnalyses,
   createSnapshotAnalysis,
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
   getExperimentMetricById,
   getLinkedFeatureInfo,
 } from "../services/experiments";
-import { MetricInterface, MetricStats } from "../../types/metric";
+import { MetricStats } from "../../types/metric";
 import {
   createExperiment,
   deleteExperimentByIdForOrganization,
   getAllExperiments,
   getExperimentById,
   getExperimentByTrackingKey,
+  getExperimentsByIds,
   getPastExperimentsByDatasource,
+  hasArchivedExperiments,
   updateExperiment,
 } from "../models/ExperimentModel";
 import {
@@ -42,12 +50,13 @@ import {
   deleteSnapshotById,
   findSnapshotById,
   getLatestSnapshot,
+  getLatestSnapshotMultipleExperiments,
   updateSnapshot,
   updateSnapshotsOnPhaseDelete,
 } from "../models/ExperimentSnapshotModel";
 import { getIntegrationFromDatasourceId } from "../services/datasource";
 import { addTagsDiff } from "../models/TagModel";
-import { getContextFromReq, userHasAccess } from "../services/organizations";
+import { getContextFromReq } from "../services/organizations";
 import { removeExperimentFromPresentations } from "../services/presentations";
 import {
   createPastExperiments,
@@ -82,10 +91,6 @@ import {
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { ApiReqContext, PrivateApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
-import {
-  findAllProjectsByOrganization,
-  findProjectById,
-} from "../models/ProjectModel";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "../queryRunners/PastExperimentsQueryRunner";
 import {
@@ -95,11 +100,8 @@ import {
 import { getExperimentWatchers, upsertWatch } from "../models/WatchModel";
 import { getFactTableMap } from "../models/FactTableModel";
 import { OrganizationSettings, ReqContext } from "../../types/organization";
-import {
-  createURLRedirect,
-  findURLRedirectsByExperiment,
-  syncURLRedirectsWithVariations,
-} from "../models/UrlRedirectModel";
+import { CreateURLRedirectProps } from "../../types/url-redirect";
+import { logger } from "../util/logger";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -107,6 +109,7 @@ export async function getExperiments(
     unknown,
     {
       project?: string;
+      includeArchived?: boolean;
     }
   >,
   res: Response
@@ -117,11 +120,21 @@ export async function getExperiments(
     project = req.query.project;
   }
 
-  const experiments = await getAllExperiments(context, project);
+  const includeArchived = !!req.query?.includeArchived;
+
+  const experiments = await getAllExperiments(context, {
+    project,
+    includeArchived,
+  });
+
+  const hasArchived = includeArchived
+    ? experiments.some((e) => e.archived)
+    : await hasArchivedExperiments(context, project);
 
   res.status(200).json({
     status: 200,
     experiments,
+    hasArchived,
   });
 }
 
@@ -135,9 +148,12 @@ export async function getExperimentsFrequencyMonth(
     project = req.query.project;
   }
 
-  const allProjects = await findAllProjectsByOrganization(context);
+  const allProjects = await context.models.projects.getAll();
   const { num } = req.params;
-  const experiments = await getAllExperiments(context, project);
+  const experiments = await getAllExperiments(context, {
+    project,
+    includeArchived: true,
+  });
 
   const allData: { date: string; numExp: number }[] = [];
 
@@ -261,14 +277,6 @@ export async function getExperiment(
     return;
   }
 
-  if (!(await userHasAccess(req, experiment.organization))) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to view this experiment",
-    });
-    return;
-  }
-
   let idea: IdeaInterface | undefined = undefined;
   if (experiment.ideaSource) {
     idea =
@@ -283,9 +291,8 @@ export async function getExperiment(
     org.id
   );
 
-  const urlRedirects = await findURLRedirectsByExperiment(
-    experiment.id,
-    org.id
+  const urlRedirects = await context.models.urlRedirects.findByExperiment(
+    experiment.id
   );
 
   const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
@@ -302,29 +309,50 @@ export async function getExperiment(
 
 async function _getSnapshot(
   context: ReqContext | ApiReqContext,
-  id: string,
+  experiment: string,
   phase?: string,
   dimension?: string,
   withResults: boolean = true
 ) {
-  const experiment = await getExperimentById(context, id);
+  const experimentObj = await getExperimentById(context, experiment);
 
-  if (!experiment) {
+  if (!experimentObj) {
     throw new Error("Experiment not found");
   }
 
-  if (experiment.organization !== context.org.id) {
+  if (experimentObj.organization !== context.org.id) {
     throw new Error("You do not have access to view this experiment");
   }
 
   if (!phase) {
     // get the latest phase:
-    phase = String(experiment.phases.length - 1);
+    phase = String(experimentObj.phases.length - 1);
   }
 
   return await getLatestSnapshot(
-    experiment.id,
+    experimentObj.id,
     parseInt(phase),
+    dimension,
+    withResults
+  );
+}
+
+async function _getSnapshots(
+  context: ReqContext | ApiReqContext,
+  experimentObjs: ExperimentInterface[],
+  dimension?: string,
+  withResults: boolean = true
+): Promise<ExperimentSnapshotInterface[]> {
+  const experimentPhaseMap: Map<string, number> = new Map();
+  experimentObjs.forEach((e) => {
+    if (e.organization !== context.org.id) {
+      throw new Error("You do not have access to view this experiment");
+    }
+    // get the latest phase
+    experimentPhaseMap.set(e.id, e.phases.length - 1);
+  });
+  return await getLatestSnapshotMultipleExperiments(
+    experimentPhaseMap,
     dimension,
     withResults
   );
@@ -379,11 +407,11 @@ export async function postSnapshotNotebook(
 }
 
 export async function getSnapshots(
-  req: AuthRequest<unknown, unknown, { ids?: string }>,
+  req: AuthRequest<unknown, unknown, { experiments?: string }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
-  const idsString = (req.query?.ids as string) || "";
+  const idsString = (req.query?.experiments as string) || "";
   if (!idsString.length) {
     res.status(200).json({
       status: 200,
@@ -393,16 +421,12 @@ export async function getSnapshots(
   }
 
   const ids = idsString.split(",");
-
-  let snapshotsPromises: Promise<ExperimentSnapshotInterface | null>[] = [];
-  snapshotsPromises = ids.map(async (i) => {
-    return await _getSnapshot(context, i);
-  });
-  const snapshots = await Promise.all(snapshotsPromises);
+  const experimentObjs = await getExperimentsByIds(context, ids);
+  const snapshots = await _getSnapshots(context, experimentObjs);
 
   res.status(200).json({
     status: 200,
-    snapshots: snapshots.filter((s) => !!s),
+    snapshots: snapshots,
   });
   return;
 }
@@ -435,6 +459,7 @@ export async function postExperiments(
     {
       allowDuplicateTrackingKey?: boolean;
       originalId?: string;
+      autoRefreshResults?: boolean;
     }
   >,
   res: Response<
@@ -450,10 +475,13 @@ export async function postExperiments(
   const data = req.body;
   data.organization = org.id;
 
-  req.checkPermissions("createAnalyses", data.project);
+  if (!context.permissions.canCreateExperiment(data)) {
+    context.permissions.throwPermissionError();
+  }
 
+  let datasource: DataSourceInterface | null = null;
   if (data.datasource) {
-    const datasource = await getDataSourceById(context, data.datasource);
+    datasource = await getDataSourceById(context, data.datasource);
     if (!datasource) {
       res.status(403).json({
         status: 403,
@@ -585,18 +613,40 @@ export async function postExperiments(
         });
       }
 
-      const urlRedirects = await findURLRedirectsByExperiment(
-        req.query.originalId,
-        org.id
+      const urlRedirects = await context.models.urlRedirects.findByExperiment(
+        req.query.originalId
       );
       for (const urlRedirect of urlRedirects) {
-        await createURLRedirect({
-          experiment,
+        const props: CreateURLRedirectProps = {
+          experiment: experiment.id,
           destinationURLs: urlRedirect.destinationURLs,
-          context,
           persistQueryString: urlRedirect.persistQueryString,
           urlPattern: urlRedirect.urlPattern,
+        };
+        await context.models.urlRedirects.create(props);
+      }
+    }
+
+    if (
+      datasource &&
+      req.query.autoRefreshResults &&
+      experiment.metrics.length > 0
+    ) {
+      // This is doing an expensive analytics SQL query, so may take a long time
+      // Set timeout to 30 minutes
+      req.setTimeout(30 * 60 * 1000);
+
+      try {
+        await createExperimentSnapshot({
+          context,
+          experiment,
+          datasource,
+          dimension: "",
+          phase: 0,
+          useCache: true,
         });
+      } catch (e) {
+        logger.error(e, "Failed to auto-refresh imported experiment");
       }
     }
 
@@ -671,7 +721,9 @@ export async function postExperiment(
     return;
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
+    context.permissions.throwPermissionError();
+  }
 
   if (data.datasource) {
     const datasource = await getDataSourceById(context, data.datasource);
@@ -822,7 +874,12 @@ export async function postExperiment(
       if ("project" in changes) {
         projects.push(changes.project || undefined);
       }
-      req.checkPermissions("runExperiments", projects, envs);
+      // check user's permission on existing experiment project and the updated project, if changed
+      projects.forEach((project) => {
+        if (!context.permissions.canRunExperiment({ project }, envs)) {
+          context.permissions.throwPermissionError();
+        }
+      });
     }
   }
 
@@ -851,18 +908,16 @@ export async function postExperiment(
       );
     }
 
-    const urlRedirects = await findURLRedirectsByExperiment(
-      experiment.id,
-      org.id
+    const urlRedirects = await context.models.urlRedirects.findByExperiment(
+      experiment.id
     );
     if (urlRedirects.length) {
       await Promise.all(
         urlRedirects.map((urlRedirect) =>
-          syncURLRedirectsWithVariations({
+          context.models.urlRedirects.syncURLRedirectsWithVariations(
             urlRedirect,
-            experiment: updated,
-            context,
-          })
+            updated
+          )
         )
       );
     }
@@ -921,13 +976,19 @@ export async function postExperimentArchive(
     return;
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
   });
-  envs.length > 0 &&
-    req.checkPermissions("runExperiments", experiment.project, envs);
+  if (
+    envs.length > 0 &&
+    !context.permissions.canRunExperiment(experiment, envs)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   changes.archived = true;
 
@@ -985,7 +1046,9 @@ export async function postExperimentUnarchive(
     return;
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+    context.permissions.throwPermissionError();
+  }
 
   changes.archived = false;
 
@@ -1041,13 +1104,21 @@ export async function postExperimentStatus(
   if (experiment.organization !== org.id) {
     throw new Error("You do not have access to this experiment");
   }
-  req.checkPermissions("createAnalyses", experiment.project);
+
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
   });
-  envs.length > 0 &&
-    req.checkPermissions("runExperiments", experiment.project, envs);
+
+  if (
+    envs.length > 0 &&
+    !context.permissions.canRunExperiment(experiment, envs)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   // If status changed from running to stopped, update the latest phase
   const phases = [...experiment.phases];
@@ -1148,13 +1219,21 @@ export async function postExperimentStop(
     });
     return;
   }
-  req.checkPermissions("createAnalyses", experiment.project);
+
+  if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
   });
-  envs.length > 0 &&
-    req.checkPermissions("runExperiments", experiment.project, envs);
+
+  if (
+    envs.length > 0 &&
+    !context.permissions.canRunExperiment(experiment, envs)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const phases = [...experiment.phases];
   // Already has phases
@@ -1236,13 +1315,20 @@ export async function deleteExperimentPhase(
     return;
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
   });
-  envs.length > 0 &&
-    req.checkPermissions("runExperiments", experiment.project, envs);
+
+  if (
+    envs.length > 0 &&
+    !context.permissions.canRunExperiment(experiment, envs)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   if (phaseIndex < 0 || phaseIndex >= experiment.phases?.length) {
     throw new Error("Invalid phase id");
@@ -1303,13 +1389,20 @@ export async function putExperimentPhase(
     throw new Error("Invalid phase");
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
   });
-  envs.length > 0 &&
-    req.checkPermissions("runExperiments", experiment.project, envs);
+
+  if (
+    envs.length > 0 &&
+    !context.permissions.canRunExperiment(experiment, envs)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   phase.dateStarted = phase.dateStarted
     ? getValidDate(phase.dateStarted + ":00Z")
@@ -1383,13 +1476,20 @@ export async function postExperimentTargeting(
     return;
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
   });
-  envs.length > 0 &&
-    req.checkPermissions("runExperiments", experiment.project, envs);
+
+  if (
+    envs.length > 0 &&
+    !context.permissions.canRunExperiment(experiment, envs)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const phases = [...experiment.phases];
 
@@ -1497,13 +1597,20 @@ export async function postExperimentPhase(
     });
     return;
   }
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
   });
-  envs.length > 0 &&
-    req.checkPermissions("runExperiments", experiment.project, envs);
+
+  if (
+    envs.length > 0 &&
+    !context.permissions.canRunExperiment(experiment, envs)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
 
@@ -1574,10 +1681,9 @@ export async function getWatchingUsers(
   const { org } = getContextFromReq(req);
   const { id } = req.params;
   const watchers = await getExperimentWatchers(id, org.id);
-  const userIds = watchers.map((w) => w.userId);
   res.status(200).json({
     status: 200,
-    userIds,
+    userIds: watchers,
   });
 }
 
@@ -1610,13 +1716,20 @@ export async function deleteExperiment(
     return;
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canDeleteExperiment(experiment)) {
+    context.permissions.throwPermissionError();
+  }
 
   const envs = getAffectedEnvsForExperiment({
     experiment,
   });
-  envs.length > 0 &&
-    req.checkPermissions("runExperiments", experiment.project, envs);
+
+  if (
+    envs.length > 0 &&
+    !context.permissions.canRunExperiment(experiment, envs)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   await Promise.all([
     // note: we might want to change this to change the status to
@@ -1678,36 +1791,28 @@ export async function cancelSnapshot(
 
   res.status(200).json({ status: 200 });
 }
-export async function postSnapshot(
-  req: AuthRequest<
-    {
-      phase: number;
-      dimension?: string;
-      users?: number[];
-      metrics?: { [key: string]: MetricStats[] };
-    },
-    { id: string },
-    { force?: string }
-  >,
-  res: Response
-) {
-  const context = getContextFromReq(req);
-  const { org } = context;
-  const { id } = req.params;
-  const experiment = await getExperimentById(context, id);
 
-  if (!experiment) {
-    res.status(404).json({
-      status: 404,
-      message: "Experiment not found",
-    });
-    return;
-  }
-
+async function createExperimentSnapshot({
+  context,
+  experiment,
+  datasource,
+  dimension,
+  phase,
+  useCache = true,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  datasource: DataSourceInterface;
+  dimension: string | undefined;
+  phase: number;
+  useCache?: boolean;
+}) {
   let project = null;
   if (experiment.project) {
-    project = await findProjectById(context, experiment.project);
+    project = await context.models.projects.getById(experiment.project);
   }
+
+  const { org } = context;
   const orgSettings: OrganizationSettings = org.settings as OrganizationSettings;
   const { settings } = getScopedSettings({
     organization: org,
@@ -1715,7 +1820,6 @@ export async function postSnapshot(
     experiment,
   });
   const statsEngine = settings.statsEngine.value;
-  const { phase, dimension } = req.body;
 
   const allExperimentMetricIds = uniq([
     ...experiment.metrics,
@@ -1733,37 +1837,21 @@ export async function postSnapshot(
     await Promise.all(
       denominatorMetricIds.map((m) => getMetricById(context, m))
     )
-  ).filter(Boolean) as MetricInterface[];
-  const datasource = await getDataSourceById(context, experiment.datasource);
+  ).filter(isDefined);
 
   const {
-    metricRegressionAdjustmentStatuses,
+    settingsForSnapshotMetrics,
     regressionAdjustmentEnabled,
-  } = getAllMetricRegressionAdjustmentStatuses({
+  } = getAllMetricSettingsForSnapshot({
     allExperimentMetrics,
     denominatorMetrics,
     orgSettings,
-    statsEngine,
     experimentRegressionAdjustmentEnabled:
       experiment.regressionAdjustmentEnabled,
     experimentMetricOverrides: experiment.metricOverrides,
     datasourceType: datasource?.type,
     hasRegressionAdjustmentFeature: true,
   });
-
-  if (!experiment.phases[phase]) {
-    res.status(404).json({
-      status: 404,
-      message: "Phase not found",
-    });
-    return;
-  }
-
-  const useCache = !req.query["force"];
-
-  // This is doing an expensive analytics SQL query, so may take a long time
-  // Set timeout to 30 minutes
-  req.setTimeout(30 * 60 * 1000);
 
   const analysisSettings = getDefaultExperimentAnalysisSettings(
     statsEngine,
@@ -1776,6 +1864,59 @@ export async function postSnapshot(
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
+  const queryRunner = await createSnapshot({
+    experiment,
+    context,
+    phaseIndex: phase,
+    useCache,
+    defaultAnalysisSettings: analysisSettings,
+    additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
+      analysisSettings
+    ),
+    settingsForSnapshotMetrics,
+    metricMap,
+    factTableMap,
+  });
+  const snapshot = queryRunner.model;
+
+  return snapshot;
+}
+
+export async function postSnapshot(
+  req: AuthRequest<
+    {
+      phase: number;
+      dimension?: string;
+      users?: number[];
+      metrics?: { [key: string]: MetricStats[] };
+    },
+    { id: string },
+    { force?: string }
+  >,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id } = req.params;
+  const { phase, dimension } = req.body;
+
+  const experiment = await getExperimentById(context, id);
+  if (!experiment) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  if (!experiment.phases[phase]) {
+    res.status(404).json({
+      status: 404,
+      message: "Phase not found",
+    });
+    return;
+  }
+
   // Manual snapshot
   if (!experiment.datasource) {
     const { users, metrics } = req.body;
@@ -1783,12 +1924,35 @@ export async function postSnapshot(
       throw new Error("Missing users and metric data");
     }
 
+    let project = null;
+    if (experiment.project) {
+      project = await context.models.projects.getById(experiment.project);
+    }
+    const { settings } = getScopedSettings({
+      organization: org,
+      project: project ?? undefined,
+      experiment,
+    });
+    const statsEngine = settings.statsEngine.value;
+    const metricDefaults = settings.metricDefaults.value;
+
+    const analysisSettings = getDefaultExperimentAnalysisSettings(
+      statsEngine,
+      experiment,
+      org,
+      false,
+      dimension
+    );
+
+    const metricMap = await getMetricMap(context);
+
     try {
       const snapshot = await createManualSnapshot({
         experiment,
         phaseIndex: phase,
         users,
         metrics,
+        orgPriorSettings: metricDefaults.priorSettings,
         analysisSettings,
         metricMap,
         context,
@@ -1822,23 +1986,26 @@ export async function postSnapshot(
     }
   }
 
+  const datasource = await getDataSourceById(context, experiment.datasource);
+  if (!datasource) {
+    throw new Error("Could not find datasource for this experiment");
+  }
+
+  const useCache = !req.query["force"];
+
+  // This is doing an expensive analytics SQL query, so may take a long time
+  // Set timeout to 30 minutes
+  req.setTimeout(30 * 60 * 1000);
+
   try {
-    const queryRunner = await createSnapshot({
-      experiment,
+    const snapshot = await createExperimentSnapshot({
       context,
-      phaseIndex: phase,
+      experiment,
+      datasource,
+      dimension,
+      phase,
       useCache,
-      defaultAnalysisSettings: analysisSettings,
-      additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
-        analysisSettings,
-        experiment
-      ),
-      metricRegressionAdjustmentStatuses:
-        metricRegressionAdjustmentStatuses || [],
-      metricMap,
-      factTableMap,
     });
-    const snapshot = queryRunner.model;
 
     await req.audit({
       event: "experiment.refresh",
@@ -1915,14 +2082,16 @@ export async function postSnapshotAnalysis(
   const metricMap = await getMetricMap(context);
 
   try {
-    await createSnapshotAnalysis({
-      experiment: experiment,
-      organization: org,
-      analysisSettings: analysisSettings,
-      metricMap: metricMap,
-      snapshot: snapshot,
-      context,
-    });
+    await createSnapshotAnalysis(
+      {
+        experiment: experiment,
+        organization: org,
+        analysisSettings: analysisSettings,
+        metricMap: metricMap,
+        snapshot: snapshot,
+      },
+      context
+    );
     res.status(200).json({
       status: 200,
     });
@@ -1933,6 +2102,79 @@ export async function postSnapshotAnalysis(
       message: e.message,
     });
   }
+}
+
+function addCoverageToSnapshotIfMissing(
+  snapshot: ExperimentSnapshotInterface,
+  experiment: ExperimentInterface,
+  phase?: number
+): ExperimentSnapshotInterface {
+  if (snapshot.settings.coverage === undefined) {
+    const latestPhase = experiment.phases.length - 1;
+    snapshot.settings.coverage =
+      experiment.phases[phase ?? latestPhase]?.coverage ?? 1;
+  }
+  return snapshot;
+}
+
+export async function postSnapshotsWithScaledImpactAnalysis(
+  req: AuthRequest<{
+    experiments: string[];
+  }>,
+  res: Response<{ status: 200 } | PrivateApiErrorResponse>
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { experiments } = req.body;
+  if (!experiments.length) {
+    res.status(200).json({
+      status: 200,
+    });
+    return;
+  }
+  const metricMap = await getMetricMap(context);
+  const experimentObjs = await getExperimentsByIds(context, experiments);
+
+  // get latest snapshot for latest phase without dimensions but with results
+  const snapshots = await _getSnapshots(context, experimentObjs);
+
+  // Add snapshots missing scaled analysis to list to fetch
+  const snapshotAnalysesToCreate: SnapshotAnalysisParams[] = [];
+  snapshots.forEach((s) => {
+    const defaultAnalysis = getSnapshotAnalysis(s);
+    if (!defaultAnalysis) return;
+
+    const scaledImpactAnalysisSettings: ExperimentSnapshotAnalysisSettings = {
+      ...defaultAnalysis.settings,
+      differenceType: "scaled",
+    };
+    if (getSnapshotAnalysis(s, scaledImpactAnalysisSettings)) return;
+
+    const experiment = experimentObjs.find((e) => e.id === s.experiment);
+    if (!experiment) return;
+
+    addCoverageToSnapshotIfMissing(s, experiment);
+
+    snapshotAnalysesToCreate.push({
+      experiment: experiment,
+      organization: org,
+      analysisSettings: scaledImpactAnalysisSettings,
+      metricMap: metricMap,
+      snapshot: s,
+    });
+  });
+
+  if (snapshotAnalysesToCreate.length > 0) {
+    await createSnapshotAnalyses(snapshotAnalysesToCreate, context).catch(
+      (e) => {
+        req.log.error(e);
+      }
+    );
+  }
+  res.status(200).json({
+    status: 200,
+  });
+  return;
 }
 
 export async function deleteScreenshot(
@@ -1963,7 +2205,9 @@ export async function deleteScreenshot(
     return;
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+    context.permissions.throwPermissionError();
+  }
 
   if (!experiment.variations[variation]) {
     res.status(404).json({
@@ -2034,7 +2278,10 @@ export async function addScreenshot(
     });
     return;
   }
-  req.checkPermissions("createAnalyses", experiment.project);
+
+  if (!context.permissions.canUpdateExperiment(experiment, changes)) {
+    context.permissions.throwPermissionError();
+  }
 
   if (!experiment.variations[variation]) {
     res.status(404).json({
@@ -2137,31 +2384,36 @@ export async function getPastExperimentsList(
   const experimentMap = new Map<string, string>();
   (experiments || []).forEach((e) => {
     experimentMap.set(e.trackingKey, e.id);
+    experimentMap.set(e.trackingKey + "::" + e.exposureQueryId, e.id);
   });
 
   const trackingKeyMap: Record<string, string> = {};
   (pastExperiments.experiments || []).forEach((e) => {
-    const id = experimentMap.get(e.trackingKey);
-    if (id) {
-      trackingKeyMap[e.trackingKey] = id;
-    }
+    const keys = [e.trackingKey, e.trackingKey + "::" + e.exposureQueryId];
+    keys.forEach((key) => {
+      const id = experimentMap.get(key);
+      if (id) {
+        trackingKeyMap[key] = id;
+      }
+    });
   });
 
   res.status(200).json({
     status: 200,
     experiments: pastExperiments,
     existing: trackingKeyMap,
+    lookbackDays: IMPORT_LIMIT_DAYS,
   });
 }
 
 //experiments/import, sent here right after "add experiment"
 export async function postPastExperiments(
-  req: AuthRequest<{ datasource: string; force: boolean }>,
+  req: AuthRequest<{ datasource: string; force: boolean; refresh?: boolean }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { datasource, force } = req.body;
+  const { datasource, force, refresh } = req.body;
 
   const integration = await getIntegrationFromDatasourceId(
     context,
@@ -2177,7 +2429,6 @@ export async function postPastExperiments(
   const start = new Date();
   start.setDate(start.getDate() - IMPORT_LIMIT_DAYS);
 
-  let needsRun = false;
   if (!pastExperiments) {
     pastExperiments = await createPastExperiments({
       organization: org.id,
@@ -2186,14 +2437,17 @@ export async function postPastExperiments(
       start,
       queries: [],
     });
-    needsRun = true;
   }
 
+  let needsRun = false;
   if (force) {
     needsRun = true;
     pastExperiments = await updatePastExperiments(pastExperiments, {
       config: {
-        start,
+        start:
+          !refresh && pastExperiments.config
+            ? pastExperiments.config.start
+            : start,
         end: new Date(),
       },
     });
@@ -2207,6 +2461,7 @@ export async function postPastExperiments(
     );
     pastExperiments = await queryRunner.startAnalysis({
       from: start,
+      forceRefresh: !!refresh,
     });
   }
 
@@ -2248,8 +2503,13 @@ export async function postVisualChangeset(
   const envs = getAffectedEnvsForExperiment({
     experiment,
   });
-  envs.length > 0 &&
-    req.checkPermissions("runExperiments", experiment.project, envs);
+
+  if (
+    envs.length > 0 &&
+    !context.permissions.canRunExperiment(experiment, envs)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const visualChangeset = await createVisualChangeset({
     experiment,
@@ -2291,7 +2551,9 @@ export async function putVisualChangeset(
   };
 
   const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
-  req.checkPermissions("runExperiments", experiment?.project || "", envs);
+  if (!context.permissions.canRunExperiment(experiment, envs)) {
+    context.permissions.throwPermissionError();
+  }
 
   const ret = await updateVisualChangeset({
     visualChangeset,
@@ -2328,7 +2590,9 @@ export async function deleteVisualChangeset(
   );
 
   const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
-  req.checkPermissions("runExperiments", experiment?.project || "", envs);
+  if (!context.permissions.canRunExperiment(experiment || {}, envs)) {
+    context.permissions.throwPermissionError();
+  }
 
   await deleteVisualChangesetById({
     visualChangeset,

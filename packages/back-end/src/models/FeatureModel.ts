@@ -2,12 +2,12 @@ import mongoose, { FilterQuery } from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import { MergeResultChanges } from "shared/util";
-import { hasReadAccess } from "shared/permissions";
+import { MergeResultChanges, getApiFeatureEnabledEnvs } from "shared/util";
 import {
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
+  JSONSchemaDef,
   LegacyFeatureInterface,
 } from "../../types/feature";
 import { ExperimentInterface } from "../../types/experiment";
@@ -35,6 +35,8 @@ import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { logger } from "../util/logger";
 import { getEnvironmentIdsFromOrg } from "../services/organizations";
 import { ApiReqContext } from "../../types/api";
+import { simpleSchemaValidator } from "../validators/features";
+import { getChangedApiFeatureEnvironments } from "../events/handlers/utils";
 import { createEvent } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
@@ -46,6 +48,7 @@ import {
   createInitialRevision,
   createRevisionFromLegacyDraft,
   deleteAllRevisionsForFeature,
+  getRevision,
   hasDraft,
   markRevisionAsPublished,
   updateRevision,
@@ -133,6 +136,7 @@ const featureSchema = new mongoose.Schema({
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
+featureSchema.index({ organization: 1, project: 1 });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
@@ -150,11 +154,17 @@ const toInterface = (doc: FeatureDocument): FeatureInterface =>
 
 export async function getAllFeatures(
   context: ReqContext | ApiReqContext,
-  project?: string
+  {
+    project,
+    includeArchived = false,
+  }: { project?: string; includeArchived?: boolean } = {}
 ): Promise<FeatureInterface[]> {
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
   if (project) {
     q.project = project;
+  }
+  if (!includeArchived) {
+    q.archived = { $ne: true };
   }
 
   const features = (await FeatureModel.find(q)).map((m) =>
@@ -162,16 +172,35 @@ export async function getAllFeatures(
   );
 
   return features.filter((feature) =>
-    hasReadAccess(context.readAccessFilter, feature.project)
+    context.permissions.canReadSingleProjectResource(feature.project)
   );
 }
 
 const _undefinedTypeGuard = (x: string[] | undefined): x is string[] =>
   typeof x !== "undefined";
 
-export async function getAllFeaturesWithLinkedExperiments(
+export async function hasArchivedFeatures(
   context: ReqContext | ApiReqContext,
   project?: string
+): Promise<boolean> {
+  const q: FilterQuery<FeatureDocument> = {
+    organization: context.org.id,
+    archived: true,
+  };
+  if (project) {
+    q.project = project;
+  }
+
+  const f = await FeatureModel.findOne(q);
+  return !!f;
+}
+
+export async function getAllFeaturesWithLinkedExperiments(
+  context: ReqContext | ApiReqContext,
+  {
+    project,
+    includeArchived = false,
+  }: { project?: string; includeArchived?: boolean } = {}
 ): Promise<{
   features: FeatureInterface[];
   experiments: ExperimentInterface[];
@@ -180,11 +209,14 @@ export async function getAllFeaturesWithLinkedExperiments(
   if (project) {
     q.project = project;
   }
+  if (!includeArchived) {
+    q.archived = { $ne: true };
+  }
 
   const allFeatures = await FeatureModel.find(q);
 
   const features = allFeatures.filter((feature) =>
-    hasReadAccess(context.readAccessFilter, feature.project)
+    context.permissions.canReadSingleProjectResource(feature.project)
   );
   const expIds = new Set<string>(
     features
@@ -210,7 +242,7 @@ export async function getFeature(
   });
   if (!feature) return null;
 
-  return hasReadAccess(context.readAccessFilter, feature.project)
+  return context.permissions.canReadSingleProjectResource(feature.project)
     ? upgradeFeatureInterface(toInterface(feature))
     : null;
 }
@@ -248,7 +280,7 @@ export async function getFeaturesByIds(
   ).map((m) => upgradeFeatureInterface(toInterface(m)));
 
   return features.filter((feature) =>
-    hasReadAccess(context.readAccessFilter, feature.project)
+    context.permissions.canReadSingleProjectResource(feature.project)
   );
 }
 
@@ -285,7 +317,9 @@ export async function createFeature(
     );
   }
 
-  onFeatureCreate(context, feature);
+  onFeatureCreate(context, feature).catch((e) => {
+    logger.error(e, "Error refreshing SDK Payload on feature create");
+  });
 }
 
 export async function deleteFeature(
@@ -306,7 +340,9 @@ export async function deleteFeature(
     );
   }
 
-  onFeatureDelete(context, feature);
+  onFeatureDelete(context, feature).catch((e) => {
+    logger.error(e, "Error refreshing SDK Payload on feature delete");
+  });
 }
 
 /**
@@ -345,25 +381,50 @@ async function logFeatureUpdatedEvent(
 ): Promise<string | undefined> {
   const groupMap = await getSavedGroupMap(context.org);
   const experimentMap = await getExperimentMapForFeature(context, current.id);
+  const currentRevision = await getRevision(
+    current.organization,
+    current.id,
+    current.version
+  );
+  const previousRevision = await getRevision(
+    previous.organization,
+    previous.id,
+    previous.version
+  );
+  const currentApiFeature = getApiFeatureObj({
+    feature: current,
+    organization: context.org,
+    groupMap,
+    experimentMap,
+    revision: currentRevision,
+  });
+  const previousApiFeature = getApiFeatureObj({
+    feature: previous,
+    organization: context.org,
+    groupMap,
+    experimentMap,
+    revision: previousRevision,
+  });
 
   const payload: FeatureUpdatedNotificationEvent = {
     object: "feature",
     event: "feature.updated",
     data: {
-      current: getApiFeatureObj({
-        feature: current,
-        organization: context.org,
-        groupMap,
-        experimentMap,
-      }),
-      previous: getApiFeatureObj({
-        feature: previous,
-        organization: context.org,
-        groupMap,
-        experimentMap,
-      }),
+      current: currentApiFeature,
+      previous: previousApiFeature,
     },
     user: context.auditUser,
+    projects: Array.from(
+      new Set([previousApiFeature.project, currentApiFeature.project])
+    ),
+    tags: Array.from(
+      new Set([...previousApiFeature.tags, ...currentApiFeature.tags])
+    ),
+    environments: getChangedApiFeatureEnvironments(
+      previousApiFeature,
+      currentApiFeature
+    ),
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(context.org.id, payload);
@@ -384,19 +445,30 @@ async function logFeatureCreatedEvent(
 ): Promise<string | undefined> {
   const groupMap = await getSavedGroupMap(context.org);
   const experimentMap = await getExperimentMapForFeature(context, feature.id);
+  const revision = await getRevision(
+    feature.organization,
+    feature.id,
+    feature.version
+  );
+  const apiFeature = getApiFeatureObj({
+    feature,
+    organization: context.org,
+    groupMap,
+    experimentMap,
+    revision,
+  });
 
   const payload: FeatureCreatedNotificationEvent = {
     object: "feature",
     event: "feature.created",
     user: context.auditUser,
     data: {
-      current: getApiFeatureObj({
-        feature,
-        organization: context.org,
-        groupMap,
-        experimentMap,
-      }),
+      current: apiFeature,
     },
+    projects: [apiFeature.project],
+    tags: apiFeature.tags,
+    environments: getApiFeatureEnabledEnvs(apiFeature),
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(context.org.id, payload);
@@ -419,19 +491,30 @@ async function logFeatureDeletedEvent(
     context,
     previousFeature.id
   );
+  const revision = await getRevision(
+    previousFeature.organization,
+    previousFeature.id,
+    previousFeature.version
+  );
+  const apiFeature = getApiFeatureObj({
+    feature: previousFeature,
+    organization: context.org,
+    groupMap,
+    experimentMap,
+    revision,
+  });
 
   const payload: FeatureDeletedNotificationEvent = {
     object: "feature",
     event: "feature.deleted",
     user: context.auditUser,
     data: {
-      previous: getApiFeatureObj({
-        feature: previousFeature,
-        organization: context.org,
-        groupMap,
-        experimentMap,
-      }),
+      previous: apiFeature,
     },
+    projects: [apiFeature.project],
+    tags: apiFeature.tags,
+    environments: getApiFeatureEnabledEnvs(apiFeature),
+    containsSecrets: false,
   };
 
   const emittedEvent = await createEvent(context.org.id, payload);
@@ -534,7 +617,9 @@ export async function updateFeature(
     );
   }
 
-  onFeatureUpdate(context, feature, updatedFeature);
+  onFeatureUpdate(context, feature, updatedFeature).catch((e) => {
+    logger.error(e, "Error refreshing SDK Payload on feature update");
+  });
   return updatedFeature;
 }
 
@@ -717,7 +802,9 @@ export async function removeTagInFeature(
       tags: (feature.tags || []).filter((t) => t !== tag),
     };
 
-    onFeatureUpdate(context, feature, updatedFeature);
+    onFeatureUpdate(context, feature, updatedFeature).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on feature update");
+    });
   });
 }
 
@@ -738,7 +825,9 @@ export async function removeProjectFromFeatures(
       project: "",
     };
 
-    onFeatureUpdate(context, feature, updatedFeature, project);
+    onFeatureUpdate(context, feature, updatedFeature, project).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload on feature update");
+    });
   });
 }
 
@@ -764,11 +853,15 @@ export async function setDefaultValue(
 export async function setJsonSchema(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
-  schema: string,
-  enabled?: boolean
+  def: Omit<JSONSchemaDef, "date">
 ) {
+  // Validate Simple Schema (sanity check)
+  if (def.schemaType === "simple" && def.simple) {
+    simpleSchemaValidator.parse(def.simple);
+  }
+
   return await updateFeature(context, feature, {
-    jsonSchema: { schema, enabled: enabled ?? true, date: new Date() },
+    jsonSchema: { ...def, date: new Date() },
   });
 }
 

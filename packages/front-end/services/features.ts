@@ -32,6 +32,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useApi from "@/hooks/useApi";
+import { isExperimentRefRuleSkipped } from "@/components/Features/ExperimentRefSummary";
 import { useDefinitions } from "./DefinitionsContext";
 
 export { generateVariationId } from "shared/util";
@@ -128,6 +129,26 @@ export function getVariationDefaultName(
   return val.value;
 }
 
+export function isRuleDisabled(
+  rule: FeatureRule,
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>
+): boolean {
+  const linkedExperiment =
+    rule.type === "experiment-ref" && experimentsMap.get(rule.experimentId);
+  const upcomingScheduleRule = getUpcomingScheduleRule(rule);
+  const scheduleCompletedAndDisabled =
+    !upcomingScheduleRule &&
+    rule?.scheduleRules?.length &&
+    rule.scheduleRules.at(-1)?.timestamp !== null;
+
+  return (
+    scheduleCompletedAndDisabled ||
+    upcomingScheduleRule?.enabled ||
+    (linkedExperiment && isExperimentRefRuleSkipped(linkedExperiment)) ||
+    !rule.enabled
+  );
+}
+
 type NamespaceGaps = { start: number; end: number }[];
 export function findGaps(
   namespaces: NamespaceUsage,
@@ -163,14 +184,23 @@ export function findGaps(
   return gaps;
 }
 
-export function useFeaturesList(withProject = true) {
+export function useFeaturesList(withProject = true, includeArchived = false) {
   const { project } = useDefinitions();
 
-  const url = withProject ? `/feature?project=${project || ""}` : "/feature";
+  const qs = new URLSearchParams();
+  if (withProject) {
+    qs.set("project", project);
+  }
+  if (includeArchived) {
+    qs.set("includeArchived", "true");
+  }
+
+  const url = `/feature?${qs.toString()}`;
 
   const { data, error, mutate } = useApi<{
     features: FeatureInterface[];
     linkedExperiments: ExperimentInterfaceStringDates[];
+    hasArchived: boolean;
   }>(url);
 
   return {
@@ -179,6 +209,7 @@ export function useFeaturesList(withProject = true) {
     loading: !data,
     error,
     mutate,
+    hasArchived: data?.hasArchived || false,
   };
 }
 
@@ -339,7 +370,7 @@ export function getDefaultValue(valueType: FeatureValueType): string {
     return "1";
   }
   if (valueType === "string") {
-    return "foo";
+    return "OFF"; // Default Values should be the OFF State to match most platforms.
   }
   if (valueType === "json") {
     return "{}";
@@ -920,9 +951,10 @@ export function useRealtimeData(
   mock = false,
   update = false
 ): { usage: FeatureUsageRecords; usageDomain: [number, number] } {
-  const { data, mutate } = useApi<{
-    usage: FeatureUsageRecords;
-  }>(`/usage/features`);
+  const { data, mutate } = useApi<{ usage: FeatureUsageRecords }>(
+    `/usage/features`,
+    { shouldRun: () => !!update }
+  );
 
   // Mock data
   const usage = useMemo(() => {

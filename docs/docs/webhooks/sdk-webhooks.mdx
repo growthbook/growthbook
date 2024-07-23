@@ -23,12 +23,36 @@ If your webhook endpoint is behind a firewall and you are using GrowthBook Cloud
 
 ## Verify Signatures
 
-Webhook payloads are signed with a shared secret so you can verify they actually came from GrowthBook. The signature is passed in a `webhook-secret` header. GrowthBook uses the `whsec_` prefix to help identify the crypto method used for encoding. For example `webhook-secret:"whsec_iM0hCLU0fZc885zfkFPX3UJwSHbYyam9ji0WglnT3fc="`.
-The signature is a HMAC SHA-256 hash of the payload using the secret as the key. The secret is the secret key that is generated when you create a webhook. You can find the secret key via **SDK Configuration → SDK Connections**, choosing a connection, and viewing the your webhook's details.
+SDK Webhook payloads are signed with a shared secret so you can verify they actually came from GrowthBook.
 
-GrowthBook signs based on the payload that is returned to ensure its integrity. This means that if you do not receive any payload back, and you have the option turned off, we sign based on an empty string as no data is getting passed.
+### Standard Webhooks
 
-When comparing the signatures, you should remove the `whsec_` prefix from the secret key, as `whsec_` is just a prefix to help identify the crypto method.
+We follow the [Standard Webhooks](https://www.standardwebhooks.com/) specification, so you can use any of their SDKs to verify our webhook signatures.
+
+```ts
+import { Webhook } from "standardwebhooks"
+
+const wh = new Webhook(base64_secret);
+wh.verify(webhook_body, webhook_headers);
+```
+
+### Custom Verification
+
+Webhook requests sent to your endpoint include 3 headers:
+
+- `webhook-id` - The unique id for this event
+- `webhook-timestamp` - The unix integer timestamp of the event
+- `webhook-signature` - The signature (format described below)
+
+To create the signature, we concatenate the `webhook-id`, the `webhook-timestamp`, and the body contents, all separated by dots (`.`). Then, we create an HMAC SHA-256 hash of this using the shared secret.
+
+What we set in the `webhook-signature` header is the hashing algorithm identifier for HMAC SHA-256 (`v1`), followed by a comma (`,`), followed by the base64-encoded hash from above. For example:
+
+```
+v1,K5oZfzN95Z9UVu1EsfQmfVNQhnkZ2pj9o9NDN/H/pI4=
+```
+
+You can find the shared secret via **SDK Configuration → SDK Connections**, choosing the connection, and viewing your webhook's details.
 
 Here is example code in NodeJS for verifying the signature. Other languages should be similar:
 
@@ -42,32 +66,40 @@ const GROWTHBOOK_WEBHOOK_SECRET = "wk_123A5341464B3A13";
 
 const port = 1337;
 const app = express();
-
 app.post(
   "/webhook",
   bodyParser.raw({ type: "application/json" }),
   (req, res) => {
-    // if there is no payload sent, the hash is based on an empty string
-    const payload = req.body?.data?.payload || "";
-    const webhookSecret = req.get("webhook-secret");
+    // If there is no body sent, use an empty string to compute the signature
+    const body = req.body || "";
 
-    if (webhookSecret && webhookSecret.startsWith("whsec_")) {
-      const signingKey = webhookSecret.split("whsec_")[1];
+    // Get the request headers
+    const id = req.get("webhook-id");
+    const timestamp = req.get("webhook-timestamp");
+    const rawSignature = req.get("webhook-signature") || "";
+
+    // Remove the "v1," prefix from the signature for comparison
+    const signature = rawSignature.split(",")[1];
+
+    if (id && timestamp && signature) {
+      // Base64 encode the secret
+      const base64_secret = btoa(GROWTHBOOK_WEBHOOK_SECRET);
+
+      // Compute the signature
       const computed = crypto
-        .createHmac("sha256", GROWTHBOOK_WEBHOOK_SECRET)
-        .update(payload)
-        .digest("hex");
+        .createHmac("sha256", base64_secret)
+        .update(`${id}.${timestamp}.${body}`)
+        .digest("base64");
 
-      if (
-        !crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(signingKey))
-      ) {
-        throw new Error("mismatch signatures");
+      if (!crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(signature))) {
+        throw new Error("Invalid signature");
       }
     } else {
-      throw new Error("invalid secret");
+      throw new Error("Missing signature headers");
     }
 
-    const data = JSON.parse(payload);
+    const parsedBody = JSON.parse(body);
+    const payload = parsedBody.data.payload;
     // TODO: Do something with the webhook data
 
     // Make sure to respond with a 200 status code
@@ -84,34 +116,69 @@ app.listen(port, () => {
 
 If your endpoint returns any HTTP status besides `200`, the webhook will be considered failed.
 
-Failed webhooks are tried a total of 3 times using an exponential back-off between attempts.
+Webhooks are retried up to 2 additional times with an exponential back-off between attempts.
 
-You can view the status of your webhooks in the GrowthBook app under **SDK Connections** .
+You can view the status of your webhooks in the GrowthBook app under **SDK Connections**.
 
-## Supported HTTP Types
+## Supported HTTP Methods
 
+- **GET**
 - **POST**
 - **PUT**
-- **GET**
 - **DELETE**
 - **PURGE**
 
-### Sending Payload
+## Payload Format
 
-SDK Webhooks will send the payload to the endpoint **except GET.** In body is a JSON object containing feature definitions in the same format that SDKs are expecting.
+For all methods other than `GET`, you may send a payload body. By default, webhooks will send in the "Standard" format.
 
-Here's an example payload:
+### Standard
+
+Follows the **Standard Webhooks** specification. Inludes a JSON-encoded SDK Payload in the `data.payload` field.
+
+Example payload:
 
 ```json
 {
   "type": "payload.changed",
   "timestamp": "2024-04-03T01:54:20.449Z",
-  "data":{
-    "payload":{
-      "timestamp": 1625098156,
-      "features": ...
-      }
-    }
+  "data": {
+    "payload": "{\"features\":{\"my-feature\":{\"defaultValue\":true}}}"
   }
 }
+```
+
+The `data.payload` object contains the exact JSON format that our SDKs are expecting. For example, you can pass this directly into the JavaScript SDK:
+
+```ts
+const payload = JSON.parse(parsedBody.data.payload);
+
+const gb = new GrowthBook();
+await gb.init({
+  payload: payload
+});
+```
+
+### Standard (no SDK Payload)
+
+Same as above, but without the `data.payload` field.
+
+Example payload:
+
+```json
+{
+  "type": "payload.changed",
+  "timestamp": "2024-04-03T01:54:20.449Z",
+}
+```
+
+### SDK Payload
+
+Sends the raw SDK Payload using the same format as our SDK features endpoint. This is usually the correct format if you are using the webhook to set
+a cache value or assigning key/value storage.
+
+Example payload:
+
+```json
+{"features":{"my-feature":{"defaultValue":true}}}
 ```

@@ -6,12 +6,9 @@ import pandas as pd
 
 from gbstats.bayesian.tests import (
     BayesianTestResult,
-    BinomialBayesianABTest,
-    BinomialBayesianConfig,
-    GaussianBayesianABTest,
-    GaussianBayesianConfig,
-    GaussianEffectABTest,
+    EffectBayesianABTest,
     EffectBayesianConfig,
+    GaussianPrior,
 )
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -19,10 +16,6 @@ from gbstats.frequentist.tests import (
     SequentialConfig,
     SequentialTwoSidedTTest,
     TwoSidedTTest,
-)
-from gbstats.messages import (
-    COMPARE_PROPORTION_NON_PROPORTION_ERROR,
-    RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR,
 )
 from gbstats.models.results import (
     BaselineResponse,
@@ -32,10 +25,12 @@ from gbstats.models.results import (
     ExperimentMetricAnalysisResult,
     FrequentistVariationResponse,
     MetricStats,
+    MultipleExperimentMetricAnalysis,
 )
 from gbstats.models.settings import (
     AnalysisSettingsForStatsEngine,
     DataForStatsEngine,
+    ExperimentDataForStatsEngine,
     ExperimentMetricQueryResponseRows,
     MetricSettingsForStatsEngine,
     MetricType,
@@ -188,13 +183,7 @@ def get_configured_test(
     test_index: int,
     analysis: AnalysisSettingsForStatsEngine,
     metric: MetricSettingsForStatsEngine,
-) -> Union[
-    BinomialBayesianABTest,
-    GaussianBayesianABTest,
-    GaussianEffectABTest,
-    SequentialTwoSidedTTest,
-    TwoSidedTTest,
-]:
+) -> Union[EffectBayesianABTest, SequentialTwoSidedTTest, TwoSidedTTest]:
 
     stat_a = variation_statistic_from_metric_row(row, "baseline", metric)
     stat_b = variation_statistic_from_metric_row(row, f"v{test_index}", metric)
@@ -227,44 +216,21 @@ def get_configured_test(
             )
     else:
         assert type(stat_a) is type(stat_b), "stat_a and stat_b must be of same type."
-        if isinstance(stat_a, RegressionAdjustedStatistic) or isinstance(
-            stat_b, RegressionAdjustedStatistic
-        ):
-            raise ValueError(RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR)
-        stat_a_proportion = isinstance(stat_a, ProportionStatistic)
-        stat_b_proportion = isinstance(stat_b, ProportionStatistic)
-        stat_a_quantile = isinstance(
-            stat_a, (QuantileStatistic, QuantileClusteredStatistic)
+        prior = GaussianPrior(
+            mean=metric.prior_mean,
+            variance=pow(metric.prior_stddev, 2),
+            proper=metric.prior_proper,
         )
-        stat_b_quantile = isinstance(
-            stat_b, (QuantileStatistic, QuantileClusteredStatistic)
+        return EffectBayesianABTest(
+            stat_a,
+            stat_b,
+            EffectBayesianConfig(
+                **base_config,
+                inverse=metric.inverse,
+                prior_effect=prior,
+                prior_type="relative",
+            ),
         )
-
-        if stat_a_proportion and stat_b_proportion:
-            return BinomialBayesianABTest(
-                stat_a,
-                stat_b,
-                BinomialBayesianConfig(**base_config, inverse=metric.inverse),
-            )
-        elif stat_a_quantile and stat_b_quantile:
-            return GaussianEffectABTest(
-                stat_a,
-                stat_b,
-                EffectBayesianConfig(**base_config, inverse=metric.inverse),
-            )
-        elif (
-            not stat_a_proportion
-            and not stat_b_proportion
-            and not stat_a_quantile
-            and not stat_b_quantile
-        ):
-            return GaussianBayesianABTest(
-                stat_a,
-                stat_b,
-                GaussianBayesianConfig(**base_config, inverse=metric.inverse),
-            )
-        else:
-            raise ValueError(COMPARE_PROPORTION_NON_PROPORTION_ERROR)
 
 
 # Run A/B test analysis for each variation and dimension
@@ -289,7 +255,7 @@ def analyze_metric_df(
             df[f"v{i}_stddev"] = None
             df[f"v{i}_expected"] = 0
             df[f"v{i}_p_value"] = None
-            df[f"v{i}_rawrisk"] = None
+            df[f"v{i}_risk"] = None
             df[f"v{i}_prob_beat_baseline"] = None
             df[f"v{i}_uplift"] = None
             df[f"v{i}_error_message"] = None
@@ -316,7 +282,8 @@ def analyze_metric_df(
 
             # Unpack result in Pandas row
             if isinstance(res, BayesianTestResult):
-                s.at[f"v{i}_rawrisk"] = res.risk
+                s.at[f"v{i}_risk"] = res.risk
+                s[f"v{i}_risk_type"] = res.risk_type
                 s[f"v{i}_prob_beat_baseline"] = res.chance_to_win
             elif isinstance(res, FrequentistTestResult):
                 s[f"v{i}_p_value"] = res.p_value
@@ -415,7 +382,8 @@ def format_variation_result(
                 **metricResult,
                 **testResult,
                 chanceToWin=row[f"{prefix}_prob_beat_baseline"],
-                risk=row[f"{prefix}_rawrisk"],
+                risk=row[f"{prefix}_risk"],
+                riskType=row[f"{prefix}_risk_type"],
             )
 
 
@@ -621,21 +589,41 @@ def process_data_dict(data: Dict[str, Any]) -> DataForStatsEngine:
     )
 
 
-def process_experiment_results(data: Dict[str, Any]) -> list[Dict[str, Any]]:
+def process_experiment_results(data: Dict[str, Any]) -> List[ExperimentMetricAnalysis]:
     d = process_data_dict(data)
-    results: List[Dict] = []
+    results: List[ExperimentMetricAnalysis] = []
     for query_result in d.query_results:
         for i, metric in enumerate(query_result.metrics):
             if metric in d.metrics:
                 rows = filter_query_rows(query_result.rows, i)
                 if len(rows):
                     results.append(
-                        asdict(
-                            process_single_metric(
-                                rows=rows,
-                                metric=d.metrics[metric],
-                                analyses=d.analyses,
-                            )
+                        process_single_metric(
+                            rows=rows,
+                            metric=d.metrics[metric],
+                            analyses=d.analyses,
                         )
                     )
+    return results
+
+
+def process_multiple_experiment_results(
+    data: List[Dict[str, Any]]
+) -> List[MultipleExperimentMetricAnalysis]:
+    results: List[MultipleExperimentMetricAnalysis] = []
+    for exp_data in data:
+        try:
+            exp_data_proc = ExperimentDataForStatsEngine(**exp_data)
+            exp_result = process_experiment_results(exp_data_proc.data)
+            results.append(
+                MultipleExperimentMetricAnalysis(
+                    id=exp_data_proc.id, results=exp_result, error=None
+                )
+            )
+        except Exception as e:
+            results.append(
+                MultipleExperimentMetricAnalysis(
+                    id=exp_data["id"], results=[], error=str(e)[:64]
+                )
+            )
     return results

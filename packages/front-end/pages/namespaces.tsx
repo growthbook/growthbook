@@ -8,7 +8,8 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import NamespaceTableRow from "@/components/Settings/NamespaceTableRow";
 import { useAuth } from "@/services/auth";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export type NamespaceApiResponse = {
   namespaces: NamespaceUsage;
@@ -19,8 +20,8 @@ const NamespacesPage: FC = () => {
     `/organization/namespaces`
   );
 
-  const permissions = usePermissions();
-  const canEdit = permissions.manageNamespaces;
+  const permissionsUtil = usePermissionsUtil();
+  const canCreate = permissionsUtil.canCreateNamespace();
 
   const { refreshOrganization } = useUser();
   const { namespaces = [] } = useOrgSettings();
@@ -61,7 +62,7 @@ const NamespacesPage: FC = () => {
         <div className="col-auto">
           <h1 className="mb-0">Experiment Namespaces</h1>
         </div>
-        {canEdit && (
+        {canCreate ? (
           <div className="col-auto ml-auto">
             <button
               className="btn btn-primary"
@@ -73,7 +74,7 @@ const NamespacesPage: FC = () => {
               <GBAddCircle /> Add Namespace
             </button>
           </div>
-        )}
+        ) : null}
       </div>
       <p className="text-gray mb-3">
         Namespaces allow you to run mutually exclusive experiments.{" "}
@@ -85,10 +86,14 @@ const NamespacesPage: FC = () => {
           <thead>
             <tr>
               <th>Namespace</th>
+              <th>
+                Namespace ID{" "}
+                <Tooltip body="This id is used as the namespace hash key and cannot be changed" />
+              </th>
               <th>Description</th>
               <th>Active experiments</th>
               <th>Percent available</th>
-              {canEdit && <th style={{ width: 30 }}></th>}
+              <th style={{ width: 30 }}></th>
             </tr>
           </thead>
           <tbody>
@@ -108,9 +113,12 @@ const NamespacesPage: FC = () => {
                     setModalOpen(true);
                   }}
                   onDelete={async () => {
-                    await apiCall(`/organization/namespaces/${ns.name}`, {
-                      method: "DELETE",
-                    });
+                    await apiCall(
+                      `/organization/namespaces/${encodeURIComponent(ns.name)}`,
+                      {
+                        method: "DELETE",
+                      }
+                    );
                     await refreshOrganization();
                   }}
                   onArchive={async () => {
@@ -119,10 +127,13 @@ const NamespacesPage: FC = () => {
                       description: ns.description,
                       status: ns?.status === "inactive" ? "active" : "inactive",
                     };
-                    await apiCall(`/organization/namespaces/${ns.name}`, {
-                      method: "PUT",
-                      body: JSON.stringify(newNamespace),
-                    });
+                    await apiCall(
+                      `/organization/namespaces/${encodeURIComponent(ns.name)}`,
+                      {
+                        method: "PUT",
+                        body: JSON.stringify(newNamespace),
+                      }
+                    );
                     await refreshOrganization();
                   }}
                 />

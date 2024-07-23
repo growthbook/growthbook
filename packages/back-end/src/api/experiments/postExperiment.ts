@@ -10,12 +10,14 @@ import {
 } from "../../services/experiments";
 import { createApiRequestHandler } from "../../util/handler";
 import { postExperimentValidator } from "../../validators/openapi";
-import { getUserByEmail } from "../../services/users";
+import { getUserByEmail } from "../../models/UserModel";
 import { upsertWatch } from "../../models/WatchModel";
 
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req): Promise<PostExperimentResponse> => {
-    req.checkPermissions("createAnalyses", req.body.project);
+    if (!req.context.permissions.canCreateExperiment(req.body)) {
+      req.context.permissions.throwPermissionError();
+    }
 
     const { datasourceId, owner: ownerEmail } = req.body;
 

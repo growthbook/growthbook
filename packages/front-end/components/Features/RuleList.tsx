@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import {
   DndContext,
   DragOverlay,
@@ -17,9 +17,13 @@ import {
 } from "@dnd-kit/sortable";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
-import { getRules, isRuleFullyCovered } from "@/services/features";
-import usePermissions from "@/hooks/usePermissions";
+import {
+  getRules,
+  isRuleDisabled,
+  isRuleFullyCovered,
+} from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { Rule, SortableRule } from "./Rule";
 
 export default function RuleList({
@@ -27,6 +31,7 @@ export default function RuleList({
   mutate,
   environment,
   setRuleModal,
+  setCopyRuleModal,
   version,
   setVersion,
   locked,
@@ -36,15 +41,22 @@ export default function RuleList({
   environment: string;
   mutate: () => void;
   setRuleModal: (rule: { environment: string; i: number }) => void;
+  setCopyRuleModal: (args: {
+    environment: string;
+    rules: FeatureRule[];
+  }) => void;
   version: number;
   setVersion: (version: number) => void;
   locked: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
 }) {
   const { apiCall } = useAuth();
+  const [hideDisabled, setHideDisabled] = useLocalStorage(
+    `hide-disabled-rules-${environment}`,
+    false
+  );
   const [activeId, setActiveId] = useState<string | null>(null);
   const [items, setItems] = useState(getRules(feature, environment));
-  const permissions = usePermissions();
   const permissionsUtil = usePermissionsUtil();
 
   useEffect(() => {
@@ -58,10 +70,20 @@ export default function RuleList({
     })
   );
 
+  const disabledRules = items.filter((r) => isRuleDisabled(r, experimentsMap));
+  const showInactiveToggle = items.length > 3 && disabledRules.length;
+
   if (!items.length) {
     return (
       <div className="px-3 mb-3">
         <em>None</em>
+      </div>
+    );
+  }
+  if (disabledRules.length === items.length && hideDisabled) {
+    return (
+      <div className="px-3 mb-3">
+        <em>No Active Rules</em>
       </div>
     );
   }
@@ -88,7 +110,7 @@ export default function RuleList({
 
   const canEdit =
     !locked &&
-    permissions.check("manageFeatures", feature.project) &&
+    permissionsUtil.canViewFeatureModal(feature.project) &&
     permissionsUtil.canManageFeatureDrafts(feature);
 
   return (
@@ -133,6 +155,19 @@ export default function RuleList({
         setActiveId(active.id);
       }}
     >
+      {showInactiveToggle ? (
+        <div className="d-flex justify-content-end pt-2 pr-3">
+          <label className="mb-0">
+            <input
+              type="checkbox"
+              className="form-check-input"
+              checked={hideDisabled}
+              onChange={(e) => setHideDisabled(e.target.checked)}
+            />
+            only show active rules
+          </label>
+        </div>
+      ) : null}
       <SortableContext items={items} strategy={verticalListSortingStrategy}>
         {items.map(({ ...rule }, i) => (
           <SortableRule
@@ -143,11 +178,13 @@ export default function RuleList({
             feature={feature}
             mutate={mutate}
             setRuleModal={setRuleModal}
+            setCopyRuleModal={setCopyRuleModal}
             unreachable={!!unreachableIndex && i >= unreachableIndex}
             version={version}
             setVersion={setVersion}
             locked={locked}
             experimentsMap={experimentsMap}
+            hideDisabled={hideDisabled}
           />
         ))}
       </SortableContext>
@@ -160,6 +197,7 @@ export default function RuleList({
             feature={feature}
             mutate={mutate}
             setRuleModal={setRuleModal}
+            setCopyRuleModal={setCopyRuleModal}
             version={version}
             setVersion={setVersion}
             locked={locked}

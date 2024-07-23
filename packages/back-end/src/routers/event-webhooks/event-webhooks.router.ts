@@ -2,7 +2,7 @@ import express from "express";
 import z from "zod";
 import { wrapController } from "../wrapController";
 import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
-import { notificationEventNames } from "../../events/base-types";
+import { zodNotificationEventNamesEnum } from "../../events/base-types";
 import {
   eventWebHookMethods,
   eventWebHookPayloadTypes,
@@ -30,7 +30,7 @@ router.post(
       .object({
         url: z.string().url(),
         name: z.string().trim().min(2),
-        events: z.array(z.enum(notificationEventNames)).min(1),
+        events: z.array(z.enum(zodNotificationEventNamesEnum)).min(1),
         enabled: z.boolean(),
         projects: z.array(z.string()),
         tags: z.array(z.string()),
@@ -108,7 +108,7 @@ router.put(
       .object({
         url: z.string().url(),
         name: z.string().trim().min(2),
-        events: z.array(z.enum(notificationEventNames)).min(1),
+        events: z.array(z.enum(zodNotificationEventNamesEnum)).min(1),
         enabled: z.boolean(),
         projects: z.array(z.string()),
         tags: z.array(z.string()),
@@ -123,6 +123,20 @@ router.put(
 );
 
 router.post(
+  "/event-webhooks/test-params",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        name: z.string().trim().min(1),
+        method: z.enum(eventWebHookMethods),
+        url: z.string().trim().min(1),
+      })
+      .strict(),
+  }),
+  eventWebHooksController.testWebHookParams
+);
+
+router.post(
   "/event-webhooks/test",
   validateRequestMiddleware({
     body: z
@@ -132,6 +146,18 @@ router.post(
       .strict(),
   }),
   eventWebHooksController.createTestEventWebHook
+);
+
+router.post(
+  "/event-webhooks/toggle",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        webhookId: z.string().trim().min(1),
+      })
+      .strict(),
+  }),
+  eventWebHooksController.toggleEventWebHook
 );
 
 export { router as eventWebHooksRouter };

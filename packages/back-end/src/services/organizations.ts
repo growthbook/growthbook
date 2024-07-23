@@ -9,6 +9,11 @@ import {
   postSubscriptionUpdateToLicenseServer,
 } from "enterprise";
 import {
+  areProjectRolesValid,
+  isRoleValid,
+  getDefaultRole,
+} from "shared/permissions";
+import {
   createOrganization,
   findAllOrganizations,
   findOrganizationById,
@@ -18,12 +23,11 @@ import {
 } from "../models/OrganizationModel";
 import { APP_ORIGIN, IS_CLOUD } from "../util/secrets";
 import { AuthRequest } from "../types/AuthRequest";
-import { UserModel } from "../models/UserModel";
 import {
   ExpandedMember,
+  ExpandedMemberInfo,
   Invite,
   Member,
-  MemberRole,
   MemberRoleInfo,
   MemberRoleWithProjects,
   OrganizationInterface,
@@ -53,17 +57,11 @@ import { DimensionInterface } from "../../types/dimension";
 import { DataSourceInterface } from "../../types/datasource";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 import { logger } from "../util/logger";
-import { getDefaultRole } from "../util/organization.util";
 import { SegmentInterface } from "../../types/segment";
-import {
-  createSegment,
-  findSegmentById,
-  updateSegment,
-} from "../models/SegmentModel";
 import { getAllExperiments } from "../models/ExperimentModel";
 import { LegacyExperimentPhase } from "../../types/experiment";
 import { addTags } from "../models/TagModel";
-import { markInstalled } from "./auth";
+import { getUsersByIds } from "../models/UserModel";
 import {
   encryptParams,
   getSourceIntegrationObject,
@@ -71,7 +69,6 @@ import {
 } from "./datasource";
 import { createMetric } from "./experiments";
 import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
-import { getUsersByIds } from "./users";
 import { ReqContextClass } from "./context";
 
 export {
@@ -138,9 +135,8 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
   });
 }
 
-export async function getConfidenceLevelsForOrg(id: string) {
-  const org = await getOrganizationById(id);
-  const ciUpper = org?.settings?.confidenceLevel || 0.95;
+export function getConfidenceLevelsForOrg(context: ReqContext) {
+  const ciUpper = context.org.settings?.confidenceLevel || 0.95;
   return {
     ciUpper,
     ciLower: 1 - ciUpper,
@@ -186,21 +182,6 @@ export function getNumberOfUniqueMembersAndInvites(
   const numInvites = new Set(organization.invites.map((i) => i.email)).size;
 
   return numMembers + numInvites;
-}
-
-export async function userHasAccess(
-  req: AuthRequest,
-  organization: string
-): Promise<boolean> {
-  if (req.superAdmin) return true;
-  if (req.organization?.id === organization) return true;
-  if (!req.userId) return false;
-
-  const doc = await getOrganizationById(organization);
-  if (doc && doc.members.map((m) => m.id).includes(req.userId)) {
-    return true;
-  }
-  return false;
 }
 
 export async function removeMember(
@@ -285,7 +266,7 @@ export async function addMemberToOrg({
 }: {
   organization: OrganizationInterface;
   userId: string;
-  role: MemberRole;
+  role: string;
   limitAccessByEnvironment: boolean;
   environments: string[];
   projectRoles?: ProjectMemberRole[];
@@ -299,6 +280,14 @@ export async function addMemberToOrg({
   // If member is also a pending member, remove
   let pendingMembers: PendingMember[] = organization?.pendingMembers || [];
   pendingMembers = pendingMembers.filter((m) => m.id !== userId);
+
+  // Ensure roles are valid
+  if (
+    !isRoleValid(role, organization) ||
+    !areProjectRolesValid(projectRoles, organization)
+  ) {
+    throw new Error("Invalid role");
+  }
 
   const members: Member[] = [
     ...organization.members,
@@ -405,7 +394,7 @@ export async function addPendingMemberToOrg({
   name: string;
   userId: string;
   email: string;
-  role: MemberRole;
+  role: string;
   limitAccessByEnvironment: boolean;
   environments: string[];
   projectRoles?: ProjectMemberRole[];
@@ -417,6 +406,14 @@ export async function addPendingMemberToOrg({
   // If member is also a pending member, skip
   if (organization?.pendingMembers?.find((m) => m.id === userId)) {
     return;
+  }
+
+  // Ensure roles are valid
+  if (
+    !isRoleValid(role, organization) ||
+    !areProjectRolesValid(projectRoles, organization)
+  ) {
+    throw new Error("Invalid role");
   }
 
   const pendingMembers: PendingMember[] = [
@@ -507,6 +504,14 @@ export async function inviteUser({
         organization.invites.filter((invite) => invite.email === email)[0].key
       ),
     };
+  }
+
+  // Ensure roles are valid
+  if (
+    !isRoleValid(role, organization) ||
+    !areProjectRolesValid(projectRoles, organization)
+  ) {
+    throw new Error("Invalid role");
   }
 
   // Generate random key for invite
@@ -802,21 +807,18 @@ export async function importConfig(
         }
 
         try {
-          const existing = await findSegmentById(k, organization.id);
+          const existing = await context.models.segments.getById(k);
           if (existing) {
             const updates: Partial<SegmentInterface> = {
               ...s,
             };
             delete updates.organization;
 
-            await updateSegment(k, organization.id, updates);
+            await context.models.segments.update(existing, updates);
           } else {
-            await createSegment({
+            await context.models.segments.create({
               ...s,
               id: k,
-              dateCreated: new Date(),
-              dateUpdated: new Date(),
-              organization: organization.id,
             });
           }
         } catch (e) {
@@ -827,16 +829,11 @@ export async function importConfig(
   }
 }
 
-export async function getEmailFromUserId(userId: string) {
-  const u = await UserModel.findOne({ id: userId });
-  return u?.email || "";
-}
-
 export async function getExperimentOverrides(
   context: ReqContext | ApiReqContext,
   project?: string
 ) {
-  const experiments = await getAllExperiments(context, project);
+  const experiments = await getAllExperiments(context, { project });
   const overrides: Record<string, ExperimentOverride> = {};
   const expIdMapping: Record<string, { trackingKey: string }> = {};
 
@@ -941,7 +938,6 @@ export async function addMemberFromSSOConnection(
         userId: req.userId,
         name: "My Organization",
       });
-      markInstalled();
       return organization;
     }
 
@@ -968,7 +964,7 @@ export async function addMemberFromSSOConnection(
   return organization;
 }
 
-export async function findVerifiedOrgForNewUser(email: string) {
+export async function findVerifiedOrgsForNewUser(email: string) {
   const domain = email.toLowerCase().split("@")[1];
   const isFreeDomain = freeEmailDomains.includes(domain);
   if (isFreeDomain) {
@@ -980,29 +976,90 @@ export async function findVerifiedOrgForNewUser(email: string) {
     return null;
   }
 
-  // get the org with the most members
-  return organizations.reduce((prev, current) => {
-    return prev.members.length > current.members.length ? prev : current;
-  });
+  if (IS_CLOUD) {
+    // On cloud, return an array with only the single org with the most members, as the others are probably just "test" accounts.
+    return [
+      organizations.reduce((prev, current) => {
+        return prev.members.length > current.members.length ? prev : current;
+      }),
+    ];
+  } else {
+    // On multi-org self hosted sites, all orgs with the domain should be available to users to join not just the one with the most members
+    return organizations;
+  }
 }
 
-export async function expandOrgMembers(
-  members: Member[]
-): Promise<ExpandedMember[]> {
-  // Add email/name to the organization members array
-  const userInfo = await getUsersByIds(members.map((m) => m.id));
-  const expandedMembers: ExpandedMember[] = [];
-  userInfo.forEach(({ id, email, verified, name, _id }) => {
-    const memberInfo = members.find((m) => m.id === id);
-    if (!memberInfo) return;
-    expandedMembers.push({
-      email,
-      verified,
-      name: name || "",
-      ...memberInfo,
-      dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
-    });
+const expandedMemberInfoCache: Record<
+  string,
+  ExpandedMemberInfo & {
+    dateCreated?: Date;
+    e: number;
+  }
+> = {};
+const EXPANDED_MEMBER_CACHE_TTL = 1000 * 60 * 15; // 15 minutes
+
+// Garbage collection for cache (probably not needed)
+setInterval(() => {
+  const now = Date.now();
+  Object.keys(expandedMemberInfoCache).forEach((k) => {
+    if (expandedMemberInfoCache[k].e <= now) {
+      delete expandedMemberInfoCache[k];
+    }
   });
+}, EXPANDED_MEMBER_CACHE_TTL);
+
+// Add email/name to the organization members array
+export async function expandOrgMembers(
+  members: Member[],
+  currentUserId?: string
+): Promise<ExpandedMember[]> {
+  const expandedMembers: ExpandedMember[] = [];
+
+  // First look in cache
+  const now = Date.now();
+  const remainingMembers: Member[] = [];
+  members.forEach((m) => {
+    const cache = expandedMemberInfoCache[m.id];
+    if (cache && cache.e > now && m.id !== currentUserId) {
+      expandedMembers.push({
+        email: cache.email,
+        verified: cache.verified,
+        name: cache.name || "",
+        ...m,
+        dateCreated: m.dateCreated || cache.dateCreated,
+      });
+    } else {
+      remainingMembers.push(m);
+    }
+  });
+
+  if (remainingMembers.length > 0) {
+    const userInfo = await getUsersByIds(remainingMembers.map((m) => m.id));
+    userInfo.forEach(({ id, email, verified, name, dateCreated }) => {
+      const memberInfo = remainingMembers.find((m) => m.id === id);
+      if (!memberInfo) return;
+      expandedMembers.push({
+        email,
+        verified,
+        name: name || "",
+        ...memberInfo,
+        dateCreated: memberInfo.dateCreated || dateCreated,
+      });
+
+      expandedMemberInfoCache[id] = {
+        email,
+        verified,
+        name: name || "",
+        dateCreated: dateCreated,
+        e:
+          now +
+          EXPANDED_MEMBER_CACHE_TTL +
+          // Random jitter to avoid cache stampedes
+          Math.floor(Math.random() * EXPANDED_MEMBER_CACHE_TTL * 0.1),
+      };
+    });
+  }
+
   return expandedMembers;
 }
 

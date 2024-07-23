@@ -9,10 +9,10 @@ import {
 } from "react-icons/fa";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { filterEnvironmentsByFeature } from "shared/dist/util";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import { getRules, useEnvironments } from "@/services/features";
-import usePermissions from "@/hooks/usePermissions";
+import { getRules, isRuleDisabled, useEnvironments } from "@/services/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Button";
@@ -24,9 +24,7 @@ import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 import ExperimentSummary from "./ExperimentSummary";
 import RuleStatusPill from "./RuleStatusPill";
-import ExperimentRefSummary, {
-  isExperimentRefRuleSkipped,
-} from "./ExperimentRefSummary";
+import ExperimentRefSummary from "./ExperimentRefSummary";
 
 interface SortableProps {
   i: number;
@@ -35,11 +33,16 @@ interface SortableProps {
   environment: string;
   mutate: () => void;
   setRuleModal: (args: { environment: string; i: number }) => void;
+  setCopyRuleModal: (args: {
+    environment: string;
+    rules: FeatureRule[];
+  }) => void;
   unreachable?: boolean;
   version: number;
   setVersion: (version: number) => void;
   locked: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+  hideDisabled?: boolean;
 }
 
 type RuleProps = SortableProps &
@@ -56,6 +59,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       feature,
       environment,
       setRuleModal,
+      setCopyRuleModal,
       mutate,
       handle,
       unreachable,
@@ -63,11 +67,16 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       setVersion,
       locked,
       experimentsMap,
+      hideDisabled,
       ...props
     },
     ref
   ) => {
     const { apiCall } = useAuth();
+
+    const allEnvironments = useEnvironments();
+    const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+
     const title =
       rule.description ||
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
@@ -76,13 +85,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rule.type === "experiment-ref" && experimentsMap.get(rule.experimentId);
 
     const rules = getRules(feature, environment);
-    const environments = useEnvironments();
-    const permissions = usePermissions();
     const permissionsUtil = usePermissionsUtil();
 
     const canEdit =
       !locked &&
-      permissions.check("manageFeatures", feature.project) &&
+      permissionsUtil.canViewFeatureModal(feature.project) &&
       permissionsUtil.canManageFeatureDrafts(feature);
 
     const upcomingScheduleRule = getUpcomingScheduleRule(rule);
@@ -92,17 +99,16 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rule?.scheduleRules?.length &&
       rule.scheduleRules.at(-1)?.timestamp !== null;
 
-    const ruleDisabled =
-      scheduleCompletedAndDisabled ||
-      upcomingScheduleRule?.enabled ||
-      (linkedExperiment && isExperimentRefRuleSkipped(linkedExperiment)) ||
-      !rule.enabled;
+    const ruleDisabled = isRuleDisabled(rule, experimentsMap);
 
     const hasCondition =
       (rule.condition && rule.condition !== "{}") ||
       !!rule.savedGroups?.length ||
       !!rule.prerequisites?.length;
 
+    if (hideDisabled && ruleDisabled) {
+      return null;
+    }
     return (
       <div
         className={`p-3 ${
@@ -134,8 +140,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 Experiment:{" "}
                 <strong className="mr-3">{linkedExperiment.name}</strong>{" "}
                 <Link href={`/experiment/${linkedExperiment.id}`}>
-                  View Experiment
-                  <FaExternalLinkAlt />
+                  View Experiment{" "}
+                  <FaExternalLinkAlt
+                    className="small ml-1 position-relative"
+                    style={{ top: "-1px" }}
+                  />
                 </Link>
               </div>
             ) : (
@@ -213,36 +222,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 >
                   {rule.enabled ? "Disable" : "Enable"}
                 </Button>
-                {environments
-                  .filter((e) => e.id !== environment)
-                  .map((en) => (
-                    <Button
-                      key={en.id}
-                      color=""
-                      className="dropdown-item"
-                      onClick={async () => {
-                        const res = await apiCall<{ version: number }>(
-                          `/feature/${feature.id}/${version}/rule`,
-                          {
-                            method: "POST",
-                            body: JSON.stringify({
-                              environment: en.id,
-                              rule: { ...rule, id: "" },
-                            }),
-                          }
-                        );
-                        track("Clone Feature Rule", {
-                          ruleIndex: i,
-                          environment,
-                          type: rule.type,
-                        });
-                        await mutate();
-                        res.version && setVersion(res.version);
-                      }}
-                    >
-                      Copy to {en.id}
-                    </Button>
-                  ))}
+                {environments.length > 1 && (
+                  <Button
+                    color=""
+                    className="dropdown-item"
+                    onClick={() => {
+                      setCopyRuleModal({ environment, rules: [rule] });
+                    }}
+                  >
+                    Copy rule to environment(s)
+                  </Button>
+                )}
                 <DeleteButton
                   className="dropdown-item"
                   displayName="Rule"

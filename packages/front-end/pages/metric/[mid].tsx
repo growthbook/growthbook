@@ -68,6 +68,8 @@ import PageHead from "@/components/Layout/PageHead";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { MetricPriorRightRailSectionGroup } from "@/components/Metrics/MetricPriorRightRailSectionGroup";
+import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -84,6 +86,8 @@ const MetricPage: FC = () => {
     segments,
   } = useDefinitions();
   const settings = useOrgSettings();
+  const { organization } = useUser();
+
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
   const [editing, setEditing] = useState(false);
   const [editTags, setEditTags] = useState(false);
@@ -106,14 +110,13 @@ const MetricPage: FC = () => {
     setHoverDate(ret.d);
   };
 
-  const { organization } = useUser();
-
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
     experiments: Partial<ExperimentInterfaceStringDates>[];
   }>(`/metric/${mid}`);
 
   const {
+    metricDefaults,
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
@@ -180,6 +183,13 @@ const MetricPage: FC = () => {
       <>Not available for metrics with custom aggregations.</>
     );
   }
+
+  const variables = {
+    metricName: metric.name,
+    tags: metric.tags || [],
+    metricType: metric.type,
+    metricDatasource: datasource?.name || "",
+  };
 
   const getMetricUsage = (metric: MetricInterface) => {
     return async (): Promise<ReactElement | null> => {
@@ -318,9 +328,23 @@ const MetricPage: FC = () => {
       )}
       {editProjects && (
         <EditProjectsForm
+          label={
+            <>
+              Projects{" "}
+              <Tooltip
+                body={
+                  "The dropdown below has been filtered to only include projects where you have permission to update Metrics"
+                }
+              />
+            </>
+          }
           cancel={() => setEditProjects(false)}
+          entityName="Metric"
           mutate={mutate}
-          projects={metric.projects || []}
+          value={metric.projects || []}
+          permissionRequired={(project) =>
+            permissionsUtil.canUpdateMetric({ projects: [project] }, {})
+          }
           save={async (projects) => {
             await apiCall(`/metric/${metric.id}`, {
               method: "PUT",
@@ -340,8 +364,8 @@ const MetricPage: FC = () => {
               method: "PUT",
               body: JSON.stringify({ owner }),
             });
-            mutate();
           }}
+          mutate={mutate}
         />
       )}
       {segmentOpen && (
@@ -475,6 +499,10 @@ const MetricPage: FC = () => {
             </a>
           )}
         </div>
+      </div>
+
+      <div className="mt-3">
+        <CustomMarkdown page={"metric"} variables={variables} />
       </div>
 
       <div className="row">
@@ -1293,15 +1321,17 @@ const MetricPage: FC = () => {
                 </ul>
               </RightRailSectionGroup>
 
+              <MetricPriorRightRailSectionGroup
+                metric={metric}
+                metricDefaults={metricDefaults}
+              />
+
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-2">
                   <li className="mt-3 mb-2">
                     <span className="uppercase-title lg">
                       <GBCuped size={14} /> Regression Adjustment (CUPED)
                     </span>
-                    <small className="d-block mb-1 text-muted">
-                      Only applicable to frequentist analyses
-                    </small>
                   </li>
                   {!regressionAdjustmentAvailableForMetric ? (
                     <li className="mb-2">

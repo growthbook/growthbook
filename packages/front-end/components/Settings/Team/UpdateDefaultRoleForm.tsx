@@ -1,26 +1,53 @@
-import { MemberRole } from "back-end/types/organization";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import Button from "@/components/Button";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, { GroupedValue } from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 
 export default function UpdateDefaultRoleForm() {
   const { refreshOrganization, organization, roles } = useUser();
   const [defaultRoleError, setDefaultRoleError] = useState<string | null>(null);
+  const deactivatedRoles = organization.deactivatedRoles || [];
 
   const { apiCall } = useAuth();
+  let roleOptions = [...roles];
+
+  // if the org has custom-roles feature and has deactivated roles, remove those from the roleOptions
+  if (deactivatedRoles.length) {
+    roleOptions = roleOptions.filter((r) => !deactivatedRoles.includes(r.id));
+  }
+
+  const standardOptions: { label: string; value: string }[] = [];
+  const customOptions: { label: string; value: string }[] = [];
+
+  roleOptions.forEach((r) => {
+    if (RESERVED_ROLE_IDS.includes(r.id)) {
+      standardOptions.push({ label: r.id, value: r.id });
+    } else {
+      customOptions.push({ label: r.id, value: r.id });
+    }
+  });
+
+  const groupedOptions: GroupedValue[] = [];
+
+  if (standardOptions.length) {
+    groupedOptions.push({ label: "Standard", options: standardOptions });
+  }
+
+  if (customOptions.length) {
+    groupedOptions.push({ label: "Custom", options: customOptions });
+  }
 
   const form = useForm({
     defaultValues: {
-      defaultRole: organization.settings?.defaultRole?.role || "collaborator",
+      defaultRole: getDefaultRole(organization).role,
     },
   });
 
   const disableSaveButton =
-    form.watch("defaultRole") ===
-    (organization.settings?.defaultRole?.role || "collaborator");
+    form.watch("defaultRole") === getDefaultRole(organization).role;
 
   const saveSettings = form.handleSubmit(async (data) => {
     setDefaultRoleError(null);
@@ -37,6 +64,18 @@ export default function UpdateDefaultRoleForm() {
       setDefaultRoleError(e.message);
     }
   });
+
+  const formatGroupLabel = (data) => {
+    // if we don't have both Standard & Custom options, don't return anything
+    if (groupedOptions.length < 2) {
+      return;
+    }
+
+    return (
+      <div className={data.label === "Custom" ? "border-top my-1" : ""}></div>
+    );
+  };
+
   return (
     <div className="bg-white p-3 border mt-5 mb-5">
       <div className="row">
@@ -48,23 +87,19 @@ export default function UpdateDefaultRoleForm() {
             label={"Default User Role"}
             helpText="This is the default role that will be assigned to new users if you have auto-join or SCIM enabled. This will not affect any existing users."
             value={form.watch("defaultRole")}
-            onChange={async (role: MemberRole) => {
+            onChange={async (role: string) => {
               form.setValue("defaultRole", role);
             }}
-            options={roles.map((r) => ({
-              label: r.id,
-              value: r.id,
-            }))}
+            options={groupedOptions}
             sort={false}
+            formatGroupLabel={formatGroupLabel}
             formatOptionLabel={(value) => {
-              const r = roles.find((r) => r.id === value.value);
-              if (!r) return value.label;
+              const r = roles.find((r) => r.id === value.label);
+              if (!r) return <strong>{value.label}</strong>;
               return (
-                <div className="d-flex align-items-center">
-                  <strong style={{ width: 110 }}>{r.id}</strong>
-                  <small className="ml-2">
-                    <em>{r.description}</em>
-                  </small>
+                <div>
+                  <strong className="pr-2">{r.id}.</strong>
+                  {r.description}
                 </div>
               );
             }}

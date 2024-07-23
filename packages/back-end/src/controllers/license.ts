@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { Response } from "express";
 import {
   AccountPlan,
+  licenseInit,
   LicenseServerError,
   postCreateTrialEnterpriseLicenseToLicenseServer,
   postResendEmailVerificationEmailToLicenseServer,
@@ -10,7 +11,7 @@ import {
 import md5 from "md5";
 import {
   getLicenseMetaData,
-  initializeLicenseForOrg,
+  getUserCodesForOrg,
 } from "../services/licenseData";
 import { getUserLicenseCodes } from "../services/users";
 import { AuthRequest } from "../types/AuthRequest";
@@ -28,13 +29,23 @@ import { updateSubscriptionInDb } from "../services/stripe";
  * want to restart their servers.
  */
 export async function getLicenseData(req: AuthRequest, res: Response) {
-  req.checkPermissions("manageBilling");
+  if (!req.superAdmin) {
+    const context = getContextFromReq(req);
+    if (!context.permissions.canManageBilling()) {
+      context.permissions.throwPermissionError();
+    }
+  }
 
   let licenseData;
 
   if (req.organization?.licenseKey || process.env.LICENSE_KEY) {
     // Force refresh the license data
-    licenseData = await initializeLicenseForOrg(req.organization, true);
+    licenseData = await licenseInit(
+      req.organization,
+      getUserCodesForOrg,
+      getLicenseMetaData,
+      true
+    );
   } else if (req.organization?.subscription) {
     // TODO: Get rid of updateSubscriptionInDb one we have moved the license off the organizations
     // This is to update the subscription data in the organization from stripe if they have it
@@ -53,7 +64,11 @@ export async function getLicenseData(req: AuthRequest, res: Response) {
  * data and send it to us.
  */
 export async function getLicenseReport(req: AuthRequest, res: Response) {
-  req.checkPermissions("manageBilling");
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
 
   const timestamp = new Date().toISOString();
   const licenseMetaData = await getLicenseMetaData();
@@ -98,24 +113,38 @@ export async function postCreateTrialEnterpriseLicense(
   req: CreateTrialEnterpriseLicenseRequest,
   res: Response<{ status: 200 } | PrivateApiErrorResponse>
 ) {
-  req.checkPermissions("manageBilling");
+  const context = getContextFromReq(req);
+  const { org } = context;
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
 
-  const { email, name, organizationId, companyName, context } = req.body;
+  const {
+    email,
+    name,
+    organizationId,
+    companyName,
+    context: reqContext,
+  } = req.body;
   try {
     const results = await postCreateTrialEnterpriseLicenseToLicenseServer(
       email,
       name,
       organizationId,
       companyName,
-      context
+      reqContext
     );
 
     if (!org.licenseKey) {
       await updateOrganization(org.id, { licenseKey: results.licenseId });
     } else {
-      await initializeLicenseForOrg(req.organization, true);
+      await licenseInit(
+        req.organization,
+        getUserCodesForOrg,
+        getLicenseMetaData,
+        true
+      );
     }
     return res.status(200).json({ status: 200 });
   } catch (e) {
@@ -133,12 +162,14 @@ export async function postResendEmailVerificationEmail(
   req: AuthRequest,
   res: Response
 ) {
-  req.checkPermissions("manageBilling");
+  const context = getContextFromReq(req);
 
-  const { org } = getContextFromReq(req);
+  if (!context.permissions.canManageBilling()) {
+    context.permissions.throwPermissionError();
+  }
 
   try {
-    await postResendEmailVerificationEmailToLicenseServer(org.id);
+    await postResendEmailVerificationEmailToLicenseServer(context.org.id);
 
     return res.status(200).json({ status: 200 });
   } catch (e) {
@@ -156,7 +187,12 @@ export async function postVerifyEmail(
     await postVerifyEmailToLicenseServer(emailVerificationToken);
 
     // update license info from the license server as if the email was verified then the license data will be changed
-    await initializeLicenseForOrg(req.organization, true);
+    await licenseInit(
+      req.organization,
+      getUserCodesForOrg,
+      getLicenseMetaData,
+      true
+    );
 
     return res.status(200).json({ status: 200 });
   } catch (e) {

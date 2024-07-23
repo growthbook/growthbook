@@ -5,7 +5,6 @@
 @import "bootstrap-variable-overrides";
 
 @import "bootstrap/scss/bootstrap.scss";
-@import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap");
 
 // Bootstrap theme overrides must be loaded AFTER Bootstrap
 @import "_bootstrap-theme-overrides";
@@ -18,8 +17,6 @@ main {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
-    sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   -webkit-font-smoothing: antialiased;
   background-color: var(--background-color);
   color: var(--text-color-main);
@@ -33,6 +30,16 @@ body {
   color: var(--text-color-muted) !important;
 }
 
+.dropdown-text-color {
+  &:focus {
+    svg {
+      color: white;
+    }
+  }
+  svg {
+    color: var(--text-color-muted);
+  }
+}
 .text-ellipsis {
   overflow: hidden;
   white-space: nowrap;
@@ -488,6 +495,13 @@ pre {
         border-color: #ef2bd588 !important;
       }
     }
+    .results-prior {
+      border-radius: 5px;
+      font-size: 14px;
+      border: 1px solid #7a7a7a66;
+      box-sizing: border-box;
+      align-items: center;
+    }
   }
   .results-table {
     width: 100%;
@@ -597,6 +611,7 @@ pre {
   tbody {
     tr:not(.noborder) {
       box-shadow: rgba(102, 102, 102, 0.125) 0 -1px inset;
+
       &:not(.results-label-row) {
         td:not(.graph-cell):not(:last-child) {
           box-shadow: rgba(102, 102, 102, 0.125) -1px 0 inset;
@@ -607,12 +622,15 @@ pre {
 
   table-layout: fixed;
   width: 100%;
+
   th,
   td {
     padding: 0 10px;
   }
+
   th {
     vertical-align: bottom;
+
     &.axis-col {
       &:not(.noStickyHeader) {
         position: sticky;
@@ -628,10 +646,12 @@ pre {
       &.graph-cell {
         z-index: 801;
       }
+
       &.header-label {
         padding-bottom: 5px;
         font-size: 16px;
       }
+
       &.label {
         color: var(--text-link-hover-color);
         font-size: 13px;
@@ -639,6 +659,9 @@ pre {
       }
     }
   }
+}
+.experiment-results,
+.impact-results {
   .value,
   .chance,
   .change {
@@ -684,14 +707,6 @@ pre {
     .ci {
       font-weight: normal;
     }
-  }
-  .draw,
-  .non-significant {
-    //font-weight: normal;
-    //color: #707070;
-    //&.hover {
-    //  color: #888888;
-    //}
   }
   .won {
     color: #09ac17;
@@ -771,6 +786,10 @@ main.main.report {
   background-color: var(--form-multivalue-background-color);
   color: var(--form-multivalue-text-color);
 }
+.badge-yellow {
+  background-color: var(--alert-warn-background);
+  color: var(--alert-warn-color);
+}
 .badge-muted-info {
   @include badge-variant(#66aaaa);
   color: var(--text-color-on-bright);
@@ -797,6 +816,9 @@ main.main.report {
     font-weight: 600;
   }
 }
+.bg-highlight {
+  background-color: var(--background-highlight);
+}
 .hover-highlight {
   transition: background-color 0.1s;
   &:hover {
@@ -805,6 +827,10 @@ main.main.report {
 }
 .highlight {
   background-color: var(--table-row-highlight-background-color);
+}
+
+.webhook-filters .select-all .gb-multi-select__control {
+  background-color: var(--table-row-highlight-background-color) !important;
 }
 
 .experiment-switch-page {
@@ -851,6 +877,12 @@ main.main.report {
 .hover-underline {
   &:hover {
     text-decoration: underline;
+  }
+}
+
+.no-underline {
+  &:hover {
+    text-decoration: none !important;
   }
 }
 
@@ -1335,7 +1367,6 @@ main.main.report {
   position: relative;
   min-height: 100vh;
   font-size: 1rem;
-  font-family: Poppins, "Helvetica Neue", Arial, sans-serif;
 
   .welcomemodal {
     @media (max-width: 575px) {
@@ -1790,6 +1821,14 @@ main.main.report {
     font-size: 10px;
     padding: 0.15rem 0.35rem;
   }
+}
+
+.badge-success-light {
+  background-color: var(--win-background);
+}
+
+.badge-danger-light {
+  background-color: var(--lose-background);
 }
 
 .tooltip-experimentDateGraph {
@@ -3041,6 +3080,9 @@ td.disabled {
 .cursor-disabled {
   cursor: not-allowed;
 }
+.cursor-default {
+  cursor: default;
+}
 .gb-select-wrapper.disabled {
   cursor: not-allowed;
 }
@@ -3136,15 +3178,15 @@ input:disabled {
     position: relative;
     box-sizing: border-box;
     flex: 1;
-    padding: 22px 20px 14px;
+    padding: 24px 20px 18px;
     max-width: 300px;
 
     &.selected {
-      border-color: #28a745 !important;
+      color: var(--text-color-main);
+      border-color: var(--border-color-100) !important;
     }
     &.active {
-      background: transparent;
-      box-shadow: 0 0 0 3px var(--text-color-primary);
+      box-shadow: 0 0 0 1px var(--text-color-primary);
     }
 
     .subtitle {
@@ -3158,7 +3200,7 @@ input:disabled {
 }
 .gb-webhook-table-container {
   max-height: 300px;
-  overflow-y: scroll;
+  overflow-y: auto;
 }
 .table-tags {
   min-width: 250px;
@@ -3231,4 +3273,17 @@ input:disabled {
   // background-color: var(--alert-danger-background);
   // border-color: var(--alert-danger-border-color);
   color: var(--alert-warning-text-color);
+}
+.gb-header-breadcrumb {
+  .gb-header-breadcrumb-link {
+    color: var(--text-color-primary);
+  }
+}
+.enterprise-text-color {
+  color: var(--text-color-enterprise);
+}
+
+.table-column-fit-width {
+  width: 1px;
+  white-space: nowrap;
 }

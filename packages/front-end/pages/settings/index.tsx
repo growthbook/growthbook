@@ -8,8 +8,10 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
+  DEFAULT_TEST_QUERY_DAYS,
 } from "shared/constants";
 import { OrganizationSettings } from "@back-end/types/organization";
+import Link from "next/link";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
@@ -19,15 +21,15 @@ import {
   useOrganizationMetricDefaults,
 } from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
-import SelectField from "@/components/Forms/SelectField";
 import { useCurrency } from "@/hooks/useCurrency";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import OrganizationAndLicenseSettings from "@/components/GeneralSettings/OrganizationAndLicenseSettings";
 import ImportSettings from "@/components/GeneralSettings/ImportSettings";
 import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetricSettings";
 import ExperimentSettings from "@/components/GeneralSettings/ExperimentSettings";
 import MetricsSettings from "@/components/GeneralSettings/MetricsSettings";
 import FeaturesSettings from "@/components/GeneralSettings/FeaturesSettings";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 
 export const DEFAULT_SRM_THRESHOLD = 0.001;
 
@@ -60,12 +62,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
     setCodeRefsBranchesToFilterStr,
   ] = useState<string>("");
   const displayCurrency = useCurrency();
-  const { datasources } = useDefinitions();
 
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
 
   const { metricDefaults } = useOrganizationMetricDefaults();
-
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
       visualEditorEnabled: false,
@@ -86,6 +86,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         //startDate?: Date;
       },
       metricDefaults: {
+        priorSettings: metricDefaults.priorSettings,
         minimumSampleSize: metricDefaults.minimumSampleSize,
         maxPercentageChange: metricDefaults.maxPercentageChange * 100,
         minPercentageChange: metricDefaults.minPercentageChange * 100,
@@ -120,20 +121,28 @@ const GeneralSettingsPage = (): React.ReactElement => {
         },
       ],
       defaultDataSource: settings.defaultDataSource || "",
+      testQueryDays: DEFAULT_TEST_QUERY_DAYS,
       useStickyBucketing: false,
       useFallbackAttributes: false,
       codeReferencesEnabled: false,
       codeRefsBranchesToFilter: [],
       codeRefsPlatformUrl: "",
+      featureKeyExample: "",
+      featureRegexValidator: "",
+      featureListMarkdown: settings.featureListMarkdown || "",
+      featurePageMarkdown: settings.featurePageMarkdown || "",
+      experimentListMarkdown: settings.experimentListMarkdown || "",
+      metricListMarkdown: settings.metricListMarkdown || "",
+      metricPageMarkdown: settings.metricPageMarkdown || "",
     },
   });
   const { apiCall } = useAuth();
-
-  const value = {
+  const value: OrganizationSettingsWithMetricDefaults = {
     visualEditorEnabled: form.watch("visualEditorEnabled"),
     pastExperimentsMinLength: form.watch("pastExperimentsMinLength"),
     metricAnalysisDays: form.watch("metricAnalysisDays"),
     metricDefaults: {
+      priorSettings: form.watch("metricDefaults.priorSettings"),
       minimumSampleSize: form.watch("metricDefaults.minimumSampleSize"),
       maxPercentageChange: form.watch("metricDefaults.maxPercentageChange"),
       minPercentageChange: form.watch("metricDefaults.minPercentageChange"),
@@ -188,20 +197,31 @@ const GeneralSettingsPage = (): React.ReactElement => {
     if (settings) {
       const newVal = { ...form.getValues() };
       Object.keys(newVal).forEach((k) => {
-        const hasExistingMetrics = typeof settings?.[k] !== "undefined";
-        newVal[k] = settings?.[k] || newVal[k];
-
-        // Existing values are stored as a multiplier, e.g. 50% on the UI is stored as 0.5
-        // Transform these values from the UI format
-        if (k === "metricDefaults" && hasExistingMetrics) {
-          newVal.metricDefaults = {
-            ...newVal.metricDefaults,
-            maxPercentageChange:
-              newVal.metricDefaults.maxPercentageChange * 100,
-            minPercentageChange:
-              newVal.metricDefaults.minPercentageChange * 100,
+        if (k === "metricDefaults") {
+          // Metric defaults are nested, so take existing metric defaults only if
+          // they exist and are not empty
+          const existingMaxChange = settings?.[k]?.maxPercentageChange;
+          const existingMinChange = settings?.[k]?.minPercentageChange;
+          newVal[k] = {
+            ...newVal[k],
+            ...settings?.[k],
+            // Existing values are stored as a multiplier, e.g. 50% on the UI is stored as 0.5
+            // Transform these values from the UI format
+            ...(existingMaxChange !== undefined
+              ? {
+                  maxPercentageChange: existingMaxChange * 100,
+                }
+              : {}),
+            ...(existingMinChange !== undefined
+              ? {
+                  minPercentageChange: existingMinChange * 100,
+                }
+              : {}),
           };
+        } else {
+          newVal[k] = settings?.[k] || newVal[k];
         }
+
         if (k === "confidenceLevel" && (newVal?.confidenceLevel ?? 0.95) <= 1) {
           newVal.confidenceLevel = (newVal.confidenceLevel ?? 0.95) * 100;
         }
@@ -255,6 +275,39 @@ const GeneralSettingsPage = (): React.ReactElement => {
         (value.multipleExposureMinPercent ?? 0.01) / 100,
     };
 
+    // Make sure the feature key example is valid
+    if (
+      transformedOrgSettings.featureKeyExample &&
+      !transformedOrgSettings.featureKeyExample.match(/^[a-zA-Z0-9_.:|-]+$/)
+    ) {
+      throw new Error(
+        "Feature key examples can only include letters, numbers, hyphens, and underscores."
+      );
+    }
+
+    // If the regex validator exists, then the feature key example must match the regex and be valid.
+    if (transformedOrgSettings.featureRegexValidator) {
+      if (
+        !transformedOrgSettings.featureKeyExample ||
+        !transformedOrgSettings.featureRegexValidator
+      ) {
+        throw new Error(
+          "Feature key example must not be empty when a regex validator is defined."
+        );
+      }
+
+      const regexValidator = transformedOrgSettings.featureRegexValidator;
+      if (
+        !new RegExp(regexValidator).test(
+          transformedOrgSettings.featureKeyExample
+        )
+      ) {
+        throw new Error(
+          `Feature key example does not match the regex validator. '${transformedOrgSettings.featureRegexValidator}' Example: '${transformedOrgSettings.featureKeyExample}'`
+        );
+      }
+    }
+
     await apiCall(`/organization`, {
       method: "PUT",
       body: JSON.stringify({
@@ -291,7 +344,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <ExperimentSettings
               cronString={cronString}
               updateCronString={updateCronString}
-              hasCommercialFeature={hasCommercialFeature}
             />
 
             <div className="divider border-bottom mb-3 mt-3" />
@@ -304,27 +356,25 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
             <div className="divider border-bottom mb-3 mt-3" />
 
+            <DatasourceSettings />
+          </div>
+          <div className="my-3 bg-white p-3 border">
             <div className="row">
-              <div className="col-sm-3">
-                <h4>Data Source Settings</h4>
+              <div className="col-sm-3 h4">
+                <PremiumTooltip commercialFeature="custom-markdown">
+                  Custom Markdown
+                </PremiumTooltip>
               </div>
               <div className="col-sm-9">
-                <>
-                  <SelectField
-                    label="Default Data Source (Optional)"
-                    value={form.watch("defaultDataSource") || ""}
-                    options={datasources.map((d) => ({
-                      label: d.name,
-                      value: d.id,
-                    }))}
-                    onChange={(v: string) =>
-                      form.setValue("defaultDataSource", v)
-                    }
-                    isClearable={true}
-                    placeholder="Select a data source..."
-                    helpText="The default data source is the default data source selected when creating metrics and experiments."
-                  />
-                </>
+                {hasCommercialFeature("custom-markdown") ? (
+                  <Link href="/settings/custom-markdown">
+                    View Custom Markdown Settings
+                  </Link>
+                ) : (
+                  <span className="text-muted">
+                    View Custom Markdown Settings
+                  </span>
+                )}
               </div>
             </div>
           </div>

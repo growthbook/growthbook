@@ -1,10 +1,6 @@
 import { useFeature } from "@growthbook/growthbook-react";
-import { SubscriptionQuote } from "back-end/types/organization";
-import { useEffect, useState } from "react";
 import { getValidDate } from "shared/dates";
-import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import usePermissions from "./usePermissions";
 
 export default function useStripeSubscription() {
   const selfServePricingEnabled = useFeature("self-serve-billing").on;
@@ -12,28 +8,13 @@ export default function useStripeSubscription() {
     "self-serve-billing-overage-warning-banner"
   ).on;
 
-  const { organization, license } = useUser();
+  const { organization, license, quote } = useUser();
 
   //TODO: Remove this once we have moved the license off the organization
   const stripeSubscription =
     license?.stripeSubscription || organization?.subscription;
 
   const freeSeats = organization?.freeSeats || 3;
-
-  const [quote, setQuote] = useState<SubscriptionQuote | null>(null);
-
-  const { apiCall } = useAuth();
-  const permissions = usePermissions();
-
-  useEffect(() => {
-    if (!permissions.manageBilling) return;
-
-    apiCall<{ quote: SubscriptionQuote }>(`/subscription/quote`)
-      .then((data) => {
-        setQuote(data.quote);
-      })
-      .catch((e) => console.error(e));
-  }, [freeSeats, permissions.manageBilling]);
 
   const activeAndInvitedUsers = quote?.activeAndInvitedUsers || 0;
 

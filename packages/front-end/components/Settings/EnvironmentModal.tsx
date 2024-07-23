@@ -77,10 +77,17 @@ export default function EnvironmentModal({
         if (existing.id) {
           const env = newEnvs.filter((e) => e.id === existing.id)[0];
           if (!env) throw new Error("Could not edit environment");
-          env.description = value.description;
-          env.toggleOnList = value.toggleOnList;
-          env.defaultState = value.defaultState;
-          env.projects = value.projects;
+          await apiCall(`/environment/${existing.id}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              environment: {
+                description: value.description,
+                toggleOnList: value.toggleOnList,
+                defaultState: value.defaultState,
+                projects: value.projects,
+              },
+            }),
+          });
         } else {
           if (!value.id?.match(/^[A-Za-z][A-Za-z0-9_-]*$/)) {
             throw new Error(
@@ -90,36 +97,24 @@ export default function EnvironmentModal({
           if (newEnvs.find((e) => e.id === value.id)) {
             throw new Error("Environment id is already in use");
           }
-          newEnvs.push({
+          const newEnv: Environment = {
             id: value.id?.toLowerCase() || "",
-            description: value.description,
+            description: value.description || "",
             toggleOnList: value.toggleOnList,
             defaultState: value.defaultState,
             projects: value.projects,
+          };
+          await apiCall(`/environment`, {
+            method: "POST",
+            body: JSON.stringify({
+              environment: newEnv,
+            }),
           });
         }
-
-        // Add/edit environment
-        await apiCall(`/organization`, {
-          method: "PUT",
-          body: JSON.stringify({
-            settings: {
-              environments: newEnvs,
-            },
-          }),
-        });
 
         // Update environments list in UI
         await refreshOrganization();
 
-        // Create API key for environment if it doesn't exist yet
-        await apiCall(`/keys?preferExisting=true`, {
-          method: "POST",
-          body: JSON.stringify({
-            description: `${value.id} SDK Key`,
-            environment: value.id,
-          }),
-        });
         onSuccess();
       })}
     >

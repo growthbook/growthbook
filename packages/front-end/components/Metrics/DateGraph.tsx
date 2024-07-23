@@ -192,6 +192,11 @@ const DateGraph: FC<DateGraphProps> = ({
   const formatter = getMetricFormatter(type);
   const formatterOptions = { currency: displayCurrency };
 
+  const [
+    highlightExp,
+    setHighlightExp,
+  ] = useState<null | ExperimentDisplayData>(null);
+
   const data = useMemo(
     () =>
       dates.map((row, i) => {
@@ -379,11 +384,6 @@ const DateGraph: FC<DateGraphProps> = ({
   const [toolTipTimer, setToolTipTimer] = useState<
     undefined | ReturnType<typeof setTimeout>
   >();
-
-  const [
-    highlightExp,
-    setHighlightExp,
-  ] = useState<null | ExperimentDisplayData>(null);
 
   useEffect(() => {
     if (!hoverDate) {

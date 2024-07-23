@@ -60,15 +60,16 @@ async function testFilterQuery(
     throw new Error("Testing not supported on this data source");
   }
 
-  const sql = integration.getTestQuery(
+  const sql = integration.getTestQuery({
     // Must have a newline after factTable sql in case it ends with a comment
-    `SELECT * FROM (
+    query: `SELECT * FROM (
       ${factTable.sql}
     ) f WHERE ${filter}`,
-    {
+    templateVariables: {
       eventName: factTable.eventName,
-    }
-  );
+    },
+    testDays: context.org.settings?.testQueryDays,
+  });
 
   try {
     const results = await integration.runTestQuery(sql);
@@ -223,7 +224,7 @@ export const postFactFilterTest = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  if (!context.permissions.canUpdateFactTable(factTable, {})) {
+  if (!context.permissions.canCreateAndUpdateFactFilter(factTable)) {
     context.permissions.throwPermissionError();
   }
 
@@ -257,7 +258,7 @@ export const postFactFilter = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  if (!context.permissions.canUpdateFactTable(factTable, {})) {
+  if (!context.permissions.canCreateAndUpdateFactFilter(factTable)) {
     context.permissions.throwPermissionError();
   }
 
@@ -286,7 +287,7 @@ export const putFactFilter = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  if (!context.permissions.canUpdateFactTable(factTable, {})) {
+  if (!context.permissions.canCreateAndUpdateFactFilter(factTable)) {
     context.permissions.throwPermissionError();
   }
 
@@ -307,7 +308,7 @@ export const deleteFactFilter = async (
   if (!factTable) {
     throw new Error("Could not find filter table with that id");
   }
-  if (!context.permissions.canUpdateFactTable(factTable, {})) {
+  if (!context.permissions.canDeleteFactFilter(factTable)) {
     context.permissions.throwPermissionError();
   }
 
@@ -336,8 +337,8 @@ export const postFactMetric = async (
   req: AuthRequest<unknown>,
   res: Response<{ status: 200; factMetric: FactMetricInterface }>
 ) => {
-  const data = req.body;
   const context = getContextFromReq(req);
+  const data = context.models.factMetrics.createValidator.parse(req.body);
 
   const factMetric = await context.models.factMetrics.create(data);
 
@@ -351,8 +352,8 @@ export const putFactMetric = async (
   req: AuthRequest<unknown, { id: string }>,
   res: Response<{ status: 200 }>
 ) => {
-  const data = req.body;
   const context = getContextFromReq(req);
+  const data = context.models.factMetrics.updateValidator.parse(req.body);
 
   await context.models.factMetrics.updateById(req.params.id, data);
 

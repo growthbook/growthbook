@@ -18,7 +18,7 @@ import { FeatureInterface } from "../../../types/feature";
 import { getEnabledEnvironments } from "../../util/features";
 import { addTagsDiff } from "../../models/TagModel";
 import { auditDetailsUpdate } from "../../services/audit";
-import { createRevision } from "../../models/FeatureRevisionModel";
+import { createRevision, getRevision } from "../../models/FeatureRevisionModel";
 import { FeatureRevisionInterface } from "../../../types/feature-revision";
 import { getEnvironmentIdsFromOrg } from "../../services/organizations";
 import { parseJsonSchemaForEnterprise, validateEnvKeys } from "./postFeature";
@@ -34,23 +34,23 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const orgEnvs = getEnvironmentIdsFromOrg(req.organization);
 
-    // check permissions for previous project and new one
-    req.checkPermissions("manageFeatures", [
-      feature.project ?? "",
-      project ?? "",
-    ]);
+    if (!req.context.permissions.canUpdateFeature(feature, req.body)) {
+      req.context.permissions.throwPermissionError();
+    }
 
     if (project != null) {
-      req.checkPermissions(
-        "publishFeatures",
-        feature.project,
-        getEnabledEnvironments(feature, orgEnvs)
-      );
-      req.checkPermissions(
-        "publishFeatures",
-        project,
-        getEnabledEnvironments(feature, orgEnvs)
-      );
+      if (
+        !req.context.permissions.canPublishFeature(
+          feature,
+          Array.from(getEnabledEnvironments(feature, orgEnvs))
+        ) ||
+        !req.context.permissions.canPublishFeature(
+          { project },
+          Array.from(getEnabledEnvironments(feature, orgEnvs))
+        )
+      ) {
+        req.context.permissions.throwPermissionError();
+      }
     }
 
     // ensure environment keys are valid
@@ -94,17 +94,22 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       updates.project != null ||
       updates.archived != null
     ) {
-      req.checkPermissions(
-        "publishFeatures",
-        updates.project,
-        getEnabledEnvironments(
-          {
-            ...feature,
-            ...updates,
-          },
-          orgEnvs
+      if (
+        !req.context.permissions.canPublishFeature(
+          updates,
+          Array.from(
+            getEnabledEnvironments(
+              {
+                ...feature,
+                ...updates,
+              },
+              orgEnvs
+            )
+          )
         )
-      );
+      ) {
+        req.context.permissions.throwPermissionError();
+      }
       addIdsToRules(updates.environmentSettings, feature.id);
     }
 
@@ -198,13 +203,18 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       req.context,
       feature.id
     );
-
+    const revision = await getRevision(
+      updatedFeature.organization,
+      updatedFeature.id,
+      updatedFeature.version
+    );
     return {
       feature: getApiFeatureObj({
         feature: updatedFeature,
         organization: req.organization,
         groupMap,
         experimentMap,
+        revision,
       }),
     };
   }

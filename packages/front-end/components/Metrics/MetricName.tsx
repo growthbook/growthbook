@@ -94,10 +94,12 @@ export default function MetricName({
   id,
   disableTooltip,
   showOfficialLabel,
+  showDescription,
 }: {
   id: string;
   disableTooltip?: boolean;
   showOfficialLabel?: boolean;
+  showDescription?: boolean;
 }) {
   const { getExperimentMetricById } = useDefinitions();
   const metric = getExperimentMetricById(id);
@@ -107,6 +109,17 @@ export default function MetricName({
   return (
     <>
       {metric.name}
+      {showDescription && metric.description ? (
+        <span className="text-muted">
+          {" "}
+          -{" "}
+          {metric?.description.length > 50
+            ? metric?.description.substring(0, 50) + "..."
+            : metric?.description}
+        </span>
+      ) : (
+        ""
+      )}
       <OfficialBadge
         type="metric"
         managedBy={metric.managedBy}

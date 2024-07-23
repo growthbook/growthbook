@@ -2,7 +2,6 @@ import { readFileSync, existsSync, statSync } from "fs";
 import path from "path";
 import { env } from "string-env-interpolation";
 import yaml from "js-yaml";
-import { hasReadAccess } from "shared/permissions";
 import {
   EMAIL_ENABLED,
   ENVIRONMENT,
@@ -12,7 +11,6 @@ import {
   EMAIL_HOST_PASSWORD,
   EMAIL_HOST_USER,
   EMAIL_PORT,
-  STORE_SEGMENTS_IN_MONGO,
 } from "../util/secrets";
 import {
   DataSourceInterface,
@@ -145,13 +143,6 @@ export function usingFileConfig(): boolean {
   return !!config;
 }
 
-export function usingFileConfigForSegments(): boolean {
-  reloadConfigIfNeeded();
-  // This should only return true if the org has a config file &&
-  // env variable STORE_SEGMENTS_IN_MONGO is false
-  return !!config && !STORE_SEGMENTS_IN_MONGO;
-}
-
 export function getConfigDatasources(
   organization: string
 ): DataSourceInterface[] {
@@ -200,7 +191,7 @@ export function getConfigMetrics(
         managedBy: "config",
       });
     })
-    .filter((m) => hasReadAccess(context.readAccessFilter, m.projects || []));
+    .filter((m) => context.permissions.canReadMultiProjectResource(m.projects));
 }
 
 export function getConfigDimensions(
@@ -240,8 +231,8 @@ export function getConfigSegments(organization: string): SegmentInterface[] {
       id,
       ...d,
       organization,
-      dateCreated: null,
-      dateUpdated: null,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
     };
   });
 }

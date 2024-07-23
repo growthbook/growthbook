@@ -29,6 +29,8 @@ import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
 import { GBCircleArrowLeft } from "@/components/Icons";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useProjectOptions from "@/hooks/useProjectOptions";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
 import styles from "./NewDataSourceForm.module.scss";
@@ -144,6 +146,11 @@ const NewDataSourceForm: FC<{
         projectId: p.id,
         organizationId: orgId || "",
       })
+  );
+
+  const projectOptions = useProjectOptions(
+    (project) => permissionsUtil.canCreateDataSource({ projects: [project] }),
+    data.projects || []
   );
 
   if (!datasource) {
@@ -302,13 +309,10 @@ const NewDataSourceForm: FC<{
       source,
       newDatasourceForm: true,
     });
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    if (s.types.length === 1) {
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+    if (s.types?.length === 1) {
       const data = dataSourcesMap.get(s.types[0]);
       setDatasource({
         ...datasource,
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         type: s.types[0],
         name: `${s.label}`,
         params: data.default,
@@ -550,10 +554,19 @@ const NewDataSourceForm: FC<{
         {projects?.length > 0 && (
           <div className="form-group">
             <MultiSelectField
-              label="Projects"
+              label={
+                <>
+                  Projects{" "}
+                  <Tooltip
+                    body={`The dropdown below has been filtered to only include projects where you have permission to ${
+                      existing ? "update" : "create"
+                    } Data Sources.`}
+                  />
+                </>
+              }
               placeholder="All projects"
               value={datasource.projects || []}
-              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              options={projectOptions}
               onChange={(v) => onManualChange("projects", v)}
               customClassName="label-overflow-ellipsis"
               helpText="Assign this data source to specific projects"

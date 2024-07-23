@@ -13,7 +13,6 @@ import {
   deleteAuthCookies,
   getAuthConnection,
   isNewInstallation,
-  markInstalled,
   validatePasswordFormat,
 } from "../services/auth";
 import {
@@ -21,21 +20,18 @@ import {
   RefreshTokenCookie,
   SSOConnectionIdCookie,
 } from "../util/cookie";
-import {
-  getEmailFromUserId,
-  getContextFromReq,
-} from "../services/organizations";
-import {
-  createUser,
-  getUserByEmail,
-  getUserById,
-  updatePassword,
-  verifyPassword,
-} from "../services/users";
+import { getContextFromReq } from "../services/organizations";
+import { updatePassword, verifyPassword } from "../services/users";
 import { AuthRequest } from "../types/AuthRequest";
 import { getSSOConnectionByEmailDomain } from "../models/SSOConnectionModel";
 import { UserInterface } from "../../types/user";
-import { resetMinTokenDate } from "../models/UserModel";
+import {
+  resetMinTokenDate,
+  getEmailFromUserId,
+  createUser,
+  getUserByEmail,
+  getUserById,
+} from "../models/UserModel";
 import { AuthRefreshModel } from "../models/AuthRefreshModel";
 
 export async function getHasOrganizations(req: Request, res: Response) {
@@ -225,7 +221,7 @@ export async function postRegister(
   }
 
   // Create new account
-  const user = await createUser(name, email, password);
+  const user = await createUser({ name, email, password });
   sendLocalSuccessResponse(req, res, user);
 }
 
@@ -276,13 +272,14 @@ export async function postFirstTimeRegister(
     });
   }
 
-  const user = await createUser(name, email, password);
+  // grant the first user on a new installation super admin access
+  const user = await createUser({ name, email, password, superAdmin: true });
+
   await createOrganization({
     email,
     userId: user.id,
     name: companyname,
   });
-  markInstalled();
 
   sendLocalSuccessResponse(req, res, user);
 }

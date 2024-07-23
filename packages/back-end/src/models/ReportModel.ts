@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
+import { migrateReport } from "../util/migrations";
 import { ReportInterface } from "../../types/report";
 import { ReqContext } from "../../types/organization";
 import { ApiReqContext } from "../../types/api";
@@ -30,11 +31,7 @@ type ReportDocument = mongoose.Document & ReportInterface;
 const ReportModel = mongoose.model<ReportInterface>("Report", reportSchema);
 
 const toInterface = (doc: ReportDocument): ReportInterface => {
-  const json = omit(doc.toJSON<ReportDocument>(), ["__v", "_id"]);
-  if ((json.args?.attributionModel as string) === "allExposures") {
-    json.args.attributionModel = "experimentDuration";
-  }
-  return json;
+  return migrateReport(omit(doc.toJSON<ReportDocument>(), ["__v", "_id"]));
 };
 
 export async function createReport(
@@ -74,7 +71,10 @@ export async function getReportsByOrg(
   ).map((r) => toInterface(r));
   // filter by project assigned to the experiment:
   if (reports.length > 0 && project) {
-    const allExperiments = await getAllExperiments(context, project);
+    const allExperiments = await getAllExperiments(context, {
+      project,
+      includeArchived: true,
+    });
     const expIds = new Set(allExperiments.map((e) => e.id));
     reports = reports.filter(
       (r) => r.experimentId && expIds.has(r.experimentId)

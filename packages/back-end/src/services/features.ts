@@ -5,14 +5,14 @@ import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import { orgHasPremiumFeature } from "enterprise";
 import {
-  FeatureRule as FeatureDefinitionRule,
   AutoExperiment,
+  FeatureRule as FeatureDefinitionRule,
   GrowthBook,
-  ParentConditionInterface,
 } from "@growthbook/growthbook";
 import {
   evalDeterministicPrereqValue,
   evaluatePrerequisiteState,
+  isDefined,
   PrerequisiteStateResult,
   validateCondition,
   validateFeatureValue,
@@ -30,15 +30,15 @@ import {
   FeatureDefinitionWithProject,
 } from "../../types/api";
 import {
+  ExperimentRefRule,
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
+  FeaturePrerequisite,
   FeatureRule,
+  FeatureTestResult,
   ForceRule,
   RolloutRule,
-  FeatureTestResult,
-  ExperimentRefRule,
-  FeaturePrerequisite,
 } from "../../types/feature";
 import { getAllFeatures } from "../models/FeatureModel";
 import {
@@ -74,7 +74,6 @@ import { URLRedirectInterface } from "../../types/url-redirect";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
-  getOrganizationById,
 } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -161,12 +160,12 @@ export function generateAutoExperimentsPayload({
     prereqStateCache
   );
 
-  const sortedVisualExperiments = [
+  const sortedAutoExperiments = [
     ...newURLRedirectExperiments,
     ...newVisualExperiments,
   ];
 
-  const sdkExperiments: Array<AutoExperimentWithProject | null> = sortedVisualExperiments.map(
+  const sdkExperiments: Array<AutoExperimentWithProject | null> = sortedAutoExperiments.map(
     (data) => {
       const { experiment: e } = data;
       if (e.status === "stopped" && e.excludeFromPayload) return null;
@@ -192,12 +191,21 @@ export function generateAutoExperimentsPayload({
             condition,
           };
         })
-        .filter(Boolean) as ParentConditionInterface[];
+        .filter(isDefined);
 
       if (!phase) return null;
 
+      const implementationId =
+        data.type === "redirect"
+          ? data.urlRedirect.id
+          : data.visualChangeset.id;
+
       const exp: AutoExperimentWithProject = {
         key: e.trackingKey,
+        changeId: sha256(
+          `${e.trackingKey}_${data.type}_${implementationId}`,
+          ""
+        ),
         status: e.status,
         project: e.project,
         variations: e.variations.map((v) => {
@@ -255,7 +263,6 @@ export function generateAutoExperimentsPayload({
           : undefined,
         condition,
         coverage: phase.coverage,
-        changeType: data.type,
       };
 
       if (prerequisites.length) {
@@ -409,7 +416,9 @@ export async function refreshSDKPayloadCache(
   // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
   await promiseAllChunks(promises, 4);
 
-  triggerWebhookJobs(context, payloadKeys, environments, true);
+  triggerWebhookJobs(context, payloadKeys, environments, true).catch((e) => {
+    logger.error(e, "Error triggering webhook jobs");
+  });
 }
 
 export type FeatureDefinitionsResponseArgs = {
@@ -520,8 +529,6 @@ async function getFeatureDefinitionsResponse({
     }
   }
 
-  experiments = experiments.map((exp) => omit(exp, ["changeType"]));
-
   if (!encryptionKey) {
     return {
       features,
@@ -598,10 +605,9 @@ export async function getFeatureDefinitions({
       let attributes: SDKAttributeSchema | undefined = undefined;
       let secureAttributeSalt: string | undefined = undefined;
       if (hashSecureAttributes) {
-        const org = await getOrganizationById(context.org.id);
-        if (org && orgHasPremiumFeature(org, "hash-secure-attributes")) {
-          secureAttributeSalt = org.settings?.secureAttributeSalt;
-          attributes = org.settings?.attributeSchema;
+        if (orgHasPremiumFeature(context.org, "hash-secure-attributes")) {
+          secureAttributeSalt = context.org.settings?.secureAttributeSalt;
+          attributes = context.org.settings?.attributeSchema;
         }
       }
       const { features, experiments } = cached.contents;
@@ -624,35 +630,18 @@ export async function getFeatureDefinitions({
     logger.error(e, "Failed to fetch SDK payload from cache");
   }
 
-  const org = await getOrganizationById(context.org.id);
   let attributes: SDKAttributeSchema | undefined = undefined;
   let secureAttributeSalt: string | undefined = undefined;
   if (hashSecureAttributes) {
-    if (org && orgHasPremiumFeature(org, "hash-secure-attributes")) {
-      secureAttributeSalt = org?.settings?.secureAttributeSalt;
-      attributes = org.settings?.attributeSchema;
+    if (orgHasPremiumFeature(context.org, "hash-secure-attributes")) {
+      secureAttributeSalt = context.org.settings?.secureAttributeSalt;
+      attributes = context.org.settings?.attributeSchema;
     }
-  }
-  if (!org) {
-    return await getFeatureDefinitionsResponse({
-      features: {},
-      experiments: [],
-      dateUpdated: null,
-      encryptionKey,
-      includeVisualExperiments,
-      includeDraftExperiments,
-      includeExperimentNames,
-      includeRedirectExperiments,
-      attributes,
-      secureAttributeSalt,
-      projects: projects || [],
-      capabilities,
-    });
   }
 
   // Generate the feature definitions
   const features = await getAllFeatures(context);
-  const groupMap = await getSavedGroupMap(org);
+  const groupMap = await getSavedGroupMap(context.org);
   const experimentMap = await getAllPayloadExperiments(context);
 
   const prereqStateCache: Record<
@@ -744,7 +733,10 @@ export function evaluateFeature({
   // change the NODE ENV so that we can get the debug log information:
   let switchEnv = false;
   if (process.env.NODE_ENV === "production") {
-    process.env.NODE_ENV = "development";
+    process.env = {
+      ...process.env,
+      NODE_ENV: "development",
+    };
     switchEnv = true;
   }
   // I could loop through the feature's defined environments, but if environments change in the org,
@@ -772,7 +764,7 @@ export function evaluateFeature({
         const rulesWithPrereqs: FeatureDefinitionRule[] = [];
         if (scrubPrerequisites) {
           definition.rules = definition.rules
-            ? (definition?.rules
+            ? definition?.rules
                 ?.map((rule) => {
                   if (rule?.parentConditions?.length) {
                     rulesWithPrereqs.push(rule);
@@ -788,7 +780,7 @@ export function evaluateFeature({
                   }
                   return rule;
                 })
-                .filter(Boolean) as FeatureDefinitionRule[])
+                .filter(isDefined)
             : undefined;
         }
 
@@ -824,7 +816,10 @@ export function evaluateFeature({
   });
   if (switchEnv) {
     // change the NODE ENV back
-    process.env.NODE_ENV = "production";
+    process.env = {
+      ...process.env,
+      NODE_ENV: "production",
+    };
   }
   return results;
 }
@@ -922,11 +917,13 @@ export function getApiFeatureObj({
   organization,
   groupMap,
   experimentMap,
+  revision,
 }: {
   feature: FeatureInterface;
   organization: OrganizationInterface;
   groupMap: GroupMap;
   experimentMap: Map<string, ExperimentInterface>;
+  revision: FeatureRevisionInterface | null;
 }): ApiFeature {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
@@ -963,7 +960,10 @@ export function getApiFeatureObj({
       featureEnvironments[env].definition = JSON.stringify(definition);
     }
   });
-
+  const publishedBy =
+    revision?.publishedBy?.type === "api_key"
+      ? "API"
+      : revision?.publishedBy?.name;
   const featureRecord: ApiFeature = {
     id: feature.id,
     description: feature.description || "",
@@ -977,9 +977,9 @@ export function getApiFeatureObj({
     tags: feature.tags || [],
     valueType: feature.valueType,
     revision: {
-      comment: "",
-      date: feature.dateCreated.toISOString(),
-      publishedBy: "",
+      comment: revision?.comment || "",
+      date: revision?.dateCreated.toISOString() || "",
+      publishedBy: publishedBy || "",
       version: feature.version,
     },
   };
@@ -1090,7 +1090,12 @@ any {
   // Given an object of unknown type, determine whether to recurse into it or return it
   if (Array.isArray(obj)) {
     // loop over array elements, process them
-    const newObj = [];
+    const newObj: {
+      // eslint-disable-next-line
+      obj: any;
+      attribute?: SDKAttribute;
+      doHash?: boolean;
+    }[] = [];
     for (let i = 0; i < obj.length; i++) {
       newObj[i] = processVal({
         obj: obj[i],

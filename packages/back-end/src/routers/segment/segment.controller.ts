@@ -1,16 +1,8 @@
 import type { Response } from "express";
-import uniqid from "uniqid";
 import { FilterQuery } from "mongoose";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getContextFromReq } from "../../services/organizations";
-import {
-  createSegment,
-  deleteSegmentById,
-  findSegmentById,
-  findSegmentsByOrganization,
-  updateSegment,
-} from "../../models/SegmentModel";
 import { getDataSourceById } from "../../models/DataSourceModel";
 import { getIdeasByQuery } from "../../services/ideas";
 import { IdeaDocument, IdeaModel } from "../../models/IdeasModel";
@@ -46,8 +38,8 @@ export const getSegments = async (
   req: GetSegmentsRequest,
   res: Response<GetSegmentsResponse, EventAuditUserForResponseLocals>
 ) => {
-  const { org } = getContextFromReq(req);
-  const segments = await findSegmentsByOrganization(org.id);
+  const context = getContextFromReq(req);
+  const segments = await context.models.segments.getAll();
   res.status(200).json({
     status: 200,
     segments,
@@ -86,14 +78,11 @@ export const getSegmentUsage = async (
   const context = getContextFromReq(req);
   const { org } = context;
 
-  const segment = await findSegmentById(id, org.id);
+  const segment = await context.models.segments.getById(id);
 
   if (!segment) {
     throw new Error("Could not find segment");
   }
-
-  // segments are used in a few places:
-  // ideas (impact estimate)
   const query: FilterQuery<IdeaDocument> = {
     organization: org.id,
     "estimateParams.segment": id,
@@ -122,6 +111,7 @@ export const getSegmentUsage = async (
 type CreateSegmentRequest = AuthRequest<{
   datasource: string;
   userIdType: string;
+  owner: string;
   name: string;
   sql: string;
   description: string;
@@ -145,28 +135,24 @@ export const postSegment = async (
     EventAuditUserForResponseLocals
   >
 ) => {
-  req.checkPermissions("createSegments");
-
-  const { datasource, name, sql, userIdType, description } = req.body;
+  const { datasource, name, sql, userIdType, description, owner } = req.body;
 
   const context = getContextFromReq(req);
-  const { org, userName } = context;
+  if (!context.permissions.canCreateSegment()) {
+    context.permissions.throwPermissionError();
+  }
 
   const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
 
-  const doc = await createSegment({
-    owner: userName,
+  const doc = await context.models.segments.create({
+    owner: owner || "",
     datasource,
     userIdType,
     name,
     sql,
-    id: uniqid("seg_"),
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    organization: org.id,
     description,
   });
 
@@ -209,13 +195,14 @@ export const putSegment = async (
     EventAuditUserForResponseLocals
   >
 ) => {
-  req.checkPermissions("createSegments");
-
   const { id } = req.params;
   const context = getContextFromReq(req);
+  if (!context.permissions.canUpdateSegment()) {
+    context.permissions.throwPermissionError();
+  }
   const { org } = context;
 
-  const segment = await findSegmentById(id, org.id);
+  const segment = await context.models.segments.getById(id);
 
   if (!segment) {
     throw new Error("Could not find segment");
@@ -231,13 +218,12 @@ export const putSegment = async (
     throw new Error("Invalid data source");
   }
 
-  await updateSegment(id, org.id, {
+  await context.models.segments.updateById(id, {
     datasource,
     userIdType,
     name,
     owner,
     sql,
-    dateUpdated: new Date(),
     description,
   });
 
@@ -266,18 +252,21 @@ export const deleteSegment = async (
   req: DeleteSegmentRequest,
   res: Response<DeleteSegmentResponse, EventAuditUserForResponseLocals>
 ) => {
-  req.checkPermissions("createSegments");
-
   const { id } = req.params;
   const context = getContextFromReq(req);
+
+  if (!context.permissions.canDeleteSegment()) {
+    context.permissions.throwPermissionError();
+  }
+
   const { org } = context;
-  const segment = await findSegmentById(id, org.id);
+  const segment = await context.models.segments.getById(id);
 
   if (!segment) {
     throw new Error("Could not find segment");
   }
 
-  await deleteSegmentById(id, org.id);
+  await context.models.segments.delete(segment);
 
   // delete references:
   // ideas:

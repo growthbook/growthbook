@@ -30,7 +30,6 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
           close={() => setOpen(false)}
           onCreate={onCreate}
           type="user"
-          secret={true}
         />
       )}
 
@@ -45,7 +44,8 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
           <ApiKeysTable
             onDelete={onDelete}
             keys={accessTokens}
-            canManageKeys
+            canCreateKeys
+            canDeleteKeys
             onReveal={onReveal}
           />
         )}

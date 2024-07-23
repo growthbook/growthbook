@@ -1,3 +1,4 @@
+import { getRevision } from "../../models/FeatureRevisionModel";
 import { ToggleFeatureResponse } from "../../../types/openapi";
 import { getExperimentMapForFeature } from "../../models/ExperimentModel";
 import {
@@ -19,12 +20,15 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
 
     const environmentIds = getEnvironmentIdsFromOrg(req.organization);
 
-    req.checkPermissions("manageFeatures", feature.project);
-    req.checkPermissions(
-      "publishFeatures",
-      feature.project,
-      Object.keys(req.body.environments)
-    );
+    if (
+      !req.context.permissions.canUpdateFeature(feature, {}) ||
+      !req.context.permissions.canPublishFeature(
+        feature,
+        Object.keys(req.body.environments)
+      )
+    ) {
+      req.context.permissions.throwPermissionError();
+    }
 
     const toggles: Record<string, boolean> = {};
     Object.keys(req.body.environments).forEach((env) => {
@@ -59,12 +63,18 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       req.context,
       updatedFeature.id
     );
+    const revision = await getRevision(
+      updatedFeature.organization,
+      updatedFeature.id,
+      updatedFeature.version
+    );
     return {
       feature: getApiFeatureObj({
         feature: updatedFeature,
         organization: req.organization,
         groupMap,
         experimentMap,
+        revision,
       }),
     };
   }

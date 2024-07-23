@@ -7,13 +7,13 @@ slug: build-your-own
 
 # Build Your Own SDK
 
-**Latest spec version: 0.5.5 [View Changelog](#changelog)**
+**Latest spec version: 0.7.0 [View Changelog](#changelog)**
 
 This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
 
-GrowthBook SDKs are simple and lightweight. Because of this, they can often be kept to **under 2000 lines of code**.
-
 All libraries should follow this specification as closely as the language permits to maintain consistency and make updates and maintenance easier.
+
+At the end of this guide is an extensive test suite with over 400 language-agnostic unit tests in JSON format. All SDKs must pass 100% of these test cases. It's recommended to add additional manual unit tests as needed on top of these.
 
 ## Data structures
 
@@ -74,14 +74,14 @@ The syntax is inspired by MongoDB queries. Here is an example:
 
 A **ParentCondition** defines a prerequisite. It consists of a parent feature's **id** (`string`), a **condition** (`Condition`), and an optional **gate** (`boolean`) flag.
 
-Instead of evaluating against attributes, the condition evaluates against the returned value of the parent feature. The condition will always reference a "value" property. Here is an example of a gating prerequisite where the parent feature must be toggled on:
+Instead of evaluating against attributes, the condition evaluates against the returned value of the parent feature. The condition will always reference a "value" property. Here is an example of a gating prerequisite where the parent feature must be on (`true`)
 
 ```
 {
   "id": "parent-feature",
   "condition": {
     "value": {
-      "$exists": true
+      "$eq": true
     }
   },
   "gate": true
@@ -195,6 +195,7 @@ The result of evaluating a **Feature**. Has a number of properties:
 
 Overrides the defaultValue of a **Feature**. Has a number of optional properties
 
+- **id** (`string`) - Optional rule id, reserved for future use
 - **condition** (`Condition`) - Optional targeting condition
 - **parentConditions** (`ParentCondition[]`) - Each item defines a prerequisite where a `condition` must evaluate against a parent feature's value (identified by `id`). If `gate` is true, then this is a blocking feature-level prerequisite; otherwise it applies to the current rule only.
 - **coverage** (`float`) - What percent of users should be included in the experiment (between 0 and 1, inclusive)
@@ -445,15 +446,16 @@ There is only one public method `evalCondition` and everything else is a private
 
 ### public evalCondition(attributes: Attributes, condition: Condition): boolean
 
-This is the main function used to evaluate a condition.
+This is the main function used to evaluate a condition. It loops through the condition key/value pairs
+and checks each entry:
 
-1. If condition has a key `$or`, return `evalOr(attributes, condition["$or"])`
-2. If condition has a key `$nor`, return `!evalOr(attributes, condition["$nor"])`
-3. If condition has a key `$and`, return `evalAnd(attributes, condition["$and"])`
-4. If condition has a key `$not`, return `!evalCondition(attributes, condition["$not"])`
-5. Loop through the condition key/value pairs
-   1. If `evalConditionValue(value, getPath(attributes, key))` is false, break out of loop and return false
-6. Return true
+1. If condition key is `$or`, check if `evalOr(attributes, condition["$or"])` is false. If so, break out of the loop and return false
+2. If condition key is `$nor`, check if `!evalOr(attributes, condition["$nor"])` is false. If so, break out of the loop and return false
+3. If condition key is `$and`, check if `evalAnd(attributes, condition["$and"])` is false. If so, break out of the loop and return false
+4. If condition key is `$not`, check if `!evalCondition(attributes, condition["$not"])` is false. If so, break out of the loop and return false
+5. Otherwise, check if `evalConditionValue(value, getPath(attributes, key))` is false. If so, break out of the loop and return false
+
+If none of the entries failed their checks, `evalCondition` returns true
 
 ### private evalOr(attributes: Attributes, conditions: Condition[]): boolean
 
@@ -715,17 +717,18 @@ This is a helper method to evaluate `filters` for both feature flags and experim
 Determines if the user is part of a gradual feature rollout.
 
 1. Either `coverage` or `range` are required. If both are `null`, return `true` immediately
-2. Get the hashAttribute and hashValue
+2. If `range` is null and `coverage` is zero, return `false` immediately. This catches an edge case where the bucket is zero and users are let through when they shouldn't be
+3. Get the hashAttribute and hashValue
    ```ts
    hashAttribute = hashAttribute || "id";
    hashValue = context.attributes[hashAttribute] || "";
    ```
-3. If `hashValue` is empty, return `false` immediately
-4. Determine the bucket for the user
+4. If `hashValue` is empty, return `false` immediately
+5. Determine the bucket for the user
    ```ts
    n = hash(seed, hashValue, hashVersion || 1)
    ```
-5. Check if user is included
+6. Check if user is included
 
    ```js
    if (range) {
@@ -1105,7 +1108,7 @@ Subscriptions and tracking calls require storing references to many objects and 
 
 We strive to have 100% test coverage for all of our SDKs.
 
-There is a language-agnostic test suite stored as a JSON file `packages/sdk-js/test/cases.json` with more than 200 unit tests. This extensively tests all of the public methods mentioned above.
+There is a language-agnostic test suite stored as a JSON file (https://github.com/growthbook/growthbook/blob/main/packages/sdk-js/test/cases.json) with more than 400 unit tests. This extensively tests all of the public methods mentioned above.
 
 The cases.json file is an object. The keys are the function being tested, and the values are arrays of test cases. The test case arrays structure is different for each function and listed below:
 
@@ -1114,10 +1117,7 @@ The cases.json file is an object. The keys are the function being tested, and th
   - condition
   - attributes
   - expected return value (boolean)
-- **versionCompare** is an object with comparison type properties `lt`, `gt`, `eq`, each with an array of test cases
-  - version (string)
-  - other version (string)
-  - expected to match for comparison type (boolean)
+  - definitions for Saved Groups referenced in the test case (object of keys: ID of list -> values: array of members)
 - **hash**
   - seed (string)
   - value to hash (string)
@@ -1234,3 +1234,14 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - Add `navigate` method to Context
   - Add `persistQueryString` property to Experiment
   - Add and improve test cases for StickyBucket
+- **v0.6.0** 2024-04-30
+  - Remove `versionCompare` test cases (these are now just included as part of `evalCondition`)
+  - Tweak to `isIncludedInRollout` to handle an edge case when coverage is zero. Also added test case for this.
+  - Add `id` property to feature rules (reserved for future use)
+- **v0.6.1** 2024-05-13
+  - Update logic in `evalCondition` to allow for and/or/not/nor operators to appear at the same level as other conditions
+  - Added test cases for multiple operators on the same level
+- **v0.7.0** 2024-06-25
+  - New Operators `$inGroup` and `$notInGroup` to check Saved Groups by reference
+  - Add argument to `evalCondition` for definition of Saved Groups
+  - Add test cases for `evalCondition`, `feature`, and `run` using the new operators

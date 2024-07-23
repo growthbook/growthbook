@@ -41,6 +41,7 @@ import CompactResults from "@/components/Experiment/CompactResults";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import PageHead from "@/components/Layout/PageHead";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
 
 export default function ReportPage() {
@@ -57,26 +58,23 @@ export default function ReportPage() {
     experiment: ExperimentInterfaceStringDates;
     idea?: IdeaInterface;
     visualChangesets: VisualChangesetInterface[];
-  }>(
-    data?.report?.experimentId
-      ? `/experiment/${data.report.experimentId}`
-      : null
-  );
+  }>(`/experiment/${data?.report?.experimentId}`, {
+    shouldRun: () => !!data?.report?.experimentId,
+  });
 
-  const {
-    permissions,
-    userId,
-    getUserDisplay,
-    hasCommercialFeature,
-  } = useUser();
+  const { userId, getUserDisplay, hasCommercialFeature } = useUser();
+  const permissionsUtil = usePermissionsUtil();
   const [active, setActive] = useState<string | null>("Results");
   const [refreshError, setRefreshError] = useState("");
 
   const { apiCall } = useAuth();
 
-  const canCreateAnalyses = permissions.check(
-    "createAnalyses",
-    experimentData?.experiment.project || ""
+  const canUpdateReport = experimentData
+    ? permissionsUtil.canViewReportModal(experimentData.experiment.project)
+    : false;
+
+  const canDeleteReport = permissionsUtil.canDeleteReport(
+    experimentData?.experiment || {}
   );
 
   // todo: move to report args
@@ -134,9 +132,7 @@ export default function ReportPage() {
   const phaseAgeMinutes =
     (Date.now() - getValidDate(report.args.startDate).getTime()) / (1000 * 60);
 
-  const statsEngine = data?.report?.args?.statsEngine || DEFAULT_STATS_ENGINE;
-  const regressionAdjustmentAvailable =
-    hasRegressionAdjustmentFeature && statsEngine === "frequentist";
+  const regressionAdjustmentAvailable = hasRegressionAdjustmentFeature;
   const regressionAdjustmentEnabled =
     hasRegressionAdjustmentFeature &&
     regressionAdjustmentAvailable &&
@@ -214,7 +210,7 @@ export default function ReportPage() {
               Go to experiment results
             </Link>
           )}
-          {canCreateAnalyses && (userId === report?.userId || !report?.userId) && (
+          {canDeleteReport && (userId === report?.userId || !report?.userId) && (
             <DeleteButton
               displayName="Custom Report"
               link={false}
@@ -240,15 +236,14 @@ export default function ReportPage() {
           )}
           <h1 className="mb-0 mt-2">
             {report.title}{" "}
-            {canCreateAnalyses &&
-              (userId === report?.userId || !report?.userId) && (
-                <a
-                  className="ml-2 cursor-pointer"
-                  onClick={() => setEditModalOpen(true)}
-                >
-                  <GBEdit />
-                </a>
-              )}
+            {canUpdateReport && (userId === report?.userId || !report?.userId) && (
+              <a
+                className="ml-2 cursor-pointer"
+                onClick={() => setEditModalOpen(true)}
+              >
+                <GBEdit />
+              </a>
+            )}
           </h1>
           <div className="mb-1">
             <small className="text-muted">
@@ -271,7 +266,7 @@ export default function ReportPage() {
           active={active}
           setActive={setActive}
           newStyle={true}
-          navClassName={canCreateAnalyses ? "" : "d-none"}
+          navClassName={canUpdateReport ? "" : "d-none"}
         >
           <Tab key="results" anchor="results" display="Results" padding={false}>
             <div className="pt-3 px-3">
@@ -341,7 +336,7 @@ export default function ReportPage() {
                   )}
                 </div>
                 <div className="col-auto">
-                  {canCreateAnalyses && (
+                  {canUpdateReport && (
                     <form
                       onSubmit={async (e) => {
                         e.preventDefault();
@@ -401,7 +396,7 @@ export default function ReportPage() {
                     }}
                     supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
                     editMetrics={
-                      canCreateAnalyses
+                      canUpdateReport
                         ? () => setActive("Configuration")
                         : undefined
                     }
@@ -410,10 +405,12 @@ export default function ReportPage() {
                     notebookFilename={report.title}
                     queries={report.queries}
                     queryError={report.error}
-                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                    results={report.results.dimensions}
+                    results={report.results?.dimensions}
                     variations={variations}
-                    metrics={report.args.metrics}
+                    metrics={[
+                      ...report.args.metrics,
+                      ...(report.args.guardrails || []),
+                    ]}
                     trackingKey={report.title}
                     project={experimentData?.experiment.project || ""}
                   />
@@ -450,7 +447,7 @@ export default function ReportPage() {
                         ago(report.args.startDate) +
                         ". Give it a little longer and click the 'Refresh' button to check again."}
                     {!report.results &&
-                      canCreateAnalyses &&
+                      canUpdateReport &&
                       `Click the "Refresh" button.`}
                   </div>
                 )}
@@ -486,8 +483,8 @@ export default function ReportPage() {
                   statsEngine={report.args.statsEngine || DEFAULT_STATS_ENGINE}
                   pValueCorrection={pValueCorrection}
                   regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-                  metricRegressionAdjustmentStatuses={
-                    report.args.metricRegressionAdjustmentStatuses
+                  settingsForSnapshotMetrics={
+                    report.args.settingsForSnapshotMetrics
                   }
                   sequentialTestingEnabled={sequentialTestingEnabled}
                   differenceType={differenceType}
@@ -555,8 +552,8 @@ export default function ReportPage() {
                     }
                     pValueCorrection={pValueCorrection}
                     regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-                    metricRegressionAdjustmentStatuses={
-                      report.args.metricRegressionAdjustmentStatuses
+                    settingsForSnapshotMetrics={
+                      report.args.settingsForSnapshotMetrics
                     }
                     sequentialTestingEnabled={sequentialTestingEnabled}
                     differenceType={differenceType}
@@ -578,29 +575,28 @@ export default function ReportPage() {
                         : "Bayesian"}
                     </span>
                   </div>
+                  <div>
+                    <span className="text-muted">
+                      <GBCuped size={13} /> CUPED:
+                    </span>{" "}
+                    <span>
+                      {report.args?.regressionAdjustmentEnabled
+                        ? "Enabled"
+                        : "Disabled"}
+                    </span>
+                  </div>
+
                   {report.args?.statsEngine === "frequentist" && (
-                    <>
-                      <div>
-                        <span className="text-muted">
-                          <GBCuped size={13} /> CUPED:
-                        </span>{" "}
-                        <span>
-                          {report.args?.regressionAdjustmentEnabled
-                            ? "Enabled"
-                            : "Disabled"}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-muted">
-                          <GBSequential size={13} /> Sequential:
-                        </span>{" "}
-                        <span>
-                          {report.args?.sequentialTestingEnabled
-                            ? "Enabled"
-                            : "Disabled"}
-                        </span>
-                      </div>
-                    </>
+                    <div>
+                      <span className="text-muted">
+                        <GBSequential size={13} /> Sequential:
+                      </span>{" "}
+                      <span>
+                        {report.args?.sequentialTestingEnabled
+                          ? "Enabled"
+                          : "Disabled"}
+                      </span>
+                    </div>
                   )}
                   <div>
                     <span className="text-muted">Run date:</span>{" "}
@@ -618,7 +614,7 @@ export default function ReportPage() {
               </div>
             )}
           </Tab>
-          {canCreateAnalyses && (
+          {canUpdateReport && (
             <Tab
               key="configuration"
               anchor="configuration"

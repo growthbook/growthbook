@@ -1,11 +1,11 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { MemberRoleWithProjects } from "back-end/types/organization";
+import { getDefaultRole } from "shared/permissions";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
@@ -22,8 +22,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   mutate,
   close,
 }) => {
-  const { defaultRole } = useOrgSettings();
-  const { license, seatsInUse } = useUser();
+  const { license, seatsInUse, organization, effectiveAccountPlan } = useUser();
 
   const form = useForm<{
     email: string[];
@@ -32,11 +31,8 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     defaultValues: {
       email: [],
       roleInfo: {
-        role: "admin",
-        limitAccessByEnvironment: false,
-        environments: [],
         projectRoles: [],
-        ...defaultRole,
+        ...getDefaultRole(organization),
       },
     },
   });
@@ -57,7 +53,10 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   );
 
   const [showContactSupport, setShowContactSupport] = useState(
-    license && license.hardCap && license.seats <= seatsInUse
+    ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan || "") &&
+      license &&
+      license.hardCap &&
+      license.seats <= seatsInUse
   );
 
   // Hit their free limit and needs to upgrade to invite more team members
@@ -100,6 +99,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     }
 
     if (
+      ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan || "") &&
       license &&
       license.hardCap &&
       license.seats < seatsInUse + value.email.length
@@ -152,6 +152,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       header="Invite Member"
       open={true}
       cta="Invite"
+      size="lg"
       closeCta={
         successfulInvites.length || failedInvites.length ? "Close" : "Cancel"
       }
@@ -229,7 +230,16 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
             label="Email Address"
             value={form.watch("email")}
             onChange={(emails) => {
-              form.setValue("email", emails);
+              // check for multiple values
+              const parsedEmails: string[] = [];
+              emails.forEach((em) => {
+                parsedEmails.push(
+                  ...em.split(/[\s,]/g).filter((e) => e.trim().length > 0)
+                );
+              });
+              // dedup:
+              const dedupedEmails = [...new Set(parsedEmails)];
+              form.setValue("email", dedupedEmails);
             }}
             helpText="Enter a list of emails to invite multiple members at once."
             type="email"

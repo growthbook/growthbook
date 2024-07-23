@@ -25,12 +25,24 @@ export type {
   UrlTarget,
   AutoExperiment,
   AutoExperimentVariation,
+  AutoExperimentChangeType,
+  DOMMutation,
   UrlTargetType,
   RenderFunction,
   StickyAttributeKey,
   StickyExperimentKey,
   StickyAssignments,
   StickyAssignmentsDocument,
+  TrackingData,
+  TrackingCallback,
+  NavigateCallback,
+  ApplyDomChangesCallback,
+  InitOptions,
+  PrefetchOptions,
+  InitResponse,
+  InitSyncOptions,
+  Helpers,
+  GrowthBookPayload,
 } from "./types/growthbook";
 
 export type {
@@ -47,7 +59,7 @@ export {
   onHidden,
 } from "./feature-repository";
 
-export { GrowthBook } from "./GrowthBook";
+export { GrowthBook, prefetchPayload } from "./GrowthBook";
 
 export {
   StickyBucketService,
@@ -59,4 +71,9 @@ export {
 
 export { evalCondition } from "./mongrule";
 
-export { isURLTargeted } from "./util";
+export {
+  isURLTargeted,
+  getPolyfills,
+  getAutoExperimentChangeType,
+  paddedVersionString,
+} from "./util";
