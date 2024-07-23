@@ -274,9 +274,9 @@ function OrganizationRow({
                   {organization?.subscription?.qty &&
                   organization?.subscription?.status === "active"
                     ? organization.subscription.qty
-                    : "-"}
+                    : ""}
                   {organization?.freeSeats
-                    ? ` ${organization.freeSeats} free seats`
+                    ? ` (${organization.freeSeats} free seats)`
                     : ""}
                 </div>
               </div>
