@@ -253,14 +253,11 @@ const UrlRedirectModal: FC<{
               if (originUrl.host !== variantUrl.host) {
                 warning = `Destination URL is "${variantUrl.host}" and the original URL is "${originUrl.host}"`;
               }
-              if (
-                !originUrl.searchParams.size &&
-                variantUrl.searchParams.size
-              ) {
+              if (originUrl.searchParams.size < variantUrl.searchParams.size) {
                 warning = (
                   <>
-                    Destination URL has query parameters but the original URL
-                    does not. See{" "}
+                    Destination URL has query parameters the original URL does
+                    not have. See{" "}
                     <DocLink docSection="url_redirects">our docs</DocLink> for
                     more info on how to handle this kind of redirect.
                   </>
