@@ -131,6 +131,7 @@ function OrganizationRow({
           currentDomain={organization.verifiedDomain || ""}
           currentAutoApproveMembers={organization.autoApproveMembers || false}
           currentLegacyEnterprise={organization.enterprise || false}
+          currentFreeSeats={organization.freeSeats || 3}
           onEdit={onEdit}
           close={() => setEditOrgModalOpen(false)}
         />

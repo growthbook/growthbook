@@ -64,6 +64,7 @@ export async function putOrganization(
     verifiedDomain?: string;
     autoApproveMembers?: boolean;
     enterprise?: boolean;
+    freeSeats?: number;
   }>,
   res: Response
 ) {
@@ -83,6 +84,7 @@ export async function putOrganization(
     verifiedDomain,
     autoApproveMembers,
     enterprise,
+    freeSeats,
   } = req.body;
   const updates: Partial<OrganizationInterface> = {};
   const orig: Partial<OrganizationInterface> = {};
@@ -123,6 +125,10 @@ export async function putOrganization(
   if (enterprise !== org.enterprise) {
     updates.enterprise = enterprise;
     orig.enterprise = org.enterprise;
+  }
+  if (freeSeats !== org.freeSeats) {
+    updates.freeSeats = freeSeats;
+    orig.freeSeats = org.freeSeats;
   }
 
   await updateOrganization(org.id, updates);
