@@ -1663,6 +1663,20 @@ export function putMetricApiPayloadToMetricInterface(
         metric.windowSettings.windowValue =
           behavior.conversionWindowEnd - behavior.conversionWindowStart;
       }
+    } else {
+      metric.windowSettings = {
+        type:
+          behavior.windowSettings?.type == "none"
+            ? ""
+            : behavior.windowSettings?.type ?? DEFAULT_METRIC_WINDOW,
+        delayHours:
+          behavior.windowSettings?.delayHours ??
+          DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+        windowValue:
+          behavior.windowSettings?.windowValue ??
+          DEFAULT_CONVERSION_WINDOW_HOURS,
+        windowUnit: behavior.windowSettings?.windowUnit ?? "hours",
+      };
     }
 
     if (typeof behavior.maxPercentChange !== "undefined") {
