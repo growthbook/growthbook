@@ -67,6 +67,7 @@ body {
 }
 .pagecontents {
   max-width: 1340px; /* add otherwise things start to look odd when very wide */
+  padding-bottom: 70px !important;
 }
 pre {
   font-size: 100%;
