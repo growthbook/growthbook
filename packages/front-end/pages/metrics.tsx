@@ -24,7 +24,6 @@ import { useUser } from "@/services/UserContext";
 import { envAllowsCreatingMetrics } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
-import { FaPencilAlt } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
