@@ -134,6 +134,19 @@ The first is to make it super easy to add documentation directly in the platform
 for the experiment. Secondly, we added launch checklists, which can require that certain files be filled
 before your team is able to start an experiment.
 
+### Custom Markdown
+
+For larger organizations, it can helpful to provide some org-specific messaging to your team around processes for setting up experiments and features. GrowthBook gives enterprise users the capability to inject markdown into key pages in the app so that you can do just that. We've also surfaced certain Handlebars variables on each page so that you can leverage the power of [Handlebars templates](https://handlebarsjs.com/guide/#simple-expressions) to customize your messaging depending on the context.
+
+| Page             | Variables                                                            |
+| ---------------- | -------------------------------------------------------------------- |
+| Experiments List | `user` `orgName`                                                     |
+| Experiment       | `user` `orgName` `experiment` `experimentStatus` `tags`              |
+| Features List    | `user` `orgName`                                                     |
+| Feature          | `user` `orgName` `featureKey` `featureType` `tags`                   |
+| Metrics List     | `user` `orgName`                                                     |
+| Metric           | `user` `orgName` `metricName` `metricType` `metricDatasource` `tags` |
+
 ## Searching
 
 GrowthBook has a powerful search feature that allows you to quickly find the feature, experiment, or
