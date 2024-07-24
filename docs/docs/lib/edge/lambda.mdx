@@ -314,9 +314,10 @@ export async function handler(event, ctx, callback) {
   if (growthbook.isOn("my-feature")) {
     const resp = { status: "200", body: "<h1>foo</h1>" };
     callback(null, resp);
+  } else {
+    const resp = { status: "200", body: "<h1>bar</h1>" };
+    callback(null, resp);
   }
-  const resp = { status: "200", body: "<h1>bar</h1>" };
-  callback(null, resp);
 }
 ```
 
@@ -339,8 +340,7 @@ For key-val stored payloads (1), we eliminate network requests from edge to Grow
 
 1. Create an [SDK Webhook](/app/webhooks/sdk-webhooks) on the same SDK Connection that you are using for edge integration.
 2. Set the **Endpoint URL** to your key-val store's REST API endpoint, if available. You may need to build your own private Lambda endpoint to handle the webhook, in which case webhook verification may be important.
-
-3. Enable the **Send Payload** toggle.
-4. Change the **Method** to `PUT` (or whichever verb is required by your endpoint).
+3. Change the **Method** to `PUT` (or whichever verb is required by your endpoint).
+4. Set the **Payload format** to "SDK Payload only".
 
 Now whenever feature and experiment values change, your edge worker will have immediate access to the latest values. You can also test the webhook by using the "Test Webhook" button on the SDK Connection page.

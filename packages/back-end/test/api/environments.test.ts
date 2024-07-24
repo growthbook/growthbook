@@ -1,11 +1,6 @@
 import request from "supertest";
 import { updateOrganization } from "../../src/models/OrganizationModel";
-import { findAllProjectsByOrganization } from "../../src/models/ProjectModel";
 import { setupApp } from "./api.setup";
-
-jest.mock("../../src/models/ProjectModel", () => ({
-  findAllProjectsByOrganization: jest.fn(),
-}));
 
 jest.mock("../../src/models/OrganizationModel", () => ({
   updateOrganization: jest.fn(),
@@ -186,13 +181,12 @@ describe("environements API", () => {
   });
 
   it("can update environments", async () => {
-    findAllProjectsByOrganization.mockReturnValue([
-      { id: "proj1" },
-      { id: "proj2" },
-      { id: "proj3" },
-    ]);
-
     setReqContext({
+      models: {
+        projects: {
+          getAll: () => [{ id: "proj1" }, { id: "proj2" }, { id: "proj3" }],
+        },
+      },
       org: {
         id: "org1",
         settings: {
@@ -211,7 +205,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => true,
+        canUpdateEnvironment: () => true,
       },
     });
 
@@ -261,12 +255,12 @@ describe("environements API", () => {
   });
 
   it("refuses to update projects when they do not exist", async () => {
-    findAllProjectsByOrganization.mockReturnValue([
-      { id: "proj1" },
-      { id: "proj3" },
-    ]);
-
     setReqContext({
+      models: {
+        projects: {
+          getAll: () => [{ id: "proj1" }, { id: "proj3" }],
+        },
+      },
       org: {
         id: "org1",
         settings: {
@@ -285,7 +279,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => true,
+        canUpdateEnvironment: () => true,
       },
     });
 
@@ -327,7 +321,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => true,
+        canUpdateEnvironment: () => true,
       },
     });
 
@@ -348,9 +342,12 @@ describe("environements API", () => {
   });
 
   it("checks for update permission", async () => {
-    findAllProjectsByOrganization.mockReturnValue([{ id: "bla" }]);
-
     setReqContext({
+      models: {
+        projects: {
+          getAll: () => [{ id: "bla" }],
+        },
+      },
       org: {
         id: "org1",
         settings: {
@@ -369,7 +366,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => false,
+        canUpdateEnvironment: () => false,
         throwPermissionError: () => {
           throw new Error("permission error");
         },
@@ -393,13 +390,12 @@ describe("environements API", () => {
   });
 
   it("can create environments", async () => {
-    findAllProjectsByOrganization.mockReturnValue([
-      { id: "proj1" },
-      { id: "proj2" },
-      { id: "proj3" },
-    ]);
-
     setReqContext({
+      models: {
+        projects: {
+          getAll: () => [{ id: "proj1" }, { id: "proj2" }, { id: "proj3" }],
+        },
+      },
       org: {
         id: "org1",
         settings: {
@@ -418,7 +414,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => true,
+        canCreateEnvironment: () => true,
       },
     });
 
@@ -478,12 +474,12 @@ describe("environements API", () => {
   });
 
   it("refuses to create with projects that do not exist", async () => {
-    findAllProjectsByOrganization.mockReturnValue([
-      { id: "proj1" },
-      { id: "proj3" },
-    ]);
-
     setReqContext({
+      models: {
+        projects: {
+          getAll: () => [{ id: "proj1" }, { id: "proj3" }],
+        },
+      },
       org: {
         id: "org1",
         settings: {
@@ -502,7 +498,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => true,
+        canCreateEnvironment: () => true,
       },
     });
 
@@ -545,7 +541,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => true,
+        canCreateEnvironment: () => true,
       },
     });
 
@@ -566,9 +562,12 @@ describe("environements API", () => {
   });
 
   it("checks for create permission", async () => {
-    findAllProjectsByOrganization.mockReturnValue([{ id: "bla" }]);
-
     setReqContext({
+      models: {
+        projects: {
+          getAll: () => [{ id: "bla" }],
+        },
+      },
       org: {
         id: "org1",
         settings: {
@@ -587,7 +586,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => false,
+        canCreateEnvironment: () => false,
         throwPermissionError: () => {
           throw new Error("permission error");
         },
@@ -613,13 +612,12 @@ describe("environements API", () => {
   });
 
   it("fails to create environments with an empty ID", async () => {
-    findAllProjectsByOrganization.mockReturnValue([
-      { id: "proj1" },
-      { id: "proj2" },
-      { id: "proj3" },
-    ]);
-
     setReqContext({
+      models: {
+        projects: {
+          getAll: () => [{ id: "proj1" }, { id: "proj2" }, { id: "proj3" }],
+        },
+      },
       org: {
         id: "org1",
         settings: {
@@ -638,7 +636,7 @@ describe("environements API", () => {
         },
       },
       permissions: {
-        canCreateOrUpdateEnvironment: () => true,
+        canCreateEnvironment: () => true,
       },
     });
 

@@ -16,7 +16,6 @@ import {
   createExperiment,
   getAllExperiments,
 } from "../../models/ExperimentModel";
-import { createProject, findProjectById } from "../../models/ProjectModel";
 import { createMetric, createSnapshot } from "../../services/experiments";
 import { PrivateApiErrorResponse } from "../../../types/api";
 import { DataSourceSettings } from "../../../types/datasource";
@@ -184,16 +183,15 @@ export const postDemoDatasourceProject = async (
     context.permissions.throwPermissionError();
   }
 
-  const existingDemoProject: ProjectInterface | null = await findProjectById(
-    context,
+  const existingDemoProject: ProjectInterface | null = await context.models.projects.getById(
     demoProjId
   );
 
   if (existingDemoProject) {
-    const existingExperiments = await getAllExperiments(
-      context,
-      existingDemoProject.id
-    );
+    const existingExperiments = await getAllExperiments(context, {
+      project: existingDemoProject.id,
+      includeArchived: true,
+    });
 
     res.status(200).json({
       status: 200,
@@ -204,7 +202,7 @@ export const postDemoDatasourceProject = async (
   }
 
   try {
-    const project = await createProject(org.id, {
+    const project = await context.models.projects.create({
       id: demoProjId,
       name: "Sample Data",
     });

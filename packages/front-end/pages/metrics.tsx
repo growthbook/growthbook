@@ -3,7 +3,7 @@ import { FaArchive, FaPlus, FaRegCopy } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { ago, datetime } from "shared/dates";
+import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink } from "shared/experiments";
 import SortedTags from "@/components/Tags/SortedTags";
@@ -29,6 +29,7 @@ import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 interface MetricTableItem {
   id: string;
   managedBy: "" | "api" | "config";
@@ -331,6 +332,9 @@ const MetricsPage = (): React.ReactElement => {
             </div>
           )}
       </div>
+      <div className="mt-3">
+        <CustomMarkdown page={"metricList"} />
+      </div>
       <div className="row mb-2 align-items-center">
         <div className="col-lg-3 col-md-4 col-6">
           <Field placeholder="Search..." type="search" {...searchInputProps} />
@@ -481,7 +485,7 @@ const MetricsPage = (): React.ReactElement => {
                 >
                   {metric.managedBy === "config"
                     ? ""
-                    : ago(metric.dateUpdated || "")}
+                    : date(metric.dateUpdated || "")}
                 </td>
                 <td className="text-muted">
                   {metric.archived && (

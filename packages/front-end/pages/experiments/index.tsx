@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { RxDesktop } from "react-icons/rx";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { datetime, ago } from "shared/dates";
+import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
@@ -32,6 +32,7 @@ import { useWatching } from "@/services/WatchProvider";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 
 const NUM_PER_PAGE = 20;
 
@@ -45,11 +46,15 @@ const ExperimentsPage = (): React.ReactElement => {
     getProjectById,
   } = useDefinitions();
 
-  const { experiments: allExperiments, error, loading } = useExperiments(
-    project
-  );
-
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
+
+  const {
+    experiments: allExperiments,
+    error,
+    loading,
+    hasArchived,
+  } = useExperiments(project, tabs.includes("archived"));
+
   const tagsFilter = useTagsFilter("experiments");
   const [showMineOnly, setShowMineOnly] = useLocalStorage(
     "showMyExperimentsOnly",
@@ -93,7 +98,7 @@ const ExperimentsPage = (): React.ReactElement => {
             : exp.dateCreated) ?? "",
       };
     },
-    [getExperimentMetricById, getProjectById]
+    [getExperimentMetricById, getProjectById, getUserDisplay]
   );
 
   const { watchedExperiments } = useWatching();
@@ -106,6 +111,7 @@ const ExperimentsPage = (): React.ReactElement => {
             item.owner === userId || watchedExperiments.includes(item.id)
         );
       }
+
       items = filterByTags(items, tagsFilter.tags);
 
       return items;
@@ -131,6 +137,57 @@ const ExperimentsPage = (): React.ReactElement => {
       "results",
       "analysis",
     ],
+    searchTermFilters: {
+      is: (item) => {
+        const is: string[] = [];
+        if (item.archived) is.push("archived");
+        if (item.status === "draft") is.push("draft");
+        if (item.status === "running") is.push("running");
+        if (item.status === "stopped") is.push("stopped");
+        if (item.results === "won") is.push("winner");
+        if (item.results === "lost") is.push("loser");
+        if (item.results === "inconclusive") is.push("inconclusive");
+        if (item.hasVisualChangesets) is.push("visual");
+        if (item.hasURLRedirects) is.push("redirect");
+        return is;
+      },
+      has: (item) => {
+        const has: string[] = [];
+        if (item.project) has.push("project");
+        if (item.hasVisualChangesets) {
+          has.push("visualChange", "visualChanges");
+        }
+        if (item.hasURLRedirects) has.push("redirect", "redirects");
+        if (item.linkedFeatures?.length) has.push("features", "feature");
+        if (item.hypothesis?.trim()?.length) has.push("hypothesis");
+        if (item.description?.trim()?.length) has.push("description");
+        if (item.variations.some((v) => !!v.screenshots?.length)) {
+          has.push("screenshots");
+        }
+        return has;
+      },
+      variations: (item) => item.variations.length,
+      variation: (item) => item.variations.map((v) => v.name),
+      created: (item) => new Date(item.dateCreated),
+      updated: (item) => new Date(item.dateUpdated),
+      name: (item) => item.name,
+      key: (item) => item.trackingKey,
+      trackingKey: (item) => item.trackingKey,
+      id: (item) => [item.id, item.trackingKey],
+      status: (item) => item.status,
+      result: (item) =>
+        item.status === "stopped" ? item.results || "unfinished" : "unfinished",
+      owner: (item) => [item.owner, item.ownerName],
+      tag: (item) => item.tags,
+      project: (item) => [item.project, item.projectName],
+      feature: (item) => item.linkedFeatures || [],
+      metric: (item) => [
+        ...item.metricNames,
+        ...item.metrics,
+        ...(item.guardrails || []),
+        item.activationMetric,
+      ],
+    },
     filterResults,
   });
 
@@ -171,8 +228,6 @@ const ExperimentsPage = (): React.ReactElement => {
   const hasExperiments = experiments.length > 0;
 
   const canAdd = permissionsUtil.canViewExperimentModal(project);
-
-  const hasArchivedExperiments = experiments.some((item) => item.archived);
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -220,6 +275,7 @@ const ExperimentsPage = (): React.ReactElement => {
               </div>
             )}
           </div>
+          <CustomMarkdown page={"experimentList"} />
           {!hasExperiments ? (
             <div
               className="appbox d-flex flex-column align-items-center"
@@ -261,8 +317,7 @@ const ExperimentsPage = (): React.ReactElement => {
                     (tab, i) => {
                       const active = tabs.includes(tab);
 
-                      if (tab === "archived" && !hasArchivedExperiments)
-                        return null;
+                      if (tab === "archived" && !hasArchived) return null;
 
                       return (
                         <button
@@ -273,7 +328,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             "rounded-left": i === 0,
                             "rounded-right":
                               tab === "archived" ||
-                              (tab === "stopped" && !hasArchivedExperiments),
+                              (tab === "stopped" && !hasArchived),
                           })}
                           style={{
                             fontSize: "1em",
@@ -298,9 +353,11 @@ const ExperimentsPage = (): React.ReactElement => {
                             {tab.slice(0, 1).toUpperCase()}
                             {tab.slice(1)}
                           </span>
-                          <span className="badge bg-white border text-dark mr-2">
-                            {tabCounts[tab] || 0}
-                          </span>
+                          {tab !== "archived" && (
+                            <span className="badge bg-white border text-dark mr-2">
+                              {tabCounts[tab] || 0}
+                            </span>
+                          )}
                         </button>
                       );
                     }
@@ -450,7 +507,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             : e.tab === "archived"
                             ? "updated"
                             : ""}{" "}
-                          {ago(e.date)}
+                          {date(e.date)}
                         </td>
                         <td className="nowrap" data-title="Summary:">
                           {e.archived ? (

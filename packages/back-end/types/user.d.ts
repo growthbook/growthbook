@@ -7,6 +7,7 @@ export interface UserInterface {
   superAdmin: boolean;
   minTokenDate?: Date;
   agreedToTerms?: boolean;
+  dateCreated?: Date;
 }
 
 export interface UserRef {

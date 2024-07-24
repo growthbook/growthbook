@@ -68,9 +68,14 @@ PROXY_HOST_PUBLIC=https://growthbook-proxy.example.com
 SECRET_API_KEY=something_secret
 ```
 
+Note: Setting `PROXY_HOST_PUBLIC` is not strictly required, but is considered a best practice. Setting it enables faster rollouts by allowing GrowthBook to push updates to your proxy whenever feature definitions change.
+
 ### Cloud Customers
 
-For cloud customers who self-host a proxy server, you must configure each SDK Connection to use a custom proxy webhook URL.
+For cloud customers who self-host a proxy server, you must configure each SDK Connection to use the proxy server.
+
+You may optionally enter your proxy server's public host URL. This enables faster rollouts by allowing GrowthBook to push updates to your proxy whenever your feature definitions change. If you do not provide a proxy host URL, your proxy server the proxy will fall back to a pull-based stale-while-revalidate caching strategy.
+
 Go to **SDK Configuration → SDK Connections** in the GrowthBook app to configure the proxy server per each connection.
 
 ## Using with the SDKs

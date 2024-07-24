@@ -173,7 +173,7 @@ const navlinks: SidebarLinkProps[] = [
         href: "/projects",
         path: /^project/,
         filter: ({ permissionsUtils }) =>
-          permissionsUtils.canUpdateSomeProjects(),
+          permissionsUtils.canManageSomeProjects(),
       },
       {
         name: "API Keys",
@@ -218,7 +218,7 @@ const navlinks: SidebarLinkProps[] = [
         path: /^importing/,
         filter: ({ permissionsUtils, gb }) =>
           permissionsUtils.canViewFeatureModal() &&
-          permissionsUtils.canCreateOrUpdateEnvironment({
+          permissionsUtils.canCreateEnvironment({
             projects: [],
             id: "",
           }) &&

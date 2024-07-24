@@ -4,9 +4,8 @@ import {
 } from "back-end/types/fact-table";
 import { useState } from "react";
 import Link from "next/link";
-import { FaAngleRight, FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
-import { useRouter } from "next/router";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
@@ -15,6 +14,8 @@ import { GBAddCircle } from "@/components/Icons";
 import SortedTags from "@/components/Tags/SortedTags";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { useAuth } from "@/services/auth";
 import FactMetricModal from "./FactMetricModal";
 
 export interface Props {
@@ -36,13 +37,25 @@ export default function FactMetricList({ factTable }: Props) {
   const [editOpen, setEditOpen] = useState("");
   const [newOpen, setNewOpen] = useState(false);
 
-  const router = useRouter();
+  const { apiCall } = useAuth();
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const { factMetrics } = useDefinitions();
+  const { factMetrics, mutateDefinitions } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
 
   const metrics = getMetricsForFactTable(factMetrics, factTable.id);
+
+  const [editMetric, setEditMetric] = useState<
+    FactMetricInterface | undefined
+  >();
+
+  const canEdit = (factMetric: FactMetricInterface) =>
+    permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
+    !factMetric.managedBy;
+
+  const canDelete = (factMetric: FactMetricInterface) =>
+    permissionsUtil.canDeleteFactMetric(factMetric) && !factMetric.managedBy;
 
   const { items, searchInputProps, isFiltered, SortableTH, clear } = useSearch({
     items: metrics || [],
@@ -57,6 +70,13 @@ export default function FactMetricList({ factTable }: Props) {
 
   return (
     <>
+      {editMetric && (
+        <FactMetricModal
+          close={() => setEditMetric(undefined)}
+          existing={editMetric}
+          source="fact-metric"
+        />
+      )}
       {newOpen && (
         <FactMetricModal
           close={() => setNewOpen(false)}
@@ -119,20 +139,14 @@ export default function FactMetricList({ factTable }: Props) {
             </thead>
             <tbody>
               {items.map((metric) => (
-                <tr
-                  key={metric.id}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    router.push(`/fact-metrics/${metric.id}`);
-                  }}
-                >
+                <tr key={metric.id}>
                   <td>
                     <Link
                       href={`/fact-metrics/${metric.id}`}
                       className="font-weight-bold"
                       title="View Metric"
                     >
-                      <MetricName id={metric.id} /> <FaExternalLinkAlt />
+                      <MetricName id={metric.id} />
                     </Link>
                   </td>
                   <td>{metric.metricType}</td>
@@ -143,7 +157,39 @@ export default function FactMetricList({ factTable }: Props) {
                     {metric.dateUpdated ? date(metric.dateUpdated) : null}
                   </td>
                   <td>
-                    <FaAngleRight />
+                    <MoreMenu>
+                      {canEdit(metric) && (
+                        <button
+                          className="btn dropdown-item"
+                          onClick={() => setEditMetric(metric)}
+                        >
+                          Edit
+                        </button>
+                      )}
+                      {canDelete(metric) && (
+                        <>
+                          <hr className="m-1" />
+                          <DeleteButton
+                            displayName="Delete"
+                            onClick={async () => {
+                              setIsDeleting(true);
+                              try {
+                                await apiCall(`/fact-metrics/${metric.id}`, {
+                                  method: "DELETE",
+                                });
+                                mutateDefinitions();
+                              } finally {
+                                setIsDeleting(false);
+                              }
+                            }}
+                            useIcon={false}
+                            className="dropdown-item text-danger"
+                            text="Delete"
+                            disabled={isDeleting}
+                          />
+                        </>
+                      )}
+                    </MoreMenu>
                   </td>
                 </tr>
               ))}

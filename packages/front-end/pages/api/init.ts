@@ -8,6 +8,7 @@ export interface EnvironmentInitValue {
   cloud: boolean;
   isMultiOrg?: boolean;
   allowSelfOrgCreation: boolean;
+  showMultiOrgSelfSelector: boolean;
   appOrigin: string;
   apiHost: string;
   s3domain: string;
@@ -39,6 +40,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     IS_CLOUD,
     IS_MULTI_ORG,
     ALLOW_SELF_ORG_CREATION,
+    SHOW_MULTI_ORG_SELF_SELECTOR,
     DISABLE_TELEMETRY,
     DEFAULT_CONVERSION_WINDOW_HOURS,
     NEXT_PUBLIC_SENTRY_DSN,
@@ -82,7 +84,11 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     cdnHost: CDN_HOST || "",
     cloud: stringToBoolean(IS_CLOUD),
     isMultiOrg: stringToBoolean(IS_MULTI_ORG),
-    allowSelfOrgCreation: stringToBoolean(ALLOW_SELF_ORG_CREATION, true), // Default to true
+    allowSelfOrgCreation: stringToBoolean(ALLOW_SELF_ORG_CREATION),
+    showMultiOrgSelfSelector: stringToBoolean(
+      SHOW_MULTI_ORG_SELF_SELECTOR,
+      true
+    ),
     config: hasConfigFile ? "file" : "db",
     allowCreateMetrics: !hasConfigFile || stringToBoolean(ALLOW_CREATE_METRICS),
     build,
@@ -101,5 +107,5 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     usingFileProxy: stringToBoolean(USING_FILE_PROXY),
   };
 
-  res.status(200).json(body);
+  res.setHeader("Cache-Control", "max-age=3600").status(200).json(body);
 }

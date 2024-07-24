@@ -7,7 +7,9 @@ import {
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import { accountFeatures, getAccountPlan } from "enterprise";
+import { omit } from "lodash";
 import { LegacyReportInterface, ReportInterface } from "@back-end/types/report";
+import { WebhookInterface } from "@back-end/types/webhook";
 import { SdkWebHookLogDocument } from "../models/SdkWebhookLogModel";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import {
@@ -178,6 +180,8 @@ FROM
 export function upgradeDatasourceObject(
   datasource: DataSourceInterface
 ): DataSourceInterface {
+  datasource.settings = datasource.settings || {};
+
   const settings = datasource.settings;
 
   // Add default randomization units
@@ -477,6 +481,14 @@ export function upgradeOrganizationDoc(
       m.role = legacyRoleMap[m.role];
     }
   });
+
+  // Make sure namespaces have labels- if it's missing, use the name
+  if (org?.settings?.namespaces?.length) {
+    org.settings.namespaces = org.settings.namespaces.map((ns) => ({
+      ...ns,
+      label: ns.label || ns.name,
+    }));
+  }
 
   return org;
 }
@@ -843,4 +855,18 @@ export function migrateSdkWebhookLogModel(
     delete doc.webhookReduestId;
   }
   return doc;
+}
+
+export function migrateWebhookModel(doc: WebhookInterface): WebhookInterface {
+  const newDoc = omit(doc, ["sendPayload"]) as WebhookInterface;
+  if (!doc.payloadFormat) {
+    if (doc.httpMethod === "GET") {
+      newDoc.payloadFormat = "none";
+    } else if (doc.sendPayload) {
+      newDoc.payloadFormat = "standard";
+    } else {
+      newDoc.payloadFormat = "standard-no-payload";
+    }
+  }
+  return newDoc;
 }

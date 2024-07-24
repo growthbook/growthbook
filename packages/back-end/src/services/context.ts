@@ -16,21 +16,38 @@ import {
 } from "../util/organization.util";
 import { TeamInterface } from "../../types/team";
 import { FactMetricModel } from "../models/FactMetricModel";
+import { ProjectModel } from "../models/ProjectModel";
 import { ProjectInterface } from "../../types/project";
-import { findAllProjectsByOrganization } from "../models/ProjectModel";
 import { addTags, getAllTags } from "../models/TagModel";
 import { AuditInterfaceInput } from "../../types/audit";
 import { insertAudit } from "../models/AuditModel";
 import { logger } from "../util/logger";
+import { UrlRedirectModel } from "../models/UrlRedirectModel";
+import { ExperimentInterface } from "../../types/experiment";
+import { DataSourceInterface } from "../../types/datasource";
+import { getExperimentsByIds } from "../models/ExperimentModel";
+import { getDataSourcesByOrganization } from "../models/DataSourceModel";
+import { SegmentModel } from "../models/SegmentModel";
+
+export type ForeignRefTypes = {
+  experiment: ExperimentInterface;
+  datasource: DataSourceInterface;
+};
 
 export class ReqContextClass {
   // Models
   public models!: {
     factMetrics: FactMetricModel;
+    projects: ProjectModel;
+    urlRedirects: UrlRedirectModel;
+    segments: SegmentModel;
   };
   private initModels() {
     this.models = {
       factMetrics: new FactMetricModel(this),
+      projects: new ProjectModel(this),
+      urlRedirects: new UrlRedirectModel(this),
+      segments: new SegmentModel(this),
     };
   }
 
@@ -173,11 +190,46 @@ export class ReqContextClass {
     });
   }
 
+  // Cache common foreign references
+  public foreignRefs: ForeignRefsCache = {
+    experiment: new Map(),
+    datasource: new Map(),
+  };
+  public async populateForeignRefs({
+    experiment,
+    datasource,
+  }: ForeignRefsCacheKeys) {
+    await this.addMissingForeignRefs("experiment", experiment, (ids) =>
+      getExperimentsByIds(this, ids)
+    );
+    // An org doesn't have that many data sources, so we just fetch them all
+    await this.addMissingForeignRefs("datasource", datasource, () =>
+      getDataSourcesByOrganization(this)
+    );
+  }
+  private async addMissingForeignRefs<K extends keyof ForeignRefsCache>(
+    type: K,
+    ids: string[] | undefined,
+    getter: (ids: string[]) => Promise<ForeignRefTypes[K][]>
+  ) {
+    if (!ids) return;
+    const missing = ids.filter((id) => !this.foreignRefs[type].has(id));
+    if (missing.length) {
+      const refs = await getter(missing);
+      refs.forEach((ref) => {
+        // eslint-disable-next-line
+        this.foreignRefs[type].set(ref.id, ref as any);
+      });
+    }
+  }
+
   // Cache projects since they are needed many places in the code
   private _projects: ProjectInterface[] | null = null;
-  public async getProjects() {
+  public async getProjects(): Promise<ProjectInterface[]> {
     if (this._projects === null) {
-      this._projects = await findAllProjectsByOrganization(this);
+      const projects = await this.models.projects.getAll();
+      this._projects = projects;
+      return projects;
     }
     return this._projects;
   }
@@ -198,3 +250,15 @@ export class ReqContextClass {
     newTags.forEach((t) => this._tags?.add(t));
   }
 }
+
+// eslint-disable-next-line
+export type ForeignRefsCache = {
+  [key in keyof ForeignRefTypes]: Map<string, ForeignRefTypes[key]>;
+};
+export type ForeignRefsCacheKeys = {
+  [key in keyof ForeignRefsCache]?: string[];
+};
+export type ForeignKeys = {
+  [key in keyof ForeignRefsCache]?: string;
+};
+export type ForeignRefs = Partial<ForeignRefTypes>;

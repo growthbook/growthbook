@@ -2,7 +2,7 @@ import { ServerResponse, IncomingMessage } from "http";
 import crypto from "crypto";
 import { WebClient } from "@slack/web-api";
 import { SLACK_SIGNING_SECRET } from "../util/secrets";
-import { UserModel } from "../models/UserModel";
+import { getUserByEmail } from "../models/UserModel";
 import { OrganizationInterface } from "../../types/organization";
 
 // Initialize a single instance for the whole app
@@ -53,7 +53,7 @@ export async function getUserInfoBySlackId(
 
     let id: string | null = null;
     if (email) {
-      const user = await UserModel.findOne({ email });
+      const user = await getUserByEmail(email);
       if (user) {
         // Make sure user is part of the organization
         if (organization.members.map((m) => m.id).includes(user.id)) {

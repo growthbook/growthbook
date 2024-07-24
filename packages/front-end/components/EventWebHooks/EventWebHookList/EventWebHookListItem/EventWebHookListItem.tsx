@@ -2,36 +2,87 @@ import React, { FC } from "react";
 import Link from "next/link";
 import { EventWebHookInterface } from "back-end/types/event-webhook";
 import { datetime } from "shared/dates";
-import { useIconForState } from "@/components/EventWebHooks/utils";
+import {
+  webhookIcon,
+  useIconForState,
+  displayedEvents,
+} from "@/components/EventWebHooks/utils";
 
 type EventWebHookListItemProps = {
   href: string;
   eventWebHook: EventWebHookInterface;
 };
 
+const MAX_EVENTS_DISPLAY = 5;
+
 export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
   href,
   eventWebHook,
 }) => {
-  const { name, url, lastState, lastRunAt } = eventWebHook;
+  const {
+    name,
+    payloadType,
+    url,
+    events,
+    enabled,
+    lastState,
+    lastRunAt,
+  } = eventWebHook;
 
   const iconForState = useIconForState(lastState);
 
+  if (!payloadType) return null;
+
   return (
     <Link href={href} style={{ textDecoration: "none" }} className="card p-3">
-      <div className="d-flex justify-content-md-between align-items-center">
-        <div className="mr-4">
-          <h3 className="text-main">{name}</h3>
-          <h4 className="text-muted">{url}</h4>
+      <div className="d-flex">
+        <div className="ml-2">
+          <div className="m-2 p-2 border rounded">
+            <img
+              src={webhookIcon[payloadType]}
+              style={{ height: "2rem", width: "2rem" }}
+            />
+          </div>
         </div>
-        <div className="d-flex justify-content-md-between align-items-center">
-          {!lastRunAt ? (
-            <div className="text-muted">No runs</div>
-          ) : (
-            <div className="text-main">Last run: {datetime(lastRunAt)}</div>
-          )}
-          <div className="ml-2" style={{ fontSize: "1.5rem" }}>
-            {iconForState}
+        <div className="mr-4 ml-3">
+          <div className="d-flex">
+            <h3 className="link-purple text-truncate">{name}</h3>
+            {enabled && (
+              <div>
+                <span className="badge badge-gray text-uppercase ml-2">
+                  Enabled
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="d-flex">
+            {!lastRunAt ? (
+              <div className="text-muted">No runs</div>
+            ) : (
+              <div className="text-main d-flex">
+                <b>Last run:</b> {datetime(lastRunAt)}
+                <span className="ml-2" style={{ fontSize: "1.5rem" }}>
+                  {iconForState}
+                </span>
+              </div>
+            )}
+            {payloadType === "raw" && (
+              <span className="text-muted ml-2 d-flex">
+                |
+                <div
+                  className="ml-2 text-truncate"
+                  style={{ maxWidth: "30vw" }}
+                >
+                  {url}
+                </div>
+              </span>
+            )}
+          </div>
+          <div className="text-main">
+            <b>Events enabled:</b>{" "}
+            {displayedEvents(events, {
+              maxEventsDisplay: MAX_EVENTS_DISPLAY,
+            })}
           </div>
         </div>
       </div>

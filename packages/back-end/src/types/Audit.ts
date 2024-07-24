@@ -21,6 +21,7 @@ export const entityEvents = {
     "screenshot.delete",
     "screenshot.create",
   ],
+  project: ["create", "update", "delete"],
   environment: ["create", "update", "delete"],
   feature: [
     "create",
@@ -31,25 +32,26 @@ export const entityEvents = {
     "archive",
     "delete",
   ],
+  urlRedirect: ["create", "update", "delete"],
   metric: ["autocreate", "create", "update", "delete", "analysis"],
   datasource: ["create", "update", "delete", "import"],
   comment: ["create", "update", "delete"],
+  "sdk-connection": ["create", "update", "delete"],
   user: ["create", "update", "delete", "invite"],
   organization: ["create", "update", "delete"],
   savedGroup: ["created", "deleted", "updated"],
+  segment: ["create", "delete", "update"],
   archetype: ["created", "deleted", "updated"],
   team: ["create", "delete", "update"],
+  factTable: ["autocreate"],
 } as const;
 
 export type EntityEvents = typeof entityEvents;
 export const EntityType = Object.keys(entityEvents) as [keyof EntityEvents];
 export type EntityType = typeof EntityType[number];
 
-export type EventTypes<
-  k extends EntityType
-> = `${k}.${EntityEvents[k][number]}`;
-export type EventType = EntityType extends unknown
-  ? EntityEvents[EntityType][number] extends unknown
-    ? `${EntityType}.${EntityEvents[EntityType][number]}`
-    : never
+export type EventTypes<K> = K extends EntityType
+  ? `${K}.${EntityEvents[K][number]}`
   : never;
+
+export type EventType = EventTypes<EntityType>;

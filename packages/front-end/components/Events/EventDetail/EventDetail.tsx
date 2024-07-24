@@ -1,24 +1,14 @@
 import React, { FC } from "react";
 import { useRouter } from "next/router";
-import {
-  EventInterface,
-  NotificationEventName,
-  NotificationEventPayload,
-  NotificationEventResource,
-} from "back-end/types/event";
+import { EventInterface } from "back-end/types/event";
 import { datetime } from "shared/dates";
+import { NotificationEvent } from "back-end/src/events/notification-events";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Code from "@/components/SyntaxHighlighting/Code";
 
 type EventDetailProps = {
-  event: EventInterface<
-    NotificationEventPayload<
-      NotificationEventName,
-      NotificationEventResource,
-      unknown
-    >
-  >;
+  event: EventInterface<NotificationEvent>;
 };
 
 export const EventDetail: FC<EventDetailProps> = ({ event }) => {
@@ -41,13 +31,7 @@ export const EventDetailContainer = () => {
   const { eventid: eventId } = router.query;
 
   const { data, error, isValidating } = useApi<{
-    event: EventInterface<
-      NotificationEventPayload<
-        NotificationEventName,
-        NotificationEventResource,
-        unknown
-      >
-    >;
+    event: EventInterface<NotificationEvent>;
   }>(`/events/${eventId}`);
 
   const event = data?.event;

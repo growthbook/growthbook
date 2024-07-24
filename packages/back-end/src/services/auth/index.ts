@@ -1,15 +1,18 @@
 import { NextFunction, Request, Response } from "express";
-import { SSO_CONFIG } from "enterprise";
+import { licenseInit, SSO_CONFIG } from "enterprise";
 import { userHasPermission } from "shared/permissions";
 import { logger } from "../../util/logger";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
-import { markUserAsVerified, UserModel } from "../../models/UserModel";
+import {
+  hasUser,
+  markUserAsVerified,
+  getUserByEmail,
+} from "../../models/UserModel";
 import { getOrganizationById, validateLoginMethod } from "../organizations";
 import { Permission } from "../../../types/organization";
 import { UserInterface } from "../../../types/user";
 import { AuditInterface } from "../../../types/audit";
-import { getUserByEmail } from "../users";
 import { hasOrganization, updateMember } from "../../models/OrganizationModel";
 import {
   IdTokenCookie,
@@ -24,7 +27,7 @@ import {
 } from "../../events/event-types";
 import { insertAudit } from "../../models/AuditModel";
 import { getTeamsForOrganization } from "../../models/TeamModel";
-import { initializeLicenseForOrg } from "../licenseData";
+import { getLicenseMetaData, getUserCodesForOrg } from "../licenseData";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
@@ -63,7 +66,7 @@ async function getUserFromJWT(token: IdToken): Promise<null | UserInterface> {
     }
   }
 
-  return user.toJSON<UserInterface>();
+  return user;
 }
 function getInitialDataFromJWT(user: IdToken): JWTInfo {
   return {
@@ -194,7 +197,11 @@ export async function processJWT(
         }
 
         // init license for org if it exists
-        await initializeLicenseForOrg(req.organization);
+        await licenseInit(
+          req.organization,
+          getUserCodesForOrg,
+          getLicenseMetaData
+        );
       } else {
         res.status(404).json({
           status: 404,
@@ -257,13 +264,10 @@ export function validatePasswordFormat(password?: string): string {
 }
 
 export async function isNewInstallation() {
-  const doc = await hasOrganization();
-  if (doc) {
+  if (await hasOrganization()) {
     return false;
   }
-
-  const doc2 = await UserModel.findOne();
-  if (doc2) {
+  if (await hasUser()) {
     return false;
   }
 

@@ -237,7 +237,8 @@ export default function AnalysisSettingsSummary({
                 setAnalysisModal(true);
               }}
             >
-              <span className="text-dark">Analysis Settings</span> <GBEdit />
+              <span className="text-dark">Analysis Settings</span>
+              <GBEdit className="ml-2" />
             </a>
           ) : (
             <span>Analysis Settings</span>

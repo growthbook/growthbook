@@ -57,6 +57,8 @@ export const AuthContext = React.createContext<AuthContextValue>({
 
 export const useAuth = (): AuthContextValue => useContext(AuthContext);
 
+const passthroughQueryParams = ["hypgen", "hypothesis"];
+
 // Only run one refresh operation at a time
 let _currentRefreshOperation: null | Promise<
   UnauthenticatedResponse | IdTokenResponse | { error: Error }
@@ -75,6 +77,13 @@ async function refreshToken() {
         url += "?ssoId=" + ssoId;
       }
     }
+
+    const searchParams = new URLSearchParams(window.location.search);
+    searchParams.forEach((v, k) => {
+      if (passthroughQueryParams.includes(k)) {
+        url += `${url.indexOf("?") > -1 ? "&" : "?"}${k}=${v}`;
+      }
+    });
 
     _currentRefreshOperation = fetch(url, {
       method: "POST",
@@ -375,12 +384,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       if (orgs.length > 0) {
         try {
           const pickedOrg = localStorage.getItem("gb-last-picked-org");
-          if (pickedOrg && !router.query.org) {
-            try {
-              setOrgId(JSON.parse(pickedOrg));
-            } catch (e) {
-              setOrgId(orgs[0].id);
-            }
+          if (
+            pickedOrg &&
+            !router.query.org &&
+            orgs.map((o) => o.id).includes(JSON.parse(pickedOrg))
+          ) {
+            setOrgId(JSON.parse(pickedOrg));
           } else {
             setOrgId(orgs[0].id);
           }

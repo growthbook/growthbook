@@ -154,7 +154,11 @@ export async function testQuery(
     throw new Error("Unable to test query.");
   }
 
-  const sql = integration.getTestQuery(query, templateVariables);
+  const sql = integration.getTestQuery({
+    query,
+    templateVariables,
+    testDays: context.org.settings?.testQueryDays,
+  });
   try {
     const { results, duration } = await integration.runTestQuery(sql, [
       "timestamp",
@@ -199,7 +203,7 @@ export async function testQueryValidity(
     }
     const columns = new Set(Object.keys(results.results[0]));
 
-    const missingColumns = [];
+    const missingColumns: string[] = [];
     for (const col of requiredColumns) {
       if (!columns.has(col)) {
         missingColumns.push(col);
