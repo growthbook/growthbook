@@ -30,7 +30,6 @@ export type FeatureDefinitionWithProject = FeatureDefinition & {
 
 export type AutoExperimentWithProject = AutoExperiment & {
   project?: string;
-  changeType?: "redirect" | "visual";
 };
 
 export interface ExperimentOverridesResponse {
