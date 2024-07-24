@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { MetricType } from "back-end/types/metric";
-import { FC, useState, useMemo, Fragment, useEffect } from "react";
+import { FC, Fragment, useEffect, useMemo, useState } from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
@@ -9,14 +9,15 @@ import { AxisBottom, AxisLeft } from "@visx/axis";
 import { AreaClosed, LinePath } from "@visx/shape";
 import { curveMonotoneX } from "@visx/curve";
 import {
-  TooltipWithBounds,
   Tooltip,
+  TooltipWithBounds,
   useTooltip,
   useTooltipInPortal,
 } from "@visx/tooltip";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ScaleLinear } from "d3-scale";
 import { date, getValidDate } from "shared/dates";
+import { addDays } from "date-fns";
 import { getMetricFormatter } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { PartialOn } from "@/types/utils";
@@ -24,9 +25,9 @@ import styles from "./DateGraph.module.scss";
 
 interface Datapoint {
   d: Date | number;
-  v: number; // value
-  s?: number; // standard deviation
-  c?: number; // count
+  v: number | null; // value
+  s?: number | null; // standard deviation
+  c?: number | null; // count
   oor?: boolean; // out of range
 }
 
@@ -57,7 +58,7 @@ function getTooltipDataFromDatapoint(
     return null;
   }
   const x = (data.length > 0 ? index / data.length : 0) * innerWidth;
-  const y = (yScale(datapoint.v) ?? 0) as number;
+  const y = (yScale(datapoint.v ?? 0) ?? 0) as number;
   return { x, y, d: datapoint };
 }
 
@@ -92,7 +93,7 @@ function getTooltipContents(
     <>
       {type === "binomial" ? (
         <div className={styles.val}>
-          <em>n</em>: {Math.round(d.v)}
+          <em>n</em>: {Math.round(d.v ?? 0)}
           {smoothBy === "week" && (
             <sub style={{ fontWeight: "normal", fontSize: 8 }}> smooth</sub>
           )}
@@ -197,42 +198,81 @@ const DateGraph: FC<DateGraphProps> = ({
     setHighlightExp,
   ] = useState<null | ExperimentDisplayData>(null);
 
-  const data = useMemo(
-    () =>
-      dates.map((row, i) => {
-        const key = getValidDate(row.d).getTime();
-        let value = method === "avg" ? row.v : row.v * (row.c || 1);
-        let stddev = method === "avg" ? row.s : 0;
-        const count = row.c || 1;
+  const data = useMemo(() => {
+    // Sort the dates array by date
+    const sortedDates = [...dates].sort(
+      (a, b) => getValidDate(a.d).getTime() - getValidDate(b.d).getTime()
+    );
 
-        if (smoothBy === "week") {
-          // get 7 day average (or < 7 days if at beginning of data)
-          const windowedDates = dates.slice(Math.max(i - 6, 0), i + 1);
-          const days = windowedDates.length;
-          const sumValue = windowedDates.reduce((acc, cur) => {
-            return acc + (method === "avg" ? cur.v : cur.v * (cur.c || 1));
-          }, 0);
-          const sumStddev = windowedDates.reduce((acc, cur) => {
-            return acc + (method === "avg" && cur.s ? cur.s : 0);
-          }, 0);
+    // Insert missing dates
+    const filledDates: Datapoint[] = [];
+    for (let i = 0; i < sortedDates.length; i++) {
+      filledDates.push(sortedDates[i]);
+      if (i < sortedDates.length - 1) {
+        const currentDate = getValidDate(sortedDates[i].d);
+        const nextDate = getValidDate(sortedDates[i + 1].d);
+        let expectedDate = addDays(new Date(currentDate), 1);
+
+        while (expectedDate < nextDate) {
+          filledDates.push({
+            d: expectedDate,
+            v: null,
+            s: null,
+            c: 0,
+          });
+          expectedDate = addDays(expectedDate, 1);
+        }
+      }
+    }
+
+    return filledDates.map((row, i) => {
+      const key = getValidDate(row.d).getTime();
+      let value =
+        row.v === null ? null : method === "avg" ? row.v : row.v * (row.c ?? 1);
+      let stddev = row.s === null ? null : method === "avg" ? row.s : 0;
+      const count = row.c === null ? null : row.c ?? 1;
+      const oor = row.oor;
+
+      if (smoothBy === "week") {
+        // get 7 day average (or < 7 days if at beginning of data)
+        const windowedDates = filledDates.slice(Math.max(i - 6, 0), i + 1);
+        const filteredWindowedDates = windowedDates.filter(
+          (d) => d.v !== null && d.s !== null
+        );
+        const days = filteredWindowedDates.length;
+        const sumValue = filteredWindowedDates.reduce((acc, cur) => {
+          if (cur.v === null) return null;
+          return acc + (method === "avg" ? cur.v : cur.v * (cur.c ?? 1));
+        }, 0);
+        const sumStddev = filteredWindowedDates.reduce((acc, cur) => {
+          if (cur.s === null) return null;
+          return acc + (method === "avg" ? cur.s ?? 0 : 0);
+        }, 0);
+        if (sumValue !== null && sumStddev !== null) {
           value = days ? sumValue / days : 0;
           stddev = days ? sumStddev / days : 0;
         }
-
-        const ret: Datapoint = {
-          d: key,
-          v: value,
-          s: stddev,
-          c: count,
-        };
-        if (smoothBy === "week" && i < 6) {
-          ret.oor = true;
+        if (row.v === null || row.s === null) {
+          value = null;
+          stddev = null;
         }
-        return ret;
-      }),
+      }
 
-    [dates, smoothBy, method]
-  );
+      const ret: Datapoint = {
+        d: key,
+        v: value,
+        s: stddev,
+        c: count,
+      };
+      if (oor) {
+        ret.oor = true;
+      }
+      if (smoothBy === "week" && i < 6) {
+        ret.oor = true;
+      }
+      return ret;
+    });
+  }, [dates, smoothBy, method]);
 
   const toolTipDelay = 600;
 
@@ -364,7 +404,11 @@ const DateGraph: FC<DateGraphProps> = ({
       scaleLinear<number>({
         domain: [
           0,
-          Math.max(...data.map((d) => Math.min(d.v * 2, d.v + (d.s ?? 0) * 2))),
+          Math.max(
+            ...data.map((d) =>
+              Math.min((d.v ?? 0) * 2, (d.v ?? 0) + (d.s ?? 0) * 2)
+            )
+          ),
         ],
         range: [graphHeight, 0],
         round: true,
@@ -391,7 +435,7 @@ const DateGraph: FC<DateGraphProps> = ({
       return;
     }
     const datapoint = getDatapointFromDate(hoverDate, data);
-    if (!datapoint) {
+    if (!datapoint || datapoint.oor || datapoint.v === null) {
       hideTooltip();
       return;
     }
@@ -467,7 +511,7 @@ const DateGraph: FC<DateGraphProps> = ({
               onPointerMove={handlePointerMove}
               onPointerLeave={handlePointerLeave}
             >
-              {tooltipOpen && !tooltipData?.d?.oor && (
+              {tooltipOpen && (
                 <>
                   <div
                     className={styles.positionIndicator}
@@ -567,22 +611,26 @@ const DateGraph: FC<DateGraphProps> = ({
                       yScale={yScale}
                       data={data}
                       x={(d) => xScale(d.d) ?? 0}
-                      y0={(d) => yScale(addStddev(d.v, d.s, 2, false))}
-                      y1={(d) => yScale(addStddev(d.v, d.s, 2, true))}
+                      y0={(d) =>
+                        yScale(addStddev(d.v ?? 0, d.s ?? 0, 2, false))
+                      }
+                      y1={(d) => yScale(addStddev(d.v ?? 0, d.s ?? 0, 2, true))}
                       fill={"#dddddd"}
                       opacity={0.5}
-                      defined={(d) => !d?.oor}
+                      defined={(d) => d.s !== null && !d?.oor}
                       curve={curveMonotoneX}
                     />
                     <AreaClosed
                       yScale={yScale}
                       data={data}
                       x={(d) => xScale(d.d) ?? 0}
-                      y0={(d) => yScale(addStddev(d.v, d.s, 1, false))}
-                      y1={(d) => yScale(addStddev(d.v, d.s, 1, true))}
+                      y0={(d) =>
+                        yScale(addStddev(d.v ?? 0, d.s ?? 0, 1, false))
+                      }
+                      y1={(d) => yScale(addStddev(d.v ?? 0, d.s ?? 0, 1, true))}
                       fill={"#cccccc"}
                       opacity={0.5}
-                      defined={(d) => !d?.oor}
+                      defined={(d) => d.s !== null && !d?.oor}
                       curve={curveMonotoneX}
                     />
 
@@ -592,22 +640,34 @@ const DateGraph: FC<DateGraphProps> = ({
                           yScale={yScale}
                           data={data}
                           x={(d) => xScale(d.d) ?? 0}
-                          y0={(d) => yScale(addStddev(d.v, d.s, 2, false))}
-                          y1={(d) => yScale(addStddev(d.v, d.s, 2, true))}
+                          y0={(d) =>
+                            yScale(addStddev(d.v ?? 0, d.s ?? 0, 2, false))
+                          }
+                          y1={(d) =>
+                            yScale(addStddev(d.v ?? 0, d.s ?? 0, 2, true))
+                          }
                           fill={"url(#stripe-pattern)"}
                           opacity={0.3}
-                          defined={(d, i) => !!(d?.oor || data?.[i - 1]?.oor)}
+                          defined={(d, i) =>
+                            d.s !== null && !!(d?.oor || data?.[i - 1]?.oor)
+                          }
                           curve={curveMonotoneX}
                         />
                         <AreaClosed
                           yScale={yScale}
                           data={data}
                           x={(d) => xScale(d.d) ?? 0}
-                          y0={(d) => yScale(addStddev(d.v, d.s, 1, false))}
-                          y1={(d) => yScale(addStddev(d.v, d.s, 1, true))}
+                          y0={(d) =>
+                            yScale(addStddev(d.v ?? 0, d.s ?? 0, 1, false))
+                          }
+                          y1={(d) =>
+                            yScale(addStddev(d.v ?? 0, d.s ?? 0, 1, true))
+                          }
                           fill={"url(#stripe-pattern)"}
                           opacity={0.3}
-                          defined={(d, i) => !!(d?.oor || data?.[i - 1]?.oor)}
+                          defined={(d, i) =>
+                            d.s !== null && !!(d?.oor || data?.[i - 1]?.oor)
+                          }
                           curve={curveMonotoneX}
                         />
                       </>
@@ -618,23 +678,25 @@ const DateGraph: FC<DateGraphProps> = ({
                 <LinePath
                   data={data}
                   x={(d) => xScale(d.d) ?? 0}
-                  y={(d) => yScale(d.v) ?? 0}
+                  y={(d) => yScale(d.v ?? 0) ?? 0}
                   stroke={"#8884d8"}
                   strokeWidth={2}
                   curve={curveMonotoneX}
-                  defined={(d) => !d?.oor}
+                  defined={(d) => d.v !== null && !d?.oor}
                 />
                 {smoothBy === "week" && (
                   <LinePath
                     data={data}
                     x={(d) => xScale(d.d) ?? 0}
-                    y={(d) => yScale(d.v) ?? 0}
+                    y={(d) => yScale(d.v ?? 0) ?? 0}
                     stroke={"#8884d8"}
                     opacity={0.5}
                     strokeDasharray={"2,5"}
                     strokeWidth={2}
                     curve={curveMonotoneX}
-                    defined={(d, i) => !!(d?.oor || data?.[i - 1]?.oor)}
+                    defined={(d, i) =>
+                      d.v !== null && !!(d?.oor || data?.[i - 1]?.oor)
+                    }
                   />
                 )}
 
