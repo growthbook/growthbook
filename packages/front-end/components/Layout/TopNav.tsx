@@ -445,6 +445,20 @@ const TopNav: FC<{
                 <AccountPlanNotices />
               </div>
               <div className="nav-link">
+                <button
+                  className="alert alert-warning py-1 px-2 mb-0 d-none d-md-block mr-1"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    router.push("/settings/billing");
+                  }}
+                >
+                  Update to{" "}
+                  <span style={{ textDecoration: "underline" }}>
+                    GrowthBook 3.1
+                  </span>
+                </button>
+              </div>
+              <div className="nav-link">
                 <AccountPlanBadge />
               </div>
             </>

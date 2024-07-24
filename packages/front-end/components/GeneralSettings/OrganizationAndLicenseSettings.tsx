@@ -101,7 +101,7 @@ export default function OrganizationAndLicenseSettings({
             )}
           </div>
         </div>
-        {(isCloud() || !isMultiOrg()) && (
+        {(!isCloud() || !isMultiOrg()) && (
           <ShowLicenseInfo showInput={!isCloud()} />
         )}
       </div>
