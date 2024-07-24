@@ -160,7 +160,7 @@ export default function FactMetricList({ factTable }: Props) {
                     <MoreMenu>
                       {canEdit(metric) && (
                         <button
-                          className="btn"
+                          className="btn dropdown-item"
                           onClick={() => setEditMetric(metric)}
                         >
                           Edit
