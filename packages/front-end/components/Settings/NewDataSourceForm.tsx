@@ -107,6 +107,7 @@ const NewDataSourceForm: FC<{
       name: string;
       sql: string;
       type: MetricType;
+      userIdTypes: string[];
     }[];
   }>({
     defaultValues: {
