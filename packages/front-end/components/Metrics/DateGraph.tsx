@@ -17,7 +17,7 @@ import {
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ScaleLinear } from "d3-scale";
 import { date, getValidDate } from "shared/dates";
-import { addDays } from "date-fns";
+import { addDays, setHours, setMinutes } from "date-fns";
 import { getMetricFormatter } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { PartialOn } from "@/types/utils";
@@ -199,10 +199,20 @@ const DateGraph: FC<DateGraphProps> = ({
   ] = useState<null | ExperimentDisplayData>(null);
 
   const data = useMemo(() => {
-    // Sort the dates array by date
-    const sortedDates = [...dates].sort(
+    let sortedDates = [...dates].sort(
       (a, b) => getValidDate(a.d).getTime() - getValidDate(b.d).getTime()
     );
+
+    // Force a common date format using the last date
+    const lastDate = getValidDate(sortedDates[sortedDates.length - 1].d);
+    const desiredHour = lastDate.getUTCHours();
+    const desiredMinute = lastDate.getUTCMinutes();
+    sortedDates = sortedDates.map((d) => {
+      let date = getValidDate(d.d);
+      date = setMinutes(setHours(date, desiredHour), desiredMinute);
+      d.d = date;
+      return d;
+    });
 
     // Insert missing dates
     const filledDates: Datapoint[] = [];
@@ -225,6 +235,7 @@ const DateGraph: FC<DateGraphProps> = ({
       }
     }
 
+    // Calculate data points
     return filledDates.map((row, i) => {
       const key = getValidDate(row.d).getTime();
       let value =
