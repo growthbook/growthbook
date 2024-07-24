@@ -23,6 +23,7 @@ const userSchema = new mongoose.Schema({
   passwordHash: String,
   superAdmin: Boolean,
   verified: Boolean,
+  agreedToTerms: Boolean,
   minTokenDate: Date,
   dateCreated: Date,
 });
@@ -83,12 +84,14 @@ export async function createUser({
   password,
   verified = false,
   superAdmin = false,
+  agreedToTerms = false,
 }: {
   name: string;
   email: string;
   password?: string;
   verified?: boolean;
   superAdmin?: boolean;
+  agreedToTerms?: boolean;
 }) {
   let passwordHash = "";
 
@@ -106,6 +109,7 @@ export async function createUser({
       verified,
       superAdmin,
       dateCreated: new Date(),
+      agreedToTerms,
     })
   );
 }
