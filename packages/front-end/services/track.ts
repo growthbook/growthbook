@@ -97,7 +97,7 @@ export default function track(
       log_level: "ERROR",
       tracking_host: "https://t.growthbook.io",
       cookie_name: "__growthbookid",
-      capture_3rd_party_cookies: false,
+      capture_3rd_party_cookies: ["_ga"],
       randomize_url: true,
     });
   }
