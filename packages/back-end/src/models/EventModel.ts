@@ -162,6 +162,76 @@ export const getEventForOrganization = async (
 };
 
 /**
+ * Get all events for an organization, and allow for pagination
+ * @param organizationId
+ * @param filters - object containing: page, perPage, eventTypes, from, to, sortOrder
+ * @returns
+ */
+export const getEventsForOrganization = async (
+  organizationId: string,
+  filters: {
+    page: number;
+    perPage: number;
+    eventTypes?: string[];
+    from?: string;
+    to?: string;
+    sortOrder?: 1 | -1;
+  }
+): Promise<EventInterface<unknown>[]> => {
+  const query = applyFiltersToQuery(organizationId, filters);
+  const docs = await EventModel.find(query)
+    .sort([["dateCreated", filters.sortOrder ?? -1]])
+    .skip((filters.page - 1) * filters.perPage)
+    .limit(filters.perPage);
+
+  return docs.map(toInterface);
+};
+
+/**
+ * Get the total count of events for an organization
+ * @param organizationId
+ * @param filters - object containing: eventTypes, from, to
+ * @returns
+ */
+export const getEventsCountForOrganization = async (
+  organizationId: string,
+  filters: {
+    eventTypes?: string[];
+    from?: string;
+    to?: string;
+  }
+): Promise<number> => {
+  const query = applyFiltersToQuery(organizationId, filters);
+  return EventModel.countDocuments(query);
+};
+
+const applyFiltersToQuery = (
+  organizationId: string,
+  filters: { eventTypes?: string[]; from?: string; to?: string }
+) => {
+  const query: {
+    organizationId: string;
+    event?: unknown;
+    dateCreated?: unknown;
+  } = { organizationId };
+  if (filters.eventTypes && filters.eventTypes.length > 0) {
+    query["event"] = { $in: filters.eventTypes };
+  }
+  if (filters.from && filters.to) {
+    query["dateCreated"] = {
+      $gte: new Date(filters.from),
+      $lt: new Date(filters.to),
+    };
+  } else if (filters.from) {
+    query["dateCreated"] = { $gte: new Date(filters.from) };
+  } else if (filters.to) {
+    query["dateCreated"] = { $lt: new Date(filters.to) };
+  }
+
+  return query;
+};
+
+/**
  * Get all events for an organization
  * @param organizationId
  * @param limit  Providing 0 as a limit will return all events

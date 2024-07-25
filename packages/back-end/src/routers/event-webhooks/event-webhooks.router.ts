@@ -123,6 +123,20 @@ router.put(
 );
 
 router.post(
+  "/event-webhooks/test-params",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        name: z.string().trim().min(1),
+        method: z.enum(eventWebHookMethods),
+        url: z.string().trim().min(1),
+      })
+      .strict(),
+  }),
+  eventWebHooksController.testWebHookParams
+);
+
+router.post(
   "/event-webhooks/test",
   validateRequestMiddleware({
     body: z
@@ -132,6 +146,18 @@ router.post(
       .strict(),
   }),
   eventWebHooksController.createTestEventWebHook
+);
+
+router.post(
+  "/event-webhooks/toggle",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        webhookId: z.string().trim().min(1),
+      })
+      .strict(),
+  }),
+  eventWebHooksController.toggleEventWebHook
 );
 
 export { router as eventWebHooksRouter };

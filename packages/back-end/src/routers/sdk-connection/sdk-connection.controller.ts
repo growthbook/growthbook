@@ -172,7 +172,7 @@ export const checkSDKConnectionProxyStatus = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{
     status: 200;
-    result: ProxyTestResult;
+    result?: ProxyTestResult;
   }>
 ) => {
   const { id } = req.params;

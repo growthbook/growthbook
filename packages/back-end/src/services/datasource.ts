@@ -154,7 +154,11 @@ export async function testQuery(
     throw new Error("Unable to test query.");
   }
 
-  const sql = integration.getTestQuery(query, templateVariables);
+  const sql = integration.getTestQuery({
+    query,
+    templateVariables,
+    testDays: context.org.settings?.testQueryDays,
+  });
   try {
     const { results, duration } = await integration.runTestQuery(sql, [
       "timestamp",

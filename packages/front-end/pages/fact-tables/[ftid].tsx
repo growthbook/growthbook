@@ -2,6 +2,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBEdit } from "@/components/Icons";
@@ -21,6 +22,7 @@ import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { usesEventName } from "@/components/Metrics/MetricForm";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function FactTablePage() {
   const router = useRouter();
@@ -28,6 +30,7 @@ export default function FactTablePage() {
 
   const [editOpen, setEditOpen] = useState(false);
   const [showSQL, setShowSQL] = useState(false);
+  const [editOwnerModal, setEditOwnerModal] = useState(false);
 
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
@@ -68,9 +71,35 @@ export default function FactTablePage() {
       {editOpen && (
         <FactTableModal close={() => setEditOpen(false)} existing={factTable} />
       )}
+      {editOwnerModal && (
+        <EditOwnerModal
+          cancel={() => setEditOwnerModal(false)}
+          owner={factTable.owner}
+          save={async (owner) => {
+            await apiCall(`/fact-tables/${factTable.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ owner }),
+            });
+          }}
+          mutate={mutateDefinitions}
+        />
+      )}
       {editProjectsOpen && (
         <EditProjectsForm
-          projects={factTable.projects}
+          label={
+            <>
+              Projects{" "}
+              <Tooltip
+                body={
+                  "The dropdown below has been filtered to only include projects where you have permission to update Fact Tables"
+                }
+              />
+            </>
+          }
+          value={factTable.projects}
+          permissionRequired={(project) =>
+            permissionsUtil.canUpdateFactTable({ projects: [project] }, {})
+          }
           cancel={() => setEditProjectsOpen(false)}
           save={async (projects) => {
             await apiCall(`/fact-tables/${factTable.id}`, {
@@ -176,6 +205,19 @@ export default function FactTablePage() {
             </a>
           )}
         </div>
+        {(factTable.owner || canEdit) && (
+          <div className="col-auto">
+            Owner: {factTable.owner}
+            {canEdit && (
+              <a
+                className="ml-1 cursor-pointer"
+                onClick={() => setEditOwnerModal(true)}
+              >
+                <GBEdit />
+              </a>
+            )}
+          </div>
+        )}
         <div className="col-auto">
           Data source:{" "}
           <Link

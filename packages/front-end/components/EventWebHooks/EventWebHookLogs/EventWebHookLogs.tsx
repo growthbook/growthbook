@@ -31,9 +31,9 @@ export const EventWebHookLogs: FC<EventWebHookLogsProps> = ({
             <table className="table appbox gbtable table-hover">
               <thead>
                 <tr>
-                  <th className="text-center">Result</th>
-                  <th className="text-left">Event</th>
                   <th className="text-left">Timestamp</th>
+                  <th className="text-left">Event</th>
+                  <th className="text=left">Result</th>
                 </tr>
               </thead>
               <tbody>

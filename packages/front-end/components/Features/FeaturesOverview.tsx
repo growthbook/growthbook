@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   FaDraftingCompass,
   FaExchangeAlt,
@@ -71,6 +71,8 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import CopyRuleModal from "@/components/Features/CopyRuleModal";
+import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import PrerequisiteStatusRow, {
   PrerequisiteStatesCols,
 } from "./PrerequisiteStatusRow";
@@ -142,6 +144,10 @@ export default function FeaturesOverview({
     i: number;
     environment: string;
     defaultType?: string;
+  } | null>(null);
+  const [copyRuleModal, setCopyRuleModal] = useState<{
+    environment: string;
+    rules: FeatureRule[];
   } | null>(null);
   const [editCommentModel, setEditCommentModal] = useState(false);
 
@@ -282,6 +288,13 @@ export default function FeaturesOverview({
 
   const canEdit = permissionsUtil.canViewFeatureModal(projectId);
   const canEditDrafts = permissionsUtil.canManageFeatureDrafts(feature);
+
+  const variables = {
+    featureKey: feature.id,
+    featureType: feature.valueType,
+    tags: feature.tags || [],
+  };
+
   const renderStatusCopy = () => {
     switch (revision.status) {
       case "approved":
@@ -332,6 +345,9 @@ export default function FeaturesOverview({
   return (
     <>
       <div className="contents container-fluid pagecontents">
+        <div className="mt-3">
+          <CustomMarkdown page={"feature"} variables={variables} />
+        </div>
         <h3 className="mt-4 mb-3">Enabled Environments</h3>
         <div className="appbox mt-2 mb-4 px-4 pt-3 pb-3">
           <div className="mb-2">
@@ -1045,6 +1061,7 @@ export default function FeaturesOverview({
                               feature={feature}
                               mutate={mutate}
                               setRuleModal={setRuleModal}
+                              setCopyRuleModal={setCopyRuleModal}
                               version={currentVersion}
                               setVersion={setVersion}
                               locked={isLocked}
@@ -1236,8 +1253,32 @@ export default function FeaturesOverview({
             revisions={revisions}
           />
         )}
+        {copyRuleModal !== null && (
+          <CopyRuleModal
+            feature={feature}
+            environment={copyRuleModal.environment}
+            version={currentVersion}
+            setVersion={setVersion}
+            rules={copyRuleModal.rules}
+            cancel={() => setCopyRuleModal(null)}
+            mutate={mutate}
+          />
+        )}
         {editProjectModal && (
           <EditProjectForm
+            label={
+              <>
+                Projects{" "}
+                <Tooltip
+                  body={
+                    "The dropdown below has been filtered to only include projects where you have permission to update Features"
+                  }
+                />
+              </>
+            }
+            permissionRequired={(project) =>
+              permissionsUtil.canUpdateFeature({ project }, {})
+            }
             apiEndpoint={`/feature/${feature.id}`}
             cancel={() => setEditProjectModal(false)}
             mutate={mutate}

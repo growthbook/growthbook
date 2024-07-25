@@ -29,7 +29,7 @@ function LanguageOption({
 }) {
   return (
     <div
-      className={`hover-highlight cursor-pointer border rounded mr-2 mb-2 ${
+      className={`hover-highlight cursor-pointer border rounded ${
         selected.has(language) ? "bg-light" : ""
       }`}
       style={{
@@ -109,7 +109,7 @@ export default function SDKLanguageSelector({
     );
   };
 
-  const frontEnd = filterLanguages(["javascript", "react"]);
+  const frontEnd = filterLanguages(["javascript", "react", "nocode-other"]);
   const backEnd = filterLanguages([
     "nodejs",
     "php",
@@ -131,7 +131,6 @@ export default function SDKLanguageSelector({
     "nocode-shopify",
     "nocode-wordpress",
     "nocode-webflow",
-    "nocode-other",
   ]);
 
   if (useTabs) {
@@ -159,7 +158,10 @@ export default function SDKLanguageSelector({
             }
             padding={false}
           >
-            <div className="d-flex flex-wrap">
+            <div
+              className="d-flex flex-wrap pb-3"
+              style={{ rowGap: "1em", columnGap: "0.6em" }}
+            >
               {languages.map((l) => (
                 <LanguageOption
                   key={l}
@@ -186,7 +188,10 @@ export default function SDKLanguageSelector({
                 <strong>Back-end</strong>
               </div>
             )}
-            <div className="d-flex flex-wrap">
+            <div
+              className="d-flex flex-wrap pb-3"
+              style={{ rowGap: "1em", columnGap: "0.6em" }}
+            >
               {backEnd.map((l) => (
                 <LanguageOption
                   key={l}
@@ -206,7 +211,10 @@ export default function SDKLanguageSelector({
                 <strong>Front-end</strong>
               </div>
             )}
-            <div className="d-flex align-items-center">
+            <div
+              className="d-flex flex-wrap pb-3"
+              style={{ rowGap: "1em", columnGap: "0.6em" }}
+            >
               {frontEnd.map((l) => (
                 <LanguageOption
                   key={l}
@@ -226,7 +234,10 @@ export default function SDKLanguageSelector({
                 <strong>Mobile</strong>
               </div>
             )}
-            <div className="d-flex">
+            <div
+              className="d-flex flex-wrap pb-3"
+              style={{ rowGap: "1em", columnGap: "0.6em" }}
+            >
               {mobile.map((l) => (
                 <LanguageOption
                   key={l}
@@ -246,7 +257,10 @@ export default function SDKLanguageSelector({
                 <strong>Edge</strong>
               </div>
             )}
-            <div className="d-flex">
+            <div
+              className="d-flex flex-wrap pb-3"
+              style={{ rowGap: "1em", columnGap: "0.6em" }}
+            >
               {edge.map((l) => (
                 <LanguageOption
                   key={l}
@@ -266,7 +280,10 @@ export default function SDKLanguageSelector({
                 <strong>No/Low Code Platform</strong>
               </div>
             )}
-            <div className="d-flex">
+            <div
+              className="d-flex flex-wrap pb-3"
+              style={{ rowGap: "1em", columnGap: "0.6em" }}
+            >
               {nocode.map((l) => (
                 <LanguageOption
                   key={l}

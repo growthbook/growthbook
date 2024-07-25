@@ -53,6 +53,7 @@ import {
   createInitialRevision,
   createRevisionFromLegacyDraft,
   deleteAllRevisionsForFeature,
+  getRevision,
   hasDraft,
   markRevisionAsPublished,
   updateRevision,
@@ -140,6 +141,7 @@ const featureSchema = new mongoose.Schema({
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
+featureSchema.index({ organization: 1, project: 1 });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
@@ -157,11 +159,17 @@ const toInterface = (doc: FeatureDocument): FeatureInterface =>
 
 export async function getAllFeatures(
   context: ReqContext | ApiReqContext,
-  project?: string
+  {
+    project,
+    includeArchived = false,
+  }: { project?: string; includeArchived?: boolean } = {}
 ): Promise<FeatureInterface[]> {
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
   if (project) {
     q.project = project;
+  }
+  if (!includeArchived) {
+    q.archived = { $ne: true };
   }
 
   const features = (await FeatureModel.find(q)).map((m) =>
@@ -176,9 +184,28 @@ export async function getAllFeatures(
 const _undefinedTypeGuard = (x: string[] | undefined): x is string[] =>
   typeof x !== "undefined";
 
-export async function getAllFeaturesWithLinkedExperiments(
+export async function hasArchivedFeatures(
   context: ReqContext | ApiReqContext,
   project?: string
+): Promise<boolean> {
+  const q: FilterQuery<FeatureDocument> = {
+    organization: context.org.id,
+    archived: true,
+  };
+  if (project) {
+    q.project = project;
+  }
+
+  const f = await FeatureModel.findOne(q);
+  return !!f;
+}
+
+export async function getAllFeaturesWithLinkedExperiments(
+  context: ReqContext | ApiReqContext,
+  {
+    project,
+    includeArchived = false,
+  }: { project?: string; includeArchived?: boolean } = {}
 ): Promise<{
   features: FeatureInterface[];
   experiments: ExperimentInterface[];
@@ -186,6 +213,9 @@ export async function getAllFeaturesWithLinkedExperiments(
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
   if (project) {
     q.project = project;
+  }
+  if (!includeArchived) {
+    q.archived = { $ne: true };
   }
 
   const allFeatures = await FeatureModel.find(q);
@@ -356,18 +386,29 @@ async function logFeatureUpdatedEvent(
 ): Promise<string | undefined> {
   const groupMap = await getSavedGroupMap(context.org);
   const experimentMap = await getExperimentMapForFeature(context, current.id);
-
+  const currentRevision = await getRevision(
+    current.organization,
+    current.id,
+    current.version
+  );
+  const previousRevision = await getRevision(
+    previous.organization,
+    previous.id,
+    previous.version
+  );
   const currentApiFeature = getApiFeatureObj({
     feature: current,
     organization: context.org,
     groupMap,
     experimentMap,
+    revision: currentRevision,
   });
   const previousApiFeature = getApiFeatureObj({
     feature: previous,
     organization: context.org,
     groupMap,
     experimentMap,
+    revision: previousRevision,
   });
 
   const payload: FeatureUpdatedNotificationEvent = {
@@ -415,12 +456,17 @@ async function logFeatureCreatedEvent(
 ): Promise<string | undefined> {
   const groupMap = await getSavedGroupMap(context.org);
   const experimentMap = await getExperimentMapForFeature(context, feature.id);
-
+  const revision = await getRevision(
+    feature.organization,
+    feature.id,
+    feature.version
+  );
   const apiFeature = getApiFeatureObj({
     feature,
     organization: context.org,
     groupMap,
     experimentMap,
+    revision,
   });
 
   const payload: FeatureCreatedNotificationEvent = {
@@ -460,12 +506,17 @@ async function logFeatureDeletedEvent(
     context,
     previousFeature.id
   );
-
+  const revision = await getRevision(
+    previousFeature.organization,
+    previousFeature.id,
+    previousFeature.version
+  );
   const apiFeature = getApiFeatureObj({
     feature: previousFeature,
     organization: context.org,
     groupMap,
     experimentMap,
+    revision,
   });
 
   const payload: FeatureDeletedNotificationEvent = {
