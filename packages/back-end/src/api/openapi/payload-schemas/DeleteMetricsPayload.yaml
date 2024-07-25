@@ -1,0 +1,8 @@
+type: object
+required:
+  - ids
+properties:
+  ids:
+    type: array
+    items:
+      type: string

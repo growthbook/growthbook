@@ -168,6 +168,8 @@ export interface paths {
     get: operations["listMetrics"];
     /** Create a single metric */
     post: operations["postMetric"];
+    /** Archives (or deletes) a set of metrics by IDs */
+    delete: operations["deleteMetrics"];
   };
   "/metrics/{id}": {
     /** Get a single metric */
@@ -2267,6 +2269,8 @@ export interface components {
   parameters: {
     /** @description The id of the requested resource */
     id: string;
+    /** @description If true, the metrics will be deleted instead of archived */
+    delete: boolean;
     /** @description The number of items to return */
     limit: number;
     /** @description How many items to skip (use in conjunction with limit for pagination) */
@@ -6340,6 +6344,32 @@ export interface operations {
       };
     };
   };
+  deleteMetrics: {
+    /** Archives (or deletes) a set of metrics by IDs */
+    parameters: {
+        /** @description If true, the metrics will be deleted instead of archived */
+      query: {
+        delete?: boolean;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          ids: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            modifiedIds: (string)[];
+            deleted: boolean;
+          };
+        };
+      };
+    };
+  };
   getMetric: {
     /** Get a single metric */
     parameters: {
@@ -9199,6 +9229,7 @@ export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["r
 export type GetExperimentSnapshotResponse = operations["getExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];
 export type ListMetricsResponse = operations["listMetrics"]["responses"]["200"]["content"]["application/json"];
 export type PostMetricResponse = operations["postMetric"]["responses"]["200"]["content"]["application/json"];
+export type DeleteMetricsResponse = operations["deleteMetrics"]["responses"]["200"]["content"]["application/json"];
 export type GetMetricResponse = operations["getMetric"]["responses"]["200"]["content"]["application/json"];
 export type PutMetricResponse = operations["putMetric"]["responses"]["200"]["content"]["application/json"];
 export type DeleteMetricResponse = operations["deleteMetric"]["responses"]["200"]["content"]["application/json"];

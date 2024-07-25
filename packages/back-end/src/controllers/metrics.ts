@@ -20,6 +20,7 @@ import {
   getMetricById,
   updateMetric,
   getMetricsByDatasource,
+  getMetricsByIds,
 } from "back-end/src/models/MetricModel";
 import { IdeaInterface } from "back-end/types/idea";
 
@@ -120,6 +121,74 @@ export async function deleteMetric(
 
   res.status(200).json({
     status: 200,
+  });
+}
+
+export async function deleteMetrics(
+  req: AuthRequest<{ ids: string[] }, null, { delete: boolean }>,
+  res: Response<unknown, EventAuditUserForResponseLocals>
+) {
+  const context = getContextFromReq(req);
+  const ids = req.body.ids;
+
+  const metrics = await getMetricsByIds(context, ids);
+
+  const metricMap = new Map(metrics.map((m) => [m.id, m]));
+
+  const notFoundIds = ids.filter((id) => !metricMap.has(id));
+
+  if (notFoundIds.length > 0) {
+    res.status(403).json({
+      status: 404,
+      message: "Could not find metrics with IDs: " + notFoundIds.join(", "),
+    });
+    return;
+  }
+
+  if (req.query.delete) {
+    for (const metric of metrics) {
+      if (!context.permissions.canDeleteMetric(metric)) {
+        context.permissions.throwPermissionError();
+      }
+    }
+  } else {
+    for (const metric of metrics) {
+      if (!context.permissions.canUpdateMetric(metric, {})) {
+        context.permissions.throwPermissionError();
+      }
+    }
+  }
+
+  if (req.query.delete) {
+    for (const metric of metrics) {
+      await deleteMetricById(context, metric);
+      await req.audit({
+        event: "metric.delete",
+        entity: {
+          object: "metric",
+          id: metric.id,
+        },
+        details: auditDetailsDelete(metric),
+      });
+    }
+  } else {
+    for (const metric of metrics) {
+      await updateMetric(context, metric, { status: "archived" });
+      metric.status = "archived";
+      await req.audit({
+        event: "metric.update",
+        entity: {
+          object: "metric",
+          id: metric.id,
+        },
+        details: auditDetailsUpdate(metric, metric),
+      });
+    }
+  }
+
+  res.status(200).json({
+    status: 200,
+    modifiedIds: ids,
   });
 }
 
@@ -313,10 +382,8 @@ export async function getMetricsFromTrackedEvents(
       integration.datasource.id
     );
 
-    const trackedEvents: AutoMetricTrackedEvent[] = await integration.getAutoMetricsToCreate(
-      existingMetrics,
-      schema
-    );
+    const trackedEvents: AutoMetricTrackedEvent[] =
+      await integration.getAutoMetricsToCreate(existingMetrics, schema);
 
     return res.status(200).json({
       status: 200,

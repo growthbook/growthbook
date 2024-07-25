@@ -5,6 +5,14 @@ id:
   description: The id of the requested resource
   schema:
     type: string
+delete:
+  name: delete
+  in: query
+  required: false
+  description: If true, the metrics will be deleted instead of archived
+  schema:
+    type: boolean
+    default: false
 limit:
   name: limit
   in: query

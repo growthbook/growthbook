@@ -2488,6 +2488,47 @@ paths:
                 properties:
                   metric:
                     $ref: '#/components/schemas/Metric'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/delete'
+      tags:
+        - metrics
+      summary: Archives (or deletes) a set of metrics by IDs
+      operationId: deleteMetrics
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE --data '{"ids": ["met_123", "met_456"]}' https://api.growthbook.io/api/v1/metrics?delete=true \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ids
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - modifiedIds
+                  - deleted
+                properties:
+                  modifiedIds:
+                    type: array
+                    items:
+                      type: string
+                  deleted:
+                    type: boolean
   '/metrics/{id}':
     get:
       parameters:
@@ -5042,6 +5083,14 @@ components:
       description: The id of the requested resource
       schema:
         type: string
+    delete:
+      name: delete
+      in: query
+      required: false
+      description: 'If true, the metrics will be deleted instead of archived'
+      schema:
+        type: boolean
+        default: false
     limit:
       name: limit
       in: query
