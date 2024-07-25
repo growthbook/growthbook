@@ -1266,6 +1266,19 @@ export default function FeaturesOverview({
         )}
         {editProjectModal && (
           <EditProjectForm
+            label={
+              <>
+                Projects{" "}
+                <Tooltip
+                  body={
+                    "The dropdown below has been filtered to only include projects where you have permission to update Features"
+                  }
+                />
+              </>
+            }
+            permissionRequired={(project) =>
+              permissionsUtil.canUpdateFeature({ project }, {})
+            }
             apiEndpoint={`/feature/${feature.id}`}
             cancel={() => setEditProjectModal(false)}
             mutate={mutate}

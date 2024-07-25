@@ -172,7 +172,6 @@ function scaleImpactAndSetMissingExperiments({
               differenceType: "scaled",
             })
           : null;
-        console.log(ei.experiment.id);
 
         if (scaledAnalysis && scaledAnalysis.results.length) {
           // count experiments used for James-Stein adjustment
@@ -213,7 +212,6 @@ function scaleImpactAndSetMissingExperiments({
           "No results available. Run experiment update on experiment page.";
       }
       experimentImpacts.set(e.id, ei);
-      console.log(ei);
     });
 
     const adjustment = jamesSteinAdjustment(allScaledImpacts, overallSE ?? 0);

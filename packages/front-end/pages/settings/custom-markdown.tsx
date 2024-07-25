@@ -9,6 +9,7 @@ import TempMessage from "@/components/TempMessage";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { DocLink } from "@/components/DocLink";
 
 const SaveMessage = ({ showMessage, close }) => {
   return (
@@ -93,6 +94,8 @@ const CustomMarkdown: React.FC = () => {
       <p>
         Custom markdown allows you to provide organization-specific guidance and
         documentation to your team on key pages within GrowthBook.
+        <br />
+        <DocLink docSection={"customMarkdown"}>View Documentation &gt;</DocLink>
       </p>
       <Modal
         cta={"Save"}

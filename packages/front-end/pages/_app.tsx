@@ -32,6 +32,7 @@ type ModAppProps = AppProps & {
     noOrganization?: boolean;
     preAuth?: boolean;
     liteLayout?: boolean;
+    preAuthTopNav?: boolean;
   };
 };
 
@@ -65,7 +66,7 @@ function App({
 
   const organizationRequired = !Component.noOrganization;
   const preAuth = Component.preAuth || false;
-
+  const preAuthTopNav = Component.preAuthTopNav || false;
   const liteLayout = Component.liteLayout || false;
 
   useEffect(() => {
@@ -90,6 +91,20 @@ function App({
     });
   }, [router.pathname]);
 
+  const renderPreAuth = () => {
+    if (preAuthTopNav) {
+      return (
+        <>
+          <TopNavLite />
+          <main className="container mt-5">
+            <Component {...pageProps} />
+          </main>
+        </>
+      );
+    }
+    return <Component {...pageProps} />;
+  };
+
   return (
     <>
       <style jsx global>{`
@@ -112,12 +127,7 @@ function App({
         <AppearanceUIThemeProvider>
           <RadixTheme>
             {preAuth ? (
-              <div>
-                <TopNavLite />
-                <main className="container mt-5">
-                  <Component {...pageProps} />
-                </main>
-              </div>
+              renderPreAuth()
             ) : (
               <PageHeadProvider>
                 <AuthProvider>
