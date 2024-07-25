@@ -57,6 +57,8 @@ export const AuthContext = React.createContext<AuthContextValue>({
 
 export const useAuth = (): AuthContextValue => useContext(AuthContext);
 
+const passthroughQueryParams = ["hypgen", "hypothesis"];
+
 // Only run one refresh operation at a time
 let _currentRefreshOperation: null | Promise<
   UnauthenticatedResponse | IdTokenResponse | { error: Error }
@@ -75,6 +77,13 @@ async function refreshToken() {
         url += "?ssoId=" + ssoId;
       }
     }
+
+    const searchParams = new URLSearchParams(window.location.search);
+    searchParams.forEach((v, k) => {
+      if (passthroughQueryParams.includes(k)) {
+        url += `${url.indexOf("?") > -1 ? "&" : "?"}${k}=${v}`;
+      }
+    });
 
     _currentRefreshOperation = fetch(url, {
       method: "POST",

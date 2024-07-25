@@ -173,10 +173,10 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
               style={{ height: "2rem", width: "2rem" }}
             />
           </div>
-          <h1>{name}</h1>
+          <h1 className="mb-0">{name}</h1>
           {enabled && (
             <div>
-              <span className="badge badge-gray text-uppercase ml-2">
+              <span className="badge badge-gray text-uppercase ml-2 mb-0">
                 Enabled
               </span>
             </div>
@@ -229,31 +229,33 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           )}
         </div>
 
-        <div className="ml-2 d-flex align-items-center">
-          <div className="text-main">
-            <b>Secret:</b>
-          </div>
-          <span className="ml-1">
-            <code className="text-main text-break">{signingKey}</code>
-          </span>
+        {payloadType === "raw" && (
+          <div className="ml-2 d-flex align-items-center">
+            <div className="text-main">
+              <b>Secret:</b>
+            </div>
+            <span className="ml-1">
+              <code className="text-main text-break">{signingKey}</code>
+            </span>
 
-          <span className="ml-2">
-            {copySupported ? (
-              <button
-                className="btn p-0 pb-1"
-                onClick={() => performCopy(signingKey)}
-              >
-                <span className="text-main" style={{ fontSize: "1.1rem" }}>
-                  {copySuccess ? (
-                    <HiOutlineClipboardCheck />
-                  ) : (
-                    <HiOutlineClipboard />
-                  )}
-                </span>
-              </button>
-            ) : null}
-          </span>
-        </div>
+            <span className="ml-2">
+              {copySupported ? (
+                <button
+                  className="btn p-0 pb-1"
+                  onClick={() => performCopy(signingKey)}
+                >
+                  <span className="text-main" style={{ fontSize: "1.1rem" }}>
+                    {copySuccess ? (
+                      <HiOutlineClipboardCheck />
+                    ) : (
+                      <HiOutlineClipboard />
+                    )}
+                  </span>
+                </button>
+              ) : null}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="card mt-3 p-3 p-4">
@@ -391,6 +393,7 @@ export const EventWebHookDetailContainer = ({
           handleUpdateError(response.error || "Unknown error");
         } else {
           mutateEventWebHook();
+          setIsEditModalOpen(false);
           setEditError(null);
         }
       } catch (e) {

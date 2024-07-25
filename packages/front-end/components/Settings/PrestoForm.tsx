@@ -28,10 +28,35 @@ const PrestoForm: FC<{
           ]}
         />
       </div>
-      <div className="col-md-12">
+      <div className="form-group col-md-12">
+        <SelectField
+          label="Authentication Method"
+          options={[
+            {
+              value: "basicAuth",
+              label: "Basic Auth (Username/Password)",
+            },
+            {
+              value: "customAuth",
+              label: "Custom Auth (HTTP Authorization header)",
+            },
+            {
+              value: "none",
+              label: "None (Authentication handled outside of GrowthBook)",
+            },
+          ]}
+          helpText="Basic Auth is the most common method. Custom Auth sets HTTP Authorization header with the provided string. 'None' only is used for custom authentication methods."
+          value={params.authType || "basicAuth"}
+          onChange={(v) => {
+            setParams({
+              authType: v,
+            });
+          }}
+        />
+      </div>
+      <div className=" col-md-12">
         <HostWarning
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-          host={params.host}
+          host={params.host ?? ""}
           setHost={(host) => {
             setParams({
               host,
@@ -61,28 +86,45 @@ const PrestoForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
-        <label>Username</label>
-        <input
-          type="text"
-          className="form-control"
-          name="username"
-          required
-          value={params.username || ""}
-          onChange={onParamChange}
-        />
-      </div>
-      <div className="form-group col-md-12">
-        <label>Password</label>
-        <input
-          type="text"
-          className="form-control"
-          name="password"
-          value={params.password || ""}
-          onChange={onParamChange}
-          placeholder={existing ? "(Keep existing)" : ""}
-        />
-      </div>
+      {params.authType === "basicAuth" && (
+        <>
+          <div className="form-group col-md-12">
+            <label>Username</label>
+            <input
+              type="text"
+              className="form-control"
+              name="username"
+              required
+              value={params.username || ""}
+              onChange={onParamChange}
+            />
+          </div>
+
+          <div className="form-group col-md-12">
+            <label>Password</label>
+            <input
+              type="text"
+              className="form-control"
+              name="password"
+              value={params.password || ""}
+              onChange={onParamChange}
+              placeholder={existing ? "(Keep existing)" : ""}
+            />
+          </div>
+        </>
+      )}
+      {params.authType === "customAuth" && (
+        <div className="form-group col-md-12">
+          <label>Custom Auth String</label>
+          <input
+            type="text"
+            className="form-control"
+            name="customAuth"
+            value={params.customAuth || ""}
+            onChange={onParamChange}
+          />
+        </div>
+      )}
       <div className="form-group col-md-12">
         <label>Default Catalog</label>
         <input
@@ -94,6 +136,21 @@ const PrestoForm: FC<{
         />
       </div>
       <div className="form-group col-md-12">
+        <label>Request Timeout</label>
+        <input
+          type="number"
+          className="form-control"
+          name="requestTimeout"
+          value={params.requestTimeout || ""}
+          onChange={onParamChange}
+          placeholder="(optional - in seconds. If empty or 0, there will be no limit)"
+        />
+        <div className="form-text text-muted small">
+          The number of seconds before a request will timeout. Set to 0 to
+          disable timeout.
+        </div>
+      </div>
+      <div className="form-group col-md-12">
         <label>Default Schema</label>
         <input
           type="text"
@@ -102,6 +159,19 @@ const PrestoForm: FC<{
           value={params.schema || ""}
           onChange={onParamChange}
         />
+      </div>
+      <div className="form-group col-md-12">
+        <label>Source</label>
+        <input
+          type="text"
+          className="form-control"
+          name="source"
+          value={params.source || "GrowthBook"}
+          onChange={onParamChange}
+        />
+        <small className="form-text text-muted">
+          This helps identify the connection as coming from GrowthBook.
+        </small>
       </div>
       <SSLConnectionFields
         onParamChange={onParamChange}

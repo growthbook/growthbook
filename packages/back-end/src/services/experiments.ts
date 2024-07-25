@@ -697,7 +697,8 @@ async function getSnapshotAnalyses(
     ) => {
       // check if analysis is possible
       if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
-        throw new Error("Analysis not allowed with this snapshot");
+        logger.error(`Analysis not allowed with this snapshot: ${snapshot.id}`);
+        return;
       }
 
       const totalQueries = snapshot.queries.length;
@@ -712,7 +713,10 @@ async function getSnapshotAnalyses(
         runningQueries.length > 0 ||
         failedQueries.length >= totalQueries / 2
       ) {
-        throw new Error("Snapshot queries not available for analysis");
+        logger.error(
+          `Snapshot queries not available for analysis: ${snapshot.id}`
+        );
+        return;
       }
       const analysis: ExperimentSnapshotAnalysis = {
         results: [],
