@@ -3626,11 +3626,13 @@ export default abstract class SqlIntegration
     factTable,
     baseIdType,
     idJoinMap,
+    filters,
     sqlVars,
   }: {
     factTable: FactTableInterface;
     baseIdType: string;
     idJoinMap: Record<string, string>;
+    filters?: string[];
     sqlVars?: SQLVars;
   }) {
     // Determine if a join is required to match up id types
@@ -3656,21 +3658,26 @@ export default abstract class SqlIntegration
 
     const sql = factTable.sql;
 
-    const additionalColumns: string[] = [];
+    const where: string[] = [];
 
-    factTable.columns.forEach((column) => {
-      if (column.column !== baseIdType && column.column !== "timestamp") {
-        additionalColumns.push(column.column);
-      }
-    });
+    if (filters?.length) {
+      filters.forEach((filter) => {
+        const filterObj = factTable.filters.find(
+          (factFilter) => factFilter.id === filter
+        );
+
+        if (filterObj) {
+          where.push(filterObj.value);
+        }
+      });
+    }
 
     const baseSql = `-- Fact Table (${factTable.name})
     SELECT
       ${userIdCol} as ${baseIdType},
-      ${timestampDateTimeColumn} as date,
-      ${additionalColumns.join(",\n")}
+      ${timestampDateTimeColumn} as date
     FROM(
-        ${sql}
+        ${sql} ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
       ) m
       ${join}
   `;
@@ -3855,13 +3862,11 @@ export default abstract class SqlIntegration
     // replace template variables
     let segmentSql = "";
 
-    if (segment.sql) {
+    if (segment.sql && segment.type === "SQL") {
       segmentSql = sqlVars
         ? compileSqlTemplate(segment.sql, sqlVars)
         : segment.sql;
-    }
-
-    if (segment.factTableId) {
+    } else if (segment.factTableId && segment.type === "FACT") {
       const factTable = factTableMap.get(segment.factTableId);
 
       if (!factTable) {
@@ -3872,29 +3877,23 @@ export default abstract class SqlIntegration
         baseIdType,
         idJoinMap,
         factTable,
+        filters: segment.filters,
         sqlVars,
       });
 
-      const where: string[] = [];
+      return `-- Segment (${segment.name})
+        SELECT * FROM (\n${segmentSql}\n) s `;
+    } else {
+      let errorMessage = `Unable to generate SegmentCTE for Segment ${segment.name}`;
 
-      if (segment.filters?.length) {
-        segment.filters.forEach((filter) => {
-          const filterObj = factTable.filters.find(
-            (factFilter) => factFilter.id === filter
-          );
-
-          if (filterObj) {
-            where.push(filterObj.value);
-          }
-        });
+      if (segment.type === "SQL" && !segment.sql) {
+        errorMessage =
+          errorMessage + ". Error: Segment is missing sql definition";
+      } else if (segment.type === "FACT" && !segment.factTableId) {
+        errorMessage =
+          errorMessage + ". Error: Segment is missing the fact table id";
       }
-
-      return (
-        `-- Segment (${segment.name})
-        SELECT * FROM (\n${segmentSql}\n) t ` +
-        `
-      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}`
-      );
+      throw new Error(errorMessage);
     }
 
     const dateCol = this.castUserDateCol("s.date");
