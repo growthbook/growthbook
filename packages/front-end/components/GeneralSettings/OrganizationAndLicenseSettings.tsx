@@ -4,7 +4,7 @@ import { OrganizationInterface } from "back-end/types/organization";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
-import { isCloud, isMultiOrg } from "@/services/env";
+import { getGrowthBookBuild, isCloud, isMultiOrg } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 
@@ -23,6 +23,7 @@ export default function OrganizationAndLicenseSettings({
   const ownerEmailExists = !!Array.from(users).find(
     (e) => e[1].email === org.ownerEmail
   );
+  const build = getGrowthBookBuild();
 
   return (
     <>
@@ -103,6 +104,52 @@ export default function OrganizationAndLicenseSettings({
         </div>
         {(!isCloud() || !isMultiOrg()) && (
           <ShowLicenseInfo showInput={!isCloud()} />
+        )}
+        {!isCloud() && (
+          <div>
+            <div className="divider border-bottom mb-3 mt-3" />
+            <div className="row">
+              <div className="col-sm-3">
+                <h4>Version</h4>
+              </div>
+              <div className="col-sm-9">
+                <div className="col-sm-12">
+                  <button
+                    className="alert alert-warning py-1 px-2 mb-3 d-none d-md-block mr-1"
+                    onClick={(e) => {
+                      e.preventDefault();
+                    }}
+                  >
+                    Update to{" "}
+                    <span style={{ textDecoration: "underline" }}>
+                      GrowthBook 3.1
+                    </span>
+                  </button>
+                  <span style={{ fontWeight: 500 }}>v3.0</span>
+                </div>
+                {build.sha && (
+                  <div
+                    className="col-sm-12 mt-2"
+                    style={{ fontSize: "13px", fontWeight: 500 }}
+                  >
+                    <span>Build:</span>{" "}
+                    <a
+                      href={`https://github.com/growthbook/growthbook/commit/${build.sha}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-white"
+                    >
+                      {build.sha.substr(0, 7)}
+                    </a>{" "}
+                    {build.date && <span>({build.date.substr(0, 10)})</span>}
+                  </div>
+                )}
+                <div className="col-sm-12 mt-2">
+                  <a href="#">View all product releases</a>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </>
