@@ -125,6 +125,16 @@ pre {
   }
 }
 
+.alert-info-gb-purple {
+  background-color: var(--alert-info-purple-background);
+  border-color: var(--alert-info-purple-border-color);
+  color: var(--alert-info-purple-color);
+
+  .alert-link {
+    color: var(--text-color-main);
+  }
+}
+
 .alert-danger {
   background-color: var(--alert-danger-background);
   border-color: var(--alert-danger-border-color);
