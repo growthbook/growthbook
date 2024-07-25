@@ -966,6 +966,7 @@ export interface components {
         attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
+        regressionAdjustmentEnabled?: boolean;
         goals: ({
             metricId: string;
             overrides: {
@@ -1007,7 +1008,6 @@ export interface components {
         releasedVariationId: string;
         excludeFromPayload: boolean;
       };
-      regressionAdjustmentEnabled?: boolean;
     };
     ExperimentMetric: {
       metricId: string;
@@ -1032,6 +1032,7 @@ export interface components {
       attributionModel: "firstExposure" | "experimentDuration";
       /** @enum {unknown} */
       statsEngine: "bayesian" | "frequentist";
+      regressionAdjustmentEnabled?: boolean;
       goals: ({
           metricId: string;
           overrides: {
@@ -1089,6 +1090,7 @@ export interface components {
         attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
+        regressionAdjustmentEnabled?: boolean;
         goals: ({
             metricId: string;
             overrides: {
@@ -3352,6 +3354,7 @@ export interface operations {
                   attributionModel: "firstExposure" | "experimentDuration";
                   /** @enum {unknown} */
                   statsEngine: "bayesian" | "frequentist";
+                  regressionAdjustmentEnabled?: boolean;
                   goals: ({
                       metricId: string;
                       overrides: {
@@ -3393,7 +3396,6 @@ export interface operations {
                   releasedVariationId: string;
                   excludeFromPayload: boolean;
                 };
-                regressionAdjustmentEnabled?: boolean;
               })[];
           }) & {
             limit: number;
@@ -3561,6 +3563,7 @@ export interface operations {
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
+                regressionAdjustmentEnabled?: boolean;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -3602,7 +3605,6 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
-              regressionAdjustmentEnabled?: boolean;
             };
           };
         };
@@ -3684,6 +3686,7 @@ export interface operations {
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
+                regressionAdjustmentEnabled?: boolean;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -3725,7 +3728,6 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
-              regressionAdjustmentEnabled?: boolean;
             };
           };
         };
@@ -3889,6 +3891,7 @@ export interface operations {
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
+                regressionAdjustmentEnabled?: boolean;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -3930,7 +3933,6 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
-              regressionAdjustmentEnabled?: boolean;
             };
           };
         };
@@ -3972,6 +3974,7 @@ export interface operations {
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
+                regressionAdjustmentEnabled?: boolean;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -4850,6 +4853,7 @@ export interface operations {
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
+                regressionAdjustmentEnabled?: boolean;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -4891,7 +4895,6 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
-              regressionAdjustmentEnabled?: boolean;
             };
           };
         };

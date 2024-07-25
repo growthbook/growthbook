@@ -71,9 +71,6 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       {
         ...req.body,
         ...(ownerId ? { owner: ownerId } : {}),
-        ...(req.organization.settings?.regressionAdjustmentEnabled
-          ? { regressionAdjustmentEnabled: true }
-          : {}),
       },
       req.organization,
       datasource

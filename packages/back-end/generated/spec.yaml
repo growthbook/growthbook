@@ -4977,8 +4977,6 @@ components:
               type: string
             excludeFromPayload:
               type: boolean
-        regressionAdjustmentEnabled:
-          type: boolean
     ExperimentMetric:
       type: object
       required:
@@ -5040,6 +5038,8 @@ components:
           enum:
             - bayesian
             - frequentist
+        regressionAdjustmentEnabled:
+          type: boolean
         goals:
           type: array
           items:

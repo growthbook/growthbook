@@ -965,6 +965,9 @@ export async function toExperimentApiInterface(
       guardrails: (experiment.guardrails || []).map((m) =>
         getExperimentMetric(experiment, m)
       ),
+      regressionAdjustmentEnabled:
+        experiment.regressionAdjustmentEnabled ??
+        scopedSettings.regressionAdjustmentEnabled.value,
       ...(activationMetric
         ? {
             activationMetric: getExperimentMetric(experiment, activationMetric),
@@ -1966,6 +1969,9 @@ export function postExperimentApiPayloadToInterface(
     sequentialTestingEnabled: !!organization?.settings
       ?.sequentialTestingEnabled,
     sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    regressionAdjustmentEnabled:
+      payload.regressionAdjustmentEnabled ??
+      !!organization?.settings?.regressionAdjustmentEnabled,
   };
 }
 
@@ -2002,6 +2008,7 @@ export function updateExperimentApiPayloadToInterface(
     inProgressConversions,
     attributionModel,
     statsEngine,
+    regressionAdjustmentEnabled,
   } = payload;
   return {
     ...(trackingKey ? { trackingKey } : {}),
@@ -2025,6 +2032,9 @@ export function updateExperimentApiPayloadToInterface(
       : {}),
     ...(attributionModel !== undefined ? { attributionModel } : {}),
     ...(statsEngine !== undefined ? { statsEngine } : {}),
+    ...(regressionAdjustmentEnabled !== undefined
+      ? { regressionAdjustmentEnabled }
+      : {}),
     ...(variations
       ? {
           variations: variations?.map((v) => ({

@@ -175,6 +175,3 @@ properties:
         type: string
       excludeFromPayload:
         type: boolean
-
-  regressionAdjustmentEnabled:
-    type: boolean
