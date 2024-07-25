@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { getMatchingRules, SMALL_GROUP_SIZE_LIMIT } from "shared/util";
 import { SavedGroupInterface } from "shared/src/types";
 import { ago } from "shared/dates";
-import { FaExclamationTriangle, FaPlusCircle } from "react-icons/fa";
+import { FaPlusCircle } from "react-icons/fa";
 import { PiArrowsDownUp } from "react-icons/pi";
 import Link from "next/link";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
@@ -21,6 +21,7 @@ import Modal from "@/components/Modal";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 
 const NUM_PER_PAGE = 10;
 
@@ -37,6 +38,8 @@ export default function EditSavedGroupPage() {
   const [sortNewestFirst, setSortNewestFirst] = useState<boolean>(true);
   const [addItems, setAddItems] = useState<boolean>(false);
   const [itemsToAdd, setItemsToAdd] = useState<string[]>([]);
+  const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
+  console.log("Upgrade modal is open?", upgradeModal);
 
   const values = savedGroup?.values || [];
   const [currentPage, setCurrentPage] = useState(1);
@@ -52,6 +55,9 @@ export default function EditSavedGroupPage() {
   const end = start + NUM_PER_PAGE;
   const valuesPage = sortedValues.slice(start, end);
   const [disableSubmit, setDisableSubmit] = useState(true);
+  const [importOperation, setImportOperation] = useState<"replace" | "append">(
+    "replace"
+  );
 
   const [
     savedGroupForm,
@@ -153,71 +159,111 @@ export default function EditSavedGroupPage() {
 
   return (
     <>
-      <Modal
-        close={() => {
-          setAddItems(false);
-          setItemsToAdd([]);
-        }}
-        open={addItems}
-        size="lg"
-        header="Add Items to List"
-        cta="Save"
-        ctaEnabled={
-          itemsToAdd.length > 0 &&
-          !disableSubmit &&
-          !convertingLegacyWithUnsupportedConnections
-        }
-        submit={async () => {
-          await apiCall(`/saved-groups/${savedGroup.id}/add-items`, {
-            method: "POST",
-            body: JSON.stringify({
-              items: itemsToAdd,
-              passByReferenceOnly,
-            }),
-          });
-          const newValues = new Set([...values, ...itemsToAdd]);
-          mutateValues([...newValues]);
-          setItemsToAdd([]);
-        }}
-      >
-        <>
-          <div className="form-group">
-            Updating this list will automatically update any associated Features
-            and Experiments.
-          </div>
-          <IdListItemInput
-            values={itemsToAdd}
-            passByReferenceOnly={savedGroup.passByReferenceOnly || false}
-            bypassSmallListSizeLimit={
-              (savedGroup?.values || []).length > SMALL_GROUP_SIZE_LIMIT &&
-              !savedGroup?.passByReferenceOnly
+      {upgradeModal && (
+        <UpgradeModal
+          close={() => setUpgradeModal(false)}
+          reason=""
+          source="large-saved-groups"
+        />
+      )}
+      {addItems && (
+        <Modal
+          close={() => {
+            setAddItems(false);
+            setItemsToAdd([]);
+          }}
+          open={addItems}
+          size="lg"
+          header="Add Items to List"
+          cta="Save"
+          ctaEnabled={
+            itemsToAdd.length > 0 &&
+            !disableSubmit &&
+            !convertingLegacyWithUnsupportedConnections
+          }
+          submit={async () => {
+            let newValues: Set<string>;
+            if (importOperation === "append") {
+              await apiCall(`/saved-groups/${savedGroup.id}/add-items`, {
+                method: "POST",
+                body: JSON.stringify({
+                  items: itemsToAdd,
+                  passByReferenceOnly,
+                }),
+              });
+              newValues = new Set([...values, ...itemsToAdd]);
+            } else {
+              await apiCall(`/saved-groups/${savedGroup.id}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                  values: itemsToAdd,
+                  passByReferenceOnly,
+                }),
+              });
+              newValues = new Set(itemsToAdd);
             }
-            setValues={(newValues) => setItemsToAdd(newValues)}
-            setPassByReferenceOnly={setPassByReferenceOnly}
-            disableSubmit={disableSubmit}
-            setDisableSubmit={setDisableSubmit}
-          />
-          {convertingLegacyWithUnsupportedConnections && (
-            <div className="alert alert-danger mt-2 p-3">
-              <FaExclamationTriangle /> This saved group is being used in SDK
-              connections which do not support Large Saved Groups. Update the
-              following connections and enable Large Saved Groups or keep the
-              number of items in the list below {SMALL_GROUP_SIZE_LIMIT}
-              <ul>
-                {referencingUnsupportedSdkConnections.map((conn) => (
-                  <Link
-                    className="text-error-muted underline"
-                    key={conn.id}
-                    href={`/sdks/${conn.id}`}
-                  >
-                    {conn.id}
-                  </Link>
-                ))}
-              </ul>
+            mutateValues([...newValues]);
+            setItemsToAdd([]);
+          }}
+        >
+          <>
+            <div className="form-group">
+              Updating this list will automatically update any associated
+              Features and Experiments.
             </div>
-          )}
-        </>
-      </Modal>
+            <label className="form-group font-weight-bold">Choose one:</label>
+            <div className="row ml-0 mr-0 form-group">
+              <div className="cursor-pointer row align-items-center ml-0 mr-5">
+                <input
+                  type="radio"
+                  id="replaceItems"
+                  checked={importOperation === "replace"}
+                  readOnly={true}
+                  className="mr-1 radio-button-lg"
+                  onChange={() => {
+                    setImportOperation("replace");
+                  }}
+                />
+                <label className="m-0" htmlFor="replaceItems">
+                  Replace all items
+                </label>
+              </div>
+              <div className="cursor-pointer row align-items-center ml-0 mr-0">
+                <input
+                  type="radio"
+                  id="appendItems"
+                  checked={importOperation === "append"}
+                  readOnly={true}
+                  className="mr-1 radio-button-lg"
+                  onChange={() => {
+                    setImportOperation("append");
+                  }}
+                />
+                <label className="m-0" htmlFor="appendItems">
+                  Append new items to list
+                </label>
+              </div>
+            </div>
+            <IdListItemInput
+              values={itemsToAdd}
+              passByReferenceOnly={savedGroup.passByReferenceOnly || false}
+              bypassSmallListSizeLimit={
+                (savedGroup?.values || []).length > SMALL_GROUP_SIZE_LIMIT &&
+                !savedGroup?.passByReferenceOnly
+              }
+              groupReferencedByUnsupportedSdks={
+                referencingUnsupportedSdkConnections.length > 0
+              }
+              setValues={(newValues) => setItemsToAdd(newValues)}
+              setPassByReferenceOnly={setPassByReferenceOnly}
+              disableSubmit={disableSubmit}
+              setDisableSubmit={setDisableSubmit}
+              limit={SMALL_GROUP_SIZE_LIMIT - (savedGroup.values?.length || 0)}
+              openUpgradeModal={() => setUpgradeModal(true)}
+            />
+          </>
+        </Modal>
+      )}
       {savedGroupForm && (
         <SavedGroupForm
           close={() => {

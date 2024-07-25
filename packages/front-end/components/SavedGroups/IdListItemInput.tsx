@@ -20,18 +20,24 @@ export const IdListItemInput: FC<{
   passByReferenceOnly: boolean;
   // Allow for grandfathering in existing large lists
   bypassSmallListSizeLimit: boolean;
+  groupReferencedByUnsupportedSdks: boolean;
+  limit?: number;
   setValues: (newValues: string[]) => void;
   setPassByReferenceOnly: (passByReferenceOnly: boolean) => void;
   disableSubmit: boolean;
   setDisableSubmit: (disabled: boolean) => void;
+  openUpgradeModal: () => void;
 }> = ({
   values,
   passByReferenceOnly,
   bypassSmallListSizeLimit,
+  groupReferencedByUnsupportedSdks,
+  limit = SMALL_GROUP_SIZE_LIMIT,
   setValues,
   setPassByReferenceOnly,
   disableSubmit,
   setDisableSubmit,
+  openUpgradeModal,
 }) => {
   const [rawTextMode, setRawTextMode] = useState(false);
   const [rawText, setRawText] = useState(values.join(", ") || "");
@@ -50,6 +56,7 @@ export const IdListItemInput: FC<{
     supportedConnections,
     unsupportedConnections,
     unversionedConnections,
+    hasLargeSavedGroupFeature,
   } = useLargeSavedGroupSupport();
 
   const resetFile = () => {
@@ -63,14 +70,14 @@ export const IdListItemInput: FC<{
   const [nonLegacyImport, setNonLegacyImport] = useState(false);
 
   useEffect(() => {
-    if (values.length > SMALL_GROUP_SIZE_LIMIT) {
+    if (values.length > limit && !bypassSmallListSizeLimit) {
       setNonLegacyImport(true);
       setPassByReferenceOnly(true);
     } else {
       setNonLegacyImport(false);
       setPassByReferenceOnly(false);
     }
-  }, [values, setPassByReferenceOnly]);
+  }, [values, limit, bypassSmallListSizeLimit, setPassByReferenceOnly]);
 
   useEffect(() => {
     if (supportedConnections.length > 0) {
@@ -129,9 +136,15 @@ export const IdListItemInput: FC<{
           </label>
         </div>
       </div>
-      {!passByReferenceOnly && (
+      {!passByReferenceOnly && !bypassSmallListSizeLimit && (
         <LargeSavedGroupSupportWarning
-          type="saved_group_creation"
+          type={
+            groupReferencedByUnsupportedSdks
+              ? "in_use_saved_group"
+              : "saved_group_creation"
+          }
+          openUpgradeModal={openUpgradeModal}
+          hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
           supportedConnections={supportedConnections}
           unsupportedConnections={unsupportedConnections}
           unversionedConnections={unversionedConnections}
