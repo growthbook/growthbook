@@ -3862,11 +3862,11 @@ export default abstract class SqlIntegration
     // replace template variables
     let segmentSql = "";
 
-    if (segment.sql && segment.type === "SQL") {
+    if (segment.sql) {
       segmentSql = sqlVars
         ? compileSqlTemplate(segment.sql, sqlVars)
         : segment.sql;
-    } else if (segment.factTableId && segment.type === "FACT") {
+    } else if (segment.factTableId) {
       const factTable = factTableMap.get(segment.factTableId);
 
       if (!factTable) {
@@ -3884,16 +3884,9 @@ export default abstract class SqlIntegration
       return `-- Segment (${segment.name})
         SELECT * FROM (\n${segmentSql}\n) s `;
     } else {
-      let errorMessage = `Unable to generate SegmentCTE for Segment ${segment.name}`;
-
-      if (segment.type === "SQL" && !segment.sql) {
-        errorMessage =
-          errorMessage + ". Error: Segment is missing sql definition";
-      } else if (segment.type === "FACT" && !segment.factTableId) {
-        errorMessage =
-          errorMessage + ". Error: Segment is missing the fact table id";
-      }
-      throw new Error(errorMessage);
+      throw new Error(
+        `Unable to generate Segment CTE for ${segment.name}. Segment must be defined by SQL or via a Fact Table`
+      );
     }
 
     const dateCol = this.castUserDateCol("s.date");
