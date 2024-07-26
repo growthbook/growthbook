@@ -23,6 +23,7 @@ import {
 import {
   filterProjectsByEnvironment,
   getDisallowedProjects,
+  SMALL_GROUP_SIZE_LIMIT,
 } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
@@ -1138,7 +1139,19 @@ export default function SDKConnectionForm({
                     commercialFeature="large-saved-groups"
                     body={
                       <>
-                        <p>TODO</p>
+                        <p>
+                          Saved Groups used in Feature and Experiment targeting
+                          will be separated from the rest of the payload to
+                          improve performance when referencing large ID Lists.
+                        </p>
+                        <p>
+                          This feature must be enabled in order to create lists
+                          of over {SMALL_GROUP_SIZE_LIMIT} items
+                        </p>
+                        <p className="mb-0 text-warning-orange small">
+                          <FaExclamationCircle /> Ensure that your SDK client is
+                          up to date and supports Large Saved Groups
+                        </p>
                       </>
                     }
                   >

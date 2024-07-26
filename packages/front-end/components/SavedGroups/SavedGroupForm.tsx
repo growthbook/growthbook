@@ -4,7 +4,7 @@ import {
   UpdateSavedGroupProps,
 } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
-import { SMALL_GROUP_SIZE_LIMIT, validateAndFixCondition } from "shared/util";
+import { validateAndFixCondition } from "shared/util";
 import { FaPlusCircle } from "react-icons/fa";
 import { SavedGroupInterface, SavedGroupType } from "shared/src/types";
 import { useIncrementer } from "@/hooks/useIncrementer";
@@ -202,22 +202,22 @@ const SavedGroupForm: FC<{
             }))}
             helpText={current.attributeKey && "This field cannot be edited."}
           />
-          <IdListItemInput
-            values={form.watch("values") || []}
-            passByReferenceOnly={current?.passByReferenceOnly || false}
-            bypassSmallListSizeLimit={
-              (current?.values || []).length > SMALL_GROUP_SIZE_LIMIT &&
-              !current?.passByReferenceOnly
-            }
-            setValues={(newValues) => {
-              form.setValue("values", newValues);
-            }}
-            setPassByReferenceOnly={(passByReferenceOnly) =>
-              form.setValue("passByReferenceOnly", passByReferenceOnly)
-            }
-            disableSubmit={disableSubmit}
-            setDisableSubmit={setDisableSubmit}
-          />
+          {!current && (
+            <IdListItemInput
+              values={form.watch("values") || []}
+              passByReferenceOnly={false}
+              bypassSmallListSizeLimit={false}
+              setValues={(newValues) => {
+                form.setValue("values", newValues);
+              }}
+              setPassByReferenceOnly={(passByReferenceOnly) =>
+                form.setValue("passByReferenceOnly", passByReferenceOnly)
+              }
+              groupReferencedByUnsupportedSdks={false}
+              disableSubmit={disableSubmit}
+              setDisableSubmit={setDisableSubmit}
+            />
+          )}
         </>
       )}
     </Modal>

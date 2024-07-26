@@ -177,6 +177,88 @@ describe("payload scrubbing", () => {
     ],
     savedGroups: getSavedGroupsValuesFromInterfaces(savedGroups),
   };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const savedGroupScrubbedPayload: any = {
+    features: {
+      exp1: {
+        defaultValue: "control",
+        rules: [
+          {
+            key: "feature-exp",
+            seed: "feature-exp",
+            hashAttribute: "id",
+            fallbackAttribute: "deviceId",
+            hashVersion: 2,
+            bucketVersion: 1,
+            condition: { country: "USA" },
+            variations: ["control", "red", "blue"],
+            coverage: 1,
+            weights: [0.3334, 0.3333, 0.3333],
+            phase: "0",
+          },
+        ],
+      },
+      feat2: {
+        defaultValue: "control",
+        rules: [
+          {
+            condition: {
+              id: {
+                $in: ["1", "2", "3"],
+              },
+            },
+            force: "variant",
+          },
+          {
+            condition: {
+              id: {
+                $in: [],
+              },
+            },
+            force: "variant",
+          },
+        ],
+      },
+    },
+    experiments: [
+      {
+        key: "my-experiment",
+        seed: "s1",
+        hashAttribute: "id",
+        fallbackAttribute: "anonymousId",
+        hashVersion: 2,
+        bucketVersion: 1,
+        stickyBucketing: true,
+        manual: true,
+        variations: [
+          {},
+          {
+            domMutations: [
+              {
+                selector: "h1",
+                action: "set",
+                attribute: "html",
+                value: "red",
+              },
+            ],
+          },
+          {
+            domMutations: [
+              {
+                selector: "h1",
+                action: "set",
+                attribute: "html",
+                value: "blue",
+              },
+            ],
+          },
+        ],
+        weights: [0.3334, 0.3333, 0.3333],
+        coverage: 1,
+      },
+    ],
+    savedGroups: undefined,
+  };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const lightlyScrubbedPayload: any = {
@@ -344,7 +426,7 @@ describe("payload scrubbing", () => {
     savedGroups: undefined,
   };
 
-  it("does not scrub the payload for a safe language version", () => {
+  it("scrubs the payload when savedGroupReferencesEnabled is false", () => {
     const connection: SDKConnectionInterface = {
       ...baseConnection,
     };
@@ -354,15 +436,45 @@ describe("payload scrubbing", () => {
     const scrubbedFeatures = scrubFeatures(
       scrubbed.features,
       capabilities,
-      savedGroups
+      savedGroups,
+      false
     );
     scrubbed.features = scrubbedFeatures;
+    scrubbed.savedGroups = scrubSavedGroups(
+      scrubbed.savedGroups,
+      capabilities,
+      false
+    );
+
+    // no change to payload for default connection (javascript, 0.27.0)
+    expect(scrubbed).toStrictEqual(savedGroupScrubbedPayload);
+  });
+
+  it("does not scrub the payload when savedGroupReferencesEnabled is true", () => {
+    const connection: SDKConnectionInterface = {
+      ...baseConnection,
+    };
+    const capabilities = getConnectionSDKCapabilities(connection);
+
+    const scrubbed = cloneDeep(sdkPayload);
+    const scrubbedFeatures = scrubFeatures(
+      scrubbed.features,
+      capabilities,
+      savedGroups,
+      true
+    );
+    scrubbed.features = scrubbedFeatures;
+    scrubbed.savedGroups = scrubSavedGroups(
+      scrubbed.savedGroups,
+      capabilities,
+      true
+    );
 
     // no change to payload for default connection (javascript, 0.27.0)
     expect(scrubbed).toStrictEqual(sdkPayload);
   });
 
-  it("scrubs the payload for a risky language version", () => {
+  it("scrubs the payload for a risky language version, even if savedGroupReferencesEnabled is true", () => {
     const connection: SDKConnectionInterface = {
       ...baseConnection,
       languages: ["python"],
@@ -375,10 +487,15 @@ describe("payload scrubbing", () => {
     const scrubbedFeatures = scrubFeatures(
       scrubbed.features,
       capabilities,
-      savedGroups
+      savedGroups,
+      true
     );
     scrubbed.features = scrubbedFeatures;
-    scrubbed.savedGroups = scrubSavedGroups(scrubbed.savedGroups, capabilities);
+    scrubbed.savedGroups = scrubSavedGroups(
+      scrubbed.savedGroups,
+      capabilities,
+      true
+    );
 
     // no change to payload for default connection (javascript, 0.27.0)
     expect(scrubbed).toStrictEqual(fullyScrubbedPayload);
@@ -397,9 +514,14 @@ describe("payload scrubbing", () => {
     const scrubbedFeatures = scrubFeatures(
       scrubbed.features,
       capabilities,
-      savedGroups
+      savedGroups,
+      true
     );
-    scrubbed.savedGroups = scrubSavedGroups(scrubbed.savedGroups, capabilities);
+    scrubbed.savedGroups = scrubSavedGroups(
+      scrubbed.savedGroups,
+      capabilities,
+      true
+    );
     scrubbed.features = scrubbedFeatures;
 
     // no change to payload for default connection (javascript, 0.27.0)
@@ -420,9 +542,14 @@ describe("payload scrubbing", () => {
     const scrubbedFeatures = scrubFeatures(
       scrubbed.features,
       capabilities,
-      savedGroups
+      savedGroups,
+      true
     );
-    scrubbed.savedGroups = scrubSavedGroups(scrubbed.savedGroups, capabilities);
+    scrubbed.savedGroups = scrubSavedGroups(
+      scrubbed.savedGroups,
+      capabilities,
+      true
+    );
     scrubbed.features = scrubbedFeatures;
 
     expect(scrubbed).toStrictEqual(lightlyScrubbedPayload);

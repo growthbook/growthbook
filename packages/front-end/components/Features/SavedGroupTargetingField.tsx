@@ -30,6 +30,7 @@ export default function SavedGroupTargetingField({
     supportedConnections,
     unsupportedConnections,
     unversionedConnections,
+    hasLargeSavedGroupFeature,
   } = useLargeSavedGroupSupport(project);
 
   const largeSavedGroups = useMemo(
@@ -112,6 +113,7 @@ export default function SavedGroupTargetingField({
       {largeSavedGroups.size > 0 && (
         <LargeSavedGroupSupportWarning
           type="targeting_rule"
+          hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
           supportedConnections={supportedConnections}
           unsupportedConnections={unsupportedConnections}
           unversionedConnections={unversionedConnections}

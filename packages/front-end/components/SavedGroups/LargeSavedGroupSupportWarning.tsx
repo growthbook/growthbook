@@ -53,7 +53,7 @@ export function useLargeSavedGroupSupport(
 
 type LargeSavedGroupSupportWarningProps = LargeSavedGroupSupport & {
   type: "saved_group_creation" | "targeting_rule" | "in_use_saved_group";
-  openUpgradeModal: () => void;
+  openUpgradeModal?: () => void;
   upgradeWarningToError?: boolean;
 };
 
@@ -66,7 +66,7 @@ export default function LargeSavedGroupSupportWarning({
   unversionedConnections,
   upgradeWarningToError,
 }: LargeSavedGroupSupportWarningProps) {
-  if (!hasLargeSavedGroupFeature) {
+  if (!hasLargeSavedGroupFeature && openUpgradeModal) {
     return (
       <div className="alert alert-info-gb-purple mt-2 p-3">
         <PiInfoFill /> You must have an Enterprise plan to create lists with
