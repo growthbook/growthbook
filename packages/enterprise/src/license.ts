@@ -62,7 +62,7 @@ export type CommercialFeature =
   | "custom-roles"
   | "quantile-metrics"
   | "custom-markdown"
-  | "experiment-impact";
+  | "experiment-impact"
   | "large-saved-groups";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
@@ -220,12 +220,9 @@ export const accountFeatures: CommercialFeaturesMap = {
     "multiple-sdk-webhooks",
     "quantile-metrics",
     "custom-roles",
-<<<<<<< HEAD
     "custom-markdown",
     "experiment-impact",
-=======
     "large-saved-groups",
->>>>>>> c91443f7d (Swap back to allowing >100 manually entered items, add grandfathering)
   ]),
 };
 
