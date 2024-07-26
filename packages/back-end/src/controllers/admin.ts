@@ -246,10 +246,13 @@ export async function getMembers(
   const { page, search } = req.query;
 
   const organizationInfo: Record<string, object> = {};
-  const allUsers = await getAllUsersFiltered(parseInt(page ?? "1"), search);
-  if (allUsers?.length > 0) {
+  const filteredUsers = await getAllUsersFiltered(
+    parseInt(page ?? "1"),
+    search
+  );
+  if (filteredUsers?.length > 0) {
     const memberOrgs = await findOrganizationsByMemberIds(
-      allUsers.map((u) => u.id)
+      filteredUsers.map((u) => u.id)
     );
     // create a map of all the orgs mapped to the member id to make the step below easier
     const orgMembers = new Map();
@@ -268,14 +271,14 @@ export async function getMembers(
         }
       });
     });
-    allUsers.forEach((user) => {
+    filteredUsers.forEach((user) => {
       organizationInfo[user.id] = orgMembers.get(user.id) ?? [];
     });
   }
 
   return res.status(200).json({
     status: 200,
-    members: allUsers,
+    members: filteredUsers,
     total: await getTotalNumUsers(search),
     memberOrgs: organizationInfo,
   });

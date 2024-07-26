@@ -64,9 +64,9 @@ const EditOrganization: FC<{
             {currentOrg.disabled ? (
               <button
                 className="btn btn-info"
-                onClick={(e) => {
+                onClick={async (e) => {
                   e.preventDefault();
-                  apiCall<{
+                  await apiCall<{
                     status: number;
                     message?: string;
                   }>(`/admin/organization/enable`, {
@@ -84,14 +84,14 @@ const EditOrganization: FC<{
             ) : (
               <button
                 className="btn btn-danger"
-                onClick={(e) => {
+                onClick={async (e) => {
                   e.preventDefault();
                   if (
                     confirm(
                       "Are you sure you want to disable this organization? Users will not be able to use this organization"
                     )
                   ) {
-                    apiCall<{
+                    await apiCall<{
                       status: number;
                       message?: string;
                     }>(`/admin/organization/disable`, {
@@ -182,6 +182,22 @@ const EditOrganization: FC<{
         </div>
         {isCloud() ? (
           <>
+            <div className="mt-3">
+              Free Seats
+              <input
+                type="number"
+                min={0}
+                className="form-control"
+                value={freeSeats}
+                onChange={(e) => setFreeSeats(parseInt(e.target.value))}
+              />
+              <div>
+                <span className="text-muted small">
+                  Number of seats that can be added when on a free plan (3 is
+                  the default)
+                </span>
+              </div>
+            </div>
             <div className="p-2 border mt-3">
               <div>
                 <b>Deprecated:</b>
@@ -190,21 +206,6 @@ const EditOrganization: FC<{
                   organization, which does not expire, and does not restrict not
                   restrict seats. Please uncheck this and instead user Retool
                   and set a licenseKey instead.
-                </div>
-              </div>
-              <div className="mt-3">
-                Free Seats
-                <input
-                  type="number"
-                  min={0}
-                  className="form-control"
-                  value={freeSeats}
-                  onChange={(e) => setFreeSeats(parseInt(e.target.value))}
-                />
-                <div>
-                  <span className="text-muted small">
-                    Number of seats that can be added when on a free plan
-                  </span>
                 </div>
               </div>
               <div className="mt-3">
