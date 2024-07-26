@@ -44,6 +44,7 @@ const ExperimentsPage = (): React.ReactElement => {
     project,
     getExperimentMetricById,
     getProjectById,
+    getDatasourceById,
   } = useDefinitions();
 
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
@@ -80,6 +81,7 @@ const ExperimentsPage = (): React.ReactElement => {
         metricNames: exp.metrics
           .map((m) => getExperimentMetricById(m)?.name)
           .filter(Boolean),
+        datasource: getDatasourceById(exp.datasource)?.name || "",
         projectId,
         projectName,
         projectIsDeReferenced,
@@ -181,6 +183,7 @@ const ExperimentsPage = (): React.ReactElement => {
       tag: (item) => item.tags,
       project: (item) => [item.project, item.projectName],
       feature: (item) => item.linkedFeatures || [],
+      datasource: (item) => item.datasource,
       metric: (item) => [
         ...item.metricNames,
         ...item.metrics,
