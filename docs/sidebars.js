@@ -467,7 +467,7 @@ const sidebars = {
     {
       type: "doc",
       id: "dashboard",
-      label: "Program Management Dashboard",
+      label: "Management Dashboard",
     },
     {
       type: "category",
