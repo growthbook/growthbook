@@ -63,6 +63,7 @@ export default function ConditionInput(props: Props) {
     supportedConnections,
     unsupportedConnections,
     unversionedConnections,
+    hasLargeSavedGroupFeature,
   } = useLargeSavedGroupSupport(props.project);
 
   const largeSavedGroups = useMemo(
@@ -144,6 +145,7 @@ export default function ConditionInput(props: Props) {
             unsupportedConnections={unsupportedConnections}
             unversionedConnections={unversionedConnections}
             upgradeWarningToError={localTargetingIssues}
+            hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
           />
         )}
         <div className="appbox bg-light px-3 py-3">
@@ -226,6 +228,7 @@ export default function ConditionInput(props: Props) {
           unsupportedConnections={unsupportedConnections}
           unversionedConnections={unversionedConnections}
           upgradeWarningToError={localTargetingIssues}
+          hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
         />
       )}
       <div className="appbox bg-light px-3 pb-3">

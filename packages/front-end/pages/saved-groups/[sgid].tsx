@@ -258,7 +258,12 @@ export default function EditSavedGroupPage() {
               setPassByReferenceOnly={setPassByReferenceOnly}
               disableSubmit={disableSubmit}
               setDisableSubmit={setDisableSubmit}
-              limit={SMALL_GROUP_SIZE_LIMIT - (savedGroup.values?.length || 0)}
+              limit={
+                SMALL_GROUP_SIZE_LIMIT -
+                (importOperation === "append"
+                  ? savedGroup.values?.length || 0
+                  : 0)
+              }
               openUpgradeModal={() => setUpgradeModal(true)}
             />
           </>

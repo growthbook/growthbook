@@ -60,7 +60,10 @@ export const scrubFeatures = (
   if (capabilities.includes("prerequisites")) {
     allowedFeatureRuleKeys.push(...prerequisiteKeys);
   }
-  if (!savedGroupReferencesEnabled) {
+  if (
+    !capabilities.includes("savedGroupReferences") ||
+    !savedGroupReferencesEnabled
+  ) {
     const savedGroupsMap = Object.fromEntries(
       savedGroups.map((group) => [group.id, group])
     );
@@ -133,7 +136,10 @@ export const scrubExperiments = (
   const supportsPrerequisites = capabilities.includes("prerequisites");
   const supportsRedirects = capabilities.includes("redirects");
 
-  if (!savedGroupReferencesEnabled) {
+  if (
+    !capabilities.includes("savedGroupReferences") ||
+    !savedGroupReferencesEnabled
+  ) {
     const savedGroupsMap = Object.fromEntries(
       savedGroups.map((group) => [group.id, group])
     );
@@ -187,10 +193,13 @@ export const scrubExperiments = (
 
 export const scrubSavedGroups = (
   savedGroupsValues: SavedGroupsValues,
-  _capabilities: SDKCapability[],
+  capabilities: SDKCapability[],
   savedGroupReferencesEnabled: boolean
 ): SavedGroupsValues | undefined => {
-  if (!savedGroupReferencesEnabled) {
+  if (
+    !capabilities.includes("savedGroupReferences") ||
+    !savedGroupReferencesEnabled
+  ) {
     return undefined;
   }
   return savedGroupsValues;

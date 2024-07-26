@@ -26,7 +26,7 @@ export const IdListItemInput: FC<{
   setPassByReferenceOnly: (passByReferenceOnly: boolean) => void;
   disableSubmit: boolean;
   setDisableSubmit: (disabled: boolean) => void;
-  openUpgradeModal: () => void;
+  openUpgradeModal?: () => void;
 }> = ({
   values,
   passByReferenceOnly,
