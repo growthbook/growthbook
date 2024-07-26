@@ -18,6 +18,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ScaleLinear } from "d3-scale";
 import { date, getValidDate } from "shared/dates";
 import { addDays, setHours, setMinutes } from "date-fns";
+import cloneDeep from "lodash/cloneDeep";
 import { getMetricFormatter } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { PartialOn } from "@/types/utils";
@@ -199,7 +200,7 @@ const DateGraph: FC<DateGraphProps> = ({
   ] = useState<null | ExperimentDisplayData>(null);
 
   const data = useMemo(() => {
-    let sortedDates = [...dates].sort(
+    let sortedDates = cloneDeep(dates).sort(
       (a, b) => getValidDate(a.d).getTime() - getValidDate(b.d).getTime()
     );
 
