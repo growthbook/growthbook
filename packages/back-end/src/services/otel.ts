@@ -1,25 +1,29 @@
 import { Histogram, metrics, UpDownCounter } from "@opentelemetry/api";
 import { logger } from "../util/logger";
 
-const getMeter = (name: string) => {
+export const getMeter = (name: string) => {
   return metrics.getMeter(name);
 };
 
-const getCounter = (name: string) => {
+export const getGauge = (name: string) => {
+  return getMeter(name).createGauge(name);
+};
+
+export const getCounter = (name: string) => {
   return getMeter(name).createCounter(name);
 };
 
-const getUpDownCounter = (name: string) => {
+export const getUpDownCounter = (name: string) => {
   return getMeter(name).createUpDownCounter(name);
 };
 
-const getHistogram = (name: string) => {
+export const getHistogram = (name: string) => {
   return getMeter(name).createHistogram(name);
 };
 
 // Datadog downcases tag values, so it is best to use snake case
-const normalizeJobName = (jobName: string) => {
-  return jobName
+export const normalizeTagName = (tagName: string) => {
+  return tagName
     .replace(/\s/g, "_")
     .replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, "$1_$2")
     .toLowerCase();
@@ -33,7 +37,7 @@ export const trackJob = (
   let histogram: Histogram;
   let hasMetricsStarted = false;
 
-  const jobName = normalizeJobName(jobNameRaw);
+  const jobName = normalizeTagName(jobNameRaw);
 
   // DataDog downcases tag names, so converting to snakecase here
   const attributes = { job_name: jobName };
