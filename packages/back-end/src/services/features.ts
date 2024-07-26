@@ -201,11 +201,7 @@ export function generateAutoExperimentsPayload({
 
       const prerequisites = (phase?.prerequisites ?? [])
         ?.map((p) => {
-          const condition = getParsedCondition(
-            groupMap,
-            p.condition,
-            undefined
-          );
+          const condition = getParsedCondition(groupMap, p.condition);
           if (!condition) return null;
           return {
             id: p.id,
@@ -438,7 +434,6 @@ export async function refreshSDKPayloadCache(
 
   const promises: (() => Promise<void>)[] = [];
   for (const environment of environments) {
-    // TODO: pull this from somewhere
     const featureDefinitions = generateFeaturesPayload({
       features: allFeatures,
       environment: environment,

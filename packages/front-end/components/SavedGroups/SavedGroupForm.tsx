@@ -174,7 +174,7 @@ const SavedGroupForm: FC<{
           }))}
         />
       )}
-      {type === "condition" && (
+      {type === "condition" ? (
         <ConditionInput
           defaultValue={form.watch("condition") || ""}
           onChange={(v) => form.setValue("condition", v)}
@@ -185,8 +185,7 @@ const SavedGroupForm: FC<{
           require
           setAttributeTargetingSdkIssues={setAttributeTargetingSdkIssues}
         />
-      )}
-      {type === "list" && (
+      ) : (
         <>
           <SelectField
             label="Attribute Key"
