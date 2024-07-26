@@ -209,7 +209,6 @@ describe("sticky-buckets", () => {
         country: "USA",
       },
     });
-    growthbook1a.debug = true;
 
     // no sticky bucket support (but enabled anyhow)
     const growthbook2a = new GrowthBook({

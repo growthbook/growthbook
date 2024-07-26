@@ -746,10 +746,10 @@ export class GrowthBook<
             Promise.all([
               promiseTimeout(
                 this._activeTrackingCall,
-                this._ctx.maxNavigateDelay ?? 10000
+                this._ctx.maxNavigateDelay ?? 3000
               ),
               new Promise((resolve) =>
-                window.setTimeout(resolve, this._ctx.navigateDelay ?? 100)
+                window.setTimeout(resolve, this._ctx.navigateDelay ?? 300)
               ),
             ]).then(() => {
               try {
