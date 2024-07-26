@@ -43,7 +43,6 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
-import LargeSavedGroupSupportWarning from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import {
   LanguageType,

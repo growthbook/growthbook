@@ -1077,16 +1077,12 @@ export function getApiFeatureObj({
   groupMap,
   experimentMap,
   revision,
-  savedGroupReferencesEnabled,
-  savedGroupReferencesSupported,
 }: {
   feature: FeatureInterface;
   organization: OrganizationInterface;
   groupMap: GroupMap;
   experimentMap: Map<string, ExperimentInterface>;
   revision: FeatureRevisionInterface | null;
-  savedGroupReferencesEnabled?: boolean;
-  savedGroupReferencesSupported?: boolean;
 }): ApiFeature {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
