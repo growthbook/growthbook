@@ -1,0 +1,73 @@
+---
+title: Program Management Dashboard
+description: Program Management Dashboard
+sidebar_label: Program Management Dashboard
+slug: dashboard
+---
+
+# Program Management Dashboard
+
+GrowthBook provides a Program Management Dashboard to help you understand your experimentation program at a glance. This document will go over a few of the sections of the dashboard and how to use them.
+
+<img
+  src="/images/dashboard.png"
+  alt="GrowthBook Dashboard"
+  style={{ width: 850, margin: "0 auto" }}
+/>
+
+## North Star Metrics
+
+Your North Star Metrics are important company-wide metrics. This panel allows you to see how those metrics evolve over time and which experiments that use this metric are running or when they ended. If this panel does not exist on your dashboard, you can set your North Star metrics in your Organization Settings.
+
+## Experiment Impact
+
+:::caution
+
+Summed experiment impact relies on heavy assumptions (independence of experiments; additivity of experiment impacts; no selection bias). This tool should not be used as a substitute for accurate impact estimation via [holdouts](kb/experiments/holdouts).
+
+:::
+
+Experiment Impact allows you to get a glimpse at how multiple experiments have fared in moving a key metric. Besides letting you filter on metric and project, you have two other filters:
+
+- Date Ended - Defaults to the last 6 months. Filters experiments only to those that have ended in the given date range. If you leave the end open, it in will include today and any running experiments.
+- De-bias - We use the [_positive-part_ James-Stein](https://en.wikipedia.org/wiki/James%E2%80%93Stein_estimator#Improvements) shrinkage estimator to help de-bias your results to account for the fact that experiments that are stopped because they have clear results often will have larger effects than those that are stopped because they are inconclusive. This leads to a natural bias when summing effects across experiments. Our shrinkage estimator uses only the shown experiments to estimate the variance, and shrinks all impacts towards zero. This reduces selection bias, but does not mitigate concerns with independence or additivity of experiments.
+
+<img
+  src="/images/impact/impact.png"
+  alt="Experiment Impact of Winners"
+  style={{ width: 850, margin: "0 auto" }}
+/>
+
+We split experiments into three categories:
+
+1. Won - These are experiments that have been stopped and marked as "won" with some non-baseline variant selected as the variation to deploy.
+2. Lost - These are experiments that have been stopped and marked as "lost" -- meaning the baseline, or status quo, is the variation to deploy.
+3. Other - Running experiments, or other stopped experiments that were marked as Inconclusive or Did Not Finish.
+
+For each category, we sum the "scaled impact" of the experiments in that category to present the total impact. For each experiment we have to pick a variation to use for estimating the overall experiment impact; for experiments that "Won", we use the effect of the selected variant. For experiments that "Lost", we pick the variation that performed the worst relative to the baseline.
+
+**Scaled Impact** - [scaled impact](app/experiment-results#difference-types) rescales your experiment effect to answer the question "what would the total effect of my experiment had everyone who could have entered the experiment got a given test variant?" For example, imagine your absolute lift in an experiment is \$0.30 per user and there were 100 people in that variation. If your experiment got 50\% of total traffic, and that variation received 50\% of that traffic, then the total potential traffic was 100 / (50\% _ 50\%) = 400 people. So the scaled impact would be \$0.30 _ 400 = \$120. It is a simple rescaling that makes some assumptions, but it does allow you to compare the effects of experiments on different parts of your product (e.g. a big change to a small feature vs. a small change to a big feature might have the same scaled impact).
+
+**Total Impact** - For each category, simply sum the impacts of the experiments. This assumes they are independent and the effects are additive. **This is not an assumption easily satisfied** but it allows you to get a sense of scale.
+
+### Example
+
+In the above screenshot, we have 3 experiments that had test variants shipped ("Won") and 2 that had the baseline variation maintained ("Lost"). In both cases, experimentation had a positive impact. In the case of "won" experiments, experimentation allowed us to ship improvements to our product and measure the impact. In the case of "lost" experiments, we learned that certain variations would have caused a decrease in our key metric had we shipped it. Avoiding shipping losing variants is an important component of an experimentation program.
+
+<img
+  src="/images/impact/impact-winners.png"
+  alt="Experiment Impact of Winners"
+  style={{ width: 800, margin: "0 auto" }}
+/>
+
+On the "won" tab, we see 3 experiments where we shipped a test variant. The metric here is "User Revenue". In the Scaled Impact column, we can see that the scaled impact of the `checkout-flow` experiment is 3.43. This means that if the test variant `add-last` was deployed to 100% of users that hit that experiment, we would have seen a total increase per day of \$3.43. We scale this up to annual impact, and we get \$1.25k per year. We also show you the confidence interval, here plus-minus $793 dollars, indicating this was a statistically significant effect.
+
+We can simply sum these scaled impacts to get the total impact. Note, again, this assumes independence and additivity of effects, and the true total impact will likely be lower.
+
+<img
+  src="/images/impact/impact-winners-debias.png"
+  alt="Experiment Impact of Winners (de-biased)"
+  style={{ width: 800, margin: "0 auto" }}
+/>
+
+We can reduce one of the biases in this estimate by selecting "de-bias", as we do in this screenshot. This Here you can see we have shrunk our estimates a bit, and the Scaled Impact column shows the multiplier that has shrunk our results (in this case 0.989). How much your results shrink depends on the range of effect sizes in the experiments that match your filters.

@@ -465,6 +465,11 @@ const sidebars = {
     },
     { type: "doc", id: "api-overview", label: "API" },
     {
+      type: "doc",
+      id: "dashboard",
+      label: "Program Management Dashboard",
+    },
+    {
       type: "category",
       collapsed: true,
       label: "Webhooks",
