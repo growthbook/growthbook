@@ -33,6 +33,7 @@ import { useWatching } from "@/services/WatchProvider";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 
 const NUM_PER_PAGE = 20;
 
@@ -274,6 +275,7 @@ const ExperimentsPage = (): React.ReactElement => {
               </div>
             )}
           </div>
+          <CustomMarkdown page={"experimentList"} />
           {!hasExperiments ? (
             <div
               className="appbox d-flex flex-column align-items-center"

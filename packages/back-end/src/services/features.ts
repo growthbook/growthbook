@@ -7,6 +7,7 @@ import { orgHasPremiumFeature } from "enterprise";
 import {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
+  getAutoExperimentChangeType,
   GrowthBook,
 } from "@growthbook/growthbook";
 import {
@@ -522,10 +523,14 @@ async function getFeatureDefinitionsResponse({
 
   if (includeAutoExperiments) {
     if (!includeRedirectExperiments) {
-      experiments = experiments.filter((e) => e.changeType !== "redirect");
+      experiments = experiments.filter(
+        (e) => getAutoExperimentChangeType(e) !== "redirect"
+      );
     }
     if (!includeVisualExperiments) {
-      experiments = experiments.filter((e) => e.changeType === "redirect");
+      experiments = experiments.filter(
+        (e) => getAutoExperimentChangeType(e) !== "visual"
+      );
     }
   }
 
@@ -917,11 +922,13 @@ export function getApiFeatureObj({
   organization,
   groupMap,
   experimentMap,
+  revision,
 }: {
   feature: FeatureInterface;
   organization: OrganizationInterface;
   groupMap: GroupMap;
   experimentMap: Map<string, ExperimentInterface>;
+  revision: FeatureRevisionInterface | null;
 }): ApiFeature {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
@@ -958,7 +965,10 @@ export function getApiFeatureObj({
       featureEnvironments[env].definition = JSON.stringify(definition);
     }
   });
-
+  const publishedBy =
+    revision?.publishedBy?.type === "api_key"
+      ? "API"
+      : revision?.publishedBy?.name;
   const featureRecord: ApiFeature = {
     id: feature.id,
     description: feature.description || "",
@@ -972,9 +982,9 @@ export function getApiFeatureObj({
     tags: feature.tags || [],
     valueType: feature.valueType,
     revision: {
-      comment: "",
-      date: feature.dateCreated.toISOString(),
-      publishedBy: "",
+      comment: revision?.comment || "",
+      date: revision?.dateCreated.toISOString() || "",
+      publishedBy: publishedBy || "",
       version: feature.version,
     },
   };

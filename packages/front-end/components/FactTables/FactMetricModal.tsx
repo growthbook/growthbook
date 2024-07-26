@@ -351,7 +351,7 @@ export default function FactMetricModal({
         column: "$$count",
         filters: [],
       },
-      projects: [],
+      projects: existing?.projects || [],
       denominator: existing?.denominator || null,
       datasource:
         existing?.datasource ||
@@ -505,6 +505,14 @@ export default function FactMetricModal({
         // reset denominator for non-ratio metrics
         if (values.metricType !== "ratio" && values.denominator) {
           values.denominator = null;
+        }
+
+        // reset numerator for proportion metrics
+        if (
+          values.metricType === "proportion" &&
+          values.numerator.column !== "$$distinctUsers"
+        ) {
+          values.numerator.column = "$$distinctUsers";
         }
 
         if (!selectedDataSource) throw new Error("Must select a data source");

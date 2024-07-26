@@ -1373,6 +1373,9 @@ paths:
                         type: array
                         items:
                           type: number
+                regressionAdjustmentEnabled:
+                  type: boolean
+                  description: Controls whether regression adjustment (CUPED) is enabled for experiment analyses
       responses:
         '200':
           content:
@@ -1617,6 +1620,9 @@ paths:
                         type: array
                         items:
                           type: number
+                regressionAdjustmentEnabled:
+                  type: boolean
+                  description: Controls whether regression adjustment (CUPED) is enabled for experiment analyses
       responses:
         '200':
           content:
@@ -5041,6 +5047,8 @@ components:
           enum:
             - bayesian
             - frequentist
+        regressionAdjustmentEnabled:
+          type: boolean
         goals:
           type: array
           items:

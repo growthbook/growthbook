@@ -966,6 +966,7 @@ export interface components {
         attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
+        regressionAdjustmentEnabled?: boolean;
         goals: ({
             metricId: string;
             overrides: {
@@ -1042,6 +1043,7 @@ export interface components {
       attributionModel: "firstExposure" | "experimentDuration";
       /** @enum {unknown} */
       statsEngine: "bayesian" | "frequentist";
+      regressionAdjustmentEnabled?: boolean;
       goals: ({
           metricId: string;
           overrides: {
@@ -1110,6 +1112,7 @@ export interface components {
         attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
+        regressionAdjustmentEnabled?: boolean;
         goals: ({
             metricId: string;
             overrides: {
@@ -3384,6 +3387,7 @@ export interface operations {
                   attributionModel: "firstExposure" | "experimentDuration";
                   /** @enum {unknown} */
                   statsEngine: "bayesian" | "frequentist";
+                  regressionAdjustmentEnabled?: boolean;
                   goals: ({
                       metricId: string;
                       overrides: {
@@ -3532,6 +3536,8 @@ export interface operations {
                 })[];
               variationWeights?: (number)[];
             })[];
+          /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
+          regressionAdjustmentEnabled?: boolean;
         };
       };
     };
@@ -3602,6 +3608,7 @@ export interface operations {
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
+                regressionAdjustmentEnabled?: boolean;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -3735,6 +3742,7 @@ export interface operations {
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
+                regressionAdjustmentEnabled?: boolean;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -3879,6 +3887,8 @@ export interface operations {
                 })[];
               variationWeights?: (number)[];
             })[];
+          /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
+          regressionAdjustmentEnabled?: boolean;
         };
       };
     };
@@ -3949,6 +3959,7 @@ export interface operations {
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
+                regressionAdjustmentEnabled?: boolean;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -4042,6 +4053,7 @@ export interface operations {
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
+                regressionAdjustmentEnabled?: boolean;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -4931,6 +4943,7 @@ export interface operations {
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
+                regressionAdjustmentEnabled?: boolean;
                 goals: ({
                     metricId: string;
                     overrides: {

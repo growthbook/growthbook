@@ -424,7 +424,7 @@ export function hasEnoughData(
   if (!baselineValue || !variationValue) return false;
 
   const minSampleSize =
-    metric.minSampleSize || metricDefaults.minimumSampleSize || 0;
+    metric.minSampleSize ?? metricDefaults.minimumSampleSize ?? 0;
 
   return Math.max(baselineValue, variationValue) >= minSampleSize;
 }

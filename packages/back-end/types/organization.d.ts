@@ -5,6 +5,8 @@ import {
   PROJECT_SCOPED_PERMISSIONS,
   Policy,
 } from "shared/permissions";
+import { z } from "zod";
+import { environment } from "@back-end/src/routers/environment/environment.validators";
 import type { ReqContextClass } from "../src/services/context";
 import { attributeDataTypes } from "../src/util/organization.util";
 import { AttributionModel, ImplementationType } from "./experiment";
@@ -130,7 +132,7 @@ export interface Namespaces {
   status: "active" | "inactive";
 }
 
-export type SDKAttributeFormat = "" | "version";
+export type SDKAttributeFormat = "" | "version" | "date";
 
 export type SDKAttributeType = typeof attributeDataTypes[number];
 
@@ -153,13 +155,7 @@ export type ExperimentUpdateSchedule = {
   hours?: number;
 };
 
-export type Environment = {
-  id: string;
-  description?: string;
-  toggleOnList?: boolean;
-  defaultState?: boolean;
-  projects?: string[];
-};
+export type Environment = z.infer<typeof environment>;
 
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
@@ -199,6 +195,7 @@ export interface OrganizationSettings {
   killswitchConfirmation?: boolean;
   requireReviews?: boolean | RequireReview[];
   defaultDataSource?: string;
+  testQueryDays?: number;
   disableMultiMetricQueries?: boolean;
   useStickyBucketing?: boolean;
   useFallbackAttributes?: boolean;
@@ -208,6 +205,12 @@ export interface OrganizationSettings {
   powerCalculatorEnabled?: boolean;
   featureKeyExample?: string; // Example Key of feature flag (e.g. "feature-20240201-name")
   featureRegexValidator?: string; // Regex to validate feature flag name (e.g. ^.+-\d{8}-.+$)
+  featureListMarkdown?: string;
+  featurePageMarkdown?: string;
+  experimentListMarkdown?: string;
+  experimentPageMarkdown?: string;
+  metricListMarkdown?: string;
+  metricPageMarkdown?: string;
 }
 
 export interface SubscriptionQuote {

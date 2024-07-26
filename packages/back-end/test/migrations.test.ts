@@ -510,6 +510,35 @@ describe("Metric Migration", () => {
 });
 
 describe("Datasource Migration", () => {
+  it("adds settings when missing completely", () => {
+    const datasource: DataSourceInterface = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      id: "",
+      description: "",
+      name: "",
+      organization: "",
+      params: encryptParams({
+        projectId: "",
+        secret: "",
+        username: "",
+      } as MixpanelConnectionParams),
+      type: "mixpanel",
+    } as DataSourceInterface;
+
+    expect(upgradeDatasourceObject({ ...datasource }).settings).toEqual({
+      userIdTypes: [
+        {
+          userIdType: "user_id",
+          description: "Logged-in user id",
+        },
+        {
+          userIdType: "anonymous_id",
+          description: "Anonymous visitor id",
+        },
+      ],
+    });
+  });
   it("updates old datasource objects - userIdTypes", () => {
     const baseDatasource: DataSourceInterface = {
       dateCreated: new Date(),

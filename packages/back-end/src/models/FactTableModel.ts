@@ -9,6 +9,7 @@ import {
   UpdateFactFilterProps,
   UpdateColumnProps,
   UpdateFactTableProps,
+  ColumnInterface,
 } from "../../types/fact-table";
 import { ApiFactTable, ApiFactTableFilter } from "../../types/openapi";
 import { ReqContext } from "../../types/organization";
@@ -71,10 +72,68 @@ function toInterface(doc: FactTableDocument): FactTableInterface {
   return omit(ret, ["__v", "_id"]);
 }
 
+function createPropsToInterface(
+  context: ReqContext | ApiReqContext,
+  rawProps: CreateFactTableProps
+): FactTableInterface {
+  const props = { ...rawProps, owner: rawProps.owner || context.userName };
+  const id = props.id || uniqid("ftb_");
+  if (!id.match(/^[-a-zA-Z0-9_]+$/)) {
+    throw new Error(
+      "Fact table ids must contain only letters, numbers, underscores, and dashes"
+    );
+  }
+
+  const columns: ColumnInterface[] = props.columns
+    ? props.columns.map((column) => {
+        return {
+          ...column,
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+          deleted: false,
+        };
+      })
+    : [];
+
+  return {
+    organization: context.org.id,
+    id,
+    name: props.name,
+    description: props.description,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    datasource: props.datasource,
+    filters: [],
+    owner: props.owner,
+    projects: props.projects,
+    tags: props.tags,
+    sql: props.sql,
+    userIdTypes: props.userIdTypes,
+    eventName: props.eventName,
+    columns,
+    columnsError: null,
+    managedBy: props.managedBy || "",
+  };
+}
+
 export async function getAllFactTablesForOrganization(
   context: ReqContext | ApiReqContext
 ) {
   const docs = await FactTableModel.find({ organization: context.org.id });
+  return docs
+    .map((doc) => toInterface(doc))
+    .filter((f) => context.permissions.canReadMultiProjectResource(f.projects));
+}
+
+export async function getFactTablesForDatasource(
+  context: ReqContext,
+  datasource: string
+): Promise<FactTableInterface[]> {
+  const docs = await FactTableModel.find({
+    organization: context.org.id,
+    datasource,
+  });
+
   return docs
     .map((doc) => toInterface(doc))
     .filter((f) => context.permissions.canReadMultiProjectResource(f.projects));
@@ -111,35 +170,24 @@ export async function createFactTable(
   context: ReqContext | ApiReqContext,
   data: CreateFactTableProps
 ) {
-  const id = data.id || uniqid("ftb_");
-  if (!id.match(/^[-a-zA-Z0-9_]+$/)) {
-    throw new Error(
-      "Fact table ids must contain only letters, numbers, underscores, and dashes"
-    );
-  }
-
-  const doc = await FactTableModel.create({
-    organization: context.org.id,
-    id,
-    name: data.name,
-    description: data.description,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    datasource: data.datasource,
-    filters: [],
-    owner: data.owner,
-    projects: data.projects,
-    tags: data.tags,
-    sql: data.sql,
-    userIdTypes: data.userIdTypes,
-    eventName: data.eventName,
-    columns: data.columns || [],
-    columnsError: null,
-    managedBy: data.managedBy || "",
-  });
+  const doc = await FactTableModel.create(
+    createPropsToInterface(context, data)
+  );
 
   const factTable = toInterface(doc);
   return factTable;
+}
+
+export async function createFactTables(
+  context: ReqContext,
+  factTables: Omit<CreateFactTableProps, "datasource">[],
+  datasource: string
+): Promise<FactTableInterface[]> {
+  const factTablesToCreate = factTables.map((factTable) =>
+    createPropsToInterface(context, { ...factTable, datasource })
+  );
+
+  return (await FactTableModel.insertMany(factTablesToCreate)).map(toInterface);
 }
 
 export async function updateFactTable(

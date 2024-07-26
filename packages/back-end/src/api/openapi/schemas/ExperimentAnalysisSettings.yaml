@@ -34,6 +34,8 @@ properties:
     enum:
       - bayesian
       - frequentist
+  regressionAdjustmentEnabled:
+    type: boolean
   goals:
     type: array
     items:
