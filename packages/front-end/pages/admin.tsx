@@ -123,15 +123,7 @@ function OrganizationRow({
         <EditOrganization
           id={organization.id}
           disablable={!current}
-          currentDisabled={organization.disabled || false}
-          currentName={organization.name}
-          currentExternalId={organization.externalId || ""}
-          currentLicenseKey={organization.licenseKey || ""}
-          currentOwner={organization.ownerEmail}
-          currentDomain={organization.verifiedDomain || ""}
-          currentAutoApproveMembers={organization.autoApproveMembers || false}
-          currentLegacyEnterprise={organization.enterprise || false}
-          currentFreeSeats={organization.freeSeats || 3}
+          currentOrg={organization}
           onEdit={onEdit}
           close={() => setEditOrgModalOpen(false)}
         />
@@ -431,11 +423,16 @@ function MemberRow({
         <tr>
           <td colSpan={8} className="bg-light">
             <div className="mb-3">
-              <h3>Organization Info</h3>
+              <h4>Organization Info</h4>
               <div className="row">
-                {memberOrgs.length === 0 && "No organizations found"}
+                {memberOrgs.length === 0 && (
+                  <div className="col">No organizations found</div>
+                )}
                 {memberOrgs.map((o) => (
-                  <div className="mb-2 col-3" key={o.id + member.id}>
+                  <div
+                    className="mb-2 mx-2 col-3 border bg-white p-3 rounded-lg"
+                    key={o.id + member.id}
+                  >
                     <div>
                       <span className="font-weight-bold">Name:</span> {o.name}
                     </div>

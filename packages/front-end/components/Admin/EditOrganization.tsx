@@ -1,4 +1,5 @@
 import { useState, FC } from "react";
+import { OrganizationInterface } from "@back-end/types/organization";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
@@ -9,41 +10,21 @@ const EditOrganization: FC<{
   close?: () => void;
   id: string;
   disablable: boolean;
-  currentDisabled: boolean;
-  currentName: string;
-  currentExternalId: string;
-  currentLicenseKey: string;
-  currentOwner: string;
-  currentDomain: string;
-  currentAutoApproveMembers: boolean;
-  currentLegacyEnterprise: boolean;
-  currentFreeSeats: number;
-}> = ({
-  onEdit,
-  close,
-  id,
-  disablable = true,
-  currentDisabled = false,
-  currentName,
-  currentExternalId,
-  currentLicenseKey,
-  currentOwner,
-  currentDomain,
-  currentAutoApproveMembers,
-  currentLegacyEnterprise,
-  currentFreeSeats,
-}) => {
-  const [name, setName] = useState(currentName);
-  const [owner, setOwner] = useState(currentOwner);
-  const [externalId, setExternalId] = useState(currentExternalId);
-  const [licenseKey, setLicenseKey] = useState(currentLicenseKey);
-  const [freeSeats, setFreeSeats] = useState(currentFreeSeats);
+  currentOrg: OrganizationInterface;
+}> = ({ onEdit, close, id, disablable = true, currentOrg }) => {
+  const [name, setName] = useState(currentOrg.name);
+  const [owner, setOwner] = useState(currentOrg.ownerEmail);
+  const [externalId, setExternalId] = useState(currentOrg.externalId || "");
+  const [licenseKey, setLicenseKey] = useState(currentOrg.licenseKey || "");
+  const [freeSeats, setFreeSeats] = useState(currentOrg.freeSeats || 3);
   const [legacyEnterprise, setLegacyEnterprise] = useState(
-    currentLegacyEnterprise
+    currentOrg.enterprise || false
   );
-  const [verifiedDomain, setVerifiedDomain] = useState(currentDomain);
+  const [verifiedDomain, setVerifiedDomain] = useState(
+    currentOrg.verifiedDomain || ""
+  );
   const [autoApproveMembers, setAutoApproveMembers] = useState(
-    currentAutoApproveMembers
+    currentOrg.autoApproveMembers || false
   );
 
   const { apiCall } = useAuth();
@@ -80,7 +61,7 @@ const EditOrganization: FC<{
       secondaryCTA={
         disablable ? (
           <div className="flex-grow-1">
-            {currentDisabled ? (
+            {currentOrg.disabled ? (
               <button
                 className="btn btn-info"
                 onClick={(e) => {
@@ -201,35 +182,45 @@ const EditOrganization: FC<{
         </div>
         {isCloud() ? (
           <>
-            <div className="mt-3">
-              Free Seats
-              <input
-                type="number"
-                min={0}
-                className="form-control"
-                value={freeSeats}
-                onChange={(e) => setFreeSeats(parseInt(e.target.value))}
-              />
+            <div className="p-2 border mt-3">
               <div>
-                <span className="text-muted small">
-                  Number of seats that will not be billed
-                </span>
+                <b>Deprecated:</b>
+                <div className="small">
+                  This is an old way to enable enterprise features for an
+                  organization, which does not expire, and does not restrict not
+                  restrict seats. Please uncheck this and instead user Retool
+                  and set a licenseKey instead.
+                </div>
               </div>
-            </div>
-            <div className="mt-3">
-              Enable Enterprise
-              <Toggle
-                className="ml-2"
-                id="legacyEnterpriseToggle"
-                value={legacyEnterprise}
-                setValue={setLegacyEnterprise}
-              />
-              <div>
-                <span className="text-muted small">
-                  Organizations with enterprise enabled this way are not billed,
-                  and will not expire. This is a legacy feature. Be sure to also
-                  adjust the free seats to match org requirements.
-                </span>
+              <div className="mt-3">
+                Free Seats
+                <input
+                  type="number"
+                  min={0}
+                  className="form-control"
+                  value={freeSeats}
+                  onChange={(e) => setFreeSeats(parseInt(e.target.value))}
+                />
+                <div>
+                  <span className="text-muted small">
+                    Number of seats that can be added when on a free plan
+                  </span>
+                </div>
+              </div>
+              <div className="mt-3">
+                Enable Enterprise
+                <Toggle
+                  className="ml-2"
+                  id="legacyEnterpriseToggle"
+                  value={legacyEnterprise}
+                  setValue={setLegacyEnterprise}
+                />
+                <div>
+                  <span className="text-muted small">
+                    Organizations with enterprise enabled this way are not
+                    billed, and will not expire.
+                  </span>
+                </div>
               </div>
             </div>
           </>

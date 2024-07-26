@@ -6,12 +6,13 @@ import {
   getAllUsersFiltered,
   getTotalNumUsers,
   getUserById,
+  getUsersByIds,
   updateUser,
 } from "../models/UserModel";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   findAllOrganizations,
-  findOrganizationsByMemberId,
+  findOrganizationsByMemberIds,
   updateOrganization,
 } from "../models/OrganizationModel";
 import { getOrganizationById } from "../services/organizations";
@@ -177,7 +178,7 @@ export async function disableOrganization(
   await updateOrganization(org.id, updates);
 
   await req.audit({
-    event: "organization.update",
+    event: "organization.disable",
     entity: {
       object: "organization",
       id: org.id,
@@ -219,7 +220,7 @@ export async function enableOrganization(
   await updateOrganization(org.id, updates);
 
   await req.audit({
-    event: "organization.update",
+    event: "organization.enable",
     entity: {
       object: "organization",
       id: org.id,
@@ -247,15 +248,29 @@ export async function getMembers(
   const organizationInfo: Record<string, object> = {};
   const allUsers = await getAllUsersFiltered(parseInt(page ?? "1"), search);
   if (allUsers?.length > 0) {
-    for await (const user of allUsers) {
-      const orgs = await findOrganizationsByMemberId(user.id);
-      organizationInfo[user.id] = orgs.map((o) => ({
-        id: o.id,
-        name: o.name,
-        members: o.members.length,
-        role: o.members.find((m) => m.id === user.id)?.role,
-      }));
-    }
+    const memberOrgs = await findOrganizationsByMemberIds(
+      allUsers.map((u) => u.id)
+    );
+    // create a map of all the orgs mapped to the member id to make the step below easier
+    const orgMembers = new Map();
+    memberOrgs.forEach((mo) => {
+      mo.members.forEach((u) => {
+        const condensedOrg = {
+          id: mo.id,
+          name: mo.name,
+          members: mo.members.length,
+          role: mo.members.find((m) => m.id === u.id)?.role,
+        };
+        if (orgMembers.has(u.id)) {
+          orgMembers.set(u.id, [...orgMembers.get(u.id), condensedOrg]);
+        } else {
+          orgMembers.set(u.id, [condensedOrg]);
+        }
+      });
+    });
+    allUsers.forEach((user) => {
+      organizationInfo[user.id] = orgMembers.get(user.id) ?? [];
+    });
   }
 
   return res.status(200).json({
@@ -291,13 +306,9 @@ export async function getOrganizationMembers(
     });
   }
 
-  const members: UserInterface[] = [];
-  for await (const member of org.members) {
-    const user = await getUserById(member.id);
-    if (user) {
-      members.push(user);
-    }
-  }
+  const members: UserInterface[] = await getUsersByIds(
+    org.members.map((m) => m.id)
+  );
 
   return res.status(200).json({
     status: 200,
@@ -347,7 +358,7 @@ export async function putMember(
   await updateUser(userId, updates);
 
   await req.audit({
-    event: "team.update",
+    event: "user.update",
     entity: {
       object: "user",
       id: userId,
