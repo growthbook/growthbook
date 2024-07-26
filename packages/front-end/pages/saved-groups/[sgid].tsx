@@ -39,7 +39,6 @@ export default function EditSavedGroupPage() {
   const [addItems, setAddItems] = useState<boolean>(false);
   const [itemsToAdd, setItemsToAdd] = useState<string[]>([]);
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
-  console.log("Upgrade modal is open?", upgradeModal);
 
   const values = savedGroup?.values || [];
   const [currentPage, setCurrentPage] = useState(1);

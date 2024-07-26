@@ -17,6 +17,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import ConditionInput from "@/components/Features/ConditionInput";
 import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 
 const SavedGroupForm: FC<{
   close: () => void;
@@ -34,6 +35,7 @@ const SavedGroupForm: FC<{
 
   const [errorMessage, setErrorMessage] = useState("");
   const [showDescription, setShowDescription] = useState(false);
+  const [upgradeModal, setUpgradeModal] = useState(false);
 
   useEffect(() => {
     if (current.description) {
@@ -67,7 +69,13 @@ const SavedGroupForm: FC<{
       ? !!form.watch("attributeKey")
       : !!form.watch("condition"));
 
-  return (
+  return upgradeModal ? (
+    <UpgradeModal
+      close={() => setUpgradeModal(false)}
+      reason=""
+      source="large-saved-groups"
+    />
+  ) : (
     <Modal
       close={close}
       open={true}
@@ -201,7 +209,7 @@ const SavedGroupForm: FC<{
             }))}
             helpText={current.attributeKey && "This field cannot be edited."}
           />
-          {!current && (
+          {!current.id && (
             <IdListItemInput
               values={form.watch("values") || []}
               passByReferenceOnly={false}
@@ -215,6 +223,7 @@ const SavedGroupForm: FC<{
               groupReferencedByUnsupportedSdks={false}
               disableSubmit={disableSubmit}
               setDisableSubmit={setDisableSubmit}
+              openUpgradeModal={() => setUpgradeModal(true)}
             />
           )}
         </>
