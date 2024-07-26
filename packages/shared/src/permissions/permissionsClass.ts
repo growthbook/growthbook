@@ -812,10 +812,6 @@ export class Permissions {
   };
 
   private checkGlobalPermission(permissionToCheck: GlobalPermission): boolean {
-    if (this.superAdmin) {
-      return true;
-    }
-
     return this.userPermissions.global.permissions[permissionToCheck] || false;
   }
 
@@ -901,10 +897,6 @@ export class Permissions {
     project: string,
     envs?: string[]
   ) {
-    if (this.superAdmin) {
-      return true;
-    }
-
     const usersPermissionsToCheck =
       this.userPermissions.projects[project] || this.userPermissions.global;
 

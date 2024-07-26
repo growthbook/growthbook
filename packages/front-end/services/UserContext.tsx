@@ -225,7 +225,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (data?.organizations && setOrganizations) {
-      setOrganizations(data.organizations);
+      setOrganizations(data.organizations, data.superAdmin);
     }
   }, [data, setOrganizations]);
 

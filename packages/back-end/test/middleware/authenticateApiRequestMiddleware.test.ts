@@ -4,9 +4,11 @@ import { OrganizationInterface, Permission } from "../../types/organization";
 
 describe("REST API auth middleware", () => {
   describe("verifyApiKeyPermission", () => {
+    const collaboratorId = "u_sktwiz68la1ju2g3";
+    const orgId = "org_sktwi1id9l7z9xkjb";
     const organization: OrganizationInterface = {
       dateCreated: new Date(),
-      id: "org_sktwi1id9l7z9xkjb",
+      id: orgId,
       invites: [],
       name: "Main Org",
       ownerEmail: "",
@@ -21,7 +23,7 @@ describe("REST API auth middleware", () => {
         },
         {
           environments: [],
-          id: "u_sktwiz68la1ju2g3",
+          id: collaboratorId,
           role: "collaborator",
           limitAccessByEnvironment: false,
           projectRoles: [],
@@ -58,7 +60,7 @@ describe("REST API auth middleware", () => {
       id: "key_sktwitxylfhahyil",
       secret: true,
       environment: "production",
-      organization: "org_sktwi1id9l7z9xkjb",
+      organization: orgId,
       key: "secret_abc123456789xyz987654321",
       encryptSDK: false,
       description: "my all access key",
@@ -67,7 +69,7 @@ describe("REST API auth middleware", () => {
     const readOnlyKey: Partial<ApiKeyInterface> = {
       id: "key_sktwiqiglh85h2k8",
       secret: true,
-      organization: "org_sktwi1id9l7z9xkjb",
+      organization: orgId,
       key: "secret_read-only_abc123456789xyz987654321",
       encryptSDK: false,
       role: "readonly",
@@ -76,10 +78,10 @@ describe("REST API auth middleware", () => {
     const userKey: Partial<ApiKeyInterface> = {
       id: "key_sktwiqiglh85h2k8",
       secret: true,
-      organization: "org_sktwi1id9l7z9xkjb",
+      organization: orgId,
       key: "secret_read-only_abc123456789xyz987654321",
       encryptSDK: false,
-      userId: "u_sktwi1id9l7z9xkis",
+      userId: collaboratorId,
       description: "My user key created in the REPL",
     };
 
@@ -139,7 +141,7 @@ describe("REST API auth middleware", () => {
     });
 
     it("should allow keys with the right level of environment access", () => {
-      const permission: Permission = "createMetrics";
+      const permission: Permission = "createPresentations";
       const project = undefined;
       const environments = ["production"];
 
@@ -155,7 +157,7 @@ describe("REST API auth middleware", () => {
     });
 
     it("should allow keys with the right level of environment access when multiple envs are passed in", () => {
-      const permission: Permission = "createMetrics";
+      const permission: Permission = "createPresentations";
       const project = undefined;
       const environments = ["production", "staging"];
 
@@ -233,7 +235,7 @@ describe("REST API auth middleware", () => {
       }).toThrowError();
     });
 
-    it("should allow superAdmins to readData even when not part of an org", () => {
+    it("should allow superAdmins to readData but not other permissions when they are not part of an org", () => {
       const permission: Permission = "readData";
       const project = undefined;
       const environments = ["production", "staging"];
@@ -250,6 +252,50 @@ describe("REST API auth middleware", () => {
         teams: [],
         superAdmin: true,
       });
+
+      expect(() => {
+        verifyApiKeyPermission({
+          apiKey: {
+            ...userKey,
+            userId: "u_unknown_id",
+          },
+          permission: "createMetrics",
+          organization,
+          environments,
+          project,
+          teams: [],
+          superAdmin: true,
+        });
+      }).toThrowError();
+    });
+
+    it("should allow superAdmins their roles' permissions and only those permissions if they are part of the org", () => {
+      const permission: Permission = "createPresentations";
+      const project = undefined;
+      const environments = ["production"];
+
+      verifyApiKeyPermission({
+        apiKey: userKey,
+        permission,
+        organization,
+        environments,
+        project,
+        teams: [],
+        superAdmin: true,
+      });
+
+      const permission2: Permission = "createMetrics";
+      expect(() => {
+        verifyApiKeyPermission({
+          apiKey: userKey,
+          permission: permission2,
+          organization,
+          environments,
+          project,
+          teams: [],
+          superAdmin: true,
+        });
+      }).toThrowError();
     });
   });
 });

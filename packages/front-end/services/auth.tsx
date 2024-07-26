@@ -35,7 +35,7 @@ export interface AuthContextValue {
   orgId: string | null;
   setOrgId?: (orgId: string) => void;
   organizations?: UserOrganizations;
-  setOrganizations?: (orgs: UserOrganizations) => void;
+  setOrganizations?: (orgs: UserOrganizations, superAdmin: boolean) => void;
   specialOrg?: null | Partial<OrganizationInterface>;
   setOrgName?: (name: string) => void;
   setSpecialOrg?: (org: null | Partial<OrganizationInterface>) => void;
@@ -366,7 +366,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   const wrappedSetOrganizations = useCallback(
-    (orgs: UserOrganizations) => {
+    (orgs: UserOrganizations, superAdmin: boolean) => {
       setOrganizations(orgs);
       if (orgId && orgs.map((o) => o.id).includes(orgId)) {
         return;
@@ -387,7 +387,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           if (
             pickedOrg &&
             !router.query.org &&
-            orgs.map((o) => o.id).includes(JSON.parse(pickedOrg))
+            (superAdmin ||
+              orgs.map((o) => o.id).includes(JSON.parse(pickedOrg)))
           ) {
             setOrgId(JSON.parse(pickedOrg));
           } else {

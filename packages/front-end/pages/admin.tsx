@@ -343,6 +343,12 @@ const Admin: FC = () => {
                   if (setOrgId) {
                     setOrgId(org.id);
                   }
+
+                  try {
+                    localStorage.setItem("gb-last-picked-org", `"${o.id}"`);
+                  } catch (e) {
+                    console.warn("Cannot set gb-last-picked-org");
+                  }
                   if (setSpecialOrg) {
                     setSpecialOrg(org);
                   }
