@@ -45,7 +45,7 @@ describe("urlRedirects", () => {
     await sleep();
 
     gb.setURL("http://www.example.com/home");
-    await sleep(100);
+    await sleep(350);
     expect(window.location.replace).toHaveBeenCalledWith(
       "http://www.example.com/home-new"
     );
@@ -98,7 +98,7 @@ describe("urlRedirects", () => {
     await sleep();
 
     gb.setURL("http://www.example.com/home");
-    await sleep(100);
+    await sleep(350);
     expect(window.location.replace).toHaveBeenCalledWith(
       "http://www.example.com/home-new"
     );
@@ -151,7 +151,7 @@ describe("urlRedirects", () => {
     await sleep();
 
     gb.setURL("http://www.example.com/home");
-    await sleep(100);
+    await sleep(350);
     // expect replace to not have been called
     expect(window.location.replace).not.toHaveBeenCalled();
 
