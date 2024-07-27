@@ -276,36 +276,38 @@ const CompactResults: FC<{
         </>
       )}
 
-      <ResultsTable
-        dateCreated={reportDate}
-        isLatestPhase={isLatestPhase}
-        startDate={startDate}
-        status={status}
-        queryStatusData={queryStatusData}
-        variations={variations}
-        variationFilter={variationFilter}
-        baselineRow={baselineRow}
-        rows={rows.filter((r) => r.resultGroup === "goal")}
-        id={id}
-        hasRisk={hasRisk(rows)}
-        tableRowAxis="metric"
-        labelHeader="Goal Metrics"
-        editMetrics={editMetrics}
-        statsEngine={statsEngine}
-        sequentialTestingEnabled={sequentialTestingEnabled}
-        pValueCorrection={pValueCorrection}
-        differenceType={differenceType}
-        renderLabelColumn={getRenderLabelColumn(
-          regressionAdjustmentEnabled,
-          statsEngine
-        )}
-        metricFilter={metricFilter}
-        setMetricFilter={setMetricFilter}
-        metricTags={allMetricTags}
-        isTabActive={isTabActive}
-        noStickyHeader={noStickyHeader}
-        noTooltip={noTooltip}
-      />
+      {goalMetrics.length ? (
+        <ResultsTable
+          dateCreated={reportDate}
+          isLatestPhase={isLatestPhase}
+          startDate={startDate}
+          status={status}
+          queryStatusData={queryStatusData}
+          variations={variations}
+          variationFilter={variationFilter}
+          baselineRow={baselineRow}
+          rows={rows.filter((r) => r.resultGroup === "goal")}
+          id={id}
+          hasRisk={hasRisk(rows)}
+          tableRowAxis="metric"
+          labelHeader="Goal Metrics"
+          editMetrics={editMetrics}
+          statsEngine={statsEngine}
+          sequentialTestingEnabled={sequentialTestingEnabled}
+          pValueCorrection={pValueCorrection}
+          differenceType={differenceType}
+          renderLabelColumn={getRenderLabelColumn(
+            regressionAdjustmentEnabled,
+            statsEngine
+          )}
+          metricFilter={metricFilter}
+          setMetricFilter={setMetricFilter}
+          metricTags={allMetricTags}
+          isTabActive={isTabActive}
+          noStickyHeader={noStickyHeader}
+          noTooltip={noTooltip}
+        />
+      ) : null}
 
       {!mainTableOnly && secondaryMetrics.length ? (
         <div className="mt-4">

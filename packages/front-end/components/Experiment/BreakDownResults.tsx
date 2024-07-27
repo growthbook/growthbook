@@ -211,7 +211,7 @@ const BreakDownResults: FC<{
             setShowMetricFilter={setShowMetricFilter}
           />
         ) : null}
-        <span className="h3 mb-0">Goal Metrics</span>
+        <span className="h3 mb-0">All Metrics</span>
       </div>
       {tables.map((table, i) => {
         return (
