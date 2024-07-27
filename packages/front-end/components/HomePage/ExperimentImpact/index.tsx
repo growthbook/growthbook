@@ -6,6 +6,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getValidDate } from "shared/dates";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { getSnapshotAnalysis } from "shared/util";
+import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -120,8 +121,8 @@ function scaleImpactAndSetMissingExperiments({
 
       const fitsDateFilter =
         (endedAfterStart && endedBeforeEnd) || isRunningAndEndInFuture;
-      const hasMetric = [...e.metrics, ...(e.guardrails ?? [])].find(
-        (m) => m === metric
+      const hasMetric = getAllMetricIdsFromExperiment(e, false).includes(
+        metric
       );
       const inSelectedProject =
         selectedProjects.includes(e.project ?? "") || !selectedProjects.length;

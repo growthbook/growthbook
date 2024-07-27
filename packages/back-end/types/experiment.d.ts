@@ -117,6 +117,9 @@ export interface LegacyExperimentInterface
     | "attributionModel"
     | "releasedVariationId"
     | "metricOverrides"
+    | "goalMetrics"
+    | "secondaryMetrics"
+    | "guardrailMetrics"
   > {
   /**
    * @deprecated
@@ -127,6 +130,11 @@ export interface LegacyExperimentInterface
   variations: LegacyVariation[];
   phases: LegacyExperimentPhase[];
   releasedVariationId?: string;
+  metrics?: string[];
+  guardrails?: string[];
+  goalMetrics?: string[];
+  secondaryMetrics?: string[];
+  guardrailMetrics?: string[];
 }
 
 export interface ExperimentInterface {
@@ -158,10 +166,11 @@ export interface ExperimentInterface {
   tags: string[];
   description?: string;
   hypothesis?: string;
-  metrics: string[];
-  metricOverrides?: MetricOverride[];
-  guardrails?: string[];
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
   activationMetric?: string;
+  metricOverrides?: MetricOverride[];
   segment?: string;
   queryFilter?: string;
   skipPartialData?: boolean;

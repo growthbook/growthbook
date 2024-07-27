@@ -8,7 +8,11 @@ import {
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import { accountFeatures, getAccountPlan } from "enterprise";
 import { omit } from "lodash";
-import { LegacyReportInterface, ReportInterface } from "@back-end/types/report";
+import {
+  ExperimentReportArgs,
+  LegacyReportInterface,
+  ReportInterface,
+} from "@back-end/types/report";
 import { WebhookInterface } from "@back-end/types/webhook";
 import { SdkWebHookLogDocument } from "../models/SdkWebhookLogModel";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
@@ -511,6 +515,17 @@ export function upgradeExperimentDoc(
     }
   });
 
+  // Convert metric fields to new names
+  if (!experiment.goalMetrics) {
+    experiment.goalMetrics = experiment.metrics || [];
+  }
+  if (!experiment.guardrailMetrics) {
+    experiment.guardrailMetrics = experiment.guardrails || [];
+  }
+  if (!experiment.secondaryMetrics) {
+    experiment.secondaryMetrics = [];
+  }
+
   // Populate phase names and targeting properties
   if (experiment.phases) {
     experiment.phases.forEach((phase) => {
@@ -598,15 +613,30 @@ export function upgradeExperimentDoc(
 export function migrateReport(orig: LegacyReportInterface): ReportInterface {
   const { args, ...report } = orig;
 
-  if ((args?.attributionModel as string) === "allExposures") {
-    args.attributionModel = "experimentDuration";
-  }
+  const {
+    attributionModel,
+    metricRegressionAdjustmentStatuses,
+    metrics,
+    guardrails,
+    ...otherArgs
+  } = args || {};
+
+  const newArgs: ExperimentReportArgs = {
+    secondaryMetrics: [],
+    ...otherArgs,
+    attributionModel:
+      (attributionModel as string) === "allExposures"
+        ? "experimentDuration"
+        : attributionModel,
+    goalMetrics: otherArgs.goalMetrics || metrics || [],
+    guardrailMetrics: otherArgs.guardrailMetrics || guardrails || [],
+  };
 
   if (
-    args?.metricRegressionAdjustmentStatuses &&
-    args?.settingsForSnapshotMetrics === undefined
+    metricRegressionAdjustmentStatuses &&
+    newArgs.settingsForSnapshotMetrics === undefined
   ) {
-    args.settingsForSnapshotMetrics = args.metricRegressionAdjustmentStatuses.map(
+    newArgs.settingsForSnapshotMetrics = metricRegressionAdjustmentStatuses.map(
       (m) => ({
         metric: m.metric,
         properPrior: false,
@@ -620,11 +650,9 @@ export function migrateReport(orig: LegacyReportInterface): ReportInterface {
     );
   }
 
-  delete args?.metricRegressionAdjustmentStatuses;
-
   return {
     ...report,
-    args,
+    args: newArgs,
   };
 }
 
@@ -762,6 +790,7 @@ export function migrateSnapshot(
       // We know the metric ids included, but don't know if they were goals or guardrails
       // Just add them all as goals (doesn't really change much)
       goalMetrics: metricIds.filter((m) => m !== activationMetric),
+      secondaryMetrics: [],
       guardrailMetrics: [],
       activationMetric: activationMetric || null,
       defaultMetricPriorSettings: defaultMetricPriorSettings,
@@ -781,6 +810,11 @@ export function migrateSnapshot(
     // Add new settings field in case it is missing
     if (snapshot.settings.defaultMetricPriorSettings === undefined) {
       snapshot.settings.defaultMetricPriorSettings = defaultMetricPriorSettings;
+    }
+
+    // This field could be undefined before, make it always an array
+    if (!snapshot.settings.secondaryMetrics) {
+      snapshot.settings.secondaryMetrics = [];
     }
 
     // migrate metric for snapshot to have new fields as old snapshots

@@ -515,7 +515,7 @@ const IdeaPage = (): ReactElement => {
             datasource: data?.estimate?.metric
               ? getMetricById(data?.estimate?.metric)?.datasource
               : undefined,
-            metrics: data?.estimate?.metric ? [data?.estimate?.metric] : [],
+            goalMetrics: data?.estimate?.metric ? [data?.estimate?.metric] : [],
           }}
         />
       )}
