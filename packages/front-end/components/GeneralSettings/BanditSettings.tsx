@@ -3,12 +3,13 @@ import React from "react";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { DocLink } from "@/components/DocLink";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useUser } from "@/services/UserContext";
 
 export default function BanditSettings() {
+  const { hasCommercialFeature } = useUser();
   const form = useFormContext();
-
-  // - < 1 hour produces warning: “Update cadence should be at least 15 minutes longer than it takes to run your data warehouse query.  Please see documentation for guidance.”   ‘documentation’ is linked to help page.
-  // - > 3 days produces warning: “Update cadences longer than 3 days can result in slow learning, see documentation here.”
+  const hasBandits = hasCommercialFeature("multi-armed-bandits");
 
   const scheduleHours =
     parseFloat(form.watch("banditScheduleValue") ?? "0") *
@@ -37,8 +38,15 @@ export default function BanditSettings() {
         <h4>Bandit Settings</h4>
       </div>
       <div className="col-sm-9">
-        <h5>Multi-Armed Bandit Defaults</h5>
-        <p>
+        <PremiumTooltip
+          commercialFeature="multi-armed-bandits"
+          premiumText="Multi-Armed Bandits are a Pro feature"
+        >
+          <div className="d-inline-block h5 mb-0">
+            Multi-Armed Bandit Defaults
+          </div>
+        </PremiumTooltip>
+        <p className="mt-2">
           These are organizational default values for configuring multi-armed
           bandit experiments. You can always change these values on a
           per-experiment basis.
@@ -51,12 +59,16 @@ export default function BanditSettings() {
               <Field
                 {...form.register("banditBurnInValue", {
                   valueAsNumber: true,
+                  validate: (v) => {
+                    return !(v < 0);
+                  },
                 })}
                 type="number"
-                min={1}
+                min={0}
                 max={999}
                 step={1}
                 style={{ width: 70 }}
+                disabled={!hasBandits}
               />
             </div>
             <div className="col-auto">
@@ -76,6 +88,7 @@ export default function BanditSettings() {
                     value: "days",
                   },
                 ]}
+                disabled={!hasBandits}
               />
             </div>
           </div>
@@ -94,12 +107,16 @@ export default function BanditSettings() {
               <Field
                 {...form.register("banditScheduleValue", {
                   valueAsNumber: true,
+                  validate: (_) => {
+                    return !(scheduleHours < 0.25);
+                  },
                 })}
                 type="number"
-                min={1}
+                min={0}
                 max={999}
                 step={1}
                 style={{ width: 70 }}
+                disabled={!hasBandits}
               />
             </div>
             <div className="col-auto">
@@ -122,6 +139,7 @@ export default function BanditSettings() {
                     value: "days",
                   },
                 ]}
+                disabled={!hasBandits}
               />
             </div>
           </div>
