@@ -14,7 +14,7 @@ type GeneratedHypothesisDocument = mongoose.Document &
 
 const generatedHypothesisSchema = new mongoose.Schema({
   id: String,
-  uuid: String,
+  weblensUuid: String,
   createdAt: Date,
   organization: String,
   url: String,
@@ -26,7 +26,7 @@ const generatedHypothesisSchema = new mongoose.Schema({
   },
 });
 
-generatedHypothesisSchema.index({ uuid: 1 }, { unique: true });
+generatedHypothesisSchema.index({ weblensUuid: 1 }, { unique: false });
 
 const GeneratedHypothesisModel = mongoose.model<GeneratedHypothesisDocument>(
   "GeneratedHypothesis",
@@ -44,7 +44,8 @@ export const findOrCreateGeneratedHypothesis = async (
 ): Promise<GeneratedHypothesisInterface> => {
   const { org, userId } = context;
   const existing = await GeneratedHypothesisModel.findOne({
-    uuid,
+    weblensUuid: uuid,
+    organization: context.org.id,
   });
   if (existing) return toInterface(existing);
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY)
@@ -216,7 +217,7 @@ export const findOrCreateGeneratedHypothesis = async (
   // link hypothesis to experiment
   const created = await GeneratedHypothesisModel.create({
     id: uniqid("genhyp_"),
-    uuid,
+    weblensUuid: uuid,
     createdAt: new Date(),
     organization: context.org.id,
     url: site_url,
