@@ -156,7 +156,6 @@ export default function EditPhasesModal({
           >
             <GBAddCircle /> New Phase
           </button>
-        </>
       )}
     </Modal>
   );
