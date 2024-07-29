@@ -537,6 +537,7 @@ export async function postExperiments(
       ? data.phases.map(({ dateStarted, dateEnded, ...phase }) => {
           return {
             ...phase,
+            seed: phase.seed || uuidv4(),
             dateStarted: dateStarted ? getValidDate(dateStarted) : new Date(),
             dateEnded: dateEnded ? getValidDate(dateEnded) : undefined,
           };

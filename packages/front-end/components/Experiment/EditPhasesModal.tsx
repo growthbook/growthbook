@@ -31,6 +31,7 @@ export default function EditPhasesModal({
   const [editPhase, setEditPhase] = useState<number | null>(
     isDraft && !isMultiPhase ? 0 : null
   );
+
   const { apiCall } = useAuth();
 
   if (editPhase === -1) {
@@ -146,15 +147,17 @@ export default function EditPhasesModal({
         </tbody>
       </table>
       {(experiment.status !== "running" || !hasLinkedChanges) && (
-        <button
-          className="btn btn-primary"
-          onClick={(e) => {
-            e.preventDefault();
-            setEditPhase(-1);
-          }}
-        >
-          <GBAddCircle /> New Phase
-        </button>
+        <>
+          <button
+            className="btn btn-primary"
+            onClick={(e) => {
+              e.preventDefault();
+              setEditPhase(-1);
+            }}
+          >
+            <GBAddCircle /> New Phase
+          </button>
+        </>
       )}
     </Modal>
   );

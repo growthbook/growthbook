@@ -473,7 +473,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     form.setValue("hashAttribute", v);
                   }}
                   helpText={
-                    "Will be hashed together with the Experiment Id (tracking key) to determine which variation to assign"
+                    "Will be hashed together with the seed (UUID) to determine which variation to assign"
                   }
                 />
                 <FallbackAttributeSelector

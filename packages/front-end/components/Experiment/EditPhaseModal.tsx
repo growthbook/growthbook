@@ -3,6 +3,8 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
+import { useState } from "react";
+import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
@@ -26,12 +28,15 @@ export default function EditPhaseModal({
   const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
       ...experiment.phases[i],
+      seed: experiment.phases[i].seed ?? experiment.trackingKey,
       dateStarted: (experiment.phases[i].dateStarted ?? "").substr(0, 16),
       dateEnded: experiment.phases[i].dateEnded
         ? (experiment.phases[i].dateEnded ?? "").substr(0, 16)
         : "",
     },
   });
+  const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
+
   const { apiCall } = useAuth();
 
   const isDraft = experiment.status === "draft";
@@ -110,6 +115,31 @@ export default function EditPhaseModal({
           button instead.
         </div>
       )}
+
+      {advancedOptionsOpen && (
+        //edit seed
+        <Field
+          label="Seed"
+          type="input"
+          {...form.register("seed")}
+          helpText={
+            <>
+              <strong className="text-danger">Warning:</strong> Changing this
+              will change bucketing for you variations.
+            </>
+          }
+        />
+      )}
+      <span
+        className="ml-auto link-purple cursor-pointer"
+        onClick={(e) => {
+          e.preventDefault();
+          setAdvancedOptionsOpen(!advancedOptionsOpen);
+        }}
+      >
+        Advanced Options{" "}
+        {!advancedOptionsOpen ? <PiCaretDown /> : <PiCaretUp />}
+      </span>
     </Modal>
   );
 }

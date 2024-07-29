@@ -521,7 +521,7 @@ export function upgradeExperimentDoc(
 
       phase.coverage = phase.coverage ?? 1;
       phase.condition = phase.condition || "";
-      phase.seed = phase.seed || experiment.trackingKey;
+      phase.seed = phase.seed || experiment.trackingKey; //support for old experiments where tracking key was used as seed instead of UUID
       phase.namespace = phase.namespace || {
         enabled: false,
         name: "",
