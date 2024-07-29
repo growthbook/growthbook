@@ -76,6 +76,8 @@ export default function ResultsDownloadButton({
             variations: result.variations.map((v) => {
               return v.metrics[m];
             }),
+            // We don't care what this is set to here, just need something
+            resultGroup: "goal",
           };
           const stats = variation.metrics[m];
           if (!stats) return;

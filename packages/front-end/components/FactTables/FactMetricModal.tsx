@@ -351,7 +351,7 @@ export default function FactMetricModal({
         column: "$$count",
         filters: [],
       },
-      projects: [],
+      projects: existing?.projects || [],
       denominator: existing?.denominator || null,
       datasource:
         existing?.datasource ||

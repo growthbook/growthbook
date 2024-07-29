@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { OrganizationInterface } from "@back-end/types/organization";
+import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
 import { usingOpenId } from "../../services/auth";
 import { findOrganizationsByMemberId } from "../../models/OrganizationModel";
@@ -25,11 +26,17 @@ function isValidWatchEntityType(type: string): boolean {
 export async function getUser(req: AuthRequest, res: Response) {
   // If using SSO, auto-create users in Mongo who we don't recognize yet
   if (!req.userId && usingOpenId()) {
+    let agreedToTerms = false;
+    if (IS_CLOUD) {
+      // we know if they agreed to terms if they are using Cloud SSO
+      agreedToTerms = true;
+    }
     const user = await createUser({
       name: req.name || "",
       email: req.email,
       password: "",
       verified: req.verified,
+      agreedToTerms,
     });
     req.userId = user.id;
   }

@@ -966,7 +966,19 @@ export interface components {
         attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
+        regressionAdjustmentEnabled?: boolean;
         goals: ({
+            metricId: string;
+            overrides: {
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
+              winRiskThreshold?: number;
+              loseRiskThreshold?: number;
+            };
+          })[];
+        secondaryMetrics: ({
             metricId: string;
             overrides: {
               delayHours?: number;
@@ -1031,7 +1043,19 @@ export interface components {
       attributionModel: "firstExposure" | "experimentDuration";
       /** @enum {unknown} */
       statsEngine: "bayesian" | "frequentist";
+      regressionAdjustmentEnabled?: boolean;
       goals: ({
+          metricId: string;
+          overrides: {
+            delayHours?: number;
+            windowHours?: number;
+            /** @enum {string} */
+            window?: "conversion" | "lookback" | "";
+            winRiskThreshold?: number;
+            loseRiskThreshold?: number;
+          };
+        })[];
+      secondaryMetrics: ({
           metricId: string;
           overrides: {
             delayHours?: number;
@@ -1088,7 +1112,19 @@ export interface components {
         attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
+        regressionAdjustmentEnabled?: boolean;
         goals: ({
+            metricId: string;
+            overrides: {
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
+              winRiskThreshold?: number;
+              loseRiskThreshold?: number;
+            };
+          })[];
+        secondaryMetrics: ({
             metricId: string;
             overrides: {
               delayHours?: number;
@@ -3351,7 +3387,19 @@ export interface operations {
                   attributionModel: "firstExposure" | "experimentDuration";
                   /** @enum {unknown} */
                   statsEngine: "bayesian" | "frequentist";
+                  regressionAdjustmentEnabled?: boolean;
                   goals: ({
+                      metricId: string;
+                      overrides: {
+                        delayHours?: number;
+                        windowHours?: number;
+                        /** @enum {string} */
+                        window?: "conversion" | "lookback" | "";
+                        winRiskThreshold?: number;
+                        loseRiskThreshold?: number;
+                      };
+                    })[];
+                  secondaryMetrics: ({
                       metricId: string;
                       overrides: {
                         delayHours?: number;
@@ -3425,6 +3473,7 @@ export interface operations {
           description?: string;
           tags?: (string)[];
           metrics?: (string)[];
+          secondaryMetrics?: (string)[];
           guardrailMetrics?: (string)[];
           /** @description Email of the person who owns this experiment */
           owner?: string;
@@ -3487,6 +3536,8 @@ export interface operations {
                 })[];
               variationWeights?: (number)[];
             })[];
+          /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
+          regressionAdjustmentEnabled?: boolean;
         };
       };
     };
@@ -3557,7 +3608,19 @@ export interface operations {
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
+                regressionAdjustmentEnabled?: boolean;
                 goals: ({
+                    metricId: string;
+                    overrides: {
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                secondaryMetrics: ({
                     metricId: string;
                     overrides: {
                       delayHours?: number;
@@ -3679,7 +3742,19 @@ export interface operations {
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
+                regressionAdjustmentEnabled?: boolean;
                 goals: ({
+                    metricId: string;
+                    overrides: {
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                secondaryMetrics: ({
                     metricId: string;
                     overrides: {
                       delayHours?: number;
@@ -3749,6 +3824,7 @@ export interface operations {
           description?: string;
           tags?: (string)[];
           metrics?: (string)[];
+          secondaryMetrics?: (string)[];
           guardrailMetrics?: (string)[];
           /** @description Email of the person who owns this experiment */
           owner?: string;
@@ -3811,6 +3887,8 @@ export interface operations {
                 })[];
               variationWeights?: (number)[];
             })[];
+          /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
+          regressionAdjustmentEnabled?: boolean;
         };
       };
     };
@@ -3881,7 +3959,19 @@ export interface operations {
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
+                regressionAdjustmentEnabled?: boolean;
                 goals: ({
+                    metricId: string;
+                    overrides: {
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                secondaryMetrics: ({
                     metricId: string;
                     overrides: {
                       delayHours?: number;
@@ -3963,7 +4053,19 @@ export interface operations {
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
+                regressionAdjustmentEnabled?: boolean;
                 goals: ({
+                    metricId: string;
+                    overrides: {
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                secondaryMetrics: ({
                     metricId: string;
                     overrides: {
                       delayHours?: number;
@@ -4841,7 +4943,19 @@ export interface operations {
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
+                regressionAdjustmentEnabled?: boolean;
                 goals: ({
+                    metricId: string;
+                    overrides: {
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                secondaryMetrics: ({
                     metricId: string;
                     overrides: {
                       delayHours?: number;

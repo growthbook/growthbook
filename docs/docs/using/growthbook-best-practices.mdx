@@ -73,8 +73,8 @@ color-coded and managed from our Settings → Tags page. You can add multiple ta
 
 Metrics with tags can be used to quickly add all those metrics to an experiment. When creating an
 experiment or editing the metrics, there is a section titled “Select metric by tag” which will let you add
-all the metrics by the tag name to both guardrail and goal metrics. This is useful if you want to use a
-standard set of goal metrics or guardrail metrics for your experiments.
+all the metrics by the tag name to guardrail, secondary, and/or goal metrics. This is useful if you want to use a
+standard set of metrics for your experiments.
 
 Tags are often used to mark sub-features of your product; for example, if you have an e-commerce
 website, you might want to tag features or experiments with the area they affect, like ‘_pricing_,’
@@ -134,6 +134,29 @@ The first is to make it super easy to add documentation directly in the platform
 for the experiment. Secondly, we added launch checklists, which can require that certain files be filled
 before your team is able to start an experiment.
 
+### Custom Markdown
+
+Enterprise users can inject custom markdown content into key pages of the GrowthBook app. This feature allows you to provide organization-specific guidance on processes for setting up experiments and features. Additionally, we've made certain Handlebars variables available on each page. This enables you to use [Handlebars templates](https://handlebarsjs.com/guide/#simple-expressions) to dynamically customize your messaging based on context.
+
+For example, writing
+
+```
+{{#if tags}}
+Guidance for experiments with tags...
+{{/if}}
+```
+
+in markdown for the Experiment page becomes `Guidance for experiments with tags...` when the experiment has at least one tag.
+
+| Page             | Variables                                                            |
+| ---------------- | -------------------------------------------------------------------- |
+| Experiments List | `user` `orgName`                                                     |
+| Experiment       | `user` `orgName` `experiment` `experimentStatus` `tags`              |
+| Features List    | `user` `orgName`                                                     |
+| Feature          | `user` `orgName` `featureKey` `featureType` `tags`                   |
+| Metrics List     | `user` `orgName`                                                     |
+| Metric           | `user` `orgName` `metricName` `metricType` `metricDatasource` `tags` |
+
 ## Searching
 
 GrowthBook has a powerful search feature that allows you to quickly find the feature, experiment, or
@@ -177,6 +200,7 @@ the name field that contains the text “New Feature”.
 | tag          | Experiments tagged with this tag                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | project      | The experiment's project                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | feature      | The experiment is linked to the specified feature                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| datasource   | Experiments that use a specific data source (eg: datasource:bigquery)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | metric       | Experiments that contain the metric specified (eg: metric:~revenue)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | result       | The experiment result (won, inconclusive, lost, unfinished)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | variation    | The experiment contains a variant with the name specified                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |

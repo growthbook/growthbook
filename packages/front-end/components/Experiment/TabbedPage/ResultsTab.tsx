@@ -11,7 +11,10 @@ import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
-import { getAllMetricSettingsForSnapshot } from "shared/experiments";
+import {
+  getAllMetricIdsFromExperiment,
+  getAllMetricSettingsForSnapshot,
+} from "shared/experiments";
 import { isDefined } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -106,10 +109,10 @@ export default function ResultsTab({
     "regression-adjustment"
   );
 
-  const allExperimentMetricIds = uniq([
-    ...experiment.metrics,
-    ...(experiment.guardrails ?? []),
-  ]);
+  const allExperimentMetricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false
+  );
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
     getExperimentMetricById(m)
   );

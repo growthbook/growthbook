@@ -35,6 +35,7 @@ export default class Presto extends SqlIntegration {
       source: this.params?.source || "growthbook",
       schema: this.params.schema,
       catalog: this.params.catalog,
+      timeout: this.params.requestTimeout ?? 0,
       checkInterval: 500,
     };
     if (!this.params?.authType || this.params?.authType === "basicAuth") {
