@@ -26,7 +26,7 @@ const generatedHypothesisSchema = new mongoose.Schema({
   },
 });
 
-generatedHypothesisSchema.index({ uuid: 1 }, { unique: true });
+generatedHypothesisSchema.index({ uuid: 1 }, { unique: false });
 
 const GeneratedHypothesisModel = mongoose.model<GeneratedHypothesisDocument>(
   "GeneratedHypothesis",
@@ -45,6 +45,7 @@ export const findOrCreateGeneratedHypothesis = async (
   const { org, userId } = context;
   const existing = await GeneratedHypothesisModel.findOne({
     uuid,
+    organization: context.org.id,
   });
   if (existing) return toInterface(existing);
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY)
