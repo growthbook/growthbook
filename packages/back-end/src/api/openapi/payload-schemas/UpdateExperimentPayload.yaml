@@ -24,6 +24,10 @@ properties:
     type: array
     items:
       type: string
+  secondaryMetrics:
+    type: array
+    items:
+      type: string
   guardrailMetrics:
     type: array
     items:

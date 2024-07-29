@@ -1075,6 +1075,9 @@ describe("Experiment Migration", () => {
     hashVersion: 2,
     releasedVariationId: "",
     attributionModel: "experimentDuration",
+    goalMetrics: [],
+    secondaryMetrics: [],
+    guardrailMetrics: [],
     variations: [
       {
         id: "0",
@@ -1223,6 +1226,43 @@ describe("Experiment Migration", () => {
           };
         }),
       ],
+    });
+  });
+  it("Updates metric field names", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        metrics: ["met_abc"],
+        guardrails: ["met_def"],
+      })
+    ).toEqual({
+      ...upgraded,
+      goalMetrics: ["met_abc"],
+      guardrailMetrics: ["met_def"],
+      // Keeps old metric fields around, but they're not used
+      metrics: ["met_abc"],
+      guardrails: ["met_def"],
+    });
+  });
+
+  it("Does not override new metrics", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        goalMetrics: ["met_123"],
+        secondaryMetrics: ["met_456"],
+        guardrailMetrics: ["met_789"],
+        metrics: ["met_abc"],
+        guardrails: ["met_def"],
+      })
+    ).toEqual({
+      ...upgraded,
+      goalMetrics: ["met_123"],
+      secondaryMetrics: ["met_456"],
+      guardrailMetrics: ["met_789"],
+      // Keeps old metric fields around, but they're not used
+      metrics: ["met_abc"],
+      guardrails: ["met_def"],
     });
   });
 });
@@ -1413,6 +1453,7 @@ describe("Snapshot Migration", () => {
         experimentId: "",
         exposureQueryId: "",
         goalMetrics: ["met_abc"],
+        secondaryMetrics: [],
         guardrailMetrics: [],
         manual: false,
         metricSettings: [
@@ -1515,6 +1556,7 @@ describe("Snapshot Migration", () => {
         experimentId: "",
         exposureQueryId: "",
         goalMetrics: [],
+        secondaryMetrics: [],
         guardrailMetrics: [],
         manual: false,
         metricSettings: [],
@@ -1624,6 +1666,7 @@ describe("Snapshot Migration", () => {
         experimentId: "",
         exposureQueryId: "",
         goalMetrics: ["met_abc"],
+        secondaryMetrics: [],
         guardrailMetrics: [],
         manual: true,
         metricSettings: [
@@ -1703,8 +1746,56 @@ describe("Report Migration", () => {
     expect(migrateReport(report)).toEqual({
       ...report,
       args: {
-        ...report.args,
+        ...omit(report.args, "metrics"),
         attributionModel: "experimentDuration",
+        goalMetrics: [],
+        secondaryMetrics: [],
+        guardrailMetrics: [],
+      },
+    });
+  });
+
+  it("migrates metrics and guardrails", () => {
+    const report = {
+      ...baseLegacyReport,
+      args: {
+        ...baseLegacyReport.args,
+        metrics: ["met_123"],
+        guardrails: ["met_456"],
+      },
+    };
+
+    expect(migrateReport(report)).toEqual({
+      ...report,
+      args: {
+        ...omit(report.args, "metrics", "guardrails"),
+        goalMetrics: ["met_123"],
+        guardrailMetrics: ["met_456"],
+        secondaryMetrics: [],
+      },
+    });
+  });
+
+  it("does not migrate metrics and guardrails if new fields present", () => {
+    const report = {
+      ...baseLegacyReport,
+      args: {
+        ...baseLegacyReport.args,
+        metrics: ["met_123"],
+        guardrails: ["met_456"],
+        goalMetrics: ["met_abc"],
+        secondaryMetrics: ["met_def"],
+        guardrailMetrics: [],
+      },
+    };
+
+    expect(migrateReport(report)).toEqual({
+      ...report,
+      args: {
+        ...omit(report.args, "metrics", "guardrails"),
+        goalMetrics: ["met_abc"],
+        secondaryMetrics: ["met_def"],
+        guardrailMetrics: [],
       },
     });
   });
@@ -1729,7 +1820,7 @@ describe("Report Migration", () => {
     expect(migrateReport(report)).toEqual({
       ...report,
       args: {
-        ...report.args,
+        ...omit(report.args, "metrics", "metricRegressionAdjustmentStatuses"),
         settingsForSnapshotMetrics: [
           {
             metric: "met_123",
@@ -1742,6 +1833,9 @@ describe("Report Migration", () => {
             properPriorStdDev: DEFAULT_PROPER_PRIOR_STDDEV,
           },
         ],
+        goalMetrics: [],
+        secondaryMetrics: [],
+        guardrailMetrics: [],
       },
     });
   });

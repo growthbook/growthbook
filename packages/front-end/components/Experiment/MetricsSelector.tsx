@@ -86,6 +86,7 @@ const MetricsSelector: FC<{
   onChange: (metrics: string[]) => void;
   autoFocus?: boolean;
   includeFacts?: boolean;
+  forceSingleMetric?: boolean;
 }> = ({
   datasource,
   project,
@@ -94,6 +95,7 @@ const MetricsSelector: FC<{
   onChange,
   autoFocus,
   includeFacts,
+  forceSingleMetric = false,
 }) => {
   const {
     metrics,
@@ -163,41 +165,66 @@ const MetricsSelector: FC<{
     }
   });
 
+  const selector = !forceSingleMetric ? (
+    <MultiSelectField
+      value={selected}
+      onChange={onChange}
+      options={filteredOptions.map((m) => {
+        return {
+          value: m.id,
+          label: m.name,
+          tooltip: m.description,
+        };
+      })}
+      placeholder="Select metrics..."
+      autoFocus={autoFocus}
+      formatOptionLabel={({ value, label }, { context }) => {
+        return value ? (
+          <MetricName id={value} showDescription={context !== "value"} />
+        ) : (
+          label
+        );
+      }}
+      onPaste={(e) => {
+        try {
+          const clipboard = e.clipboardData;
+          const data = JSON.parse(clipboard.getData("Text"));
+          if (data.every((d) => d.startsWith("met_"))) {
+            e.preventDefault();
+            e.stopPropagation();
+            onChange(data);
+          }
+        } catch (e) {
+          // fail silently
+        }
+      }}
+    />
+  ) : (
+    <SelectField
+      value={selected[0]}
+      onChange={(m) => onChange([m])}
+      options={filteredOptions.map((m) => {
+        return {
+          value: m.id,
+          label: m.name,
+          tooltip: m.description,
+        };
+      })}
+      placeholder="Select metric..."
+      autoFocus={autoFocus}
+      formatOptionLabel={({ value, label }, { context }) => {
+        return value ? (
+          <MetricName id={value} showDescription={context !== "value"} />
+        ) : (
+          label
+        );
+      }}
+    />
+  );
+
   return (
     <div>
-      <MultiSelectField
-        value={selected}
-        onChange={onChange}
-        options={filteredOptions.map((m) => {
-          return {
-            value: m.id,
-            label: m.name,
-            tooltip: m.description,
-          };
-        })}
-        placeholder="Select metrics..."
-        autoFocus={autoFocus}
-        formatOptionLabel={({ value, label }, { context }) => {
-          return value ? (
-            <MetricName id={value} showDescription={context !== "value"} />
-          ) : (
-            label
-          );
-        }}
-        onPaste={(e) => {
-          try {
-            const clipboard = e.clipboardData;
-            const data = JSON.parse(clipboard.getData("Text"));
-            if (data.every((d) => d.startsWith("met_"))) {
-              e.preventDefault();
-              e.stopPropagation();
-              onChange(data);
-            }
-          } catch (e) {
-            // fail silently
-          }
-        }}
-      />
+      {selector}
       <div
         style={{
           display: "flex",

@@ -10,6 +10,7 @@ import {
   isFactMetric,
   isBinomialMetric,
   ExperimentMetricInterface,
+  getAllMetricIdsFromExperiment,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import {
@@ -87,9 +88,10 @@ export function reportArgsFromSnapshot(
     variations: getReportVariations(experiment, phase),
     coverage: snapshot.settings.coverage,
     segment: snapshot.settings.segment,
-    metrics: experiment.metrics,
+    goalMetrics: experiment.goalMetrics,
+    secondaryMetrics: experiment.secondaryMetrics,
     metricOverrides: experiment.metricOverrides,
-    guardrails: experiment.guardrails,
+    guardrailMetrics: experiment.guardrailMetrics,
     activationMetric: snapshot.settings.activationMetric || undefined,
     queryFilter: snapshot.settings.queryFilter,
     skipPartialData: snapshot.settings.skipPartialData,
@@ -137,9 +139,7 @@ export function getSnapshotSettingsFromReportArgs(
     stddev: DEFAULT_PROPER_PRIOR_STDDEV,
   };
   const snapshotSettings: ExperimentSnapshotSettings = {
-    metricSettings: args.metrics
-      .concat(args.guardrails || [])
-      .concat(args.activationMetric ? [args.activationMetric] : [])
+    metricSettings: getAllMetricIdsFromExperiment(args)
       .map((m) =>
         getMetricForSnapshot(
           m,
@@ -162,8 +162,9 @@ export function getSnapshotSettingsFromReportArgs(
     skipPartialData: !!args.skipPartialData,
     defaultMetricPriorSettings: defaultMetricPriorSettings,
     regressionAdjustmentEnabled: !!args.regressionAdjustmentEnabled,
-    goalMetrics: args.metrics,
-    guardrailMetrics: args.guardrails || [],
+    goalMetrics: args.goalMetrics,
+    secondaryMetrics: args.secondaryMetrics,
+    guardrailMetrics: args.guardrailMetrics,
     dimensions: args.dimension ? [{ id: args.dimension }] : [],
     variations: args.variations.map((v) => ({
       id: v.id,

@@ -50,7 +50,7 @@ import SavedGroupTargetingField, {
 import Toggle from "@/components/Forms/Toggle";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import { useUser } from "@/services/UserContext";
-import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
+import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -205,11 +205,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         initialValue?.attributionModel ??
         settings?.attributionModel ??
         "firstExposure",
-      metrics: initialValue?.metrics || [],
+      goalMetrics: initialValue?.goalMetrics || [],
+      secondaryMetrics: initialValue?.secondaryMetrics || [],
       tags: initialValue?.tags || [],
       targetURLRegex: initialValue?.targetURLRegex || "",
       description: initialValue?.description || "",
-      guardrails: initialValue?.guardrails || [],
+      guardrailMetrics: initialValue?.guardrailMetrics || [],
       variations: initialValue?.variations
         ? initialValue.variations
         : getDefaultVariations(initialNumVariations),
@@ -329,7 +330,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     track("Create Experiment", {
       source,
       numTags: data.tags?.length || 0,
-      numMetrics: data.metrics?.length || 0,
+      numMetrics:
+        (data.goalMetrics?.length || 0) + (data.secondaryMetrics?.length || 0),
       numVariations: data.variations?.length || 0,
     });
     refreshWatching();
@@ -669,41 +671,24 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 }
               />
             )}
-            <div className="form-group">
-              <label className="font-weight-bold mb-1">Goal Metrics</label>
-              <div className="mb-1">
-                <span className="font-italic">
-                  Metrics you are trying to improve with this experiment.{" "}
-                </span>
-                <MetricsSelectorTooltip />
-              </div>
-              <MetricsSelector
-                selected={form.watch("metrics") ?? []}
-                onChange={(metrics) => form.setValue("metrics", metrics)}
-                datasource={datasource?.id}
-                exposureQueryId={exposureQueryId}
-                project={project}
-                includeFacts={true}
-              />
-            </div>
-            <div className="form-group">
-              <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-              <div className="mb-1">
-                <span className="font-italic">
-                  Metrics you want to monitor, but are NOT specifically trying
-                  to improve.{" "}
-                </span>
-                <MetricsSelectorTooltip />
-              </div>
-              <MetricsSelector
-                selected={form.watch("guardrails") ?? []}
-                onChange={(metrics) => form.setValue("guardrails", metrics)}
-                datasource={datasource?.id}
-                exposureQueryId={exposureQueryId}
-                project={project}
-                includeFacts={true}
-              />
-            </div>
+
+            <ExperimentMetricsSelector
+              datasource={datasource?.id}
+              exposureQueryId={exposureQueryId}
+              project={project}
+              goalMetrics={form.watch("goalMetrics") ?? []}
+              secondaryMetrics={form.watch("secondaryMetrics") ?? []}
+              guardrailMetrics={form.watch("guardrailMetrics") ?? []}
+              setGoalMetrics={(goalMetrics) =>
+                form.setValue("goalMetrics", goalMetrics)
+              }
+              setSecondaryMetrics={(secondaryMetrics) =>
+                form.setValue("secondaryMetrics", secondaryMetrics)
+              }
+              setGuardrailMetrics={(guardrailMetrics) =>
+                form.setValue("guardrailMetrics", guardrailMetrics)
+              }
+            />
           </div>
 
           {isImport && (
@@ -724,10 +709,27 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         <Page display="Bandit Settings">
           {/*do we force them to choose a datasource? other restrictions on metrics (identifier type w/ exp assignment table, binomial, etc) */}
           <div className="mb-4 mx-2">
-            <label className="font-weight-bold">Goal metric</label>
-            <MetricsSelector selected={[]} onChange={(_) => {}} />
+            {/*<MetricsSelector selected={[]} onChange={(_) => {}} />*/}
+            <ExperimentMetricsSelector
+              datasource={datasource?.id}
+              exposureQueryId={exposureQueryId}
+              project={project}
+              forceSingleGoalMetric={true}
+              goalMetrics={form.watch("goalMetrics") ?? []}
+              secondaryMetrics={form.watch("secondaryMetrics") ?? []}
+              guardrailMetrics={form.watch("guardrailMetrics") ?? []}
+              setGoalMetrics={(goalMetrics) =>
+                form.setValue("goalMetrics", goalMetrics)
+              }
+              setSecondaryMetrics={(secondaryMetrics) =>
+                form.setValue("secondaryMetrics", secondaryMetrics)
+              }
+              setGuardrailMetrics={(guardrailMetrics) =>
+                form.setValue("guardrailMetrics", guardrailMetrics)
+              }
+            />
           </div>
-          <hr />
+          <hr className="mx-2 my-4" />
           <FormProvider {...form}>
             <BanditSettings
               page="experiment-settings"
