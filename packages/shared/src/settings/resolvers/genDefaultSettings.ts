@@ -31,9 +31,12 @@ export const DEFAULT_WIN_RISK = null;
 export const DEFAULT_SECURE_ATTRIBUTE_SALT = "";
 export const DEFAULT_KILLSWITCH_CONFIRMATION = false;
 export const DEFAULT_REQUIRE_REVIEW = false;
-export const DEFAULT_REUIRE_REVIEW = false;
 export const DEFAULT_FEATURE_KEY_EXAMPLE = "";
 export const DEFAULT_FEATURE_REGEX_VALIDATOR = "";
+export const DEFAULT_BANDIT_SCHEDULE_VALUE = 1;
+export const DEFAULT_BANDIT_SCHEDULE_UNIT = "days";
+export const DEFAULT_BANDIT_BURN_IN_VALUE = 1;
+export const DEFAULT_BANDIT_BURN_IN_UNIT = "days";
 
 export const DEFAULT_METRIC_DEFAULTS: MetricDefaults = {
   maxPercentageChange: 0.5,
@@ -78,5 +81,9 @@ export default function genDefaultSettings(): Settings {
     requireReviews: DEFAULT_REQUIRE_REVIEW,
     featureKeyExample: DEFAULT_FEATURE_KEY_EXAMPLE,
     featureRegexValidator: DEFAULT_FEATURE_REGEX_VALIDATOR,
+    banditScheduleValue: DEFAULT_BANDIT_SCHEDULE_VALUE,
+    banditScheduleUnit: DEFAULT_BANDIT_SCHEDULE_UNIT,
+    banditBurnInValue: DEFAULT_BANDIT_BURN_IN_VALUE,
+    banditBurnInUnit: DEFAULT_BANDIT_BURN_IN_UNIT,
   };
 }

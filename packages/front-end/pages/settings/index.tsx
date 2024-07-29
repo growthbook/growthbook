@@ -135,10 +135,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
       experimentListMarkdown: settings.experimentListMarkdown || "",
       metricListMarkdown: settings.metricListMarkdown || "",
       metricPageMarkdown: settings.metricPageMarkdown || "",
-      banditScheduleValue: settings.banditScheduleValue || "1",
-      banditScheduleUnit: settings.banditScheduleUnit || "days",
-      banditBurnInValue: settings.banditBurnInValue || "1",
-      banditBurnInUnit: settings.banditBurnInUnit || "days",
+      banditScheduleValue: settings.banditScheduleValue ?? 1,
+      banditScheduleUnit: settings.banditScheduleUnit ?? "days",
+      banditBurnInValue: settings.banditBurnInValue ?? 1,
+      banditBurnInUnit: settings.banditBurnInUnit ?? "days",
     },
   });
   const { apiCall } = useAuth();
@@ -353,7 +353,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
             <div className="divider border-bottom mb-3 mt-3" />
 
-            <BanditSettings />
+            <BanditSettings page="org-settings" />
 
             <div className="divider border-bottom mb-3 mt-3" />
 

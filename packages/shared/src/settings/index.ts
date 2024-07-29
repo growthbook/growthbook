@@ -87,6 +87,10 @@ export const resolvers: Record<
   requireReviews: genDefaultResolver("requireReviews"),
   featureKeyExample: genDefaultResolver("featureKeyExample"),
   featureRegexValidator: genDefaultResolver("featureRegexValidator"),
+  banditScheduleValue: genDefaultResolver("banditScheduleValue"),
+  banditScheduleUnit: genDefaultResolver("banditScheduleUnit"),
+  banditBurnInValue: genDefaultResolver("banditBurnInValue"),
+  banditBurnInUnit: genDefaultResolver("banditBurnInUnit"),
   // TODO prior resolvers
 };
 
@@ -147,7 +151,6 @@ export const getScopedSettings = (
   scopes: ScopeDefinition
 ): ScopedSettingsReturn => {
   const settings = normalizeInputSettings(scopes.organization.settings || {});
-
   if (
     scopes?.metric &&
     scopes.metric.denominator &&

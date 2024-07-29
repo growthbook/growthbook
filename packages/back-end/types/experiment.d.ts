@@ -10,6 +10,8 @@ import { StatsEngine } from "./stats";
 
 export type ImplementationType = "visual" | "code" | "configuration" | "custom";
 
+export type ExperimentType = "standard" | "multi-armed-bandit";
+
 export type ExperimentPhaseType = "ramp" | "main" | "holdout";
 
 export type ExperimentNotification =
@@ -190,6 +192,11 @@ export interface ExperimentInterface {
   sequentialTestingTuningParameter?: number;
   statsEngine?: StatsEngine;
   manualLaunchChecklist?: { key: string; status: "complete" | "incomplete" }[];
+  type?: ExperimentType;
+  banditScheduleValue?: number;
+  banditScheduleUnit?: "hours" | "days";
+  banditBurnInValue?: number;
+  banditBurnInUnit?: "hours" | "days";
 }
 
 export type ExperimentInterfaceStringDates = Omit<

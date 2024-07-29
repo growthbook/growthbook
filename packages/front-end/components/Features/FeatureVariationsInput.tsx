@@ -35,6 +35,7 @@ export interface Props {
   hideCoverage?: boolean;
   disableCoverage?: boolean;
   disableVariations?: boolean;
+  disableCustomSplit?: boolean;
   label?: string;
   customSplitOn?: boolean;
   feature?: FeatureInterface;
@@ -54,6 +55,7 @@ export default function FeatureVariationsInput({
   hideCoverage = false,
   disableCoverage = false,
   disableVariations = false,
+  disableCustomSplit = false,
   label,
   customSplitOn,
   feature,
@@ -147,7 +149,7 @@ export default function FeatureVariationsInput({
               </th>
               <th>
                 Split
-                {!disableVariations && (
+                {!disableVariations && !disableCustomSplit && (
                   <div className="d-inline-block float-right form-check form-check-inline">
                     <label className="mb-0">
                       <input
@@ -247,7 +249,7 @@ export default function FeatureVariationsInput({
                         </>
                       )}
                     </div>
-                    {!isEqualWeights && (
+                    {!isEqualWeights && !disableCustomSplit && (
                       <div className="col-auto text-right">
                         <a
                           href="#"

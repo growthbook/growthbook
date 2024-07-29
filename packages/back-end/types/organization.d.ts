@@ -211,10 +211,10 @@ export interface OrganizationSettings {
   experimentPageMarkdown?: string;
   metricListMarkdown?: string;
   metricPageMarkdown?: string;
-  banditScheduleValue?: string;
-  banditScheduleUnit?: string;
-  banditBurnInValue?: string;
-  banditBurnInUnit?: string;
+  banditScheduleValue?: number;
+  banditScheduleUnit?: "hours" | "days";
+  banditBurnInValue?: number;
+  banditBurnInUnit?: "hours" | "days";
 }
 
 export interface SubscriptionQuote {

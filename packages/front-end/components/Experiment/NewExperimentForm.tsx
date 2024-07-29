@@ -1,8 +1,9 @@
 import React, { FC, useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { FormProvider, useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
+  ExperimentType,
   Variation,
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
@@ -13,6 +14,7 @@ import {
   isProjectListValidForProject,
   validateAndFixCondition,
 } from "shared/util";
+import { getScopedSettings } from "shared/settings";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -46,6 +48,8 @@ import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
 import Toggle from "@/components/Forms/Toggle";
+import BanditSettings from "@/components/GeneralSettings/BanditSettings";
+import { useUser } from "@/services/UserContext";
 import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
 
 const weekAgo = new Date();
@@ -130,6 +134,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   inline,
   isNewExperiment,
 }) => {
+  const { organization } = useUser();
+
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
@@ -154,6 +160,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   ] = useState(false);
 
   const settings = useOrgSettings();
+  const { settings: scopedSettings } = getScopedSettings({
+    organization,
+    experiment: (initialValue ?? undefined) as
+      | ExperimentInterfaceStringDates
+      | undefined,
+  });
   const { refreshWatching } = useWatching();
 
   const { data: sdkConnectionsData } = useSDKConnections();
@@ -232,6 +244,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       ],
       status: !isImport ? "draft" : initialValue?.status || "running",
       ideaSource: idea || "",
+      type: initialValue?.type || "standard",
+      banditScheduleValue: scopedSettings.banditScheduleValue.value,
+      banditScheduleUnit: scopedSettings.banditScheduleUnit.value,
+      banditBurnInValue: scopedSettings.banditBurnInValue.value,
+      banditBurnInUnit: scopedSettings.banditScheduleUnit.value,
     },
   });
 
@@ -331,6 +348,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     (e) => e.id === form.getValues("exposureQueryId")
   )?.userIdType;
   const status = form.watch("status");
+  const type = form.watch("type");
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
 
@@ -416,6 +434,20 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               />
             </div>
           )}
+          {isNewExperiment && (
+            <div className="form-group">
+              <SelectField
+                label="Experiment type"
+                options={[
+                  { label: "Standard", value: "standard" },
+                  { label: "Multi-Armed Bandit", value: "multi-armed-bandit" },
+                ]}
+                value={form.watch("type") ?? "standard"}
+                onChange={(v) => form.setValue("type", v as ExperimentType)}
+                sort={false}
+              />
+            </div>
+          )}
           {!isNewExperiment && (
             <SelectField
               label="Status"
@@ -429,6 +461,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 form.setValue("status", status);
               }}
               value={form.watch("status") ?? ""}
+              sort={false}
             />
           )}
           {status !== "draft" && (
@@ -579,9 +612,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 : "This is just for documentation purposes and has no effect on the analysis."
             }
             showPreview={!!isNewExperiment}
+            disableCustomSplit={type === "multi-armed-bandit"}
           />
         </div>
       </Page>
+
       {!isNewExperiment && (
         <Page display={"Analysis Settings"}>
           <div className="px-2" style={{ minHeight: 350 }}>
@@ -684,6 +719,23 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           )}
         </Page>
       )}
+
+      {!!isNewExperiment && type === "multi-armed-bandit" ? (
+        <Page display="Bandit Settings">
+          {/*do we force them to choose a datasource? other restrictions on metrics (identifier type w/ exp assignment table, binomial, etc) */}
+          <div className="mb-4 mx-2">
+            <label className="font-weight-bold">Goal metric</label>
+            <MetricsSelector selected={[]} onChange={(_) => {}} />
+          </div>
+          <hr />
+          <FormProvider {...form}>
+            <BanditSettings
+              page="experiment-settings"
+              settings={scopedSettings}
+            />
+          </FormProvider>
+        </Page>
+      ) : null}
     </PagedModal>
   );
 };

@@ -84,6 +84,10 @@ interface BaseSettings {
   requireReviews: boolean | RequireReview[];
   featureKeyExample: string;
   featureRegexValidator: string;
+  banditScheduleValue: number;
+  banditScheduleUnit: "hours" | "days";
+  banditBurnInValue: number;
+  banditBurnInUnit: "hours" | "days";
 }
 
 // todo: encapsulate all settings, including experiment
