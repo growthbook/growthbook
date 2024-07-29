@@ -308,7 +308,7 @@ export default function ExperimentGraph({
                       ) : (
                         <>
                           {tooltipData?.numExp} experiment
-                          {tooltipData?.numExp === 0 ? "s" : ""}
+                          {tooltipData?.numExp !== 1 ? "s" : ""}
                         </>
                       )}
                     </>
