@@ -3,6 +3,7 @@ import bluebird from "bluebird";
 import { MONGODB_URI } from "../util/secrets";
 import { logger } from "../util/logger";
 import { getConnectionStringWithDeprecatedKeysMigratedForV3to4 } from "../util/mongo.util";
+import { applyMigrations } from "../migrations";
 
 mongoose.Promise = bluebird;
 
@@ -22,6 +23,7 @@ export default async (): Promise<void> => {
   try {
     // in Mongoose 7.x, connect will no longer return a Mongoose client
     await mongoose.connect(uri, mongooseOpts);
+    await applyMigrations();
   } catch (e) {
     logger.warn(
       e,
