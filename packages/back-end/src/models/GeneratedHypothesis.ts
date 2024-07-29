@@ -1,7 +1,6 @@
 import { omit } from "lodash";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { createClient } from "@supabase/supabase-js";
 import { ReqContext } from "@back-end/types/organization";
 import { GeneratedHypothesisInterface } from "@back-end/types/generated-hypothesis";
 import { ExperimentInterface } from "@back-end/types/experiment";
@@ -48,28 +47,29 @@ export const findOrCreateGeneratedHypothesis = async (
     uuid,
   });
   if (existing) return toInterface(existing);
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY)
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY)
     throw new Error("Supabase keys missing");
 
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_KEY
+  const res = await fetch(
+    `${process.env.SUPABASE_URL}rest/v1/sites_hypotheses?select=*,...sites_dom_mutations(sdk_payload)&uuid=eq.${uuid}&limit=1`,
+    {
+      headers: {
+        apikey: process.env.SUPABASE_ANON_KEY, // public-facing key
+      },
+    }
   );
 
-  const { data: siteHypothesis, error: siteHypErr } = await supabase
-    .from("sites_hypotheses")
-    .select("*, sites(url), sites_dom_mutations(sdk_payload)")
-    .eq("uuid", uuid)
-    .single();
+  const rows = await res.json();
 
-  if (siteHypErr) throw new Error(siteHypErr.message);
+  if (!rows || !rows.length) {
+    throw new Error(`Generated hypothesis not found: ${uuid}`);
+  }
 
   const {
     hypothesis: { slug, oneLineSummary, hypothesis, control, variant },
-    sites: { url },
-    sites_dom_mutations,
-  } = siteHypothesis;
-  const { sdk_payload } = sites_dom_mutations || {};
+    site_url,
+    sdk_payload,
+  } = rows[0];
 
   const experimentToCreate: Pick<
     ExperimentInterface,
@@ -219,7 +219,7 @@ export const findOrCreateGeneratedHypothesis = async (
     uuid,
     createdAt: new Date(),
     organization: context.org.id,
-    url,
+    url: site_url,
     hypothesis,
     experiment: createdExperiment.id,
   });

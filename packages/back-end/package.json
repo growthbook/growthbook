@@ -48,7 +48,6 @@
     "@slack/web-api": "^5.14.0",
     "@stdlib/random": "^0.1.1",
     "@stdlib/stats": "^0.1.1",
-    "@supabase/supabase-js": "^2.43.4",
     "@types/handlebars": "^4.1.0",
     "@types/snowflake-sdk": "^1.6.20",
     "agenda": "^5.0.0",
