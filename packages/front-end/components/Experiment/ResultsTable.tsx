@@ -73,7 +73,6 @@ export type ResultsTableProps = {
   startDate: string;
   rows: ExperimentTableRow[];
   dimension?: string;
-  metricsAsGuardrails?: boolean;
   tableRowAxis: "metric" | "dimension";
   labelHeader: ReactElement | string;
   editMetrics?: () => void;
@@ -113,7 +112,6 @@ export default function ResultsTable({
   queryStatusData,
   rows,
   dimension,
-  metricsAsGuardrails = false,
   tableRowAxis,
   labelHeader,
   editMetrics,
@@ -242,7 +240,7 @@ export default function ResultsTable({
           baseline,
           metric: row.metric,
           metricDefaults,
-          isGuardrail: !!metricsAsGuardrails,
+          isGuardrail: row.resultGroup === "guardrail",
           minSampleSize: getMinSampleSizeForMetric(row.metric),
           statsEngine,
           ciUpper,
@@ -265,7 +263,6 @@ export default function ResultsTable({
     baselineRow,
     variationFilter,
     metricDefaults,
-    metricsAsGuardrails,
     getMinSampleSizeForMetric,
     statsEngine,
     ciUpper,
@@ -415,7 +412,7 @@ export default function ResultsTable({
         rowResults,
         statsEngine,
         pValueCorrection,
-        isGuardrail: !!metricsAsGuardrails,
+        isGuardrail: row.resultGroup === "guardrail",
         layoutX,
         yAlign,
       },
@@ -438,6 +435,11 @@ export default function ResultsTable({
   }, [hoverTimeout]);
 
   const changeTitle = getEffectLabel(differenceType);
+
+  const hasNonGuardrailMetrics = rows.some(
+    (r) => r.resultGroup !== "guardrail"
+  );
+  const hasGoalMetrics = rows.some((r) => r.resultGroup === "goal");
 
   return (
     <div className="position-relative" ref={containerRef}>
@@ -600,7 +602,7 @@ export default function ResultsTable({
                           <span className="nowrap">Chance</span>{" "}
                           <span className="nowrap">to Win</span>
                         </div>
-                      ) : !metricsAsGuardrails &&
+                      ) : hasNonGuardrailMetrics &&
                         (sequentialTestingEnabled || pValueCorrection) ? (
                         <Tooltip
                           usePortal={true}
@@ -609,7 +611,9 @@ export default function ResultsTable({
                             <div style={{ lineHeight: 1.5 }}>
                               {getPValueTooltip(
                                 !!sequentialTestingEnabled,
-                                pValueCorrection ?? null,
+                                hasGoalMetrics
+                                  ? pValueCorrection ?? null
+                                  : null,
                                 orgSettings.pValueThreshold ??
                                   DEFAULT_P_VALUE_THRESHOLD,
                                 tableRowAxis
@@ -840,7 +844,9 @@ export default function ResultsTable({
                               showSuspicious={true}
                               showPercentComplete={false}
                               showTimeRemaining={true}
-                              showGuardrailWarning={metricsAsGuardrails}
+                              showGuardrailWarning={
+                                row.resultGroup === "guardrail"
+                              }
                               className={clsx(
                                 "results-ctw",
                                 resultsHighlightClassname
@@ -855,7 +861,7 @@ export default function ResultsTable({
                               baseline={baseline}
                               rowResults={rowResults}
                               pValueCorrection={
-                                !metricsAsGuardrails
+                                row.resultGroup === "goal"
                                   ? pValueCorrection
                                   : undefined
                               }
@@ -864,7 +870,9 @@ export default function ResultsTable({
                               showPercentComplete={false}
                               showTimeRemaining={true}
                               showUnadjustedPValue={false}
-                              showGuardrailWarning={metricsAsGuardrails}
+                              showGuardrailWarning={
+                                row.resultGroup === "guardrail"
+                              }
                               className={clsx(
                                 "results-pval",
                                 resultsHighlightClassname
@@ -896,7 +904,7 @@ export default function ResultsTable({
                               metric={row.metric}
                               stats={stats}
                               id={`${id}_violin_row${i}_var${j}_${
-                                metricsAsGuardrails ? "guardrail" : "goal"
+                                row.resultGroup
                               }_${encodeURIComponent(dimension ?? "d-none")}`}
                               graphWidth={graphCellWidth}
                               height={
@@ -966,18 +974,10 @@ export default function ResultsTable({
               <div className="metriclabel text-muted font-weight-bold">
                 No metrics yet
               </div>
-              {!metricsAsGuardrails ? (
-                <div className="small mt-1 mb-2">
-                  Add metrics to start tracking the performance of your
-                  experiment.
-                </div>
-              ) : (
-                <div className="small mt-1 mb-2">
-                  Add guardrail metrics to ensure that your experiment is not
-                  harming any metrics that you aren&apos;t specifically trying
-                  to improve.
-                </div>
-              )}
+              <div className="small mt-1 mb-2">
+                Add metrics to start tracking the performance of your
+                experiment.
+              </div>
             </div>
           ) : null}
         </div>

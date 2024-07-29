@@ -553,3 +553,24 @@ export function getMetricResultStatus({
     resultsStatus,
   };
 }
+
+export function getAllMetricIdsFromExperiment(
+  exp: {
+    goalMetrics?: string[];
+    secondaryMetrics?: string[];
+    guardrailMetrics?: string[];
+    activationMetric?: string | null;
+  },
+  includeActivationMetric: boolean = true
+) {
+  return Array.from(
+    new Set([
+      ...(exp.goalMetrics || []),
+      ...(exp.secondaryMetrics || []),
+      ...(exp.guardrailMetrics || []),
+      ...(includeActivationMetric && exp.activationMetric
+        ? [exp.activationMetric]
+        : []),
+    ])
+  );
+}

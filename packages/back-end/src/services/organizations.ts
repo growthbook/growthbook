@@ -998,16 +998,6 @@ const expandedMemberInfoCache: Record<
 > = {};
 const EXPANDED_MEMBER_CACHE_TTL = 1000 * 60 * 15; // 15 minutes
 
-// Garbage collection for cache (probably not needed)
-setInterval(() => {
-  const now = Date.now();
-  Object.keys(expandedMemberInfoCache).forEach((k) => {
-    if (expandedMemberInfoCache[k].e <= now) {
-      delete expandedMemberInfoCache[k];
-    }
-  });
-}, EXPANDED_MEMBER_CACHE_TTL);
-
 // Add email/name to the organization members array
 export async function expandOrgMembers(
   members: Member[],

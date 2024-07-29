@@ -31,12 +31,10 @@ exposure can be ramped up (or down) without having any users potentially switch 
 
 ## Metric selection
 
-GrowthBook lets you choose goal metrics and guardrail metrics. Goal metrics are the metrics you’re
-trying to improve or measure the impact of the change of your experiment. Guardrail metrics are
-metrics you’re not necessarily trying to improve, but you don’t want to hurt. With goal metrics we
-show full statistical changes on the metrics. Guardrail metrics we only show the chance of that metric
-being worse- if there is a significant chance that the guard rail metric is worse, it will be shown in red,
-otherwise it will be green.
+GrowthBook lets you choose goal metrics, secondary metrics, and guardrail metrics. Goal metrics are the metrics you’re
+trying to improve or measure the impact of the change of your experiment.
+Secondary metrics are used to learn about experiment impacts, but are not primary objectives. Guardrail metrics are
+metrics you’re trying not to hurt.
 
 <div style={{textAlign: 'center'}}>
 <img loading="lazy" alt="GrowthBook Metric Selector" src="/images/using/metrics-modal.png" width="600" />
@@ -215,7 +213,7 @@ metrics are ones that you want to keep an eye on, but aren't trying to specifica
 experiment. For example, if you are trying to improve page load times, you may add revenue as a
 guardrail since you don't want to inadvertently harm it.
 
-Guardrail results show up beneath the main table of goal metrics. The full statistics are shown like
+Guardrail results show up beneath the main table of goal and secondary metrics. The full statistics are shown like
 goal metrics, and similarly they are colored based on "Chance to Beat Control". If guardrail metrics
 become significant, you may want to consider ending the experiment.
 

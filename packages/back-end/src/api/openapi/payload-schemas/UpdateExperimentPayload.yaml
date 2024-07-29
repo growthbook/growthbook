@@ -24,6 +24,10 @@ properties:
     type: array
     items:
       type: string
+  secondaryMetrics:
+    type: array
+    items:
+      type: string
   guardrailMetrics:
     type: array
     items:
@@ -183,3 +187,6 @@ properties:
           type: array
           items:
             type: number
+  regressionAdjustmentEnabled:
+    type: boolean
+    description: Controls whether regression adjustment (CUPED) is enabled for experiment analyses
