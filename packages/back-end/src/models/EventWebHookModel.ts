@@ -12,9 +12,9 @@ import {
   eventWebHookMethods,
   EventWebHookMethod,
 } from "../types/EventWebHook";
-import { legacyBaseSchema, MakeModelClass } from "./BaseModel";
+import { baseSchema, MakeModelClass } from "./BaseModel";
 
-const eventWebHookValidator = legacyBaseSchema
+const eventWebHookValidator = baseSchema
   .extend({
     url: z.string().url(),
     name: z.string().trim().min(2),
