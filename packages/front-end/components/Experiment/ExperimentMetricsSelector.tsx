@@ -49,7 +49,7 @@ export default function ExperimentMetricsSelector({
           project={project}
           autoFocus={autoFocus}
           includeFacts={true}
-          forceSingleMetric={true}
+          forceSingleMetric={forceSingleGoalMetric}
         />
       </div>
 
