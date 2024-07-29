@@ -120,6 +120,11 @@ const sidebars = {
           id: "sticky-bucketing",
           label: "Sticky Bucketing",
         },
+        {
+          type: "doc",
+          id: "running-experiments/pre-launch-checklist",
+          label: "Pre-Launch Checklist",
+        },
       ],
     },
     {
