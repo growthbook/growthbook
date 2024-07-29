@@ -348,8 +348,6 @@ export default function FeatureModal({
         }}
         placeholder="Select Project"
         options={projectOptions}
-        required
-        sort={false}
       />
     </Modal>
   );
