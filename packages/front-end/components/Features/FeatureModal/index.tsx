@@ -20,10 +20,12 @@ import {
 import { useWatching } from "@/services/WatchProvider";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import useProjectOptions from "@/hooks/useProjectOptions";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
+import ProjectSelectField from "./ProjectSelectField";
 import TagsField from "./TagsField";
 import ValueTypeField from "./ValueTypeField";
 
@@ -171,6 +173,12 @@ export default function FeatureModal({
   let ctaEnabled = true;
   let disabledMessage: string | undefined;
 
+  const projectOptions = useProjectOptions(
+    (project) => permissionsUtil.canCreateFeature({ project }),
+    [project] || []
+  );
+  const selectedProject = form.watch("project");
+
   if (
     !permissionsUtil.canManageFeatureDrafts({
       project: featureToDuplicate?.project ?? project,
@@ -182,7 +190,7 @@ export default function FeatureModal({
   }
 
   // We want to show a warning when someone tries to create a feature under the demo project
-  const { currentProjectIsDemo } = useDemoDataSourceProject();
+  const { projectId } = useDemoDataSourceProject();
 
   return (
     <Modal
@@ -242,7 +250,7 @@ export default function FeatureModal({
         await onSuccess(res.feature);
       })}
     >
-      {currentProjectIsDemo && (
+      {projectId === selectedProject && (
         <div className="alert alert-warning">
           You are creating a feature under the demo datasource project.
         </div>
@@ -333,6 +341,16 @@ export default function FeatureModal({
           </div>
         </>
       )}
+      <ProjectSelectField
+        value={selectedProject || project}
+        onChange={(v) => {
+          form.setValue("project", v);
+        }}
+        placeholder="Select Project"
+        options={projectOptions}
+        required
+        sort={false}
+      />
     </Modal>
   );
 }
