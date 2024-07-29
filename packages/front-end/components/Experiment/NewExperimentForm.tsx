@@ -708,8 +708,59 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       {!!isNewExperiment && type === "multi-armed-bandit" ? (
         <Page display="Bandit Settings">
           {/*do we force them to choose a datasource? other restrictions on metrics (identifier type w/ exp assignment table, binomial, etc) */}
-          <div className="mb-4 mx-2">
+          <div className="mx-2">
             {/*<MetricsSelector selected={[]} onChange={(_) => {}} />*/}
+
+            <SelectField
+              label="Data Source"
+              labelClassName="font-weight-bold"
+              value={form.watch("datasource") ?? ""}
+              onChange={(v) => form.setValue("datasource", v)}
+              initialOption="Manual"
+              options={datasources.map((d) => {
+                const isDefaultDataSource = d.id === settings.defaultDataSource;
+                return {
+                  value: d.id,
+                  label: `${d.name}${
+                    d.description ? ` — ${d.description}` : ""
+                  }${isDefaultDataSource ? " (default)" : ""}`,
+                };
+              })}
+              className="portal-overflow-ellipsis"
+            />
+
+            {datasource?.properties?.exposureQueries && (
+              <SelectField
+                label="Experiment Assignment Table"
+                labelClassName="font-weight-bold"
+                value={form.watch("exposureQueryId") ?? ""}
+                onChange={(v) => form.setValue("exposureQueryId", v)}
+                initialOption="Choose..."
+                required
+                options={exposureQueries.map((q) => {
+                  return {
+                    label: q.name,
+                    value: q.id,
+                  };
+                })}
+                helpText={
+                  <>
+                    <div>
+                      Should correspond to the Identifier Type used to randomize
+                      units for this experiment
+                    </div>
+                    {userIdType ? (
+                      <>
+                        Identifier Type: <code>{userIdType}</code>
+                      </>
+                    ) : null}
+                  </>
+                }
+              />
+            )}
+
+            <hr className="my-4" />
+
             <ExperimentMetricsSelector
               datasource={datasource?.id}
               exposureQueryId={exposureQueryId}
@@ -724,18 +775,17 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               setSecondaryMetrics={(secondaryMetrics) =>
                 form.setValue("secondaryMetrics", secondaryMetrics)
               }
-              setGuardrailMetrics={(guardrailMetrics) =>
-                form.setValue("guardrailMetrics", guardrailMetrics)
-              }
             />
+
+            <hr className="my-4" />
+
+            <FormProvider {...form}>
+              <BanditSettings
+                page="experiment-settings"
+                settings={scopedSettings}
+              />
+            </FormProvider>
           </div>
-          <hr className="mx-2 my-4" />
-          <FormProvider {...form}>
-            <BanditSettings
-              page="experiment-settings"
-              settings={scopedSettings}
-            />
-          </FormProvider>
         </Page>
       ) : null}
     </PagedModal>

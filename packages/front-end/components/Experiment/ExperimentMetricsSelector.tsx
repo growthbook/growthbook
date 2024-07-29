@@ -8,8 +8,8 @@ export interface Props {
   secondaryMetrics: string[];
   guardrailMetrics: string[];
   setGoalMetrics: (goalMetrics: string[]) => void;
-  setSecondaryMetrics: (secondaryMetrics: string[]) => void;
-  setGuardrailMetrics: (guardrailMetrics: string[]) => void;
+  setSecondaryMetrics?: (secondaryMetrics: string[]) => void;
+  setGuardrailMetrics?: (guardrailMetrics: string[]) => void;
   autoFocus?: boolean;
   forceSingleGoalMetric?: boolean;
 }
@@ -53,43 +53,48 @@ export default function ExperimentMetricsSelector({
         />
       </div>
 
-      <div className="form-group">
-        <label className="font-weight-bold mb-1">Secondary Metrics</label>
-        <div className="mb-1">
-          <span className="font-italic">
-            Additional metrics to learn about experiment impacts, but not
-            primary objectives.{" "}
-          </span>
-          <MetricsSelectorTooltip />
+      {setSecondaryMetrics !== undefined && (
+        <div className="form-group">
+          <label className="font-weight-bold mb-1">Secondary Metrics</label>
+          <div className="mb-1">
+            <span className="font-italic">
+              {!forceSingleGoalMetric
+                ? "Additional metrics to learn about experiment impacts, but not primary objectives. "
+                : "Additional metrics to learn about experiment impacts. "}
+            </span>
+            <MetricsSelectorTooltip />
+          </div>
+          <MetricsSelector
+            selected={secondaryMetrics}
+            onChange={setSecondaryMetrics}
+            datasource={datasource}
+            exposureQueryId={exposureQueryId}
+            project={project}
+            includeFacts={true}
+          />
         </div>
-        <MetricsSelector
-          selected={secondaryMetrics}
-          onChange={setSecondaryMetrics}
-          datasource={datasource}
-          exposureQueryId={exposureQueryId}
-          project={project}
-          includeFacts={true}
-        />
-      </div>
+      )}
 
-      <div className="form-group">
-        <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-        <div className="mb-1">
-          <span className="font-italic">
-            Metrics you want to monitor, but are NOT specifically trying to
-            improve.{" "}
-          </span>
-          <MetricsSelectorTooltip />
+      {setGuardrailMetrics !== undefined && (
+        <div className="form-group">
+          <label className="font-weight-bold mb-1">Guardrail Metrics</label>
+          <div className="mb-1">
+            <span className="font-italic">
+              Metrics you want to monitor, but are NOT specifically trying to
+              improve.{" "}
+            </span>
+            <MetricsSelectorTooltip />
+          </div>
+          <MetricsSelector
+            selected={guardrailMetrics}
+            onChange={setGuardrailMetrics}
+            datasource={datasource}
+            exposureQueryId={exposureQueryId}
+            project={project}
+            includeFacts={true}
+          />
         </div>
-        <MetricsSelector
-          selected={guardrailMetrics}
-          onChange={setGuardrailMetrics}
-          datasource={datasource}
-          exposureQueryId={exposureQueryId}
-          project={project}
-          includeFacts={true}
-        />
-      </div>
+      )}
     </>
   );
 }

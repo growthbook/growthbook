@@ -233,7 +233,7 @@ const MetricsSelector: FC<{
         }}
       >
         <div>
-          {Object.keys(tagCounts).length > 0 && (
+          {!forceSingleMetric && Object.keys(tagCounts).length > 0 && (
             <div className="metric-from-tag text-muted form-inline mt-2">
               <span style={{ fontSize: "0.82rem" }}>
                 Select metric by tag:{" "}
@@ -269,7 +269,7 @@ const MetricsSelector: FC<{
             </div>
           )}
         </div>
-        {selected.length > 0 && (
+        {!forceSingleMetric && selected.length > 0 && (
           <ClickToCopy compact valueToCopy={JSON.stringify(selected)} />
         )}
       </div>

@@ -50,7 +50,7 @@ export default function BanditSettings({
       <div
         className={clsx({
           "col-sm-9": page === "org-settings",
-          "col mx-2 mb-3": page === "experiment-settings",
+          "col mb-2": page === "experiment-settings",
         })}
       >
         {page === "org-settings" && (
@@ -73,9 +73,11 @@ export default function BanditSettings({
 
         <div className="mb-4">
           <div className="row align-items-center">
-            <label className={clsx("col-auto mb-0", {
-              "font-weight-bold": page === "experiment-settings"
-            })}>
+            <label
+              className={clsx("col-auto mb-0", {
+                "font-weight-bold": page === "experiment-settings",
+              })}
+            >
               Set burn-in period equal to
             </label>
             <div className="col-auto">
@@ -132,9 +134,11 @@ export default function BanditSettings({
 
         <div>
           <div className="row align-items-center">
-            <label className={clsx("col-auto mb-0", {
-              "font-weight-bold": page === "experiment-settings"
-            })}>
+            <label
+              className={clsx("col-auto mb-0", {
+                "font-weight-bold": page === "experiment-settings",
+              })}
+            >
               Update variation weights every
             </label>
             <div className="col-auto">
