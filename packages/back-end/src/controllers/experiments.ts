@@ -577,6 +577,11 @@ export async function postExperiments(
       org?.settings?.sequentialTestingTuningParameter ??
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     statsEngine: data.statsEngine,
+    type: data.type ?? "standard",
+    banditScheduleValue: data.banditScheduleValue ?? 1,
+    banditScheduleUnit: data.banditScheduleUnit ?? "days",
+    banditBurnInValue: data.banditBurnInValue ?? 1,
+    banditBurnInUnit: data.banditBurnInUnit ?? "days",
   };
 
   try {
@@ -813,6 +818,11 @@ export async function postExperiment(
     "sequentialTestingEnabled",
     "sequentialTestingTuningParameter",
     "statsEngine",
+    "type",
+    "banditScheduleValue",
+    "banditScheduleUnit",
+    "banditBurnInValue",
+    "banditBurnInUnit",
   ];
   const existing: ExperimentInterface = experiment;
   const changes: Changeset = {};

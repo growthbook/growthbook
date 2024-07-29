@@ -37,7 +37,7 @@ export default function ExperimentMetricsSelector({
           <span className="font-italic">
             {!forceSingleGoalMetric
               ? "The primary metrics you are trying to improve with this experiment. "
-              : "Choose a single goal metric to optimize in this experiment. "}
+              : "Choose the goal metric that will be used to update variation weights. "}
           </span>
           <MetricsSelectorTooltip />
         </div>

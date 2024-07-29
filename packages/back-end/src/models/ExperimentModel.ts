@@ -205,6 +205,11 @@ const experimentSchema = new mongoose.Schema({
       },
     },
   ],
+  type: String,
+  banditScheduleValue: Number,
+  banditScheduleUnit: String,
+  banditBurnInValue: Number,
+  banditBurnInUnit: String,
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;

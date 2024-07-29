@@ -147,6 +147,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const {
     datasources,
     getDatasourceById,
+    getExperimentMetricById,
     refreshTags,
     project,
   } = useDefinitions();
@@ -294,6 +295,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
       if (prerequisiteTargetingSdkIssues) {
         throw new Error("Prerequisite targeting issues must be resolved");
+      }
+
+      // bandits
+      if (data.type === "multi-armed-bandit") {
+        data.statsEngine = "bayesian";
+        if ((data.goalMetrics?.length ?? 0) !== 1) {
+          throw new Error("You must select 1 goal metric");
+        }
       }
     }
 
@@ -707,15 +716,36 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
       {!!isNewExperiment && type === "multi-armed-bandit" ? (
         <Page display="Bandit Settings">
-          {/*do we force them to choose a datasource? other restrictions on metrics (identifier type w/ exp assignment table, binomial, etc) */}
           <div className="mx-2">
-            {/*<MetricsSelector selected={[]} onChange={(_) => {}} />*/}
-
             <SelectField
               label="Data Source"
               labelClassName="font-weight-bold"
               value={form.watch("datasource") ?? ""}
-              onChange={(v) => form.setValue("datasource", v)}
+              onChange={(newDatasource) => {
+                form.setValue("datasource", newDatasource);
+
+                // If unsetting the datasource, leave all the other settings alone
+                // That way, it will be restored if the user switches back to the previous value
+                if (!newDatasource) {
+                  return;
+                }
+
+                const isValidMetric = (id: string) =>
+                  getExperimentMetricById(id)?.datasource === newDatasource;
+
+                // Filter the selected metrics to only valid ones
+                const goals = form.watch("goalMetrics") ?? [];
+                form.setValue("goalMetrics", goals.filter(isValidMetric));
+
+                const secondaryMetrics = form.watch("secondaryMetrics") ?? [];
+                form.setValue(
+                  "secondaryMetrics",
+                  secondaryMetrics.filter(isValidMetric)
+                );
+
+                // const guardrails = form.watch("guardrailMetrics") ?? [];
+                // form.setValue("guardrailMetrics", guardrails.filter(isValidMetric));
+              }}
               initialOption="Manual"
               options={datasources.map((d) => {
                 const isDefaultDataSource = d.id === settings.defaultDataSource;

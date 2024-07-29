@@ -1,8 +1,8 @@
 import React, { FC, useCallback, useState } from "react";
-import { UseFormReturn, useFieldArray, useForm } from "react-hook-form";
+import {UseFormReturn, useFieldArray, useForm, FormProvider} from "react-hook-form";
 import {
   AttributionModel,
-  ExperimentInterfaceStringDates,
+  ExperimentInterfaceStringDates, ExperimentType,
 } from "back-end/types/experiment";
 import { FaQuestionCircle } from "react-icons/fa";
 import { getValidDate } from "shared/dates";
@@ -37,6 +37,7 @@ import {
 } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
+import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -142,6 +143,11 @@ const AnalysisForm: FC<{
         orgSettings
       ),
       statsEngine: experiment.statsEngine,
+      type: experiment.type || "standard",
+      banditScheduleValue: experiment.banditScheduleValue ?? scopedSettings.banditScheduleValue.value,
+      banditScheduleUnit: experiment.banditScheduleUnit ?? scopedSettings.banditScheduleUnit.value,
+      banditBurnInValue: experiment.banditBurnInValue ?? scopedSettings.banditBurnInValue.value,
+      banditBurnInUnit: experiment.banditBurnInUnit ?? scopedSettings.banditBurnInUnit.value,
     },
   });
 
@@ -190,6 +196,10 @@ const AnalysisForm: FC<{
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
+
+  const status = experiment.status;
+  const type = form.watch("type");
+  const hasStarted = status !== "draft"; // todo: doesn't prevent switching to draft. fix?
 
   if (upgradeModal) {
     return (
@@ -240,6 +250,14 @@ const AnalysisForm: FC<{
             DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
         }
 
+        // bandits
+        if (body.type === "multi-armed-bandit") {
+          body.statsEngine = "bayesian";
+          if ((body.goalMetrics?.length ?? 0) !== 1) {
+            throw new Error("You must select 1 goal metric");
+          }
+        }
+
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify(body),
@@ -248,6 +266,28 @@ const AnalysisForm: FC<{
       })}
       cta="Save"
     >
+      <SelectField
+        label="Experiment type"
+        options={[
+          { label: "Standard", value: "standard" },
+          { label: "Multi-Armed Bandit", value: "multi-armed-bandit" },
+        ]}
+        value={form.watch("type") ?? "standard"}
+        onChange={(v) => form.setValue("type", v as ExperimentType)}
+        disabled={hasStarted}
+        sort={false}
+      />
+
+      {type === "multi-armed-bandit" && (
+        <FormProvider {...form}>
+          <BanditSettings
+            page="experiment-settings"
+            settings={scopedSettings}
+          />
+          <hr className="my-3" />
+        </FormProvider>
+      )}
+
       <SelectField
         label="Data Source"
         labelClassName="font-weight-bold"

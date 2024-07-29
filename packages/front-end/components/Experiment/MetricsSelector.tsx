@@ -201,6 +201,7 @@ const MetricsSelector: FC<{
     />
   ) : (
     <SelectField
+      key={datasource ?? "__no_datasource__"} // forces selector UI to clear when changing datasource
       value={selected[0]}
       onChange={(m) => onChange([m])}
       options={filteredOptions.map((m) => {
