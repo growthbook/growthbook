@@ -182,6 +182,17 @@ export default function SavedGroupTargetingField({
                       if (context === "value") return label;
                       const group = getSavedGroupById(value);
                       if (!group) return label;
+                      if (
+                        supportedConnections.length === 0 &&
+                        unversionedConnections.length === 0 &&
+                        group.passByReferenceOnly
+                      ) {
+                        return (
+                          <div className="text-decoration-line-through">
+                            <SavedGroupNameWithBadge savedGroup={group} />
+                          </div>
+                        );
+                      }
                       return <SavedGroupNameWithBadge savedGroup={group} />;
                     }}
                     customClassName={localTargetingIssues ? "error" : ""}
