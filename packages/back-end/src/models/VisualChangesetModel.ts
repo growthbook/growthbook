@@ -242,7 +242,7 @@ export async function updateVisualChange({
   return { nModified: res.modifiedCount };
 }
 
-const genNewVisualChange = (variation: Variation): VisualChange => ({
+export const genNewVisualChange = (variation: Variation): VisualChange => ({
   id: uniqid("vc_"),
   variation: variation.id,
   description: "",

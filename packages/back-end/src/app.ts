@@ -109,6 +109,8 @@ import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
 import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
+import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
+import { getContextFromReq } from "./services/organizations";
 
 const app = express();
 
@@ -712,6 +714,18 @@ app.post(
   licenseController.postResendEmailVerificationEmail
 );
 app.post("/license/verify-email", licenseController.postVerifyEmail);
+
+app.get(
+  "/generated-hypothesis/:uuid",
+  async (req: AuthRequest<null, { uuid: string }>, res) => {
+    const context = getContextFromReq(req);
+    const generatedHypothesis = await findOrCreateGeneratedHypothesis(
+      context,
+      req.params.uuid
+    );
+    return res.json({ generatedHypothesis });
+  }
+);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {
