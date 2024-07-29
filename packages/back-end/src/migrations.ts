@@ -31,7 +31,7 @@ const migrations: Record<string, Migration[]> = {
       index: 0,
       name: "rename_organizationId",
       apply: (c) =>
-        updateAll(c, { orgqnizationId: null }, ({ organizationId }) => ({
+        updateAll(c, { organizationId: null }, ({ organizationId }) => ({
           organization: organizationId,
           organizationId: null,
         })),
