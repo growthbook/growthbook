@@ -3,7 +3,7 @@ import * as Sentry from "@sentry/node";
 import * as ApiKey from "./src/models/ApiKeyModel";
 import * as Organization from "./src/models/OrganizationModel";
 import * as Event from "./src/models/EventModel";
-import * as EventWebHook from "./src/models/EventWebhookModel";
+import * as EventWebHook from "./src/models/EventWebHookModel";
 import * as EventWebHookLog from "./src/models/EventWebHookLogModel";
 import * as Project from "./src/models/ProjectModel";
 import * as SlackIntegration from "./src/models/SlackIntegrationModel";

@@ -18,6 +18,7 @@ import { TeamInterface } from "../../types/team";
 import { FactMetricModel } from "../models/FactMetricModel";
 import { ProjectModel } from "../models/ProjectModel";
 import { ProjectInterface } from "../../types/project";
+import { EventWebHookModel } from "../models/EventWebHookModel";
 import { addTags, getAllTags } from "../models/TagModel";
 import { AuditInterfaceInput } from "../../types/audit";
 import { insertAudit } from "../models/AuditModel";
@@ -39,6 +40,7 @@ export class ReqContextClass {
   public models!: {
     factMetrics: FactMetricModel;
     projects: ProjectModel;
+    eventWebHooks: EventWebHookModel;
     urlRedirects: UrlRedirectModel;
     segments: SegmentModel;
   };
@@ -46,6 +48,7 @@ export class ReqContextClass {
     this.models = {
       factMetrics: new FactMetricModel(this),
       projects: new ProjectModel(this),
+      eventWebHooks: new EventWebHookModel(this),
       urlRedirects: new UrlRedirectModel(this),
       segments: new SegmentModel(this),
     };

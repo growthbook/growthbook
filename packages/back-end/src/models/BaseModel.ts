@@ -34,17 +34,33 @@ export const baseSchema = z
   })
   .strict();
 
-export type BaseSchema = typeof baseSchema;
+type Schema = typeof baseSchema;
+
+export const legacyBaseSchema = z
+  .object({
+    id: z.string(),
+    organizationId: z.string(),
+    dateCreated: z.date(),
+    dateUpdated: z.date(),
+  })
+  .strict();
+
+type LegacySchema = typeof legacyBaseSchema;
+
+export type BaseSchema = Schema | LegacySchema;
+
+const isLegacySchema = (schema: BaseSchema): schema is LegacySchema =>
+  "organizationId" in schema.shape;
 
 export type CreateProps<T extends object> = Omit<
   T,
-  "id" | "organization" | "dateCreated" | "dateUpdated"
+  "id" | "organization" | "organizationId" | "dateCreated" | "dateUpdated"
 > & { id?: string };
 
 export type CreateRawShape<T extends z.ZodRawShape> = {
   [k in keyof Omit<
     T,
-    "id" | "organization" | "dateCreated" | "dateUpdated"
+    "id" | "organization" | "organizationId" | "dateCreated" | "dateUpdated"
   >]: T[k];
 } & {
   id: z.ZodOptional<z.ZodString>;
@@ -58,24 +74,30 @@ export type CreateZodObject<T> = T extends z.ZodObject<
   ? z.ZodObject<CreateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
   : never;
 
-export const createSchema = <T extends BaseSchema>(schema: T) =>
-  (schema
-    .omit({
-      organization: true,
-      dateCreated: true,
-      dateUpdated: true,
-    })
+export const createSchema = <T extends BaseSchema>(schema: T) => {
+  const baseSchema = isLegacySchema(schema)
+    ? schema.omit({
+        organizationId: true,
+      })
+    : schema.omit({ organization: true });
+
+  return (baseSchema
+    .omit({ dateCreated: true, dateUpdated: true })
     .extend({ id: z.string().optional() })
     .strict() as unknown) as CreateZodObject<T>;
+};
 
 export type UpdateProps<T extends object> = Partial<
-  Omit<T, "id" | "organization" | "dateCreated" | "dateUpdated">
+  Omit<
+    T,
+    "id" | "organization" | "organizationId" | "dateCreated" | "dateUpdated"
+  >
 >;
 
 export type UpdateRawShape<T extends z.ZodRawShape> = {
   [k in keyof Omit<
     T,
-    "id" | "organization" | "dateCreated" | "dateUpdated"
+    "id" | "organization" | "organizationId" | "dateCreated" | "dateUpdated"
   >]: z.ZodOptional<T[k]>;
 };
 
@@ -87,15 +109,21 @@ export type UpdateZodObject<T> = T extends z.ZodObject<
   ? z.ZodObject<UpdateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
   : never;
 
-const updateSchema = <T extends BaseSchema>(schema: T) =>
-  (schema
+const updateSchema = <T extends BaseSchema>(schema: T) => {
+  const baseSchema = isLegacySchema(schema)
+    ? schema.omit({
+        organizationId: true,
+      })
+    : schema.omit({ organization: true });
+
+  return (baseSchema
     .omit({
-      organization: true,
       dateCreated: true,
       dateUpdated: true,
     })
     .partial()
     .strict() as unknown) as UpdateZodObject<T>;
+};
 
 type AuditLogConfig<Entity extends EntityType> = {
   entity: Entity;
@@ -136,6 +164,7 @@ export abstract class BaseModel<
   public validator: T;
   public createValidator: CreateZodObject<T>;
   public updateValidator: UpdateZodObject<T>;
+  public organizationField: "organization" | "organizationId";
 
   protected context: Context;
 
@@ -146,6 +175,9 @@ export abstract class BaseModel<
     this.createValidator = createSchema(this.config.schema);
     this.updateValidator = updateSchema(this.config.schema);
     this.addIndexes();
+    this.organizationField = isLegacySchema(this.validator)
+      ? "organizationId"
+      : "organization";
   }
 
   /***************
@@ -329,8 +361,11 @@ export abstract class BaseModel<
   protected _generateId() {
     return uniqid(this.config.idPrefix);
   }
+
   protected async _find(
-    query: FilterQuery<Omit<z.infer<T>, "organization">> = {},
+    query: FilterQuery<
+      Omit<z.infer<T>, "organization" | "organizationId">
+    > = {},
     {
       sort,
       limit,
@@ -339,7 +374,9 @@ export abstract class BaseModel<
     }: {
       sort?: Partial<
         {
-          [key in keyof Omit<z.infer<T>, "organization">]: 1 | -1;
+          [key in keyof Omit<z.infer<T>, "organization" | "organizationId">]:
+            | 1
+            | -1;
         }
       >;
       limit?: number;
@@ -349,7 +386,7 @@ export abstract class BaseModel<
   ) {
     const queryWithOrg = {
       ...query,
-      organization: this.context.org.id,
+      [this.organizationField]: this.context.org.id,
     };
     let rawDocs;
 
@@ -398,15 +435,18 @@ export abstract class BaseModel<
   }
 
   protected async _findOne(
-    query: FilterQuery<Omit<z.infer<T>, "organization">>
+    query: FilterQuery<Omit<z.infer<T>, "organization" | "organizationId">>
   ) {
     const doc = this.useConfigFile()
       ? this.getConfigDocuments().find((doc) =>
-          evalCondition(doc, { ...query, organization: this.context.org.id })
+          evalCondition(doc, {
+            ...query,
+            [this.organizationField]: this.context.org.id,
+          })
         )
       : await this._dangerousGetCollection().findOne({
           ...query,
-          organization: this.context.org.id,
+          [this.organizationField]: this.context.org.id,
         });
     if (!doc) return null;
 
@@ -429,6 +469,9 @@ export abstract class BaseModel<
     if ("organization" in props) {
       throw new Error("Cannot set organization field");
     }
+    if ("organizationId" in props) {
+      throw new Error("Cannot set organizationId field");
+    }
     if ("dateCreated" in props) {
       throw new Error("Cannot set dateCreated field");
     }
@@ -444,7 +487,7 @@ export abstract class BaseModel<
     const doc = {
       id: this._generateId(),
       ...props,
-      organization: this.context.org.id,
+      [this.organizationField]: this.context.org.id,
       dateCreated: new Date(),
       dateUpdated: new Date(),
     } as z.infer<T>;
@@ -519,12 +562,16 @@ export abstract class BaseModel<
 
     // Make sure the updates don't include any fields that shouldn't be updated
     if (
-      ["id", "organization", "dateCreated", "dateUpdated"].some(
-        (k) => k in updates
-      )
+      [
+        "id",
+        "organization",
+        "orgnizationId",
+        "dateCreated",
+        "dateUpdated",
+      ].some((k) => k in updates)
     ) {
       throw new Error(
-        "Cannot update id, organization, dateCreated, or dateUpdated"
+        "Cannot update id, organization, organizationId, dateCreated, or dateUpdated"
       );
     }
 
@@ -569,7 +616,7 @@ export abstract class BaseModel<
 
     await this._dangerousGetCollection().updateOne(
       {
-        organization: this.context.org.id,
+        [this.organizationField]: this.context.org.id,
         id: doc.id || "",
       },
       {
@@ -622,7 +669,7 @@ export abstract class BaseModel<
     }
     await this.beforeDelete(doc, writeOptions);
     await this._dangerousGetCollection().deleteOne({
-      organization: this.context.org.id,
+      [this.organizationField]: this.context.org.id,
       id: doc.id,
     });
 
@@ -726,7 +773,7 @@ export abstract class BaseModel<
 
     // Always create a unique index for organization and id
     this._dangerousGetCollection()
-      .createIndex({ id: 1, organization: 1 }, { unique: true })
+      .createIndex({ id: 1, [this.organizationField]: 1 }, { unique: true })
       .catch((err) => {
         logger.error(
           `Error creating org/id unique index for ${this.config.collectionName}`,

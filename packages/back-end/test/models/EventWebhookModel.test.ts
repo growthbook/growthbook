@@ -1,7 +1,7 @@
 import {
   EventWebHookModel,
   getAllEventWebHooksForEvent,
-} from "../../src/models/EventWebhookModel";
+} from "../../src/models/EventWebHookModel";
 
 describe("getAllEventWebHooksForEvent", () => {
   describe("when event has no projects", () => {

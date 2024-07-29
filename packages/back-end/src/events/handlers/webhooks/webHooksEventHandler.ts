@@ -1,7 +1,3 @@
-import {
-  getEventWebHookById,
-  getAllEventWebHooksForEvent,
-} from "../../../models/EventWebhookModel";
 import { NotificationEventHandler } from "../../notifiers/EventNotifier";
 import {
   getFilterDataForNotificationEvent,
@@ -12,7 +8,10 @@ import { EventWebHookNotifier } from "./EventWebHookNotifier";
 /**
  * Common handler that looks up the web hooks and makes a post request with the event.
  */
-export const webHooksEventHandler: NotificationEventHandler = async (event) => {
+export const webHooksEventHandler: NotificationEventHandler = async (
+  event,
+  context
+) => {
   const { tags, projects } = getFilterDataForNotificationEvent(event.data) || {
     tags: [],
     projects: [],
@@ -20,9 +19,8 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
 
   const eventWebHooks = await (async () => {
     if (event.data.event === "webhook.test") {
-      const webhook = await getEventWebHookById(
-        event.data.data.webhookId,
-        event.organizationId
+      const webhook = await context.models.eventWebHooks.getById(
+        event.data.data.webhookId
       );
 
       if (!webhook) return [];
@@ -30,8 +28,7 @@ export const webHooksEventHandler: NotificationEventHandler = async (event) => {
       return [webhook];
     } else {
       return (
-        (await getAllEventWebHooksForEvent({
-          organizationId: event.organizationId,
+        (await context.models.eventWebHooks.getAllForEvent({
           eventName: event.data.event,
           enabled: true,
           tags,
