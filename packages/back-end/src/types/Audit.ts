@@ -38,7 +38,7 @@ export const entityEvents = {
   comment: ["create", "update", "delete"],
   "sdk-connection": ["create", "update", "delete"],
   user: ["create", "update", "delete", "invite"],
-  organization: ["create", "update", "delete"],
+  organization: ["create", "update", "delete", "disable", "enable"],
   savedGroup: ["created", "deleted", "updated"],
   segment: ["create", "delete", "update"],
   archetype: ["created", "deleted", "updated"],
