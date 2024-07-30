@@ -135,6 +135,7 @@ export interface ExperimentSnapshotSettings {
   dimensions: DimensionForSnapshot[];
   metricSettings: MetricForSnapshot[];
   goalMetrics: string[];
+  secondaryMetrics: string[];
   guardrailMetrics: string[];
   activationMetric: string | null;
   defaultMetricPriorSettings: MetricPriorSettings;
@@ -197,6 +198,8 @@ export interface ExperimentSnapshotTrafficDimension {
 
 // Params for gbstats
 export interface ExperimentMetricAnalysisParams {
+  id: string;
+
   variations: ExperimentReportVariation[];
   phaseLengthHours: number;
   coverage: number;
@@ -206,3 +209,20 @@ export interface ExperimentMetricAnalysisParams {
   queryResults: QueryResultsForStatsEngine[];
   metrics: Record<string, MetricSettingsForStatsEngine>;
 }
+
+export type ExperimentMetricAnalysisContext = {
+  snapshotSettings: ExperimentSnapshotSettings;
+  organization: string;
+  snapshot: string;
+};
+
+export type ExperimentMetricAnalysisData = {
+  analysisObj: ExperimentSnapshotAnalysis;
+  unknownVariations: string[];
+};
+
+export type ExperimentAnalysisParamsContextData = {
+  params: ExperimentMetricAnalysisParams;
+  context: ExperimentMetricAnalysisContext;
+  data: ExperimentMetricAnalysisData;
+};

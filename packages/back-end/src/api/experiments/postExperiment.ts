@@ -10,7 +10,7 @@ import {
 } from "../../services/experiments";
 import { createApiRequestHandler } from "../../util/handler";
 import { postExperimentValidator } from "../../validators/openapi";
-import { getUserByEmail } from "../../services/users";
+import { getUserByEmail } from "../../models/UserModel";
 import { upsertWatch } from "../../models/WatchModel";
 
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
@@ -68,7 +68,10 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     // transform into exp interface; set sane defaults
     const newExperiment = postExperimentApiPayloadToInterface(
-      { ...req.body, ...(ownerId ? { owner: ownerId } : {}) },
+      {
+        ...req.body,
+        ...(ownerId ? { owner: ownerId } : {}),
+      },
       req.organization,
       datasource
     );

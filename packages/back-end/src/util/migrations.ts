@@ -7,7 +7,13 @@ import {
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
 import { accountFeatures, getAccountPlan } from "enterprise";
-import { LegacyReportInterface, ReportInterface } from "@back-end/types/report";
+import { omit } from "lodash";
+import {
+  ExperimentReportArgs,
+  LegacyReportInterface,
+  ReportInterface,
+} from "@back-end/types/report";
+import { WebhookInterface } from "@back-end/types/webhook";
 import { SdkWebHookLogDocument } from "../models/SdkWebhookLogModel";
 import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import {
@@ -178,6 +184,8 @@ FROM
 export function upgradeDatasourceObject(
   datasource: DataSourceInterface
 ): DataSourceInterface {
+  datasource.settings = datasource.settings || {};
+
   const settings = datasource.settings;
 
   // Add default randomization units
@@ -478,6 +486,14 @@ export function upgradeOrganizationDoc(
     }
   });
 
+  // Make sure namespaces have labels- if it's missing, use the name
+  if (org?.settings?.namespaces?.length) {
+    org.settings.namespaces = org.settings.namespaces.map((ns) => ({
+      ...ns,
+      label: ns.label || ns.name,
+    }));
+  }
+
   return org;
 }
 
@@ -498,6 +514,17 @@ export function upgradeExperimentDoc(
       v.name = i ? `Variation ${i}` : `Control`;
     }
   });
+
+  // Convert metric fields to new names
+  if (!experiment.goalMetrics) {
+    experiment.goalMetrics = experiment.metrics || [];
+  }
+  if (!experiment.guardrailMetrics) {
+    experiment.guardrailMetrics = experiment.guardrails || [];
+  }
+  if (!experiment.secondaryMetrics) {
+    experiment.secondaryMetrics = [];
+  }
 
   // Populate phase names and targeting properties
   if (experiment.phases) {
@@ -586,15 +613,30 @@ export function upgradeExperimentDoc(
 export function migrateReport(orig: LegacyReportInterface): ReportInterface {
   const { args, ...report } = orig;
 
-  if ((args?.attributionModel as string) === "allExposures") {
-    args.attributionModel = "experimentDuration";
-  }
+  const {
+    attributionModel,
+    metricRegressionAdjustmentStatuses,
+    metrics,
+    guardrails,
+    ...otherArgs
+  } = args || {};
+
+  const newArgs: ExperimentReportArgs = {
+    secondaryMetrics: [],
+    ...otherArgs,
+    attributionModel:
+      (attributionModel as string) === "allExposures"
+        ? "experimentDuration"
+        : attributionModel,
+    goalMetrics: otherArgs.goalMetrics || metrics || [],
+    guardrailMetrics: otherArgs.guardrailMetrics || guardrails || [],
+  };
 
   if (
-    args?.metricRegressionAdjustmentStatuses &&
-    args?.settingsForSnapshotMetrics === undefined
+    metricRegressionAdjustmentStatuses &&
+    newArgs.settingsForSnapshotMetrics === undefined
   ) {
-    args.settingsForSnapshotMetrics = args.metricRegressionAdjustmentStatuses.map(
+    newArgs.settingsForSnapshotMetrics = metricRegressionAdjustmentStatuses.map(
       (m) => ({
         metric: m.metric,
         properPrior: false,
@@ -608,11 +650,9 @@ export function migrateReport(orig: LegacyReportInterface): ReportInterface {
     );
   }
 
-  delete args?.metricRegressionAdjustmentStatuses;
-
   return {
     ...report,
-    args,
+    args: newArgs,
   };
 }
 
@@ -750,6 +790,7 @@ export function migrateSnapshot(
       // We know the metric ids included, but don't know if they were goals or guardrails
       // Just add them all as goals (doesn't really change much)
       goalMetrics: metricIds.filter((m) => m !== activationMetric),
+      secondaryMetrics: [],
       guardrailMetrics: [],
       activationMetric: activationMetric || null,
       defaultMetricPriorSettings: defaultMetricPriorSettings,
@@ -769,6 +810,11 @@ export function migrateSnapshot(
     // Add new settings field in case it is missing
     if (snapshot.settings.defaultMetricPriorSettings === undefined) {
       snapshot.settings.defaultMetricPriorSettings = defaultMetricPriorSettings;
+    }
+
+    // This field could be undefined before, make it always an array
+    if (!snapshot.settings.secondaryMetrics) {
+      snapshot.settings.secondaryMetrics = [];
     }
 
     // migrate metric for snapshot to have new fields as old snapshots
@@ -843,4 +889,18 @@ export function migrateSdkWebhookLogModel(
     delete doc.webhookReduestId;
   }
   return doc;
+}
+
+export function migrateWebhookModel(doc: WebhookInterface): WebhookInterface {
+  const newDoc = omit(doc, ["sendPayload"]) as WebhookInterface;
+  if (!doc.payloadFormat) {
+    if (doc.httpMethod === "GET") {
+      newDoc.payloadFormat = "none";
+    } else if (doc.sendPayload) {
+      newDoc.payloadFormat = "standard";
+    } else {
+      newDoc.payloadFormat = "standard-no-payload";
+    }
+  }
+  return newDoc;
 }

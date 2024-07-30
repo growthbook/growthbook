@@ -349,7 +349,7 @@ export async function markRevisionAsPublished(
     user,
     value: JSON.stringify(comment ? { comment } : {}),
   };
-
+  const revisionComment = revision.comment ? revision.comment : comment;
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -362,6 +362,7 @@ export async function markRevisionAsPublished(
         publishedBy: user,
         datePublished: new Date(),
         dateUpdated: new Date(),
+        comment: revisionComment,
       },
       $push: {
         log,
@@ -524,4 +525,18 @@ export async function cleanUpPreviousRevisions(
       $lt: date,
     },
   });
+}
+export async function getFeatureRevisionsByFeaturesCurrentVersion(
+  features: FeatureInterface[]
+): Promise<FeatureRevisionInterface[] | null> {
+  if (features.length === 0) return null;
+  const docs = await FeatureRevisionModel.find({
+    $or: features.map((f) => ({
+      featureId: f.id,
+      organization: f.organization,
+      version: f.version,
+    })),
+  });
+
+  return docs.map(toInterface);
 }

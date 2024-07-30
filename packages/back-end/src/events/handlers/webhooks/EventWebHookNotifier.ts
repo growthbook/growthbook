@@ -5,12 +5,16 @@ import {
   getEventWebHookById,
   updateEventWebHookStatus,
 } from "../../../models/EventWebhookModel";
-import { EventWebHookInterface } from "../../../../types/event-webhook";
+import {
+  EventWebHookInterface,
+  EventWebHookMethod,
+} from "../../../../types/event-webhook";
 import { findOrganizationById } from "../../../models/OrganizationModel";
 import { createEventWebHookLog } from "../../../models/EventWebHookLogModel";
 import { logger } from "../../../util/logger";
 import { cancellableFetch } from "../../../util/http.util";
 import { getSlackMessageForNotificationEvent } from "../slack/slack-event-handler-utils";
+import { NotificationEventName } from "../../../../types/event";
 import {
   EventWebHookErrorResult,
   EventWebHookResult,
@@ -127,10 +131,6 @@ export class EventWebHookNotifier implements Notifier {
           return { content: data.text };
         }
 
-        case "ms-teams":
-          // TODO: not implemented
-          return eventPayload;
-
         default:
           invalidPayloadType = payloadType;
           throw `Invalid payload type: ${invalidPayloadType}`;
@@ -141,27 +141,36 @@ export class EventWebHookNotifier implements Notifier {
       return;
     }
 
+    const method = eventWebHook.method || "POST";
+
     const webHookResult = await EventWebHookNotifier.sendDataToWebHook({
       payload,
       eventWebHook,
+      method,
     });
 
     switch (webHookResult.result) {
       case "success":
-        return EventWebHookNotifier.handleWebHookSuccess(
+        return EventWebHookNotifier.handleWebHookSuccess({
           job,
           webHookResult,
-          organization.id,
-          payload
-        );
+          organizationId: organization.id,
+          event: event.event,
+          url: eventWebHook.url,
+          method,
+          payload,
+        });
 
       case "error":
-        return EventWebHookNotifier.handleWebHookError(
+        return EventWebHookNotifier.handleWebHookError({
           job,
           webHookResult,
-          organization.id,
-          payload
-        );
+          organizationId: organization.id,
+          event: event.event,
+          url: eventWebHook.url,
+          method,
+          payload,
+        });
     }
   }
 
@@ -174,15 +183,17 @@ export class EventWebHookNotifier implements Notifier {
   private static async sendDataToWebHook<DataType>({
     payload,
     eventWebHook,
+    method,
   }: {
     payload: DataType;
     eventWebHook: EventWebHookInterface;
+    method: EventWebHookMethod;
   }): Promise<EventWebHookResult> {
     const requestTimeout = 30000;
     const maxContentSize = 1000;
 
     try {
-      const { url, signingKey, method = "POST", headers = {} } = eventWebHook;
+      const { url, signingKey, headers = {} } = eventWebHook;
 
       const signature = getEventWebHookSignatureForPayload({
         signingKey,
@@ -236,12 +247,23 @@ export class EventWebHookNotifier implements Notifier {
 
   // region Result handling
 
-  private static async handleWebHookSuccess(
-    job: Job<EventWebHookJobData>,
-    successResult: EventWebHookSuccessResult,
-    organizationId: string,
-    payload: Record<string, unknown>
-  ): Promise<void> {
+  private static async handleWebHookSuccess({
+    job,
+    webHookResult: successResult,
+    organizationId,
+    event,
+    url,
+    method,
+    payload,
+  }: {
+    job: Job<EventWebHookJobData>;
+    webHookResult: EventWebHookSuccessResult;
+    organizationId: string;
+    event: NotificationEventName;
+    url: string;
+    method: EventWebHookMethod;
+    payload: Record<string, unknown>;
+  }): Promise<void> {
     const { eventWebHookId } = job.attrs.data;
 
     await updateEventWebHookStatus(eventWebHookId, {
@@ -253,6 +275,9 @@ export class EventWebHookNotifier implements Notifier {
       eventWebHookId,
       organizationId,
       payload,
+      event,
+      url,
+      method,
       result: {
         state: "success",
         responseBody: successResult.responseBody,
@@ -261,12 +286,23 @@ export class EventWebHookNotifier implements Notifier {
     });
   }
 
-  private static async handleWebHookError(
-    job: Job<EventWebHookJobData>,
-    errorResult: EventWebHookErrorResult,
-    organizationId: string,
-    payload: Record<string, unknown>
-  ): Promise<void> {
+  private static async handleWebHookError({
+    job,
+    webHookResult: errorResult,
+    organizationId,
+    event,
+    url,
+    method,
+    payload,
+  }: {
+    job: Job<EventWebHookJobData>;
+    webHookResult: EventWebHookErrorResult;
+    organizationId: string;
+    event: NotificationEventName;
+    url: string;
+    method: EventWebHookMethod;
+    payload: Record<string, unknown>;
+  }): Promise<void> {
     const { eventWebHookId } = job.attrs.data;
 
     await updateEventWebHookStatus(eventWebHookId, {
@@ -278,6 +314,9 @@ export class EventWebHookNotifier implements Notifier {
       eventWebHookId,
       organizationId,
       payload,
+      event,
+      url,
+      method,
       result: {
         state: "error",
         responseBody: errorResult.error,

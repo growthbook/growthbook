@@ -120,6 +120,11 @@ const sidebars = {
           id: "sticky-bucketing",
           label: "Sticky Bucketing",
         },
+        {
+          type: "doc",
+          id: "running-experiments/pre-launch-checklist",
+          label: "Pre-Launch Checklist",
+        },
       ],
     },
     {
@@ -470,6 +475,11 @@ const sidebars = {
     },
     { type: "doc", id: "api-overview", label: "API" },
     {
+      type: "doc",
+      id: "dashboard",
+      label: "Management Dashboard",
+    },
+    {
       type: "category",
       collapsed: true,
       label: "Webhooks",
@@ -652,6 +662,11 @@ const sidebars = {
               label: "Holdouts in GrowthBook",
             },
           ],
+        },
+        {
+          type: "doc",
+          id: "kb/glossary",
+          label: "Glossary",
         },
       ],
     },

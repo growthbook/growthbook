@@ -2,7 +2,7 @@
 
 @mixin light-theme {
   color-scheme: light;
-
+  --text-color-enterprise: #{colors.$dark-blue};
   --background-color: #{colors.$main-background};
   --surface-background-color: #{colors.$white};
   --surface-background-color-alt: #{darken(colors.$white, 3%)};
@@ -55,6 +55,8 @@
   --get-started-background-gradient-2: #7b45ea1a;
   --get-started-box-shadow: #05054920;
   --get-started-hover-text: #{colors.$white};
+
+  --custom-markdown-border: #7b45ea40;
 
   --border-color-100: #e0e2eb;
   --border-color-200: #dee2e6;
@@ -110,7 +112,7 @@
 
 @mixin dark-theme {
   color-scheme: dark;
-
+  --text-color-enterprise: #{colors.$white};
   --background-color: #{colors.$main-background-dark};
   --surface-background-color: #{colors.$surface-background-dark};
   --surface-background-color-alt: #{lighten(colors.$surface-background-dark, 4%)};
@@ -167,6 +169,8 @@
   --get-started-box-shadow: #05054920;
   --get-started-hover-text: #{colors.$white};
 
+  --custom-markdown-border: #{colors.$highlight-purple-light};
+
   --border-color-100: #616161;
   --border-color-200: #424242;
   --border-color-300: #424242;
@@ -219,16 +223,18 @@
   --callout-grey: #2a2a2a;
 }
 
-.theme--light {
+.theme--light,
+.light-theme {
   @include light-theme();
 }
 
-.theme--dark {
+.theme--dark,
+.dark-theme {
   @include dark-theme();
 }
 
 // OS default
-:root:not(.theme--light):not(.theme--dark) {
+:root:not(.theme--light):not(.theme--dark):not(.dark-theme):not(.light-theme) {
   @include light-theme();
 
   @media (prefers-color-scheme: light) {

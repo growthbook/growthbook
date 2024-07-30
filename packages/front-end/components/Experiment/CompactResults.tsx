@@ -54,9 +54,10 @@ const CompactResults: FC<{
   startDate: string;
   isLatestPhase: boolean;
   status: ExperimentStatus;
-  metrics: string[];
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
   metricOverrides: MetricOverride[];
-  guardrails?: string[];
   id: string;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
@@ -83,9 +84,10 @@ const CompactResults: FC<{
   startDate,
   isLatestPhase,
   status,
-  metrics,
+  goalMetrics,
+  guardrailMetrics,
+  secondaryMetrics,
   metricOverrides,
-  guardrails = [],
   id,
   statsEngine,
   pValueCorrection,
@@ -117,17 +119,27 @@ const CompactResults: FC<{
 
   const allMetricTags = useMemo(() => {
     const allMetricTagsSet: Set<string> = new Set();
-    [...metrics, ...guardrails].forEach((metricId) => {
-      const metric = getExperimentMetricById(metricId);
-      metric?.tags?.forEach((tag) => {
-        allMetricTagsSet.add(tag);
-      });
-    });
+    [...goalMetrics, ...secondaryMetrics, ...guardrailMetrics].forEach(
+      (metricId) => {
+        const metric = getExperimentMetricById(metricId);
+        metric?.tags?.forEach((tag) => {
+          allMetricTagsSet.add(tag);
+        });
+      }
+    );
     return [...allMetricTagsSet];
-  }, [metrics, guardrails, getExperimentMetricById]);
+  }, [
+    goalMetrics,
+    secondaryMetrics,
+    guardrailMetrics,
+    getExperimentMetricById,
+  ]);
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
-    function getRow(metricId: string, isGuardrail: boolean) {
+    function getRow(
+      metricId: string,
+      resultGroup: "goal" | "secondary" | "guardrail"
+    ) {
       const metric = getExperimentMetricById(metricId);
 
       if (!metric) return null;
@@ -157,17 +169,18 @@ const CompactResults: FC<{
           );
         }),
         metricSnapshotSettings,
-        isGuardrail,
+        resultGroup,
       };
     }
 
     if (!results || !results.variations || !ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
-      setAdjustedPValuesOnResults([results], metrics, pValueCorrection);
+      // Only include goals in calculation, not secondary or guardrails
+      setAdjustedPValuesOnResults([results], goalMetrics, pValueCorrection);
       setAdjustedCIs([results], pValueThreshold);
     }
 
-    const metricDefs = metrics
+    const metricDefs = goalMetrics
       .map((metricId) => getExperimentMetricById(metricId))
       .filter(isDefined);
     const sortedFilteredMetrics = sortAndFilterMetricsByTags(
@@ -175,7 +188,15 @@ const CompactResults: FC<{
       metricFilter
     );
 
-    const guardrailDefs = guardrails
+    const secondaryDefs = secondaryMetrics
+      .map((metricId) => getExperimentMetricById(metricId))
+      .filter(isDefined);
+    const sortedFilteredSecondary = sortAndFilterMetricsByTags(
+      secondaryDefs,
+      metricFilter
+    );
+
+    const guardrailDefs = guardrailMetrics
       .map((metricId) => getExperimentMetricById(metricId))
       .filter(isDefined);
     const sortedFilteredGuardrails = sortAndFilterMetricsByTags(
@@ -184,16 +205,20 @@ const CompactResults: FC<{
     );
 
     const retMetrics = sortedFilteredMetrics
-      .map((metricId) => getRow(metricId, false))
+      .map((metricId) => getRow(metricId, "goal"))
+      .filter(isDefined);
+    const retSecondary = sortedFilteredSecondary
+      .map((metricId) => getRow(metricId, "secondary"))
       .filter(isDefined);
     const retGuardrails = sortedFilteredGuardrails
-      .map((metricId) => getRow(metricId, true))
+      .map((metricId) => getRow(metricId, "guardrail"))
       .filter(isDefined);
-    return [...retMetrics, ...retGuardrails];
+    return [...retMetrics, ...retSecondary, ...retGuardrails];
   }, [
     results,
-    metrics,
-    guardrails,
+    goalMetrics,
+    secondaryMetrics,
+    guardrailMetrics,
     metricOverrides,
     settingsForSnapshotMetrics,
     pValueCorrection,
@@ -251,38 +276,40 @@ const CompactResults: FC<{
         </>
       )}
 
-      <ResultsTable
-        dateCreated={reportDate}
-        isLatestPhase={isLatestPhase}
-        startDate={startDate}
-        status={status}
-        queryStatusData={queryStatusData}
-        variations={variations}
-        variationFilter={variationFilter}
-        baselineRow={baselineRow}
-        rows={rows.filter((r) => !r.isGuardrail)}
-        id={id}
-        hasRisk={hasRisk(rows)}
-        tableRowAxis="metric"
-        labelHeader="Goal Metrics"
-        editMetrics={editMetrics}
-        statsEngine={statsEngine}
-        sequentialTestingEnabled={sequentialTestingEnabled}
-        pValueCorrection={pValueCorrection}
-        differenceType={differenceType}
-        renderLabelColumn={getRenderLabelColumn(
-          regressionAdjustmentEnabled,
-          statsEngine
-        )}
-        metricFilter={metricFilter}
-        setMetricFilter={setMetricFilter}
-        metricTags={allMetricTags}
-        isTabActive={isTabActive}
-        noStickyHeader={noStickyHeader}
-        noTooltip={noTooltip}
-      />
+      {goalMetrics.length ? (
+        <ResultsTable
+          dateCreated={reportDate}
+          isLatestPhase={isLatestPhase}
+          startDate={startDate}
+          status={status}
+          queryStatusData={queryStatusData}
+          variations={variations}
+          variationFilter={variationFilter}
+          baselineRow={baselineRow}
+          rows={rows.filter((r) => r.resultGroup === "goal")}
+          id={id}
+          hasRisk={hasRisk(rows)}
+          tableRowAxis="metric"
+          labelHeader="Goal Metrics"
+          editMetrics={editMetrics}
+          statsEngine={statsEngine}
+          sequentialTestingEnabled={sequentialTestingEnabled}
+          pValueCorrection={pValueCorrection}
+          differenceType={differenceType}
+          renderLabelColumn={getRenderLabelColumn(
+            regressionAdjustmentEnabled,
+            statsEngine
+          )}
+          metricFilter={metricFilter}
+          setMetricFilter={setMetricFilter}
+          metricTags={allMetricTags}
+          isTabActive={isTabActive}
+          noStickyHeader={noStickyHeader}
+          noTooltip={noTooltip}
+        />
+      ) : null}
 
-      {!mainTableOnly && guardrails.length ? (
+      {!mainTableOnly && secondaryMetrics.length ? (
         <div className="mt-4">
           <ResultsTable
             dateCreated={reportDate}
@@ -293,13 +320,47 @@ const CompactResults: FC<{
             variations={variations}
             variationFilter={variationFilter}
             baselineRow={baselineRow}
-            rows={rows.filter((r) => r.isGuardrail)}
+            rows={rows.filter((r) => r.resultGroup === "secondary")}
+            id={id}
+            hasRisk={hasRisk(rows)}
+            tableRowAxis="metric"
+            labelHeader="Secondary Metrics"
+            editMetrics={editMetrics}
+            statsEngine={statsEngine}
+            sequentialTestingEnabled={sequentialTestingEnabled}
+            pValueCorrection={pValueCorrection}
+            differenceType={differenceType}
+            renderLabelColumn={getRenderLabelColumn(
+              regressionAdjustmentEnabled,
+              statsEngine
+            )}
+            metricFilter={metricFilter}
+            setMetricFilter={setMetricFilter}
+            metricTags={allMetricTags}
+            isTabActive={isTabActive}
+            noStickyHeader={noStickyHeader}
+            noTooltip={noTooltip}
+          />
+        </div>
+      ) : null}
+
+      {!mainTableOnly && guardrailMetrics.length ? (
+        <div className="mt-4">
+          <ResultsTable
+            dateCreated={reportDate}
+            isLatestPhase={isLatestPhase}
+            startDate={startDate}
+            status={status}
+            queryStatusData={queryStatusData}
+            variations={variations}
+            variationFilter={variationFilter}
+            baselineRow={baselineRow}
+            rows={rows.filter((r) => r.resultGroup === "guardrail")}
             id={id}
             hasRisk={hasRisk(rows)}
             tableRowAxis="metric"
             labelHeader="Guardrail Metrics"
             editMetrics={editMetrics}
-            metricsAsGuardrails={true}
             statsEngine={statsEngine}
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}

@@ -200,6 +200,9 @@ const webhooksValidator = z.array(
       signingKey: z.string().optional(),
       method: z.enum(["GET", "POST", "PUT", "DELETE", "PURGE"]).optional(),
       sendPayload: z.boolean().optional(),
+      payloadFormat: z
+        .enum(["standard", "standard-no-payload", "sdkPayload", "none"])
+        .optional(),
     })
     .strict()
 );
@@ -212,6 +215,7 @@ try {
   throw Error(`webhooks in env file is malformed: ${error.message}`);
 }
 export const WEBHOOKS = webhooks;
+export const WEBHOOK_PROXY = process.env.WEBHOOK_PROXY || "";
 
 /**
  * Allows custom configuration of the trust proxy settings as

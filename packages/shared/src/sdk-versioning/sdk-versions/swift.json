@@ -1,10 +1,43 @@
 {
   "versions": [
     {
+      "version": "1.0.57"
+    },
+    {
+      "version": "1.0.56"
+    },
+    {
+      "version": "1.0.55"
+    },
+    {
+      "version": "1.0.54"
+    },
+    {
+      "version": "1.0.53"
+    },
+    {
+      "version": "1.0.51"
+    },
+    {
+      "version": "1.0.50",
+      "capabilities": ["remoteEval"]
+    },
+    {
+      "version": "1.0.49",
+      "capabilities": ["stickyBucketing", "prerequisites"]
+    },
+    {
+      "version": "1.0.48"
+    },
+    {
       "version": "1.0.47"
     },
     {
       "version": "1.0.44"
+    },
+    {
+      "version": "1.0.43",
+      "capabilities": ["bucketingV2", "streaming"]
     },
     {
       "version": "1.0.38",

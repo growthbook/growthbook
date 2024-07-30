@@ -4,30 +4,40 @@ import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { getAffectedEnvsForExperiment, isDefined } from "shared/util";
-import { getAllMetricSettingsForSnapshot } from "shared/experiments";
+import {
+  getAffectedEnvsForExperiment,
+  getSnapshotAnalysis,
+  isDefined,
+} from "shared/util";
+import {
+  getAllMetricSettingsForSnapshot,
+  getAllMetricIdsFromExperiment,
+} from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
 import { DataSourceInterface } from "@back-end/types/datasource";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
+  SnapshotAnalysisParams,
   createManualSnapshot,
   createSnapshot,
+  createSnapshotAnalyses,
   createSnapshotAnalysis,
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
-  getExperimentMetricById,
   getLinkedFeatureInfo,
 } from "../services/experiments";
-import { MetricStats } from "../../types/metric";
+import { MetricInterface, MetricStats } from "../../types/metric";
 import {
   createExperiment,
   deleteExperimentByIdForOrganization,
   getAllExperiments,
   getExperimentById,
   getExperimentByTrackingKey,
+  getExperimentsByIds,
   getPastExperimentsByDatasource,
+  hasArchivedExperiments,
   updateExperiment,
 } from "../models/ExperimentModel";
 import {
@@ -42,12 +52,13 @@ import {
   deleteSnapshotById,
   findSnapshotById,
   getLatestSnapshot,
+  getLatestSnapshotMultipleExperiments,
   updateSnapshot,
   updateSnapshotsOnPhaseDelete,
 } from "../models/ExperimentSnapshotModel";
 import { getIntegrationFromDatasourceId } from "../services/datasource";
 import { addTagsDiff } from "../models/TagModel";
-import { getContextFromReq, userHasAccess } from "../services/organizations";
+import { getContextFromReq } from "../services/organizations";
 import { removeExperimentFromPresentations } from "../services/presentations";
 import {
   createPastExperiments,
@@ -64,7 +75,7 @@ import {
   ExperimentTargetingData,
   Variation,
 } from "../../types/experiment";
-import { getMetricById, getMetricMap } from "../models/MetricModel";
+import { getMetricMap } from "../models/MetricModel";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
@@ -82,10 +93,6 @@ import {
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { ApiReqContext, PrivateApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
-import {
-  findAllProjectsByOrganization,
-  findProjectById,
-} from "../models/ProjectModel";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "../queryRunners/PastExperimentsQueryRunner";
 import {
@@ -104,6 +111,7 @@ export async function getExperiments(
     unknown,
     {
       project?: string;
+      includeArchived?: boolean;
     }
   >,
   res: Response
@@ -114,11 +122,21 @@ export async function getExperiments(
     project = req.query.project;
   }
 
-  const experiments = await getAllExperiments(context, project);
+  const includeArchived = !!req.query?.includeArchived;
+
+  const experiments = await getAllExperiments(context, {
+    project,
+    includeArchived,
+  });
+
+  const hasArchived = includeArchived
+    ? experiments.some((e) => e.archived)
+    : await hasArchivedExperiments(context, project);
 
   res.status(200).json({
     status: 200,
     experiments,
+    hasArchived,
   });
 }
 
@@ -132,9 +150,12 @@ export async function getExperimentsFrequencyMonth(
     project = req.query.project;
   }
 
-  const allProjects = await findAllProjectsByOrganization(context);
+  const allProjects = await context.models.projects.getAll();
   const { num } = req.params;
-  const experiments = await getAllExperiments(context, project);
+  const experiments = await getAllExperiments(context, {
+    project,
+    includeArchived: true,
+  });
 
   const allData: { date: string; numExp: number }[] = [];
 
@@ -258,14 +279,6 @@ export async function getExperiment(
     return;
   }
 
-  if (!(await userHasAccess(req, experiment.organization))) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to view this experiment",
-    });
-    return;
-  }
-
   let idea: IdeaInterface | undefined = undefined;
   if (experiment.ideaSource) {
     idea =
@@ -298,29 +311,50 @@ export async function getExperiment(
 
 async function _getSnapshot(
   context: ReqContext | ApiReqContext,
-  id: string,
+  experiment: string,
   phase?: string,
   dimension?: string,
   withResults: boolean = true
 ) {
-  const experiment = await getExperimentById(context, id);
+  const experimentObj = await getExperimentById(context, experiment);
 
-  if (!experiment) {
+  if (!experimentObj) {
     throw new Error("Experiment not found");
   }
 
-  if (experiment.organization !== context.org.id) {
+  if (experimentObj.organization !== context.org.id) {
     throw new Error("You do not have access to view this experiment");
   }
 
   if (!phase) {
     // get the latest phase:
-    phase = String(experiment.phases.length - 1);
+    phase = String(experimentObj.phases.length - 1);
   }
 
   return await getLatestSnapshot(
-    experiment.id,
+    experimentObj.id,
     parseInt(phase),
+    dimension,
+    withResults
+  );
+}
+
+async function _getSnapshots(
+  context: ReqContext | ApiReqContext,
+  experimentObjs: ExperimentInterface[],
+  dimension?: string,
+  withResults: boolean = true
+): Promise<ExperimentSnapshotInterface[]> {
+  const experimentPhaseMap: Map<string, number> = new Map();
+  experimentObjs.forEach((e) => {
+    if (e.organization !== context.org.id) {
+      throw new Error("You do not have access to view this experiment");
+    }
+    // get the latest phase
+    experimentPhaseMap.set(e.id, e.phases.length - 1);
+  });
+  return await getLatestSnapshotMultipleExperiments(
+    experimentPhaseMap,
     dimension,
     withResults
   );
@@ -375,11 +409,11 @@ export async function postSnapshotNotebook(
 }
 
 export async function getSnapshots(
-  req: AuthRequest<unknown, unknown, { ids?: string }>,
+  req: AuthRequest<unknown, unknown, { experiments?: string }>,
   res: Response
 ) {
   const context = getContextFromReq(req);
-  const idsString = (req.query?.ids as string) || "";
+  const idsString = (req.query?.experiments as string) || "";
   if (!idsString.length) {
     res.status(200).json({
       status: 200,
@@ -389,16 +423,12 @@ export async function getSnapshots(
   }
 
   const ids = idsString.split(",");
-
-  let snapshotsPromises: Promise<ExperimentSnapshotInterface | null>[] = [];
-  snapshotsPromises = ids.map(async (i) => {
-    return await _getSnapshot(context, i);
-  });
-  const snapshots = await Promise.all(snapshotsPromises);
+  const experimentObjs = await getExperimentsByIds(context, ids);
+  const snapshots = await _getSnapshots(context, experimentObjs);
 
   res.status(200).json({
     status: 200,
-    snapshots: snapshots.filter((s) => !!s),
+    snapshots: snapshots,
   });
   return;
 }
@@ -464,10 +494,11 @@ export async function postExperiments(
   }
 
   // Validate that specified metrics exist and belong to the organization
-  if (data.metrics && data.metrics.length) {
-    for (let i = 0; i < data.metrics.length; i++) {
-      const metric = await getExperimentMetricById(context, data.metrics[i]);
-
+  const metricIds = getAllMetricIdsFromExperiment(data);
+  if (metricIds.length) {
+    const map = await getMetricMap(context);
+    for (let i = 0; i < metricIds.length; i++) {
+      const metric = map.get(metricIds[i]);
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
         if (data.datasource && metric.datasource !== data.datasource) {
@@ -475,7 +506,7 @@ export async function postExperiments(
             status: 400,
             message:
               "Metrics must be tied to the same datasource as the experiment: " +
-              data.metrics[i],
+              metricIds[i],
           });
           return;
         }
@@ -483,7 +514,7 @@ export async function postExperiments(
         // new metric that's not recognized...
         res.status(403).json({
           status: 403,
-          message: "Unknown metric: " + data.metrics[i],
+          message: "Unknown metric: " + metricIds[i],
         });
         return;
       }
@@ -517,9 +548,10 @@ export async function postExperiments(
     tags: data.tags || [],
     description: data.description || "",
     hypothesis: data.hypothesis || "",
-    metrics: data.metrics || [],
+    goalMetrics: data.goalMetrics || [],
+    secondaryMetrics: data.secondaryMetrics || [],
     metricOverrides: data.metricOverrides || [],
-    guardrails: data.guardrails || [],
+    guardrailMetrics: data.guardrailMetrics || [],
     activationMetric: data.activationMetric || "",
     segment: data.segment || "",
     queryFilter: data.queryFilter || "",
@@ -599,11 +631,7 @@ export async function postExperiments(
       }
     }
 
-    if (
-      datasource &&
-      req.query.autoRefreshResults &&
-      experiment.metrics.length > 0
-    ) {
+    if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
       // This is doing an expensive analytics SQL query, so may take a long time
       // Set timeout to 30 minutes
       req.setTimeout(30 * 60 * 1000);
@@ -707,11 +735,15 @@ export async function postExperiment(
       return;
     }
   }
-
-  if (data.metrics && data.metrics.length) {
-    for (let i = 0; i < data.metrics.length; i++) {
-      const metric = await getExperimentMetricById(context, data.metrics[i]);
-
+  // Validate that specified metrics exist and belong to the organization
+  const oldMetricIds = getAllMetricIdsFromExperiment(experiment);
+  const newMetricIds = getAllMetricIdsFromExperiment(data).filter(
+    (m) => !oldMetricIds.includes(m)
+  );
+  if (newMetricIds.length) {
+    const map = await getMetricMap(context);
+    for (let i = 0; i < newMetricIds.length; i++) {
+      const metric = map.get(newMetricIds[i]);
       if (metric) {
         // Make sure it is tied to the same datasource as the experiment
         if (
@@ -722,7 +754,7 @@ export async function postExperiment(
             status: 400,
             message:
               "Metrics must be tied to the same datasource as the experiment: " +
-              data.metrics[i],
+              newMetricIds[i],
           });
           return;
         }
@@ -730,7 +762,7 @@ export async function postExperiment(
         // new metric that's not recognized...
         res.status(403).json({
           status: 403,
-          message: "Unknown metric: " + data.metrics[i],
+          message: "Unknown metric: " + newMetricIds[i],
         });
         return;
       }
@@ -758,9 +790,10 @@ export async function postExperiment(
     "queryFilter",
     "skipPartialData",
     "attributionModel",
-    "metrics",
+    "goalMetrics",
+    "secondaryMetrics",
+    "guardrailMetrics",
     "metricOverrides",
-    "guardrails",
     "variations",
     "status",
     "results",
@@ -792,7 +825,9 @@ export async function postExperiment(
     // Do a deep comparison for arrays, shallow for everything else
     let hasChanges = data[key] !== existing[key];
     if (
-      key === "metrics" ||
+      key === "goalMetrics" ||
+      key === "secondaryMetrics" ||
+      key === "guardrailMetrics" ||
       key === "metricOverrides" ||
       key === "variations"
     ) {
@@ -1653,10 +1688,9 @@ export async function getWatchingUsers(
   const { org } = getContextFromReq(req);
   const { id } = req.params;
   const watchers = await getExperimentWatchers(id, org.id);
-  const userIds = watchers.map((w) => w.userId);
   res.status(200).json({
     status: 200,
-    userIds,
+    userIds: watchers,
   });
 }
 
@@ -1782,7 +1816,7 @@ async function createExperimentSnapshot({
 }) {
   let project = null;
   if (experiment.project) {
-    project = await findProjectById(context, experiment.project);
+    project = await context.models.projects.getById(experiment.project);
   }
 
   const { org } = context;
@@ -1794,23 +1828,18 @@ async function createExperimentSnapshot({
   });
   const statsEngine = settings.statsEngine.value;
 
-  const allExperimentMetricIds = uniq([
-    ...experiment.metrics,
-    ...(experiment.guardrails ?? []),
-  ]);
-  const allExperimentMetrics = await Promise.all(
-    allExperimentMetricIds.map((m) => getExperimentMetricById(context, m))
-  );
+  const metricMap = await getMetricMap(context);
+  const metricIds = getAllMetricIdsFromExperiment(experiment, false);
+
+  const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
   const denominatorMetricIds = uniq<string>(
     allExperimentMetrics
       .map((m) => m?.denominator)
       .filter((d) => d && typeof d === "string") as string[]
   );
-  const denominatorMetrics = (
-    await Promise.all(
-      denominatorMetricIds.map((m) => getMetricById(context, m))
-    )
-  ).filter(isDefined);
+  const denominatorMetrics = denominatorMetricIds
+    .map((m) => metricMap.get(m) || null)
+    .filter(isDefined) as MetricInterface[];
 
   const {
     settingsForSnapshotMetrics,
@@ -1834,7 +1863,6 @@ async function createExperimentSnapshot({
     dimension
   );
 
-  const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
   const queryRunner = await createSnapshot({
@@ -1844,8 +1872,7 @@ async function createExperimentSnapshot({
     useCache,
     defaultAnalysisSettings: analysisSettings,
     additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
-      analysisSettings,
-      experiment
+      analysisSettings
     ),
     settingsForSnapshotMetrics,
     metricMap,
@@ -1900,7 +1927,7 @@ export async function postSnapshot(
 
     let project = null;
     if (experiment.project) {
-      project = await findProjectById(context, experiment.project);
+      project = await context.models.projects.getById(experiment.project);
     }
     const { settings } = getScopedSettings({
       organization: org,
@@ -2056,14 +2083,16 @@ export async function postSnapshotAnalysis(
   const metricMap = await getMetricMap(context);
 
   try {
-    await createSnapshotAnalysis({
-      experiment: experiment,
-      organization: org,
-      analysisSettings: analysisSettings,
-      metricMap: metricMap,
-      snapshot: snapshot,
-      context,
-    });
+    await createSnapshotAnalysis(
+      {
+        experiment: experiment,
+        organization: org,
+        analysisSettings: analysisSettings,
+        metricMap: metricMap,
+        snapshot: snapshot,
+      },
+      context
+    );
     res.status(200).json({
       status: 200,
     });
@@ -2074,6 +2103,79 @@ export async function postSnapshotAnalysis(
       message: e.message,
     });
   }
+}
+
+function addCoverageToSnapshotIfMissing(
+  snapshot: ExperimentSnapshotInterface,
+  experiment: ExperimentInterface,
+  phase?: number
+): ExperimentSnapshotInterface {
+  if (snapshot.settings.coverage === undefined) {
+    const latestPhase = experiment.phases.length - 1;
+    snapshot.settings.coverage =
+      experiment.phases[phase ?? latestPhase]?.coverage ?? 1;
+  }
+  return snapshot;
+}
+
+export async function postSnapshotsWithScaledImpactAnalysis(
+  req: AuthRequest<{
+    experiments: string[];
+  }>,
+  res: Response<{ status: 200 } | PrivateApiErrorResponse>
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { experiments } = req.body;
+  if (!experiments.length) {
+    res.status(200).json({
+      status: 200,
+    });
+    return;
+  }
+  const metricMap = await getMetricMap(context);
+  const experimentObjs = await getExperimentsByIds(context, experiments);
+
+  // get latest snapshot for latest phase without dimensions but with results
+  const snapshots = await _getSnapshots(context, experimentObjs);
+
+  // Add snapshots missing scaled analysis to list to fetch
+  const snapshotAnalysesToCreate: SnapshotAnalysisParams[] = [];
+  snapshots.forEach((s) => {
+    const defaultAnalysis = getSnapshotAnalysis(s);
+    if (!defaultAnalysis) return;
+
+    const scaledImpactAnalysisSettings: ExperimentSnapshotAnalysisSettings = {
+      ...defaultAnalysis.settings,
+      differenceType: "scaled",
+    };
+    if (getSnapshotAnalysis(s, scaledImpactAnalysisSettings)) return;
+
+    const experiment = experimentObjs.find((e) => e.id === s.experiment);
+    if (!experiment) return;
+
+    addCoverageToSnapshotIfMissing(s, experiment);
+
+    snapshotAnalysesToCreate.push({
+      experiment: experiment,
+      organization: org,
+      analysisSettings: scaledImpactAnalysisSettings,
+      metricMap: metricMap,
+      snapshot: s,
+    });
+  });
+
+  if (snapshotAnalysesToCreate.length > 0) {
+    await createSnapshotAnalyses(snapshotAnalysesToCreate, context).catch(
+      (e) => {
+        req.log.error(e);
+      }
+    );
+  }
+  res.status(200).json({
+    status: 200,
+  });
+  return;
 }
 
 export async function deleteScreenshot(

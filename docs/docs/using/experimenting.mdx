@@ -31,12 +31,10 @@ exposure can be ramped up (or down) without having any users potentially switch 
 
 ## Metric selection
 
-GrowthBook lets you choose goal metrics and guardrail metrics. Goal metrics are the metrics you’re
-trying to improve or measure the impact of the change of your experiment. Guardrail metrics are
-metrics you’re not necessarily trying to improve, but you don’t want to hurt. With goal metrics we
-show full statistical changes on the metrics. Guardrail metrics we only show the chance of that metric
-being worse- if there is a significant chance that the guard rail metric is worse, it will be shown in red,
-otherwise it will be green.
+GrowthBook lets you choose goal metrics, secondary metrics, and guardrail metrics. Goal metrics are the metrics you’re
+trying to improve or measure the impact of the change of your experiment.
+Secondary metrics are used to learn about experiment impacts, but are not primary objectives. Guardrail metrics are
+metrics you’re trying not to hurt.
 
 <div style={{textAlign: 'center'}}>
 <img loading="lazy" alt="GrowthBook Metric Selector" src="/images/using/metrics-modal.png" width="600" />
@@ -116,9 +114,8 @@ see the full data, including 'risk', mouse over any of the results.
 ![GrowthBook Results](/images/using/experiment-results-bayesian-details2.png)
 
 Risk tells you how much you are predicted to lose if you choose the selected variation as the winner
-and you are wrong. Anything highlighted in green indicates that the risk is very low and it may be safe
-to call the experiment. You can use the dropdown to see the risk of choosing a different winner if you
-have multiple variations. Risk thresholds are adjustable per metric.
+and you are wrong. You can specify upper risk thresholds (designed to flag high-risk outcomes) and lower risk thresholds (designed to flag low-risk outcomes) in Behavior on the Metrics tab. Red indicates that the treatment variation has risk above the high-risk threshold.
+Yellow indicates that your risk is between the two thresholds. You can use the dropdown to see the risk of choosing a different winner if you have multiple variations.
 
 Value is the conversion rate or average value per user. In small print you can see the raw numbers
 used to calculate this.
@@ -216,7 +213,7 @@ metrics are ones that you want to keep an eye on, but aren't trying to specifica
 experiment. For example, if you are trying to improve page load times, you may add revenue as a
 guardrail since you don't want to inadvertently harm it.
 
-Guardrail results show up beneath the main table of goal metrics. The full statistics are shown like
+Guardrail results show up beneath the main table of goal and secondary metrics. The full statistics are shown like
 goal metrics, and similarly they are colored based on "Chance to Beat Control". If guardrail metrics
 become significant, you may want to consider ending the experiment.
 

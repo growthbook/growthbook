@@ -24,6 +24,7 @@ describe("EventWebHookNotifier", () => {
         url: "http://foo.com/bla",
         signingKey: "the signing key",
       },
+      method: "POST",
     });
 
     expect(result).toEqual({
@@ -62,6 +63,7 @@ describe("EventWebHookNotifier", () => {
         url: "http://foo.com/bla",
         signingKey: "the signing key",
       },
+      method: "POST",
     });
 
     expect(result).toEqual({
@@ -94,9 +96,9 @@ describe("EventWebHookNotifier", () => {
       payload: "the payload",
       eventWebHook: {
         url: "http://foo.com/bla",
-        method: "PATCH",
         signingKey: "the signing key",
       },
+      method: "PATCH",
     });
 
     expect(result).toEqual({
@@ -132,6 +134,7 @@ describe("EventWebHookNotifier", () => {
         headers: { foo: "bar" },
         signingKey: "the signing key",
       },
+      method: "POST",
     });
 
     expect(result).toEqual({

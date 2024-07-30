@@ -69,7 +69,7 @@ We provide guidance for effect size selection [here](#how-should-i-pick-my-effec
 Now we can see the results!
 ![metric and users input](/images/statistics/power_3.png)
 
-At the top of the page is a box called Analysis Settings. The summary here says, "Run experiment for 4 weeks to achieve 80% power for all metrics." This is the most important piece of information from power analysis. If running your experiment for 4 weeks is compatible with your business constraints, costs, and rollout timeframe, then you do not need to dive into the numbers below this statement. If you want to rerun power results with number of variations greater than 2, then click "# of Variations" and then click "Update". If you want to toggle on or off "Sequential Testing", then press the "Edit" button and select the appropriate option. Enabling sequential testing reduces power.
+At the top of the page is a box called Analysis Settings. The summary here says, "Run experiment for 4 weeks to achieve 80% power for all metrics." This is the most important piece of information from power analysis. If running your experiment for 4 weeks is compatible with your business constraints, costs, and rollout timeframe, then you do not need to dive into the numbers below this statement. If you want to rerun power results with number of variations greater than 2, then click "# of Variations" and then click "Update". The total traffic divided by number of variations should equal the smallest sample size in the experiment you plan to run. If you want to toggle on or off "Sequential Testing", then press the "Edit" button and select the appropriate option. Enabling sequential testing reduces power.
 
 Below "Analysis Settings" is "Calculated Sample Size and Runtime", which contains the number of weeks (or equivalently the number of users) needed to run your experiment to achieve 80% power by metric. Clicking on a row in the table causes the information in the box to the right to change. We expect 80% power for retention if we run the experiment for 2 weeks. For revenue, we need to run the experiment for 4 weeks to achieve at least 80% power.
 
@@ -107,6 +107,14 @@ In clinical trials, the standard is 80%. This means that if you were to run your
 
 That being said, running an experiment with less than 80% power can still help your business. The purpose of an experiment is to learn about your business, not simply to roll out features that achieve statistically significant improvement. The biggest cost to running low-powered experiments is that your results will be noisy. This usually leads to ambiguity in the rollout decision.
 
+## How do I run Bayesian power analysis?
+
+For Bayesian power analysis, you specify the prior distribution of the treatment effect (see [here](/statistics/details#bayesian-engine)) for guidance regarding prior selection). We then estimate Bayesian power, which is the probability that the $(1 - \alpha)$ credible interval does not contain 0.
+
+If your organizational default is Bayesian, then Bayesian will be your default power analysis. You can switch to and from frequentist and Bayesian power calculations by toggling "Statistics Engine" under "Settings" on the Power Results page.
+
+Your default prior for each metric will be your organizational default. To change a prior for a metric, go to "Settings", and make sure that "Statistics Engine" is toggled to "Bayesian." Then choose "Prior Specification", and update prior means and standard deviations for your metric(s). Remember that these priors are on the relative scale, so a prior mean of 0.1 represents a 10% lift.
+
 ## FAQ
 
 Frequently asked questions:
@@ -115,109 +123,73 @@ Frequently asked questions:
 2. How can I increase my experimental power? You can increase experimental power by increasing the number of daily users, perhaps by either expanding your population to new segments, or by including a larger percentage of user traffic in your experiment. Similarly, if you have more than 2 variations, reducing the number of variations increases power.
 3. What if my experiment is low-powered? Should I still run it? The biggest cost to running a low-powered experiment is that your results will probably be noisy, and you will face ambiguity in your rollout/rollback decision. That being said, you will probably still have learnings from your experiment.
 4. What does "N/A" mean for my MDE result? It means there is no solution for the MDE, given the current number of weekly users, control mean, and control variance. Increase your number of weekly users or reduce your number of treatment variations.
+5. After looking at my effect estimate and its uncertainty on the GrowthBook UI, I entered them into the power calculator. While my results were statistically significant, the power calculator outputted that my power is less than 80%. Is this an error? This is not an error. Suppose your effect estimate from your experiment is 2%, and it is barely statistically significant. If you enter a 2% effect size into the power calculator (along with the sample means and standard deviations from your results), the power calculator will probably output power less than 80%. Why? Roughly speaking, the power calculator assumes you are going to run 100 experiments in the future. In some of these experiments your estimated effect size will be larger than 2%, and will probably be statistically significant. In others, the estimated effect size will be less than 2%, and may not be statistically significant. If fewer than 80 of these experiments are statistically significant, then your power estimate will be less than 80%. Similarly, if you enter the sample means and standard deviations from your results, the power calculator will probably output and MDE greater than 2%.
 
 ## GrowthBook implementation
 
-Below we describe technical details of our implementation. First we start with the definition of power.  
+For both Bayesian and frequentist engines, we produce two key estimates:
+
+1. Power - After running the experiment for a given number of weeks and for a hypothesized effect size, what is the probability of a statistically significant result?
+2. Minimum Detectable Effect (MDE) - After running an experiment for a given number of weeks, what is the smallest effect that we can detect as statistically significant 80% of the time?
+
+Each engine arrives at these values differently. Below we describe high-level technical details of our implementation. All technical details can be found [here](/statistics/power-technical).
+
+### Frequentist implementation
+
+Below we define frequentist power.
+
 Define:
 
 1. the false positive rate as $\alpha$ (GrowthBook default is $\alpha=0.05$).
-2. the critical values $Z_{1-\alpha/2}= \Phi^{-1}(1-\alpha/2)$ and $Z_{1-\alpha}= \Phi^{-1}(1-\alpha)$ where $\Phi$ is the inverse CDF of the standard normal distribution.
-3. the true relative treatment effect as $\tau$, its estimate as $\hat{\tau}$ and its estimated standard error as $s$. Note that as the sample size $n$ increases, s decreases by a factor of $1/\sqrt{n}$.
+2. the critical values $Z_{1- \alpha / 2}= \Phi^{-1}(1-\alpha/2)$ and $Z_{1-\alpha}= \Phi^{-1}(1-\alpha)$ where $\Phi$ is the inverse cumulative distribution function of the standard normal distribution.
 
 We make the following assumptions:
 
-1. equal sample sizes across control and treatment variations;
+1. equal sample sizes across control and treatment variations. If unequal sample sizes are used in the experiment, use the smaller of the two sample sizes. This will produce conservative power estimates.
 2. equal variance across control and treatment variations;
 3. observations across users are independent and identically distributed; and
 4. all metrics have finite variance.
 5. you are running a two-sample t-test. If in practice you use [CUPED](/statistics/cuped), your power will be higher. Use CUPED!
 
-For a 1-sided test, the probability of a statistically significant result (i.e., the power) is
+For a 2-sided test (all GrowthBook tests are 2-sided), power is the probability of rejecting the null hypothesis of no effect, given that a nonzero effect exists.  
+Mathematically, **frequentist power** equals
 
-$$\pi = P\left(\frac{\hat{\tau}}{s} > Z_{1-\alpha}\right)=P\left(\frac{\hat{\tau}-\tau}{s} > Z_{1-\alpha}-\frac{\tau}{s}\right)=1 - \Phi\left(Z_{1-\alpha}-\frac{\tau}{s}\right)$$.
+$$\pi = 1 - \Phi\left(Z_{1-\alpha/2}-\frac{\Delta}{\hat{\sigma}_{\Delta}}\right) + \Phi(Z_{\alpha/2} - \frac{\Delta}{\hat{\sigma}_{\Delta}})$$.
 
-For a 2-sided test (all GrowthBook tests are 2-sided), the power is composed of the probability of a statistically significant positive result and a statistically significant negative result. Using the same algebra as above (except using $Z_{1-0.5\alpha}$ for the critical value), the probability of a statistically significant positive result is
-$\pi_{pos} = 1 - \Phi\left(Z_{1-\alpha/2}-\frac{\tau}{s}\right)$. The probability of a statistically significant negative result is $\pi_{neg} = P\left(\frac{\hat{\tau}}{s} < Z_{\alpha/2}\right)=P\left(\frac{\hat{\tau}-\tau}{s} < Z_{\alpha/2}-\frac{\tau}{s}\right)=\Phi\left(Z_{\alpha/2}-\frac{\tau}{s}\right)$.  
-For a 2-sided test, the power equals
+The MDE is the smallest effect size for which nominal power (i.e., 80%) is achieved.
+In the 2-sided case there is no closed form solution.
+The **frequentist MDE** is the solution for $\Delta$ when solving for $\pi$ in the equation below:
 
-$$\pi = 1 - \Phi\left(Z_{1-\alpha/2}-\frac{\tau}{s}\right) + \Phi(Z_{\alpha/2} - \frac{\tau}{s})$$.
+$$\pi = 1 - \Phi\left(Z_{1-\alpha/2}-\frac{\Delta}{\hat{\sigma}_{\Delta}}\right).$$
 
-The MDE is the smallest $\tau$ for which nominal power (i.e., 80%) is achieved. For a 1-sided test there is a closed form solution for the MDE. Solving the 1-sided power equation for $\tau$ produces
-$\text{MDE} = s\left(Z_{1-\alpha/2}-\Phi^{-1}(1 - \pi)\right) = s\left(\Phi^{-1}(1 - \alpha/2)-\Phi^{-1}(1 - \pi)\right)$.
+Inverting this equation requires some care, as the uncertainty estimate $\hat{\sigma}_{\Delta}$ depends upon $\Delta$. Details can be found [here](/statistics/power-technical).
 
-In the 2-sided case there is no closed form solution, so we instead invert the equation below, which ignores the neglible term $\Phi(Z_{\alpha/2} - \frac{\tau}{s})$, and produces power estimates very close to 0.8:
+To estimate power under [sequential testing](/statistics/sequential), we adjust the variance term $\hat{\sigma}_{\Delta}^{2}$ to account for sequential testing, and then input this adjusted variance into our power formula. We assume that you look at the data only once, so our power estimate below is a lower bound for the actual power under sequential testing.
+Otherwise we would have to make assumptions about the temporal correlation of the data generating process.
 
-$$\pi = 1 - \Phi\left(Z_{1-\alpha/2}-\frac{\tau}{s}\right)$$
+### Bayesian implementation
 
-One subtlety with finding MDEs for relative treatment effects is that the uncertainty of the estimate depends upon the mean.
-So when inverting the power formula above to find the minimum $\tau$ that produces at least 80% power, the uncertainty term $s$ changes as $\tau$ changes.  
-We solve for the equation below, where we make explicit the dependence of $s$ on $\tau$:
+For Bayesian power analysis, we let users specify the prior distribution of the treatment effect (see [here](/statistics/details#bayesian-engine) for guidance regarding prior selection). We then estimate Bayesian power, which is the probability that the $(1 - \alpha)$ credible interval does not contain 0.
 
-$$\frac{\tau}{s(\tau)} =  \Phi^{-1}\left({1-\alpha/2}\right) - \Phi^{-1}(1 - \pi).$$
-
-Define $\mu_{A}$ as the population mean of variation $A$ and $\sigma^{2}$ as the population variance.
-For variation $B$ analogously define $\mu_{B}$; recall that we assume equal variance across treatment arms.  
-Define $N$ as the per-variation sample size.
-Define the sample counterparts as ($\hat{\mu}_{A}$, $\hat{\sigma}_{A}^{2}$, $\hat{\mu}_{B}$, and $\hat{\sigma}_{B}^{2}$).
-
-Recall that our lift is defined as $$\tau = (\mu_{B}-\mu_{A})/\mu_{A}$$ and the variance of the sample lift $$\hat{\tau} = (\hat{\mu_{B}}-\hat{\mu_{A}})/\hat{\mu_{A}}$$ is
-
-$$\text{Var}(\hat{\tau}) = \frac{\sigma^{2}}{N}\frac{1}{\mu_{A}^{2}}  + \frac{\sigma^{2}}{N} *\frac{\mu_{B}^{2}}{\mu_{A}^{4}}.$$
-
-Define the constant $k = \Phi^{-1}\left({1-\alpha/2}\right) - \Phi^{-1}(1 - \pi)$.
-We solve for $\mu_{B}$ in:
-
-$$\frac{(\mu_{B}-\mu_{A})/\mu_{A}}{\sqrt{\text{Var}(\hat{\tau})}} = k^{2} \iff (\mu_{B}-\mu_{A})^{2} =k^{2}\mu_{A}^{2}\text{Var}(\hat{\tau}) = k^{2}\mu_{A}^{2}\left(\frac{\sigma^{2}}{N}\frac{1}{\mu_{A}^{2}}  + \frac{\sigma^{2}}{N} *\frac{\mu_{B}^{2}}{\mu_{A}^{4}}\right).$$
-
-Rearranging terms shows that
-$$\mu_{B}^{2}\left(1-\frac{\sigma^{2}}{N}\frac{k^{2}}{\mu_{A}^{2}}\right) + \mu_{B}\left(-2\mu_{A}\right) + \left(\mu_{A}^{2}-k^{2}\frac{\sigma^{2}}{N}\right) = 0.$$
-
-This is quadratic in $\mu_{B}$ and has solution
+At GrowthBook, **Bayesian power** is
 
 $$
-\mu_{B} = \frac{2 \mu_{A} \pm \sqrt{4 \mu_{A}^{2}-4\left(1-\frac{\sigma^{2}}{N}\frac{k^{2}}{\mu_{A}^{2}}\right)\left(\mu_{A}^{2}-k^{2}\frac{\sigma^{2}}{N}\right)}}{2\left(1-\frac{\sigma^{2}}{N}\frac{k^{2}}{\mu_{A}^{2}}\right)}
-= \frac{\mu_{A} \pm \sqrt{\mu_{A}^{2}-\left(1-\frac{\sigma^{2}}{N}\frac{k^{2}}{\mu_{A}^{2}}\right)\left(\mu_{A}^{2}-k^{2}\frac{\sigma^{2}}{N}\right)}}{\left(1-\frac{\sigma^{2}}{N}\frac{k^{2}}{\mu_{A}^{2}}\right)}
-.
+\begin{align}
+\begin{split}
+\pi &= 1-\Phi\left(
+\frac{
+\hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{prior}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2} Z_{1-\alpha/2} - \frac{\mu_{prior}}{\sigma_{prior}^{2}}\right]-\Delta}
+{\sqrt{\hat{\sigma}_{\Delta}^{2}}}
+\right)
+\\&+\Phi\left(
+\frac{
+-\hat{\sigma}_{\Delta}^{2}\left[\left(\frac{1}{\sigma_{prior}^{2}} + \frac{1}{\hat{\sigma}_{\Delta}^{2}}\right)^{1/2} Z_{1-\alpha/2} - \frac{\mu_{prior}}{\sigma_{prior}^{2}}\right]-\Delta}
+{\sqrt{\hat{\sigma}_{\Delta}^{2}}}
+\right).
+\end{split}
+\end{align}
 $$
 
-The discriminant reduces to
+Constructing the MDE is less straightforward, as MDEs are not well defined in Bayesian literature. We provide MDEs in Bayesian power analysis for customers that are used to conceptualizing MDEs and want to be able to leverage prior information in their analysis. We define the MDE as the minimum value of $\Delta$ such that at least $\pi$ power is achieved.
 
-$$k^{2} * \frac{\sigma^{2}}{N} \left(2 - \frac{\sigma^{2}}{N} * \frac{k^{2}}{\mu_{A}^{2}}\right).$$
-
-so a solution for $\mu_{B}$ exists if and only if
-
-$$
-2 - \frac{\sigma^{2}}{N} * \frac{k^{2}}{\mu_{A}^{2}} > 0 \iff 2  > \frac{\sigma^{2}}{N} * \frac{k^{2}}{\mu_{A}^{2}}
-\iff N  > \frac{\sigma^{2}k^{2}}{2\mu_{A}^{2}}.
-$$
-
-Similarly, the MDE returned can be negative if the denominator is negative, which is nonsensical.  
-We return cases only where the denominator is positive, which occurs if and only if:
-
-$$\left(1-\frac{\sigma^{2}}{N}\frac{k^{2}}{\mu_{A}^{2}}\right) > 0 \iff \left(1-\frac{\sigma^{2}}{N}\frac{k^{2}}{\mu_{A}^{2}}\right) > 0 \iff  N  > \frac{\sigma^{2}k^{2}}{\mu_{A}^{2}}.$$
-
-This condition is stricter than the condition guaranteeing existence of a solution.
-
-Therefore, there will be some combinations of $(\mu_{A}, \sigma_{2})$ where the MDE does not exist for a given $N$. If $\alpha=0.05$ and $\pi=0.8$, then $k\approx 2.8$. Therefore, a rule of thumb is that $N$ needs to be roughly 9 times larger than the ratio of the variance to the squared mean to return an MDE.
-In these cases, $N$ needs to be increased.
-
-To estimate power under sequential testing, we adjust the variance term $s$ to account for sequential testing, and then input this adjusted variance into our power formula. We assume that you look at the data only once, so our power estimate below is a lower bound for the actual power under sequential testing. Otherwise we would have to make assumptions about the temporal correlation of the data generating process.
-
-In [sequential testing](/statistics/sequential) we construct confidence intervals as
-
-$\left(\hat{\tau} \pm \hat{\sigma}*\sqrt{N} * \sqrt{\frac{2(N\rho^2 + 1)}{N^2\rho^2}\log\left(\frac{\sqrt{N\rho^2 + 1}}{\alpha}\right)}\right)$
-
-where
-
-$\rho = \sqrt{\frac{-2\text{log}(\alpha) + \text{log}(-2 \text{log}(\alpha) + 1)}{N^*}}$
-
-and $N^{\star}$ is a tuning parameter. This approach relies upon asymptotic normality. For power analysis we rewrite the confidence interval as
-
-$\left(\hat{\tau} \pm \hat{\sigma}*\sqrt{N} * \sqrt{\frac{2(N\rho^2 + 1)}{N^2\rho^2}\log\left(\frac{\sqrt{N\rho^2 + 1}}{\alpha}\right)}\frac{Z_{1-\alpha/2}}{Z_{1-\alpha/2}}\right)$$=\left(\hat{\tau} \pm \tilde{\sigma}Z_{1-\alpha/2}\right)$
-
-where
-
-$\tilde{\sigma} = \hat{\sigma}*\sqrt{N}\sqrt{\frac{2(N\rho^2 + 1)}{N^2\rho^2}\log\left(\frac{\sqrt{N\rho^2 + 1}}{\alpha}\right)}\frac{1}{Z_{1-\alpha/2}}$.
-
-We use power analysis described above, except we substitute $\tilde{\sigma}^{2}$ for $s^{2}$.
+The **Bayesian MDE** is the solution for $\Delta$ when solving for $\pi$ in Equation 1. To find $\Delta$, we use a grid search.

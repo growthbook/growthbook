@@ -74,6 +74,8 @@ const Input = (props: InputProps) => {
   return <components.Input onPaste={onPaste} {...props} />;
 };
 
+type Option = SingleValue | GroupedValue;
+
 const MultiSelectField: FC<
   Omit<
     FieldProps,
@@ -81,7 +83,7 @@ const MultiSelectField: FC<
   > & {
     value: string[];
     placeholder?: string;
-    options: (SingleValue | GroupedValue)[];
+    options: Option[];
     initialOption?: string;
     onChange: (value: string[]) => void;
     sort?: boolean;
@@ -94,6 +96,7 @@ const MultiSelectField: FC<
       meta: FormatOptionLabelMeta<SingleValue>
     ) => ReactNode;
     onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
+    isOptionDisabled?: (_: Option) => boolean;
     noMenu?: boolean;
   }
 > = ({
@@ -111,6 +114,7 @@ const MultiSelectField: FC<
   closeMenuOnSelect = false,
   formatOptionLabel,
   onPaste,
+  isOptionDisabled,
   noMenu,
   ...otherProps
 }) => {
@@ -186,6 +190,7 @@ const MultiSelectField: FC<
             autoFocus={autoFocus}
             value={selected}
             placeholder={initialOption ?? placeholder}
+            isOptionDisabled={isOptionDisabled}
             {...{ ...ReactSelectProps, ...mergeStyles }}
           />
         );

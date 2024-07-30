@@ -34,6 +34,7 @@ type SDKWebhookJob = Job<{
   webhookId: string;
   retryCount: number;
 }>;
+const sendPayloadFormats = ["standard", "sdkPayload"];
 
 const fireWebhooks = trackJob(
   SDK_WEBHOOKS_JOB_NAME,
@@ -161,10 +162,13 @@ async function runWebhookFetch({
   const signingKey = webhook.signingKey;
   const headers = webhook.headers || "";
   const method = webhook.httpMethod || "POST";
-  const sendPayload = webhook.sendPayload;
+  const payloadFormat = webhook.payloadFormat || "standard";
   const organizationId = webhook.organization;
   const requestTimeout = 30000;
   const maxContentSize = 1000;
+
+  const sendPayload =
+    method !== "GET" && sendPayloadFormats.includes(payloadFormat);
 
   const date = new Date();
   const signature = createHmac("sha256", signingKey)
@@ -172,18 +176,40 @@ async function runWebhookFetch({
     .digest("hex");
   const secret = `whsec_${signature}`;
   const webhookID = `msg_${md5(key + date.getTime()).substr(0, 16)}`;
-  const data = sendPayload ? { payload } : {};
 
   const timestamp = Math.floor(date.getTime() / 1000);
 
-  const body =
-    method === "GET"
-      ? undefined
-      : JSON.stringify({
+  let body: string | undefined;
+  const standardBody = JSON.stringify({
+    type: "payload.changed",
+    timestamp: date.toISOString(),
+    data: { payload },
+  });
+  let invalidValue: never;
+
+  if (method !== "GET") {
+    switch (payloadFormat) {
+      case "none":
+        body = undefined;
+        break;
+      case "standard-no-payload":
+        body = JSON.stringify({
           type: "payload.changed",
           timestamp: date.toISOString(),
-          data,
         });
+        break;
+      case "sdkPayload":
+        body = payload;
+        break;
+      case "standard":
+        body = standardBody;
+        break;
+      default:
+        body = standardBody;
+        invalidValue = payloadFormat;
+        logger.error(`Invalid webhook payload format: ${invalidValue}`);
+    }
+  }
 
   const standardSignatureBody = `${webhookID}.${timestamp}.${body || ""}`;
   const standardSignature =
@@ -277,7 +303,10 @@ export async function fireSdkWebhook(
     }
 
     let payload = "";
-    if (webhook.sendPayload) {
+    const sendPayload =
+      webhook.httpMethod !== "GET" &&
+      sendPayloadFormats.includes(webhook.payloadFormat ?? "standard");
+    if (sendPayload) {
       const environmentDoc = webhookContext.org?.settings?.environments?.find(
         (e) => e.id === connection.environment
       );
@@ -393,7 +422,24 @@ export async function fireGlobalSdkWebhooks(
     const payload = JSON.stringify(defs);
 
     WEBHOOKS.forEach((webhook) => {
-      const { url, signingKey, method, headers, sendPayload } = webhook;
+      const {
+        url,
+        signingKey,
+        method,
+        headers,
+        sendPayload,
+        payloadFormat,
+      } = webhook;
+      let format = payloadFormat;
+      if (!format) {
+        if (method === "GET") {
+          format = "none";
+        } else if (sendPayload) {
+          format = "standard";
+        } else {
+          format = "standard-no-payload";
+        }
+      }
 
       const id = `global_${md5(url)}`;
       const w: WebhookInterface = {
@@ -403,7 +449,7 @@ export async function fireGlobalSdkWebhooks(
         httpMethod: method,
         headers:
           typeof headers !== "string" ? JSON.stringify(headers) : headers,
-        sendPayload: !!sendPayload,
+        payloadFormat: format,
         organization: context.org?.id,
         created: new Date(),
         error: "",

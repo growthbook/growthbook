@@ -1,11 +1,15 @@
 import { AppProps } from "next/app";
 import "@/styles/global.scss";
+import "@radix-ui/themes/styles.css";
+import "@/styles/theme-config.css";
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+import { Inter } from "next/font/google";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
 import { PageHeadProvider } from "@/components/Layout/PageHead";
+import { RadixTheme } from "@/services/RadixTheme";
 import { AuthProvider } from "@/services/auth";
 import ProtectedPage from "@/components/ProtectedPage";
 import { DefinitionsProvider } from "@/services/DefinitionsContext";
@@ -20,11 +24,15 @@ import { AppFeatures } from "@/./types/app-features";
 import GetStartedProvider from "@/services/GetStartedProvider";
 import GuidedGetStartedBar from "@/components/Layout/GuidedGetStartedBar";
 
+// If loading a variable font, you don't need to specify the font weight
+const inter = Inter({ subsets: ["latin"] });
+
 type ModAppProps = AppProps & {
   Component: {
     noOrganization?: boolean;
     preAuth?: boolean;
     liteLayout?: boolean;
+    preAuthTopNav?: boolean;
   };
 };
 
@@ -58,7 +66,7 @@ function App({
 
   const organizationRequired = !Component.noOrganization;
   const preAuth = Component.preAuth || false;
-
+  const preAuthTopNav = Component.preAuthTopNav || false;
   const liteLayout = Component.liteLayout || false;
 
   useEffect(() => {
@@ -83,47 +91,75 @@ function App({
     });
   }, [router.pathname]);
 
+  const renderPreAuth = () => {
+    if (preAuthTopNav) {
+      return (
+        <>
+          <TopNavLite />
+          <main className="container mt-5">
+            <Component {...pageProps} />
+          </main>
+        </>
+      );
+    }
+    return <Component {...pageProps} />;
+  };
+
   return (
     <>
+      <style jsx global>{`
+        html {
+          font-family: var(--default-font-family);
+          --default-font-family: ${inter.style.fontFamily};
+        }
+        body {
+          font-family: var(--default-font-family);
+        }
+        .radix-themes {
+          --default-font-family: ${inter.style.fontFamily};
+        }
+      `}</style>
       <Head>
         <title>GrowthBook</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       {ready ? (
-        preAuth ? (
-          <Component {...pageProps} />
-        ) : (
-          <PageHeadProvider>
-            <AuthProvider>
-              <AppearanceUIThemeProvider>
-                <GrowthBookProvider growthbook={growthbook}>
-                  <ProtectedPage organizationRequired={organizationRequired}>
-                    {organizationRequired ? (
-                      <GetStartedProvider>
-                        <DefinitionsProvider>
-                          {!liteLayout && <Layout />}
-                          <main className={`main ${parts[0]}`}>
-                            <GuidedGetStartedBar />
-                            <OrganizationMessagesContainer />
-                            <DemoDataSourceGlobalBannerContainer />
+        <AppearanceUIThemeProvider>
+          <RadixTheme>
+            {preAuth ? (
+              renderPreAuth()
+            ) : (
+              <PageHeadProvider>
+                <AuthProvider>
+                  <GrowthBookProvider growthbook={growthbook}>
+                    <ProtectedPage organizationRequired={organizationRequired}>
+                      {organizationRequired ? (
+                        <GetStartedProvider>
+                          <DefinitionsProvider>
+                            {!liteLayout && <Layout />}
+                            <main className={`main ${parts[0]}`}>
+                              <GuidedGetStartedBar />
+                              <OrganizationMessagesContainer />
+                              <DemoDataSourceGlobalBannerContainer />
+                              <Component {...pageProps} />
+                            </main>
+                          </DefinitionsProvider>
+                        </GetStartedProvider>
+                      ) : (
+                        <div>
+                          <TopNavLite />
+                          <main className="container mt-5">
                             <Component {...pageProps} />
                           </main>
-                        </DefinitionsProvider>
-                      </GetStartedProvider>
-                    ) : (
-                      <div>
-                        <TopNavLite />
-                        <main className="container mt-5">
-                          <Component {...pageProps} />
-                        </main>
-                      </div>
-                    )}
-                  </ProtectedPage>
-                </GrowthBookProvider>
-              </AppearanceUIThemeProvider>
-            </AuthProvider>
-          </PageHeadProvider>
-        )
+                        </div>
+                      )}
+                    </ProtectedPage>
+                  </GrowthBookProvider>
+                </AuthProvider>
+              </PageHeadProvider>
+            )}
+          </RadixTheme>
+        </AppearanceUIThemeProvider>
       ) : error ? (
         <div className="container mt-3">
           <div className="alert alert-danger">

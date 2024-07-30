@@ -1,4 +1,4 @@
-import { each, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
+import { each, isEqual, omit, pick, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
@@ -80,7 +80,6 @@ const experimentSchema = new mongoose.Schema({
   // Observations is not used anymore, keeping here so it will continue being saved in Mongo if present
   observations: String,
   hypothesis: String,
-  metrics: [String],
   pastNotifications: [String],
   metricOverrides: [
     {
@@ -103,7 +102,11 @@ const experimentSchema = new mongoose.Schema({
       conversionDelayHours: Number,
     },
   ],
-  guardrails: [String],
+  // These are using {} instead of [String] so Mongoose doesn't prefill them with empty arrays
+  // This is necessary for migrations to work properly
+  goalMetrics: {},
+  secondaryMetrics: {},
+  guardrailMetrics: {},
   activationMetric: String,
   segment: String,
   queryFilter: String,
@@ -262,7 +265,10 @@ export async function getExperimentById(
 
 export async function getAllExperiments(
   context: ReqContext | ApiReqContext,
-  project?: string
+  {
+    project,
+    includeArchived = false,
+  }: { project?: string; includeArchived?: boolean } = {}
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
@@ -272,7 +278,28 @@ export async function getAllExperiments(
     query.project = project;
   }
 
+  if (!includeArchived) {
+    query.archived = { $ne: true };
+  }
+
   return await findExperiments(context, query);
+}
+
+export async function hasArchivedExperiments(
+  context: ReqContext | ApiReqContext,
+  project?: string
+): Promise<boolean> {
+  const query: FilterQuery<ExperimentDocument> = {
+    organization: context.org.id,
+    archived: true,
+  };
+
+  if (project) {
+    query.project = project;
+  }
+
+  const e = await ExperimentModel.findOne(query);
+  return !!e;
 }
 
 export async function getExperimentByTrackingKey(
@@ -367,7 +394,7 @@ export async function createExperiment({
 
   await onExperimentCreate({
     context,
-    experiment: exp,
+    experiment: toInterface(exp),
   });
 
   if (data.tags) {
@@ -388,18 +415,23 @@ export async function updateExperiment({
   changes: Changeset;
   bypassWebhooks?: boolean;
 }): Promise<ExperimentInterface> {
+  // TODO: are there some changes where we don't want to update the dateUpdated?
+  const allChanges = { ...changes };
+  allChanges.dateUpdated = new Date();
+
   await ExperimentModel.updateOne(
     {
       id: experiment.id,
       organization: context.org.id,
     },
     {
-      $set: changes,
+      $set: allChanges,
     }
   );
 
-  const updated = { ...experiment, ...changes };
+  const updated = { ...experiment, ...allChanges };
 
+  // TODO: are there some changes where we want to skip calling this?
   await onExperimentUpdate({
     context,
     oldExperiment: experiment,
@@ -414,48 +446,22 @@ export async function getExperimentsByMetric(
   context: ReqContext | ApiReqContext,
   metricId: string
 ): Promise<{ id: string; name: string }[]> {
-  const experiments: {
-    id: string;
-    name: string;
-  }[] = [];
-
-  // Using as a goal metric
-  const goals = await findExperiments(context, {
+  const experiments = await findExperiments(context, {
     organization: context.org.id,
-    metrics: metricId,
-  });
-  goals.forEach((exp) => {
-    experiments.push({
-      id: exp.id,
-      name: exp.name,
-    });
-  });
-
-  // Using as a guardrail metric
-  const guardrails = await findExperiments(context, {
-    organization: context.org.id,
-    guardrails: metricId,
-  });
-  guardrails.forEach((exp) => {
-    experiments.push({
-      id: exp.id,
-      name: exp.name,
-    });
+    $or: [
+      { metrics: metricId },
+      { goalMetrics: metricId },
+      { guardrails: metricId },
+      { guardrailMetrics: metricId },
+      { secondaryMetrics: metricId },
+      { activationMetric: metricId },
+    ],
   });
 
-  // Using as an activation metric
-  const activations = await findExperiments(context, {
-    organization: context.org.id,
-    activationMetric: metricId,
-  });
-  activations.forEach((exp) => {
-    experiments.push({
-      id: exp.id,
-      name: exp.name,
-    });
-  });
-
-  return uniqBy(experiments, "id");
+  return experiments.map((exp) => ({
+    id: exp.id,
+    name: exp.name,
+  }));
 }
 
 export async function getExperimentByIdea(
@@ -839,7 +845,7 @@ export async function deleteAllExperimentsForAProject({
   for (const experiment of experimentsToDelete) {
     await experiment.delete();
     VisualChangesetModel.deleteMany({ experiment: experiment.id });
-    await onExperimentDelete(context, experiment);
+    await onExperimentDelete(context, toInterface(experiment));
   }
 }
 

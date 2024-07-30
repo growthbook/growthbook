@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { RxDesktop } from "react-icons/rx";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { datetime, ago } from "shared/dates";
+import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
+import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
@@ -32,6 +33,7 @@ import { useWatching } from "@/services/WatchProvider";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 
 const NUM_PER_PAGE = 20;
 
@@ -43,13 +45,18 @@ const ExperimentsPage = (): React.ReactElement => {
     project,
     getExperimentMetricById,
     getProjectById,
+    getDatasourceById,
   } = useDefinitions();
 
-  const { experiments: allExperiments, error, loading } = useExperiments(
-    project
-  );
-
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
+
+  const {
+    experiments: allExperiments,
+    error,
+    loading,
+    hasArchived,
+  } = useExperiments(project, tabs.includes("archived"));
+
   const tagsFilter = useTagsFilter("experiments");
   const [showMineOnly, setShowMineOnly] = useLocalStorage(
     "showMyExperimentsOnly",
@@ -72,9 +79,10 @@ const ExperimentsPage = (): React.ReactElement => {
 
       return {
         ownerName: getUserDisplay(exp.owner, false) || "",
-        metricNames: exp.metrics
+        metricNames: exp.goalMetrics
           .map((m) => getExperimentMetricById(m)?.name)
           .filter(Boolean),
+        datasource: getDatasourceById(exp.datasource)?.name || "",
         projectId,
         projectName,
         projectIsDeReferenced,
@@ -93,7 +101,7 @@ const ExperimentsPage = (): React.ReactElement => {
             : exp.dateCreated) ?? "",
       };
     },
-    [getExperimentMetricById, getProjectById]
+    [getExperimentMetricById, getProjectById, getUserDisplay]
   );
 
   const { watchedExperiments } = useWatching();
@@ -176,12 +184,12 @@ const ExperimentsPage = (): React.ReactElement => {
       tag: (item) => item.tags,
       project: (item) => [item.project, item.projectName],
       feature: (item) => item.linkedFeatures || [],
+      datasource: (item) => item.datasource,
       metric: (item) => [
         ...item.metricNames,
-        ...item.metrics,
-        ...(item.guardrails || []),
-        item.activationMetric,
+        ...getAllMetricIdsFromExperiment(item),
       ],
+      goal: (item) => [...item.metricNames, ...item.goalMetrics],
     },
     filterResults,
   });
@@ -223,8 +231,6 @@ const ExperimentsPage = (): React.ReactElement => {
   const hasExperiments = experiments.length > 0;
 
   const canAdd = permissionsUtil.canViewExperimentModal(project);
-
-  const hasArchivedExperiments = experiments.some((item) => item.archived);
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -272,6 +278,7 @@ const ExperimentsPage = (): React.ReactElement => {
               </div>
             )}
           </div>
+          <CustomMarkdown page={"experimentList"} />
           {!hasExperiments ? (
             <div
               className="appbox d-flex flex-column align-items-center"
@@ -313,8 +320,7 @@ const ExperimentsPage = (): React.ReactElement => {
                     (tab, i) => {
                       const active = tabs.includes(tab);
 
-                      if (tab === "archived" && !hasArchivedExperiments)
-                        return null;
+                      if (tab === "archived" && !hasArchived) return null;
 
                       return (
                         <button
@@ -325,7 +331,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             "rounded-left": i === 0,
                             "rounded-right":
                               tab === "archived" ||
-                              (tab === "stopped" && !hasArchivedExperiments),
+                              (tab === "stopped" && !hasArchived),
                           })}
                           style={{
                             fontSize: "1em",
@@ -350,9 +356,11 @@ const ExperimentsPage = (): React.ReactElement => {
                             {tab.slice(0, 1).toUpperCase()}
                             {tab.slice(1)}
                           </span>
-                          <span className="badge bg-white border text-dark mr-2">
-                            {tabCounts[tab] || 0}
-                          </span>
+                          {tab !== "archived" && (
+                            <span className="badge bg-white border text-dark mr-2">
+                              {tabCounts[tab] || 0}
+                            </span>
+                          )}
                         </button>
                       );
                     }
@@ -502,7 +510,7 @@ const ExperimentsPage = (): React.ReactElement => {
                             : e.tab === "archived"
                             ? "updated"
                             : ""}{" "}
-                          {ago(e.date)}
+                          {date(e.date)}
                         </td>
                         <td className="nowrap" data-title="Summary:">
                           {e.archived ? (

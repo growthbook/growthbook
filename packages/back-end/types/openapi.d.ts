@@ -40,16 +40,16 @@ export interface paths {
   "/projects": {
     /** Get all projects */
     get: operations["listProjects"];
+    /** Create a single project */
+    post: operations["postProject"];
   };
   "/projects/{id}": {
     /** Get a single project */
     get: operations["getProject"];
-    parameters: {
-        /** @description The id of the requested resource */
-      path: {
-        id: string;
-      };
-    };
+    /** Edit a single project */
+    put: operations["putProject"];
+    /** Deletes a single project */
+    delete: operations["deleteProject"];
   };
   "/dimensions": {
     /** Get all dimensions */
@@ -82,16 +82,16 @@ export interface paths {
   "/sdk-connections": {
     /** Get all sdk connections */
     get: operations["listSdkConnections"];
+    /** Create a single sdk connection */
+    post: operations["postSdkConnection"];
   };
   "/sdk-connections/{id}": {
     /** Get a single sdk connection */
     get: operations["getSdkConnection"];
-    parameters: {
-        /** @description The id of the requested resource */
-      path: {
-        id: string;
-      };
-    };
+    /** Update a single sdk connection */
+    put: operations["putSdkConnection"];
+    /** Deletes a single SDK connection */
+    delete: operations["deleteSdkConnection"];
   };
   "/data-sources": {
     /** Get all data sources */
@@ -966,7 +966,19 @@ export interface components {
         attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
+        regressionAdjustmentEnabled?: boolean;
         goals: ({
+            metricId: string;
+            overrides: {
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
+              winRiskThreshold?: number;
+              loseRiskThreshold?: number;
+            };
+          })[];
+        secondaryMetrics: ({
             metricId: string;
             overrides: {
               delayHours?: number;
@@ -1031,7 +1043,19 @@ export interface components {
       attributionModel: "firstExposure" | "experimentDuration";
       /** @enum {unknown} */
       statsEngine: "bayesian" | "frequentist";
+      regressionAdjustmentEnabled?: boolean;
       goals: ({
+          metricId: string;
+          overrides: {
+            delayHours?: number;
+            windowHours?: number;
+            /** @enum {string} */
+            window?: "conversion" | "lookback" | "";
+            winRiskThreshold?: number;
+            loseRiskThreshold?: number;
+          };
+        })[];
+      secondaryMetrics: ({
           metricId: string;
           overrides: {
             delayHours?: number;
@@ -1088,7 +1112,19 @@ export interface components {
         attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
+        regressionAdjustmentEnabled?: boolean;
         goals: ({
+            metricId: string;
+            overrides: {
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
+              winRiskThreshold?: number;
+              loseRiskThreshold?: number;
+            };
+          })[];
+        secondaryMetrics: ({
             metricId: string;
             overrides: {
               delayHours?: number;
@@ -2665,8 +2701,21 @@ export interface operations {
       };
     };
   };
-  getProject: {
-    /** Get a single project */
+  postProject: {
+    /** Create a single project */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          description?: string;
+          /** @description Project settings. */
+          settings?: {
+            /** @description Stats engine. */
+            statsEngine?: string;
+          };
+        };
+      };
+    };
     responses: {
       200: {
         content: {
@@ -2683,6 +2732,101 @@ export interface operations {
                 statsEngine?: string;
               };
             };
+          };
+        };
+      };
+    };
+  };
+  getProject: {
+    /** Get a single project */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            project: {
+              id: string;
+              name: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              description?: string;
+              settings?: {
+                statsEngine?: string;
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+  putProject: {
+    /** Edit a single project */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Project name. */
+          name?: string;
+          /** @description Project description. */
+          description?: string;
+          /** @description Project settings. */
+          settings?: {
+            /** @description Stats engine. */
+            statsEngine?: string;
+          };
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            project: {
+              id: string;
+              name: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              description?: string;
+              settings?: {
+                statsEngine?: string;
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteProject: {
+    /** Deletes a single project */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /**
+             * @description The ID of the deleted project 
+             * @example prj__123abc
+             */
+            deletedId?: string;
           };
         };
       };
@@ -2864,8 +3008,28 @@ export interface operations {
       };
     };
   };
-  getSdkConnection: {
-    /** Get a single sdk connection */
+  postSdkConnection: {
+    /** Create a single sdk connection */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          language: string;
+          sdkVersion?: string;
+          environment: string;
+          projects?: (string)[];
+          encryptPayload?: boolean;
+          includeVisualExperiments?: boolean;
+          includeDraftExperiments?: boolean;
+          includeExperimentNames?: boolean;
+          includeRedirectExperiments?: boolean;
+          proxyEnabled?: boolean;
+          proxyHost?: string;
+          hashSecureAttributes?: boolean;
+          remoteEvalEnabled?: boolean;
+        };
+      };
+    };
     responses: {
       200: {
         content: {
@@ -2898,6 +3062,134 @@ export interface operations {
               hashSecureAttributes?: boolean;
               remoteEvalEnabled?: boolean;
             };
+          };
+        };
+      };
+    };
+  };
+  getSdkConnection: {
+    /** Get a single sdk connection */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            sdkConnection: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              organization: string;
+              languages: (string)[];
+              sdkVersion?: string;
+              environment: string;
+              /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
+              project: string;
+              projects?: (string)[];
+              encryptPayload: boolean;
+              encryptionKey: string;
+              includeVisualExperiments?: boolean;
+              includeDraftExperiments?: boolean;
+              includeExperimentNames?: boolean;
+              includeRedirectExperiments?: boolean;
+              key: string;
+              proxyEnabled: boolean;
+              proxyHost: string;
+              proxySigningKey: string;
+              sseEnabled?: boolean;
+              hashSecureAttributes?: boolean;
+              remoteEvalEnabled?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  putSdkConnection: {
+    /** Update a single sdk connection */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          language?: string;
+          sdkVersion?: string;
+          environment?: string;
+          projects?: (string)[];
+          encryptPayload?: boolean;
+          includeVisualExperiments?: boolean;
+          includeDraftExperiments?: boolean;
+          includeExperimentNames?: boolean;
+          includeRedirectExperiments?: boolean;
+          proxyEnabled?: boolean;
+          proxyHost?: string;
+          hashSecureAttributes?: boolean;
+          remoteEvalEnabled?: boolean;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            sdkConnection: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              organization: string;
+              languages: (string)[];
+              sdkVersion?: string;
+              environment: string;
+              /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
+              project: string;
+              projects?: (string)[];
+              encryptPayload: boolean;
+              encryptionKey: string;
+              includeVisualExperiments?: boolean;
+              includeDraftExperiments?: boolean;
+              includeExperimentNames?: boolean;
+              includeRedirectExperiments?: boolean;
+              key: string;
+              proxyEnabled: boolean;
+              proxyHost: string;
+              proxySigningKey: string;
+              sseEnabled?: boolean;
+              hashSecureAttributes?: boolean;
+              remoteEvalEnabled?: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteSdkConnection: {
+    /** Deletes a single SDK connection */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
           };
         };
       };
@@ -3095,7 +3387,19 @@ export interface operations {
                   attributionModel: "firstExposure" | "experimentDuration";
                   /** @enum {unknown} */
                   statsEngine: "bayesian" | "frequentist";
+                  regressionAdjustmentEnabled?: boolean;
                   goals: ({
+                      metricId: string;
+                      overrides: {
+                        delayHours?: number;
+                        windowHours?: number;
+                        /** @enum {string} */
+                        window?: "conversion" | "lookback" | "";
+                        winRiskThreshold?: number;
+                        loseRiskThreshold?: number;
+                      };
+                    })[];
+                  secondaryMetrics: ({
                       metricId: string;
                       overrides: {
                         delayHours?: number;
@@ -3169,6 +3473,7 @@ export interface operations {
           description?: string;
           tags?: (string)[];
           metrics?: (string)[];
+          secondaryMetrics?: (string)[];
           guardrailMetrics?: (string)[];
           /** @description Email of the person who owns this experiment */
           owner?: string;
@@ -3231,6 +3536,8 @@ export interface operations {
                 })[];
               variationWeights?: (number)[];
             })[];
+          /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
+          regressionAdjustmentEnabled?: boolean;
         };
       };
     };
@@ -3301,7 +3608,19 @@ export interface operations {
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
+                regressionAdjustmentEnabled?: boolean;
                 goals: ({
+                    metricId: string;
+                    overrides: {
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                secondaryMetrics: ({
                     metricId: string;
                     overrides: {
                       delayHours?: number;
@@ -3423,7 +3742,19 @@ export interface operations {
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
+                regressionAdjustmentEnabled?: boolean;
                 goals: ({
+                    metricId: string;
+                    overrides: {
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                secondaryMetrics: ({
                     metricId: string;
                     overrides: {
                       delayHours?: number;
@@ -3493,6 +3824,7 @@ export interface operations {
           description?: string;
           tags?: (string)[];
           metrics?: (string)[];
+          secondaryMetrics?: (string)[];
           guardrailMetrics?: (string)[];
           /** @description Email of the person who owns this experiment */
           owner?: string;
@@ -3555,6 +3887,8 @@ export interface operations {
                 })[];
               variationWeights?: (number)[];
             })[];
+          /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
+          regressionAdjustmentEnabled?: boolean;
         };
       };
     };
@@ -3625,7 +3959,19 @@ export interface operations {
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
+                regressionAdjustmentEnabled?: boolean;
                 goals: ({
+                    metricId: string;
+                    overrides: {
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                secondaryMetrics: ({
                     metricId: string;
                     overrides: {
                       delayHours?: number;
@@ -3707,7 +4053,19 @@ export interface operations {
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
+                regressionAdjustmentEnabled?: boolean;
                 goals: ({
+                    metricId: string;
+                    overrides: {
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                secondaryMetrics: ({
                     metricId: string;
                     overrides: {
                       delayHours?: number;
@@ -4585,7 +4943,19 @@ export interface operations {
                 attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
+                regressionAdjustmentEnabled?: boolean;
                 goals: ({
+                    metricId: string;
+                    overrides: {
+                      delayHours?: number;
+                      windowHours?: number;
+                      /** @enum {string} */
+                      window?: "conversion" | "lookback" | "";
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                secondaryMetrics: ({
                     metricId: string;
                     overrides: {
                       delayHours?: number;
@@ -6375,13 +6745,19 @@ export type UpdateFeatureResponse = operations["updateFeature"]["responses"]["20
 export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
+export type PostProjectResponse = operations["postProject"]["responses"]["200"]["content"]["application/json"];
 export type GetProjectResponse = operations["getProject"]["responses"]["200"]["content"]["application/json"];
+export type PutProjectResponse = operations["putProject"]["responses"]["200"]["content"]["application/json"];
+export type DeleteProjectResponse = operations["deleteProject"]["responses"]["200"]["content"]["application/json"];
 export type ListDimensionsResponse = operations["listDimensions"]["responses"]["200"]["content"]["application/json"];
 export type GetDimensionResponse = operations["getDimension"]["responses"]["200"]["content"]["application/json"];
 export type ListSegmentsResponse = operations["listSegments"]["responses"]["200"]["content"]["application/json"];
 export type GetSegmentResponse = operations["getSegment"]["responses"]["200"]["content"]["application/json"];
 export type ListSdkConnectionsResponse = operations["listSdkConnections"]["responses"]["200"]["content"]["application/json"];
+export type PostSdkConnectionResponse = operations["postSdkConnection"]["responses"]["200"]["content"]["application/json"];
 export type GetSdkConnectionResponse = operations["getSdkConnection"]["responses"]["200"]["content"]["application/json"];
+export type PutSdkConnectionResponse = operations["putSdkConnection"]["responses"]["200"]["content"]["application/json"];
+export type DeleteSdkConnectionResponse = operations["deleteSdkConnection"]["responses"]["200"]["content"]["application/json"];
 export type ListDataSourcesResponse = operations["listDataSources"]["responses"]["200"]["content"]["application/json"];
 export type GetDataSourceResponse = operations["getDataSource"]["responses"]["200"]["content"]["application/json"];
 export type ListExperimentsResponse = operations["listExperiments"]["responses"]["200"]["content"]["application/json"];

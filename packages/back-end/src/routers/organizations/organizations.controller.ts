@@ -7,6 +7,7 @@ import {
   getEffectiveAccountPlan,
   getLicense,
   getLicenseError,
+  licenseInit,
 } from "enterprise";
 import { experimentHasLinkedChanges } from "shared/util";
 import {
@@ -15,6 +16,8 @@ import {
   isRoleValid,
   getDefaultRole,
 } from "shared/permissions";
+import uniqid from "uniqid";
+import { getWatchedByUser } from "../../models/WatchModel";
 import {
   UpdateSdkWebhookProps,
   deleteLegacySdkWebhookById,
@@ -32,7 +35,7 @@ import {
   addMemberToOrg,
   addPendingMemberToOrg,
   expandOrgMembers,
-  findVerifiedOrgForNewUser,
+  findVerifiedOrgsForNewUser,
   getContextFromReq,
   getInviteUrl,
   getNumberOfUniqueMembersAndInvites,
@@ -64,7 +67,6 @@ import {
 } from "../../services/audit";
 import { getAllFeatures } from "../../models/FeatureModel";
 import { findDimensionsByOrganization } from "../../models/DimensionModel";
-import { findSegmentsByOrganization } from "../../models/SegmentModel";
 import {
   ALLOW_SELF_ORG_CREATION,
   APP_ORIGIN,
@@ -77,6 +79,7 @@ import {
   sendPendingMemberEmail,
   sendNewOrgEmail,
   sendPendingMemberApprovalEmail,
+  sendOwnerEmailChangeEmail,
 } from "../../services/email";
 import { getDataSourcesByOrganization } from "../../models/DataSourceModel";
 import { getAllSavedGroups } from "../../models/SavedGroupModel";
@@ -91,9 +94,10 @@ import {
   addCustomRole,
   editCustomRole,
   removeCustomRole,
+  deactivateRoleById,
+  activateRoleById,
   addGetStartedChecklistItem,
 } from "../../models/OrganizationModel";
-import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { ConfigFile } from "../../init/config";
 import { ExperimentRule, NamespaceValue } from "../../../types/feature";
 import { usingOpenId } from "../../services/auth";
@@ -108,7 +112,12 @@ import {
   getUnredactedSecretKey,
 } from "../../models/ApiKeyModel";
 import { getUserPermissions } from "../../util/organization.util";
-import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
+import {
+  deleteUser,
+  getUserById,
+  getAllUsers,
+  getUserByEmail,
+} from "../../models/UserModel";
 import {
   getAllExperiments,
   getExperimentsForActivityFeed,
@@ -124,7 +133,10 @@ import { getTeamsForOrganization } from "../../models/TeamModel";
 import { getAllFactTablesForOrganization } from "../../models/FactTableModel";
 import { TeamInterface } from "../../../types/team";
 import { fireSdkWebhook } from "../../jobs/sdkWebhooks";
-import { initializeLicenseForOrg } from "../../services/licenseData";
+import {
+  getLicenseMetaData,
+  getUserCodesForOrg,
+} from "../../services/licenseData";
 import { findSDKConnectionsByIds } from "../../models/SdkConnectionModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
@@ -148,10 +160,10 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     getMetricsByOrganization(context),
     getDataSourcesByOrganization(context),
     findDimensionsByOrganization(orgId),
-    findSegmentsByOrganization(orgId),
+    context.models.segments.getAll(),
     getAllTags(orgId),
     getAllSavedGroups(orgId),
-    findAllProjectsByOrganization(context),
+    context.models.projects.getAll(),
     getAllFactTablesForOrganization(context),
     context.models.factMetrics.getAll(),
   ]);
@@ -391,9 +403,14 @@ export async function putMember(
     throw new Error("User is not verified");
   }
 
-  // ensure org matches calculated verified org
-  const organization = await findVerifiedOrgForNewUser(req.email);
-  if (!organization || organization.id !== orgId) {
+  // ensure org matches one of the calculated verified org
+  const organizations = await findVerifiedOrgsForNewUser(req.email);
+  if (!organizations) {
+    throw new Error("Invalid orgId");
+  }
+
+  const organization = organizations.find((o) => o.id === orgId);
+  if (!organization) {
     throw new Error("Invalid orgId");
   }
 
@@ -660,7 +677,11 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     license = getLicense(licenseKey || process.env.LICENSE_KEY);
     if (!license || (license.organizationId && license.organizationId !== id)) {
       try {
-        license = await initializeLicenseForOrg(org);
+        license = await licenseInit(
+          org,
+          getUserCodesForOrg,
+          getLicenseMetaData
+        );
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error("setting license failed", e);
@@ -682,7 +703,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
 
-  const expandedMembers = await expandOrgMembers(members);
+  const expandedMembers = await expandOrgMembers(members, userId);
 
   const teams = await getTeamsForOrganization(org.id);
 
@@ -699,6 +720,8 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   const currentUserPermissions = getUserPermissions(userId, org, teams || []);
   const seatsInUse = getNumberOfUniqueMembersAndInvites(org);
 
+  const watch = await getWatchedByUser(org.id, userId);
+
   return res.status(200).json({
     status: 200,
     apiKeys,
@@ -712,6 +735,10 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     currentUserPermissions,
     teams: teamsWithMembers,
     license,
+    watching: {
+      experiments: watch?.experiments || [],
+      features: watch?.features || [],
+    },
     organization: {
       invites,
       ownerEmail,
@@ -727,6 +754,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
       customRoles: org.customRoles,
+      deactivatedRoles: org.deactivatedRoles,
       settings: {
         ...settings,
         attributeSchema: filteredAttributes,
@@ -828,13 +856,13 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
 
 export async function postNamespaces(
   req: AuthRequest<{
-    name: string;
+    label: string;
     description: string;
     status: "active" | "inactive";
   }>,
   res: Response
 ) {
-  const { name, description, status } = req.body;
+  const { label, description, status } = req.body;
   const context = getContextFromReq(req);
 
   if (!context.permissions.canCreateNamespace()) {
@@ -846,14 +874,18 @@ export async function postNamespaces(
   const namespaces = org.settings?.namespaces || [];
 
   // Namespace with the same name already exists
-  if (namespaces.filter((n) => n.name === name).length > 0) {
-    throw new Error("Namespace names must be unique.");
+  if (namespaces.filter((n) => n.label === label).length > 0) {
+    throw new Error("A namespace with this name already exists.");
   }
 
+  // Create a unique id for this new namespace - We might want to clean this
+  // up later, but for now, 'name' is the unique identifier, and 'label' is
+  // the display name.
+  const name = uniqid("ns-");
   await updateOrganization(org.id, {
     settings: {
       ...org.settings,
-      namespaces: [...namespaces, { name, description, status }],
+      namespaces: [...namespaces, { name, label, description, status }],
     },
   });
 
@@ -881,7 +913,7 @@ export async function postNamespaces(
 export async function putNamespaces(
   req: AuthRequest<
     {
-      name: string;
+      label: string;
       description: string;
       status: "active" | "inactive";
     },
@@ -889,8 +921,9 @@ export async function putNamespaces(
   >,
   res: Response
 ) {
-  const { name, description, status } = req.body;
-  const originalName = req.params.name;
+  const { label, description, status } = req.body;
+  const { name } = req.params;
+
   const context = getContextFromReq(req);
 
   if (!context.permissions.canUpdateNamespace()) {
@@ -901,13 +934,15 @@ export async function putNamespaces(
 
   const namespaces = org.settings?.namespaces || [];
 
-  // Namespace with the same name already exists
-  if (namespaces.filter((n) => n.name === originalName).length === 0) {
+  // Make sure this namespace exists
+  if (namespaces.filter((n) => n.name === name).length === 0) {
     throw new Error("Namespace not found.");
   }
+
   const updatedNamespaces = namespaces.map((n) => {
-    if (n.name === originalName) {
-      return { name, description, status };
+    if (n.name === name) {
+      // cannot update the 'name' (id) of a namespace
+      return { label, name: n.name, description, status };
     }
     return n;
   });
@@ -1184,13 +1219,9 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
   const { company, externalId } = req.body;
 
   const orgs = await hasOrganization();
-  if (!IS_MULTI_ORG) {
-    // there are odd edge cases where a user can exist, but not an org,
-    // so we want to allow org creation this way if there are no other orgs
-    // on a local install.
-    if (orgs && !req.superAdmin) {
-      throw new Error("An organization already exists");
-    }
+  // Only allow one organization per site unless IS_MULTI_ORG is true
+  if (!IS_MULTI_ORG && orgs) {
+    throw new Error("An organization already exists");
   }
 
   let verifiedDomain = "";
@@ -1250,9 +1281,16 @@ export async function putOrganization(
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { name, settings, connections, externalId, licenseKey } = req.body;
+  const {
+    name,
+    ownerEmail,
+    settings,
+    connections,
+    externalId,
+    licenseKey,
+  } = req.body;
 
-  if (connections || name) {
+  if (connections || name || ownerEmail) {
     if (!context.permissions.canManageOrgSettings()) {
       context.permissions.throwPermissionError();
     }
@@ -1300,6 +1338,26 @@ export async function putOrganization(
     if (name) {
       updates.name = name;
       orig.name = org.name;
+    }
+    if (ownerEmail && ownerEmail !== org.ownerEmail) {
+      // the owner email is being changed
+      const newOwnerUser = await getUserByEmail(ownerEmail);
+      if (!newOwnerUser) {
+        throw Error("New owner does not have an account");
+      }
+      updates.ownerEmail = ownerEmail;
+      orig.ownerEmail = org.ownerEmail;
+      // send email to original owner and new owner alerting them of the change:
+      try {
+        await sendOwnerEmailChangeEmail(
+          req.email,
+          org.name,
+          org.ownerEmail,
+          ownerEmail
+        );
+      } catch (e) {
+        req.log.error(e, "Failed to send owner email change email");
+      }
     }
     if (externalId !== undefined) {
       updates.externalId = externalId;
@@ -1778,7 +1836,7 @@ export async function addOrphanedUser(
   } = req.body;
 
   // Make sure user exists
-  const user = await findUserById(id);
+  const user = await getUserById(id);
   if (!user) {
     return res.status(400).json({
       status: 400,
@@ -1851,7 +1909,7 @@ export async function deleteOrphanedUser(
   const { id } = req.params;
 
   // Make sure user exists
-  const user = await findUserById(id);
+  const user = await getUserById(id);
   if (!user) {
     return res.status(400).json({
       status: 400,
@@ -1934,7 +1992,7 @@ export async function setLicenseKey(
   }
 
   org.licenseKey = licenseKey;
-  await initializeLicenseForOrg(org, true);
+  await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 }
 
 export async function putLicenseKey(
@@ -2030,7 +2088,7 @@ export async function putGetStartedChecklistItem(
 
   if (
     checklistItem === "environments" &&
-    !context.permissions.canCreateOrUpdateEnvironment({
+    !context.permissions.canCreateEnvironment({
       id: "",
       projects: [project],
     })
@@ -2112,6 +2170,52 @@ export async function deleteCustomRole(
   }
 
   await removeCustomRole(context.org, context.teams, id);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function deactivateRole(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  // Only orgs with custom-roles feature can deactivate roles
+  if (!context.hasPremiumFeature("custom-roles")) {
+    throw new Error("Must have an Enterprise License Key to use custom roles.");
+  }
+
+  if (!context.permissions.canManageCustomRoles()) {
+    context.permissions.throwPermissionError();
+  }
+
+  await deactivateRoleById(context.org, id);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function activateRole(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  // Only orgs with custom-roles feature can activate roles
+  if (!context.hasPremiumFeature("custom-roles")) {
+    throw new Error("Must have an Enterprise License Key to use custom roles.");
+  }
+
+  if (!context.permissions.canManageCustomRoles()) {
+    context.permissions.throwPermissionError();
+  }
+
+  await activateRoleById(context.org, id);
 
   res.status(200).json({
     status: 200,

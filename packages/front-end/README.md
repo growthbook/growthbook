@@ -51,6 +51,26 @@ function MyComponent({ id }) {
 
 The `useApi` hook also returns a `mutate` function that can be called to force a refresh from the server.
 
+This hook takes an optional 2nd options argument to configure the behavior. Below are all of the possible options with descriptions
+
+```js
+useApi(`/people`, {
+  // If this returns false, the API call will not be made
+  // Useful for dependencies between API calls
+  // Defaults to always return true
+  shouldRun: () => isReady,
+  // If false, the API call will never refresh automatically
+  // You can still call `mutate` to manually refresh
+  // Defaults to true
+  autoRevalidate: false,
+  // Set to false if your API call does not depend on the current org
+  // For example: changing a user's password
+  // You should almost never need to change this
+  // Defaults to true
+  orgScoped: true,
+});
+```
+
 ### apiCall
 
 Use `apiCall` to make an authenticated call to the API in response to a user action - for example, clicking a submit button on a form. It is a simple wrapper around `window.fetch` that adds authentication and content-type headers and parses responses.
@@ -404,6 +424,6 @@ useSearch({
 Now, the following queries will work as expected:
 
 - `on:production` - search for a match in an array of strings
-- `type:bool` - prefix match by default (actual type is "boolean")
+- `type:^bool` - prefix match (actual type is "boolean")
 - `version:>2 version:<10 version:!5` - supports numbers and modifiers
-- `created:2024-01` - ISO date support with prefix matching
+- `created:2024-01` - ISO date support with prefix matching by default
