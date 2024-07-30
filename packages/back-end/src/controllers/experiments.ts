@@ -81,11 +81,7 @@ import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
-import {
-  auditDetailsCreate,
-  auditDetailsDelete,
-  auditDetailsUpdate,
-} from "../services/audit";
+import { auditDetailsCreate, auditDetailsUpdate } from "../services/audit";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -650,15 +646,6 @@ export async function postExperiments(
       }
     }
 
-    await req.audit({
-      event: "experiment.create",
-      entity: {
-        object: "experiment",
-        id: experiment.id,
-      },
-      details: auditDetailsCreate(experiment),
-    });
-
     await upsertWatch({
       userId,
       organization: org.id,
@@ -929,15 +916,6 @@ export async function postExperiment(
       );
     }
   }
-
-  await req.audit({
-    event: "experiment.update",
-    entity: {
-      object: "experiment",
-      id: experiment.id,
-    },
-    details: auditDetailsUpdate(experiment, updated),
-  });
 
   // If there are new tags to add
   await addTagsDiff(org.id, experiment.tags || [], data.tags || []);
@@ -1543,19 +1521,10 @@ export async function postExperimentTargeting(
 
   // TODO: validation
   try {
-    const updated = await updateExperiment({
+    await updateExperiment({
       context,
       experiment,
       changes,
-    });
-
-    await req.audit({
-      event: "experiment.update",
-      entity: {
-        object: "experiment",
-        id: experiment.id,
-      },
-      details: auditDetailsUpdate(experiment, updated),
     });
 
     await upsertWatch({
@@ -1744,15 +1713,6 @@ export async function deleteExperiment(
     deleteExperimentByIdForOrganization(context, experiment),
     removeExperimentFromPresentations(experiment.id),
   ]);
-
-  await req.audit({
-    event: "experiment.delete",
-    entity: {
-      object: "experiment",
-      id: experiment.id,
-    },
-    details: auditDetailsDelete(experiment),
-  });
 
   res.status(200).json({
     status: 200,

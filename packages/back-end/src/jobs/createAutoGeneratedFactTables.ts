@@ -3,7 +3,7 @@ import { CreateFactTableProps } from "@back-end/types/fact-table";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { logger } from "../util/logger";
-import { insertAudit } from "../models/AuditModel";
+import { insertAudit } from "../util/legacyAudit/wrappers";
 import { auditDetailsCreate } from "../services/audit";
 import { AuditUserLoggedIn } from "../../types/audit";
 import { getContextForAgendaJobByOrgId } from "../services/organizations";

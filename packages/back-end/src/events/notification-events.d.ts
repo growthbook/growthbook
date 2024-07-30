@@ -1,7 +1,11 @@
 import { ApiExperiment, ApiFeature } from "../../types/openapi";
-import { IfEqual } from "../util/types";
 import { ExperimentWarningNotificationPayload } from "../types/ExperimentNotification";
-import { NotificationEventName, NotificationEventPayload } from "./base-types";
+import { AuditEventResource } from "../util/legacyAudit/base";
+import {
+  NotificationEventPayload,
+  OptionalNotificationEventNameTemplate,
+  NotificationEventNameTemplate,
+} from "./base-types";
 import { UserLoginAuditableProperties } from "./event-types";
 
 // region User
@@ -84,18 +88,15 @@ export type ExperimentWarningNotificationEvent = NotificationEventPayload<
   ExperimentWarningNotificationPayload
 >;
 
+// endregion Experiment
+
 export type WebhookTestEvent = NotificationEventPayload<
   "webhook",
   "webhook.test",
   { webhookId: string }
 >;
 
-// endregion Experiment
-
-/**
- * All supported event types in the database
- */
-type AllNotificationEvent =
+type DefinedNotificationEvent =
   | UserLoginNotificationEvent
   | FeatureCreatedNotificationEvent
   | FeatureUpdatedNotificationEvent
@@ -107,9 +108,35 @@ type AllNotificationEvent =
   | ExperimentWarningNotificationEvent
   | WebhookTestEvent;
 
-// Make sure we have a payload for each type of event
-type NotificationEvent = IfEqual<
-  NotificationEventName,
-  AllNotificationEvent["event"],
-  AllNotificationEvent
->;
+// We add back all audit payloads that are not otherwise defined above:
+
+type DefinedEventTemplate<R> = R extends DefinedNotificationEvent
+  ? R["event"]
+  : never;
+
+export type DefinedEvent = DefinedEventTemplate<DefinedNotificationEvent>;
+
+type AuditResourceEventTemplate<R, E> = R extends AuditEventResource
+  ? E extends OptionalNotificationEventNameTemplate<R>
+    ? NotificationEventPayload<R, E, undefined>
+    : never
+  : never;
+
+type UndefinedEventTemplate<E> = E extends DefinedEvent ? never : E;
+
+type UndefinedResourceEventTemplate<
+  R extends AuditEventResource
+> = UndefinedEventTemplate<NotificationEventNameTemplate<R>>;
+
+export type UndefinedEvent = UndefinedResourceEventTemplate<AuditEventResource>;
+
+type AuditEventNameTemplate<R> = R extends AuditEventResource
+  ? AuditResourceEventTemplate<R, UndefinedResourceEventTemplate<R>>
+  : never;
+
+export type AuditNotificationEvent = AuditEventNameTemplate<AuditEventResource>;
+
+/**
+ * All supported event types in the database
+ */
+type NotificationEvent = DefinedNotificationEvent | AuditNotificationEvent;

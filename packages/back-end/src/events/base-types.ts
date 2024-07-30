@@ -1,11 +1,15 @@
 import { UnionToTuple } from "../util/types";
+import {
+  auditNotificationEvents,
+  AuditNoficationEventName,
+} from "../util/legacyAudit/base";
 import { EventAuditUser } from "./event-types";
 
 export const notificationEvents = {
-  feature: ["created", "updated", "deleted"],
-  experiment: ["created", "updated", "deleted", "warning", "info"],
-  user: ["login"],
+  ...auditNotificationEvents,
   webhook: ["test"],
+  experiment: [...auditNotificationEvents["experiment"], "warning", "info"],
+  user: [...auditNotificationEvents["user"], "login"],
 } as const;
 
 type NotificationEvents = typeof notificationEvents;
@@ -16,14 +20,22 @@ type NotificationEvents = typeof notificationEvents;
 export const notificationEventResources = Object.keys(notificationEvents) as [
   keyof NotificationEvents
 ];
-
 export type NotificationEventResource = typeof notificationEventResources[number];
 
-export type NotificationEventNames<K> = K extends NotificationEventResource
-  ? `${K}.${NotificationEvents[K][number]}`
+export type NotificationEventTemplate<
+  K extends NotificationEventResource
+> = NotificationEvents[K][number];
+
+export type NotificationEventNameTemplate<
+  K extends NotificationEventResource,
+  E = NotificationEvents[K][number]
+> = K extends NotificationEventResource
+  ? E extends NotificationEvents[K][number]
+    ? `${K}.${NotificationEventTemplate<K>}`
+    : never
   : never;
 
-export type NotificationEventName = NotificationEventNames<NotificationEventResource>;
+export type NotificationEventName = NotificationEventNameTemplate<NotificationEventResource>;
 
 export const notificationEventNames = (Object.keys(notificationEvents) as [
   NotificationEventResource
@@ -37,16 +49,32 @@ export const notificationEventNames = (Object.keys(notificationEvents) as [
   [] as NotificationEventName[]
 );
 
-type OptionalNotificationEventNames<R> = R extends NotificationEventResource
-  ? NotificationEventNames<R>
+export type OptionalNotificationEventNameTemplate<
+  R
+> = R extends NotificationEventResource
+  ? NotificationEventNameTemplate<R>
   : NotificationEventName;
+
+type AuditData<Resource, EventName> = EventName extends AuditNoficationEventName
+  ? {
+      auditData: {
+        id: string;
+        reason?: string;
+        parent?: {
+          object: Resource;
+          id: string;
+        };
+        details?: string;
+      };
+    }
+  : unknown;
 
 /**
  * Event Notification payload
  */
 export type NotificationEventPayload<
   ResourceType extends NotificationEventResource | undefined,
-  EventName extends OptionalNotificationEventNames<ResourceType> = OptionalNotificationEventNames<ResourceType>,
+  EventName extends OptionalNotificationEventNameTemplate<ResourceType> = OptionalNotificationEventNameTemplate<ResourceType>,
   DataType = unknown
 > = {
   event: EventName;
@@ -57,7 +85,7 @@ export type NotificationEventPayload<
   tags: string[];
   environments: string[];
   containsSecrets: boolean;
-};
+} & AuditData<ResourceType, EventName>;
 
 // Only use this for zod validations!
 export const zodNotificationEventNamesEnum = notificationEventNames as UnionToTuple<NotificationEventName>;

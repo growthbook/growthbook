@@ -1,6 +1,5 @@
 import mongoose, { FilterQuery, QueryOptions } from "mongoose";
 import { omit } from "lodash";
-import uniqid from "uniqid";
 import { AuditInterface } from "../../types/audit";
 import { EntityType } from "../types/Audit";
 
@@ -37,7 +36,7 @@ const auditSchema = new mongoose.Schema({
   dateCreated: Date,
 });
 
-type AuditDocument = mongoose.Document & AuditInterface;
+export type AuditDocument = mongoose.Document & AuditInterface;
 
 const AuditModel = mongoose.model<AuditInterface>("Audit", auditSchema);
 
@@ -51,16 +50,6 @@ const toInterface = (doc: AuditDocument): AuditInterface => {
     "_id",
   ]) as unknown) as AuditInterface;
 };
-
-export async function insertAudit(
-  data: Omit<AuditInterface, "id">
-): Promise<AuditInterface> {
-  const auditDoc = await AuditModel.create({
-    ...data,
-    id: uniqid("aud_"),
-  });
-  return toInterface(auditDoc);
-}
 
 export async function findAuditByOrganization(
   organization: string,
@@ -92,7 +81,7 @@ export async function findAuditByEntity(
   return auditDocs.map((doc) => toInterface(doc));
 }
 
-export async function findAuditByEntityList(
+export async function legacyFindAuditByEntityList(
   organization: string,
   type: EntityType,
   ids: string[],
