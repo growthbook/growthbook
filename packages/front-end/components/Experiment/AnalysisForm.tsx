@@ -124,6 +124,7 @@ const AnalysisForm: FC<{
         .toISOString()
         .substr(0, 16),
       variations: experiment.variations || [],
+      phases: experiment.phases || [],
       sequentialTestingEnabled:
         hasSequentialTestingFeature &&
         experiment.sequentialTestingEnabled !== undefined
@@ -148,6 +149,7 @@ const AnalysisForm: FC<{
       banditScheduleUnit: experiment.banditScheduleUnit ?? scopedSettings.banditScheduleUnit.value,
       banditBurnInValue: experiment.banditBurnInValue ?? scopedSettings.banditBurnInValue.value,
       banditBurnInUnit: experiment.banditBurnInUnit ?? scopedSettings.banditBurnInUnit.value,
+      // todo: way to set `phases.0.variationWeights.${i}` to equal weights
     },
   });
 
@@ -273,7 +275,17 @@ const AnalysisForm: FC<{
           { label: "Multi-Armed Bandit", value: "multi-armed-bandit" },
         ]}
         value={form.watch("type") ?? "standard"}
-        onChange={(v) => form.setValue("type", v as ExperimentType)}
+        onChange={(v) => {
+          form.setValue("type", v as ExperimentType);
+          if (v === "multi-armed-bandit") {
+            // equal weights (set in controller)
+            // stats engine reset
+            form.setValue("statsEngine", "bayesian");
+            // 1 primary metric
+            const goalMetric = form.watch("goalMetrics")?.[0];
+            form.setValue("goalMetrics", goalMetric ? [goalMetric] : []);
+          }
+        }}
         disabled={hasStarted}
         sort={false}
       />
@@ -428,7 +440,7 @@ const AnalysisForm: FC<{
           </small>
         </div>
       )}
-      {phaseObj && editDates && (
+      {!!phaseObj && editDates && (
         <div className="row">
           <div className="col">
             <Field
@@ -452,7 +464,7 @@ const AnalysisForm: FC<{
           )}
         </div>
       )}
-      {datasource && (
+      {!!datasource && type !== "multi-armed-bandit" && (
         <MetricSelector
           datasource={form.watch("datasource")}
           exposureQueryId={exposureQueryId}
@@ -487,7 +499,7 @@ const AnalysisForm: FC<{
           helpText="Only users in this segment will be included"
         />
       )}
-      {datasourceProperties?.separateExperimentResultQueries && (
+      {datasourceProperties?.separateExperimentResultQueries && type !== "multi-armed-bandit" && (
         <SelectField
           label="Metric Conversion Windows"
           labelClassName="font-weight-bold"
@@ -506,7 +518,7 @@ const AnalysisForm: FC<{
           helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
         />
       )}
-      {datasourceProperties?.separateExperimentResultQueries && (
+      {datasourceProperties?.separateExperimentResultQueries && type !== "multi-armed-bandit" && (
         <SelectField
           label={
             <AttributionModelTooltip>
@@ -537,6 +549,7 @@ const AnalysisForm: FC<{
         }}
         parentSettings={scopedSettings}
         allowUndefined={true}
+        disabled={type === "multi-armed-bandit"}
       />
       {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
         "frequentist" && (
@@ -667,12 +680,15 @@ const AnalysisForm: FC<{
             setSecondaryMetrics={(secondaryMetrics) =>
               form.setValue("secondaryMetrics", secondaryMetrics)
             }
-            setGuardrailMetrics={(guardrailMetrics) =>
+            setGuardrailMetrics={type !== "multi-armed-bandit" ?
+              (guardrailMetrics) =>
               form.setValue("guardrailMetrics", guardrailMetrics)
+              : undefined
             }
+            forceSingleGoalMetric={type === "multi-armed-bandit"}
           />
 
-          {hasMetrics && (
+          {hasMetrics && type !== "multi-armed-bandit" && (
             <div className="form-group mb-2">
               <PremiumTooltip commercialFeature="override-metrics">
                 Metric Overrides (optional)

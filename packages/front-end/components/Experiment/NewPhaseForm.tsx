@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
-import { getEqualWeights } from "@/services/utils";
+import { getEqualWeights } from "shared/experiments";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";

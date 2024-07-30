@@ -4,9 +4,9 @@ import { FaInfoCircle } from "react-icons/fa";
 import {
   decimalToPercent,
   distributeWeights,
-  getEqualWeights,
   percentToDecimal,
 } from "@/services/utils";
+import { getEqualWeights } from "shared/experiments";
 import {
   generateVariationId,
   getDefaultVariationValue,

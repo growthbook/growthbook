@@ -12,6 +12,7 @@ import {
 import {
   getAllMetricSettingsForSnapshot,
   getAllMetricIdsFromExperiment,
+  getEqualWeights,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
@@ -868,6 +869,29 @@ export async function postExperiment(
       phaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
     }
     changes.phases = phases;
+  }
+
+  // If setting multi-armed-bandit from a draft experiment, force some settings
+  if (data.type === "multi-armed-bandit") {
+    // equal weights
+    const weights = getEqualWeights(
+      data.variations.length ?? existing.variations.length ?? 0
+    );
+    changes.phases = changes.phases ?? [...experiment.phases];
+    if (changes.phases?.[changes.phases?.length - 1]?.variationWeights) {
+      weights.forEach((w, i) => {
+        changes.phases[changes.phases.length - 1].variationWeights[i] = w;
+      });
+    }
+
+    // stats engine
+    changes.statsEngine = "bayesian";
+
+    // 1 primary metric
+    const goalMetric = changes.goalMetrics?.[0] || existing.goalMetrics?.[0];
+    changes.goalMetrics = goalMetric ? [goalMetric] : [];
+
+    // todo: clear out unusable fields?
   }
 
   // Only some fields affect production SDK payloads

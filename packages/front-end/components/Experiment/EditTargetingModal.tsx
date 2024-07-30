@@ -12,7 +12,6 @@ import { MdInfoOutline } from "react-icons/md";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
-import { getEqualWeights } from "@/services/utils";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -35,6 +34,7 @@ import Field from "@/components/Forms/Field";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
+import { getEqualWeights } from "shared/experiments";
 
 export type ChangeType =
   | "targeting"

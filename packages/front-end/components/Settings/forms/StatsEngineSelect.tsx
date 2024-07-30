@@ -12,6 +12,7 @@ export default function StatsEngineSelect({
   value,
   onChange,
   labelClassName = "font-weight-bold text-muted mr-2",
+  disabled,
 }: {
   value?: StatsEngine;
   parentSettings?: ScopedSettings;
@@ -20,6 +21,7 @@ export default function StatsEngineSelect({
   label?: ReactNode;
   onChange?: (v: StatsEngine) => void;
   labelClassName?: string;
+  disabled?: boolean;
 }) {
   const parentScopeId = parentSettings?.statsEngine?.meta?.scopeApplied;
   const options = [
@@ -68,6 +70,7 @@ export default function StatsEngineSelect({
         }
         return label;
       }}
+      disabled={disabled}
     />
   );
 }

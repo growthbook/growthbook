@@ -1,6 +1,7 @@
 import { ExperimentPhaseStringDates } from "back-end/types/experiment";
 import React, { ReactNode } from "react";
 import qs from "query-string";
+import { getEqualWeights } from "shared/experiments";
 
 export function trafficSplitPercentages(weights: number[]): number[] {
   const sum = weights.reduce((sum, n) => sum + n, 0);
@@ -42,35 +43,6 @@ export function phaseSummary(phase: ExperimentPhaseStringDates): ReactNode {
       </span>{" "}
       split
     </>
-  );
-}
-
-// Returns n "equal" decimals rounded to 3 places that add up to 1
-// The sum always adds to 1. In some cases the values are not equal.
-// For example, getEqualWeights(3) returns [0.3334, 0.3333, 0.3333]
-export function getEqualWeights(n: number, precision: number = 4): number[] {
-  // The power of 10 we need to manipulate weights to the correct precision
-  const multiplier = Math.pow(10, precision);
-
-  // Naive even weighting with rounding
-  // For n=3, this will result in `0.3333`
-  const w = Math.round(multiplier / n) / multiplier;
-
-  // Determine how far off we are from a sum of 1
-  // For n=3, this will be 0.9999-1 = -0.0001
-  const diff = w * n - 1;
-
-  // How many of the weights do we need to add a correction to?
-  // For n=3, we only have to adjust 1 of the weights to make it sum to 1
-  const numCorrections = Math.round(Math.abs(diff) * multiplier);
-  const delta = (diff < 0 ? 1 : -1) / multiplier;
-
-  return (
-    Array(n)
-      .fill(0)
-      .map((v, i) => +(w + (i < numCorrections ? delta : 0)).toFixed(precision))
-      // Put the larger weights first
-      .sort((a, b) => b - a)
   );
 }
 

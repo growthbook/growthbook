@@ -20,7 +20,7 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
-import { getEqualWeights } from "@/services/utils";
+import { getEqualWeights } from "shared/experiments";
 import {
   generateVariationId,
   useAttributeSchema,
@@ -368,6 +368,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     header = "Duplicate Experiment";
   }
 
+  const setEqualWeights = () => {
+    getEqualWeights(form.watch("variations")?.length ?? 0).forEach((w, i) => {
+      form.setValue(`phases.0.variationWeights.${i}`, w);
+    });
+  };
+
   return (
     <PagedModal
       header={header}
@@ -454,7 +460,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   { label: "Multi-Armed Bandit", value: "multi-armed-bandit" },
                 ]}
                 value={form.watch("type") ?? "standard"}
-                onChange={(v) => form.setValue("type", v as ExperimentType)}
+                onChange={(v) => {
+                  form.setValue("type", v as ExperimentType);
+                  if (v === "multi-armed-bandit") {
+                    // equal weights
+                    setEqualWeights();
+                    // stats engine reset
+                    form.setValue("statsEngine", "bayesian");
+                    // 1 primary metric
+                    const goalMetric = form.watch("goalMetrics")?.[0];
+                    form.setValue("goalMetrics", goalMetric ? [goalMetric] : []);
+                  }
+                }}
                 sort={false}
               />
             </div>
