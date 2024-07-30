@@ -16,7 +16,7 @@ from gbstats.messages import (
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
 from gbstats.models.statistics import (
     TestStatistic,
-    BanditStatistic,
+    SampleMeanStatistic,
 )
 from gbstats.frequentist.tests import frequentist_diff, frequentist_variance
 from gbstats.utils import (
@@ -49,10 +49,14 @@ class EffectBayesianConfig(BayesianConfig):
 @dataclass
 class BanditConfig(BayesianConfig):
 <<<<<<< HEAD
+<<<<<<< HEAD
     bandit_weights_seed: int = 0
 =======
     bandit_weights_seed: int = 1
 >>>>>>> b6df533b4 (pulling changes from main)
+=======
+    bandit_weights_seed: int = 0
+>>>>>>> 3b907a3b0 (responding to sonnet comments and adding new period weighting methods)
     top_two: bool = True
     prior_distribution: GaussianPrior = field(default_factory=GaussianPrior)
     min_variation_weight: float = 0.01
@@ -257,13 +261,18 @@ class EffectBayesianABTest(BayesianABTest):
 class Bandits:
     def __init__(
         self,
+<<<<<<< HEAD
         stats: Dict[
             int, List[BanditStatistic]
         ],  # keys are 0, 1, 2, etc. mapping to periods; values are lists of length n_variations of summary_statistics
+=======
+        stats: Dict,  # keys are 0, 1, 2, etc. mapping to periods; values are lists of length n_variations of summary_statistics
+>>>>>>> 3b907a3b0 (responding to sonnet comments and adding new period weighting methods)
         config: BanditConfig,
     ):
         self.stats = stats
         self.config = config
+<<<<<<< HEAD
 
     @staticmethod
     def construct_mean(sums: np.ndarray, counts: np.ndarray) -> np.ndarray:
@@ -271,6 +280,8 @@ class Bandits:
         means = np.zeros(sums.shape)
         means[positive_counts] = sums[positive_counts] / counts[positive_counts]
         return means
+=======
+>>>>>>> 3b907a3b0 (responding to sonnet comments and adding new period weighting methods)
 
     @property
     def bandit_weights_seed(self) -> int:
@@ -444,6 +455,7 @@ class Bandits:
 
     @property
     def variation_means(self) -> np.ndarray:
+<<<<<<< HEAD
         return self.construct_weighted_means(self.means_array, self.weights_array)
 
     # find elements of an array that are positive
@@ -476,6 +488,44 @@ class Bandits:
         return self.construct_weighted_variances(
             self.variances_array, self.weights_array, self.counts_array
         )
+=======
+        return np.sum(self.means_array * self.weights_array, axis=0)
+
+    @property
+    def variation_variances(self) -> np.ndarray:
+        # find elements where n = 0
+        positive_sample_size = self.counts_array != 0
+        # array of variances of the sample mean
+        sample_mean_variances_by_period = np.zeros(self.array_shape)
+        # update the array only where the sample size is positive
+        sample_mean_variances_by_period[positive_sample_size] = (
+            self.variances_array[positive_sample_size]
+            / self.counts_array[positive_sample_size]
+        )
+        # construct the variance of the weighted mean
+        sample_mean_variances = np.sum(
+            sample_mean_variances_by_period * (self.weights_array) ** 2, axis=0
+        )
+        # scale by number of counts to get back to distributional variance
+        return sample_mean_variances * self.variation_counts
+
+    @property
+    def variation_counts(self) -> np.ndarray:
+        return np.sum(self.counts_array, axis=0)
+
+    @property
+    def sample_mean_statistics(self) -> List[SampleMeanStatistic]:
+        return [
+            SampleMeanStatistic(
+                n=this_n,
+                sum=this_n * this_mn,
+                sum_squares=(this_n - 1) * this_var + this_n * this_mn**2,
+            )
+            for this_n, this_mn, this_var in zip(
+                self.variation_counts, self.variation_means, self.variation_variances
+            )
+        ]
+>>>>>>> 3b907a3b0 (responding to sonnet comments and adding new period weighting methods)
 
     @property
     def prior_precision(self) -> np.ndarray:
@@ -532,6 +582,7 @@ class Bandits:
         min_n = 100
         if any(self.variation_counts < min_n):
 <<<<<<< HEAD
+<<<<<<< HEAD
             update_message = "some variation counts fewer than " + str(min_n)
             return BanditResponse(
                 users=None,
@@ -553,6 +604,10 @@ class Bandits:
             update_message = "some variation counts smaller than " + str(min_n)
             p = None
             return BanditWeights(update_message=update_message, weights=p)
+=======
+            update_message = "some variation counts fewer than " + str(min_n)
+            return BanditWeights(update_message=update_message, weights=None)
+>>>>>>> 3b907a3b0 (responding to sonnet comments and adding new period weighting methods)
         rng = np.random.default_rng(seed=self.bandit_weights_seed)
 >>>>>>> b6df533b4 (pulling changes from main)
         y = rng.multivariate_normal(
@@ -577,6 +632,7 @@ class Bandits:
         update_message = "successfully updated"
         p[p < self.config.min_variation_weight] = self.config.min_variation_weight
         p /= sum(p)
+<<<<<<< HEAD
         credible_intervals = [
             gaussian_credible_interval(mn, s, self.config.alpha)
             for mn, s in zip(self.posterior_mean, np.sqrt(self.posterior_variance))
@@ -591,6 +647,9 @@ class Bandits:
             seed=seed,
             bandit_update_message=update_message,
         )
+=======
+        return BanditWeights(update_message=update_message, weights=p.tolist())
+>>>>>>> 3b907a3b0 (responding to sonnet comments and adding new period weighting methods)
 
     # function that takes weights for largest realization and turns into top two weights
     @staticmethod

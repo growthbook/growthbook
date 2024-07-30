@@ -27,6 +27,7 @@ from gbstats.models.results import (
     DimensionResponse,
     ExperimentMetricAnalysis,
     ExperimentMetricAnalysisResult,
+    FixedWeightMetricAnalysis,
     FrequentistVariationResponse,
     MetricStats,
     MultipleExperimentMetricAnalysis,
@@ -496,7 +497,6 @@ def base_statistic_from_metric_row(
 # Run a specific analysis given data and configuration settings
 def process_analysis(
     rows: pd.DataFrame,
-    var_id_map: VarIdMap,
     metric: MetricSettingsForStatsEngine,
     analysis: AnalysisSettingsForStatsEngine,
 ) -> pd.DataFrame:
@@ -543,10 +543,10 @@ def process_single_metric(
     rows: ExperimentMetricQueryResponseRows,
     metric: MetricSettingsForStatsEngine,
     analyses: List[AnalysisSettingsForStatsEngine],
-) -> ExperimentMetricAnalysis:
+) -> FixedWeightMetricAnalysis:
     # If no data return blank results
     if len(rows) == 0:
-        return ExperimentMetricAnalysis(
+        return FixedWeightMetricAnalysis(
             metric=metric.id,
             analyses=[
                 ExperimentMetricAnalysisResult(
@@ -568,7 +568,6 @@ def process_single_metric(
         format_results(
             process_analysis(
                 rows=pdrows,
-                var_id_map=get_var_id_map(a.var_ids),
                 metric=metric,
                 analysis=a,
             ),
@@ -576,7 +575,7 @@ def process_single_metric(
         )
         for a in analyses
     ]
-    return ExperimentMetricAnalysis(
+    return FixedWeightMetricAnalysis(
         metric=metric.id,
         analyses=[
             ExperimentMetricAnalysisResult(
