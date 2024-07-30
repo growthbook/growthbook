@@ -30,84 +30,119 @@ COUNT_METRIC = MetricSettingsForStatsEngine(
     main_metric_type="count",
 )
 
-MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(
-    [
-        {
-            "dimension": "one",
-            "variation": "one",
-            "main_sum": 300,
-            "main_sum_squares": 869,
-            "users": 120,
-            "count": 120,
-        },
-        {
-            "dimension": "one",
-            "variation": "zero",
-            "main_sum": 270,
-            "main_sum_squares": 848.79,
-            "users": 100,
-            "count": 100,
-        },
-        {
-            "dimension": "two",
-            "variation": "one",
-            "main_sum": 770,
-            "main_sum_squares": 3571,
-            "users": 220,
-            "count": 220,
-        },
-        {
-            "dimension": "two",
-            "variation": "zero",
-            "main_sum": 740,
-            "main_sum_squares": 3615.59,
-            "users": 200,
-            "count": 200,
-        },
-    ]
-)
+QUERY_OUTPUT = [
+    {
+        "dimension": "one",
+        "variation": "one",
+        "main_sum": 300,
+        "main_sum_squares": 869,
+        "users": 120,
+        "count": 120,
+    },
+    {
+        "dimension": "one",
+        "variation": "zero",
+        "main_sum": 270,
+        "main_sum_squares": 848.79,
+        "users": 100,
+        "count": 100,
+    },
+    {
+        "dimension": "two",
+        "variation": "one",
+        "main_sum": 770,
+        "main_sum_squares": 3571,
+        "users": 220,
+        "count": 220,
+    },
+    {
+        "dimension": "two",
+        "variation": "zero",
+        "main_sum": 740,
+        "main_sum_squares": 3615.59,
+        "users": 200,
+        "count": 200,
+    },
+]
+
+MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(QUERY_OUTPUT)
 
 # used for testing bandits
-ADDITIONAL_VARIATIONS = pd.DataFrame(
-    [
-        {
-            "dimension": "one",
-            "variation": "three",
-            "main_sum": 30,
-            "main_sum_squares": 869,
-            "users": 12,
-            "count": 15,
-        },
-        {
-            "dimension": "one",
-            "variation": "two",
-            "main_sum": 3000,
-            "main_sum_squares": 86900,
-            "users": 1200,
-            "count": 1200,
-        },
-        {
-            "dimension": "two",
-            "variation": "three",
-            "main_sum": 770,
-            "main_sum_squares": 3571,
-            "users": 220,
-            "count": 220,
-        },
-        {
-            "dimension": "two",
-            "variation": "two",
-            "main_sum": 740,
-            "main_sum_squares": 3615.59,
-            "users": 200,
-            "count": 200,
-        },
-    ]
-)
+QUERY_OUTPUT_BANDITS = [
+    {
+        "dimension": "",
+        "period": 0,
+        "variation": "zero",
+        "main_sum": 270,
+        "main_sum_squares": 848.79,
+        "users": 100,
+        "count": 100,
+    },
+    {
+        "dimension": "",
+        "period": 0,
+        "variation": "one",
+        "main_sum": 300,
+        "main_sum_squares": 869,
+        "users": 120,
+        "count": 120,
+    },
+    {
+        "dimension": "",
+        "period": 0,
+        "variation": "two",
+        "main_sum": 740,
+        "main_sum_squares": 1615.59,
+        "users": 200,
+        "count": 200,
+    },
+    {
+        "dimension": "",
+        "period": 0,
+        "variation": "three",
+        "main_sum": 770,
+        "main_sum_squares": 1571,
+        "users": 220,
+        "count": 220,
+    },
+    {
+        "dimension": "",
+        "period": 1,
+        "variation": "zero",
+        "main_sum": 270,
+        "main_sum_squares": 848.79,
+        "users": 100,
+        "count": 100,
+    },
+    {
+        "dimension": "",
+        "period": 1,
+        "variation": "one",
+        "main_sum": 300,
+        "main_sum_squares": 869,
+        "users": 120,
+        "count": 120,
+    },
+    {
+        "dimension": "",
+        "period": 1,
+        "variation": "two",
+        "main_sum": 740,
+        "main_sum_squares": 1615.59,
+        "users": 200,
+        "count": 200,
+    },
+    {
+        "dimension": "",
+        "period": 1,
+        "variation": "three",
+        "main_sum": 770,
+        "main_sum_squares": 1571,
+        "users": 220,
+        "count": 220,
+    },
+]
 
-MULTI_DIMENSION_STATISTICS_DF_BANDITS = pd.concat(
-    [MULTI_DIMENSION_STATISTICS_DF, ADDITIONAL_VARIATIONS], axis=0, ignore_index=True
-)
 
 THIRD_DIMENSION_STATISTICS_DF = pd.DataFrame(
     [
@@ -268,12 +303,14 @@ DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
     max_dimensions=20,
 )
 
+# confirm with sonnet that var_ids are right;
+# before was failing at "get_metric_df" due to wrong var_id_mapping
 BANDIT_ANALYSIS = AnalysisSettingsForStatsEngine(
     var_names=["zero", "one", "two", "three"],
-    var_ids=["0", "1", "2", "3"],
+    var_ids=["zero", "one", "two", "three"],
     weights=[0.25, 0.25, 0.25, 0.25],
     baseline_index=0,
-    dimension="All",
+    dimension="",
     stats_engine="bayesian",
     sequential_testing_enabled=False,
     sequential_tuning_parameter=5000,
@@ -283,7 +320,7 @@ BANDIT_ANALYSIS = AnalysisSettingsForStatsEngine(
     max_dimensions=20,
     decision_metric="count_metric",
     bandit=True,
-    bandit_weights_seed=100,
+    bandit_weights_seed=10,
 )
 
 
@@ -786,48 +823,19 @@ class TestFormatResults(TestCase):
 class TestBandit(TestCase):
     def setUp(self):
         # preprocessing steps
-        self.rows = MULTI_DIMENSION_STATISTICS_DF_BANDITS
+        self.rows = QUERY_OUTPUT_BANDITS
         self.metric = COUNT_METRIC
         self.analysis = BANDIT_ANALYSIS
         self.max_dimensions = self.analysis.max_dimensions
-        # If we're doing a daily time series, we need to diff the data
-        if self.analysis.dimension == "pre:datedaily":
-            self.rows = diff_for_daily_time_series(self.rows)
-        # Convert raw SQL result into a dataframe of dimensions
-        self.df = get_metric_df(
-            rows=self.rows,
-            var_id_map={"zero": 0, "one": 1, "two": 2, "three": 3},
-            var_names=self.analysis.var_names,
-        )
         self.update_messages = [
-            "some variation counts smaller than 100",
             "successfully updated",
         ]
-        self.true_weights = [None, [0.39755, 0.10465, 0.397, 0.1008]]
-
-    def test_analyze_metric_df(self):
-        result = analyze_metric_df(
-            self.df,
-            metric=COUNT_METRIC,
-            analysis=BANDIT_ANALYSIS,
-        )
-        self.assertEqual(result["bandit_update_message"][0], self.update_messages[0])
-        self.assertEqual(result["bandit_update_message"][1], self.update_messages[1])
-        self.assertEqual(result["bandit_weights"][0], self.true_weights[0])
-        self.assertEqual(result["bandit_weights"][1], self.true_weights[1])
+        self.true_weights = [0.37530, 0.13345, 0.24645, 0.2448]
 
     def test_get_bandit_weights(self):
-        reduced = reduce_dimensionality(
-            df=self.df,
-            max=self.max_dimensions,
-            keep_other=self.metric.statistic_type
-            not in ["quantile_event", "quantile_unit"],
-        )
-        result = get_bandit_weights(reduced, self.metric, self.analysis)
-        self.assertEqual(result["bandit_update_message"][0], self.update_messages[0])
-        self.assertEqual(result["bandit_update_message"][1], self.update_messages[1])
-        self.assertEqual(result["bandit_weights"][0], self.true_weights[0])
-        self.assertEqual(result["bandit_weights"][1], self.true_weights[1])
+        result = get_bandit_weights(self.rows, self.metric, self.analysis)
+        self.assertEqual(result.banditUpdateMessage, self.update_messages[0])
+        self.assertEqual(result.banditWeights, self.true_weights)
 
 
 if __name__ == "__main__":

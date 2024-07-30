@@ -50,8 +50,8 @@ type StatsEngineDimensionResponse =
   | BayesianDimensionResponse
   | FrequentistVariationResponse;
 
-// Keep ExperimentMetricAnalysis and children classes in sync with gbstats
-export type ExperimentMetricAnalysis = {
+// Keep FixedWeightMetricAnalysis and children classes in sync with gbstats
+export type FixedWeightMetricAnalysis = {
   metric: string;
   analyses: {
     unknownVariations: string[];
@@ -60,8 +60,17 @@ export type ExperimentMetricAnalysis = {
   }[];
 }[];
 
+export type BanditResponse = {
+  banditUpdateMessage?: string
+  banditWeights?: number[]
+}
+    
+type ExperimentMetricAnalysis =
+  | FixedWeightMetricAnalysis
+  | BanditResponse;
+
 export type MultipleExperimentMetricAnalysis = {
   id: string;
-  results: ExperimentMetricAnalysis;
+  results: FixedWeightMetricAnalysis;
   error?: string;
 };

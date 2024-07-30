@@ -51,8 +51,8 @@ VariationResponse = Union[
 
 @dataclass
 class BanditResponse:
-    banditWeights: Optional[float]
-    banditErrorMessage: Optional[str]
+    banditWeights: Optional[List[float]]
+    banditUpdateMessage: Optional[str]
 
 
 @dataclass
@@ -60,7 +60,6 @@ class DimensionResponse:
     dimension: str
     srm: float
     variations: List[VariationResponse]
-    bandit: Optional[BanditResponse]
 
 
 @dataclass
@@ -71,9 +70,12 @@ class ExperimentMetricAnalysisResult:
 
 
 @dataclass
-class ExperimentMetricAnalysis:
+class FixedWeightMetricAnalysis:
     metric: str
     analyses: List[ExperimentMetricAnalysisResult]
+
+
+ExperimentMetricAnalysis = Union[FixedWeightMetricAnalysis, BanditResponse]
 
 
 @dataclass
