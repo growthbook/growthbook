@@ -15,7 +15,7 @@ from gbstats.messages import (
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
 from gbstats.models.statistics import (
     TestStatistic,
-    BanditStatistic,
+    SampleMeanStatistic,
 )
 from gbstats.frequentist.tests import frequentist_diff, frequentist_variance
 from gbstats.utils import truncated_normal_mean
@@ -339,6 +339,76 @@ class Bandits:
     @property
     def bandit_weights_seed(self) -> int:
         return self.config.bandit_weights_seed
+
+    @property
+    def num_periods(self) -> int:
+        return len(self.stats)
+
+    @property
+    def num_variations(self) -> int:
+        return len(self.stats[0])
+
+    @property
+    def array_shape(self) -> tuple:
+        return (self.num_periods, self.num_variations)
+
+    @property
+    def counts_array(self) -> np.ndarray:
+        counts = [
+            n for sublist in self.stats.values() for item in sublist for n in [item.n]
+        ]
+        return np.array(counts).reshape(self.array_shape)
+
+    @property
+    def period_weights(self) -> np.ndarray:
+        """given the total traffic (across variations) for each period, what is the percentage that was allocated to each period?
+        Args:
+            counts_array: n_phases x n_variations array of traffic whose (i, j)th element corresponds to the ith phase for the jth variation.
+        Returns:
+            weights: n_phases x 1 vector of final weights.
+        """
+        # sum traffic across variations for a specific phase to get the total traffic for that phase
+        n_seq = np.sum(self.counts_array, axis=1)
+        total_count = sum(n_seq)
+        if total_count:
+            return n_seq / sum(n_seq)
+        else:
+            return np.full((self.num_variations,), 1 / self.num_variations)
+
+    @property
+    def weights_array(self) -> np.ndarray:
+        if self.config.weight_by_period:
+            return np.tile(
+                np.expand_dims(self.period_weights, axis=1), (1, self.num_variations)
+            )
+        else:
+            variation_sample_sizes = np.sum(self.counts_array, axis=0)
+            if any(variation_sample_sizes == 0):
+                error_string = (
+                    "Need at least 1 observation per variation to weight by period."
+                )
+                raise ValueError(error_string)
+            return self.counts_array / variation_sample_sizes
+
+    @property
+    def means_array(self) -> np.ndarray:
+        means = [
+            m
+            for sublist in self.stats.values()
+            for item in sublist
+            for m in [item.mean]
+        ]
+        return np.array(means).reshape(self.array_shape)
+
+    @property
+    def variances_array(self) -> np.ndarray:
+        variances = [
+            m
+            for sublist in self.stats.values()
+            for item in sublist
+            for m in [item.variance]
+        ]
+        return np.array(variances).reshape(self.array_shape)
 
     @property
     def variation_means(self) -> np.ndarray:

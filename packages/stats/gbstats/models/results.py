@@ -61,7 +61,6 @@ class DimensionResponse:
     dimension: str
     srm: float
     variations: List[VariationResponse]
-    bandit: Optional[BanditResponse]
 
 
 @dataclass
@@ -72,9 +71,12 @@ class ExperimentMetricAnalysisResult:
 
 
 @dataclass
-class ExperimentMetricAnalysis:
+class FixedWeightMetricAnalysis:
     metric: str
     analyses: List[ExperimentMetricAnalysisResult]
+
+
+ExperimentMetricAnalysis = Union[FixedWeightMetricAnalysis, BanditResponse]
 
 
 @dataclass

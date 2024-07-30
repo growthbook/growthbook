@@ -25,6 +25,7 @@ from gbstats.models.results import (
     DimensionResponse,
     ExperimentMetricAnalysis,
     ExperimentMetricAnalysisResult,
+    FixedWeightMetricAnalysis,
     FrequentistVariationResponse,
     MetricStats,
     MultipleExperimentMetricAnalysis,
@@ -275,9 +276,6 @@ def analyze_metric_df(
             df[f"v{i}_uplift"] = None
             df[f"v{i}_error_message"] = None
 
-    if analysis.bandit and analysis.decision_metric == metric.id:
-        df = get_bandit_weights(df, metric, analysis)
-
     def analyze_row(s: pd.Series) -> pd.Series:
         s = s.copy()
 
@@ -345,15 +343,8 @@ def format_results(
     results: List[DimensionResponse] = []
     rows = df.to_dict("records")
     for row in rows:
-        if "bandit_weights" in row:
-            bandit = BanditResponse(
-                banditWeights=row["bandit_weights"],
-                banditErrorMessage=row["bandit_error_message"],
-            )
-        else:
-            bandit = None
         dim = DimensionResponse(
-            dimension=row["dimension"], srm=row["srm_p"], variations=[], bandit=bandit
+            dimension=row["dimension"], srm=row["srm_p"], variations=[]
         )
         baseline_data = format_variation_result(row, 0)
         variation_data = [
@@ -498,7 +489,6 @@ def base_statistic_from_metric_row(
 # Run a specific analysis given data and configuration settings
 def process_analysis(
     rows: pd.DataFrame,
-    var_id_map: VarIdMap,
     metric: MetricSettingsForStatsEngine,
     analysis: AnalysisSettingsForStatsEngine,
 ) -> pd.DataFrame:
@@ -545,10 +535,10 @@ def process_single_metric(
     rows: ExperimentMetricQueryResponseRows,
     metric: MetricSettingsForStatsEngine,
     analyses: List[AnalysisSettingsForStatsEngine],
-) -> ExperimentMetricAnalysis:
+) -> FixedWeightMetricAnalysis:
     # If no data return blank results
     if len(rows) == 0:
-        return ExperimentMetricAnalysis(
+        return FixedWeightMetricAnalysis(
             metric=metric.id,
             analyses=[
                 ExperimentMetricAnalysisResult(
@@ -570,7 +560,6 @@ def process_single_metric(
         format_results(
             process_analysis(
                 rows=pdrows,
-                var_id_map=get_var_id_map(a.var_ids),
                 metric=metric,
                 analysis=a,
             ),
@@ -578,7 +567,7 @@ def process_single_metric(
         )
         for a in analyses
     ]
-    return ExperimentMetricAnalysis(
+    return FixedWeightMetricAnalysis(
         metric=metric.id,
         analyses=[
             ExperimentMetricAnalysisResult(

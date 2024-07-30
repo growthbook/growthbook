@@ -304,12 +304,14 @@ DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
     max_dimensions=20,
 )
 
+# confirm with sonnet that var_ids are right;
+# before was failing at "get_metric_df" due to wrong var_id_mapping
 BANDIT_ANALYSIS = AnalysisSettingsForStatsEngine(
     var_names=["zero", "one", "two", "three"],
-    var_ids=["0", "1", "2", "3"],
+    var_ids=["zero", "one", "two", "three"],
     weights=[0.25, 0.25, 0.25, 0.25],
     baseline_index=0,
-    dimension="All",
+    dimension="",
     stats_engine="bayesian",
     sequential_testing_enabled=False,
     sequential_tuning_parameter=5000,
