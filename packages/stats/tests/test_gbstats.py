@@ -7,6 +7,7 @@ import pandas as pd
 
 from gbstats.gbstats import (
     AnalysisSettingsForStatsEngine,
+    BanditSettingsForStatsEngine,
     MetricSettingsForStatsEngine,
     detect_unknown_variations,
     diff_for_daily_time_series,
@@ -305,21 +306,10 @@ DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
 
 # confirm with sonnet that var_ids are right;
 # before was failing at "get_metric_df" due to wrong var_id_mapping
-BANDIT_ANALYSIS = AnalysisSettingsForStatsEngine(
+BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     var_names=["zero", "one", "two", "three"],
     var_ids=["zero", "one", "two", "three"],
-    weights=[0.25, 0.25, 0.25, 0.25],
-    baseline_index=0,
-    dimension="",
-    stats_engine="bayesian",
-    sequential_testing_enabled=False,
-    sequential_tuning_parameter=5000,
-    difference_type="relative",
-    phase_length_days=1,
-    alpha=0.05,
-    max_dimensions=20,
     decision_metric="count_metric",
-    bandit=True,
     bandit_weights_seed=10,
 )
 
@@ -826,7 +816,6 @@ class TestBandit(TestCase):
         self.rows = QUERY_OUTPUT_BANDITS
         self.metric = COUNT_METRIC
         self.analysis = BANDIT_ANALYSIS
-        self.max_dimensions = self.analysis.max_dimensions
         self.update_messages = [
             "successfully updated",
         ]

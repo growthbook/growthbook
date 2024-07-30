@@ -1,6 +1,6 @@
 from dataclasses import asdict
 import re
-from typing import Any, Dict, Hashable, List, Optional, Set, Union
+from typing import Any, Dict, Hashable, List, Optional, Set, Tuple, Union
 
 import pandas as pd
 
@@ -25,7 +25,6 @@ from gbstats.models.results import (
     DimensionResponse,
     ExperimentMetricAnalysis,
     ExperimentMetricAnalysisResult,
-    FixedWeightMetricAnalysis,
     FrequentistVariationResponse,
     MetricStats,
     MultipleExperimentMetricAnalysis,
@@ -33,6 +32,7 @@ from gbstats.models.results import (
 )
 from gbstats.models.settings import (
     AnalysisSettingsForStatsEngine,
+    BanditSettingsForStatsEngine,
     DataForStatsEngine,
     ExperimentDataForStatsEngine,
     ExperimentMetricQueryResponseRows,
@@ -487,7 +487,28 @@ def process_analysis(
     analysis: AnalysisSettingsForStatsEngine,
 ) -> pd.DataFrame:
     # diff data, convert raw sql into df of dimensions, and get rid of extra dimensions
-    reduced = preprocess_analysis(rows, metric, analysis, bandit=False)
+    var_names = analysis.var_names
+    max_dimensions = analysis.max_dimensions
+
+    # If we're doing a daily time series, we need to diff the data
+    if analysis.dimension == "pre:datedaily":
+        rows = diff_for_daily_time_series(rows)
+
+    # Convert raw SQL result into a dataframe of dimensions
+    df = get_metric_df(
+        rows=rows,
+        var_id_map=get_var_id_map(analysis.var_ids),
+        var_names=var_names,
+        bandit=False,
+    )
+    # Limit to the top X dimensions with the most users
+    # not possible to just re-sum for quantile metrics,
+    # so we throw away "other" dimension
+    reduced = reduce_dimensionality(
+        df=df,
+        max=max_dimensions,
+        keep_other=metric.statistic_type not in ["quantile_event", "quantile_unit"],
+    )
     # Run the analysis for each variation and dimension
     result = analyze_metric_df(
         df=reduced,
@@ -505,10 +526,10 @@ def process_single_metric(
     rows: ExperimentMetricQueryResponseRows,
     metric: MetricSettingsForStatsEngine,
     analyses: List[AnalysisSettingsForStatsEngine],
-) -> FixedWeightMetricAnalysis:
+) -> ExperimentMetricAnalysis:
     # If no data return blank results
     if len(rows) == 0:
-        return FixedWeightMetricAnalysis(
+        return ExperimentMetricAnalysis(
             metric=metric.id,
             analyses=[
                 ExperimentMetricAnalysisResult(
@@ -537,7 +558,7 @@ def process_single_metric(
         )
         for a in analyses
     ]
-    return FixedWeightMetricAnalysis(
+    return ExperimentMetricAnalysis(
         metric=metric.id,
         analyses=[
             ExperimentMetricAnalysisResult(
@@ -547,36 +568,6 @@ def process_single_metric(
             )
             for r in results
         ],
-    )
-
-
-def preprocess_analysis(
-    pdrows: pd.DataFrame,
-    metric: MetricSettingsForStatsEngine,
-    analysis: AnalysisSettingsForStatsEngine,
-    bandit: bool = False,
-) -> pd.DataFrame:
-    var_names = analysis.var_names
-    max_dimensions = analysis.max_dimensions
-
-    # If we're doing a daily time series, we need to diff the data
-    if analysis.dimension == "pre:datedaily":
-        pdrows = diff_for_daily_time_series(pdrows)
-
-    # Convert raw SQL result into a dataframe of dimensions
-    df = get_metric_df(
-        rows=pdrows,
-        var_id_map=get_var_id_map(analysis.var_ids),
-        var_names=var_names,
-        bandit=bandit,
-    )
-    # Limit to the top X dimensions with the most users
-    # not possible to just re-sum for quantile metrics,
-    # so we throw away "other" dimension
-    return reduce_dimensionality(
-        df=df,
-        max=max_dimensions,
-        keep_other=metric.statistic_type not in ["quantile_event", "quantile_unit"],
     )
 
 
@@ -618,23 +609,31 @@ def create_bandit_sample_mean_statistics(
 def get_bandit_weights(
     rows: ExperimentMetricQueryResponseRows,
     metric: MetricSettingsForStatsEngine,
-    analysis: AnalysisSettingsForStatsEngine,
+    settings: BanditSettingsForStatsEngine,
 ) -> BanditResponse:
     # code below here is from process_single_metric
     if len(rows) == 0:
         return BanditResponse(banditWeights=None, banditUpdateMessage="no rows")
     pdrows = pd.DataFrame(rows)
     pdrows = pdrows.loc[pdrows["dimension"] == ""]
-    # diff data, convert raw sql into df of periods, and output df where n_rows = periods
-    reduced = preprocess_analysis(pdrows, metric, analysis, bandit=True)
-    bandit_sample_mean_stats = create_bandit_sample_mean_statistics(reduced, metric)
+    # convert raw sql into df of periods, and output df where n_rows = periods
+    df = get_metric_df(
+        rows=pdrows,
+        var_id_map=get_var_id_map(settings.var_ids),
+        var_names=settings.var_names,
+        bandit=True,
+    )
+    pd.set_option("display.max_columns", None)
+    print(df)
+
+    bandit_sample_mean_stats = create_bandit_sample_mean_statistics(df, metric)
     if any(value is None for value in bandit_sample_mean_stats.values()):
         error_str = "not all statistics are instance of type BanditStatistic"
         return BanditResponse(banditWeights=None, banditUpdateMessage=error_str)
     bandit_prior = GaussianPrior(mean=0, variance=float(1e4), proper=True)
     bandit_config = BanditConfig(
         prior_distribution=bandit_prior,
-        bandit_weights_seed=analysis.bandit_weights_seed,
+        bandit_weights_seed=settings.bandit_weights_seed,
     )
     b = Bandits(bandit_sample_mean_stats, bandit_config).compute_variation_weights()
     return BanditResponse(banditWeights=b.weights, banditUpdateMessage=b.update_message)
@@ -662,12 +661,18 @@ def process_data_dict(data: Dict[str, Any]) -> DataForStatsEngine:
         },
         analyses=[AnalysisSettingsForStatsEngine(**a) for a in data["analyses"]],
         query_results=[QueryResultsForStatsEngine(**q) for q in data["query_results"]],
+        bandit_settings=BanditSettingsForStatsEngine(**data["bandit_settings"])
+        if data["bandit_settings"]
+        else None,
     )
 
 
-def process_experiment_results(data: Dict[str, Any]) -> List[ExperimentMetricAnalysis]:
+def process_experiment_results(
+    data: Dict[str, Any]
+) -> Tuple[List[ExperimentMetricAnalysis], Optional[BanditResponse]]:
     d = process_data_dict(data)
     results: List[ExperimentMetricAnalysis] = []
+    bandit_result: Optional[BanditResponse] = None
     for query_result in d.query_results:
         for i, metric in enumerate(query_result.metrics):
             if metric in d.metrics:
@@ -680,20 +685,18 @@ def process_experiment_results(data: Dict[str, Any]) -> List[ExperimentMetricAna
                             analyses=d.analyses,
                         )
                     )
-                    for _, analysis in enumerate(d.analyses):
-                        if (
-                            analysis.bandit
-                            and not analysis.dimension
-                            and metric == analysis.decision_metric
-                        ):
-                            results.append(
-                                get_bandit_weights(
-                                    rows=rows,
-                                    metric=d.metrics[metric],
-                                    analysis=analysis,
-                                ),
-                            )
-    return results
+                    if (
+                        d.bandit_settings
+                        and d.bandit_settings.decision_metric == metric
+                    ):
+                        if bandit_result is not None:
+                            raise ValueError("Bandit weights already computed")
+                        bandit_result = get_bandit_weights(
+                            rows=rows,
+                            metric=d.metrics[metric],
+                            settings=d.bandit_settings,
+                        )
+    return results, bandit_result
 
 
 def process_multiple_experiment_results(
@@ -703,16 +706,24 @@ def process_multiple_experiment_results(
     for exp_data in data:
         try:
             exp_data_proc = ExperimentDataForStatsEngine(**exp_data)
-            exp_result = process_experiment_results(exp_data_proc.data)
+            fixed_results, bandit_response = process_experiment_results(
+                exp_data_proc.data
+            )
             results.append(
                 MultipleExperimentMetricAnalysis(
-                    id=exp_data_proc.id, results=exp_result, error=None
+                    id=exp_data_proc.id,
+                    results=fixed_results,
+                    bandit_response=bandit_response,
+                    error=None,
                 )
             )
         except Exception as e:
             results.append(
                 MultipleExperimentMetricAnalysis(
-                    id=exp_data["id"], results=[], error=str(e)[:64]
+                    id=exp_data["id"],
+                    results=[],
+                    bandit_response=None,
+                    error=str(e)[:64],
                 )
             )
     return results

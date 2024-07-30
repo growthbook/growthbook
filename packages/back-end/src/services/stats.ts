@@ -65,8 +65,12 @@ export interface AnalysisSettingsForStatsEngine {
   phase_length_days: number;
   alpha: number;
   max_dimensions: number;
+}
+
+export interface BanditSettingsForStatsEngine {
+  var_names: string[];
+  var_ids: string[];
   decision_metric: string;
-  bandit: boolean;
   bandit_weights_seed: number;
 }
 
@@ -101,6 +105,7 @@ export interface DataForStatsEngine {
   analyses: AnalysisSettingsForStatsEngine[];
   metrics: Record<string, MetricSettingsForStatsEngine>;
   query_results: QueryResultsForStatsEngine[];
+  bandit_settings?: BanditSettingsForStatsEngine;
 }
 
 export interface ExperimentDataForStatsEngine {
@@ -241,6 +246,7 @@ function createStatsEngineData(
         phaseLengthDays
       )
     ),
+    bandit_settings: undefined, // TODO add integration to pass down bandit settings
   };
 }
 
