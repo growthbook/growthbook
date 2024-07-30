@@ -878,11 +878,11 @@ export async function postExperiment(
       data.variations.length ?? existing.variations.length ?? 0
     );
     changes.phases = changes.phases ?? [...experiment.phases];
-    if (changes.phases?.[changes.phases?.length - 1]?.variationWeights) {
-      weights.forEach((w, i) => {
+    weights.forEach((w, i) => {
+      if (changes?.phases?.[changes.phases.length - 1]?.variationWeights?.[i]) {
         changes.phases[changes.phases.length - 1].variationWeights[i] = w;
-      });
-    }
+      }
+    });
 
     // stats engine
     changes.statsEngine = "bayesian";
