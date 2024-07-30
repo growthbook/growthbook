@@ -23,13 +23,14 @@ class AnalysisSettingsForStatsEngine:
     phase_length_days: float = 1
     alpha: float = 0.05
     max_dimensions: int = 20
-    decision_metric: str = ""
-    bandit: bool = False
-    bandit_weights_seed: int = 100
 
-    def __post_init__(self):
-        if self.bandit and not self.decision_metric:
-            raise ValueError("Must have decision metric for bandit analysis.")
+
+@dataclass
+class BanditSettingsForStatsEngine:
+    var_names: List[str]
+    var_ids: List[str]
+    decision_metric: str = ""
+    bandit_weights_seed: int = 100
 
 
 @dataclass

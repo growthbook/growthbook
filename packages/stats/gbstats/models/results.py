@@ -71,12 +71,9 @@ class ExperimentMetricAnalysisResult:
 
 
 @dataclass
-class FixedWeightMetricAnalysis:
+class ExperimentMetricAnalysis:
     metric: str
     analyses: List[ExperimentMetricAnalysisResult]
-
-
-ExperimentMetricAnalysis = Union[FixedWeightMetricAnalysis, BanditResponse]
 
 
 @dataclass

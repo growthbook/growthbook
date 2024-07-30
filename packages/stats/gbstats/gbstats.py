@@ -25,7 +25,6 @@ from gbstats.models.results import (
     DimensionResponse,
     ExperimentMetricAnalysis,
     ExperimentMetricAnalysisResult,
-    FixedWeightMetricAnalysis,
     FrequentistVariationResponse,
     MetricStats,
     MultipleExperimentMetricAnalysis,
@@ -535,10 +534,10 @@ def process_single_metric(
     rows: ExperimentMetricQueryResponseRows,
     metric: MetricSettingsForStatsEngine,
     analyses: List[AnalysisSettingsForStatsEngine],
-) -> FixedWeightMetricAnalysis:
+) -> ExperimentMetricAnalysis:
     # If no data return blank results
     if len(rows) == 0:
-        return FixedWeightMetricAnalysis(
+        return ExperimentMetricAnalysis(
             metric=metric.id,
             analyses=[
                 ExperimentMetricAnalysisResult(
@@ -567,7 +566,7 @@ def process_single_metric(
         )
         for a in analyses
     ]
-    return FixedWeightMetricAnalysis(
+    return ExperimentMetricAnalysis(
         metric=metric.id,
         analyses=[
             ExperimentMetricAnalysisResult(
