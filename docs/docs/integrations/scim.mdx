@@ -68,7 +68,7 @@ We are actively working on adding support for additional identity providers.
 
 9. Congratulations! Your application is now set up. You can navigate to the "Assignments" tab and assign people to GrowthBook and to the "Push Groups" tab to sync groups with GrowthBook Teams.
 
-### How to define user role when provisioning
+#### How to define user role when provisioning
 
 1. First, ensure that you've followed the general setup instructions above.
 
@@ -107,6 +107,51 @@ It's important each of these values are entered exactly as shown above, includin
 4. Once complete, when you provision a user, you can select their role from the dropdown, and that will be applied to the user in GrowthBook. If you're not sure which role a user should have, you can view GrowthBook role permissions [here](https://docs.growthbook.io/account/user-permissions).
 
 ![](../../static/images/integrations/scim/GrowthBook-SCIM-Define-User-Role.png)
+
+### Azure Setup
+
+1. Verify that your GrowthBook organization is on an enterprise plan with SSO enabled.
+
+![](../../static/images/integrations/azure/growthbook-entra-scim-add-enterprise-application.png)
+
+2. Log in to your Azure account, select "Microsoft Entra ID, and in the left-nav select Manage > Enterprise Applications > + New Application
+
+3. Here, you can select + Create your own application, add your name, and select the "Integrate any other application you don't find in the gallery (Non-gallery)" option.
+
+![](../../static/images/integrations/azure/growthbook-entra-scim-create-application.png)
+
+3. Once created, you can select the box to "Provision User Accounts "
+
+![](../../static/images/integrations/azure/growthbook-entra-scim-setup-provisioning.png)
+
+4. Here, you can click the CTA to "Get Started"
+
+![](../../static/images/integrations/azure/growthbook-entra-scim-provisioning-empty-state.png)
+
+5. Then, you can select "Automatic" provisioning before adding the Base URL and your OAUTH Bearer Token
+
+![](../../static/images/integrations/azure/growthbook-entra-scim-add-credentials.png)
+
+- For GrowthBook Cloud users, the Base URL is `https://api.growthbook.io/scim/v2`. If you're self-hosting GrowthBook, the Base URL will be `{YOUR_API_HOST}/scim/v2`.
+- You can obtain your OAuth Bearer Token by creating a new Secret API Key with an `Admin` role. To do this, go to your GrowthBook account, and in the left navigation, select "Settings → API Keys." We recommend creating a dedicated API key exclusively for your SCIM integration.
+
+7. After adding your credentials, click "Test API Credentials" to ensure they are valid. If they pass the test, click "Save."
+
+8. Once saved, the "Mappings" section should become available. Here you can enable/disable syncing of groups and users. The two screenshots below show the mappings necessary - these need to match exactly.
+
+![](../../static/images/integrations/azure/growthbook-entra-scim-user-mapping.png)
+
+![](../../static/images/integrations/azure/growthbook-entra-scim-group-mapping.png)
+
+::: note
+Syncing groups is optional. When a group is synced with GrowthBook, it will create a team in your GrowthBook organization and add any members in the group to the team. This is handy as you can give a team a global role, and each user will inherti that role.
+:::
+
+![](../../static/images/integrations/azure/growthbook-entra-scim-start-provisioning.png)
+
+9. Now, you can begin adding users and groups, before clicking the "Start Provisioning" button.
+
+If a user is a member of a group and the group is added to the Enterprise application in Entra, all members will be provisioned in Growthbook.
 
 ## Frequently Asked Questions
 
