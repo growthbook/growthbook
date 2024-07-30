@@ -79,5 +79,5 @@ class ExperimentMetricAnalysis:
 class MultipleExperimentMetricAnalysis:
     id: str
     results: List[ExperimentMetricAnalysis]
-    bandit_response: Optional[BanditResponse]
+    banditResponse: Optional[BanditResponse]
     error: Optional[str]

@@ -713,7 +713,7 @@ def process_multiple_experiment_results(
                 MultipleExperimentMetricAnalysis(
                     id=exp_data_proc.id,
                     results=fixed_results,
-                    bandit_response=bandit_response,
+                    banditResponse=bandit_response,
                     error=None,
                 )
             )
@@ -722,7 +722,7 @@ def process_multiple_experiment_results(
                 MultipleExperimentMetricAnalysis(
                     id=exp_data["id"],
                     results=[],
-                    bandit_response=None,
+                    banditResponse=None,
                     error=str(e)[:64],
                 )
             )
