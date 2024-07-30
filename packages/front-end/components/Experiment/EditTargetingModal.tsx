@@ -430,6 +430,8 @@ function TargetingForm({
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
 
+  const type = experiment.type;
+
   return (
     <div className="px-2 pt-2">
       {safeToEdit && (
@@ -554,7 +556,9 @@ function TargetingForm({
           }
           showPreview={false}
           disableCoverage={changeType === "weights"}
-          disableVariations={changeType === "traffic"}
+          disableVariations={
+            changeType === "traffic" || type === "multi-armed-bandit"
+          }
           label={
             changeType === "traffic"
               ? "Traffic Percentage"

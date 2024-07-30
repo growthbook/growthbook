@@ -871,18 +871,26 @@ export async function postExperiment(
     changes.phases = phases;
   }
 
-  // If setting multi-armed-bandit from a draft experiment, force some settings
-  if (data.type === "multi-armed-bandit") {
+  // If it's a draft and either is or will be a multi-armed-bandit, force some settings
+  if (
+    (experiment.status === "draft" && data.type === "multi-armed-bandit") ||
+    (data.type === undefined && experiment.type === "multi-armed-bandit")
+  ) {
     // equal weights
     const weights = getEqualWeights(
       data.variations.length ?? existing.variations.length ?? 0
     );
     changes.phases = changes.phases ?? [...experiment.phases];
     weights.forEach((w, i) => {
-      if (changes?.phases?.[changes.phases.length - 1]?.variationWeights?.[i]) {
+      if (changes?.phases?.[changes.phases.length - 1]?.variationWeights) {
         changes.phases[changes.phases.length - 1].variationWeights[i] = w;
       }
     });
+    if (changes?.phases?.[changes.phases.length - 1]?.variationWeights) {
+      changes.phases[changes.phases.length - 1].variationWeights.splice(
+        weights.length
+      );
+    }
 
     // stats engine
     changes.statsEngine = "bayesian";
