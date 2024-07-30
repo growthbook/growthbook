@@ -15,12 +15,12 @@ import {
   validateAndFixCondition,
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
+import { getEqualWeights } from "shared/experiments";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
-import { getEqualWeights } from "shared/experiments";
 import {
   generateVariationId,
   useAttributeSchema,
@@ -469,7 +469,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     form.setValue("statsEngine", "bayesian");
                     // 1 primary metric
                     const goalMetric = form.watch("goalMetrics")?.[0];
-                    form.setValue("goalMetrics", goalMetric ? [goalMetric] : []);
+                    form.setValue(
+                      "goalMetrics",
+                      goalMetric ? [goalMetric] : []
+                    );
                   }
                 }}
                 sort={false}

@@ -1,12 +1,12 @@
 import { FeatureInterface, FeatureValueType } from "back-end/types/feature";
 import React, { useState } from "react";
 import { FaInfoCircle } from "react-icons/fa";
+import { getEqualWeights } from "shared/experiments";
 import {
   decimalToPercent,
   distributeWeights,
   percentToDecimal,
 } from "@/services/utils";
-import { getEqualWeights } from "shared/experiments";
 import {
   generateVariationId,
   getDefaultVariationValue,

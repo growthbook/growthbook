@@ -1,8 +1,14 @@
 import React, { FC, useCallback, useState } from "react";
-import {UseFormReturn, useFieldArray, useForm, FormProvider} from "react-hook-form";
+import {
+  UseFormReturn,
+  useFieldArray,
+  useForm,
+  FormProvider,
+} from "react-hook-form";
 import {
   AttributionModel,
-  ExperimentInterfaceStringDates, ExperimentType,
+  ExperimentInterfaceStringDates,
+  ExperimentType,
 } from "back-end/types/experiment";
 import { FaQuestionCircle } from "react-icons/fa";
 import { getValidDate } from "shared/dates";
@@ -27,6 +33,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
@@ -37,7 +44,6 @@ import {
 } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
-import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -145,10 +151,16 @@ const AnalysisForm: FC<{
       ),
       statsEngine: experiment.statsEngine,
       type: experiment.type || "standard",
-      banditScheduleValue: experiment.banditScheduleValue ?? scopedSettings.banditScheduleValue.value,
-      banditScheduleUnit: experiment.banditScheduleUnit ?? scopedSettings.banditScheduleUnit.value,
-      banditBurnInValue: experiment.banditBurnInValue ?? scopedSettings.banditBurnInValue.value,
-      banditBurnInUnit: experiment.banditBurnInUnit ?? scopedSettings.banditBurnInUnit.value,
+      banditScheduleValue:
+        experiment.banditScheduleValue ??
+        scopedSettings.banditScheduleValue.value,
+      banditScheduleUnit:
+        experiment.banditScheduleUnit ??
+        scopedSettings.banditScheduleUnit.value,
+      banditBurnInValue:
+        experiment.banditBurnInValue ?? scopedSettings.banditBurnInValue.value,
+      banditBurnInUnit:
+        experiment.banditBurnInUnit ?? scopedSettings.banditBurnInUnit.value,
       // todo: way to set `phases.0.variationWeights.${i}` to equal weights
     },
   });
@@ -499,49 +511,51 @@ const AnalysisForm: FC<{
           helpText="Only users in this segment will be included"
         />
       )}
-      {datasourceProperties?.separateExperimentResultQueries && type !== "multi-armed-bandit" && (
-        <SelectField
-          label="Metric Conversion Windows"
-          labelClassName="font-weight-bold"
-          value={form.watch("skipPartialData")}
-          onChange={(value) => form.setValue("skipPartialData", value)}
-          options={[
-            {
-              label: "Include In-Progress Conversions",
-              value: "loose",
-            },
-            {
-              label: "Exclude In-Progress Conversions",
-              value: "strict",
-            },
-          ]}
-          helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
-        />
-      )}
-      {datasourceProperties?.separateExperimentResultQueries && type !== "multi-armed-bandit" && (
-        <SelectField
-          label={
-            <AttributionModelTooltip>
-              <strong>Conversion Window Override</strong> <FaQuestionCircle />
-            </AttributionModelTooltip>
-          }
-          value={form.watch("attributionModel")}
-          onChange={(value) => {
-            const model = value as AttributionModel;
-            form.setValue("attributionModel", model);
-          }}
-          options={[
-            {
-              label: "Respect Conversion Windows",
-              value: "firstExposure",
-            },
-            {
-              label: "Ignore Conversion Windows",
-              value: "experimentDuration",
-            },
-          ]}
-        />
-      )}
+      {datasourceProperties?.separateExperimentResultQueries &&
+        type !== "multi-armed-bandit" && (
+          <SelectField
+            label="Metric Conversion Windows"
+            labelClassName="font-weight-bold"
+            value={form.watch("skipPartialData")}
+            onChange={(value) => form.setValue("skipPartialData", value)}
+            options={[
+              {
+                label: "Include In-Progress Conversions",
+                value: "loose",
+              },
+              {
+                label: "Exclude In-Progress Conversions",
+                value: "strict",
+              },
+            ]}
+            helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
+          />
+        )}
+      {datasourceProperties?.separateExperimentResultQueries &&
+        type !== "multi-armed-bandit" && (
+          <SelectField
+            label={
+              <AttributionModelTooltip>
+                <strong>Conversion Window Override</strong> <FaQuestionCircle />
+              </AttributionModelTooltip>
+            }
+            value={form.watch("attributionModel")}
+            onChange={(value) => {
+              const model = value as AttributionModel;
+              form.setValue("attributionModel", model);
+            }}
+            options={[
+              {
+                label: "Respect Conversion Windows",
+                value: "firstExposure",
+              },
+              {
+                label: "Ignore Conversion Windows",
+                value: "experimentDuration",
+              },
+            ]}
+          />
+        )}
       <StatsEngineSelect
         value={form.watch("statsEngine")}
         onChange={(v) => {
@@ -680,10 +694,11 @@ const AnalysisForm: FC<{
             setSecondaryMetrics={(secondaryMetrics) =>
               form.setValue("secondaryMetrics", secondaryMetrics)
             }
-            setGuardrailMetrics={type !== "multi-armed-bandit" ?
-              (guardrailMetrics) =>
-              form.setValue("guardrailMetrics", guardrailMetrics)
-              : undefined
+            setGuardrailMetrics={
+              type !== "multi-armed-bandit"
+                ? (guardrailMetrics) =>
+                    form.setValue("guardrailMetrics", guardrailMetrics)
+                : undefined
             }
             forceSingleGoalMetric={type === "multi-armed-bandit"}
           />

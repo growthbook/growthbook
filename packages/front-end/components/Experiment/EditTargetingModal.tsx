@@ -9,6 +9,7 @@ import isEqual from "lodash/isEqual";
 import React, { useEffect, useState } from "react";
 import { validateAndFixCondition } from "shared/util";
 import { MdInfoOutline } from "react-icons/md";
+import { getEqualWeights } from "shared/experiments";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
@@ -34,7 +35,6 @@ import Field from "@/components/Forms/Field";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
-import { getEqualWeights } from "shared/experiments";
 
 export type ChangeType =
   | "targeting"

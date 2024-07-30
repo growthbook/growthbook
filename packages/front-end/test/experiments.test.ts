@@ -1,3 +1,4 @@
+import { getEqualWeights } from "shared/experiments";
 import {
   decimalToPercent,
   floatRound,
@@ -11,7 +12,6 @@ import {
   adjustedCI,
   setAdjustedPValuesOnResults,
 } from "@/services/experiments";
-import { getEqualWeights } from "shared/experiments";
 
 describe("variation weighting functions", () => {
   it("getEqualWeights with default precision", () => {

@@ -5,9 +5,9 @@ import {
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import { validateAndFixCondition } from "shared/util";
+import { getEqualWeights } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
-import { getEqualWeights } from "shared/experiments";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
