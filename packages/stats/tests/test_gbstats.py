@@ -75,7 +75,11 @@ MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(QUERY_OUTPUT)
 QUERY_OUTPUT_BANDITS = [
     {
         "dimension": "",
+<<<<<<< HEAD
         "bandit_period": 0,
+=======
+        "period": 0,
+>>>>>>> 3b907a3b0 (responding to sonnet comments and adding new period weighting methods)
         "variation": "zero",
         "main_sum": 270,
         "main_sum_squares": 848.79,
@@ -84,7 +88,11 @@ QUERY_OUTPUT_BANDITS = [
     },
     {
         "dimension": "",
+<<<<<<< HEAD
         "bandit_period": 0,
+=======
+        "period": 0,
+>>>>>>> 3b907a3b0 (responding to sonnet comments and adding new period weighting methods)
         "variation": "one",
         "main_sum": 300,
         "main_sum_squares": 869,
@@ -93,7 +101,11 @@ QUERY_OUTPUT_BANDITS = [
     },
     {
         "dimension": "",
+<<<<<<< HEAD
         "bandit_period": 0,
+=======
+        "period": 0,
+>>>>>>> 3b907a3b0 (responding to sonnet comments and adding new period weighting methods)
         "variation": "two",
         "main_sum": 740,
         "main_sum_squares": 1615.59,
@@ -102,7 +114,11 @@ QUERY_OUTPUT_BANDITS = [
     },
     {
         "dimension": "",
+<<<<<<< HEAD
         "bandit_period": 0,
+=======
+        "period": 0,
+>>>>>>> 3b907a3b0 (responding to sonnet comments and adding new period weighting methods)
         "variation": "three",
         "main_sum": 770,
         "main_sum_squares": 1571,
@@ -111,7 +127,11 @@ QUERY_OUTPUT_BANDITS = [
     },
     {
         "dimension": "",
+<<<<<<< HEAD
         "bandit_period": 1,
+=======
+        "period": 1,
+>>>>>>> 3b907a3b0 (responding to sonnet comments and adding new period weighting methods)
         "variation": "zero",
         "main_sum": 270,
         "main_sum_squares": 848.79,
@@ -120,7 +140,11 @@ QUERY_OUTPUT_BANDITS = [
     },
     {
         "dimension": "",
+<<<<<<< HEAD
         "bandit_period": 1,
+=======
+        "period": 1,
+>>>>>>> 3b907a3b0 (responding to sonnet comments and adding new period weighting methods)
         "variation": "one",
         "main_sum": 300,
         "main_sum_squares": 869,
@@ -129,7 +153,11 @@ QUERY_OUTPUT_BANDITS = [
     },
     {
         "dimension": "",
+<<<<<<< HEAD
         "bandit_period": 1,
+=======
+        "period": 1,
+>>>>>>> 3b907a3b0 (responding to sonnet comments and adding new period weighting methods)
         "variation": "two",
         "main_sum": 740,
         "main_sum_squares": 1615.59,
@@ -138,7 +166,11 @@ QUERY_OUTPUT_BANDITS = [
     },
     {
         "dimension": "",
+<<<<<<< HEAD
         "bandit_period": 1,
+=======
+        "period": 1,
+>>>>>>> 3b907a3b0 (responding to sonnet comments and adding new period weighting methods)
         "variation": "three",
         "main_sum": 770,
         "main_sum_squares": 1571,
@@ -309,6 +341,7 @@ DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
 
 # confirm with sonnet that var_ids are right;
 # before was failing at "get_metric_df" due to wrong var_id_mapping
+<<<<<<< HEAD
 BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     var_names=["zero", "one", "two", "three"],
 <<<<<<< HEAD
@@ -317,9 +350,14 @@ BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     bandit_weights_seed=10,
 =======
     var_ids=["0", "1", "2", "3"],
+=======
+BANDIT_ANALYSIS = AnalysisSettingsForStatsEngine(
+    var_names=["zero", "one", "two", "three"],
+    var_ids=["zero", "one", "two", "three"],
+>>>>>>> 3b907a3b0 (responding to sonnet comments and adding new period weighting methods)
     weights=[0.25, 0.25, 0.25, 0.25],
     baseline_index=0,
-    dimension="All",
+    dimension="",
     stats_engine="bayesian",
     sequential_testing_enabled=False,
     sequential_tuning_parameter=5000,
@@ -329,8 +367,12 @@ BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     max_dimensions=20,
     decision_metric="count_metric",
     bandit=True,
+<<<<<<< HEAD
     bandit_weights_seed=100,
 >>>>>>> b6df533b4 (pulling changes from main)
+=======
+    bandit_weights_seed=10,
+>>>>>>> 3b907a3b0 (responding to sonnet comments and adding new period weighting methods)
 )
 
 
@@ -834,6 +876,7 @@ class TestBandit(TestCase):
     def setUp(self):
         # preprocessing steps
 <<<<<<< HEAD
+<<<<<<< HEAD
         self.rows = QUERY_OUTPUT_BANDITS
         self.metric = COUNT_METRIC
         self.dummy_analysis = copy.deepcopy(DEFAULT_ANALYSIS)
@@ -916,36 +959,19 @@ class TestBandit(TestCase):
         self.assertEqual(result.additionalReward, self.true_additional_reward)
 =======
         self.rows = MULTI_DIMENSION_STATISTICS_DF_BANDITS
+=======
+        self.rows = QUERY_OUTPUT_BANDITS
+>>>>>>> 3b907a3b0 (responding to sonnet comments and adding new period weighting methods)
         self.metric = COUNT_METRIC
         self.analysis = BANDIT_ANALYSIS
         self.max_dimensions = self.analysis.max_dimensions
-        # If we're doing a daily time series, we need to diff the data
-        if self.analysis.dimension == "pre:datedaily":
-            self.rows = diff_for_daily_time_series(self.rows)
-        # Convert raw SQL result into a dataframe of dimensions
-        self.df = get_metric_df(
-            rows=self.rows,
-            var_id_map={"zero": 0, "one": 1, "two": 2, "three": 3},
-            var_names=self.analysis.var_names,
-        )
         self.update_messages = [
-            "some variation counts smaller than 100",
             "successfully updated",
         ]
-        self.true_weights = [None, [0.39755, 0.10465, 0.397, 0.1008]]
-
-    def test_analyze_metric_df(self):
-        result = analyze_metric_df(
-            self.df,
-            metric=COUNT_METRIC,
-            analysis=BANDIT_ANALYSIS,
-        )
-        self.assertEqual(result["bandit_update_message"][0], self.update_messages[0])
-        self.assertEqual(result["bandit_update_message"][1], self.update_messages[1])
-        self.assertEqual(result["bandit_weights"][0], self.true_weights[0])
-        self.assertEqual(result["bandit_weights"][1], self.true_weights[1])
+        self.true_weights = [0.37530, 0.13345, 0.24645, 0.2448]
 
     def test_get_bandit_weights(self):
+<<<<<<< HEAD
         reduced = reduce_dimensionality(
             df=self.df,
             max=self.max_dimensions,
@@ -958,6 +984,11 @@ class TestBandit(TestCase):
         self.assertEqual(result["bandit_weights"][0], self.true_weights[0])
         self.assertEqual(result["bandit_weights"][1], self.true_weights[1])
 >>>>>>> b6df533b4 (pulling changes from main)
+=======
+        result = get_bandit_weights(self.rows, self.metric, self.analysis)
+        self.assertEqual(result.banditUpdateMessage, self.update_messages[0])
+        self.assertEqual(result.banditWeights, self.true_weights)
+>>>>>>> 3b907a3b0 (responding to sonnet comments and adding new period weighting methods)
 
 
 if __name__ == "__main__":
