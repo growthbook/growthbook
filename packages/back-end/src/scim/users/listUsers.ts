@@ -8,7 +8,7 @@ import {
 } from "../../../types/scim";
 import { expandedMembertoScimUser } from "./getUser";
 
-export const START_INDEX_DEFAULT = 0;
+export const START_INDEX_DEFAULT = 1;
 export const COUNT_DEFAULT = 20;
 
 export async function listUsers(
@@ -51,12 +51,12 @@ export async function listUsers(
 
   return res.status(200).json({
     schemas: ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
-    totalResults: filteredUsers.length,
+    totalResults: resources.length,
     Resources: resources,
     startIndex: queryOptions.startIndex,
     itemsPerPage:
-      resources.length < queryOptions.count
-        ? resources.length
-        : queryOptions.count,
+      !resources.length || resources.length > queryOptions.count
+        ? queryOptions.count
+        : resources.length,
   });
 }

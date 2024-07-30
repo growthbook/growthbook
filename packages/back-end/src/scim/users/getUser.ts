@@ -13,6 +13,7 @@ export const expandedMembertoScimUser = (
     userName: member.email,
     displayName: member.name,
     active,
+    externalId: member.externalId,
   };
 };
 

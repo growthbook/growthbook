@@ -80,11 +80,10 @@ export interface ScimListRequest extends BaseScimRequest {
 }
 
 type ScimOperation = {
-  op: "add" | "remove" | "replace";
+  op: "add" | "remove" | "replace" | "Replace";
   path?: string; // Path is optional for add & replace, and required for remove operations
-  value: {
-    [key: string]: unknown;
-  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  value: any; // Okta sends over value as an object and azure sends value as a string
 };
 
 export interface BasicScimGroup {

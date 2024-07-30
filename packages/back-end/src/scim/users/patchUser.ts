@@ -67,9 +67,12 @@ export async function patchUser(
     const { op, value } = operation;
     // Okta will only ever use PATCH to active/deactivate a user or sync a user's password
     // https://developer.okta.com/docs/reference/scim/scim-20/#update-a-specific-user-patch
-    if (op === "replace" && value.active === false) {
-      // SCIM determines whether a user is active or not based on this property. If set to false, that means they want us to remove the user
-      // this means they want us to remove the user
+    // Okta sends value as a string and Azure sends value as an object
+    // SCIM determines whether a user is active or not based on this property. If set to false, that means they want us to remove the user from the org
+    if (
+      op.toLowerCase() === "replace" &&
+      (value.active === false || value === "False")
+    ) {
       try {
         await removeUserFromOrg(org, orgUser);
       } catch (e) {
