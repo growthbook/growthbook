@@ -488,6 +488,7 @@ def base_statistic_from_metric_row(
 # Run a specific analysis given data and configuration settings
 def process_analysis(
     rows: pd.DataFrame,
+    var_id_map: VarIdMap,
     metric: MetricSettingsForStatsEngine,
     analysis: AnalysisSettingsForStatsEngine,
 ) -> pd.DataFrame:
@@ -559,6 +560,7 @@ def process_single_metric(
         format_results(
             process_analysis(
                 rows=pdrows,
+                var_id_map=get_var_id_map(a.var_ids),
                 metric=metric,
                 analysis=a,
             ),
