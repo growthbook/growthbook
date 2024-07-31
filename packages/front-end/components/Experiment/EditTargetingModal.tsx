@@ -561,9 +561,8 @@ function TargetingForm({
           }
           showPreview={false}
           disableCoverage={changeType === "weights"}
-          disableVariations={
-            changeType === "traffic" || type === "multi-armed-bandit"
-          }
+          disableVariations={changeType === "traffic"}
+          hideVariations={type === "multi-armed-bandit"}
           label={
             changeType === "traffic"
               ? "Traffic Percentage"
