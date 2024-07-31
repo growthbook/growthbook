@@ -67,6 +67,7 @@ export async function patchUser(
     const { op, value } = operation;
     // Okta will only ever use PATCH to activate/deactivate a user or sync a user's password
     // https://developer.okta.com/docs/reference/scim/scim-20/#update-a-specific-user-patch
+    // Azure sends op and value as title case, so need to normalize
     if (op.toLowerCase() === "replace") {
       const setUserInactive =
         // Okta sends value as a string and Azure sends value as an object

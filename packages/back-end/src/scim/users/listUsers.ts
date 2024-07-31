@@ -8,7 +8,7 @@ import {
 } from "../../../types/scim";
 import { expandedMembertoScimUser } from "./getUser";
 
-export const START_INDEX_DEFAULT = 1;
+export const START_INDEX_DEFAULT = 0;
 export const COUNT_DEFAULT = 20;
 
 export async function listUsers(
