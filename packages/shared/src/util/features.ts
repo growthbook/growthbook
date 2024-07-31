@@ -1,4 +1,5 @@
 import Ajv from "ajv";
+import addFormats from "ajv-formats";
 import { subWeeks } from "date-fns";
 import dJSON from "dirty-json";
 import stringify from "json-stringify-pretty-compact";
@@ -85,9 +86,13 @@ export function mergeRevision(
 }
 
 export function getJSONValidator() {
-  return new Ajv({
+  const ajv = new Ajv({
     strictSchema: false,
   });
+
+  addFormats(ajv);
+
+  return ajv;
 }
 
 export function validateJSONFeatureValue(
