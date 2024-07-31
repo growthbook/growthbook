@@ -483,6 +483,7 @@ def base_statistic_from_metric_row(
 # Run a specific analysis given data and configuration settings
 def process_analysis(
     rows: pd.DataFrame,
+    var_id_map: VarIdMap,
     metric: MetricSettingsForStatsEngine,
     analysis: AnalysisSettingsForStatsEngine,
 ) -> pd.DataFrame:
@@ -497,7 +498,7 @@ def process_analysis(
     # Convert raw SQL result into a dataframe of dimensions
     df = get_metric_df(
         rows=rows,
-        var_id_map=get_var_id_map(analysis.var_ids),
+        var_id_map=var_id_map,
         var_names=var_names,
         bandit=False,
     )
@@ -551,6 +552,7 @@ def process_single_metric(
         format_results(
             process_analysis(
                 rows=pdrows,
+                var_id_map=get_var_id_map(a.var_ids),
                 metric=metric,
                 analysis=a,
             ),
@@ -661,9 +663,11 @@ def process_data_dict(data: Dict[str, Any]) -> DataForStatsEngine:
         },
         analyses=[AnalysisSettingsForStatsEngine(**a) for a in data["analyses"]],
         query_results=[QueryResultsForStatsEngine(**q) for q in data["query_results"]],
-        bandit_settings=BanditSettingsForStatsEngine(**data["bandit_settings"])
-        if data["bandit_settings"]
-        else None,
+        bandit_settings=(
+            BanditSettingsForStatsEngine(**data["bandit_settings"])
+            if "bandit_settings" in data
+            else None
+        ),
     )
 
 

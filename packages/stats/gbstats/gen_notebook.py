@@ -149,7 +149,9 @@ def create_notebook(data: DataForStatsEngine, params: NotebookParams):
             )
             cells.append(nbf.new_markdown_cell("#### Result"))
 
-            result = process_analysis(rows=rows, metric=metric, analysis=analysis)
+            result = process_analysis(
+                rows=rows, metric=metric, analysis=analysis, var_id_map=var_id_map
+            )
             cells.append(
                 code_cell_df(
                     df=result[summary_cols].T,
