@@ -81,7 +81,7 @@ export default function FeatureVariationsInput({
         <label>{label}</label>
       ) : setVariations ? (
         <label>Traffic Percentage, Variations, and Weights</label>
-      ) : hideCoverage ? (
+      ) : hideCoverage || hideVariations ? (
         <label>Traffic Percentage</label>
       ) : (
         <label>Traffic Percentage &amp; Variation Weights</label>
