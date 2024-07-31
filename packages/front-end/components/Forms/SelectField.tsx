@@ -11,6 +11,10 @@ import Field, { FieldProps } from "./Field";
 
 export type SingleValue = { label: string; value: string; tooltip?: string };
 export type GroupedValue = { label: string; options: SingleValue[] };
+export type Option = SingleValue | GroupedValue;
+export function isSingleValue(option: Option): option is SingleValue {
+  return typeof (option as SingleValue).value === "string";
+}
 
 export type SelectFieldProps = Omit<
   FieldProps,
@@ -31,6 +35,7 @@ export type SelectFieldProps = Omit<
   isSearchable?: boolean;
   isClearable?: boolean;
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
+  isOptionDisabled?: (_: Option) => boolean;
 };
 
 export function useSelectOptions(
@@ -146,6 +151,7 @@ const SelectField: FC<SelectFieldProps> = ({
   isSearchable = true,
   isClearable = false,
   onPaste,
+  isOptionDisabled,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -247,6 +253,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 components={{
                   Input,
                 }}
+                isOptionDisabled={isOptionDisabled}
               />
             ) : (
               <ReactSelect
@@ -271,6 +278,7 @@ const SelectField: FC<SelectFieldProps> = ({
                 components={{
                   Input,
                 }}
+                isOptionDisabled={isOptionDisabled}
               />
             )}
             {required && (

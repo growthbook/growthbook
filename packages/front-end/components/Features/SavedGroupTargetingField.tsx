@@ -1,13 +1,13 @@
 import { SavedGroupTargeting } from "back-end/types/feature";
 import { FaMinusCircle, FaPlusCircle } from "react-icons/fa";
 import React, { useEffect, useMemo, useState } from "react";
+import clsx from "clsx";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, { isSingleValue } from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import LargeSavedGroupSupportWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
-import SavedGroupNameWithBadge from "@/components/SavedGroups/SavedGroupNameWithBadge";
 
 export interface Props {
   value: SavedGroupTargeting[];
@@ -179,22 +179,33 @@ export default function SavedGroupTargetingField({
                     placeholder="Select groups..."
                     closeMenuOnSelect={true}
                     formatOptionLabel={({ value, label }, { context }) => {
-                      if (context === "value") return label;
                       const group = getSavedGroupById(value);
                       if (!group) return label;
-                      if (
+                      const unsupported =
                         supportedConnections.length === 0 &&
                         unversionedConnections.length === 0 &&
-                        group.passByReferenceOnly
-                      ) {
-                        return (
-                          <div className="text-decoration-line-through">
-                            <SavedGroupNameWithBadge savedGroup={group} />
-                          </div>
-                        );
+                        !!group.passByReferenceOnly;
+                      if (context === "value") {
+                        if (unsupported) {
+                          return `${label}*`;
+                        }
+                        return label;
                       }
-                      return <SavedGroupNameWithBadge savedGroup={group} />;
+                      return (
+                        <div className={clsx(unsupported ? "disabled" : "")}>
+                          {group.groupName}
+                          {group.passByReferenceOnly && (
+                            <span className="float-right">&gt;100 ITEMS</span>
+                          )}
+                        </div>
+                      );
                     }}
+                    isOptionDisabled={(option) =>
+                      supportedConnections.length === 0 &&
+                      unversionedConnections.length === 0 &&
+                      isSingleValue(option) &&
+                      !!getSavedGroupById(option.value)?.passByReferenceOnly
+                    }
                     customClassName={localTargetingIssues ? "error" : ""}
                   />
                 </div>

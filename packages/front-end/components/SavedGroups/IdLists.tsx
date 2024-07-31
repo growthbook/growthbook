@@ -4,7 +4,7 @@ import { getMatchingRules, truncateString } from "shared/util";
 import Link from "next/link";
 import { SavedGroupInterface } from "shared/src/types";
 import { FaMagnifyingGlass } from "react-icons/fa6";
-import { PiInfoFill } from "react-icons/pi";
+import { PiCellSignalHigh, PiInfoFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
@@ -17,7 +17,6 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import SavedGroupForm from "./SavedGroupForm";
-import SavedGroupNameWithBadge from "./SavedGroupNameWithBadge";
 
 export interface Props {
   groups: SavedGroupInterface[];
@@ -135,6 +134,7 @@ export default function IdLists({ groups, mutate }: Props) {
               <table className="table gbtable">
                 <thead>
                   <tr>
+                    <th></th>
                     <SortableTH className="no-uppercase" field={"groupName"}>
                       Name
                     </SortableTH>
@@ -156,12 +156,18 @@ export default function IdLists({ groups, mutate }: Props) {
                     return (
                       <tr key={s.id}>
                         <td>
+                          {s.passByReferenceOnly && (
+                            // TODO: size and positioning
+                            <PiCellSignalHigh className="text-color-primary h4" />
+                          )}
+                        </td>
+                        <td>
                           <Link
                             className="text-color-primary"
                             key={s.id}
                             href={`/saved-groups/${s.id}`}
                           >
-                            <SavedGroupNameWithBadge savedGroup={s} />
+                            {s.groupName}
                           </Link>
                         </td>
                         <td>{s.attributeKey}</td>

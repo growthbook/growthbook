@@ -8,6 +8,7 @@ import {
   FaPlusCircle,
 } from "react-icons/fa";
 import { RxLoop } from "react-icons/rx";
+import clsx from "clsx";
 import {
   condToJson,
   jsonToConds,
@@ -17,13 +18,12 @@ import {
 } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, { isSingleValue } from "@/components/Forms/SelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import LargeSavedGroupSupportWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
-import SavedGroupNameWithBadge from "@/components/SavedGroups/SavedGroupNameWithBadge";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {
@@ -441,19 +441,25 @@ export default function ConditionInput(props: Props) {
                         if (context === "value") return label;
                         const group = getSavedGroupById(value);
                         if (!group) return label;
-                        if (
+                        const unsupported =
                           supportedConnections.length === 0 &&
                           unversionedConnections.length === 0 &&
-                          group.passByReferenceOnly
-                        ) {
-                          return (
-                            <div className="text-decoration-line-through">
-                              <SavedGroupNameWithBadge savedGroup={group} />
-                            </div>
-                          );
-                        }
-                        return <SavedGroupNameWithBadge savedGroup={group} />;
+                          !!group.passByReferenceOnly;
+                        return (
+                          <div className={clsx(unsupported ? "disabled" : "")}>
+                            {group.groupName}
+                            {group.passByReferenceOnly && (
+                              <span className="float-right">&gt;100 ITEMS</span>
+                            )}
+                          </div>
+                        );
                       }}
+                      isOptionDisabled={(option) =>
+                        supportedConnections.length === 0 &&
+                        unversionedConnections.length === 0 &&
+                        isSingleValue(option) &&
+                        !!getSavedGroupById(option.value)?.passByReferenceOnly
+                      }
                       value={value}
                       onChange={(v) => {
                         handleCondsChange(v, "value");
