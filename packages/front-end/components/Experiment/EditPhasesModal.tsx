@@ -103,7 +103,9 @@ export default function EditPhasesModal({
                   {phase.dateEnded ? date(phase.dateEnded) : "now"}
                 </strong>
               </td>
-              <td>{phaseSummary(phase)}</td>
+              <td>
+                {phaseSummary(phase, experiment.type === "multi-armed-bandit")}
+              </td>
               {hasStoppedPhases ? (
                 <td>
                   {phase.dateEnded ? (

@@ -37,7 +37,9 @@ export default function PhaseSelector({ mutateExperiment, editPhases }: Props) {
               <div className="tooltip-phase-label font-weight-bold">
                 {phaseIndex + 1}: {phase.name}
               </div>
-              <div className="mt-1">{phaseSummary(phase)}</div>
+              <div className="mt-1">
+                {phaseSummary(phase, experiment.type === "multi-armed-bandit")}
+              </div>
             </>
           }
           tipPosition="right"

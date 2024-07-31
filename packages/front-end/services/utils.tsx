@@ -28,7 +28,10 @@ export function getSRMNeededPrecisionP1(
   return (maxDiff ? -1 * Math.floor(Math.log10(maxDiff)) : 0) + 1;
 }
 
-export function phaseSummary(phase: ExperimentPhaseStringDates): ReactNode {
+export function phaseSummary(
+  phase: ExperimentPhaseStringDates,
+  skipWeights: boolean = false
+): ReactNode {
   if (!phase) {
     return null;
   }
@@ -37,11 +40,16 @@ export function phaseSummary(phase: ExperimentPhaseStringDates): ReactNode {
       <span className="percent-traffic">
         {Math.floor(phase.coverage * 100)}%
       </span>{" "}
-      traffic,{" "}
-      <span className="split">
-        {formatTrafficSplit(phase.variationWeights || [])}
-      </span>{" "}
-      split
+      traffic
+      {!skipWeights && (
+        <>
+          ,{" "}
+          <span className="split">
+            {formatTrafficSplit(phase.variationWeights || [])}
+          </span>{" "}
+          split
+        </>
+      )}
     </>
   );
 }

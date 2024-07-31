@@ -264,6 +264,7 @@ export default function EditTargetingModal({
       <Page display="Type of Changes">
         <div className="px-3 py-2">
           <ChangeTypeSelector
+            experiment={experiment}
             changeType={changeType}
             setChangeType={setChangeType}
           />
@@ -319,9 +320,11 @@ export default function EditTargetingModal({
 }
 
 function ChangeTypeSelector({
+  experiment,
   changeType,
   setChangeType,
 }: {
+  experiment: ExperimentInterfaceStringDates;
   changeType?: ChangeType;
   setChangeType: (changeType: ChangeType) => void;
 }) {
@@ -339,7 +342,9 @@ function ChangeTypeSelector({
       disabled: !namespaces?.length,
     },
     { label: "Traffic Percent", value: "traffic" },
-    { label: "Variation Weights", value: "weights" },
+    ...(experiment.type !== "multi-armed-bandit"
+      ? [{ label: "Variation Weights", value: "weights" }]
+      : []),
     {
       label: (
         <Tooltip body="Warning: When making multiple changes at the same time, it can be difficult to control for the impact of each change. The risk of introducing experimental bias increases. Proceed with caution.">
