@@ -10,8 +10,8 @@ import {
   isDefined,
 } from "shared/util";
 import {
-  getAllMetricSettingsForSnapshot,
   getAllMetricIdsFromExperiment,
+  getAllMetricSettingsForSnapshot,
   getEqualWeights,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
@@ -20,7 +20,6 @@ import uniq from "lodash/uniq";
 import { DataSourceInterface } from "@back-end/types/datasource";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
-  SnapshotAnalysisParams,
   createManualSnapshot,
   createSnapshot,
   createSnapshotAnalyses,
@@ -28,6 +27,7 @@ import {
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
   getLinkedFeatureInfo,
+  SnapshotAnalysisParams,
 } from "../services/experiments";
 import { MetricInterface, MetricStats } from "../../types/metric";
 import {
@@ -820,6 +820,7 @@ export async function postExperiment(
     "sequentialTestingTuningParameter",
     "statsEngine",
     "type",
+    "banditPhase",
     "banditScheduleValue",
     "banditScheduleUnit",
     "banditBurnInValue",
@@ -871,26 +872,21 @@ export async function postExperiment(
     changes.phases = phases;
   }
 
-  // If it's a draft and either is or will be a multi-armed-bandit, force some settings
+  // Clean up some vars for multi-armed bandits, but only if safe to do so...
+  // If it's a draft, hasn't been run as a MAB before, and is/will be a MAB:
   if (
-    (experiment.status === "draft" && data.type === "multi-armed-bandit") ||
-    (data.type === undefined && experiment.type === "multi-armed-bandit")
+    experiment.status === "draft" &&
+    experiment.banditPhase === undefined &&
+    ((data.type === undefined && experiment.type === "multi-armed-bandit") ||
+      data.type === "multi-armed-bandit")
   ) {
     // equal weights
-    const weights = getEqualWeights(
+    changes.phases = changes.phases ?? [...experiment.phases];
+    changes.phases[
+      changes.phases.length - 1
+    ].variationWeights = getEqualWeights(
       data.variations.length ?? existing.variations.length ?? 0
     );
-    changes.phases = changes.phases ?? [...experiment.phases];
-    weights.forEach((w, i) => {
-      if (changes?.phases?.[changes.phases.length - 1]?.variationWeights) {
-        changes.phases[changes.phases.length - 1].variationWeights[i] = w;
-      }
-    });
-    if (changes?.phases?.[changes.phases.length - 1]?.variationWeights) {
-      changes.phases[changes.phases.length - 1].variationWeights.splice(
-        weights.length
-      );
-    }
 
     // stats engine
     changes.statsEngine = "bayesian";
@@ -898,6 +894,11 @@ export async function postExperiment(
     // 1 primary metric
     const goalMetric = changes.goalMetrics?.[0] || existing.goalMetrics?.[0];
     changes.goalMetrics = goalMetric ? [goalMetric] : [];
+
+    // start date on bandit phase
+    if (data.banditPhase) {
+      changes.banditPhaseDateStarted = new Date();
+    }
 
     // todo: clear out unusable fields?
   }
@@ -913,6 +914,13 @@ export async function postExperiment(
     "status",
     "releasedVariationId",
     "excludeFromPayload",
+    "type",
+    "banditPhase",
+    "banditPhaseDateStarted",
+    "banditScheduleValue",
+    "banditScheduleUnit",
+    "banditBurnInValue",
+    "banditBurnInUnit",
   ] as (keyof ExperimentInterfaceStringDates)[]).some((key) => key in changes);
   if (needsRunExperimentsPermission) {
     const envs = getAffectedEnvsForExperiment({
@@ -1195,7 +1203,23 @@ export async function postExperimentStatus(
       dateStarted: new Date(),
     };
     changes.phases = phases;
+
+    if (experiment.type === "multi-armed-bandit") {
+      // change the bandit phase if unset
+      if (
+        experiment.banditPhase === "paused" ||
+        experiment.banditPhase === undefined
+      ) {
+        changes.banditPhase = "explore";
+        changes.banditPhaseDateStarted = new Date();
+        // equal weights
+        changes.phases[
+          changes.phases.length - 1
+        ].variationWeights = getEqualWeights(experiment.variations.length ?? 0);
+      }
+    }
   }
+
   // If starting a stopped experiment, clear the phase end date
   else if (
     experiment.status === "stopped" &&
@@ -1206,6 +1230,16 @@ export async function postExperimentStatus(
     const { dateEnded: _, ...newPhase } = phases[phases.length - 1];
     phases[phases.length - 1] = newPhase;
     changes.phases = phases;
+
+    if (experiment.type === "multi-armed-bandit") {
+      // change the bandit phase
+      changes.banditPhase = "explore";
+      changes.banditPhaseDateStarted = new Date();
+      // equal weights
+      changes.phases[
+        changes.phases.length - 1
+      ].variationWeights = getEqualWeights(experiment.variations.length ?? 0);
+    }
   }
 
   changes.status = status;
@@ -1308,6 +1342,11 @@ export async function postExperimentStop(
   changes.analysis = analysis;
   changes.releasedVariationId = releasedVariationId;
   changes.excludeFromPayload = !!excludeFromPayload;
+  if (experiment.type == "multi-armed-bandit") {
+    // pause bandit phase
+    changes.banditPhase = "paused";
+    changes.banditPhaseDateStarted = new Date();
+  }
 
   try {
     const updated = await updateExperiment({

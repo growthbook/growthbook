@@ -14,6 +14,8 @@ export type ExperimentType = "standard" | "multi-armed-bandit";
 
 export type ExperimentPhaseType = "ramp" | "main" | "holdout";
 
+export type BanditPhaseType = "explore" | "exploit" | "paused";
+
 export type ExperimentNotification =
   | "auto-update"
   | "multiple-exposures"
@@ -202,6 +204,8 @@ export interface ExperimentInterface {
   statsEngine?: StatsEngine;
   manualLaunchChecklist?: { key: string; status: "complete" | "incomplete" }[];
   type?: ExperimentType;
+  banditPhase?: BanditPhaseType;
+  banditPhaseDateStarted?: Date;
   banditScheduleValue?: number;
   banditScheduleUnit?: "hours" | "days";
   banditBurnInValue?: number;
