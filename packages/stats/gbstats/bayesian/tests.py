@@ -16,6 +16,7 @@ from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
 from gbstats.models.statistics import (
     TestStatistic,
     SampleMeanStatistic,
+    BanditStatistic,
 )
 from gbstats.frequentist.tests import frequentist_diff, frequentist_variance
 from gbstats.utils import truncated_normal_mean
@@ -246,7 +247,9 @@ class EffectBayesianABTest(BayesianABTest):
 class Bandits:
     def __init__(
         self,
-        stats: Dict,  # keys are 0, 1, 2, etc. mapping to periods; values are lists of length n_variations of summary_statistics
+        stats: Dict[
+            int, List[BanditStatistic]
+        ],  # keys are 0, 1, 2, etc. mapping to periods; values are lists of length n_variations of summary_statistics
         config: BanditConfig,
     ):
         self.stats = stats
@@ -300,9 +303,7 @@ class Bandits:
         else:
             variation_sample_sizes = np.sum(self.counts_array, axis=0)
             if any(variation_sample_sizes == 0):
-                error_string = (
-                    "Need at least 1 observation per variation to weight by period."
-                )
+                error_string = "Need at least 1 observation per variation per period if not weighting by period."
                 raise ValueError(error_string)
             return self.counts_array / variation_sample_sizes
 
