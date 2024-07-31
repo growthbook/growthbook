@@ -60,7 +60,7 @@ We are actively working on adding support for additional identity providers.
 
 :::note
 
-If self-hosting GrowthBook on a VPN or behind a firewall, you will need to make sure to whitelist Okta's IP addresses to ensure the SCIM API calls can hit GrowthBook's SCIM server.
+If self-hosting GrowthBook on a VPN or behind a firewall, you will need to make sure to whitelist [Okta's IP addresses](https://support.okta.com/help/s/article/list-of-ip-addresses-that-should-be-allowlisted-for-inbound-traffic?language=en_US) to ensure the SCIM API calls can hit GrowthBook's SCIM server.
 
 :::
 
@@ -74,7 +74,7 @@ If self-hosting GrowthBook on a VPN or behind a firewall, you will need to make 
 
 9. Congratulations! Your application is now set up. You can navigate to the "Assignments" tab and assign people to GrowthBook and to the "Push Groups" tab to sync groups with GrowthBook Teams.
 
-#### How to define user role when provisioning
+#### Okta: How to define user role when provisioning
 
 1. First, ensure that you've followed the general setup instructions above.
 
@@ -136,7 +136,7 @@ The setup directions below are shown using the Azure Portal (e.g. portal.azure.c
 
 ![](../../static/images/integrations/azure/growthbook-entra-scim-provisioning-empty-state.png)
 
-5. Then, you can select **Automatic** provisioning before adding the Base URL and your OAUTH Bearer Token
+5. Then, you can change the Provisioning Mode to **Automatic** before adding the Base URL and your OAUTH Bearer Token
 
 ![](../../static/images/integrations/azure/growthbook-entra-scim-add-credentials.png)
 
@@ -207,13 +207,13 @@ Yes, you can change a user's global role through the GrowthBook application or v
 
 **I'm changing the user's role in Okta, but it's not changing in GrowthBook**
 
-In order for the user's role to be updated in GrowthBook, you must update your Application provisioning to support "updates". Please note that the only property GrowthBook supports updating is the `growthBookRole`.
+In order for the user's role to be updated in GrowthBook, you must update your Application provisioning to support "updates". Please note that the only property GrowthBook supports updating is the `growthbookRole`.
 
 **Why can I not change a user's name via my Identity Provider?**
 
 A user in GrowthBook can belong to many organizations, so no single organization has the permission to update a user's name, as that would affect all organizations the user is a member of.
 
-**Can I define a user's `growthBookRole` via Azure AD / Microsoft Entra ID?**
+**Can I define a user's `growthbookRole` via Azure AD / Microsoft Entra ID?**
 
 It should be possible by adding a custom attribute and mapping it accordingly, but we do not have an official guide on that at this time.
 
@@ -223,4 +223,4 @@ Please ensure that your Microsoft Entra ID / Azure AD plan supports group syncin
 
 **How do I change a user's email address once provisioned?**
 
-Given that only a user's `growthBookRole` can be updated, we suggest de-provisioning the user, updating their email address, and then re-provisioning the user. This will create a net-new user within GrowthBook with the updated email address.
+Given that only a user's `growthbookRole` can be updated, we suggest de-provisioning the user, updating their email address, and then re-provisioning the user. This will create a net-new user within GrowthBook with the updated email address.
