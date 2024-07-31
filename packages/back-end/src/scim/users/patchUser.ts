@@ -65,22 +65,23 @@ export async function patchUser(
 
   for (const operation of Operations) {
     const { op, value } = operation;
-    // Okta will only ever use PATCH to active/deactivate a user or sync a user's password
+    // Okta will only ever use PATCH to activate/deactivate a user or sync a user's password
     // https://developer.okta.com/docs/reference/scim/scim-20/#update-a-specific-user-patch
-    // Okta sends value as a string and Azure sends value as an object
-    // SCIM determines whether a user is active or not based on this property. If set to false, that means they want us to remove the user from the org
-    if (
-      op.toLowerCase() === "replace" &&
-      (value.active === false || value === "False")
-    ) {
-      try {
-        await removeUserFromOrg(org, orgUser);
-      } catch (e) {
-        return res.status(400).json({
-          schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
-          status: "400",
-          detail: `Unable to deactivate the user in GrowthBook: ${e.message}`,
-        });
+    if (op.toLowerCase() === "replace") {
+      const setUserInactive =
+        // Okta sends value as a string and Azure sends value as an object
+        typeof value === "string" ? value === "False" : value.active === false;
+
+      if (setUserInactive) {
+        try {
+          await removeUserFromOrg(org, orgUser);
+        } catch (e) {
+          return res.status(400).json({
+            schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
+            status: "400",
+            detail: `Unable to deactivate the user in GrowthBook: ${e.message}`,
+          });
+        }
       }
     }
   }
