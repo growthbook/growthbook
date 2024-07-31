@@ -58,6 +58,12 @@ We are actively working on adding support for additional identity providers.
 - For GrowthBook Cloud users, the Base URL is `https://api.growthbook.io/scim/v2`. If you're self-hosting GrowthBook, the Base URL will be `{YOUR_API_HOST}/scim/v2`.
 - You can obtain your OAuth Bearer Token by creating a new Secret API Key with an `Admin` role. To do this, go to your GrowthBook account, and in the left navigation, select "Settings → API Keys." We recommend creating a dedicated API key exclusively for your SCIM integration.
 
+:::note
+
+If self-hosting GrowthBook on a VPN or behind a firewall, you will need to make sure to whitelist Okta's IP addresses to ensure the SCIM API calls can hit GrowthBook's SCIM server.
+
+:::
+
 7. After adding your credentials, click "Test API Credentials" to ensure they are valid. If they pass the test, click "Save."
 
 ![](../../static/images/integrations/scim/GrowthBook-SCIM-Add-Credentials.png)
@@ -108,60 +114,68 @@ It's important each of these values are entered exactly as shown above, includin
 
 ![](../../static/images/integrations/scim/GrowthBook-SCIM-Define-User-Role.png)
 
-### Azure Setup
+### Azure AD / Microsoft Entra ID Setup
 
-1. Verify that your GrowthBook organization is on an enterprise plan with SSO enabled.
+The setup directions below are shown using the Azure Portal (e.g. portal.azure.com), however, the steps are the same if you're setting this up via the Microsoft Entra Admin Panel (e.g. entra.microsoft.com).
+
+1. First, verify that your GrowthBook organization is on an enterprise plan with SSO enabled.
 
 ![](../../static/images/integrations/azure/growthbook-entra-scim-add-enterprise-application.png)
 
-2. Log in to your Azure account, select "Microsoft Entra ID, and in the left-nav select Manage > Enterprise Applications > + New Application
+2. Log in to your Azure account, select **Microsoft Entra ID**, and in the left-nav select **Manage** > **Enterprise Applications** > **+ New Application**
 
-3. Here, you can select + Create your own application, add your name, and select the "Integrate any other application you don't find in the gallery (Non-gallery)" option.
+3. Here, you can select **+ Create your own application**, add an app name, and select the **Integrate any other application you don't find in the gallery (Non-gallery)** option.
 
 ![](../../static/images/integrations/azure/growthbook-entra-scim-create-application.png)
 
-3. Once created, you can select the box to "Provision User Accounts "
+3. Once created, you can select the box to **Provision User Accounts**
 
 ![](../../static/images/integrations/azure/growthbook-entra-scim-setup-provisioning.png)
 
-4. Here, you can click the CTA to "Get Started"
+4. Here, you can click the CTA to **Get Started**
 
 ![](../../static/images/integrations/azure/growthbook-entra-scim-provisioning-empty-state.png)
 
-5. Then, you can select "Automatic" provisioning before adding the Base URL and your OAUTH Bearer Token
+5. Then, you can select **Automatic** provisioning before adding the Base URL and your OAUTH Bearer Token
 
 ![](../../static/images/integrations/azure/growthbook-entra-scim-add-credentials.png)
 
 - For GrowthBook Cloud users, the Base URL is `https://api.growthbook.io/scim/v2`. If you're self-hosting GrowthBook, the Base URL will be `{YOUR_API_HOST}/scim/v2`.
 - You can obtain your OAuth Bearer Token by creating a new Secret API Key with an `Admin` role. To do this, go to your GrowthBook account, and in the left navigation, select "Settings → API Keys." We recommend creating a dedicated API key exclusively for your SCIM integration.
 
-7. After adding your credentials, click "Test API Credentials" to ensure they are valid. If they pass the test, click "Save."
+:::note
 
-8. Once saved, the "Mappings" section should become available. Here you can enable/disable syncing of groups and users. The two screenshots below show the mappings necessary - these need to match exactly.
+If self-hosting GrowthBook on a VPN or behind a firewall, you will need to make sure to whitelist Azure AD's / Entra ID's IP addresses to ensure the SCIM API calls can hit GrowthBook's SCIM server.
+
+:::
+
+7. After adding your credentials, click **Test API Credentials** to ensure they are valid. If they pass the test, click **Save**.
+
+8. Once saved, the **Mappings** section should become available. Here you can enable/disable syncing of groups and users. The two screenshots below show the mappings necessary - these need to match exactly.
 
 ![](../../static/images/integrations/azure/growthbook-entra-scim-user-mapping.png)
 
 ![](../../static/images/integrations/azure/growthbook-entra-scim-group-mapping.png)
 
-::: note
-Syncing groups is optional. When a group is synced with GrowthBook, it will create a team in your GrowthBook organization and add any members in the group to the team. This is handy as you can give a team a global role, and each user will inherti that role.
+:::note
+
+Syncing groups is optional. When a group is synced with GrowthBook, it will create a team in your GrowthBook organization and add any members in the group to the team. This is handy as you can give a team a global role, and each user will inherti that role. With Azure AD / Entra ID, all members of the group will be synced to GrowthBook.
+
 :::
 
 ![](../../static/images/integrations/azure/growthbook-entra-scim-start-provisioning.png)
 
-9. Now, you can begin adding users and groups, before clicking the "Start Provisioning" button.
-
-If a user is a member of a group and the group is added to the Enterprise application in Entra, all members will be provisioned in Growthbook.
+9. Now, you can begin adding users and groups, before clicking the **Start Provisioning** button.
 
 ## Frequently Asked Questions
 
 **What features are supported with SCIM?**
 
-Currently, GrowthBook supports user provisioning and deprovisioning, and group pushing.
+Currently, GrowthBook supports provisioning and deprovisioning users and groups.
 
 **What identity providers are supported?**
 
-At present, GrowthBook only supports Okta, but we are actively working on adding support for additional identity providers.
+At present, GrowthBook only officially supports Okta and Azure AD / Microsoft Entra ID, but we are actively working on adding support for additional identity providers. Given the standarized nature of SCIM, its possible other identity providers will work, but we do not have official guides at this time.
 
 **What happens if I deprovision a user in my identity provider?**
 
@@ -169,7 +183,7 @@ If a user is deprovisioned in your identity provider, they will be removed from 
 
 **All the users from my group aren't being synced with my GrowthBook team. What's happening?**
 
-If you notice that some users that you expect to be in your GrowthBook team from your identity provider are not being added in GrowthBook, double check that those users are assigned to the GrowthBook SCIM application in your identity provider. Only users that are both assigned and withing the group will be synced to the corresponding team.
+If you use Okta and you notice that some users that you expect to be in your GrowthBook team from your identity provider are not being added in GrowthBook, double check that those users are assigned to the GrowthBook SCIM application in your identity provider. With Okta only users that are both assigned and withing the group will be synced to the corresponding team. With Azure AD / Entra ID, the user only needs to be in a group, and the group assigned to the application in order to be provisioned.
 
 **What if I already have users in GrowthBook?**
 
@@ -194,3 +208,19 @@ Yes, you can change a user's global role through the GrowthBook application or v
 **I'm changing the user's role in Okta, but it's not changing in GrowthBook**
 
 In order for the user's role to be updated in GrowthBook, you must update your Application provisioning to support "updates". Please note that the only property GrowthBook supports updating is the `growthBookRole`.
+
+**Why can I not change a user's name via my Identity Provider?**
+
+A user in GrowthBook can belong to many organizations, so no single organization has the permission to update a user's name, as that would affect all organizations the user is a member of.
+
+**Can I define a user's `growthBookRole` via Azure AD / Microsoft Entra ID?**
+
+It should be possible by adding a custom attribute and mapping it accordingly, but we do not have an official guide on that at this time.
+
+**I'm using Microsoft Entra ID / Azure AD and I'm unable to sync groups**
+
+Please ensure that your Microsoft Entra ID / Azure AD plan supports group syncing.
+
+**How do I change a user's email address once provisioned?**
+
+Given that only a user's `growthBookRole` can be updated, we suggest de-provisioning the user, updating their email address, and then re-provisioning the user. This will create a net-new user within GrowthBook with the updated email address.
