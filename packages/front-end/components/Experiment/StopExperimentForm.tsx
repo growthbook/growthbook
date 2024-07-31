@@ -21,6 +21,8 @@ const StopExperimentForm: FC<{
 }> = ({ experiment, close, mutate }) => {
   const isStopped = experiment.status === "stopped";
 
+  const hasLinkedChanges = experimentHasLinkedChanges(experiment);
+
   const form = useForm({
     defaultValues: {
       reason: "",
@@ -89,11 +91,13 @@ const StopExperimentForm: FC<{
             {...form.register("reason")}
             placeholder="(optional)"
           />
-          <Field
-            label="Stop Time (UTC)"
-            type="datetime-local"
-            {...form.register("dateEnded")}
-          />
+          {!hasLinkedChanges && (
+            <Field
+              label="Stop Time (UTC)"
+              type="datetime-local"
+              {...form.register("dateEnded")}
+            />
+          )}
         </>
       )}
       <div className="row">
@@ -154,7 +158,7 @@ const StopExperimentForm: FC<{
           />
         )}
       </div>
-      {experimentHasLinkedChanges(experiment) && (
+      {hasLinkedChanges && (
         <>
           <div className="row">
             <div className="form-group col">

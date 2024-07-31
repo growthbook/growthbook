@@ -109,6 +109,8 @@ import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
 import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
+import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
+import { getContextFromReq } from "./services/organizations";
 
 const app = express();
 
@@ -699,6 +701,14 @@ app.use("/teams", teamRouter);
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
 app.put("/admin/organization", adminController.putOrganization);
+app.put("/admin/organization/disable", adminController.disableOrganization);
+app.put("/admin/organization/enable", adminController.enableOrganization);
+app.get(
+  "/admin/organization/:orgId/members",
+  adminController.getOrganizationMembers
+);
+app.get("/admin/members", adminController.getMembers);
+app.put("/admin/member", adminController.putMember);
 
 // License
 app.get("/license", licenseController.getLicenseData);
@@ -712,6 +722,18 @@ app.post(
   licenseController.postResendEmailVerificationEmail
 );
 app.post("/license/verify-email", licenseController.postVerifyEmail);
+
+app.get(
+  "/generated-hypothesis/:uuid",
+  async (req: AuthRequest<null, { uuid: string }>, res) => {
+    const context = getContextFromReq(req);
+    const generatedHypothesis = await findOrCreateGeneratedHypothesis(
+      context,
+      req.params.uuid
+    );
+    return res.json({ generatedHypothesis });
+  }
+);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {
