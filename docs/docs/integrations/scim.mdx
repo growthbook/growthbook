@@ -153,7 +153,29 @@ If self-hosting GrowthBook on a VPN or behind a firewall, allowlist Azure AD's/E
 
 8. Once saved, enable/disable syncing of groups and users on the **Mappings** page. The two screenshots below show the necessary mappings. These must match exactly!
 
+#### User Mapping
+
+Customizing the attribute mapping is a critical step that enables the mapping of GrowthBook attributes to the correct Azure AD / Entra ID attributes. Below are the required attributes and how they need to be mapped for users.
+
+| GrowthBook Attributes |               Azure AD / Entra ID Attributes                | Matching precedence |
+| :-------------------: | :---------------------------------------------------------: | :-----------------: |
+|       userName        |                      userPrincipalName                      |          1          |
+|        active         | Switch([IsSoftDeleted], , "False", "True", "True", "False") |          -          |
+|      displayName      |                         displayName                         |          -          |
+|      externalID       |                          objectId                           |          -          |
+
 ![Microsoft Azure web app on the attribute mappings page](../../static/images/integrations/azure/growthbook-entra-scim-user-mapping.png)
+
+#### Group Mapping (Optional)
+
+Using groups simplifies providing users with custom permissions. When a user is added to a group and the group is provisioned to GrowthBook, we'll create a Team in GrowthBook, and all users of the team will inherit the team's permissions. More details on teams can be found [here](https://docs.growthbook.io/account/user-permissions#teams). If you don't plan on using `Teams`, you can disable group syncing and do not have to customize the attribute mapping.
+
+If you are planning to use groups, below are the required attributes and how they need to be mapped.
+
+| GrowthBook Attributes | Azure AD / Entra ID Attributes | Matching precedence |
+| :-------------------: | :----------------------------: | :-----------------: |
+|      displayName      |          displayName           |          1          |
+|        members        |            members             |          -          |
 
 ![Microsoft Azure web app on the attribute mappings page, extended](../../static/images/integrations/azure/growthbook-entra-scim-group-mapping.png)
 
@@ -183,7 +205,7 @@ If a user is deprovisioned in your identity provider, they will be removed from 
 
 **All the users from my group aren't being synced with my GrowthBook team. What's happening?**
 
-If you use Okta and notice that some users that you expect to be in your GrowthBook team from your identity provider are not being added in GrowthBook, double check that those users are assigned to the GrowthBook SCIM application in your identity provider. 
+If you use Okta and notice that some users that you expect to be in your GrowthBook team from your identity provider are not being added in GrowthBook, double check that those users are assigned to the GrowthBook SCIM application in your identity provider.
 
 - **Okta**: Only users that are both assigned and within the group are synced to the corresponding team.
 - **Azure AD/Entra ID**: The user only needs to be in a group assigned to the application to be provisioned.
