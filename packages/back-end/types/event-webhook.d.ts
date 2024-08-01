@@ -9,7 +9,7 @@ export {
   EventWebHookMethod,
 } from "../src/types/EventWebHook";
 
-export interface EventWebHookInterface {
+export type EventWebHookInterface = {
   id: string;
   organizationId: string;
   name: string;
