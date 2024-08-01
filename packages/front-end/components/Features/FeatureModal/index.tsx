@@ -340,7 +340,7 @@ export default function FeatureModal({
       {hasCommercialFeature("custom-exp-metadata") &&
         customFields &&
         customFields?.length > 0 && (
-          <div className="appbox p-3 bg-light">
+          <div>
             <CustomFieldInput
               customFields={customFields}
               form={form}

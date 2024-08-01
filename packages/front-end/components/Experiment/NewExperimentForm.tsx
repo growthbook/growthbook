@@ -488,18 +488,17 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               {...form.register("phases.0.dateEnded")}
             />
           )}
+          {hasCommercialFeature("custom-exp-metadata") &&
+            customFields?.length && (
+              <CustomFieldInput
+                customFields={customFields}
+                form={form}
+                section={"experiment"}
+                project={selectedProject}
+              />
+            )}
         </div>
       </Page>
-      {hasCommercialFeature("custom-exp-metadata") && customFields?.length && (
-        <Page display="Custom Fields">
-          <CustomFieldInput
-            customFields={customFields}
-            form={form}
-            section={"experiment"}
-            project={selectedProject}
-          />
-        </Page>
-      )}
       <Page display="Variation Assignment">
         <div className="px-2">
           {isNewExperiment && (

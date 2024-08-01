@@ -27,7 +27,7 @@ const CustomFieldDisplay: FC<{
   label = "Additional Fields",
   canEdit = true,
   mutate,
-  addBox = true,
+  addBox = false,
   className = "",
   section,
   target,

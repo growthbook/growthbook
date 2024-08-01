@@ -239,7 +239,7 @@ export default function CustomFieldModal({
           }}
         />{" "}
         <label htmlFor="required">
-          Field is required on new experiments{" "}
+          Field is required on new {section}s{" "}
           <Tooltip
             body={
               "This will make the custom field required when creating or editing experiments. You can also make this field required before starting an experiment from launch checklists."
