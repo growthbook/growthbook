@@ -62,7 +62,7 @@ import EditSchemaModal from "@/components/Features/EditSchemaModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
-import AuditUser from "@/components/Avatar/AuditUser";
+import EventUser from "@/components/Avatar/EventUser";
 import RevertModal from "@/components/Features/RevertModal";
 import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
 import FixConflictsModal from "@/components/Features/FixConflictsModal";
@@ -963,7 +963,7 @@ export default function FeaturesOverview({
             <div className="row mb-3">
               <div className="col-auto">
                 <span className="text-muted">Revision created by</span>{" "}
-                <AuditUser user={revision.createdBy} display="name" />{" "}
+                <EventUser user={revision.createdBy} display="name" />{" "}
                 <span className="text-muted">on</span>{" "}
                 {datetime(revision.dateCreated)}
               </div>
