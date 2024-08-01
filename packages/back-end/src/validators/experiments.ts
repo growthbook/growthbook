@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { windowTypeValidator } from "../routers/fact-table/fact-table.validators";
 import { statsEngines } from "../util/constants";
-import { featurePrerequisite, savedGroupTargeting } from "./features";
+import {
+  namespaceValue,
+  featurePrerequisite,
+  savedGroupTargeting,
+} from "./features";
 
 export const experimentResultsType = [
   "dnf",
@@ -11,16 +15,6 @@ export const experimentResultsType = [
 ] as const;
 
 export type ExperimentResultsType = typeof experimentResultsType[number];
-
-export const namespaceValue = z
-  .object({
-    enabled: z.boolean(),
-    name: z.string(),
-    range: z.tuple([z.number(), z.number()]),
-  })
-  .strict();
-
-export type NamespaceValue = z.infer<typeof namespaceValue>;
 
 export const experimentPhase = z
   .object({

@@ -26,9 +26,9 @@ export const eventWebHookInterface = z
     method: z.enum(eventWebHookMethods).optional(),
     headers: z.record(z.string(), z.string()).optional(),
     signingKey: z.string().min(2),
-    lastRunAt: z.date().optional(),
+    lastRunAt: z.union([z.date(), z.null()]),
     lastState: z.enum(["none", "success", "error"]),
-    lastResponseBody: z.string().optional(),
+    lastResponseBody: z.union([z.string(), z.null()]),
   })
   .strict();
 

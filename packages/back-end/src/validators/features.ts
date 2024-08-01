@@ -95,7 +95,7 @@ const experimentValue = z
 
 export type ExperimentValue = z.infer<typeof experimentValue>;
 
-const namespaceValue = z
+export const namespaceValue = z
   .object({
     enabled: z.boolean(),
     name: z.string(),
