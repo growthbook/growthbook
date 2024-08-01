@@ -4,7 +4,7 @@ import { getMatchingRules, SMALL_GROUP_SIZE_LIMIT } from "shared/util";
 import { SavedGroupInterface } from "shared/src/types";
 import { ago } from "shared/dates";
 import { FaPlusCircle } from "react-icons/fa";
-import { PiArrowsDownUp } from "react-icons/pi";
+import { PiArrowsDownUp, PiInfoFill } from "react-icons/pi";
 import Link from "next/link";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import Field from "@/components/Forms/Field";
@@ -22,6 +22,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import { DocLink } from "@/components/DocLink";
 
 const NUM_PER_PAGE = 10;
 
@@ -132,6 +133,10 @@ export default function EditSavedGroupPage() {
   const getConfirmationContent = useMemo(() => {
     return getSavedGroupMessage(featuresReferencingSavedGroup);
   }, [featuresReferencingSavedGroup]);
+
+  const legacyLargeSavedGroup =
+    (savedGroup?.values || []).length > SMALL_GROUP_SIZE_LIMIT &&
+    !savedGroup?.passByReferenceOnly;
 
   if (!data || !savedGroup) {
     return <LoadingOverlay />;
@@ -246,10 +251,7 @@ export default function EditSavedGroupPage() {
             <IdListItemInput
               values={itemsToAdd}
               passByReferenceOnly={savedGroup.passByReferenceOnly || false}
-              bypassSmallListSizeLimit={
-                (savedGroup?.values || []).length > SMALL_GROUP_SIZE_LIMIT &&
-                !savedGroup?.passByReferenceOnly
-              }
+              bypassSmallListSizeLimit={legacyLargeSavedGroup}
               groupReferencedByUnsupportedSdks={
                 referencingUnsupportedSdkConnections.length > 0
               }
@@ -321,6 +323,15 @@ export default function EditSavedGroupPage() {
           </div>
         </div>
         <div>{savedGroup.description}</div>
+        {legacyLargeSavedGroup && (
+          <div className="alert alert-info">
+            <PiInfoFill style={{ marginTop: "-2px" }} />
+            We&apos;ve added new restrictions on how large ID lists (over{" "}
+            {SMALL_GROUP_SIZE_LIMIT} items) can be used. This ID list has been
+            grandfathered in, and is not subject to these restrictions.{" "}
+            <DocLink docSection="savedGroups">Learn more</DocLink>
+          </div>
+        )}
         <hr />
         <>
           <div className="row m-0 mb-4 align-items-center justify-content-between">
