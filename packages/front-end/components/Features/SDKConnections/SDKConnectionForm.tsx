@@ -1149,12 +1149,13 @@ export default function SDKConnectionForm({
                         </p>
                         <p className="mb-0 text-warning-orange small">
                           <FaExclamationCircle /> Ensure that your SDK client is
-                          up to date and supports Large Saved Groups
+                          up to date and supports{" "}
+                          <code className="d-block">savedGroupReferences</code>
                         </p>
                       </>
                     }
                   >
-                    Enable <strong>Large Saved Groups</strong> (
+                    Include ID Lists with &gt;{SMALL_GROUP_SIZE_LIMIT} items (
                     <DocLink docSection="savedGroups">docs</DocLink>)
                   </PremiumTooltip>
                 </label>

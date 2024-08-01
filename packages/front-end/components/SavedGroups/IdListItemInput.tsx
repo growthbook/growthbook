@@ -270,7 +270,7 @@ export const IdListItemInput: FC<{
               delimiters={["Enter", "Tab"]}
             />
           )}
-          <div className="row justify-content-end">
+          <div className="row justify-content-end mr-0">
             <a
               href="#"
               style={{ fontSize: "0.8em" }}

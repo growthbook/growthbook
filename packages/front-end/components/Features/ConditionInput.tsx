@@ -139,14 +139,16 @@ export default function ConditionInput(props: Props) {
       <div className="form-group my-4">
         <label className={props.labelClassName || ""}>{title}</label>
         {largeSavedGroups.size > 0 && (
-          <LargeSavedGroupSupportWarning
-            type="targeting_rule"
-            supportedConnections={supportedConnections}
-            unsupportedConnections={unsupportedConnections}
-            unversionedConnections={unversionedConnections}
-            upgradeWarningToError={localTargetingIssues}
-            hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-          />
+          <div className="mb-1">
+            <LargeSavedGroupSupportWarning
+              type="targeting_rule"
+              supportedConnections={supportedConnections}
+              unsupportedConnections={unsupportedConnections}
+              unversionedConnections={unversionedConnections}
+              upgradeWarningToError={localTargetingIssues}
+              hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
+            />
+          </div>
         )}
         <div className="appbox bg-light px-3 py-3">
           <CodeTextArea
@@ -222,14 +224,16 @@ export default function ConditionInput(props: Props) {
     <div className="form-group my-4">
       <label className={props.labelClassName || ""}>{title}</label>
       {largeSavedGroups.size > 0 && (
-        <LargeSavedGroupSupportWarning
-          type="targeting_rule"
-          supportedConnections={supportedConnections}
-          unsupportedConnections={unsupportedConnections}
-          unversionedConnections={unversionedConnections}
-          upgradeWarningToError={localTargetingIssues}
-          hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-        />
+        <div className="mb-1">
+          <LargeSavedGroupSupportWarning
+            type="targeting_rule"
+            supportedConnections={supportedConnections}
+            unsupportedConnections={unsupportedConnections}
+            unversionedConnections={unversionedConnections}
+            upgradeWarningToError={localTargetingIssues}
+            hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
+          />
+        </div>
       )}
       <div className="appbox bg-light px-3 pb-3">
         <ul className={styles.conditionslist}>

@@ -111,14 +111,16 @@ export default function SavedGroupTargetingField({
     <div className="form-group my-4">
       <label>Target by Saved Groups</label>
       {largeSavedGroups.size > 0 && (
-        <LargeSavedGroupSupportWarning
-          type="targeting_rule"
-          hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-          supportedConnections={supportedConnections}
-          unsupportedConnections={unsupportedConnections}
-          unversionedConnections={unversionedConnections}
-          upgradeWarningToError={localTargetingIssues}
-        />
+        <div className="mb-1">
+          <LargeSavedGroupSupportWarning
+            type="targeting_rule"
+            hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
+            supportedConnections={supportedConnections}
+            unsupportedConnections={unsupportedConnections}
+            unversionedConnections={unversionedConnections}
+            upgradeWarningToError={localTargetingIssues}
+          />
+        </div>
       )}
       <div>
         <div className="appbox bg-light px-3 py-3">
