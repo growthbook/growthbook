@@ -388,8 +388,9 @@ export default function EditSavedGroupPage() {
             <div className="d-flex align-items-center">
               {values.length > 0 && (
                 <div className="mr-3">
-                  {start + 1}-{start + valuesPage.length} of{" "}
-                  {values.length || 0}
+                  {(start + 1).toLocaleString()}-
+                  {(start + valuesPage.length).toLocaleString()} of{" "}
+                  {(values.length || 0).toLocaleString()}
                 </div>
               )}
               <div

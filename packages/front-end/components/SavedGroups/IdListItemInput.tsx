@@ -223,7 +223,7 @@ export const IdListItemInput: FC<{
           {numValuesToImport ? (
             <>
               <FaCheckCircle className="text-success-green" />{" "}
-              {`${numValuesToImport} items ready to import`}
+              {`${numValuesToImport.toLocaleString()} items ready to import`}
             </>
           ) : (
             <></>
