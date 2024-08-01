@@ -4,7 +4,7 @@ import { getMatchingRules, truncateString } from "shared/util";
 import Link from "next/link";
 import { SavedGroupInterface } from "shared/src/types";
 import { FaMagnifyingGlass } from "react-icons/fa6";
-import { PiCellSignalHigh, PiInfoFill } from "react-icons/pi";
+import { PiCellSignalFull, PiInfoFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
@@ -157,8 +157,7 @@ export default function IdLists({ groups, mutate }: Props) {
                       <tr key={s.id}>
                         <td>
                           {s.passByReferenceOnly && (
-                            // TODO: size and positioning
-                            <PiCellSignalHigh className="text-color-primary h4" />
+                            <PiCellSignalFull className="text-color-primary h2 mb-0" />
                           )}
                         </td>
                         <td>
