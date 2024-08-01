@@ -141,6 +141,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
 
   const storageKeyAvg = `metric_smoothBy_avg`; // to make metric-specific, include `${mid}`
   const storageKeySum = `metric_smoothBy_sum`;
+  //const storageKeyDenom = `metric_denom`;
   const [smoothByAvg, setSmoothByAvg] = useLocalStorage<"day" | "week">(
     storageKeyAvg,
     "day"
@@ -149,6 +150,11 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
     storageKeySum,
     "day"
   );
+  // const [denom] = useLocalStorage<"all" | "day">(
+  //   storageKeyDenom,
+  //   "day"
+  // );
+  const denom = "day";
 
   const [hoverDate, setHoverDate] = useState<number | null>(null);
   const onHoverCallback = (ret: { d: number | null }) => {
@@ -164,6 +170,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
   const {
     reset,
     watch,
+    getValues,
     setValue,
     register,
   } = useForm<MetricAnalysisFormFields>({
@@ -180,12 +187,11 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
       };
     }, [metricAnalysis]),
   });
+  const populationValue: string | undefined = watch("populationType");
   const factTable = getFactTableById(factMetric.numerator.factTableId);
 
   // TODO better way to populate form/fields than the following
-  // not working properly ATM
   useEffect(() => {
-    console.log(factTable?.userIdTypes?.[0]);
     reset({
       userIdType:
         metricAnalysis?.settings?.userIdType ??
@@ -277,18 +283,18 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                 // reset population chooser
                 // if id type changes as possible joins
                 // may have changed
-                if (v!== watch("userIdType")) {
+                if (v !== watch("userIdType")) {
                   setValue("populationType", "factTable");
                   setValue("populationId", null);
                 }
-                setValue("userIdType", v)
+                setValue("userIdType", v);
               }}
               factTableId={factMetric.numerator.factTableId}
             />
           </div>
           <div className="col-auto form-inline pr-5">
             <PopulationChooser
-              value={watch("populationType")}
+              value={populationValue ?? "factTable"}
               setValue={(v) =>
                 setValue("populationType", v as MetricAnalysisPopulationType)
               }
@@ -321,17 +327,15 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                       todayMinusLookback.getDate() -
                         (watch("lookbackDays") as number)
                     );
-                    console.log(typeof watch("lookbackDays"));
                     const data: CreateMetricAnalysisProps = {
+                      ...getValues(),
                       id: factMetric.id,
-                      userIdType: watch("userIdType"),
                       dimensions: [],
                       lookbackDays: Number(watch("lookbackDays")),
                       startDate: todayMinusLookback
                         .toISOString()
                         .substring(0, 16),
                       endDate: today.toISOString().substring(0, 16),
-                      populationType: watch("populationType"),
                       populationId: watch("populationId") ?? undefined,
                     };
                     await apiCall(`/metric-analysis`, {
@@ -398,9 +402,9 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                             <p>
                               This figure shows the average metric value on a
                               day divided by number of unique units (e.g. users)
-                              <b> in the population</b> on that day. This means this
-                              time series only shows users in <b>both</b> the fact table
-                              and the population on that day.
+                              <b> in the population</b> on that day. This means
+                              this time series only shows users in <b>both</b>{" "}
+                              the fact table and the population on that day.
                             </p>
                             <p>
                               The standard deviation shows the spread of the
@@ -419,6 +423,31 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                         </strong>
                       </Tooltip>
                     </div>
+                    {/* <div className="col">
+                      <div className="float-right mr-2">
+                      <div>
+                        <div className="uppercase-title text-muted">Denominator Window</div>
+                        <SelectField
+                          containerClassName={"select-dropdown-underline"}
+                          options={[
+                            {
+                              label: "All Time",
+                              value: "all"
+                            },
+                            {
+                              label: "Per Day",
+                              value: "day"
+                            },
+                          ]}
+                          sort={false}
+                          value={denom}
+                          onChange={(v) => {
+                            setDenom(v === "all" ? "all" : "day");
+                          }}
+                        />
+                      </div>
+                      </div>
+                    </div> */}
                     <div className="col">
                       <div className="float-right mr-2">
                         <label
@@ -450,7 +479,10 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                         d: d.date,
                         v: d.mean,
                         s: d.stddev,
-                        c: d.units,
+                        c:
+                          denom === "day"
+                            ? d.units
+                            : metricAnalysis.result?.units ?? null,
                       };
                     })}
                     smoothBy={smoothByAvg}

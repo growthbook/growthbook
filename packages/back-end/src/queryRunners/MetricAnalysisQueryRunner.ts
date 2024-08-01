@@ -1,5 +1,7 @@
 import { getValidDateOffsetByUTC } from "shared/dates";
 import { isRatioMetric } from "shared/experiments";
+import { returnZeroIfNotFinite } from "shared/util";
+import { DEFAULT_METRIC_HISTOGRAM_BINS } from "shared/constants";
 import {
   MetricAnalysisHistogram,
   MetricAnalysisInterface,
@@ -17,8 +19,6 @@ import {
   ratioVarianceFromSums,
 } from "../util/stats";
 import { QueryRunner, QueryMap } from "./QueryRunner";
-import { returnZeroIfNotFinite } from "shared/util";
-import { DEFAULT_METRIC_HISTOGRAM_BINS } from "shared/constants";
 
 export class MetricAnalysisQueryRunner extends QueryRunner<
   MetricAnalysisInterface,
@@ -159,20 +159,20 @@ export function processMetricAnalysisQueryResponse(
     // Overall numbers
     else {
       if (row[`bin_width`]) {
-        const histogram: MetricAnalysisHistogram = [...Array(DEFAULT_METRIC_HISTOGRAM_BINS).keys()].map(
-          (i) => {
-            type RowType = keyof typeof row;
-            const bin_width = row[`bin_width`] ?? 0;
-            const value_min = row["value_min"] ?? 0;
-            // TODO fix gross type
-            const units_bin = row[`units_bin_${i}` as RowType] as number;
-            return {
-              start: (row[`bin_width`] ?? 0) * i + value_min,
-              end: bin_width * (i + 1) + value_min,
-              units: units_bin ?? 0,
-            };
-          }
-        );
+        const histogram: MetricAnalysisHistogram = [
+          ...Array(DEFAULT_METRIC_HISTOGRAM_BINS).keys(),
+        ].map((i) => {
+          type RowType = keyof typeof row;
+          const bin_width = row[`bin_width`] ?? 0;
+          const value_min = row["value_min"] ?? 0;
+          // TODO fix gross type
+          const units_bin = row[`units_bin_${i}` as RowType] as number;
+          return {
+            start: (row[`bin_width`] ?? 0) * i + value_min,
+            end: bin_width * (i + 1) + value_min,
+            units: units_bin ?? 0,
+          };
+        });
         ret.histogram = histogram;
       }
 
