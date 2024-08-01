@@ -30,6 +30,7 @@ import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
 import { FeatureTab } from "@/pages/features/[fid]";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 
 export default function FeaturesHeader({
   feature,
@@ -91,6 +92,7 @@ export default function FeaturesHeader({
   const canEdit = permissionsUtil.canViewFeatureModal(projectId);
   const enabledEnvs = getEnabledEnvironments(feature, environments);
   const canPublish = permissionsUtil.canPublishFeature(feature, enabledEnvs);
+  const canManageCustomFields = permissionsUtil.canManageCustomFields();
   const isArchived = feature.archived;
 
   return (
@@ -244,7 +246,7 @@ export default function FeaturesHeader({
                           await apiCall(`/feature/${feature.id}`, {
                             method: "DELETE",
                           });
-                          router.push("/features");
+                          await router.push("/features");
                         }}
                         className="dropdown-item text-danger"
                         text="Delete"
@@ -386,6 +388,14 @@ export default function FeaturesHeader({
                 />
               </div>
             </div>
+            <div>
+              <CustomFieldDisplay
+                target={feature}
+                canEdit={canManageCustomFields}
+                mutate={mutate}
+                section={"feature"}
+              />
+            </div>
             <div id="feature-page-tabs">
               <TabButtons className="mb-0 pb-0">
                 <TabButton
@@ -433,7 +443,7 @@ export default function FeaturesHeader({
             close={() => setDuplicateModal(false)}
             onSuccess={async (feature) => {
               const url = `/features/${feature.id}`;
-              router.push(url);
+              await router.push(url);
             }}
             featureToDuplicate={feature}
           />

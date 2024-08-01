@@ -15,7 +15,7 @@ import {
   UserPermissions,
 } from "../../types/organization";
 import { TeamInterface } from "../../types/team";
-
+//"manageCustomFields",
 function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
   const envLimitedPermissions: Permission[] = ENV_SCOPED_PERMISSIONS.map(
     (permission) => permission

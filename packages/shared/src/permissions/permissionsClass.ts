@@ -518,6 +518,13 @@ export class Permissions {
     );
   };
 
+  public canManageCustomFields = (): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: [] },
+      "manageCustomFields"
+    );
+  };
+
   public canAddComment = (projects: string[]): boolean => {
     return this.checkProjectFilterPermission({ projects }, "addComments");
   };

@@ -8,6 +8,7 @@ import {
 } from "../src/validators/features";
 import { UserRef } from "./user";
 import { FeatureRevisionInterface } from "./feature-revision";
+import { CustomFieldValues } from "./custom-fields";
 
 export type FeatureValueType = "boolean" | "string" | "number" | "json";
 
@@ -69,6 +70,7 @@ export interface FeatureInterface {
   environmentSettings: Record<string, FeatureEnvironment>;
   linkedExperiments?: string[];
   jsonSchema?: JSONSchemaDef;
+  customFields?: CustomFieldValues;
 
   /** @deprecated */
   legacyDraft?: FeatureRevisionInterface | null;

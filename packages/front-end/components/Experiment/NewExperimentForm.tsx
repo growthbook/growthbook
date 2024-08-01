@@ -20,14 +20,21 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
 import { getEqualWeights } from "@/services/utils";
 import {
+  filterCustomFieldsForSectionAndProject,
+  useCustomFields,
+} from "@/hooks/useCustomFields";
+import {
   generateVariationId,
   useAttributeSchema,
   useEnvironments,
 } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import usePermissions from "@/hooks/usePermissions";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
+import { useUser } from "@/services/UserContext";
+import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
@@ -38,7 +45,10 @@ import TagsInput from "@/components/Tags/TagsInput";
 import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, {
+  GroupedValue,
+  SingleValue,
+} from "@/components/Forms/SelectField";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import ConditionInput from "@/components/Features/ConditionInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
@@ -143,6 +153,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     getDatasourceById,
     refreshTags,
     project,
+    projects,
   } = useDefinitions();
 
   const environments = useEnvironments();
@@ -154,6 +165,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   ] = useState(false);
 
   const settings = useOrgSettings();
+  const permissions = usePermissions();
   const { refreshWatching } = useWatching();
 
   const { data: sdkConnectionsData } = useSDKConnections();
@@ -233,8 +245,15 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       ],
       status: !isImport ? "draft" : initialValue?.status || "running",
       ideaSource: idea || "",
+      customFields: initialValue?.customFields,
     },
   });
+  const [selectedProject, setSelectedProject] = useState(form.watch("project"));
+  const customFields = filterCustomFieldsForSectionAndProject(
+    useCustomFields(),
+    "experiment",
+    selectedProject
+  );
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
@@ -243,6 +262,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const { apiCall } = useAuth();
 
+  const { hasCommercialFeature } = useUser();
   const onSubmit = form.handleSubmit(async (value) => {
     // Make sure there's an experiment name
     if ((value.name?.length ?? 0) < 1) {
@@ -327,6 +347,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
   });
 
+  const availableProjects: (SingleValue | GroupedValue)[] = projects
+    .slice()
+    .sort((a, b) => (a.name > b.name ? 1 : -1))
+    .filter((p) => permissions.check("createAnalyses", p.id))
+    .map((p) => ({ value: p.id, label: p.name }));
+
+  const allowAllProjects = permissions.check("createAnalyses", "");
+
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.getValues("exposureQueryId");
   const userIdType = exposureQueries.find(
@@ -401,6 +429,21 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               onChange={(tags) => form.setValue("tags", tags)}
             />
           </div>
+          {projects.length >= 1 && (
+            <div className="form-group">
+              <label>Project</label>
+              <SelectField
+                value={form.watch("project") ?? ""}
+                onChange={(p) => {
+                  form.setValue("project", p);
+                  setSelectedProject(p);
+                }}
+                name="project"
+                initialOption={allowAllProjects ? "All Projects" : undefined}
+                options={availableProjects}
+              />
+            </div>
+          )}
           <Field
             label="Hypothesis"
             textarea
@@ -447,9 +490,17 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               {...form.register("phases.0.dateEnded")}
             />
           )}
+          {hasCommercialFeature("custom-exp-metadata") &&
+            customFields?.length && (
+              <CustomFieldInput
+                customFields={customFields}
+                form={form}
+                section={"experiment"}
+                project={selectedProject}
+              />
+            )}
         </div>
       </Page>
-
       <Page display="Variation Assignment">
         <div className="px-2">
           {isNewExperiment && (

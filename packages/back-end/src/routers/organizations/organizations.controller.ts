@@ -138,6 +138,7 @@ import {
   getUserCodesForOrg,
 } from "../../services/licenseData";
 import { findSDKConnectionsByIds } from "../../models/SdkConnectionModel";
+import { getCustomFields } from "../../models/CustomFieldModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
@@ -153,6 +154,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     segments,
     tags,
     savedGroups,
+    customFields,
     projects,
     factTables,
     factMetrics,
@@ -163,6 +165,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     context.models.segments.getAll(),
     getAllTags(orgId),
     getAllSavedGroups(orgId),
+    getCustomFields(orgId),
     context.models.projects.getAll(),
     getAllFactTablesForOrganization(context),
     context.models.factMetrics.getAll(),
@@ -191,6 +194,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     segments,
     tags,
     savedGroups,
+    customFields: customFields?.fields ?? [],
     projects,
     factTables,
     factMetrics,
