@@ -1,8 +1,8 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { VisualChange } from "back-end/types/visual-changeset";
-import { FC, useCallback, useState } from "react";
-import Code from "@/components/SyntaxHighlighting/Code";
+import { FC, Fragment, useCallback, useState } from "react";
 import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
 
 const EditDOMMutatonsModal: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -13,12 +13,15 @@ const EditDOMMutatonsModal: FC<{
   const [newVisualChange, setNewVisualChange] = useState<VisualChange>(
     visualChange
   );
+  const [css, setCss] = useState(visualChange.css);
+  const [js, setJs] = useState(visualChange.js);
 
   const deleteCustomJS = useCallback(() => {
     setNewVisualChange({
       ...newVisualChange,
       js: "",
     });
+    setJs("");
   }, [newVisualChange, setNewVisualChange]);
 
   const deleteGlobalCSS = useCallback(() => {
@@ -26,6 +29,7 @@ const EditDOMMutatonsModal: FC<{
       ...newVisualChange,
       css: "",
     });
+    setCss("");
   }, [newVisualChange, setNewVisualChange]);
 
   const deleteDOMMutation = useCallback(
@@ -34,6 +38,18 @@ const EditDOMMutatonsModal: FC<{
         ...newVisualChange,
         domMutations: newVisualChange.domMutations.filter(
           (_m, i) => i !== index
+        ),
+      });
+    },
+    [newVisualChange, setNewVisualChange]
+  );
+
+  const setDOMMutation = useCallback(
+    (index: number, updates) => {
+      setNewVisualChange({
+        ...newVisualChange,
+        domMutations: newVisualChange.domMutations.map((m, i) =>
+          i === index ? updates : m
         ),
       });
     },
@@ -49,7 +65,7 @@ const EditDOMMutatonsModal: FC<{
       open
       close={close}
       size="lg"
-      header="Remove Visual Changes"
+      header="Edit Visual Changes"
       submit={onSubmit}
       cta="Save"
     >
@@ -65,67 +81,82 @@ const EditDOMMutatonsModal: FC<{
           <h4>
             Global CSS
             {newVisualChange.css ? (
-              <small className="ml-2">
+              <small className="ml-2 float-right">
                 <a href="#" className="text-danger" onClick={deleteGlobalCSS}>
-                  delete
+                  clear
                 </a>
               </small>
             ) : null}
           </h4>
-          {newVisualChange.css ? (
-            <Code
-              language="css"
-              code={newVisualChange.css}
-              className="disabled"
-            />
-          ) : (
-            <div className="text-muted font-italic">(None)</div>
-          )}
+
+          <Field
+            textarea
+            minRows={5}
+            value={css}
+            onChange={(e) => {
+              setCss(e.target.value);
+              setNewVisualChange({
+                ...newVisualChange,
+                css: e.target.value,
+              });
+            }}
+          />
         </div>
 
         <div className="mb-4">
           <h4>
             Custom JS
             {newVisualChange.js ? (
-              <small className="ml-2">
+              <small className="ml-2 float-right">
                 <a href="#" className="text-danger" onClick={deleteCustomJS}>
-                  delete
+                  clear
                 </a>
               </small>
             ) : null}
           </h4>
-          {newVisualChange.js ? (
-            <Code
-              language="javascript"
-              code={newVisualChange.js ?? ""}
-              className="disabled"
-            />
-          ) : (
-            <div className="text-muted font-italic">(None)</div>
-          )}
+
+          <Field
+            textarea
+            minRows={5}
+            value={js}
+            onChange={(e) => {
+              setJs(e.target.value);
+              setNewVisualChange({
+                ...newVisualChange,
+                js: e.target.value,
+              });
+            }}
+          />
         </div>
 
         <div className="mb-4">
           <h4>DOM Mutations</h4>
-
           {newVisualChange.domMutations.length ? (
             newVisualChange.domMutations.map((m, i) => (
-              <div key={i} className="d-flex flex-column align-items-end">
+              <Fragment key={i}>
                 <a
-                  className="text-danger"
+                  className="text-danger float-right"
                   href="#"
                   onClick={() => deleteDOMMutation(i)}
                   style={{ marginBottom: "-.5rem", fontSize: "0.75rem" }}
                 >
                   delete
                 </a>
-                <Code
-                  language="json"
-                  code={JSON.stringify(m)}
-                  className="disabled"
-                  containerClassName="w-100"
+                <Field
+                  textarea
+                  minRows={2}
+                  value={JSON.stringify(m)}
+                  className="w-100 my-3"
+                  onChange={(e) => {
+                    try {
+                      const newMutation = JSON.parse(e.target.value);
+                      setDOMMutation(i, newMutation);
+                    } catch (e) {
+                      // ignore
+                    }
+                  }}
                 />
-              </div>
+              </Fragment>
             ))
           ) : (
             <div className="text-muted font-italic">(None)</div>
