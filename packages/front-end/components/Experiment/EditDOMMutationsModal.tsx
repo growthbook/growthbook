@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { VisualChange } from "back-end/types/visual-changeset";
-import { FC, Fragment, useCallback, useState } from "react";
+import { FC, useCallback, useState } from "react";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 
@@ -13,15 +13,19 @@ const EditDOMMutatonsModal: FC<{
   const [newVisualChange, setNewVisualChange] = useState<VisualChange>(
     visualChange
   );
-  const [css, setCss] = useState(visualChange.css);
-  const [js, setJs] = useState(visualChange.js);
+
+  const [newDOMMutationStr, setNewDOMMutationStr] = useState(
+    visualChange.domMutations.map((m) => JSON.stringify(m))
+  );
+  const [newDOMMutationErrors, setNewDOMMutationErrors] = useState<string[]>(
+    []
+  );
 
   const deleteCustomJS = useCallback(() => {
     setNewVisualChange({
       ...newVisualChange,
       js: "",
     });
-    setJs("");
   }, [newVisualChange, setNewVisualChange]);
 
   const deleteGlobalCSS = useCallback(() => {
@@ -29,7 +33,6 @@ const EditDOMMutatonsModal: FC<{
       ...newVisualChange,
       css: "",
     });
-    setCss("");
   }, [newVisualChange, setNewVisualChange]);
 
   const deleteDOMMutation = useCallback(
@@ -56,7 +59,88 @@ const EditDOMMutatonsModal: FC<{
     [newVisualChange, setNewVisualChange]
   );
 
+  const setDOMMutationStr = useCallback(
+    (index: number, str: string) => {
+      setNewDOMMutationStr((strs) => {
+        const newStrs = [...strs];
+        newStrs[index] = str;
+        return newStrs;
+      });
+    },
+    [setNewDOMMutationStr]
+  );
+
+  const setDOMMutationErrors = useCallback(
+    (index: number, error: string) => {
+      setNewDOMMutationErrors((errors) => {
+        const newErrors = [...errors];
+        newErrors[index] = error;
+        return newErrors;
+      });
+    },
+    [setNewDOMMutationErrors]
+  );
+
+  const validateDOMMutations = useCallback(
+    (index: number, mutation: string) => {
+      try {
+        const m = JSON.parse(mutation);
+        /*
+        valid DOM mutation object. No other keys are allowed:
+          selector: string;
+          attribute: string;
+          action: 'append' | 'set' | 'remove';
+          value?: string;
+          parentSelector?: string;
+          insertBeforeSelector?: string;
+         */
+        if (m.selector === undefined) {
+          throw new Error("selector key is required");
+        }
+        if (m.attribute === undefined) {
+          throw new Error("attribute key is required");
+        }
+        if (m.action === undefined) {
+          throw new Error("action key is required");
+        }
+        if (!["append", "set", "remove"].includes(m.action)) {
+          throw new Error("action must be one of 'append', 'set', or 'remove'");
+        }
+        // check to make sure the object has no non-defined keys
+        if (Object.keys(m).length > 3) {
+          Object.keys(m).forEach((key) => {
+            if (
+              ![
+                "selector",
+                "attribute",
+                "action",
+                "value",
+                "parentSelector",
+                "insertBeforeSelector",
+              ].includes(key)
+            ) {
+              throw new Error(`Invalid key: ${key}`);
+            }
+          });
+        }
+
+        setDOMMutation(index, m);
+        setDOMMutationErrors(index, "");
+      } catch (e) {
+        setDOMMutationErrors(index, e.message);
+      }
+    },
+    [setDOMMutation, setDOMMutationErrors]
+  );
+
   const onSubmit = () => {
+    // make sure all DOM mutations are valid
+    newDOMMutationStr.forEach((m, i) => {
+      validateDOMMutations(i, m);
+    });
+    if (newDOMMutationErrors.some((e) => e)) {
+      return;
+    }
     onSave(newVisualChange);
   };
 
@@ -68,6 +152,12 @@ const EditDOMMutatonsModal: FC<{
       header="Edit Visual Changes"
       submit={onSubmit}
       cta="Save"
+      ctaEnabled={!newDOMMutationErrors.some((e) => e)}
+      disabledMessage={
+        newDOMMutationErrors.some((e) => e)
+          ? "Please fix the errors with DOM mutators"
+          : ""
+      }
     >
       <div>
         {experiment.status === "running" && (
@@ -92,9 +182,8 @@ const EditDOMMutatonsModal: FC<{
           <Field
             textarea
             minRows={5}
-            value={css}
+            value={newVisualChange.css}
             onChange={(e) => {
-              setCss(e.target.value);
               setNewVisualChange({
                 ...newVisualChange,
                 css: e.target.value,
@@ -118,9 +207,8 @@ const EditDOMMutatonsModal: FC<{
           <Field
             textarea
             minRows={5}
-            value={js}
+            value={newVisualChange.js}
             onChange={(e) => {
-              setJs(e.target.value);
               setNewVisualChange({
                 ...newVisualChange,
                 js: e.target.value,
@@ -132,31 +220,34 @@ const EditDOMMutatonsModal: FC<{
         <div className="mb-4">
           <h4>DOM Mutations</h4>
           {newVisualChange.domMutations.length ? (
-            newVisualChange.domMutations.map((m, i) => (
-              <Fragment key={i}>
+            newDOMMutationStr.map((m, i) => (
+              <div key={i} className="my-3">
                 <a
                   className="text-danger float-right"
                   href="#"
                   onClick={() => deleteDOMMutation(i)}
-                  style={{ marginBottom: "-.5rem", fontSize: "0.75rem" }}
+                  style={{ fontSize: "0.75rem" }}
                 >
                   delete
                 </a>
                 <Field
                   textarea
                   minRows={2}
-                  value={JSON.stringify(m)}
-                  className="w-100 my-3"
+                  value={m}
+                  className="w-100"
                   onChange={(e) => {
-                    try {
-                      const newMutation = JSON.parse(e.target.value);
-                      setDOMMutation(i, newMutation);
-                    } catch (e) {
-                      // ignore
-                    }
+                    setDOMMutationStr(i, e.target.value);
+                    validateDOMMutations(i, e.target.value);
                   }}
                 />
-              </Fragment>
+                <div>
+                  {newDOMMutationErrors[i] ? (
+                    <div className="text-danger">
+                      <small>{newDOMMutationErrors[i]}</small>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
             ))
           ) : (
             <div className="text-muted font-italic">(None)</div>
