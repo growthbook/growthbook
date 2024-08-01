@@ -1,5 +1,4 @@
 import React, { FC } from "react";
-import { NotificationEvent } from "back-end/src/events/notification-events";
 import { EventWebHookLogInterface } from "back-end/types/event-webhook-log";
 import classNames from "classnames";
 import { datetime } from "shared/dates";
@@ -16,8 +15,6 @@ export const EventWebHookLogItem: FC<EventWebHookLogItemProps> = ({
   activeLogId,
   onClick,
 }) => {
-  const payload = log.payload as NotificationEvent;
-
   const iconForState = useIconForState(log.result);
 
   return (
@@ -27,15 +24,19 @@ export const EventWebHookLogItem: FC<EventWebHookLogItemProps> = ({
       })}
       onClick={() => onClick(log.id)}
     >
-      <td className="text-center">
+      <td className="text-left table-column-fit-width pr-5">
+        {datetime(log.dateCreated)}
+      </td>
+      <td className="text-left">
+        <code className="text-main">
+          {log.event ?? <span className="font-italic">unknown</span>}
+        </code>
+      </td>
+      <td className="text-left">
         <span className="d-inline-block" style={{ fontSize: "1.5rem" }}>
           {iconForState}
         </span>
       </td>
-      <td className="text-left">
-        <code className="text-main">{payload.event}</code>
-      </td>
-      <td className="text-left">{datetime(log.dateCreated)}</td>
     </tr>
   );
 };

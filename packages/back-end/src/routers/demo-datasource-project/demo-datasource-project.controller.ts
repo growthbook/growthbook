@@ -9,7 +9,7 @@ import {
 } from "shared/constants";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getContextFromReq } from "../../services/organizations";
-import { EventAuditUserForResponseLocals } from "../../events/event-types";
+import { EventUserForResponseLocals } from "../../events/event-types";
 import { PostgresConnectionParams } from "../../../types/integrations/postgres";
 import { createDataSource } from "../../models/DataSourceModel";
 import {
@@ -162,7 +162,7 @@ export const postDemoDatasourceProject = async (
   req: CreateDemoDatasourceProjectRequest,
   res: Response<
     CreateDemoDatasourceProjectResponse | PrivateApiErrorResponse,
-    EventAuditUserForResponseLocals
+    EventUserForResponseLocals
   >
 ) => {
   const context = getContextFromReq(req);
@@ -259,7 +259,7 @@ export const postDemoDatasourceProject = async (
       | "owner"
       | "description"
       | "datasource"
-      | "metrics"
+      | "goalMetrics"
       | "project"
       | "hypothesis"
       | "exposureQueryId"
@@ -280,7 +280,7 @@ spacing and headings.`,
       owner: ASSET_OWNER,
       datasource: datasource.id,
       project: project.id,
-      metrics: metrics
+      goalMetrics: metrics
         .map((m) => m.id)
         .concat(ratioMetric ? ratioMetric?.id : []),
       exposureQueryId: "user_id",

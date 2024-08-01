@@ -37,6 +37,8 @@ if (USE_PROXY) {
   custom.setHttpOptionsDefaults(getHttpOptions());
 }
 
+const passthroughQueryParams = ["hypgen", "hypothesis"];
+
 // Micro-Cache with a TTL of 30 seconds, avoids hitting Mongo on every request
 const ssoConnectionCache = new MemoryCache(async (ssoConnectionId: string) => {
   const ssoConnection = await getSSOConnectionById(ssoConnectionId);
@@ -222,6 +224,12 @@ export class OpenIdAuthConnection implements AuthConnection {
 
     if (ssoConnection.extraQueryParams) {
       for (const [k, v] of Object.entries(ssoConnection.extraQueryParams)) {
+        url += `&${k}=${v}`;
+      }
+    }
+
+    for (const [k, v] of Object.entries(req.query)) {
+      if (passthroughQueryParams.includes(k)) {
         url += `&${k}=${v}`;
       }
     }

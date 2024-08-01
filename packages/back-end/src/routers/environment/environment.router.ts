@@ -3,6 +3,13 @@ import z from "zod";
 import { wrapController } from "../wrapController";
 import { validateRequestMiddleware } from "../utils/validateRequestMiddleware";
 import * as rawEnvironmentController from "./environment.controller";
+import {
+  createEnvValidator,
+  deleteEnvValidator,
+  updateEnvOrderValidator,
+  updateEnvValidator,
+  updateEnvsValidator,
+} from "./environment.validators";
 
 const router = express.Router();
 
@@ -11,21 +18,7 @@ const environmentController = wrapController(rawEnvironmentController);
 router.put(
   "/",
   validateRequestMiddleware({
-    body: z
-      .object({
-        environments: z.array(
-          z
-            .object({
-              id: z.string(),
-              description: z.string(),
-              toggleOnList: z.boolean().optional(),
-              defaultState: z.boolean().optional(),
-              projects: z.array(z.string()).optional(),
-            })
-            .strict()
-        ),
-      })
-      .strict(),
+    body: updateEnvsValidator,
   }),
   environmentController.putEnvironments
 );
@@ -33,11 +26,7 @@ router.put(
 router.put(
   "/order",
   validateRequestMiddleware({
-    body: z
-      .object({
-        environments: z.array(z.string()),
-      })
-      .strict(),
+    body: updateEnvOrderValidator,
   }),
   environmentController.putEnvironmentOrder
 );
@@ -45,19 +34,7 @@ router.put(
 router.post(
   "/",
   validateRequestMiddleware({
-    body: z
-      .object({
-        environment: z
-          .object({
-            id: z.string(),
-            description: z.string(),
-            toggleOnList: z.boolean().optional(),
-            defaultState: z.any().optional(),
-            projects: z.array(z.string()).optional(),
-          })
-          .strict(),
-      })
-      .strict(),
+    body: createEnvValidator,
   }),
   environmentController.postEnvironment
 );
@@ -65,16 +42,7 @@ router.post(
 router.put(
   "/:id",
   validateRequestMiddleware({
-    body: z
-      .object({
-        environment: z.object({
-          id: z.string(),
-          description: z.string(),
-          toggleOnList: z.boolean().optional(),
-          defaultState: z.any().optional(),
-        }),
-      })
-      .strict(),
+    body: updateEnvValidator,
     params: z
       .object({
         id: z.string(),
@@ -87,11 +55,7 @@ router.put(
 router.delete(
   "/:id",
   validateRequestMiddleware({
-    params: z
-      .object({
-        id: z.string(),
-      })
-      .strict(),
+    params: deleteEnvValidator,
   }),
   environmentController.deleteEnvironment
 );

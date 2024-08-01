@@ -1,6 +1,7 @@
 import { orgHasPremiumFeature } from "enterprise";
 import {
   ExperimentMetricInterface,
+  getAllMetricIdsFromExperiment,
   isFactMetric,
   isRatioMetric,
   quantileMetricType,
@@ -179,11 +180,7 @@ export const startExperimentResultQueries = async (
     : null;
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
-  const selectedMetrics = Array.from(
-    new Set(
-      snapshotSettings.goalMetrics.concat(snapshotSettings.guardrailMetrics)
-    )
-  )
+  const selectedMetrics = getAllMetricIdsFromExperiment(snapshotSettings, false)
     .map((m) => metricMap.get(m))
     .filter((m) => m) as ExperimentMetricInterface[];
   if (!selectedMetrics.length) {
@@ -517,10 +514,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       : null;
 
     // Only include metrics tied to this experiment (both goal and guardrail metrics)
-    const selectedMetrics = Array.from(
-      new Set(
-        snapshotSettings.goalMetrics.concat(snapshotSettings.guardrailMetrics)
-      )
+    const selectedMetrics = getAllMetricIdsFromExperiment(
+      snapshotSettings,
+      false
     )
       .map((m) => metricMap.get(m))
       .filter((m) => m) as ExperimentMetricInterface[];

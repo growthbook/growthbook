@@ -30,6 +30,7 @@ import EditExperimentNameForm from "@/components/Experiment/EditExperimentNameFo
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
+import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import ExperimentHeader from "./ExperimentHeader";
 import ProjectTagBar from "./ProjectTagBar";
 import SetupTabOverview from "./SetupTabOverview";
@@ -126,6 +127,13 @@ export default function TabbedPage({
   }, [setTab]);
 
   const { phase, setPhase } = useSnapshot();
+
+  const variables = {
+    experiment: experiment.name,
+    tags: experiment.tags,
+    experimentStatus: experiment.status,
+  };
+
   const viewingOldPhase =
     experiment.phases.length > 0 && phase < experiment.phases.length - 1;
 
@@ -290,6 +298,9 @@ export default function TabbedPage({
             </div>
           </div>
         )}
+        <div className="mt-3">
+          <CustomMarkdown page={"experiment"} variables={variables} />
+        </div>
 
         {experiment.status === "stopped" && (
           <div className="pt-3">

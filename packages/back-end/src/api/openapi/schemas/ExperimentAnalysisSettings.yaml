@@ -9,6 +9,7 @@ required:
   - attributionModel
   - statsEngine
   - goals
+  - secondaryMetrics
   - guardrails
 properties:
   datasourceId:
@@ -33,7 +34,13 @@ properties:
     enum:
       - bayesian
       - frequentist
+  regressionAdjustmentEnabled:
+    type: boolean
   goals:
+    type: array
+    items:
+      $ref: "./ExperimentMetric.yaml"
+  secondaryMetrics:
     type: array
     items:
       $ref: "./ExperimentMetric.yaml"

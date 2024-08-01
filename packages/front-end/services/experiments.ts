@@ -39,7 +39,7 @@ export type ExperimentTableRow = {
   variations: SnapshotMetric[];
   rowClass?: string;
   metricSnapshotSettings?: MetricSnapshotSettings;
-  isGuardrail?: boolean;
+  resultGroup: "goal" | "secondary" | "guardrail";
 };
 
 export function getRisk(

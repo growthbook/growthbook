@@ -369,10 +369,7 @@ const MetricParamsInput = ({
 }) => {
   const metrics = form.watch("metrics");
   // eslint-disable-next-line
-  const {
-    name,
-    ...params
-  } = sortParams(ensureAndReturn(metrics[metricId]));
+  const { name, ...params } = sortParams(ensureAndReturn(metrics[metricId]));
 
   const isBayesianParamDisabled = (entity) => {
     if (params.overrideProper) return false;

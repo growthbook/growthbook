@@ -56,6 +56,8 @@
   --get-started-box-shadow: #05054920;
   --get-started-hover-text: #{colors.$white};
 
+  --custom-markdown-border: #7b45ea40;
+
   --border-color-100: #e0e2eb;
   --border-color-200: #dee2e6;
   --border-color-300: #cacaca;
@@ -166,6 +168,8 @@
   --get-started-background-gradient-2: rgba(255, 255, 255, 0.2);
   --get-started-box-shadow: #05054920;
   --get-started-hover-text: #{colors.$white};
+
+  --custom-markdown-border: #{colors.$highlight-purple-light};
 
   --border-color-100: #616161;
   --border-color-200: #424242;

@@ -22,8 +22,8 @@ import {
 } from "../../util/cookie";
 import { getUserPermissions } from "../../util/organization.util";
 import {
-  EventAuditUserForResponseLocals,
-  EventAuditUserLoggedIn,
+  EventUserForResponseLocals,
+  EventUserLoggedIn,
 } from "../../events/event-types";
 import { insertAudit } from "../../models/AuditModel";
 import { getTeamsForOrganization } from "../../models/TeamModel";
@@ -79,7 +79,7 @@ function getInitialDataFromJWT(user: IdToken): JWTInfo {
 export async function processJWT(
   // eslint-disable-next-line
   req: AuthRequest & { user: IdToken },
-  res: Response<unknown, EventAuditUserForResponseLocals>,
+  res: Response<unknown, EventUserForResponseLocals>,
   next: NextFunction
 ): Promise<void> {
   const { email, name, verified } = getInitialDataFromJWT(req.user);
@@ -211,7 +211,7 @@ export async function processJWT(
       }
     }
 
-    const eventAudit: EventAuditUserLoggedIn = {
+    const eventAudit: EventUserLoggedIn = {
       type: "dashboard",
       id: user.id,
       email: user.email,

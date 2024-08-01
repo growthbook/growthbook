@@ -159,9 +159,10 @@ export default function SDKConnectionsList() {
                         />
                       )}
                       <div
-                        className={clsx("d-flex align-items-center", {
+                        className={clsx("d-flex flex-wrap align-items-center", {
                           "small mt-1": showAllEnvironmentProjects,
                         })}
+                        style={{ gap: "0.5rem" }}
                       >
                         <ProjectBadges
                           projectIds={
@@ -172,6 +173,7 @@ export default function SDKConnectionsList() {
                           invalidProjectIds={disallowedProjectIds}
                           invalidProjectMessage="This project is not allowed in the selected environment and will not be included in the SDK payload."
                           resourceType="sdk connection"
+                          skipMargin={true}
                         />
                       </div>
                     </td>
@@ -270,9 +272,9 @@ export default function SDKConnectionsList() {
         </table>
       )}
 
-      {canCreateSDKConnections ? (
+      {connections.length === 0 ? (
         <>
-          {connections.length === 0 ? (
+          {canCreateSDKConnections ? (
             <div className="appbox p-5 text-center">
               <p>
                 <strong>SDK Connections</strong> make it easy to integrate
@@ -288,7 +290,14 @@ export default function SDKConnectionsList() {
                 <GBAddCircle /> Create New SDK Connection
               </button>
             </div>
-          ) : null}
+          ) : (
+            <div className="appbox p-5 text-center">
+              <p>
+                You do not have permission to create SDK connections. Please
+                contact your account administrator
+              </p>
+            </div>
+          )}
         </>
       ) : null}
     </div>

@@ -100,7 +100,7 @@ const GetStartedPage = (): React.ReactElement => {
 
   const canImportLaunchDarkly =
     permissionsUtils.canViewFeatureModal() &&
-    permissionsUtils.canCreateOrUpdateEnvironment({
+    permissionsUtils.canCreateEnvironment({
       projects: [],
       id: "",
     }) &&

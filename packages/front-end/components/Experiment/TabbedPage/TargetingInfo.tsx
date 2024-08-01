@@ -10,6 +10,7 @@ import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { formatTrafficSplit } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 export interface Props {
   phaseIndex?: number | null;
@@ -45,6 +46,8 @@ export default function TargetingInfo({
   showFullTargetingInfo = true,
   horizontalView,
 }: Props) {
+  const { namespaces } = useOrgSettings();
+
   const phase = experiment.phases[phaseIndex ?? experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
   const namespaceRange = hasNamespace
@@ -53,6 +56,10 @@ export default function TargetingInfo({
   const namespaceRanges: [number, number] = hasNamespace
     ? [phase.namespace.range[1] || 0, phase.namespace.range[0] || 0]
     : [0, 1];
+  const namespaceName = hasNamespace
+    ? namespaces?.find((n) => n.name === phase.namespace.name)?.label ||
+      phase.namespace.name
+    : "";
 
   const hasSavedGroupsChanges =
     showChanges &&
@@ -89,6 +96,10 @@ export default function TargetingInfo({
   const changesNamespaceRanges: [number, number] = changes?.namespace
     ? [changes.namespace.range[1] || 0, changes.namespace.range[0] || 0]
     : [0, 1];
+  const changesNamespaceName = changesHasNamespace
+    ? namespaces?.find((n) => n.name === changes.namespace.name)?.label ||
+      changes.namespace.name
+    : "";
 
   return (
     <div>
@@ -299,7 +310,7 @@ export default function TargetingInfo({
                       <div>
                         {hasNamespace ? (
                           <>
-                            {phase.namespace.name}{" "}
+                            {namespaceName}{" "}
                             <span className="text-muted">
                               ({percentFormatter.format(namespaceRange)})
                             </span>
@@ -323,7 +334,7 @@ export default function TargetingInfo({
                       <div>
                         {changesHasNamespace ? (
                           <>
-                            {changes?.namespace.name}{" "}
+                            {changesNamespaceName}{" "}
                             <span className="text-muted">
                               ({percentFormatter.format(changesNamespaceRange)})
                             </span>

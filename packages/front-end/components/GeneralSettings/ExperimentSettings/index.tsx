@@ -20,7 +20,6 @@ export default function ExperimentSettings({
 }: {
   cronString: string;
   updateCronString: (value: string) => void;
-  hasCommercialFeature: (feature: string) => boolean;
 }) {
   const { hasCommercialFeature } = useUser();
   const form = useFormContext();

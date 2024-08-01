@@ -81,3 +81,4 @@ export default function OAuthCallbackPage() {
   );
 }
 OAuthCallbackPage.preAuth = true;
+OAuthCallbackPage.preAuthTopNav = true;

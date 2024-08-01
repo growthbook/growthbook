@@ -264,6 +264,7 @@ export type AutoMetricToCreate = {
   type: MetricType;
   shouldCreate: boolean;
   alreadyExists: boolean;
+  userIdTypes: string[];
 };
 
 export interface AutoMetricTrackedEvent extends TrackedEventData {

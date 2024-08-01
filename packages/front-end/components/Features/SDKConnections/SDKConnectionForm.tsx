@@ -40,6 +40,8 @@ import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { DocLink } from "@/components/DocLink";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useProjectOptions from "@/hooks/useProjectOptions";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import {
   LanguageType,
@@ -84,6 +86,7 @@ export default function SDKConnectionForm({
   const router = useRouter();
 
   const { hasCommercialFeature } = useUser();
+  const permissionsUtil = usePermissionsUtil();
   const hasEncryptionFeature = hasCommercialFeature(
     "encrypt-features-endpoint"
   );
@@ -206,11 +209,22 @@ export default function SDKConnectionForm({
     selectedEnvironment
   );
 
-  const projectsOptions = [...filteredProjects, ...disallowedProjects].map(
-    (p) => ({
-      label: p.name,
-      value: p.id,
-    })
+  const permissionRequired = (project: string) => {
+    return edit
+      ? permissionsUtil.canUpdateSDKConnection(
+          { projects: [project], environment: form.watch("environment") },
+          {}
+        )
+      : permissionsUtil.canCreateSDKConnection({
+          projects: [project],
+          environment: form.watch("environment"),
+        });
+  };
+
+  const projectsOptions = useProjectOptions(
+    permissionRequired,
+    form.watch("projects") || [],
+    [...filteredProjects, ...disallowedProjects]
   );
   const selectedValidProjects = selectedProjects?.filter((p) => {
     return disallowedProjects?.find((dp) => dp.id === p) === undefined;
@@ -489,7 +503,12 @@ export default function SDKConnectionForm({
 
         <div className="mb-4">
           <label>
-            Filter by Projects
+            Filter by Projects{" "}
+            <Tooltip
+              body={`The dropdown below has been filtered to only include projects where you have permission to ${
+                edit ? "update" : "create"
+              } SDK Connections.`}
+            />
             {!!selectedProjects?.length && (
               <> ({selectedValidProjects?.length ?? 0})</>
             )}

@@ -1,7 +1,13 @@
+import {
+  EventWebHookPayloadType,
+  EventWebHookMethod,
+} from "../src/types/EventWebHook";
 import { NotificationEventName } from "./event";
 
-export type EventWebHookPayloadType = "raw" | "slack" | "discord" | "ms-teams";
-export type EventWebHookMethod = "PUT" | "POST" | "PATCH";
+export {
+  EventWebHookPayloadType,
+  EventWebHookMethod,
+} from "../src/types/EventWebHook";
 
 export interface EventWebHookInterface {
   id: string;

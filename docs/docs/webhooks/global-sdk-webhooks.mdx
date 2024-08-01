@@ -48,12 +48,6 @@ If you define a `signingKey`, you can use it to verify that webhooks are coming 
 
 **See: [SDK Webhooks - Verify Signatures](/app/webhooks/sdk-webhooks#verify-signatures)**
 
-## Using Webhook Payloads
-
-Global SDK Webhooks always include a special header (`webhook-sdk-key`), which contains the clientKey of the SDK Connection that triggered the payload.
-
-If you specify `sendPayload: true`, you will also receive an SDK payload in the body. See [SDK Webhooks -> Sending Payload](/app/webhooks/sdk-webhooks#sending-payload)
-
 ## Errors and Retries
 
 Unlike normal SDK Webhooks, Global SDK Webhooks are NOT retried on error.

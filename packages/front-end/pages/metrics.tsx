@@ -29,6 +29,7 @@ import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 interface MetricTableItem {
   id: string;
   managedBy: "" | "api" | "config";
@@ -330,6 +331,9 @@ const MetricsPage = (): React.ReactElement => {
               </button>
             </div>
           )}
+      </div>
+      <div className="mt-3">
+        <CustomMarkdown page={"metricList"} />
       </div>
       <div className="row mb-2 align-items-center">
         <div className="col-lg-3 col-md-4 col-6">

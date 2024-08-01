@@ -232,19 +232,31 @@ export default function ConditionInput(props: Props) {
                     { label: "matches regex", value: "$regex" },
                     { label: "does not match regex", value: "$notRegex" },
                     {
-                      label: "is greater than",
+                      label:
+                        attribute.format === "date"
+                          ? "is after"
+                          : "is greater than",
                       value: attribute.format === "version" ? "$vgt" : "$gt",
                     },
                     {
-                      label: "is greater than or equal to",
+                      label:
+                        attribute.format === "date"
+                          ? "is after or on"
+                          : "is greater than or equal to",
                       value: attribute.format === "version" ? "$vgte" : "$gte",
                     },
                     {
-                      label: "is less than",
+                      label:
+                        attribute.format === "date"
+                          ? "is before"
+                          : "is less than",
                       value: attribute.format === "version" ? "$vlt" : "$lt",
                     },
                     {
-                      label: "is less than or equal to",
+                      label:
+                        attribute.format === "date"
+                          ? "is before or on"
+                          : "is less than or equal to",
                       value: attribute.format === "version" ? "$vlte" : "$lte",
                     },
                     { label: "is in the list", value: "$in" },
@@ -429,6 +441,12 @@ export default function ConditionInput(props: Props) {
                       attribute.datatype
                     ) ? (
                     <Field
+                      type={
+                        attribute.format === "date" &&
+                        !["$regex", "$notRegex"].includes(operator)
+                          ? "datetime-local"
+                          : undefined
+                      }
                       value={value}
                       onChange={handleFieldChange}
                       name="value"

@@ -1,5 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
-import { Environment } from "../../types/organization";
+import { Environment, ReqContext } from "../../types/organization";
 
 /**
  * util for adding an environment to the existing organization environments.
@@ -9,6 +9,7 @@ import { Environment } from "../../types/organization";
  * @param shouldReplace
  */
 export const addEnvironmentToOrganizationEnvironments = (
+  context: ReqContext,
   env: Environment,
   orgEnvironments: Environment[],
   shouldReplace: boolean = false
@@ -18,10 +19,21 @@ export const addEnvironmentToOrganizationEnvironments = (
   );
 
   if (existingMatchingEnvIndex === -1) {
+    if (!context.permissions.canCreateEnvironment(env)) {
+      context.permissions.throwPermissionError();
+    }
     return [...orgEnvironments, env];
   }
 
   if (shouldReplace) {
+    if (
+      !context.permissions.canUpdateEnvironment(
+        orgEnvironments[existingMatchingEnvIndex],
+        env
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
     const updatedEnvironments = cloneDeep(orgEnvironments);
     updatedEnvironments[existingMatchingEnvIndex] = env;
     return updatedEnvironments;
