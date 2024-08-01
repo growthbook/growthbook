@@ -1208,6 +1208,10 @@ paths:
                   type: array
                   items:
                     type: string
+                secondaryMetrics:
+                  type: array
+                  items:
+                    type: string
                 guardrailMetrics:
                   type: array
                   items:
@@ -1369,6 +1373,9 @@ paths:
                         type: array
                         items:
                           type: number
+                regressionAdjustmentEnabled:
+                  type: boolean
+                  description: Controls whether regression adjustment (CUPED) is enabled for experiment analyses
       responses:
         '200':
           content:
@@ -1448,6 +1455,10 @@ paths:
                   type: array
                   items:
                     type: string
+                secondaryMetrics:
+                  type: array
+                  items:
+                    type: string
                 guardrailMetrics:
                   type: array
                   items:
@@ -1609,6 +1620,9 @@ paths:
                         type: array
                         items:
                           type: number
+                regressionAdjustmentEnabled:
+                  type: boolean
+                  description: Controls whether regression adjustment (CUPED) is enabled for experiment analyses
       responses:
         '200':
           content:
@@ -5008,6 +5022,7 @@ components:
         - attributionModel
         - statsEngine
         - goals
+        - secondaryMetrics
         - guardrails
       properties:
         datasourceId:
@@ -5032,7 +5047,13 @@ components:
           enum:
             - bayesian
             - frequentist
+        regressionAdjustmentEnabled:
+          type: boolean
         goals:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExperimentMetric'
+        secondaryMetrics:
           type: array
           items:
             $ref: '#/components/schemas/ExperimentMetric'

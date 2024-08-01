@@ -7,6 +7,7 @@ import { orgHasPremiumFeature } from "enterprise";
 import {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
+  getAutoExperimentChangeType,
   GrowthBook,
 } from "@growthbook/growthbook";
 import {
@@ -522,10 +523,14 @@ async function getFeatureDefinitionsResponse({
 
   if (includeAutoExperiments) {
     if (!includeRedirectExperiments) {
-      experiments = experiments.filter((e) => e.changeType !== "redirect");
+      experiments = experiments.filter(
+        (e) => getAutoExperimentChangeType(e) !== "redirect"
+      );
     }
     if (!includeVisualExperiments) {
-      experiments = experiments.filter((e) => e.changeType === "redirect");
+      experiments = experiments.filter(
+        (e) => getAutoExperimentChangeType(e) !== "visual"
+      );
     }
   }
 

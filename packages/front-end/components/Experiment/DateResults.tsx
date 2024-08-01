@@ -31,7 +31,7 @@ const numberFormatter = new Intl.NumberFormat();
 // Represents data for one metric graph
 type Metric = {
   metric: ExperimentMetricInterface;
-  isGuardrail: boolean;
+  resultGroup: "goal" | "secondary" | "guardrail";
   datapoints: ExperimentDateGraphDataPoint[];
 };
 
@@ -39,16 +39,18 @@ const DateResults: FC<{
   variations: ExperimentReportVariation[];
   results: ExperimentReportResultDimension[];
   seriestype: string;
-  metrics: string[];
-  guardrails?: string[];
+  goalMetrics: string[];
+  secondaryMetrics: string[];
+  guardrailMetrics: string[];
   statsEngine?: StatsEngine;
   differenceType?: DifferenceType;
 }> = ({
   results,
   variations,
   seriestype,
-  metrics,
-  guardrails,
+  goalMetrics,
+  secondaryMetrics,
+  guardrailMetrics,
   statsEngine,
   differenceType,
 }) => {
@@ -103,7 +105,9 @@ const DateResults: FC<{
 
     // Merge goal and guardrail metrics
     return (
-      Array.from(new Set(metrics.concat(guardrails || [])))
+      Array.from(
+        new Set(goalMetrics.concat(secondaryMetrics).concat(guardrailMetrics))
+      )
         .map((metricId) => {
           const metric = getExperimentMetricById(metricId);
           if (!metric) return;
@@ -221,7 +225,11 @@ const DateResults: FC<{
 
           return {
             metric,
-            isGuardrail: !metrics.includes(metricId),
+            resultGroup: goalMetrics.includes(metricId)
+              ? "goal"
+              : secondaryMetrics.includes(metricId)
+              ? "secondary"
+              : "guardrail",
             datapoints,
           };
         })
@@ -237,8 +245,9 @@ const DateResults: FC<{
     displayCurrency,
     getExperimentMetricById,
     getFactTableById,
-    guardrails,
-    metrics,
+    guardrailMetrics,
+    goalMetrics,
+    secondaryMetrics,
     pValueThreshold,
     statsEngine,
     variations,
@@ -296,12 +305,12 @@ const DateResults: FC<{
         </>
       )}
 
-      {metricSections.map(({ metric, isGuardrail, datapoints }) => (
+      {metricSections.map(({ metric, resultGroup, datapoints }) => (
         <div className="mb-5" key={metric.id}>
           <h3>
             {metric.name}{" "}
-            {isGuardrail && (
-              <small className="badge badge-secondary">Guardrail</small>
+            {resultGroup !== "goal" && (
+              <small className="badge badge-secondary">{resultGroup}</small>
             )}
           </h3>
           <ExperimentDateGraph

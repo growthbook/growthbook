@@ -24,7 +24,7 @@ import {
   deleteAllSlackIntegrationsForAProject,
   removeProjectFromSlackIntegration,
 } from "../../models/SlackIntegrationModel";
-import { EventAuditUserForResponseLocals } from "../../events/event-types";
+import { EventUserForResponseLocals } from "../../events/event-types";
 
 // region POST /projects
 
@@ -45,7 +45,7 @@ export const postProject = async (
   req: CreateProjectRequest,
   res: Response<
     CreateProjectResponse | ApiErrorResponse,
-    EventAuditUserForResponseLocals
+    EventUserForResponseLocals
   >
 ) => {
   const context = getContextFromReq(req);
@@ -90,7 +90,7 @@ export const putProject = async (
   req: PutProjectRequest,
   res: Response<
     PutProjectResponse | ApiErrorResponse,
-    EventAuditUserForResponseLocals
+    EventUserForResponseLocals
   >
 ) => {
   const { id } = req.params;
@@ -152,7 +152,7 @@ export const deleteProject = async (
   req: DeleteProjectRequest,
   res: Response<
     DeleteProjectResponse | ApiErrorResponse,
-    EventAuditUserForResponseLocals
+    EventUserForResponseLocals
   >
 ) => {
   const { id } = req.params;

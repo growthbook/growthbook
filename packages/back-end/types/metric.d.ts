@@ -111,3 +111,16 @@ export type LegacyMetricInterface = Omit<
   userIdColumn?: string;
   anonymousIdColumn?: string;
 };
+
+export type InsertMetricProps = Pick<
+  MetricInterface,
+  | "name"
+  | "type"
+  | "sql"
+  | "id"
+  | "organization"
+  | "datasource"
+  | "dateCreated"
+  | "dateUpdated"
+  | "userIdTypes"
+>;

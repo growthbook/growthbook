@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
+import {
+  InsertMetricProps,
+  LegacyMetricInterface,
+  MetricInterface,
+} from "../../types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
 import { upgradeMetricDoc } from "../util/migrations";
 import { ALLOW_CREATE_METRICS } from "../util/secrets";
@@ -140,19 +144,7 @@ export async function insertMetric(metric: Partial<MetricInterface>) {
   return toInterface(await MetricModel.create(metric));
 }
 
-export async function insertMetrics(
-  metrics: Pick<
-    MetricInterface,
-    | "name"
-    | "type"
-    | "sql"
-    | "id"
-    | "organization"
-    | "datasource"
-    | "dateCreated"
-    | "dateUpdated"
-  >[]
-) {
+export async function insertMetrics(metrics: InsertMetricProps[]) {
   if (usingFileConfig() && !ALLOW_CREATE_METRICS) {
     throw new Error("Cannot add metrics. Metrics managed by config.yml");
   }

@@ -61,6 +61,7 @@ const docSections = {
   wordpress: "/integrations/wordpress",
   prerequisites: "/features/prerequisites",
   statisticsSequential: "/statistics/sequential",
+  customMarkdown: "/using/growthbook-best-practices#custom-markdown",
 };
 
 export type DocSection = keyof typeof docSections;

@@ -424,7 +424,7 @@ export function hasEnoughData(
   if (!baselineValue || !variationValue) return false;
 
   const minSampleSize =
-    metric.minSampleSize || metricDefaults.minimumSampleSize || 0;
+    metric.minSampleSize ?? metricDefaults.minimumSampleSize ?? 0;
 
   return Math.max(baselineValue, variationValue) >= minSampleSize;
 }
@@ -552,4 +552,25 @@ export function getMetricResultStatus({
     directionalStatus,
     resultsStatus,
   };
+}
+
+export function getAllMetricIdsFromExperiment(
+  exp: {
+    goalMetrics?: string[];
+    secondaryMetrics?: string[];
+    guardrailMetrics?: string[];
+    activationMetric?: string | null;
+  },
+  includeActivationMetric: boolean = true
+) {
+  return Array.from(
+    new Set([
+      ...(exp.goalMetrics || []),
+      ...(exp.secondaryMetrics || []),
+      ...(exp.guardrailMetrics || []),
+      ...(includeActivationMetric && exp.activationMetric
+        ? [exp.activationMetric]
+        : []),
+    ])
+  );
 }

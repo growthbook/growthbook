@@ -55,7 +55,10 @@ export default function MetricsOverridesSelector({
   );
 
   const metrics = new Set(
-    form.watch("metrics").concat(form.watch("guardrails"))
+    form
+      .watch("goalMetrics")
+      .concat(form.watch("guardrailMetrics"))
+      .concat(form.watch("secondaryMetrics"))
   );
   const activationMetric = form.watch("activationMetric");
   if (activationMetric) {

@@ -17,9 +17,12 @@ repositories {
 }
 
 dependencies {
-    implementation 'io.growthbook.sdk:GrowthBook:1.1.58'
+    implementation 'io.growthbook.sdk:GrowthBook:1.1.60'
+    implementation 'io.growthbook.sdk:NetworkDispatcherKtor:1.0.2'
 }
 ```
+
+`NetworkDispatcherKtor` artifact provides `NetworkDispatcher` implementation based on `ktor` network client. If you want to use implementation based on `OkHttp` network client you can use `NetworkDispatcherOkHttp` artifact.
 
 ## Quick Usage
 
@@ -44,7 +47,7 @@ val gb = GBSDKBuilder(
     print("Experiment Id: " + gbExperiment.key)
     print("Variation Id: " + gbExperimentResult.variationId)
   },
-  networkDispatcher = DefaultGBNetworkClient(),
+  networkDispatcher = GBNetworkDispatcherKtor(),
   encryptionKey = "insert_your_encription_key_if_you_are_using_encryption",
 ).initialize()
 ```

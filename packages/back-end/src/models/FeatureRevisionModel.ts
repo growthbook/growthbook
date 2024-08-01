@@ -6,7 +6,7 @@ import {
   FeatureRevisionInterface,
   RevisionLog,
 } from "../../types/feature-revision";
-import { EventAuditUser, EventAuditUserLoggedIn } from "../events/event-types";
+import { EventUser, EventUserLoggedIn } from "../events/event-types";
 import { OrganizationInterface, ReqContext } from "../../types/organization";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
@@ -57,7 +57,7 @@ function toInterface(doc: FeatureRevisionDocument): FeatureRevisionInterface {
 
   // These fields are new, so backfill them for old revisions
   if (revision.publishedBy && !revision.publishedBy.type) {
-    (revision.publishedBy as EventAuditUserLoggedIn).type = "dashboard";
+    (revision.publishedBy as EventUserLoggedIn).type = "dashboard";
   }
   if (!revision.status) revision.status = "published";
   if (!revision.createdBy)
@@ -144,7 +144,7 @@ export async function getRevisionsByStatus(
 
 export async function createInitialRevision(
   feature: FeatureInterface,
-  user: EventAuditUser | null,
+  user: EventUser | null,
   environments: string[],
   date?: Date
 ) {
@@ -192,7 +192,7 @@ export async function createRevision({
   canBypassApprovalChecks,
 }: {
   feature: FeatureInterface;
-  user: EventAuditUser;
+  user: EventUser;
   environments: string[];
   baseVersion?: number;
   changes?: Partial<FeatureRevisionInterface>;
@@ -337,7 +337,7 @@ export async function updateRevision(
 
 export async function markRevisionAsPublished(
   revision: FeatureRevisionInterface,
-  user: EventAuditUser,
+  user: EventUser,
   comment?: string
 ) {
   const action = revision.status === "draft" ? "publish" : "re-publish";
@@ -373,7 +373,7 @@ export async function markRevisionAsPublished(
 
 export async function markRevisionAsReviewRequested(
   revision: FeatureRevisionInterface,
-  user: EventAuditUser,
+  user: EventUser,
   comment?: string
 ) {
   const action = "Review Requested";
@@ -407,7 +407,7 @@ export async function markRevisionAsReviewRequested(
 
 export async function submitReviewAndComments(
   revision: FeatureRevisionInterface,
-  user: EventAuditUser,
+  user: EventUser,
   reviewSubmittedType: ReviewSubmittedType,
   comment?: string
 ) {
@@ -453,7 +453,7 @@ export async function submitReviewAndComments(
 
 export async function discardRevision(
   revision: FeatureRevisionInterface,
-  user: EventAuditUser
+  user: EventUser
 ) {
   if (revision.status === "published" || revision.status === "discarded") {
     throw new Error(`Can not discard ${revision.status} revisions`);

@@ -5,6 +5,7 @@ import { useUser } from "@/services/UserContext";
 import ActivityList from "@/components/ActivityList";
 import ExperimentList from "@/components/Experiment/ExperimentList";
 import ExperimentGraph from "@/components/Experiment/ExperimentGraph";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import styles from "./Dashboard.module.scss";
 import IdeasFeed from "./IdeasFeed";
 import NorthStar from "./NorthStar";
@@ -15,7 +16,7 @@ export interface Props {
 }
 
 export default function Dashboard({ experiments }: Props) {
-  const { name } = useUser();
+  const { name, hasCommercialFeature } = useUser();
 
   const nameMap = new Map<string, string>();
   experiments.forEach((e) => {
@@ -82,7 +83,21 @@ export default function Dashboard({ experiments }: Props) {
         </div>
         <div className="col-xl-13 mb-4">
           <div className="list-group activity-box overflow-auto pt-1">
-            <ExperimentImpact experiments={experiments} />
+            {hasCommercialFeature("experiment-impact") ? (
+              <ExperimentImpact experiments={experiments} />
+            ) : (
+              <div className="pt-2">
+                <div className="row align-items-start mb-4">
+                  <div className="col-lg-auto">
+                    <h3 className="mt-2">Experiment Impact</h3>
+                  </div>
+                </div>
+
+                <PremiumTooltip commercialFeature="experiment-impact">
+                  Experiment Impact is available to Enterprise customers
+                </PremiumTooltip>
+              </div>
+            )}
           </div>
         </div>
       </div>
