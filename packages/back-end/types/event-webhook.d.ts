@@ -29,4 +29,4 @@ export type EventWebHookInterface = {
   headers?: Record<string, string>;
   payloadType?: EventWebHookPayloadType;
   method?: EventWebHookMethod;
-}
+};
