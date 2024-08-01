@@ -126,19 +126,28 @@ const EditDOMMutatonsModal: FC<{
 
         setDOMMutation(index, m);
         setDOMMutationErrors(index, "");
+        return true;
       } catch (e) {
         setDOMMutationErrors(index, e.message);
+        return false;
       }
     },
     [setDOMMutation, setDOMMutationErrors]
   );
 
+  const checkValidDOMMutations = useCallback(() => {
+    let valid = true;
+    newDOMMutationStr.forEach((m, i) => {
+      if (!validateDOMMutations(i, m)) {
+        valid = false;
+      }
+    });
+    return valid;
+  }, [newDOMMutationStr, validateDOMMutations]);
+
   const onSubmit = () => {
     // make sure all DOM mutations are valid
-    newDOMMutationStr.forEach((m, i) => {
-      validateDOMMutations(i, m);
-    });
-    if (newDOMMutationErrors.some((e) => e)) {
+    if (!checkValidDOMMutations()) {
       return;
     }
     onSave(newVisualChange);
