@@ -131,7 +131,7 @@ export class ReqContextClass {
       };
     }
 
-    this.permissions = new Permissions(this.userPermissions, this.superAdmin);
+    this.permissions = new Permissions(this.userPermissions);
 
     this.initModels();
   }
@@ -143,7 +143,6 @@ export class ReqContextClass {
     envs?: string[] | Set<string>
   ) {
     return userHasPermission(
-      this.superAdmin,
       this.userPermissions,
       permission,
       project,

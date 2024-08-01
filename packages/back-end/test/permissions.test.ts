@@ -1313,17 +1313,14 @@ describe("PermissionsUtilClass.canReadSingleProjectResource check for features",
   };
 
   it("User with global noaccess role shouldn't be able to see any features", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     const features: Partial<FeatureInterface>[] = [
       {
@@ -1340,17 +1337,14 @@ describe("PermissionsUtilClass.canReadSingleProjectResource check for features",
   });
 
   it("User with global noaccess role shouldn't be able to see any features if the feature none of the features have the project property defined", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     const features: Partial<FeatureInterface>[] = [
       {
@@ -1366,17 +1360,14 @@ describe("PermissionsUtilClass.canReadSingleProjectResource check for features",
   });
 
   it("User with global readonly role should be able to see any features", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     const features: Partial<FeatureInterface>[] = [
       {
@@ -1398,28 +1389,25 @@ describe("PermissionsUtilClass.canReadSingleProjectResource check for features",
   });
 
   it("User with global noaccess role should be able to see any features with a project, but they should be able to see features in the project they have a readonly role for", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        project1: {
+          permissions: roleToPermissionMap("readonly", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          project1: {
-            permissions: roleToPermissionMap("readonly", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-          project2: {
-            permissions: roleToPermissionMap("readonly", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
+        project2: {
+          permissions: roleToPermissionMap("readonly", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
         },
       },
-      false
-    );
+    });
 
     const features: Partial<FeatureInterface>[] = [
       {
@@ -1486,23 +1474,20 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
   };
 
   it("User with global noaccess role should be able to see metrics in 'All Projects' aka - an empty projects array, if they have atleast 1 project level role that grants them access", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        project1: {
+          permissions: roleToPermissionMap("readonly", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          project1: {
-            permissions: roleToPermissionMap("readonly", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     const metrics: Partial<MetricInterface>[] = [
       {
@@ -1524,23 +1509,20 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
   });
 
   it("User with global noaccess role should be able to see metrics in 'All Projects' aka - an undefined projects, if they have atleast 1 project level role that grants them access", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        project1: {
+          permissions: roleToPermissionMap("readonly", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          project1: {
-            permissions: roleToPermissionMap("readonly", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     const metrics: Partial<MetricInterface>[] = [
       {
@@ -1561,17 +1543,14 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
   });
 
   it("User with global noaccess role should not be able to see metrics in 'All Projects' aka - an undefined projects, if they don't have atleast 1 project level role that grants them access", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     const metrics: Partial<MetricInterface>[] = [
       {
@@ -1588,17 +1567,14 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
   });
 
   it("User with global noaccess role shouldn't be able to see metrics if the metrics are exlusively in projects they don't have a specific role that grants them read access for", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     const metrics: Partial<MetricInterface>[] = [
       {
@@ -1615,23 +1591,20 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
   });
 
   it("User with global noaccess role should be able to see metrics if the user as readData permission for atleast one of the metrics projects", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        project123: {
+          permissions: roleToPermissionMap("readonly", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          project123: {
-            permissions: roleToPermissionMap("readonly", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     const metrics: Partial<MetricInterface>[] = [
       {
@@ -1653,28 +1626,25 @@ describe("PermissionsUtilClass.canReadMultiProjectResource check for metrics", (
   });
 
   it("User with global readonly role should not be able to see metrics if the user has noaccess permission for every one of the metrics projects", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        project123: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          project123: {
-            permissions: roleToPermissionMap("noaccess", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-          project345: {
-            permissions: roleToPermissionMap("noaccess", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
+        project345: {
+          permissions: roleToPermissionMap("noaccess", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
         },
       },
-      false
-    );
+    });
 
     const metrics: Partial<MetricInterface>[] = [
       {
@@ -1720,49 +1690,40 @@ describe("PermissionsUtilClass.canCreateAttribute check", () => {
   };
 
   it("User with global readonly role can not create attribute in 'All Projects'", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateAttribute({})).toEqual(false);
   });
 
   it("User with global engineer role can create attribute in in 'All Projects'", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateAttribute({})).toEqual(true);
   });
 
   it("User with global readonly role can not create attribute in in project 'ABC123'", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateAttribute({ projects: ["ABC123"] })).toEqual(
       false
@@ -1770,23 +1731,20 @@ describe("PermissionsUtilClass.canCreateAttribute check", () => {
   });
 
   it("User with global readonly role can create attribute in in project 'ABC123' if they have an engineer role for that project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("engineer", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          ABC123: {
-            permissions: roleToPermissionMap("engineer", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canCreateAttribute({ projects: ["ABC123"] })).toEqual(
       true
@@ -1794,23 +1752,20 @@ describe("PermissionsUtilClass.canCreateAttribute check", () => {
   });
 
   it("User with global engineer role can not create attribute in in project 'ABC123' if they have a readonly role for that project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("readonly", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          ABC123: {
-            permissions: roleToPermissionMap("readonly", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canCreateAttribute({ projects: ["ABC123"] })).toEqual(
       false
@@ -1818,23 +1773,20 @@ describe("PermissionsUtilClass.canCreateAttribute check", () => {
   });
 
   it("User with global readonly role can not create attribute in in project 'ABC123' and 'DEF456 if they have a engineer role for only one of the projects", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("engineer", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          ABC123: {
-            permissions: roleToPermissionMap("engineer", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(
       permissions.canCreateAttribute({ projects: ["ABC123", "DEF456"] })
@@ -1842,28 +1794,25 @@ describe("PermissionsUtilClass.canCreateAttribute check", () => {
   });
 
   it("User with global readonly role can create attribute in in project 'ABC123' and 'DEF456 if they have a engineer role for both projects", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("engineer", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          ABC123: {
-            permissions: roleToPermissionMap("engineer", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-          DEF456: {
-            permissions: roleToPermissionMap("engineer", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
+        DEF456: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
         },
       },
-      false
-    );
+    });
 
     expect(
       permissions.canCreateAttribute({ projects: ["ABC123", "DEF456"] })
@@ -1900,23 +1849,20 @@ describe("PermissionsUtilClass.canUpdateAttribute check", () => {
   };
 
   it("User with global readonly role and engineer role on project ABC123 can not remove all projects from existing attribute", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("engineer", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          ABC123: {
-            permissions: roleToPermissionMap("engineer", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(
       permissions.canUpdateAttribute({ projects: ["ABC123"] }, { projects: [] })
@@ -1924,17 +1870,14 @@ describe("PermissionsUtilClass.canUpdateAttribute check", () => {
   });
 
   it("User with global engineer role can remove all projects from existing attribute", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(
       permissions.canUpdateAttribute({ projects: ["ABC123"] }, { projects: [] })
@@ -1942,28 +1885,25 @@ describe("PermissionsUtilClass.canUpdateAttribute check", () => {
   });
 
   it("User with global readonly role can update an attribute from being in project ABC123 to being in ABC123 and DEF456", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("engineer", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          ABC123: {
-            permissions: roleToPermissionMap("engineer", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-          DEF456: {
-            permissions: roleToPermissionMap("engineer", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
+        DEF456: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
         },
       },
-      false
-    );
+    });
 
     expect(
       permissions.canUpdateAttribute(
@@ -2003,49 +1943,40 @@ describe("PermissionsUtilClass.canDeleteAttribute check", () => {
   };
 
   it("User with global readonly role can not delete attribute in 'All Projects'", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteAttribute({})).toEqual(false);
   });
 
   it("User with global engineer role can delete attribute in in 'All Projects'", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteAttribute({})).toEqual(true);
   });
 
   it("User with global readonly role can not delete attribute in in project 'ABC123'", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteAttribute({ projects: ["ABC123"] })).toEqual(
       false
@@ -2053,23 +1984,20 @@ describe("PermissionsUtilClass.canDeleteAttribute check", () => {
   });
 
   it("User with global readonly role can delete attribute in in project 'ABC123' if they have an engineer role for that project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("engineer", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          ABC123: {
-            permissions: roleToPermissionMap("engineer", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canDeleteAttribute({ projects: ["ABC123"] })).toEqual(
       true
@@ -2077,23 +2005,20 @@ describe("PermissionsUtilClass.canDeleteAttribute check", () => {
   });
 
   it("User with global engineer role can not delete attribute in in project 'ABC123' if they have a readonly role for that project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("readonly", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          ABC123: {
-            permissions: roleToPermissionMap("readonly", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canDeleteAttribute({ projects: ["ABC123"] })).toEqual(
       false
@@ -2101,23 +2026,20 @@ describe("PermissionsUtilClass.canDeleteAttribute check", () => {
   });
 
   it("User with global readonly role can not delete attribute in in project 'ABC123' and 'DEF456 if they have a engineer role for only one of the projects", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("engineer", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          ABC123: {
-            permissions: roleToPermissionMap("engineer", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(
       permissions.canDeleteAttribute({ projects: ["ABC123", "DEF456"] })
@@ -2125,28 +2047,25 @@ describe("PermissionsUtilClass.canDeleteAttribute check", () => {
   });
 
   it("User with global readonly role can delete attribute in in project 'ABC123' and 'DEF456 if they have a engineer role for both projects", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("engineer", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          ABC123: {
-            permissions: roleToPermissionMap("engineer", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-          DEF456: {
-            permissions: roleToPermissionMap("engineer", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
+        DEF456: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
         },
       },
-      false
-    );
+    });
 
     expect(
       permissions.canDeleteAttribute({ projects: ["ABC123", "DEF456"] })
@@ -2183,49 +2102,40 @@ describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
   };
 
   it("User with global readonly role can not create segment", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateSegment()).toEqual(false);
   });
 
   it("User with global collaborator role can create segment", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateSegment()).toEqual(false);
   });
 
   it("User with global analyst role can create segment", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateSegment()).toEqual(true);
   });
@@ -2260,49 +2170,40 @@ describe("PermissionsUtilClass.canUpdateSegmentcheck", () => {
   };
 
   it("User with global readonly role can not update segment", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canUpdateSegment()).toEqual(false);
   });
 
   it("User with global collaborator role can update segment", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canUpdateSegment()).toEqual(false);
   });
 
   it("User with global analyst role can update segment", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canUpdateSegment()).toEqual(true);
   });
@@ -2337,49 +2238,40 @@ describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
   };
 
   it("User with global readonly role can not delete segment", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteSegment()).toEqual(false);
   });
 
   it("User with global collaborator role can delete segment", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteSegment()).toEqual(false);
   });
 
   it("User with global analyst role can delete segment", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteSegment()).toEqual(true);
   });
@@ -2415,49 +2307,40 @@ describe("PermissionsUtilClass.canCreatePresentation check", () => {
   };
 
   it("User with global readonly role can not create presentation", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreatePresentation()).toEqual(false);
   });
 
   it("User with global collaborator role can create presentation", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreatePresentation()).toEqual(true);
   });
 
   it("User with global engineer role can create presentation", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreatePresentation()).toEqual(true);
   });
@@ -2492,49 +2375,40 @@ describe("PermissionsUtilClass.canUpdatePresentation check", () => {
   };
 
   it("User with global readonly role can not update presentation", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canUpdatePresentation()).toEqual(false);
   });
 
   it("User with global collaborator role can update presentation", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canUpdatePresentation()).toEqual(true);
   });
 
   it("User with global engineer role can update presentation", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canUpdatePresentation()).toEqual(true);
   });
@@ -2569,49 +2443,40 @@ describe("PermissionsUtilClass.canDeletePresentation check", () => {
   };
 
   it("User with global readonly role can not delete presentation", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeletePresentation()).toEqual(false);
   });
 
   it("User with global collaborator role can delete presentation", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeletePresentation()).toEqual(true);
   });
 
   it("User with global engineer role can delete presentation", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeletePresentation()).toEqual(true);
   });
@@ -2646,49 +2511,40 @@ describe("PermissionsUtilClass.canCreateDimension check", () => {
   };
 
   it("User with global readonly role can not create dimension", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateDimension()).toEqual(false);
   });
 
   it("User with global collaborator role can create dimension", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateDimension()).toEqual(false);
   });
 
   it("User with global analyst role can create dimension", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateDimension()).toEqual(true);
   });
@@ -2723,49 +2579,40 @@ describe("PermissionsUtilClass.canUpdateDimension check", () => {
   };
 
   it("User with global readonly role can not update dimension", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canUpdateDimension()).toEqual(false);
   });
 
   it("User with global collaborator role can update dimension", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canUpdateDimension()).toEqual(false);
   });
 
   it("User with global analyst role can update dimension", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canUpdateDimension()).toEqual(true);
   });
@@ -2800,49 +2647,40 @@ describe("PermissionsUtilClass.canDeleteDimension check", () => {
   };
 
   it("User with global readonly role can not delete dimension", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteDimension()).toEqual(false);
   });
 
   it("User with global collaborator role can delete dimension", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteDimension()).toEqual(false);
   });
 
   it("User with global analyst role can delete dimension", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteDimension()).toEqual(true);
   });
@@ -2877,49 +2715,40 @@ describe("PermissionsUtilClass.canCreateSegmentcheck", () => {
   };
 
   it("User with global readonly role can not create segment", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateSegment()).toEqual(false);
   });
 
   it("User with global collaborator role can create segment", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateSegment()).toEqual(false);
   });
 
   it("User with global analyst role can create segment", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateSegment()).toEqual(true);
   });
@@ -2954,49 +2783,40 @@ describe("PermissionsUtilClass.canUpdateSegmentcheck", () => {
   };
 
   it("User with global readonly role can not update segment", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canUpdateSegment()).toEqual(false);
   });
 
   it("User with global collaborator role can update segment", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canUpdateSegment()).toEqual(false);
   });
 
   it("User with global analyst role can update segment", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canUpdateSegment()).toEqual(true);
   });
@@ -3031,49 +2851,40 @@ describe("PermissionsUtilClass.canDeleteSegmentcheck", () => {
   };
 
   it("User with global readonly role can not delete segment", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteSegment()).toEqual(false);
   });
 
   it("User with global collaborator role can delete segment", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteSegment()).toEqual(false);
   });
 
   it("User with global analyst role can delete segment", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteSegment()).toEqual(true);
   });
@@ -3109,71 +2920,59 @@ describe("PermissionsUtilClass.canCreateIdea check", () => {
   };
 
   it("User with global readonly role can not create idea without a project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateIdea({ project: "" })).toEqual(false);
   });
 
   it("User with global collaborator role can create idea without a project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateIdea({ project: "" })).toEqual(true);
   });
 
   it("User with global readonly role can not create idea with a project if they don't have a project specific role that gives them permission", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateIdea({ project: "abc123" })).toEqual(false);
   });
 
   it("User with global readonly role can create idea with a project if they do have a project specific role that gives them permission", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("collaborator", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canCreateIdea({ project: "abc123" })).toEqual(true);
   });
@@ -3208,17 +3007,14 @@ describe("PermissionsUtilClass.canUpdateIdea check", () => {
   };
 
   it("User with global readonly role can not update idea without a project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(
       permissions.canUpdateIdea({ project: "" }, { project: "abc123" })
@@ -3226,17 +3022,14 @@ describe("PermissionsUtilClass.canUpdateIdea check", () => {
   });
 
   it("User with global collaborator role can update idea without a project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(
       permissions.canUpdateIdea({ project: "" }, { project: "abc123" })
@@ -3244,17 +3037,14 @@ describe("PermissionsUtilClass.canUpdateIdea check", () => {
   });
 
   it("User with global readonly role can not update idea with a project if they don't have a project specific role that gives them permission", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(
       permissions.canUpdateIdea({ project: "abc123" }, { project: "" })
@@ -3262,23 +3052,20 @@ describe("PermissionsUtilClass.canUpdateIdea check", () => {
   });
 
   it("User with global readonly role can not remove project from idea if they do have a project specific role that gives them permission in the new project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("collaborator", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(
       permissions.canUpdateIdea({ project: "abc123" }, { project: "" })
@@ -3286,28 +3073,25 @@ describe("PermissionsUtilClass.canUpdateIdea check", () => {
   });
 
   it("User with global readonly role can update idea's project from idea if they do have a project specific role that gives them permission in the new project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("collaborator", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-          def456: {
-            permissions: roleToPermissionMap("collaborator", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
+        def456: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
         },
       },
-      false
-    );
+    });
 
     expect(
       permissions.canUpdateIdea({ project: "abc123" }, { project: "def456" })
@@ -3344,71 +3128,59 @@ describe("PermissionsUtilClass.canDeleteIdea check", () => {
   };
 
   it("User with global readonly role can not delete idea without a project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteIdea({ project: "" })).toEqual(false);
   });
 
   it("User with global collaborator role can delete idea without a project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteIdea({ project: "" })).toEqual(true);
   });
 
   it("User with global readonly role can not delete idea with a project if they don't have a project specific role that gives them permission", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteIdea({ project: "abc123" })).toEqual(false);
   });
 
   it("User with global readonly role can delete idea with a project if they do have a project specific role that gives them permission", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("collaborator", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canDeleteIdea({ project: "abc123" })).toEqual(true);
   });
@@ -3443,71 +3215,59 @@ describe("PermissionsUtilClass.canViewExperimentModal check", () => {
   };
 
   it("User with global readonly role can not create experiment without a project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canViewExperimentModal()).toEqual(false);
   });
 
   it("User with global experimenter role can create experiment without a project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canViewExperimentModal()).toEqual(true);
   });
 
   it("User with global readonly role can not create experiment with a project if they don't have a project specific role that gives them permission", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canViewExperimentModal("abc123")).toEqual(false);
   });
 
   it("User with global readonly role can create experiment with a project if they do have a project specific role that gives them permission", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("analyst", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("analyst", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canViewExperimentModal("abc123")).toEqual(true);
   });
@@ -3542,49 +3302,40 @@ describe("PermissionsUtilClass.canCreateExperiment check", () => {
   };
 
   it("User with global readonly role can not create experiment without a project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateExperiment({ project: "" })).toEqual(false);
   });
 
   it("User with global analyst role can create experiment without a project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateExperiment({ project: "" })).toEqual(true);
   });
 
   it("User with global readonly role can not create experiment with a project if they don't have a project specific role that gives them permission", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateExperiment({ project: "abc123" })).toEqual(
       false
@@ -3592,23 +3343,20 @@ describe("PermissionsUtilClass.canCreateExperiment check", () => {
   });
 
   it("User with global readonly role can create experiment with a project if they do have a project specific role that gives them permission", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("experimenter", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canCreateExperiment({ project: "abc123" })).toEqual(
       true
@@ -3645,17 +3393,14 @@ describe("PermissionsUtilClass.canUpdateExperiment check", () => {
   };
 
   it("User with global readonly role can not update experiment without a project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(
       permissions.canUpdateExperiment({ project: "" }, { project: "abc123" })
@@ -3663,17 +3408,14 @@ describe("PermissionsUtilClass.canUpdateExperiment check", () => {
   });
 
   it("User with global analyst role can update experiment without a project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(
       permissions.canUpdateExperiment({ project: "" }, { project: "abc123" })
@@ -3681,17 +3423,14 @@ describe("PermissionsUtilClass.canUpdateExperiment check", () => {
   });
 
   it("User with global readonly role can not update experiment with a project if they don't have a project specific role that gives them permission", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(
       permissions.canUpdateExperiment({ project: "abc123" }, { project: "" })
@@ -3699,23 +3438,20 @@ describe("PermissionsUtilClass.canUpdateExperiment check", () => {
   });
 
   it("User with global readonly role can not remove project from experiment if they do have a project specific role that gives them permission in the new project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("collaborator", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(
       permissions.canUpdateExperiment({ project: "abc123" }, { project: "" })
@@ -3723,28 +3459,25 @@ describe("PermissionsUtilClass.canUpdateExperiment check", () => {
   });
 
   it("User with global readonly role can update experiment's project from experiment if they do have a project specific role that gives them permission in the new project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("experimenter", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-          def456: {
-            permissions: roleToPermissionMap("experimenter", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
+        def456: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
         },
       },
-      false
-    );
+    });
 
     expect(
       permissions.canUpdateExperiment(
@@ -3784,49 +3517,40 @@ describe("PermissionsUtilClass.canDeleteExperiment check", () => {
   };
 
   it("User with global readonly role can not delete experiment without a project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteExperiment({ project: "" })).toEqual(false);
   });
 
   it("User with global analyst role can delete experiment without a project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteExperiment({ project: "" })).toEqual(true);
   });
 
   it("User with global readonly role can not delete experiment with a project if they don't have a project specific role that gives them permission", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteExperiment({ project: "abc123" })).toEqual(
       false
@@ -3834,23 +3558,20 @@ describe("PermissionsUtilClass.canDeleteExperiment check", () => {
   });
 
   it("User with global readonly role can delete experiment with a project if they do have a project specific role that gives them permission", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("experimenter", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canDeleteExperiment({ project: "abc123" })).toEqual(
       true
@@ -3887,81 +3608,66 @@ describe("PermissionsUtilClass.canCreateMetric check", () => {
   };
 
   it("canCreateMetric should handle undefined projects correctly for engineer user", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateMetric({})).toEqual(false);
   });
 
   it("canCreateMetric should handle undefined projects correctly for experimenter user", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateMetric({})).toEqual(true);
   });
 
   it("canCreateMetric should handle empty projects array correctly for noaccess user", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateMetric({ projects: [] })).toEqual(false);
   });
 
   it("canCreateMetric should handle empty projects array correctly for experimenter user", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateMetric({ projects: [] })).toEqual(true);
   });
 
   it("canCreateMetric should handle valid projects array correctly for noaccess user", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateMetric({ projects: ["abc123"] })).toEqual(
       false
@@ -3969,39 +3675,33 @@ describe("PermissionsUtilClass.canCreateMetric check", () => {
   });
 
   it("canCreateMetric should handle valid projects array correctly for experimenter user", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateMetric({ projects: ["abc123"] })).toEqual(true);
   });
 
   it("canCreateMetric should handle valid projects array correctly for experimenter user with project-level readonly role", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("readonly", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("readonly", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canCreateMetric({ projects: ["abc123"] })).toEqual(
       false
@@ -4009,23 +3709,20 @@ describe("PermissionsUtilClass.canCreateMetric check", () => {
   });
 
   it("canCreateMetric should handle valid projects array correctly for readonly user with project-level experimenter role in only 1 of the two projects", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("experimenter", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(
       // its false since the user doesn't have permission in all projects
@@ -4034,28 +3731,25 @@ describe("PermissionsUtilClass.canCreateMetric check", () => {
   });
 
   it("canCreateMetric should handle valid projects array correctly for readonly user with project-level experimenter and analyst roles", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("experimenter", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-          def456: {
-            permissions: roleToPermissionMap("analyst", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
+        def456: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
         },
       },
-      false
-    );
+    });
 
     expect(
       // its true since the user DOES have permission in all projects
@@ -4093,17 +3787,14 @@ describe("PermissionsUtilClass.canUpdateMetric check", () => {
   };
 
   it("canUpdateMetric should not allow updates if the user is an engineer (and doesn't have permission)", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
       projects: ["abc123"],
@@ -4118,17 +3809,14 @@ describe("PermissionsUtilClass.canUpdateMetric check", () => {
   });
 
   it("canUpdateMetric should allow updates if the metric projects are unchanged", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
       projects: ["abc123"],
@@ -4143,17 +3831,14 @@ describe("PermissionsUtilClass.canUpdateMetric check", () => {
   });
 
   it("canUpdateMetric should allow updates if the updates don't change the projects", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
       projects: ["abc123"],
@@ -4166,17 +3851,14 @@ describe("PermissionsUtilClass.canUpdateMetric check", () => {
   });
 
   it("canUpdateMetric should allow updates if the updates if the projects changed, but the user has permission in all of the projects", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
       projects: ["abc123"],
@@ -4191,23 +3873,20 @@ describe("PermissionsUtilClass.canUpdateMetric check", () => {
   });
 
   it("canUpdateMetric should not allow updates if the projects changed, and the user does not have permission in all of the projects", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        def456: {
+          permissions: roleToPermissionMap("readonly", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          def456: {
-            permissions: roleToPermissionMap("readonly", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
       projects: ["abc123"],
@@ -4222,23 +3901,20 @@ describe("PermissionsUtilClass.canUpdateMetric check", () => {
   });
 
   it("canUpdateMetric should handle user with global no-access role correctly", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        def456: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          def456: {
-            permissions: roleToPermissionMap("experimenter", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
       projects: ["def456"],
@@ -4254,23 +3930,20 @@ describe("PermissionsUtilClass.canUpdateMetric check", () => {
 
   it("canUpdateMetric should handle user with global no-access role correctly", async () => {
     console.log("starting last test");
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        def456: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          def456: {
-            permissions: roleToPermissionMap("experimenter", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     const metric: Pick<MetricInterface, "projects" | "managedBy"> = {
       projects: ["def456"],
@@ -4314,81 +3987,66 @@ describe("PermissionsUtilClass.canDeleteMetric check", () => {
   };
 
   it("canDeleteMetric should handle undefined projects correctly for engineer user", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteMetric({})).toEqual(false);
   });
 
   it("canDeleteMetric should handle undefined projects correctly for experimenter user", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteMetric({})).toEqual(true);
   });
 
   it("canDeleteMetric should handle empty projects array correctly for noaccess user", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteMetric({ projects: [] })).toEqual(false);
   });
 
   it("canCreateMetric should handle empty projects array correctly for experimenter user", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateMetric({ projects: [] })).toEqual(true);
   });
 
   it("canCreateMetric should handle valid projects array correctly for noaccess user", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateMetric({ projects: ["abc123"] })).toEqual(
       false
@@ -4396,39 +4054,33 @@ describe("PermissionsUtilClass.canDeleteMetric check", () => {
   });
 
   it("canCreateMetric should handle valid projects array correctly for experimenter user", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateMetric({ projects: ["abc123"] })).toEqual(true);
   });
 
   it("canCreateMetric should handle valid projects array correctly for experimenter user with project-level readonly role", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("readonly", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("readonly", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canCreateMetric({ projects: ["abc123"] })).toEqual(
       false
@@ -4436,23 +4088,20 @@ describe("PermissionsUtilClass.canDeleteMetric check", () => {
   });
 
   it("canCreateMetric should handle valid projects array correctly for readonly user with project-level experimenter role in only 1 of the two projects", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("experimenter", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(
       // its false since the user doesn't have permission in all projects
@@ -4461,28 +4110,25 @@ describe("PermissionsUtilClass.canDeleteMetric check", () => {
   });
 
   it("canCreateMetric should handle valid projects array correctly for readonly user with project-level experimenter and analyst roles", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("experimenter", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-          def456: {
-            permissions: roleToPermissionMap("analyst", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
+        def456: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
         },
       },
-      false
-    );
+    });
 
     expect(
       // its true since the user DOES have permission in all projects
@@ -4520,49 +4166,40 @@ describe("PermissionsUtilClass.canCreateFactTable check", () => {
   };
 
   it("canCreateFactTable should return false if user's global role is engineer and user is in All Projects", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateFactTable({ projects: [] })).toEqual(false);
   });
 
   it("canCreateFactTable should return true if user's global role is analyst and user is in All Projects", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateFactTable({ projects: [] })).toEqual(true);
   });
 
   it("canCreateFactTable should return true if user's global role is analyst and user is in a specific project and doesn't have a project-specific role for that project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateFactTable({ projects: ["abc123"] })).toEqual(
       true
@@ -4570,23 +4207,20 @@ describe("PermissionsUtilClass.canCreateFactTable check", () => {
   });
 
   it("canCreateFactTable should return false if user's global role is analyst and user is in a specific project and does have a project-specific role for that project that doesn't provide the permission", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("readonly", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("readonly", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canCreateFactTable({ projects: ["abc123"] })).toEqual(
       false
@@ -4594,23 +4228,20 @@ describe("PermissionsUtilClass.canCreateFactTable check", () => {
   });
 
   it("canCreateFactTable should return true if user's global role is readonly and user is in a specific project and does have a project-specific role for that project that provides the permission", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("analyst", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("analyst", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canCreateFactTable({ projects: ["abc123"] })).toEqual(
       true
@@ -4647,17 +4278,14 @@ describe("PermissionsUtilClass.canUpdateFactTable check", () => {
   };
 
   it("canUpdateFactTable should return true if user has global analyst role and no project specific roles", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(
       permissions.canUpdateFactTable({ projects: [] }, { projects: ["abc123"] })
@@ -4665,17 +4293,14 @@ describe("PermissionsUtilClass.canUpdateFactTable check", () => {
   });
 
   it("canUpdateFactTable should return false if user has global engineer role and no project specific roles", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(
       permissions.canUpdateFactTable({ projects: [] }, { projects: ["abc123"] })
@@ -4683,23 +4308,20 @@ describe("PermissionsUtilClass.canUpdateFactTable check", () => {
   });
 
   it("canUpdateFactTable should return false if user has global engineer role and attempts to convert a Fact Table from being in one project, to being in All Projects", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("analyst", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("analyst", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(
       permissions.canUpdateFactTable({ projects: ["abc123"] }, { projects: [] })
@@ -4707,28 +4329,25 @@ describe("PermissionsUtilClass.canUpdateFactTable check", () => {
   });
 
   it("canUpdateFactTable should return true if user has global engineer role and attempts to convert a Fact Table from being in one project, to being in two projects, if the user has permission in both projects", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("analyst", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("analyst", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-          def456: {
-            permissions: roleToPermissionMap("analyst", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
+        def456: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
         },
       },
-      false
-    );
+    });
 
     expect(
       permissions.canUpdateFactTable(
@@ -4768,49 +4387,40 @@ describe("PermissionsUtilClass.canDeleteFactTable check", () => {
   };
 
   it("canDeleteFactTable should return false if user's global role is engineer and user is in All Projects", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteFactTable({ projects: [] })).toEqual(false);
   });
 
   it("canDeleteFactTable should return true if user's global role is analyst and user is in All Projects", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteFactTable({ projects: [] })).toEqual(true);
   });
 
   it("canDeleteFactTable should return true if user's global role is analyst and user is in a specific project and doesn't have a project-specific role for that project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteFactTable({ projects: ["abc123"] })).toEqual(
       true
@@ -4818,23 +4428,20 @@ describe("PermissionsUtilClass.canDeleteFactTable check", () => {
   });
 
   it("canDeleteFactTable should return false if user's global role is analyst and user is in a specific project and does have a project-specific role for that project that doesn't provide the permission", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("readonly", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("readonly", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canDeleteFactTable({ projects: ["abc123"] })).toEqual(
       false
@@ -4842,23 +4449,20 @@ describe("PermissionsUtilClass.canDeleteFactTable check", () => {
   });
 
   it("canDeleteFactTable should return true if user's global role is readonly and user is in a specific project and does have a project-specific role for that project that provides the permission", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("analyst", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("analyst", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canDeleteFactTable({ projects: ["abc123"] })).toEqual(
       true
@@ -4894,148 +4498,124 @@ describe("PermissionsUtilClass.canAddComment check", () => {
     },
   };
   it("canAddComment returns true for user with global experimenter role on experiment in 'All Projects'", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canAddComment([])).toEqual(true);
   });
   it("canAddComment returns true for user with global experimenter role on experiment in 'abc123'", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canAddComment(["abc123"])).toEqual(true);
   });
   it("canAddComment returns false for user with global readonly role on experiment in 'All Projects'", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canAddComment([])).toEqual(false);
   });
   it("canAddComment returns false for user with global noaccess role on experiment in 'abc123'", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canAddComment(["abc123"])).toEqual(false);
   });
   it("canAddComment returns true for user with global noaccess role and experimenter role for project 'abc123' for an experiment in 'abc123'", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("experimenter", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canAddComment(["abc123"])).toEqual(true);
   });
   it("canAddComment returns false for user with global noaccess role and project-level experimenter role, but checking for a different project", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("experimenter", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canAddComment(["def123"])).toEqual(false);
   });
   it("canAddComment returns true for user with global noaccess role and project-level experimenter role for metric in multiple projects, including the project they have permission for", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("experimenter", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canAddComment(["abc123", "def123", "hij123"])).toEqual(
       true
     );
   });
   it("canAddComment returns false for user with global noaccess role on experiment in 'def123'", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("readonly", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("readonly", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canAddComment(["abc123", "def123", "hij123"])).toEqual(
       false
@@ -5043,23 +4623,20 @@ describe("PermissionsUtilClass.canAddComment check", () => {
   });
   // This is a test specific to the putUpload endpoint - the user needs to have addComment permission either globally, or in atleast 1 project in order to be able to upload images
   it("canAddComment returns true for user with global noaccess role and 1 project level experimenter role", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("experimenter", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canAddComment([])).toEqual(true);
   });
@@ -5095,33 +4672,27 @@ describe("PermissionsUtilClass.canCreateProjects check", () => {
   };
 
   it("canCreateProjects returns false for user with global experimenter role", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateProjects()).toEqual(false);
   });
 
   it("canCreateProjects returns true for user with global admin role", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("admin", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateProjects()).toEqual(true);
   });
@@ -5159,33 +4730,27 @@ describe("PermissionsUtilClass.canUpdateProject check", () => {
   };
 
   it("canUpdateProject returns false for user with global experimenter role", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canUpdateProject("abc123")).toEqual(false);
   });
 
   it("canUpdateProject returns true for user with global admin role", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("admin", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canUpdateProject("abc123")).toEqual(true);
   });
@@ -5223,33 +4788,27 @@ describe("PermissionsUtilClass.canDeleteProject check", () => {
   };
 
   it("canDeleteProject returns false for user with global experimenter role", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteProject("abc123")).toEqual(false);
   });
 
   it("canDeleteProject returns true for user with global admin role", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("admin", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteProject("abc123")).toEqual(true);
   });
@@ -5286,33 +4845,27 @@ describe("PermissionsUtilClass.canByPassApprovalChecks", () => {
   };
 
   it("User with experimenter role unable to bypassApprovalCheck", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canBypassApprovalChecks({ project: "" })).toEqual(false);
   });
 
   it("User with admin role able to bypassApprovalCheck", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("admin", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canBypassApprovalChecks({ project: "" })).toEqual(true);
   });
@@ -5347,71 +4900,59 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
   };
 
   it("User with experimenter role able to reviewFeatureDrafts", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canReviewFeatureDrafts({ project: "" })).toEqual(true);
   });
 
   it("User with engineer role able to reviewFeatureDrafts", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canReviewFeatureDrafts({ project: "" })).toEqual(true);
   });
 
   it("User with anaylst role able to reviewFeatureDrafts", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canReviewFeatureDrafts({ project: "" })).toEqual(false);
   });
 
   it("User with global readonly role, but experimenter role on project 'abc123', should be able to reivew features in project 'abc123'", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("experimenter", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canReviewFeatureDrafts({ project: "abc123" })).toEqual(
       true
@@ -5419,23 +4960,20 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
   });
 
   it("User with global experimenter role, but readonly role on project 'abc123', should be able to reivew features in project 'abc123'", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("readonly", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("readonly", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canReviewFeatureDrafts({ project: "abc123" })).toEqual(
       false
@@ -5443,17 +4981,14 @@ describe("PermissionsUtilClass.canReviewFeatureDrafts", () => {
   });
 
   it("User with admin role able to bypassApprovalCheck", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("admin", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canReviewFeatureDrafts({ project: "" })).toEqual(true);
   });
@@ -5488,55 +5023,46 @@ describe("PermissionsUtilClass.canCreateVisualChange", () => {
   };
 
   it("User with global visualEditor role able to createVisualChange", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("visualEditor", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("visualEditor", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateVisualChange({})).toEqual(true);
   });
 
   it("User with global collaborator role not able to createVisualChange", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateVisualChange({})).toEqual(false);
   });
 
   it("User with global collaborator role and project-specific visualEditor role able to createVisualChange", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("visualEditor", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          ABC123: {
-            permissions: roleToPermissionMap("visualEditor", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canCreateVisualChange({ project: "ABC123" })).toEqual(
       true
@@ -5544,71 +5070,59 @@ describe("PermissionsUtilClass.canCreateVisualChange", () => {
   });
 
   it("User with global collaborator role and project-specific visualEditor role not able to createVisualChange if experiment is not in a project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("visualEditor", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          ABC123: {
-            permissions: roleToPermissionMap("visualEditor", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canCreateVisualChange({})).toEqual(false);
   });
 
   it("user with global engineer role able to createVisualChange", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateVisualChange({})).toEqual(true);
   });
 
   it("user with global analyst role able to createVisualChange", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateVisualChange({})).toEqual(true);
   });
 
   it("user with global experimenter role able to createVisualChange", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateVisualChange({})).toEqual(true);
   });
@@ -5643,33 +5157,27 @@ describe("PermissionsUtilClass.canCreateDataSource", () => {
   };
 
   it("User with admin role able to create a data source", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("admin", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateDataSource({ projects: [] })).toEqual(true);
   });
 
   it("User with engineer role is not able to create a data source", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateDataSource({ projects: [] })).toEqual(false);
   });
@@ -5704,17 +5212,14 @@ describe("PermissionsUtilClass.canUpdateDataSourceParams", () => {
   };
 
   it("User with admin role able to update a data source's params", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("admin", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canUpdateDataSourceParams({ projects: [] })).toEqual(
       true
@@ -5722,17 +5227,14 @@ describe("PermissionsUtilClass.canUpdateDataSourceParams", () => {
   });
 
   it("User with engineer role is not able to create a data source's params", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canUpdateDataSourceParams({ projects: [] })).toEqual(
       false
@@ -5769,17 +5271,14 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
   };
 
   it("User with admin role able to update a data source's settings", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("admin", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canUpdateDataSourceSettings({ projects: [] })).toEqual(
       true
@@ -5787,17 +5286,14 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
   });
 
   it("User with engineer role is not able to update a data source's settings", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canUpdateDataSourceSettings({ projects: [] })).toEqual(
       false
@@ -5805,17 +5301,14 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
   });
 
   it("User with analyst role is is able to update a data source's settings", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canUpdateDataSourceSettings({ projects: [] })).toEqual(
       true
@@ -5823,17 +5316,14 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
   });
 
   it("User with experimenter role is able to update a data source's settings", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("experimenter", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("experimenter", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canUpdateDataSourceSettings({ projects: [] })).toEqual(
       true
@@ -5841,23 +5331,20 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
   });
 
   it("User with global noaccess role and project-level experimenter role is able to update a data source's settings", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("experimenter", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(
       permissions.canUpdateDataSourceSettings({ projects: ["abc123"] })
@@ -5865,23 +5352,20 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
   });
 
   it("User with global noaccess role and project-level experimenter role is not able to update a data source's settings if the data source is in all projects", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("experimenter", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canUpdateDataSourceSettings({ projects: [] })).toEqual(
       false
@@ -5889,23 +5373,20 @@ describe("PermissionsUtilClass.canUpdateDataSourceSettings", () => {
   });
 
   it("User with global noaccess role and project-level experimenter role is not able to update a data source's settings if the data source is in all projects", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("noaccess", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("noaccess", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("experimenter", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("experimenter", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(
       permissions.canUpdateDataSourceSettings({
@@ -5944,33 +5425,27 @@ describe("PermissionsUtilClass.canDeleteDataSource", () => {
   };
 
   it("User with admin role able delete a data source", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("admin", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteDataSource({ projects: [] })).toEqual(true);
   });
 
   it("User with engineer role is not able delete a data source", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteDataSource({ projects: [] })).toEqual(false);
   });
@@ -6004,17 +5479,14 @@ describe("PermissionsUtilClass.canRunTestQueries check", () => {
     },
   };
   it("canRunTestQueries returns false for user with global 'engineer' role", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     const sampleDataSource: Pick<DataSourceInterface, "id" | "projects"> = {
       id: "data_abc",
@@ -6024,17 +5496,14 @@ describe("PermissionsUtilClass.canRunTestQueries check", () => {
   });
 
   it("canRunTestQueries returns true for user with global 'analyst' role", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     const sampleDataSource: Pick<DataSourceInterface, "id" | "projects"> = {
       id: "data_abc",
@@ -6044,28 +5513,25 @@ describe("PermissionsUtilClass.canRunTestQueries check", () => {
   });
 
   it("canRunTestQueries returns false for user with global 'collaborator' role, and project-specific 'analyst' roles, but none in the project in question", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc: {
+          permissions: roleToPermissionMap("analyst", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc: {
-            permissions: roleToPermissionMap("analyst", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-          def: {
-            permissions: roleToPermissionMap("analyst", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
+        def: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
         },
       },
-      false
-    );
+    });
 
     const sampleDataSource: Pick<DataSourceInterface, "id" | "projects"> = {
       id: "data_abc",
@@ -6076,28 +5542,25 @@ describe("PermissionsUtilClass.canRunTestQueries check", () => {
   });
 
   it("canRunTestQueries returns true for user with global 'collaborator' role, and project-specific 'analyst' role for atleast 1 project", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc: {
+          permissions: roleToPermissionMap("analyst", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc: {
-            permissions: roleToPermissionMap("analyst", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-          def: {
-            permissions: roleToPermissionMap("analyst", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
+        def: {
+          permissions: roleToPermissionMap("analyst", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
         },
       },
-      false
-    );
+    });
 
     const sampleDataSource: Pick<DataSourceInterface, "id" | "projects"> = {
       id: "data_abc",
@@ -6137,93 +5600,78 @@ describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
   };
 
   it("User with collaborator role is not able to manage feature drafts", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canManageFeatureDrafts({ project: "" })).toEqual(false);
   });
 
   it("User with engineer role is able to manage feature drafts", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canManageFeatureDrafts({ project: "" })).toEqual(true);
   });
 
   it("User with anaylst role is not able to manage feature drafts", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canManageFeatureDrafts({ project: "" })).toEqual(false);
   });
 
   it("User with global readonly role is not able to manage feature drafts for feature without a project", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("engineer", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("engineer", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canManageFeatureDrafts({ project: "" })).toEqual(false);
   });
 
   it("User with global readonly role is able to manage feature drafts if their project specific permissions grant it", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("readonly", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("readonly", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("engineer", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("engineer", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canManageFeatureDrafts({ project: "abc123" })).toEqual(
       true
@@ -6231,45 +5679,39 @@ describe("PermissionsUtilClass.canManageFeatureDrafts", () => {
   });
 
   it("canManageFeatureDrafts works as expected for a feature without the project property", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("collaborator", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("collaborator", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canManageFeatureDrafts({})).toEqual(true);
   });
 
   it("canManageFeatureDrafts works as expected for a feature without the project property", async () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("collaborator", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("collaborator", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("engineer", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("engineer", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canManageFeatureDrafts({})).toEqual(false);
   });
@@ -6304,55 +5746,46 @@ describe("PermissionsUtilClass.canViewFeatureModal check", () => {
   };
 
   it("canViewFeatureModal returns true for user with global 'engineer' role", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canViewFeatureModal()).toEqual(true);
   });
 
   it("canViewFeatureModal returns false for user with global 'analyst' role", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canViewFeatureModal()).toEqual(false);
   });
 
   it("canViewFeatureModal returns true for user with global 'analyst' role, if their project-specific role gives them access", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        abc123: {
+          permissions: roleToPermissionMap("engineer", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          abc123: {
-            permissions: roleToPermissionMap("engineer", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canViewFeatureModal("abc123")).toEqual(true);
   });
@@ -6387,77 +5820,65 @@ describe("PermissionsUtilClass.canCreateFeature check", () => {
   };
 
   it("canCreateFeature returns true for user with global 'engineer' role when trying to create a feature in all projects", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateFeature({ project: "" })).toEqual(true);
   });
 
   it("canCreateFeature returns false for user with global 'analyst' role when trying to create a feature in all projects", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canCreateFeature({ project: "" })).toEqual(false);
   });
 
   it("canCreateFeature returns true for user with global 'analyst' role when trying to create a feature in a project they have engineer permissions for", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("engineer", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          ABC123: {
-            permissions: roleToPermissionMap("engineer", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canCreateFeature({ project: "ABC123" })).toEqual(true);
   });
 
   it("canCreateFeature returns false for user with global 'engineer' role when trying to create a feature in a project they have analyst permissions for", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("analyst", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          ABC123: {
-            permissions: roleToPermissionMap("analyst", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canCreateFeature({ project: "ABC123" })).toEqual(false);
   });
@@ -6492,17 +5913,14 @@ describe("PermissionsUtilClass.canUpdateFeature check", () => {
   };
 
   it("canUpdateFeature returns true for user with global 'engineer' role when trying to update a feature in all projects", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canUpdateFeature({}, { project: "abc123" })).toEqual(
       true
@@ -6510,23 +5928,20 @@ describe("PermissionsUtilClass.canUpdateFeature check", () => {
   });
 
   it("canUpdateFeature returns false for user with global 'analyst' role when trying to update a feature in a specific project and move it to all projects", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("engineer", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          ABC123: {
-            permissions: roleToPermissionMap("engineer", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(
       permissions.canUpdateFeature({ project: "ABC123" }, { project: "" })
@@ -6534,28 +5949,25 @@ describe("PermissionsUtilClass.canUpdateFeature check", () => {
   });
 
   it("canUpdateFeature returns true for user with global 'analyst' role when trying to move a feature from 1 project they have engineer permissions for to another project they have engineer permissions for", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("engineer", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          ABC123: {
-            permissions: roleToPermissionMap("engineer", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-          DEF456: {
-            permissions: roleToPermissionMap("engineer", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
+        DEF456: {
+          permissions: roleToPermissionMap("engineer", testOrg),
+          limitAccessByEnvironment: false,
+          environments: [],
         },
       },
-      false
-    );
+    });
 
     expect(
       permissions.canUpdateFeature({ project: "ABC123" }, { project: "DEF456" })
@@ -6592,77 +6004,65 @@ describe("PermissionsUtilClass.canDeleteFeature check", () => {
   };
 
   it("canDeleteFeature returns true for user with global 'engineer' role when trying to delete a feature in all projects", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteFeature({ project: "" })).toEqual(true);
   });
 
   it("canDeleteFeature returns false for user with global 'analyst' role when trying to delete a feature in all projects", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
 
     expect(permissions.canDeleteFeature({ project: "" })).toEqual(false);
   });
 
   it("canDeleteFeature returns true for user with global 'analyst' role when trying to delete a feature in a project they have engineer permissions for", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("analyst", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("analyst", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("engineer", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          ABC123: {
-            permissions: roleToPermissionMap("engineer", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canDeleteFeature({ project: "ABC123" })).toEqual(true);
   });
 
   it("canDeleteFeature returns false for user with global 'engineer' role when trying to delete a feature in a project they have analyst permissions for", () => {
-    const permissions = new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("engineer", testOrg),
+    const permissions = new Permissions({
+      global: {
+        permissions: roleToPermissionMap("engineer", testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {
+        ABC123: {
+          permissions: roleToPermissionMap("analyst", testOrg),
           limitAccessByEnvironment: false,
           environments: [],
         },
-        projects: {
-          ABC123: {
-            permissions: roleToPermissionMap("analyst", testOrg),
-            limitAccessByEnvironment: false,
-            environments: [],
-          },
-        },
       },
-      false
-    );
+    });
 
     expect(permissions.canDeleteFeature({ project: "ABC123" })).toEqual(false);
   });

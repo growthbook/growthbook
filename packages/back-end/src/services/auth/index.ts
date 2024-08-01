@@ -112,7 +112,6 @@ export async function processJWT(
 
     if (
       !userHasPermission(
-        req.superAdmin || false,
         userPermissions,
         permission,
         project,

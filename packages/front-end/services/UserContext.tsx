@@ -162,17 +162,14 @@ export const UserContext = createContext<UserContextValue>({
   seatsInUse: 0,
   teams: [],
   hasCommercialFeature: () => false,
-  permissionsUtil: new Permissions(
-    {
-      global: {
-        permissions: {},
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {},
+  permissionsUtil: new Permissions({
+    global: {
+      permissions: {},
+      limitAccessByEnvironment: false,
+      environments: [],
     },
-    false
-  ),
+    projects: {},
+  }),
   quote: null,
   watching: {
     experiments: [],
@@ -327,14 +324,13 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         return false;
 
       return userHasPermission(
-        data.superAdmin || false,
         currentOrg.currentUserPermissions,
         permission,
         project,
         envs ? [...envs] : undefined
       );
     },
-    [currentOrg, data?.superAdmin, data?.userId]
+    [currentOrg, data?.userId]
   );
 
   const permissions = useMemo(() => {
@@ -367,10 +363,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           environments: [],
         },
         projects: {},
-      },
-      data?.superAdmin || false
+      }
     );
-  }, [currentOrg?.currentUserPermissions, data?.superAdmin]);
+  }, [currentOrg?.currentUserPermissions]);
 
   const getUserDisplay = useCallback(
     (id: string, fallback = true) => {
