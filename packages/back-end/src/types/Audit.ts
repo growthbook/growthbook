@@ -1,5 +1,6 @@
 export const entityEvents = {
   attribute: ["create", "update", "delete"],
+  eventWebHook: ["create", "update", "delete"],
   experiment: [
     "create",
     "update",

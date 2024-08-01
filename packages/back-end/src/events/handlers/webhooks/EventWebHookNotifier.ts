@@ -1,10 +1,7 @@
 import { Agenda, Job, JobAttributesData } from "agenda";
 import { getAgendaInstance } from "../../../services/queueing";
 import { getEvent } from "../../../models/EventModel";
-import {
-  getEventWebHookById,
-  updateEventWebHookStatus,
-} from "../../../models/EventWebhookModel";
+import { getContextForAgendaJobByOrgId } from "../../../services/organizations";
 import {
   EventWebHookInterface,
   EventWebHookMethod,
@@ -86,10 +83,12 @@ export class EventWebHookNotifier implements Notifier {
       );
     }
 
-    const eventWebHook = await getEventWebHookById(
-      eventWebHookId,
-      event.organizationId
+    const context = await getContextForAgendaJobByOrgId(event.organizationId);
+
+    const eventWebHook = await context.models.eventWebHooks.getById(
+      eventWebHookId
     );
+
     if (!eventWebHook) {
       // We should never get here.
       throw new Error(
@@ -266,10 +265,15 @@ export class EventWebHookNotifier implements Notifier {
   }): Promise<void> {
     const { eventWebHookId } = job.attrs.data;
 
-    await updateEventWebHookStatus(eventWebHookId, {
-      state: "success",
-      responseBody: successResult.responseBody,
-    });
+    const context = await getContextForAgendaJobByOrgId(organizationId);
+
+    await context.models.eventWebHooks.updateEventWebHookStatus(
+      eventWebHookId,
+      {
+        state: "success",
+        responseBody: successResult.responseBody,
+      }
+    );
 
     await createEventWebHookLog({
       eventWebHookId,
@@ -305,10 +309,15 @@ export class EventWebHookNotifier implements Notifier {
   }): Promise<void> {
     const { eventWebHookId } = job.attrs.data;
 
-    await updateEventWebHookStatus(eventWebHookId, {
-      state: "error",
-      error: errorResult.error,
-    });
+    const context = await getContextForAgendaJobByOrgId(organizationId);
+
+    await context.models.eventWebHooks.updateEventWebHookStatus(
+      eventWebHookId,
+      {
+        state: "error",
+        error: errorResult.error,
+      }
+    );
 
     await createEventWebHookLog({
       eventWebHookId,
