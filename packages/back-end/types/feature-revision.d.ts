@@ -1,9 +1,9 @@
-import { EventAuditUser } from "../src/events/event-types";
+import { EventUser } from "../src/events/event-types";
 import { FeatureRule } from "./feature";
 
 export interface RevisionLog {
-  user: EventAuditUser;
-  approvedBy?: EventAuditUser;
+  user: EventUser;
+  approvedBy?: EventUser;
   timestamp: Date;
   action: string;
   subject: string;
@@ -18,8 +18,8 @@ export interface FeatureRevisionInterface {
   dateCreated: Date;
   dateUpdated: Date;
   datePublished: null | Date;
-  publishedBy: null | EventAuditUser;
-  createdBy: EventAuditUser;
+  publishedBy: null | EventUser;
+  createdBy: EventUser;
   comment: string;
   status:
     | "draft"
