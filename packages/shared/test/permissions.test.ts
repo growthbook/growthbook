@@ -17,17 +17,14 @@ describe("Role permissions", () => {
   };
 
   function getPermissions(role: string) {
-    return new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap(role, testOrg),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    return new Permissions({
+      global: {
+        permissions: roleToPermissionMap(role, testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    );
+      projects: {},
+    });
   }
 
   const project = "";

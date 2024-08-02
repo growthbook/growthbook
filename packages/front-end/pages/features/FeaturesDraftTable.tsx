@@ -3,7 +3,7 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ago, datetime } from "shared/dates";
-import { EventAuditUserLoggedIn } from "back-end/src/events/event-types";
+import { EventUserLoggedIn } from "back-end/src/events/event-types";
 import { PiCheckCircleFill, PiCircleDuotone, PiFileX } from "react-icons/pi";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import useApi from "@/hooks/useApi";
@@ -72,7 +72,7 @@ export default function FeaturesDraftTable({ features }: Props) {
   );
 
   const revisions = useAddComputedFields(featuresAndRevisions, (revision) => {
-    const createdBy = revision?.createdBy as EventAuditUserLoggedIn | null;
+    const createdBy = revision?.createdBy as EventUserLoggedIn | null;
     let dateAndStatus = new Date(revision?.dateUpdated).getTime();
     switch (revision?.status) {
       case "draft":
