@@ -2,14 +2,29 @@ import { randomUUID } from "node:crypto";
 import z from "zod";
 import omit from "lodash/omit";
 import mongoose from "mongoose";
+import { isEqual } from "lodash";
 import {
   zodNotificationEventNamesEnum,
-  notificationEventResources,
+  zodNotificationEventResources,
+  NotificationEventResource,
+  ResourceEvents,
+  NotificationEvents,
+  NotificationEventPayloadSchemaType,
+  NotificationEventPayloadDataType,
+  NotificationEventPayload,
 } from "../events/base-types";
 import { EventInterface } from "../../types/event";
 import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
-import { NotificationEvent } from "../events/notification-events";
+import { ReqContext } from "../../types/organization";
+import { EventNotifier } from "../events/notifiers/EventNotifier";
+import {
+  NotificationEvent,
+  LegacyNotificationEvent,
+} from "../events/notification-events";
+
+const API_VERSION = "2024-07-31" as const;
+const MODEL_VERSION = 1 as const;
 
 const eventSchema = new mongoose.Schema({
   id: {
@@ -25,12 +40,17 @@ const eventSchema = new mongoose.Schema({
   object: {
     type: String,
     required: true,
-    enum: notificationEventResources,
+    enum: zodNotificationEventResources,
   },
   event: {
     type: String,
     required: true,
     enum: zodNotificationEventNamesEnum,
+  },
+  version: {
+    type: String,
+    required: false,
+    enum: ["1"],
   },
   data: {
     type: Object,
@@ -41,7 +61,7 @@ const eventSchema = new mongoose.Schema({
         const zodSchema = z
           .object({
             event: z.enum(zodNotificationEventNamesEnum),
-            object: z.enum(notificationEventResources),
+            object: z.enum(zodNotificationEventResources),
             data: z.any(),
             projects: z.array(z.string()),
             environments: z.array(z.string()),
@@ -90,52 +110,163 @@ const eventSchema = new mongoose.Schema({
 
 eventSchema.index({ organizationId: 1, dateCreated: -1 });
 
-type EventDocument<T> = mongoose.Document & EventInterface<T>;
+type EventDocument<T, V> = mongoose.Document & EventInterface<T, V>;
 
 /**
  * Convert the Mongo document to an EventInterface, omitting Mongo default fields __v, _id
  * @param doc
  * @returns
  */
-const toInterface = <T>(doc: EventDocument<T>): EventInterface<T> =>
+const toInterface = <T, V>(doc: EventDocument<T, V>): EventInterface<T, V> =>
   omit(
-    doc.toJSON<EventInterface<T>>({ flattenMaps: true }),
+    doc.toJSON<EventInterface<T, V>>({ flattenMaps: true }),
     ["__v", "_id"]
-  ) as EventInterface<T>;
+  ) as EventInterface<T, V>;
 
-const EventModel = mongoose.model<EventInterface<unknown>>(
+const EventModel = mongoose.model<EventInterface<unknown, unknown>>(
   "Event",
   eventSchema
 );
 
-/**
- * Create an event under an organization.
- *
- * @param organizationId
- * @param data
- * @returns
- */
-export const createEvent = async (
-  organizationId: string,
-  data: NotificationEvent
-): Promise<EventInterface<NotificationEvent> | null> => {
+export const createEventWithPayload = async <
+  Resource extends NotificationEventResource,
+  Event extends ResourceEvents<Resource>
+>({
+  payload,
+  organizationId,
+}: {
+  payload: Omit<
+    NotificationEventPayload<Resource, Event>,
+    "api_version" | "created"
+  >;
+  organizationId: string;
+}) => {
   try {
     const eventId = `event-${randomUUID()}`;
+
     const doc = await EventModel.create({
       id: eventId,
-      event: data.event,
-      object: data.object,
+      version: MODEL_VERSION,
+      event: payload.event,
+      object: payload.object,
       dateCreated: new Date(),
       organizationId,
-      data: data,
+      data: { ...payload, api_version: API_VERSION, created: Date.now() },
     });
 
-    return toInterface(doc) as EventInterface<NotificationEvent>;
+    const event = toInterface(doc) as EventInterface<
+      NotificationEventPayload<Resource, Event>,
+      typeof MODEL_VERSION
+    >;
+
+    new EventNotifier(event.id).perform();
   } catch (e) {
     logger.error(e);
-    return null;
   }
 };
+
+// createEvent can handle creating the diff
+
+type CreateEventData<
+  Resource extends NotificationEventResource,
+  Event extends ResourceEvents<Resource>
+> = NotificationEvents[Resource][Event] extends {
+  isDiff: true;
+}
+  ? {
+      object: NotificationEventPayloadSchemaType<Resource, Event>;
+      previous_attributes: NotificationEventPayloadSchemaType<Resource, Event>;
+    }
+  : { object: NotificationEventPayloadSchemaType<Resource, Event> };
+
+const hasPreviousAttributes = <
+  Resource extends NotificationEventResource,
+  Event extends ResourceEvents<Resource>
+>(
+  data: CreateEventData<Resource, Event>
+): data is {
+  object: NotificationEventPayloadSchemaType<Resource, Event>;
+  previous_attributes: NotificationEventPayloadSchemaType<Resource, Event>;
+} => Object.keys(data).includes("previous_attributes");
+
+const diffData = <
+  Resource extends NotificationEventResource,
+  Event extends ResourceEvents<Resource>
+>(
+  data: CreateEventData<Resource, Event>
+): NotificationEventPayloadDataType<Resource, Event> => {
+  if (!hasPreviousAttributes(data)) return data;
+
+  const { object, previous_attributes } = data as {
+    object: Record<string, unknown>;
+    previous_attributes: Record<string, unknown>;
+  };
+
+  return ({
+    object,
+    previous_attributes: [
+      ...new Set([
+        ...Object.keys(object),
+        ...Object.keys(previous_attributes as object),
+      ]),
+    ].reduce(
+      (diff, key) => ({
+        ...diff,
+        ...(isEqual(object[key], previous_attributes[key])
+          ? {}
+          : { [key]: previous_attributes[key] }),
+      }),
+      {}
+    ),
+  } as unknown) as NotificationEventPayloadDataType<Resource, Event>;
+};
+
+export const createEvent = async <
+  Resource extends NotificationEventResource,
+  Event extends ResourceEvents<Resource>
+>({
+  context,
+  object,
+  event,
+  data,
+  containsSecrets,
+  projects,
+  tags,
+  environments,
+}: {
+  context: ReqContext;
+  object: Resource;
+  event: Event;
+  data: CreateEventData<Resource, Event>;
+  containsSecrets: boolean;
+  projects: string[];
+  tags: string[];
+  environments: string[];
+}) =>
+  createEventWithPayload<Resource, Event>({
+    payload: {
+      event: `${object}.${event}`,
+      object,
+      data: diffData(data),
+      projects,
+      tags,
+      environments,
+      containsSecrets,
+      user: context.userId
+        ? {
+            type: "dashboard",
+            id: context.userId,
+            email: context.email,
+            name: context.userName || "",
+          }
+        : null,
+    },
+    organizationId: context.org.id,
+  });
+
+export type GetEventInterface =
+  | EventInterface<NotificationEvent, 1>
+  | EventInterface<LegacyNotificationEvent, undefined>;
 
 /**
  * Get an event by ID
@@ -143,9 +274,9 @@ export const createEvent = async (
  */
 export const getEvent = async (
   eventId: string
-): Promise<EventInterface<NotificationEvent> | null> => {
+): Promise<GetEventInterface | null> => {
   const doc = await EventModel.findOne({ id: eventId });
-  return !doc ? null : (toInterface(doc) as EventInterface<NotificationEvent>);
+  return !doc ? null : (toInterface(doc) as GetEventInterface);
 };
 
 /**
@@ -156,9 +287,9 @@ export const getEvent = async (
 export const getEventForOrganization = async (
   eventId: string,
   organizationId: string
-): Promise<EventInterface<NotificationEvent> | null> => {
+): Promise<GetEventInterface | null> => {
   const doc = await EventModel.findOne({ id: eventId, organizationId });
-  return !doc ? null : (toInterface(doc) as EventInterface<NotificationEvent>);
+  return !doc ? null : (toInterface(doc) as GetEventInterface);
 };
 
 /**
@@ -177,14 +308,14 @@ export const getEventsForOrganization = async (
     to?: string;
     sortOrder?: 1 | -1;
   }
-): Promise<EventInterface<unknown>[]> => {
+): Promise<GetEventInterface[]> => {
   const query = applyFiltersToQuery(organizationId, filters);
   const docs = await EventModel.find(query)
     .sort([["dateCreated", filters.sortOrder ?? -1]])
     .skip((filters.page - 1) * filters.perPage)
     .limit(filters.perPage);
 
-  return docs.map(toInterface);
+  return docs.map(toInterface) as GetEventInterface[];
 };
 
 /**
@@ -240,10 +371,10 @@ const applyFiltersToQuery = (
 export const getLatestEventsForOrganization = async (
   organizationId: string,
   limit: number = 50
-): Promise<EventInterface<unknown>[]> => {
+): Promise<GetEventInterface[]> => {
   const docs = await EventModel.find({ organizationId })
     .sort([["dateCreated", -1]])
     .limit(limit);
 
-  return docs.map(toInterface);
+  return docs.map(toInterface) as GetEventInterface[];
 };

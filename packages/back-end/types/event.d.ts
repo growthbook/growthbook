@@ -3,18 +3,10 @@ import {
   NotificationEventName,
   NotificationEventResource,
 } from "../src/events/base-types";
-import {
-  ExperimentCreatedNotificationEvent,
-  ExperimentDeletedNotificationEvent,
-  ExperimentUpdatedNotificationEvent,
-  FeatureCreatedNotificationEvent,
-  FeatureDeletedNotificationEvent,
-  FeatureUpdatedNotificationEvent,
-  UserLoginNotificationEvent,
-} from "../src/events/notification-events";
 
-export interface EventInterface<T> {
+export interface EventInterface<T, V> {
   id: string;
+  version: V;
   event: NotificationEventName;
   dateCreated: Date;
   data: T;
@@ -25,11 +17,4 @@ export {
   NotificationEventPayload,
   NotificationEventName,
   NotificationEventResource,
-  FeatureCreatedNotificationEvent,
-  FeatureDeletedNotificationEvent,
-  FeatureUpdatedNotificationEvent,
-  ExperimentCreatedNotificationEvent,
-  ExperimentUpdatedNotificationEvent,
-  ExperimentDeletedNotificationEvent,
-  UserLoginNotificationEvent,
 };

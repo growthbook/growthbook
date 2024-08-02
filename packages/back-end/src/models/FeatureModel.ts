@@ -21,12 +21,6 @@ import {
 import { upgradeFeatureInterface } from "../util/migrations";
 import { ReqContext } from "../../types/organization";
 import {
-  FeatureCreatedNotificationEvent,
-  FeatureDeletedNotificationEvent,
-  FeatureUpdatedNotificationEvent,
-} from "../events/notification-events";
-import { EventNotifier } from "../events/notifiers/EventNotifier";
-import {
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
 } from "../util/features";
@@ -378,7 +372,7 @@ async function logFeatureUpdatedEvent(
   context: ReqContext | ApiReqContext,
   previous: FeatureInterface,
   current: FeatureInterface
-): Promise<string | undefined> {
+) {
   const groupMap = await getSavedGroupMap(context.org);
   const experimentMap = await getExperimentMapForFeature(context, current.id);
   const currentRevision = await getRevision(
@@ -406,14 +400,14 @@ async function logFeatureUpdatedEvent(
     revision: previousRevision,
   });
 
-  const payload: FeatureUpdatedNotificationEvent = {
+  await createEvent({
+    context,
     object: "feature",
-    event: "feature.updated",
+    event: "updated",
     data: {
-      current: currentApiFeature,
-      previous: previousApiFeature,
+      object: currentApiFeature,
+      previous_attributes: previousApiFeature,
     },
-    user: context.auditUser,
     projects: Array.from(
       new Set([previousApiFeature.project, currentApiFeature.project])
     ),
@@ -425,13 +419,7 @@ async function logFeatureUpdatedEvent(
       currentApiFeature
     ),
     containsSecrets: false,
-  };
-
-  const emittedEvent = await createEvent(context.org.id, payload);
-  if (emittedEvent) {
-    new EventNotifier(emittedEvent.id).perform();
-    return emittedEvent.id;
-  }
+  });
 }
 
 /**
@@ -442,7 +430,7 @@ async function logFeatureUpdatedEvent(
 async function logFeatureCreatedEvent(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface
-): Promise<string | undefined> {
+) {
   const groupMap = await getSavedGroupMap(context.org);
   const experimentMap = await getExperimentMapForFeature(context, feature.id);
   const revision = await getRevision(
@@ -458,24 +446,18 @@ async function logFeatureCreatedEvent(
     revision,
   });
 
-  const payload: FeatureCreatedNotificationEvent = {
+  await createEvent({
+    context,
     object: "feature",
-    event: "feature.created",
-    user: context.auditUser,
+    event: "created",
     data: {
-      current: apiFeature,
+      object: apiFeature,
     },
     projects: [apiFeature.project],
     tags: apiFeature.tags,
     environments: getApiFeatureEnabledEnvs(apiFeature),
     containsSecrets: false,
-  };
-
-  const emittedEvent = await createEvent(context.org.id, payload);
-  if (emittedEvent) {
-    new EventNotifier(emittedEvent.id).perform();
-    return emittedEvent.id;
-  }
+  });
 }
 
 /**
@@ -485,7 +467,7 @@ async function logFeatureCreatedEvent(
 async function logFeatureDeletedEvent(
   context: ReqContext | ApiReqContext,
   previousFeature: FeatureInterface
-): Promise<string | undefined> {
+) {
   const groupMap = await getSavedGroupMap(context.org);
   const experimentMap = await getExperimentMapForFeature(
     context,
@@ -504,24 +486,18 @@ async function logFeatureDeletedEvent(
     revision,
   });
 
-  const payload: FeatureDeletedNotificationEvent = {
+  await createEvent({
+    context,
     object: "feature",
-    event: "feature.deleted",
-    user: context.auditUser,
+    event: "deleted",
     data: {
-      previous: apiFeature,
+      object: apiFeature,
     },
     projects: [apiFeature.project],
     tags: apiFeature.tags,
     environments: getApiFeatureEnabledEnvs(apiFeature),
     containsSecrets: false,
-  };
-
-  const emittedEvent = await createEvent(context.org.id, payload);
-  if (emittedEvent) {
-    new EventNotifier(emittedEvent.id).perform();
-    return emittedEvent.id;
-  }
+  });
 }
 
 async function onFeatureCreate(
