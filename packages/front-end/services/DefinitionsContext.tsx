@@ -209,6 +209,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
                   id: t,
                   color: "#029dd1",
                   description: "",
+                  label: t,
                 }))
               ),
             },
