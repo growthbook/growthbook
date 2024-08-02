@@ -3,6 +3,7 @@ import { UseFormReturn, useFieldArray, useForm } from "react-hook-form";
 import {
   AttributionModel,
   ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import { FaQuestionCircle } from "react-icons/fa";
 import { getValidDate } from "shared/dates";
@@ -40,6 +41,7 @@ import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
+  linkedFeatures: LinkedFeatureInfo[];
   phase: number;
   cancel: () => void;
   mutate: () => void;
@@ -48,6 +50,7 @@ const AnalysisForm: FC<{
   editMetrics?: boolean;
 }> = ({
   experiment,
+  linkedFeatures,
   cancel,
   mutate,
   phase,
@@ -89,7 +92,7 @@ const AnalysisForm: FC<{
   );
 
   let canRunExperiment = !experiment.archived;
-  const envs = getAffectedEnvsForExperiment({ experiment });
+  const envs = getAffectedEnvsForExperiment({ experiment, linkedFeatures });
   if (envs.length > 0) {
     if (!permissionsUtil.canRunExperiment(experiment, envs)) {
       canRunExperiment = false;

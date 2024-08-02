@@ -3,6 +3,7 @@ import isEqual from "lodash/isEqual";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import {
   ExperimentSnapshotAnalysis,
@@ -19,16 +20,26 @@ export * from "./features";
 
 export function getAffectedEnvsForExperiment({
   experiment,
+  linkedFeatures,
 }: {
   experiment: ExperimentInterface | ExperimentInterfaceStringDates;
+  linkedFeatures: LinkedFeatureInfo[];
 }): string[] {
   // Visual changesets are not environment-scoped, so it affects all of them
   if (experiment.hasVisualChangesets || experiment.hasURLRedirects)
     return ["__ALL__"];
 
-  // TODO: get actual environments for linked feature flags. We are being overly conservative here
-  if (experiment.linkedFeatures && experiment.linkedFeatures.length > 0) {
-    return ["__ALL__"];
+  if (linkedFeatures.length > 0) {
+    const envs: Set<string> = new Set();
+
+    linkedFeatures.forEach((linkedFeature) => {
+      for (const env in linkedFeature.environmentStates) {
+        if (linkedFeature.environmentStates[env] === "active") {
+          envs.add(env);
+        }
+      }
+    });
+    return Array.from(envs);
   }
 
   return [];

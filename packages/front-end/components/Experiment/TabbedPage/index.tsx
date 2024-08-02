@@ -264,6 +264,7 @@ export default function TabbedPage({
       {/* TODO: Update Experiment Header props to include redirest and pipe through to StartExperimentBanner */}
       <ExperimentHeader
         experiment={experiment}
+        linkedFeatures={linkedFeatures}
         tab={tab}
         setTab={setTabAndScroll}
         mutate={mutate}

@@ -1,6 +1,7 @@
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
+  LinkedFeatureInfo,
 } from "back-end/types/experiment";
 import { FaHome } from "react-icons/fa";
 import { PiChartBarHorizontalFill } from "react-icons/pi";
@@ -40,6 +41,7 @@ export interface Props {
   tab: ExperimentTab;
   setTab: (tab: ExperimentTab) => void;
   experiment: ExperimentInterfaceStringDates;
+  linkedFeatures: LinkedFeatureInfo[];
   mutate: () => void;
   duplicate?: (() => void) | null;
   setEditNameOpen: (open: boolean) => void;
@@ -83,6 +85,7 @@ export default function ExperimentHeader({
   tab,
   setTab,
   experiment,
+  linkedFeatures,
   mutate,
   setEditNameOpen,
   duplicate,
@@ -136,7 +139,7 @@ export default function ExperimentHeader({
   const canEditExperiment = !experiment.archived && hasUpdatePermissions;
 
   let hasRunExperimentsPermission = true;
-  const envs = getAffectedEnvsForExperiment({ experiment });
+  const envs = getAffectedEnvsForExperiment({ experiment, linkedFeatures });
   if (envs.length > 0) {
     if (!permissionsUtil.canRunExperiment(experiment, envs)) {
       hasRunExperimentsPermission = false;

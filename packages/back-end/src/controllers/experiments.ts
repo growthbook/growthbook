@@ -873,8 +873,10 @@ export async function postExperiment(
     "excludeFromPayload",
   ] as (keyof ExperimentInterfaceStringDates)[]).some((key) => key in changes);
   if (needsRunExperimentsPermission) {
+    const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
     const envs = getAffectedEnvsForExperiment({
       experiment,
+      linkedFeatures,
     });
     if (envs.length > 0) {
       const projects = [experiment.project || undefined];
@@ -987,8 +989,11 @@ export async function postExperimentArchive(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    linkedFeatures,
   });
   if (
     envs.length > 0 &&
@@ -1116,8 +1121,11 @@ export async function postExperimentStatus(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    linkedFeatures,
   });
 
   if (
@@ -1231,8 +1239,11 @@ export async function postExperimentStop(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    linkedFeatures,
   });
 
   if (
@@ -1326,8 +1337,11 @@ export async function deleteExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    linkedFeatures,
   });
 
   if (
@@ -1400,8 +1414,11 @@ export async function putExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    linkedFeatures,
   });
 
   if (
@@ -1487,8 +1504,11 @@ export async function postExperimentTargeting(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    linkedFeatures,
   });
 
   if (
@@ -1608,8 +1628,11 @@ export async function postExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    linkedFeatures,
   });
 
   if (
@@ -1727,8 +1750,11 @@ export async function deleteExperiment(
     context.permissions.throwPermissionError();
   }
 
+  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    linkedFeatures,
   });
 
   if (
@@ -2501,8 +2527,11 @@ export async function postVisualChangeset(
     throw new Error("Could not find experiment");
   }
 
+  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
+
   const envs = getAffectedEnvsForExperiment({
     experiment,
+    linkedFeatures,
   });
 
   if (
@@ -2551,7 +2580,11 @@ export async function putVisualChangeset(
     visualChanges: req.body.visualChanges,
   };
 
-  const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
+  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
+
+  const envs = experiment
+    ? getAffectedEnvsForExperiment({ experiment, linkedFeatures })
+    : [];
   if (!context.permissions.canRunExperiment(experiment, envs)) {
     context.permissions.throwPermissionError();
   }
@@ -2590,7 +2623,15 @@ export async function deleteVisualChangeset(
     visualChangeset.experiment
   );
 
-  const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
+  if (!experiment) {
+    throw new Error("Experiment not found");
+  }
+
+  const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
+
+  const envs = experiment
+    ? getAffectedEnvsForExperiment({ experiment, linkedFeatures })
+    : [];
   if (!context.permissions.canRunExperiment(experiment || {}, envs)) {
     context.permissions.throwPermissionError();
   }
