@@ -141,7 +141,6 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
 
   const storageKeyAvg = `metric_smoothBy_avg`; // to make metric-specific, include `${mid}`
   const storageKeySum = `metric_smoothBy_sum`;
-  //const storageKeyDenom = `metric_denom`;
   const [smoothByAvg, setSmoothByAvg] = useLocalStorage<"day" | "week">(
     storageKeyAvg,
     "day"
@@ -150,11 +149,6 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
     storageKeySum,
     "day"
   );
-  // const [denom] = useLocalStorage<"all" | "day">(
-  //   storageKeyDenom,
-  //   "day"
-  // );
-  const denom = "day";
 
   const [hoverDate, setHoverDate] = useState<number | null>(null);
   const onHoverCallback = (ret: { d: number | null }) => {
@@ -170,7 +164,6 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
   const {
     reset,
     watch,
-    getValues,
     setValue,
     register,
   } = useForm<MetricAnalysisFormFields>({
@@ -328,14 +321,14 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                         (watch("lookbackDays") as number)
                     );
                     const data: CreateMetricAnalysisProps = {
-                      ...getValues(),
                       id: factMetric.id,
-                      dimensions: [],
+                      userIdType: watch("userIdType"),
                       lookbackDays: Number(watch("lookbackDays")),
                       startDate: todayMinusLookback
                         .toISOString()
                         .substring(0, 16),
                       endDate: today.toISOString().substring(0, 16),
+                      populationType: watch("populationType"),
                       populationId: watch("populationId") ?? undefined,
                     };
                     await apiCall(`/metric-analysis`, {
@@ -423,31 +416,6 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                         </strong>
                       </Tooltip>
                     </div>
-                    {/* <div className="col">
-                      <div className="float-right mr-2">
-                      <div>
-                        <div className="uppercase-title text-muted">Denominator Window</div>
-                        <SelectField
-                          containerClassName={"select-dropdown-underline"}
-                          options={[
-                            {
-                              label: "All Time",
-                              value: "all"
-                            },
-                            {
-                              label: "Per Day",
-                              value: "day"
-                            },
-                          ]}
-                          sort={false}
-                          value={denom}
-                          onChange={(v) => {
-                            setDenom(v === "all" ? "all" : "day");
-                          }}
-                        />
-                      </div>
-                      </div>
-                    </div> */}
                     <div className="col">
                       <div className="float-right mr-2">
                         <label
@@ -479,10 +447,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                         d: d.date,
                         v: d.mean,
                         s: d.stddev,
-                        c:
-                          denom === "day"
-                            ? d.units
-                            : metricAnalysis.result?.units ?? null,
+                        c: d.units,
                       };
                     })}
                     smoothBy={smoothByAvg}

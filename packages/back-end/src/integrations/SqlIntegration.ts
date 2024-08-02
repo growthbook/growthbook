@@ -628,7 +628,10 @@ export default abstract class SqlIntegration
         segment,
         settings.userIdType,
         idJoinMap,
-        { startDate: settings.startDate, endDate: settings.endDate ?? undefined }
+        {
+          startDate: settings.startDate,
+          endDate: settings.endDate ?? undefined,
+        }
       )}),
       __population AS (
         SELECT DISTINCT
@@ -645,7 +648,7 @@ export default abstract class SqlIntegration
       ),`;
     }
 
-    return ""
+    return "";
   }
 
   getMetricAnalysisStatisticClauses(

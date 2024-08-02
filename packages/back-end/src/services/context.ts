@@ -29,8 +29,8 @@ import { ExperimentInterface } from "../../types/experiment";
 import { DataSourceInterface } from "../../types/datasource";
 import { getExperimentsByIds } from "../models/ExperimentModel";
 import { getDataSourcesByOrganization } from "../models/DataSourceModel";
-import { getExperimentMetricsByIds } from "./experiments";
 import { SegmentModel } from "../models/SegmentModel";
+import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
   experiment: ExperimentInterface;

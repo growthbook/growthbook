@@ -42,7 +42,6 @@ export const postMetricAnalysis = async (
     context.permissions.throwPermissionError();
   }
   const metricAnalysisSettings: MetricAnalysisSettings = {
-    dimensions: data.dimensions,
     userIdType: data.userIdType,
     lookbackDays: data.lookbackDays,
     startDate: getValidDate(data.startDate),

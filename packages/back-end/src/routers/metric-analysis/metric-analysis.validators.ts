@@ -12,7 +12,6 @@ export const metricAnalysisPopulationTypeValidator = z.enum([
 export const metricAnalysisSettingsValidator = z
   .object({
     userIdType: z.string(),
-    dimensions: z.array(z.string()),
 
     startDate: z.date(),
     endDate: z.date(),
@@ -27,7 +26,6 @@ export const createMetricAnalysisPropsValidator = z
   .object({
     id: z.string(),
     userIdType: z.string(),
-    dimensions: z.array(z.string()),
     lookbackDays: z.number(),
     startDate: z.string(),
     endDate: z.string(),
