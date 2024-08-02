@@ -15,6 +15,7 @@ import {
   UserPermissions,
 } from "../../types/organization";
 import { TeamInterface } from "../../types/team";
+import { SUPERADMIN_DEFAULT_ROLE } from "./secrets";
 
 function hasEnvScopedPermissions(userPermission: PermissionsObject): boolean {
   const envLimitedPermissions: Permission[] = ENV_SCOPED_PERMISSIONS.map(
@@ -241,11 +242,19 @@ function getUserPermission(
 }
 
 export function getUserPermissions(
-  userId: string,
+  user: { id: string; superAdmin?: boolean },
   org: OrganizationInterface,
   teams: TeamInterface[]
 ): UserPermissions {
-  const memberInfo = org.members.find((m) => m.id === userId);
+  const memberInfo = org.members.find((m) => m.id === user.id);
+
+  // If the user is a super admin, fall back to a default role if they aren't in the org
+  if (!memberInfo && user.superAdmin && SUPERADMIN_DEFAULT_ROLE) {
+    return {
+      global: getUserPermission({ role: SUPERADMIN_DEFAULT_ROLE }, org),
+      projects: {},
+    };
+  }
 
   if (!memberInfo) {
     throw new Error("User is not a member of this organization");
