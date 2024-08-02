@@ -23,13 +23,13 @@ export function getAffectedEnvsForExperiment({
   linkedFeatures,
 }: {
   experiment: ExperimentInterface | ExperimentInterfaceStringDates;
-  linkedFeatures: LinkedFeatureInfo[];
+  linkedFeatures?: LinkedFeatureInfo[];
 }): string[] {
   // Visual changesets are not environment-scoped, so it affects all of them
   if (experiment.hasVisualChangesets || experiment.hasURLRedirects)
     return ["__ALL__"];
 
-  if (linkedFeatures.length > 0) {
+  if (linkedFeatures && linkedFeatures.length > 0) {
     const envs: Set<string> = new Set();
 
     linkedFeatures.forEach((linkedFeature) => {
