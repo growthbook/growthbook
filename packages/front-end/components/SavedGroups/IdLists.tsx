@@ -1,6 +1,10 @@
 import { useMemo, useState } from "react";
 import { ago } from "shared/dates";
-import { getMatchingRules, truncateString } from "shared/util";
+import {
+  getMatchingRules,
+  SMALL_GROUP_SIZE_LIMIT,
+  truncateString,
+} from "shared/util";
 import Link from "next/link";
 import { SavedGroupInterface } from "shared/src/types";
 import { FaMagnifyingGlass } from "react-icons/fa6";
@@ -16,6 +20,7 @@ import Field from "@/components/Forms/Field";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import SavedGroupForm from "./SavedGroupForm";
 
 export interface Props {
@@ -157,7 +162,13 @@ export default function IdLists({ groups, mutate }: Props) {
                       <tr key={s.id}>
                         <td>
                           {s.passByReferenceOnly && (
-                            <PiCellSignalFull className="text-color-primary h2 mb-0" />
+                            <Tooltip
+                              body={`Contains >${SMALL_GROUP_SIZE_LIMIT} items`}
+                              tipPosition="top"
+                              popperClassName="navy"
+                            >
+                              <PiCellSignalFull className="text-color-primary h2 mb-0" />
+                            </Tooltip>
                           )}
                         </td>
                         <td>

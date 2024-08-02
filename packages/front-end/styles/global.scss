@@ -1331,7 +1331,8 @@ main.main.report {
   }
 }
 
-.gb-tooltip {
+.gb-tooltip,
+.gb-tooltip.navy {
   border-radius: 5px;
   white-space: normal;
   font-size: 13px;
@@ -1347,7 +1348,6 @@ main.main.report {
     &::before {
       content: "";
       transform: rotate(45deg);
-      background-color: var(--surface-background-color);
       box-shadow: 0 1rem 3rem rgb(0 0 0 / 18%);
       position: absolute;
       width: 8px;
@@ -1357,8 +1357,6 @@ main.main.report {
   }
 
   .body {
-    background-color: var(--surface-background-color);
-    color: var(--text-dark);
     padding: 15px;
     border-radius: 5px;
   }
@@ -1386,6 +1384,29 @@ main.main.report {
   &[data-popper-placement^="right"] > .arrow {
     left: -4px;
     margin-top: -4px;
+  }
+}
+.gb-tooltip {
+  .body {
+    background-color: var(--surface-background-color);
+    color: var(--text-dark);
+  }
+  .arrow {
+    &::before {
+      background-color: var(--surface-background-color);
+    }
+  }
+}
+
+.gb-tooltip.navy {
+  .body {
+    background-color: colors.$dark-blue;
+    color: var(--text-color-on-bright);
+  }
+  .arrow {
+    &::before {
+      background-color: colors.$dark-blue;
+    }
   }
 }
 

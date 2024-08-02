@@ -9,6 +9,7 @@ import {
 } from "react-icons/fa";
 import { RxLoop } from "react-icons/rx";
 import clsx from "clsx";
+import { SMALL_GROUP_SIZE_LIMIT } from "shared/util";
 import {
   condToJson,
   jsonToConds,
@@ -24,6 +25,7 @@ import StringArrayField from "@/components/Forms/StringArrayField";
 import LargeSavedGroupSupportWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {
@@ -453,7 +455,19 @@ export default function ConditionInput(props: Props) {
                           <div className={clsx(unsupported ? "disabled" : "")}>
                             {group.groupName}
                             {group.passByReferenceOnly && (
-                              <span className="float-right">&gt;100 ITEMS</span>
+                              <span className="float-right">
+                                <Tooltip
+                                  body={
+                                    unsupportedConnections.length > 0
+                                      ? `Lists with >${SMALL_GROUP_SIZE_LIMIT} items are not supported by one or more SDKs`
+                                      : ""
+                                  }
+                                  tipPosition="top"
+                                  popperClassName="navy"
+                                >
+                                  &gt;{SMALL_GROUP_SIZE_LIMIT} ITEMS
+                                </Tooltip>
+                              </span>
                             )}
                           </div>
                         );
