@@ -116,7 +116,6 @@ function getLookbackSelected(lookbackDays: number): string {
 
 type MetricAnalysisFormFields = {
   userIdType: string;
-  dimensions: string[];
 
   lookbackSelected: string;
   lookbackDays: number;
@@ -170,7 +169,6 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
     defaultValues: useMemo(() => {
       return {
         userIdType: metricAnalysis?.settings?.userIdType ?? "",
-        dimensions: metricAnalysis?.settings?.dimensions ?? [],
         lookbackSelected: metricAnalysis?.settings
           ? getLookbackSelected(metricAnalysis?.settings?.lookbackDays ?? 30)
           : "custom",
@@ -190,7 +188,6 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
         metricAnalysis?.settings?.userIdType ??
         factTable?.userIdTypes?.[0] ??
         "",
-      dimensions: metricAnalysis?.settings?.dimensions ?? [],
       lookbackSelected: metricAnalysis?.settings
         ? getLookbackSelected(metricAnalysis?.settings?.lookbackDays ?? 30)
         : "custom",
