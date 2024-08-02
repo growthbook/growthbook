@@ -257,7 +257,9 @@ export default function EditSavedGroupPage() {
               }
               setValues={(newValues) => setItemsToAdd(newValues)}
               setPassByReferenceOnly={setPassByReferenceOnly}
-              disableSubmit={disableSubmit}
+              disableSubmit={
+                disableSubmit || convertingLegacyWithUnsupportedConnections
+              }
               setDisableSubmit={setDisableSubmit}
               limit={
                 SMALL_GROUP_SIZE_LIMIT -
