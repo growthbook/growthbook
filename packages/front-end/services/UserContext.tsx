@@ -32,7 +32,12 @@ import {
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { Permissions, userHasPermission } from "shared/permissions";
-import { isCloud, isMultiOrg, isSentryEnabled } from "@/services/env";
+import {
+  getSuperadminDefaultRole,
+  isCloud,
+  isMultiOrg,
+  isSentryEnabled,
+} from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
 import track from "@/services/track";
@@ -261,7 +266,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       environments: [],
       limitAccessByEnvironment: false,
       name: data.userName,
-      role: "readonly",
+      role: data.superAdmin ? getSuperadminDefaultRole() : "readonly",
       projectRoles: [],
     };
   }
