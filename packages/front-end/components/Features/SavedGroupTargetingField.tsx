@@ -2,12 +2,14 @@ import { SavedGroupTargeting } from "back-end/types/feature";
 import { FaMinusCircle, FaPlusCircle } from "react-icons/fa";
 import React, { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
+import { SMALL_GROUP_SIZE_LIMIT } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { isSingleValue } from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import LargeSavedGroupSupportWarning, {
   useLargeSavedGroupSupport,
 } from "@/components/SavedGroups/LargeSavedGroupSupportWarning";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export interface Props {
   value: SavedGroupTargeting[];
@@ -197,7 +199,19 @@ export default function SavedGroupTargetingField({
                         <div className={clsx(unsupported ? "disabled" : "")}>
                           {group.groupName}
                           {group.passByReferenceOnly && (
-                            <span className="float-right">&gt;100 ITEMS</span>
+                            <span className="float-right">
+                              <Tooltip
+                                body={
+                                  unsupportedConnections.length > 0
+                                    ? `Lists with >${SMALL_GROUP_SIZE_LIMIT} items are not supported by one or more SDKs`
+                                    : ""
+                                }
+                                tipPosition="top"
+                                popperClassName="navy"
+                              >
+                                &gt;{SMALL_GROUP_SIZE_LIMIT} ITEMS
+                              </Tooltip>
+                            </span>
                           )}
                         </div>
                       );

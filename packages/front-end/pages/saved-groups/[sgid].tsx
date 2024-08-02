@@ -359,7 +359,7 @@ export default function EditSavedGroupPage() {
                   <span className="mr-1 lh-full">
                     <FaPlusCircle />
                   </span>
-                  <span className="lh-full">Add Values</span>
+                  <span className="lh-full">Edit List Items</span>
                 </div>
               </button>
             </div>
