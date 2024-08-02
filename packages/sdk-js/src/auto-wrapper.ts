@@ -1,6 +1,7 @@
 import Cookies from "js-cookie";
 import {
   BrowserCookieStickyBucketService,
+  CacheSettings,
   Context,
   FeatureApiResponse,
   GrowthBook,
@@ -17,6 +18,7 @@ type WindowContext = Context & {
   useStickyBucketService?: "cookie" | "localStorage";
   stickyBucketPrefix?: string;
   payload?: FeatureApiResponse;
+  cacheSettings?: CacheSettings;
 };
 declare global {
   interface Window {
@@ -289,6 +291,7 @@ gb.init({
     dataContext.noStreaming ||
     windowContext.backgroundSync === false
   ),
+  cacheSettings: windowContext.cacheSettings,
 });
 
 // Poll for URL changes and update GrowthBook

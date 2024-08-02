@@ -30,7 +30,7 @@ const cacheSettings: CacheSettings = {
   // Consider a fetch stale after 1 minute
   staleTTL: 1000 * 60,
   // Max time to keep a fetch in cache (24 hours default)
-  maxAge: 1000 * 60 * 60 * 24,
+  maxAge: 1000 * 60 * 60 * 4,
   cacheKey: "gbFeaturesCache",
   backgroundSync: true,
   maxEntries: 10,

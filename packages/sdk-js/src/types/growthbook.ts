@@ -399,11 +399,13 @@ export type InitOptions = {
   skipCache?: boolean;
   payload?: FeatureApiResponse;
   streaming?: boolean;
+  cacheSettings?: CacheSettings;
 };
 
 export type InitSyncOptions = {
   payload: FeatureApiResponse;
   streaming?: boolean;
+  cacheSettings?: CacheSettings;
 };
 
 export type LoadFeaturesOptions = {

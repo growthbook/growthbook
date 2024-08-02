@@ -53,6 +53,7 @@ import {
 } from "./util";
 import { evalCondition } from "./mongrule";
 import {
+  configureCache,
   refreshFeatures,
   startAutoRefresh,
   subscribe,
@@ -220,6 +221,10 @@ export class GrowthBook<
   public initSync(options: InitSyncOptions): GrowthBook {
     this._initialized = true;
 
+    if (options.cacheSettings) {
+      configureCache(options.cacheSettings);
+    }
+
     const payload = options.payload;
 
     if (payload.encryptedExperiments || payload.encryptedFeatures) {
@@ -260,8 +265,12 @@ export class GrowthBook<
 
   public async init(options?: InitOptions): Promise<InitResponse> {
     this._initialized = true;
-
     options = options || {};
+
+    if (options.cacheSettings) {
+      configureCache(options.cacheSettings);
+    }
+
     if (options.payload) {
       await this.setPayload(options.payload);
       if (options.streaming) {
