@@ -94,14 +94,21 @@ export default function LargeSavedGroupSupportWarning({
       ? `text-${warningLevel}-muted`
       : `alert alert-${warningLevel} mt-2 p-3`;
 
-  const copy =
-    type === "in_use_saved_group"
-      ? "This saved group is being used in SDK connections that don't support lists with more than 100 items. Update impacted SDKs or reduce the number of list items to resolve."
-      : `${
-          supportedConnections.length > 0 || unversionedConnections.length > 0
-            ? "Some of your"
-            : "Your"
-        } SDK connections ${supportCertainty} support lists with more than ${SMALL_GROUP_SIZE_LIMIT} items.`;
+  let copy = "";
+  if (type === "in_use_saved_group") {
+    copy =
+      "This saved group is being used in SDK connections that don't support lists with more than 100 items.";
+    if (upgradeWarningToError) {
+      copy +=
+        " Update impacted SDKs or reduce the number of list items to resolve.";
+    }
+  } else {
+    copy = `${
+      supportedConnections.length > 0 || unversionedConnections.length > 0
+        ? "Some of your"
+        : "Your"
+    } SDK connections ${supportCertainty} support lists with more than ${SMALL_GROUP_SIZE_LIMIT} items.`;
+  }
 
   return (
     <div className={containerClassName}>
