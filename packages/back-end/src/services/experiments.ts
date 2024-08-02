@@ -1852,7 +1852,7 @@ export function toMetricApiInterface(
         identifierTypes,
         // TODO: if builder mode is selected, use that to generate the SQL here
         conversionSQL: metric.sql || "",
-        userAggregationSQL: metric.aggregation || "SUM(value)",
+        userAggregationSQL: metric.aggregation ?? "SUM(value)",
         denominatorMetricId: metric.denominator || "",
       };
 
