@@ -269,6 +269,10 @@ const gb = new GrowthBook({
     // Segment - analytics.js
     if (window.analytics && window.analytics.track) {
       window.analytics.track("Experiment Viewed", eventParams);
+      const segmentPromise = new Promise((resolve) => {
+        window.setTimeout(resolve, 300);
+      });
+      promises.push(segmentPromise);
     }
 
     await Promise.all(promises);

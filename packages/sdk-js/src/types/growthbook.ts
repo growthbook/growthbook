@@ -405,7 +405,6 @@ export type InitOptions = {
 export type InitSyncOptions = {
   payload: FeatureApiResponse;
   streaming?: boolean;
-  cacheSettings?: CacheSettings;
 };
 
 export type LoadFeaturesOptions = {

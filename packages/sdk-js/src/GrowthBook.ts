@@ -221,10 +221,6 @@ export class GrowthBook<
   public initSync(options: InitSyncOptions): GrowthBook {
     this._initialized = true;
 
-    if (options.cacheSettings) {
-      configureCache(options.cacheSettings);
-    }
-
     const payload = options.payload;
 
     if (payload.encryptedExperiments || payload.encryptedFeatures) {
@@ -758,7 +754,7 @@ export class GrowthBook<
                 this._ctx.maxNavigateDelay ?? 3000
               ),
               new Promise((resolve) =>
-                window.setTimeout(resolve, this._ctx.navigateDelay ?? 300)
+                window.setTimeout(resolve, this._ctx.navigateDelay ?? 100)
               ),
             ]).then(() => {
               try {
