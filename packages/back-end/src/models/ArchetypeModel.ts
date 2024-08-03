@@ -73,16 +73,12 @@ export async function getAllArchetypes(
 ): Promise<ArchetypeInterface[]> {
   const query: FilterQuery<ArchetypeDocument> = {
     organization: organization,
-    $or: [{ projects: { $exists: false } }, { projects: { $eq: [] } }], // returns archetypes that are not associated with a project
+    $or: [{ projects: { $exists: false } }, { projects: { $eq: [] } }], // returns archetypes that are not associated with a project (all projects)
   };
-  // if project is set, return archetypes that are either not associated with a project (all projects)
+  // if project is set, return archetypes that are either all projects
   // or are associated with the specified project
-  if (project) {
-    query["$or"] = [
-      { projects: { $exists: false } },
-      { projects: { $eq: [] } },
-      { projects: { $eq: project } },
-    ];
+  if (project && query["$or"]) {
+    query["$or"].push({ projects: { $eq: project } });
   }
   const archetype: ArchetypeDocument[] = await ArchetypeModel.find(query);
   return (
