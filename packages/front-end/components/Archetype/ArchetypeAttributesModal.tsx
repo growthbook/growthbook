@@ -1,4 +1,4 @@
-import { FC } from "react";
+import React, { FC } from "react";
 import { useForm } from "react-hook-form";
 import { ArchetypeInterface } from "back-end/types/archetype";
 import Field from "@/components/Forms/Field";
@@ -8,6 +8,8 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Modal from "@/components/Modal";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const ArchetypeAttributesModal: FC<{
   close: () => void;
@@ -19,19 +21,31 @@ const ArchetypeAttributesModal: FC<{
     description: string;
     attributes: string;
     isPublic: boolean;
+    projects: string[];
   }>({
     defaultValues: {
       name: initialValues?.name || "",
       description: initialValues?.description || "",
       attributes: initialValues?.attributes || "",
       isPublic: initialValues?.isPublic ?? true,
+      projects: initialValues?.projects || [],
     },
   });
+
   const { apiCall } = useAuth();
+  const { projects } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const hasPermissionToAddEditArchetypes =
     permissionsUtil.canCreateArchetype() ||
     permissionsUtil.canUpdateArchetype();
+
+  const projectOptions =
+    projects.map((project) => {
+      return {
+        label: project.name,
+        value: project.id,
+      };
+    }) ?? [];
 
   return (
     <Modal
@@ -76,6 +90,19 @@ const ArchetypeAttributesModal: FC<{
               textarea
             />
           </div>
+          {projects?.length > 0 && (
+            <div className="form-group">
+              <MultiSelectField
+                label={<>Projects </>}
+                placeholder="All projects"
+                value={form.watch("projects")}
+                options={projectOptions}
+                onChange={(v) => form.setValue("projects", v)}
+                customClassName="label-overflow-ellipsis"
+                helpText="Assign this archetype to specific projects"
+              />
+            </div>
+          )}
           <div className="mb-3">
             <label className="mr-3">
               Make archetype public?{" "}
