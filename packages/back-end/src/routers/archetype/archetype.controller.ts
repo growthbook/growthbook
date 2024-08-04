@@ -114,9 +114,9 @@ export const getArchetypeAndEval = async (
 
     archetype.forEach((arch) => {
       try {
-        const attributes = JSON.parse(
-          arch.attributes
-        ) as ArchetypeAttributeValues;
+        const attributes = arch.attributes
+          ? (JSON.parse(arch.attributes) as ArchetypeAttributeValues)
+          : ({} as ArchetypeAttributeValues);
         const result = evaluateFeature({
           feature,
           attributes,

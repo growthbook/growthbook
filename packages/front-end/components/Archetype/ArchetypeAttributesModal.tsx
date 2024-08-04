@@ -10,6 +10,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import useProjectOptions from "@/hooks/useProjectOptions";
 
 const ArchetypeAttributesModal: FC<{
   close: () => void;
@@ -42,14 +43,16 @@ const ArchetypeAttributesModal: FC<{
     permissionsUtil.canUpdateArchetype({
       projects: initialValues?.projects ? initialValues.projects : [project],
     });
+  const permissionRequired = (project: string) => {
+    return initialValues?.id
+      ? permissionsUtil.canUpdateArchetype({ projects: [project] })
+      : permissionsUtil.canCreateArchetype({ projects: [project] });
+  };
 
-  const projectOptions =
-    projects.map((project) => {
-      return {
-        label: project.name,
-        value: project.id,
-      };
-    }) ?? [];
+  const projectOptions = useProjectOptions(
+    permissionRequired,
+    form.watch("projects") || []
+  );
 
   return (
     <Modal
