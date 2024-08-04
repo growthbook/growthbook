@@ -172,7 +172,7 @@ export const postArchetype = async (
     });
   }
 
-  if (!context.permissions.canCreateArchetype()) {
+  if (!context.permissions.canCreateArchetype(req.body)) {
     context.permissions.throwPermissionError();
   }
 
@@ -240,7 +240,7 @@ export const putArchetype = async (
     });
   }
 
-  if (!context.permissions.canUpdateArchetype()) {
+  if (!context.permissions.canDeleteArchetype(req.body)) {
     context.permissions.throwPermissionError();
   }
 
@@ -299,11 +299,15 @@ export const deleteArchetype = async (
   const context = getContextFromReq(req);
   const { org } = context;
 
-  if (!context.permissions.canDeleteArchetype()) {
+  const archetype = await getArchetypeById(id, org.id);
+
+  if (
+    !context.permissions.canDeleteArchetype({
+      projects: archetype?.projects || [],
+    })
+  ) {
     context.permissions.throwPermissionError();
   }
-
-  const archetype = await getArchetypeById(id, org.id);
 
   if (!archetype) {
     res.status(403).json({

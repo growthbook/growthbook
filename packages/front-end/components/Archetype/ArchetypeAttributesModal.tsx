@@ -33,11 +33,15 @@ const ArchetypeAttributesModal: FC<{
   });
 
   const { apiCall } = useAuth();
-  const { projects } = useDefinitions();
+  const { project, projects } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const hasPermissionToAddEditArchetypes =
-    permissionsUtil.canCreateArchetype() ||
-    permissionsUtil.canUpdateArchetype();
+    permissionsUtil.canCreateArchetype({
+      projects: initialValues?.projects ? initialValues.projects : [project],
+    }) ||
+    permissionsUtil.canUpdateArchetype({
+      projects: initialValues?.projects ? initialValues.projects : [project],
+    });
 
   const projectOptions =
     projects.map((project) => {
