@@ -16,7 +16,7 @@ from gbstats.gbstats import (
     get_metric_df,
     format_results,
     variation_statistic_from_metric_row,
-    get_bandit_weights,
+    get_bandit_response,
 )
 from gbstats.models.statistics import RegressionAdjustedStatistic, SampleMeanStatistic
 
@@ -820,11 +820,13 @@ class TestBandit(TestCase):
             "successfully updated",
         ]
         self.true_weights = [0.37530, 0.13345, 0.24645, 0.2448]
+        self.true_additional_reward = 192.0
 
-    def test_get_bandit_weights(self):
-        result = get_bandit_weights(self.rows, self.metric, self.analysis)
+    def test_get_bandit_response(self):
+        result = get_bandit_response(self.rows, self.metric, self.analysis)
         self.assertEqual(result.banditUpdateMessage, self.update_messages[0])
         self.assertEqual(result.banditWeights, self.true_weights)
+        self.assertEqual(result.additionalReward, self.true_additional_reward)
 
 
 if __name__ == "__main__":

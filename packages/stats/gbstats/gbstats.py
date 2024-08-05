@@ -608,14 +608,15 @@ def create_bandit_sample_mean_statistics(
     return period_sample_mean_stats
 
 
-def get_bandit_weights(
+def get_bandit_response(
     rows: ExperimentMetricQueryResponseRows,
     metric: MetricSettingsForStatsEngine,
     settings: BanditSettingsForStatsEngine,
 ) -> BanditResponse:
-    # code below here is from process_single_metric
     if len(rows) == 0:
-        return BanditResponse(banditWeights=None, banditUpdateMessage="no rows")
+        return BanditResponse(
+            banditWeights=None, banditUpdateMessage="no rows", additionalReward=None
+        )
     pdrows = pd.DataFrame(rows)
     pdrows = pdrows.loc[pdrows["dimension"] == ""]
     # convert raw sql into df of periods, and output df where n_rows = periods
@@ -625,20 +626,25 @@ def get_bandit_weights(
         var_names=settings.var_names,
         bandit=True,
     )
-    pd.set_option("display.max_columns", None)
-    print(df)
-
     bandit_sample_mean_stats = create_bandit_sample_mean_statistics(df, metric)
     if any(value is None for value in bandit_sample_mean_stats.values()):
         error_str = "not all statistics are instance of type BanditStatistic"
-        return BanditResponse(banditWeights=None, banditUpdateMessage=error_str)
+        return BanditResponse(
+            banditWeights=None, banditUpdateMessage=error_str, additionalReward=None
+        )
     bandit_prior = GaussianPrior(mean=0, variance=float(1e4), proper=True)
     bandit_config = BanditConfig(
         prior_distribution=bandit_prior,
         bandit_weights_seed=settings.bandit_weights_seed,
     )
-    b = Bandits(bandit_sample_mean_stats, bandit_config).compute_variation_weights()
-    return BanditResponse(banditWeights=b.weights, banditUpdateMessage=b.update_message)
+    b = Bandits(bandit_sample_mean_stats, bandit_config)
+    weights = b.compute_variation_weights()
+    additional_reward = b.compute_additional_reward()
+    return BanditResponse(
+        banditWeights=weights.weights,
+        banditUpdateMessage=weights.update_message,
+        additionalReward=additional_reward,
+    )
 
 
 # Get just the columns for a single metric
@@ -695,7 +701,7 @@ def process_experiment_results(
                     ):
                         if bandit_result is not None:
                             raise ValueError("Bandit weights already computed")
-                        bandit_result = get_bandit_weights(
+                        bandit_result = get_bandit_response(
                             rows=rows,
                             metric=d.metrics[metric],
                             settings=d.bandit_settings,

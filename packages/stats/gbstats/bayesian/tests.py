@@ -278,6 +278,16 @@ class Bandits:
         ]
         return np.array(counts).reshape(self.array_shape)
 
+    # sample sizes by variation
+    @property
+    def variation_counts(self) -> np.ndarray:
+        return np.sum(self.counts_array, axis=0)
+
+    # sample sizes by period
+    @property
+    def period_counts(self) -> np.ndarray:
+        return np.sum(self.counts_array, axis=1)
+
     @property
     def period_weights(self) -> np.ndarray:
         """given the total traffic (across variations) for each period, what is the percentage that was allocated to each period?
@@ -287,10 +297,9 @@ class Bandits:
             weights: n_phases x 1 vector of final weights.
         """
         # sum traffic across variations for a specific phase to get the total traffic for that phase
-        n_seq = np.sum(self.counts_array, axis=1)
-        total_count = sum(n_seq)
+        total_count = sum(self.period_counts)
         if total_count:
-            return n_seq / sum(n_seq)
+            return self.period_counts / total_count
         else:
             return np.full((self.num_variations,), 1 / self.num_variations)
 
@@ -301,11 +310,10 @@ class Bandits:
                 np.expand_dims(self.period_weights, axis=1), (1, self.num_variations)
             )
         else:
-            variation_sample_sizes = np.sum(self.counts_array, axis=0)
-            if any(variation_sample_sizes == 0):
+            if any(self.variation_counts == 0):
                 error_string = "Need at least 1 observation per variation per period if not weighting by period."
                 raise ValueError(error_string)
-            return self.counts_array / variation_sample_sizes
+            return self.counts_array / self.variation_counts
 
     @property
     def means_array(self) -> np.ndarray:
@@ -348,10 +356,6 @@ class Bandits:
         )
         # scale by number of counts to get back to distributional variance
         return sample_mean_variances * self.variation_counts
-
-    @property
-    def variation_counts(self) -> np.ndarray:
-        return np.sum(self.counts_array, axis=0)
 
     @property
     def sample_mean_statistics(self) -> List[SampleMeanStatistic]:
@@ -407,6 +411,15 @@ class Bandits:
     def n_samples(self):
         return int(1e4)
 
+    # given n_periods x n_variations arrays of counts and means, what is the additional reward compared to fixed weight balanced design?
+    def compute_additional_reward(self) -> float:
+        variation_counts_balanced = np.tile(
+            np.expand_dims(self.period_counts, axis=1) / self.num_variations,
+            (1, self.num_variations),
+        )
+        counts_diff = self.counts_array - variation_counts_balanced
+        return float(np.sum(counts_diff * self.means_array))
+
     # function that computes thompson sampling variation weights
     def compute_variation_weights(self) -> BanditWeights:
         min_n = 100
@@ -456,20 +469,3 @@ class Bandits:
         for i in range(n_variations):
             final_counts[i] = dict_0.get(i, 0) + dict_1.get(i, 0)
         return final_counts / sum(final_counts)
-
-    # given n_periods x n_variations arrays of counts and means, what is the reward?
-    @staticmethod
-    def reward(variation_counts, variation_means) -> float:
-        return np.sum(variation_counts * variation_means)
-
-    # given n_periods x n_variations arrays of counts and means, what is the additional reward compared to fixed weight balanced design?
-    @staticmethod
-    def additional_reward(variation_counts, variation_means) -> float:
-        # sample sizes per period
-        period_counts = np.expand_dims(np.sum(variation_counts, axis=1), axis=1)
-        n_variations = variation_counts.shape[1]
-        variation_counts_balanced = np.tile(
-            period_counts / n_variations, (1, n_variations)
-        )
-        counts_diff = variation_counts - variation_counts_balanced
-        return np.sum(counts_diff * variation_means)
