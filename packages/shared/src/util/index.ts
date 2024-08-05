@@ -30,16 +30,16 @@ export function getAffectedEnvsForExperiment({
     return ["__ALL__"];
 
   if (linkedFeatures && linkedFeatures.length > 0) {
-    const envs: Set<string> = new Set();
+    const envs: string[] = [];
 
     linkedFeatures.forEach((linkedFeature) => {
       for (const env in linkedFeature.environmentStates) {
         if (linkedFeature.environmentStates[env] === "active") {
-          envs.add(env);
+          envs.push(env);
         }
       }
     });
-    return Array.from(envs);
+    return envs;
   }
 
   return [];
