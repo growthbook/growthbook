@@ -6,7 +6,8 @@ import {
   NotificationEvent,
   LegacyNotificationEvent,
 } from "../../notification-events";
-import { getEvent, GetEventInterface } from "../../../models/EventModel";
+import { EventInterface } from "../../../../types/event";
+import { getEvent } from "../../../models/EventModel";
 import { SlackIntegrationInterface } from "../../../../types/slack-integration";
 import { APP_ORIGIN } from "../../../util/secrets";
 import {
@@ -139,7 +140,7 @@ export const getSlackMessageForLegacyNotificationEvent = async (
 };
 
 export const getSlackDataForNotificationEvent = async (
-  event: GetEventInterface
+  event: EventInterface
 ): Promise<DataForNotificationEvent | null> => {
   if (event.event === "webhook.test") return null;
 

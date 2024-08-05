@@ -2,7 +2,8 @@ import { Agenda, Job, JobAttributesData } from "agenda";
 import { getAgendaInstance } from "../../services/queueing";
 import { webHooksEventHandler } from "../handlers/webhooks/webHooksEventHandler";
 import { slackEventHandler } from "../handlers/slack/slackEventHandler";
-import { getEvent, GetEventInterface } from "../../models/EventModel";
+import { EventInterface } from "../../../types/event";
+import { getEvent } from "../../models/EventModel";
 import { getContextForAgendaJobByOrgId } from "../../services/organizations";
 import { Context } from "../../models/BaseModel";
 
@@ -17,7 +18,7 @@ interface EventNotificationData extends JobAttributesData {
 }
 
 export interface NotificationEventHandler {
-  (event: GetEventInterface, context: Context): Promise<void>;
+  (event: EventInterface, context: Context): Promise<void>;
 }
 
 export class EventNotifier implements Notifier {

@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import * as Event from "../../models/EventModel";
+import { EventInterface } from "../../../types/event";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getContextFromReq } from "../../services/organizations";
@@ -18,7 +19,7 @@ type GetEventsRequest = AuthRequest<
 >;
 
 type GetEventsResponse = {
-  events: Event.GetEventInterface[];
+  events: EventInterface[];
 };
 
 export const getEvents = async (
@@ -76,7 +77,7 @@ export const getEventsCount = async (
 type GetEventRequest = AuthRequest<null, { id: string }>;
 
 type GetEventResponse = {
-  event: Event.GetEventInterface;
+  event: EventInterface;
 };
 
 export const getEventById = async (

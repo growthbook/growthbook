@@ -13,15 +13,11 @@ import {
   NotificationEventPayloadDataType,
   NotificationEventPayload,
 } from "../events/base-types";
-import { EventInterface } from "../../types/event";
+import { EventInterface, BaseEventInterface } from "../../types/event";
 import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
 import { ReqContext } from "../../types/organization";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
-import {
-  NotificationEvent,
-  LegacyNotificationEvent,
-} from "../events/notification-events";
 
 const API_VERSION = "2024-07-31" as const;
 const MODEL_VERSION = 1 as const;
@@ -110,20 +106,22 @@ const eventSchema = new mongoose.Schema({
 
 eventSchema.index({ organizationId: 1, dateCreated: -1 });
 
-type EventDocument<T, V> = mongoose.Document & EventInterface<T, V>;
+type EventDocument<T, V> = mongoose.Document & BaseEventInterface<T, V>;
 
 /**
  * Convert the Mongo document to an EventInterface, omitting Mongo default fields __v, _id
  * @param doc
  * @returns
  */
-const toInterface = <T, V>(doc: EventDocument<T, V>): EventInterface<T, V> =>
+const toInterface = <T, V>(
+  doc: EventDocument<T, V>
+): BaseEventInterface<T, V> =>
   omit(
-    doc.toJSON<EventInterface<T, V>>({ flattenMaps: true }),
+    doc.toJSON<BaseEventInterface<T, V>>({ flattenMaps: true }),
     ["__v", "_id"]
-  ) as EventInterface<T, V>;
+  ) as BaseEventInterface<T, V>;
 
-const EventModel = mongoose.model<EventInterface<unknown, unknown>>(
+const EventModel = mongoose.model<BaseEventInterface<unknown, unknown>>(
   "Event",
   eventSchema
 );
@@ -154,7 +152,7 @@ export const createEventWithPayload = async <
       data: { ...payload, api_version: API_VERSION, created: Date.now() },
     });
 
-    const event = toInterface(doc) as EventInterface<
+    const event = toInterface(doc) as BaseEventInterface<
       NotificationEventPayload<Resource, Event>,
       typeof MODEL_VERSION
     >;
@@ -264,19 +262,15 @@ export const createEvent = async <
     organizationId: context.org.id,
   });
 
-export type GetEventInterface =
-  | EventInterface<NotificationEvent, 1>
-  | EventInterface<LegacyNotificationEvent, undefined>;
-
 /**
  * Get an event by ID
  * @param eventId
  */
 export const getEvent = async (
   eventId: string
-): Promise<GetEventInterface | null> => {
+): Promise<EventInterface | null> => {
   const doc = await EventModel.findOne({ id: eventId });
-  return !doc ? null : (toInterface(doc) as GetEventInterface);
+  return !doc ? null : (toInterface(doc) as EventInterface);
 };
 
 /**
@@ -287,9 +281,9 @@ export const getEvent = async (
 export const getEventForOrganization = async (
   eventId: string,
   organizationId: string
-): Promise<GetEventInterface | null> => {
+): Promise<EventInterface | null> => {
   const doc = await EventModel.findOne({ id: eventId, organizationId });
-  return !doc ? null : (toInterface(doc) as GetEventInterface);
+  return !doc ? null : (toInterface(doc) as EventInterface);
 };
 
 /**
@@ -308,14 +302,14 @@ export const getEventsForOrganization = async (
     to?: string;
     sortOrder?: 1 | -1;
   }
-): Promise<GetEventInterface[]> => {
+): Promise<EventInterface[]> => {
   const query = applyFiltersToQuery(organizationId, filters);
   const docs = await EventModel.find(query)
     .sort([["dateCreated", filters.sortOrder ?? -1]])
     .skip((filters.page - 1) * filters.perPage)
     .limit(filters.perPage);
 
-  return docs.map(toInterface) as GetEventInterface[];
+  return docs.map(toInterface) as EventInterface[];
 };
 
 /**
@@ -371,10 +365,10 @@ const applyFiltersToQuery = (
 export const getLatestEventsForOrganization = async (
   organizationId: string,
   limit: number = 50
-): Promise<GetEventInterface[]> => {
+): Promise<EventInterface[]> => {
   const docs = await EventModel.find({ organizationId })
     .sort([["dateCreated", -1]])
     .limit(limit);
 
-  return docs.map(toInterface) as GetEventInterface[];
+  return docs.map(toInterface) as EventInterface[];
 };

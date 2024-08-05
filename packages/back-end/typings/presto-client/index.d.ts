@@ -77,6 +77,7 @@ declare module "presto-client" {
     type: PrestoClientPrestoTypes;
   }
 
+
   type PrestoClientColumnDatum = [string, any];
 
   interface IPrestoClientExecuteOptions {
