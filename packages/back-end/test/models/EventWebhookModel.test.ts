@@ -1,82 +1,101 @@
-import { EventWebHookModel } from "../../src/models/EventWebhookModel";
-import { BaseModel } from "../../src/models/BaseModel";
-
-class TestModel extends EventWebHookModel {
-  public addIndexes() {}
-}
+import {
+  EventWebHookModel,
+  getAllEventWebHooksForEvent,
+} from "../../src/models/EventWebhookModel";
 
 describe("getAllEventWebHooksForEvent", () => {
   describe("when event has no projects", () => {
     it("implements the right logic", async () => {
-      const model = new TestModel();
-
-      jest.spyOn(BaseModel.prototype, "_find").mockImplementation(() => [
+      jest.spyOn(EventWebHookModel, "find").mockImplementation(() => [
         {
-          name: "webhook with no filter on projects",
+          toJSON: () => ({ name: "webhook with no filter on projects" }),
           projects: [],
         },
         {
-          name: "webhook with filter for event project",
+          toJSON: () => ({ name: "webhook with filter for event project" }),
           projects: ["event project"],
         },
         {
-          name: "webhook with filter for foo project",
+          toJSON: () => ({ name: "webhook with filter for foo project" }),
           projects: ["foo"],
         },
       ]);
 
-      const ret = await model.getAllForEvent({
+      const ret = await getAllEventWebHooksForEvent({
+        organizationId: "aabb",
         eventName: "feature.created",
         enabled: true,
         tags: [],
         projects: [],
       });
 
-      expect(BaseModel.prototype._find).toHaveBeenCalledWith({
+      expect(EventWebHookModel.find).toHaveBeenCalledWith({
         enabled: true,
         events: "feature.created",
+        organizationId: "aabb",
       });
       expect(ret).toEqual([
-        { name: "webhook with no filter on projects", projects: [] },
+        {
+          name: "webhook with no filter on projects",
+          environments: [],
+          projects: [],
+          tags: [],
+          headers: {},
+          method: "GET",
+          payloadType: "raw",
+        },
       ]);
     });
   });
 
   describe("when event has projects", () => {
     it("implements the right logic", async () => {
-      const model = new TestModel();
-
-      jest.spyOn(BaseModel.prototype, "_find").mockImplementation(() => [
+      jest.spyOn(EventWebHookModel, "find").mockImplementation(() => [
         {
-          name: "webhook with no filter on projects",
+          toJSON: () => ({ name: "webhook with no filter on projects" }),
           projects: [],
         },
         {
-          name: "webhook with filter for event project",
+          toJSON: () => ({ name: "webhook with filter for event project" }),
           projects: ["event project"],
         },
         {
-          name: "webhook with filter for foo projects",
+          toJSON: () => ({ name: "webhook with filter for foo projects" }),
           projects: ["foo"],
         },
       ]);
 
-      const ret = await model.getAllForEvent({
+      const ret = await getAllEventWebHooksForEvent({
+        organizationId: "aabb",
         eventName: "feature.created",
         enabled: true,
         tags: [],
         projects: ["event project"],
       });
 
-      expect(BaseModel.prototype._find).toHaveBeenCalledWith({
+      expect(EventWebHookModel.find).toHaveBeenCalledWith({
         enabled: true,
         events: "feature.created",
+        organizationId: "aabb",
       });
       expect(ret).toEqual([
-        { name: "webhook with no filter on projects", projects: [] },
+        {
+          name: "webhook with no filter on projects",
+          environments: [],
+          projects: [],
+          tags: [],
+          headers: {},
+          method: "GET",
+          payloadType: "raw",
+        },
         {
           name: "webhook with filter for event project",
+          environments: [],
           projects: ["event project"],
+          tags: [],
+          headers: {},
+          method: "GET",
+          payloadType: "raw",
         },
       ]);
     });
