@@ -126,40 +126,11 @@ export default function ReleaseChangesForm({
       <SelectField
         label="Release plan"
         value={releasePlan || ""}
-        options={[
-          { label: "New Phase, re-randomize traffic", value: "new-phase" },
-          ...(changeType === "phase"
-            ? [
-                {
-                  label: "New Phase, do not re-randomize",
-                  value: "new-phase-same-seed",
-                },
-              ]
-            : []), //todo: make for "new phase" only
-          ...(changeType === "advanced"
-            ? [
-                {
-                  label:
-                    "New Phase, re-randomize traffic, block bucketed users",
-                  value: "new-phase-block-sticky",
-                },
-              ]
-            : []),
-          ...(changeType !== "phase" &&
-          (!recommendedRolloutData.disableSamePhase ||
-            changeType === "advanced")
-            ? [
-                {
-                  label: "Same Phase, apply changes to everyone",
-                  value: "same-phase-everyone",
-                },
-                {
-                  label: "Same Phase, apply changes to new traffic only",
-                  value: "same-phase-sticky",
-                },
-              ]
-            : []),
-        ]}
+        options={getReleasePlanOptions({
+          experiment,
+          changeType,
+          recommendedRolloutData,
+        })}
         onChange={(v) => {
           const requiresStickyBucketing =
             v === "same-phase-sticky" || v === "new-phase-block-sticky";
@@ -859,4 +830,63 @@ function comparePrerequisites(
     return "less";
   }
   return null;
+}
+
+function getReleasePlanOptions({
+  experiment,
+  changeType,
+  recommendedRolloutData,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  changeType?: ChangeType;
+  recommendedRolloutData: RecommendedRolloutData;
+}) {
+  console.log("here");
+  console.log({ recommendedRolloutData });
+  if (experiment.type !== "multi-armed-bandit") {
+    return [
+      { label: "New Phase, re-randomize traffic", value: "new-phase" },
+      ...(changeType === "phase"
+        ? [
+            {
+              label: "New Phase, do not re-randomize",
+              value: "new-phase-same-seed",
+            },
+          ]
+        : []), //todo: make for "new phase" only
+      ...(changeType === "advanced"
+        ? [
+            {
+              label: "New Phase, re-randomize traffic, block bucketed users",
+              value: "new-phase-block-sticky",
+            },
+          ]
+        : []),
+      ...(changeType !== "phase" &&
+      (!recommendedRolloutData.disableSamePhase || changeType === "advanced")
+        ? [
+            {
+              label: "Same Phase, apply changes to everyone",
+              value: "same-phase-everyone",
+            },
+            {
+              label: "Same Phase, apply changes to new traffic only",
+              value: "same-phase-sticky",
+            },
+          ]
+        : []),
+    ];
+  } else {
+    return [
+      { label: "New Phase, reset experiment", value: "new-phase" },
+      ...(changeType === "traffic"
+        ? [
+            {
+              label: "Same phase",
+              value: "same-phase-sticky",
+            },
+          ]
+        : []),
+    ];
+  }
 }
