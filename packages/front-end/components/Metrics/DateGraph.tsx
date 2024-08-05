@@ -16,7 +16,7 @@ import {
 } from "@visx/tooltip";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ScaleLinear } from "d3-scale";
-import { date, getValidDate } from "shared/dates";
+import { date, getValidDate, getValidDateOffsetByUTC } from "shared/dates";
 import { addDays, setHours, setMinutes } from "date-fns";
 import cloneDeep from "lodash/cloneDeep";
 import { getMetricFormatter } from "@/services/metrics";
@@ -209,7 +209,7 @@ const DateGraph: FC<DateGraphProps> = ({
     const desiredHour = lastDate.getUTCHours();
     const desiredMinute = lastDate.getUTCMinutes();
     sortedDates = sortedDates.map((d) => {
-      let date = getValidDate(d.d);
+      let date = getValidDateOffsetByUTC(d.d);
       date = setMinutes(setHours(date, desiredHour), desiredMinute);
       d.d = date;
       return d;
