@@ -173,8 +173,6 @@ export class GrowthBook<
     if (context.experiments) {
       this.ready = true;
       this._updateAllAutoExperiments();
-    } else if (context.antiFlicker) {
-      this._setAntiFlicker();
     }
 
     // Hydrate sticky bucket service
@@ -725,7 +723,6 @@ export class GrowthBook<
 
       if (changeType === "redirect") {
         if (!result.value.urlRedirect || !experiment.urlPatterns) {
-          this._unsetAntiFlicker();
           return result;
         }
 
@@ -740,14 +737,12 @@ export class GrowthBook<
               id: experiment.key,
             }
           );
-          this._unsetAntiFlicker();
           return result;
         }
         this._redirectedUrl = url;
         const navigate = this._getNavigateFunction();
         if (navigate) {
           if (isBrowser) {
-            this._setAntiFlicker(true);
             // Wait for the possibly-async tracking callback, bound by min and max delays
             Promise.all([
               ...(trackingCall
@@ -1800,13 +1795,14 @@ export class GrowthBook<
       return this._ctx.navigate;
     } else if (isBrowser) {
       return (url: string) => {
+        this._setAntiFlicker();
         window.location.replace(url);
       };
     }
     return null;
   }
 
-  private _setAntiFlicker(skipUnset: boolean = false) {
+  private _setAntiFlicker() {
     if (!this._ctx.antiFlicker || !isBrowser) return;
     if (this._ctx.disableUrlRedirectExperiments) return;
     try {
@@ -1823,12 +1819,10 @@ export class GrowthBook<
 
       // Fallback if GrowthBook fails to load in specified time or 3.5 seconds.
       // Will be cancelled if an actual redirection begins
-      if (!skipUnset) {
-        this._unsetAntiFlickerTimeout = window.setTimeout(
-          () => this._unsetAntiFlicker(),
-          this._ctx.antiFlickerTimeout ?? 3500
-        );
-      }
+      this._unsetAntiFlickerTimeout = window.setTimeout(
+        () => this._unsetAntiFlicker(),
+        this._ctx.antiFlickerTimeout ?? 3500
+      );
     } catch (e) {
       console.error(e);
     }
