@@ -369,10 +369,9 @@ class Bandits:
             weights: n_phases x 1 vector of final weights.
         """
         # sum traffic across variations for a specific phase to get the total traffic for that phase
-        n_seq = np.sum(self.counts_array, axis=1)
-        total_count = sum(n_seq)
+        total_count = sum(self.period_counts)
         if total_count:
-            return n_seq / sum(n_seq)
+            return self.period_counts / total_count
         else:
             return np.full((self.num_variations,), 1 / self.num_variations)
 
@@ -383,11 +382,10 @@ class Bandits:
                 np.expand_dims(self.period_weights, axis=1), (1, self.num_variations)
             )
         else:
-            variation_sample_sizes = np.sum(self.counts_array, axis=0)
-            if any(variation_sample_sizes == 0):
+            if any(self.variation_counts == 0):
                 error_string = "Need at least 1 observation per variation per period if not weighting by period."
                 raise ValueError(error_string)
-            return self.counts_array / variation_sample_sizes
+            return self.counts_array / self.variation_counts
 
     @property
     def means_array(self) -> np.ndarray:
