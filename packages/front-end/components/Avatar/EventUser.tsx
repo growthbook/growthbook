@@ -1,12 +1,12 @@
-import { EventAuditUser } from "back-end/src/events/event-types";
+import { EventUser } from "back-end/src/events/event-types";
 import Avatar from "./Avatar";
 
 export interface Props {
-  user?: EventAuditUser;
+  user?: EventUser;
   display?: "avatar" | "name";
 }
 
-export default function AuditUser({ user, display = "avatar" }: Props) {
+export default function EventUser({ user, display = "avatar" }: Props) {
   if (user?.type === "dashboard" && user?.email) {
     return (
       <>

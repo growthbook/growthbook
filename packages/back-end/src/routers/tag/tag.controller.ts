@@ -8,7 +8,7 @@ import { removeTagInMetrics } from "../../models/MetricModel";
 import { removeTagInFeature } from "../../models/FeatureModel";
 import { removeTagFromSlackIntegration } from "../../models/SlackIntegrationModel";
 import { removeTagFromExperiments } from "../../models/ExperimentModel";
-import { EventAuditUserForResponseLocals } from "../../events/event-types";
+import { EventUserForResponseLocals } from "../../events/event-types";
 
 // region POST /tag
 
@@ -60,7 +60,7 @@ export const deleteTag = async (
   req: DeleteTagRequest,
   res: Response<
     DeleteTagResponse | ApiErrorResponse,
-    EventAuditUserForResponseLocals
+    EventUserForResponseLocals
   >
 ) => {
   const context = getContextFromReq(req);

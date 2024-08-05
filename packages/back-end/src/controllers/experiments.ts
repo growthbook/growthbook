@@ -92,7 +92,7 @@ import {
 } from "../../types/experiment-snapshot";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { ApiReqContext, PrivateApiErrorResponse } from "../../types/api";
-import { EventAuditUserForResponseLocals } from "../events/event-types";
+import { EventUserForResponseLocals } from "../events/event-types";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "../queryRunners/PastExperimentsQueryRunner";
 import {
@@ -468,7 +468,7 @@ export async function postExperiments(
     | { status: 200; experiment: ExperimentInterface }
     | { status: 200; duplicateTrackingKey: boolean; existingId: string }
     | PrivateApiErrorResponse,
-    EventAuditUserForResponseLocals
+    EventUserForResponseLocals
   >
 ) {
   const context = getContextFromReq(req);
@@ -695,7 +695,7 @@ export async function postExperiment(
   res: Response<
     | { status: number; experiment?: ExperimentInterface | null }
     | PrivateApiErrorResponse,
-    EventAuditUserForResponseLocals
+    EventUserForResponseLocals
   >
 ) {
   const context = getContextFromReq(req);
@@ -1698,7 +1698,7 @@ export async function deleteExperiment(
   req: AuthRequest<ExperimentInterface, { id: string }>,
   res: Response<
     { status: 200 } | PrivateApiErrorResponse,
-    EventAuditUserForResponseLocals
+    EventUserForResponseLocals
   >
 ) {
   const context = getContextFromReq(req);

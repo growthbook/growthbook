@@ -2,7 +2,7 @@ import type { Response } from "express";
 import { orgHasPremiumFeature } from "enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getContextFromReq } from "../../services/organizations";
-import { EventAuditUserForResponseLocals } from "../../events/event-types";
+import { EventUserForResponseLocals } from "../../events/event-types";
 import { getLatestEventsForOrganization } from "../../models/EventModel";
 import { DataExportFileResponse } from "../../../types/data-exports";
 import { PrivateApiErrorResponse } from "../../../types/api";
@@ -17,7 +17,7 @@ export const getDataExportForEvents = async (
   req: AuthRequest,
   res: Response<
     DataExportFileResponse | PrivateApiErrorResponse,
-    EventAuditUserForResponseLocals
+    EventUserForResponseLocals
   >
 ) => {
   const context = getContextFromReq(req);
