@@ -106,7 +106,6 @@ export class GrowthBook<
   private _initialized: boolean;
   private _deferredTrackingCalls: Map<string, TrackingData>;
   private _unsetAntiFlickerTimeout: number | undefined;
-  private _isNavigating: boolean;
 
   private _payload: FeatureApiResponse | undefined;
   private _decryptedPayload: FeatureApiResponse | undefined;
@@ -137,7 +136,6 @@ export class GrowthBook<
     this._redirectedUrl = "";
     this._deferredTrackingCalls = new Map();
     this._autoExperimentsAllowed = !context.disableExperimentsOnLoad;
-    this._isNavigating = false;
 
     if (context.remoteEval) {
       if (context.decryptionKey) {
@@ -542,6 +540,7 @@ export class GrowthBook<
   }
 
   public async setURL(url: string) {
+    if (url === this._ctx.url) return;
     this._ctx.url = url;
     this._redirectedUrl = "";
     if (this._ctx.remoteEval) {
@@ -764,10 +763,7 @@ export class GrowthBook<
               ),
             ]).then(() => {
               try {
-                if (!this._isNavigating) {
-                  this._isNavigating = true;
-                  navigate(url);
-                }
+                navigate(url);
               } catch (e) {
                 console.error(e);
               }
