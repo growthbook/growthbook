@@ -73,7 +73,7 @@ export default function track(
     doc_host: host,
     doc_search: "",
     doc_path: location.pathname,
-    referer: document.referrer.match(/weblens\.ai/) ? document.referrer : "",
+    referer: document?.referrer?.match(/weblens\.ai/) ? document.referrer : "",
     build_sha: build.sha,
     build_date: build.date,
     configFile: hasFileConfig(),
