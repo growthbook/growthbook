@@ -9,7 +9,8 @@ import { getIntegrationFromDatasourceId } from "./datasource";
 export async function createMetricAnalysis(
   context: Context,
   metric: FactMetricInterface,
-  metricAnalysisSettings: MetricAnalysisSettings
+  metricAnalysisSettings: MetricAnalysisSettings,
+  useCache: boolean = true
 ): Promise<MetricAnalysisQueryRunner> {
   if (metric.datasource) {
     const integration = await getIntegrationFromDatasourceId(
@@ -47,7 +48,7 @@ export async function createMetricAnalysis(
       context,
       model,
       integration,
-      false
+      useCache
     );
     await queryRunner.startAnalysis({
       settings: metricAnalysisSettings,

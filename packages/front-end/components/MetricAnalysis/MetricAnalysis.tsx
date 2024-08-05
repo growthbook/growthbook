@@ -1,17 +1,19 @@
 import React, { FC, useMemo, useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, UseFormReset } from "react-hook-form";
 import { FaQuestionCircle } from "react-icons/fa";
 import {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
   MetricAnalysisPopulationType,
   MetricAnalysisResult,
+  MetricAnalysisSettings,
 } from "back-end/types/metric-analysis";
 import { FactMetricInterface } from "back-end/types/fact-table";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import RunQueriesButton from "@/components/Queries/RunQueriesButton";
+import RunQueriesButton, {
+  getQueryStatus,
+} from "@/components/Queries/RunQueriesButton";
 import useApi from "@/hooks/useApi";
-import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Toggle from "@/components/Forms/Toggle";
 import DateGraph from "@/components/Metrics/DateGraph";
 import HistogramGraph from "@/components/MetricAnalysis/Histogram";
@@ -29,6 +31,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
+import QueriesLastRun from "@/components/Queries/QueriesLastRun";
+import MetricAnalysisMoreMenu from "@/components/MetricAnalysis/MetricAnalysisMoreMenu";
 
 function MetricAnalysisOverview({
   name,
@@ -114,6 +118,56 @@ function getLookbackSelected(lookbackDays: number): string {
   return [7, 14, 30].includes(lookbackDays) ? `${lookbackDays}` : `custom`;
 }
 
+function getDesiredSettings(
+  id: string,
+  values: MetricAnalysisFormFields,
+  endOfToday: Date
+): CreateMetricAnalysisProps {
+  const todayMinusLookback = new Date(endOfToday);
+  todayMinusLookback.setDate(
+    todayMinusLookback.getDate() - (values.lookbackDays as number)
+  );
+  todayMinusLookback.setHours(0, 0, 0, 0);
+
+  return {
+    id: id,
+    userIdType: values.userIdType,
+    lookbackDays: Number(values.lookbackDays),
+    startDate: todayMinusLookback.toISOString().substring(0, 16),
+    endDate: endOfToday.toISOString().substring(0, 16),
+    populationType: values.populationType,
+    populationId: values.populationId ?? null,
+  };
+}
+
+function settingsMatch(
+  settings: MetricAnalysisSettings,
+  desiredSettings: CreateMetricAnalysisProps
+) {
+  return (
+    settings.userIdType === desiredSettings.userIdType &&
+    settings.lookbackDays === desiredSettings.lookbackDays &&
+    settings.populationType === desiredSettings.populationType &&
+    settings.populationId === desiredSettings.populationId
+  );
+}
+
+function setAnalysisSettingsForm(
+  settings: MetricAnalysisSettings | undefined,
+  defaultUserIdType: string | undefined,
+  reset: UseFormReset<MetricAnalysisFormFields>
+) {
+  reset({
+    userIdType: settings?.userIdType ?? defaultUserIdType ?? "",
+    lookbackSelected: settings
+      ? getLookbackSelected(settings?.lookbackDays ?? 30)
+      : "custom",
+    lookbackDays: settings?.lookbackDays ?? 30,
+    populationType: settings?.populationType ?? "factTable",
+    populationId: settings?.populationId ?? null,
+  });
+}
+
 type MetricAnalysisFormFields = {
   userIdType: string;
 
@@ -153,6 +207,11 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
   const onHoverCallback = (ret: { d: number | null }) => {
     setHoverDate(ret.d);
   };
+
+  const endOfToday = new Date();
+  // use end of day to allow query caching to work within local working day
+  endOfToday.setHours(23, 59, 59, 999);
+
   // TODO fetching too much
   const { data, mutate } = useApi<{
     metricAnalysis: MetricAnalysisInterface;
@@ -163,6 +222,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
   const {
     reset,
     watch,
+    getValues,
     setValue,
     register,
   } = useForm<MetricAnalysisFormFields>({
@@ -183,21 +243,19 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
 
   // TODO better way to populate form/fields than the following
   useEffect(() => {
-    reset({
-      userIdType:
-        metricAnalysis?.settings?.userIdType ??
-        factTable?.userIdTypes?.[0] ??
-        "",
-      lookbackSelected: metricAnalysis?.settings
-        ? getLookbackSelected(metricAnalysis?.settings?.lookbackDays ?? 30)
-        : "custom",
-      lookbackDays: metricAnalysis?.settings?.lookbackDays ?? 30,
-      populationType: metricAnalysis?.settings?.populationType ?? "factTable",
-      populationId: metricAnalysis?.settings?.populationId ?? null,
-    });
+    setAnalysisSettingsForm(
+      metricAnalysis?.settings,
+      factTable?.userIdTypes[0],
+      reset
+    );
   }, [metricAnalysis, reset, factTable]);
 
   const hasQueries = (metricAnalysis?.queries ?? []).length > 0;
+
+  const { status: queryStatus } = getQueryStatus(
+    metricAnalysis?.queries || [],
+    metricAnalysis?.error
+  );
 
   const formatter = getExperimentMetricFormatter(factMetric, getFactTableById);
 
@@ -212,6 +270,13 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
   const canRunMetricQuery =
     datasource && permissionsUtil.canRunMetricQueries(datasource);
 
+  const desiredSettings = getDesiredSettings(
+    factMetric.id,
+    getValues(),
+    endOfToday
+  );
+  const matchedSettings =
+    metricAnalysis && settingsMatch(metricAnalysis.settings, desiredSettings);
   return (
     <div className="mb-4">
       <h3>Metric Analysis</h3>
@@ -220,7 +285,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
           <div className="col-auto form-inline pr-5">
             <div>
               <div className="uppercase-title text-muted">Date Range</div>
-              <div className="row">
+              <div className="row align-items-center">
                 <div className="col-auto">
                   <SelectField
                     containerClassName={"select-dropdown-underline"}
@@ -294,16 +359,11 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
             />
           </div>
           <div style={{ flex: 1 }} />
-          {hasQueries && (
-            <div className="row my-3">
-              <div className="col-auto">
-                <ViewAsyncQueriesButton
-                  queries={metricAnalysis?.queries.map((q) => q.query) ?? []}
-                  color={metricAnalysis?.status === "error" ? "danger" : "info"}
-                  error={metricAnalysis?.error}
-                />
-              </div>
-            </div>
+          {hasQueries && matchedSettings && (
+            <QueriesLastRun
+              status={queryStatus}
+              dateCreated={metricAnalysis?.dateCreated}
+            />
           )}
           <div className="col-auto">
             {canRunMetricQuery && (
@@ -311,26 +371,9 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                 onSubmit={async (e) => {
                   e.preventDefault();
                   try {
-                    const today = new Date();
-                    const todayMinusLookback = new Date();
-                    todayMinusLookback.setDate(
-                      todayMinusLookback.getDate() -
-                        (watch("lookbackDays") as number)
-                    );
-                    const data: CreateMetricAnalysisProps = {
-                      id: factMetric.id,
-                      userIdType: watch("userIdType"),
-                      lookbackDays: Number(watch("lookbackDays")),
-                      startDate: todayMinusLookback
-                        .toISOString()
-                        .substring(0, 16),
-                      endDate: today.toISOString().substring(0, 16),
-                      populationType: watch("populationType"),
-                      populationId: watch("populationId") ?? undefined,
-                    };
                     await apiCall(`/metric-analysis`, {
                       method: "POST",
-                      body: JSON.stringify(data),
+                      body: JSON.stringify(desiredSettings),
                     });
                     mutate();
                   } catch (e) {
@@ -354,219 +397,274 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
               </form>
             )}
           </div>
+          <div className="cols">
+            <MetricAnalysisMoreMenu
+              metricAnalysis={metricAnalysis}
+              forceRefresh={async () => {
+                try {
+                  const data: CreateMetricAnalysisProps = {
+                    ...desiredSettings,
+                    force: true,
+                  };
+                  await apiCall(`/metric-analysis`, {
+                    method: "POST",
+                    body: JSON.stringify(data),
+                  });
+                  mutate();
+                } catch (e) {
+                  console.error(e);
+                }
+              }}
+              canRunMetricQuery={canRunMetricQuery}
+            />
+          </div>
         </div>
 
-        {/* AVERAGE; N USERS WITH 0 */}
-        {metricAnalysis?.result && (
-          <MetricAnalysisOverview
-            name={factMetric.name}
-            metricType={factMetric.metricType}
-            userIdType={metricAnalysis.settings.userIdType}
-            result={metricAnalysis.result}
-            formatter={formatter}
-            numeratorFormatter={numeratorFormatter}
-            denominatorFormatter={denominatorFormatter}
-          />
-        )}
-        {metricAnalysis?.result?.dates &&
-          metricAnalysis.result.dates.length > 0 && (
-            <div className="mb-4">
-              <div className="row mt-3">
-                <div className="col-auto">
-                  <h4 className="mb-1 mt-1">
-                    {factMetric.metricType === "proportion"
-                      ? "Conversions"
-                      : "Metric Value"}{" "}
-                    Over Time
-                  </h4>
-                </div>
+        {metricAnalysis ? (
+          <>
+            {!matchedSettings ? (
+              <div className={`mt-2 alert alert-warning`}>
+                <span style={{ fontSize: "1.2em" }}>
+                  Analysis settings changed. Update results or{" "}
+                  <a
+                    role="button"
+                    className="btn-link"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setAnalysisSettingsForm(
+                        metricAnalysis?.settings,
+                        factTable?.userIdTypes[0],
+                        reset
+                      );
+                    }}
+                  >
+                    return to latest analysis
+                  </a>
+                  .
+                </span>
               </div>
-
-              {factMetric.metricType != "proportion" && (
-                <>
-                  <div className="row mt-4 mb-1">
-                    <div className="col">
-                      <Tooltip
-                        body={
-                          <>
-                            <p>
-                              This figure shows the average metric value on a
-                              day divided by number of unique units (e.g. users)
-                              <b> in the population</b> on that day. This means
-                              this time series only shows users in <b>both</b>{" "}
-                              the fact table and the population on that day.
-                            </p>
-                            <p>
-                              The standard deviation shows the spread of the
-                              daily user metric values.
-                            </p>
-                            <p>
-                              When smoothing is turned on, we simply average
-                              values and standard deviations over the 7 trailing
-                              days (including the selected day).
-                            </p>
-                          </>
-                        }
-                      >
-                        <strong className="ml-4 align-bottom">
-                          Daily Average <FaQuestionCircle />
-                        </strong>
-                      </Tooltip>
-                    </div>
-                    <div className="col">
-                      <div className="float-right mr-2">
-                        <label
-                          className="small my-0 mr-2 text-right align-middle"
-                          htmlFor="toggle-group-by-avg"
-                        >
-                          Smoothing
-                          <br />
-                          (7 day trailing)
-                        </label>
-                        <Toggle
-                          value={smoothByAvg === "week"}
-                          setValue={() =>
-                            setSmoothByAvg(
-                              smoothByAvg === "week" ? "day" : "week"
-                            )
-                          }
-                          id="toggle-group-by-avg"
-                          className="align-middle"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <DateGraph
-                    type={"count"}
-                    method="avg"
-                    dates={metricAnalysis.result.dates.map((d) => {
-                      return {
-                        d: d.date,
-                        v: d.mean,
-                        s: d.stddev,
-                        c: d.units,
-                      };
-                    })}
-                    smoothBy={smoothByAvg}
+            ) : (
+              <>
+                {metricAnalysis?.result && (
+                  <MetricAnalysisOverview
+                    name={factMetric.name}
+                    metricType={factMetric.metricType}
+                    userIdType={metricAnalysis.settings.userIdType}
+                    result={metricAnalysis.result}
                     formatter={formatter}
-                    onHover={onHoverCallback}
-                    hoverDate={hoverDate}
+                    numeratorFormatter={numeratorFormatter}
+                    denominatorFormatter={denominatorFormatter}
                   />
-                </>
-              )}
-
-              {factMetric.metricType !== "ratio" ? (
-                <>
-                  <div className="row mt-4 mb-1">
-                    <div className="col">
-                      <Tooltip
-                        body={
-                          <>
-                            {factMetric.metricType !== "proportion" ? (
-                              <>
-                                <p>
-                                  This figure shows the daily sum of values in
-                                  the metric source on that day.
-                                </p>
-                                <p>
-                                  When smoothing is turned on, we simply average
-                                  values over the 7 trailing days (including the
-                                  selected day).
-                                </p>
-                              </>
-                            ) : (
-                              <>
-                                <p>
-                                  This figure shows the total count of units
-                                  (e.g. users) in the metric source on that day.
-                                </p>
-                                <p>
-                                  When smoothing is turned on, we simply average
-                                  counts over the 7 trailing days (including the
-                                  selected day).
-                                </p>
-                              </>
-                            )}
-                          </>
-                        }
-                      >
-                        <strong className="ml-4 align-bottom">
-                          Daily{" "}
-                          {factMetric.metricType !== "proportion"
-                            ? "Sum"
-                            : "Count"}{" "}
-                          <FaQuestionCircle />
-                        </strong>
-                      </Tooltip>
-                    </div>
-                    <div className="col">
-                      <div className="float-right mr-2">
-                        <label
-                          className="small my-0 mr-2 text-right align-middle"
-                          htmlFor="toggle-group-by-sum"
-                        >
-                          Smoothing
-                          <br />
-                          (7 day trailing)
-                        </label>
-                        <Toggle
-                          value={smoothBySum === "week"}
-                          setValue={() =>
-                            setSmoothBySum(
-                              smoothBySum === "week" ? "day" : "week"
-                            )
-                          }
-                          id="toggle-group-by-sum"
-                          className="align-middle"
-                        />
+                )}
+                {metricAnalysis?.result?.dates &&
+                  metricAnalysis.result.dates.length > 0 && (
+                    <div className="mb-4">
+                      <div className="row mt-3">
+                        <div className="col-auto">
+                          <h4 className="mb-1 mt-1">
+                            {factMetric.metricType === "proportion"
+                              ? "Conversions"
+                              : "Metric Value"}{" "}
+                            Over Time
+                          </h4>
+                        </div>
                       </div>
+
+                      {factMetric.metricType != "proportion" && (
+                        <>
+                          <div className="row mt-4 mb-1">
+                            <div className="col">
+                              <Tooltip
+                                body={
+                                  <>
+                                    <p>
+                                      This figure shows the average metric value
+                                      on a day divided by number of unique units
+                                      (e.g. users)
+                                      <b> in the population</b> on that day.
+                                      This means this time series only shows
+                                      users in <b>both</b> the fact table and
+                                      the population on that day.
+                                    </p>
+                                    <p>
+                                      The standard deviation shows the spread of
+                                      the daily user metric values.
+                                    </p>
+                                    <p>
+                                      When smoothing is turned on, we simply
+                                      average values and standard deviations
+                                      over the 7 trailing days (including the
+                                      selected day).
+                                    </p>
+                                  </>
+                                }
+                              >
+                                <strong className="ml-4 align-bottom">
+                                  Daily Average <FaQuestionCircle />
+                                </strong>
+                              </Tooltip>
+                            </div>
+                            <div className="col">
+                              <div className="float-right mr-2">
+                                <label
+                                  className="small my-0 mr-2 text-right align-middle"
+                                  htmlFor="toggle-group-by-avg"
+                                >
+                                  Smoothing
+                                  <br />
+                                  (7 day trailing)
+                                </label>
+                                <Toggle
+                                  value={smoothByAvg === "week"}
+                                  setValue={() =>
+                                    setSmoothByAvg(
+                                      smoothByAvg === "week" ? "day" : "week"
+                                    )
+                                  }
+                                  id="toggle-group-by-avg"
+                                  className="align-middle"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          <DateGraph
+                            type={"count"}
+                            method="avg"
+                            dates={metricAnalysis.result.dates.map((d) => {
+                              return {
+                                d: d.date,
+                                v: d.mean,
+                                s: d.stddev,
+                                c: d.units,
+                              };
+                            })}
+                            smoothBy={smoothByAvg}
+                            formatter={formatter}
+                            onHover={onHoverCallback}
+                            hoverDate={hoverDate}
+                          />
+                        </>
+                      )}
+
+                      {factMetric.metricType !== "ratio" ? (
+                        <>
+                          <div className="row mt-4 mb-1">
+                            <div className="col">
+                              <Tooltip
+                                body={
+                                  <>
+                                    {factMetric.metricType !== "proportion" ? (
+                                      <>
+                                        <p>
+                                          This figure shows the daily sum of
+                                          values in the metric source on that
+                                          day.
+                                        </p>
+                                        <p>
+                                          When smoothing is turned on, we simply
+                                          average values over the 7 trailing
+                                          days (including the selected day).
+                                        </p>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <p>
+                                          This figure shows the total count of
+                                          units (e.g. users) in the metric
+                                          source on that day.
+                                        </p>
+                                        <p>
+                                          When smoothing is turned on, we simply
+                                          average counts over the 7 trailing
+                                          days (including the selected day).
+                                        </p>
+                                      </>
+                                    )}
+                                  </>
+                                }
+                              >
+                                <strong className="ml-4 align-bottom">
+                                  Daily{" "}
+                                  {factMetric.metricType !== "proportion"
+                                    ? "Sum"
+                                    : "Count"}{" "}
+                                  <FaQuestionCircle />
+                                </strong>
+                              </Tooltip>
+                            </div>
+                            <div className="col">
+                              <div className="float-right mr-2">
+                                <label
+                                  className="small my-0 mr-2 text-right align-middle"
+                                  htmlFor="toggle-group-by-sum"
+                                >
+                                  Smoothing
+                                  <br />
+                                  (7 day trailing)
+                                </label>
+                                <Toggle
+                                  value={smoothBySum === "week"}
+                                  setValue={() =>
+                                    setSmoothBySum(
+                                      smoothBySum === "week" ? "day" : "week"
+                                    )
+                                  }
+                                  id="toggle-group-by-sum"
+                                  className="align-middle"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          <DateGraph
+                            type={
+                              factMetric.metricType === "proportion"
+                                ? "binomial"
+                                : "count"
+                            }
+                            method="sum"
+                            dates={metricAnalysis.result.dates.map((d) => {
+                              return {
+                                d: d.date,
+                                v: d.mean,
+                                s: d.stddev,
+                                c: d.units,
+                                num: d.numerator,
+                                den: d.denominator,
+                              };
+                            })}
+                            smoothBy={smoothBySum}
+                            formatter={formatter}
+                            onHover={onHoverCallback}
+                            hoverDate={hoverDate}
+                          />
+                        </>
+                      ) : null}
                     </div>
-                  </div>
-                  <DateGraph
-                    type={
-                      factMetric.metricType === "proportion"
-                        ? "binomial"
-                        : "count"
-                    }
-                    method="sum"
-                    dates={metricAnalysis.result.dates.map((d) => {
-                      return {
-                        d: d.date,
-                        v: d.mean,
-                        s: d.stddev,
-                        c: d.units,
-                        num: d.numerator,
-                        den: d.denominator,
-                      };
-                    })}
-                    smoothBy={smoothBySum}
-                    formatter={formatter}
-                    onHover={onHoverCallback}
-                    hoverDate={hoverDate}
-                  />
-                </>
-              ) : null}
-            </div>
-          )}
-        {metricAnalysis?.result?.histogram &&
-          metricAnalysis.result.histogram.length > 0 &&
-          factMetric.metricType !== "proportion" && (
-            <div className="mb-4">
-              <div className="row mt-3">
-                <div className="col-auto">
-                  <h4 className="mb-1 mt-1">
-                    Histogram of Metric value by{" "}
-                    <code>{metricAnalysis.settings.userIdType}</code> Totals
-                  </h4>
-                </div>
-              </div>
-              <HistogramGraph
-                data={metricAnalysis.result.histogram}
-                userIdType={metricAnalysis.settings.userIdType}
-                formatter={formatter}
-              />
-            </div>
-          )}
+                  )}
+                {metricAnalysis?.result?.histogram &&
+                  metricAnalysis.result.histogram.length > 0 &&
+                  factMetric.metricType !== "proportion" && (
+                    <div className="mb-4">
+                      <div className="row mt-3">
+                        <div className="col-auto">
+                          <h4 className="mb-1 mt-1">
+                            Histogram of Metric value by{" "}
+                            <code>{metricAnalysis.settings.userIdType}</code>{" "}
+                            Totals
+                          </h4>
+                        </div>
+                      </div>
+                      <HistogramGraph
+                        data={metricAnalysis.result.histogram}
+                        userIdType={metricAnalysis.settings.userIdType}
+                        formatter={formatter}
+                      />
+                    </div>
+                  )}
+              </>
+            )}
+          </>
+        ) : null}
       </div>
     </div>
   );

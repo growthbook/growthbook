@@ -30,7 +30,8 @@ export const createMetricAnalysisPropsValidator = z
     startDate: z.string(),
     endDate: z.string(),
     populationType: metricAnalysisPopulationTypeValidator,
-    populationId: z.string().optional(),
+    populationId: z.string().nullable(),
+    force: z.boolean().optional(),
   })
   .strict();
 
