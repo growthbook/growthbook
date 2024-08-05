@@ -71,17 +71,14 @@ describe("dataSourceModel", () => {
   // We just need a few properties of the context for these tests
   const partialContext: Pick<ReqContext, "permissions" | "org"> = {
     org,
-    permissions: new Permissions(
-      {
-        global: {
-          permissions: roleToPermissionMap("admin", org),
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    permissions: new Permissions({
+      global: {
+        permissions: roleToPermissionMap("admin", org),
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-      false
-    ),
+      projects: {},
+    }),
   };
   const context = (partialContext as unknown) as ReqContext;
 

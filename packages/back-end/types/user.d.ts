@@ -1,14 +1,4 @@
-export interface UserInterface {
-  id: string;
-  name?: string;
-  email: string;
-  verified: boolean;
-  passwordHash?: string;
-  superAdmin: boolean;
-  minTokenDate?: Date;
-  agreedToTerms?: boolean;
-  dateCreated?: Date;
-}
+export { UserInterface } from "../src/validators/users";
 
 export interface UserRef {
   id: string;
