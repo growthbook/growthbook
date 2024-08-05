@@ -104,7 +104,6 @@ export class GrowthBook<
   >;
   private _triggeredExpKeys: Set<string>;
   private _initialized: boolean;
-  private _activeTrackingCall: Promise<void>;
   private _deferredTrackingCalls: Map<string, TrackingData>;
   private _unsetAntiFlickerTimeout: number | undefined;
   private _isNavigating: boolean;
@@ -136,7 +135,6 @@ export class GrowthBook<
     this._triggeredExpKeys = new Set();
     this._initialized = false;
     this._redirectedUrl = "";
-    this._activeTrackingCall = Promise.resolve();
     this._deferredTrackingCalls = new Map();
     this._autoExperimentsAllowed = !context.disableExperimentsOnLoad;
     this._isNavigating = false;
@@ -656,7 +654,7 @@ export class GrowthBook<
   }
 
   public run<T>(experiment: Experiment<T>): Result<T> {
-    const result = this._run(experiment, null);
+    const { result } = this._run(experiment, null);
     this._fireSubscriptions(experiment, result);
     return result;
   }
@@ -694,13 +692,17 @@ export class GrowthBook<
     if (isBlocked) {
       process.env.NODE_ENV !== "production" &&
         this.log("Auto experiment blocked", { id: experiment.key });
-      this._unsetAntiFlicker();
     }
 
+    let result: Result<AutoExperimentVariation> | undefined;
+    let trackingCall: Promise<void> | undefined;
     // Run the experiment (if blocked exclude)
-    const result = isBlocked
-      ? this._getResult(experiment, -1, false, "")
-      : this.run(experiment);
+    if (isBlocked) {
+      result = this._getResult(experiment, -1, false, "");
+    } else {
+      ({ result, trackingCall } = this._run(experiment, null));
+      this._fireSubscriptions(experiment, result);
+    }
 
     // A hash to quickly tell if the assigned value changed
     const valueHash = JSON.stringify(result.value);
@@ -749,10 +751,14 @@ export class GrowthBook<
             this._setAntiFlicker(true);
             // Wait for the possibly-async tracking callback, bound by min and max delays
             Promise.all([
-              promiseTimeout(
-                this._activeTrackingCall,
-                this._ctx.maxNavigateDelay ?? 3000
-              ),
+              ...(trackingCall
+                ? [
+                    promiseTimeout(
+                      trackingCall,
+                      this._ctx.maxNavigateDelay ?? 3000
+                    ),
+                  ]
+                : []),
               new Promise((resolve) =>
                 window.setTimeout(resolve, this._ctx.navigateDelay ?? 100)
               ),
@@ -1130,16 +1136,16 @@ export class GrowthBook<
         if (rule.condition) exp.condition = rule.condition;
 
         // Only return a value if the user is part of the experiment
-        const res = this._run(exp, id);
-        this._fireSubscriptions(exp, res);
-        if (res.inExperiment && !res.passthrough) {
+        const { result } = this._run(exp, id);
+        this._fireSubscriptions(exp, result);
+        if (result.inExperiment && !result.passthrough) {
           return this._getFeatureResult(
             id,
-            res.value,
+            result.value,
             "experiment",
             rule.id,
             exp,
-            res
+            result
           );
         }
       }
@@ -1210,7 +1216,10 @@ export class GrowthBook<
   private _run<T>(
     experiment: Experiment<T>,
     featureId: string | null
-  ): Result<T> {
+  ): {
+    result: Result<T>;
+    trackingCall?: Promise<void>;
+  } {
     const key = experiment.key;
     const numVariations = experiment.variations.length;
 
@@ -1218,14 +1227,14 @@ export class GrowthBook<
     if (numVariations < 2) {
       process.env.NODE_ENV !== "production" &&
         this.log("Invalid experiment", { id: key });
-      return this._getResult(experiment, -1, false, featureId);
+      return { result: this._getResult(experiment, -1, false, featureId) };
     }
 
     // 2. If the context is disabled, return immediately
     if (this._ctx.enabled === false) {
       process.env.NODE_ENV !== "production" &&
         this.log("Context disabled", { id: key });
-      return this._getResult(experiment, -1, false, featureId);
+      return { result: this._getResult(experiment, -1, false, featureId) };
     }
 
     // 2.5. Merge in experiment overrides from the context
@@ -1240,7 +1249,7 @@ export class GrowthBook<
         this.log("Skip because of url targeting", {
           id: key,
         });
-      return this._getResult(experiment, -1, false, featureId);
+      return { result: this._getResult(experiment, -1, false, featureId) };
     }
 
     // 3. If a variation is forced from a querystring, return the forced variation
@@ -1255,7 +1264,9 @@ export class GrowthBook<
           id: key,
           variation: qsOverride,
         });
-      return this._getResult(experiment, qsOverride, false, featureId);
+      return {
+        result: this._getResult(experiment, qsOverride, false, featureId),
+      };
     }
 
     // 4. If a variation is forced in the context, return the forced variation
@@ -1266,7 +1277,9 @@ export class GrowthBook<
           id: key,
           variation,
         });
-      return this._getResult(experiment, variation, false, featureId);
+      return {
+        result: this._getResult(experiment, variation, false, featureId),
+      };
     }
 
     // 5. Exclude if a draft experiment or not active
@@ -1275,7 +1288,7 @@ export class GrowthBook<
         this.log("Skip because inactive", {
           id: key,
         });
-      return this._getResult(experiment, -1, false, featureId);
+      return { result: this._getResult(experiment, -1, false, featureId) };
     }
 
     // 6. Get the hash attribute and return if empty
@@ -1290,7 +1303,7 @@ export class GrowthBook<
         this.log("Skip because missing hashAttribute", {
           id: key,
         });
-      return this._getResult(experiment, -1, false, featureId);
+      return { result: this._getResult(experiment, -1, false, featureId) };
     }
 
     let assigned = -1;
@@ -1320,7 +1333,7 @@ export class GrowthBook<
             this.log("Skip because of filters", {
               id: key,
             });
-          return this._getResult(experiment, -1, false, featureId);
+          return { result: this._getResult(experiment, -1, false, featureId) };
         }
       } else if (
         experiment.namespace &&
@@ -1330,7 +1343,7 @@ export class GrowthBook<
           this.log("Skip because of namespace", {
             id: key,
           });
-        return this._getResult(experiment, -1, false, featureId);
+        return { result: this._getResult(experiment, -1, false, featureId) };
       }
 
       // 7.5. Exclude if experiment.include returns false or throws
@@ -1339,7 +1352,7 @@ export class GrowthBook<
           this.log("Skip because of include function", {
             id: key,
           });
-        return this._getResult(experiment, -1, false, featureId);
+        return { result: this._getResult(experiment, -1, false, featureId) };
       }
 
       // 8. Exclude if condition is false
@@ -1351,7 +1364,7 @@ export class GrowthBook<
           this.log("Skip because of condition exp", {
             id: key,
           });
-        return this._getResult(experiment, -1, false, featureId);
+        return { result: this._getResult(experiment, -1, false, featureId) };
       }
 
       // 8.05. Exclude if prerequisites are not met
@@ -1360,7 +1373,9 @@ export class GrowthBook<
           const parentResult = this._evalFeature(parentCondition.id);
           // break out for cyclic prerequisites
           if (parentResult.source === "cyclicPrerequisite") {
-            return this._getResult(experiment, -1, false, featureId);
+            return {
+              result: this._getResult(experiment, -1, false, featureId),
+            };
           }
 
           const evalObj = { value: parentResult.value };
@@ -1369,7 +1384,9 @@ export class GrowthBook<
               this.log("Skip because prerequisite evaluation fails", {
                 id: key,
               });
-            return this._getResult(experiment, -1, false, featureId);
+            return {
+              result: this._getResult(experiment, -1, false, featureId),
+            };
           }
         }
       }
@@ -1383,7 +1400,7 @@ export class GrowthBook<
           this.log("Skip because of groups", {
             id: key,
           });
-        return this._getResult(experiment, -1, false, featureId);
+        return { result: this._getResult(experiment, -1, false, featureId) };
       }
     }
 
@@ -1393,7 +1410,7 @@ export class GrowthBook<
         this.log("Skip because of url", {
           id: key,
         });
-      return this._getResult(experiment, -1, false, featureId);
+      return { result: this._getResult(experiment, -1, false, featureId) };
     }
 
     // 9. Get the variation from the sticky bucket or get bucket ranges and choose variation
@@ -1407,7 +1424,7 @@ export class GrowthBook<
         this.log("Skip because of invalid hash version", {
           id: key,
         });
-      return this._getResult(experiment, -1, false, featureId);
+      return { result: this._getResult(experiment, -1, false, featureId) };
     }
 
     if (!foundStickyBucket) {
@@ -1427,7 +1444,16 @@ export class GrowthBook<
         this.log("Skip because sticky bucket version is blocked", {
           id: key,
         });
-      return this._getResult(experiment, -1, false, featureId, undefined, true);
+      return {
+        result: this._getResult(
+          experiment,
+          -1,
+          false,
+          featureId,
+          undefined,
+          true
+        ),
+      };
     }
 
     // 10. Return if not in experiment
@@ -1436,7 +1462,7 @@ export class GrowthBook<
         this.log("Skip because of coverage", {
           id: key,
         });
-      return this._getResult(experiment, -1, false, featureId);
+      return { result: this._getResult(experiment, -1, false, featureId) };
     }
 
     // 11. Experiment has a forced variation
@@ -1446,12 +1472,14 @@ export class GrowthBook<
           id: key,
           variation: experiment.force,
         });
-      return this._getResult(
-        experiment,
-        experiment.force === undefined ? -1 : experiment.force,
-        false,
-        featureId
-      );
+      return {
+        result: this._getResult(
+          experiment,
+          experiment.force === undefined ? -1 : experiment.force,
+          false,
+          featureId
+        ),
+      };
     }
 
     // 12. Exclude if in QA mode
@@ -1460,7 +1488,7 @@ export class GrowthBook<
         this.log("Skip because QA mode", {
           id: key,
         });
-      return this._getResult(experiment, -1, false, featureId);
+      return { result: this._getResult(experiment, -1, false, featureId) };
     }
 
     // 12.5. Exclude if experiment is stopped
@@ -1469,7 +1497,7 @@ export class GrowthBook<
         this.log("Skip because stopped", {
           id: key,
         });
-      return this._getResult(experiment, -1, false, featureId);
+      return { result: this._getResult(experiment, -1, false, featureId) };
     }
 
     // 13. Build the result object
@@ -1510,7 +1538,7 @@ export class GrowthBook<
 
     // 14. Fire the tracking callback
     // Store the promise in case we're awaiting it (ex: browser url redirects)
-    this._activeTrackingCall = this._track(experiment, result);
+    const trackingCall = this._track(experiment, result);
 
     // 14.1 Keep track of completed changeIds
     "changeId" in experiment &&
@@ -1523,7 +1551,7 @@ export class GrowthBook<
         id: key,
         variation: result.variationId,
       });
-    return result;
+    return { result, trackingCall };
   }
 
   log(msg: string, ctx: Record<string, unknown>) {
