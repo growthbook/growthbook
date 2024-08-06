@@ -14,8 +14,6 @@ export interface Props {
 
   userIdType: string;
   datasourceId: string;
-
-  labelClassName?: string;
 }
 
 export default function PopulationChooser({
@@ -24,7 +22,6 @@ export default function PopulationChooser({
   setPopulationValue,
   userIdType,
   datasourceId,
-  labelClassName,
 }: Props) {
   const { getDatasourceById, segments } = useDefinitions();
   const { hasCommercialFeature } = useUser();
@@ -65,7 +62,6 @@ export default function PopulationChooser({
         </Tooltip>
       </div>
       <SelectField
-        labelClassName={labelClassName}
         containerClassName={"select-dropdown-underline"}
         options={[
           {

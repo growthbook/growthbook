@@ -128,17 +128,13 @@ export async function cancelMetricAnalysis(
 
 export async function getLatestMetricAnalysis(
   req: AuthRequest<null, { metricid: string }>,
-  res: Response<{ status: 200; metricAnalysis: MetricAnalysisInterface }>
+  res: Response<{ status: 200; metricAnalysis: MetricAnalysisInterface | null }>
 ) {
   const context = getContextFromReq(req);
 
   const metricAnalysis = await context.models.metricAnalysis.findLatestByMetric(
     req.params.metricid
   );
-
-  if (!metricAnalysis) {
-    throw new Error("Metric analysis not found");
-  }
 
   res.status(200).json({
     status: 200,

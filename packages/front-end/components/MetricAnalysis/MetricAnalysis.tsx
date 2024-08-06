@@ -222,7 +222,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
 
   // TODO fetching too much
   const { data, mutate } = useApi<{
-    metricAnalysis: MetricAnalysisInterface;
+    metricAnalysis: MetricAnalysisInterface | null;
   }>(`/metric-analysis/metric/${factMetric.id}`);
 
   const metricAnalysis = data?.metricAnalysis;
@@ -244,7 +244,6 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
 
   // TODO better way to populate form/fields than the following
   useEffect(() => {
-    console.log(metricAnalysis?.settings);
     reset(
       getAnalysisSettingsForm(metricAnalysis?.settings, factTable?.userIdTypes)
     );
