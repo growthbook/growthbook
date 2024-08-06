@@ -15,7 +15,7 @@ import {
   getEnvironments,
   getContextFromReq,
 } from "../../services/organizations";
-import { EventAuditUserForResponseLocals } from "../../events/event-types";
+import { EventUserForResponseLocals } from "../../events/event-types";
 import { Environment } from "../../../types/organization";
 import { addEnvironmentToOrganizationEnvironments } from "../../util/environments";
 import { updateOrganization } from "../../models/OrganizationModel";
@@ -255,7 +255,7 @@ export const postEnvironment = async (
   req: AuthRequest<CreateEnvironmentProps>,
   res: Response<
     CreateEnvironmentResponse | PrivateApiErrorResponse,
-    EventAuditUserForResponseLocals
+    EventUserForResponseLocals
   >
 ) => {
   const { environment } = req.body;

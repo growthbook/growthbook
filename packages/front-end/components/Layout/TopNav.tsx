@@ -54,9 +54,21 @@ const TopNav: FC<{
 
   const { breadcrumb } = usePageHead();
 
-  const { updateUser, name, email } = useUser();
+  const { updateUser, name, email, organization } = useUser();
 
   const { apiCall, logout, organizations, orgId, setOrgId } = useAuth();
+
+  // The current org might not be in the organizations list if the user is a superAdmin
+  // and selected the org from the /admin page. So we add it here.
+  if (
+    organizations &&
+    organization.id &&
+    organization.name &&
+    !organizations.some((org) => org.id === organization.id)
+  ) {
+    organizations.push({ id: organization.id, name: organization.name });
+  }
+
   const { setTheme, preferredTheme } = useAppearanceUITheme();
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
   useGlobalMenu(".top-nav-org-menu", () => setOrgDropdownOpen(false));

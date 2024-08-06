@@ -30,7 +30,7 @@ import {
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
 } from "../util/features";
-import { EventAuditUser } from "../events/event-types";
+import { EventUser } from "../events/event-types";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { logger } from "../util/logger";
 import { getEnvironmentIdsFromOrg } from "../services/organizations";
@@ -48,6 +48,7 @@ import {
   createInitialRevision,
   createRevisionFromLegacyDraft,
   deleteAllRevisionsForFeature,
+  getRevision,
   hasDraft,
   markRevisionAsPublished,
   updateRevision,
@@ -380,18 +381,29 @@ async function logFeatureUpdatedEvent(
 ): Promise<string | undefined> {
   const groupMap = await getSavedGroupMap(context.org);
   const experimentMap = await getExperimentMapForFeature(context, current.id);
-
+  const currentRevision = await getRevision(
+    current.organization,
+    current.id,
+    current.version
+  );
+  const previousRevision = await getRevision(
+    previous.organization,
+    previous.id,
+    previous.version
+  );
   const currentApiFeature = getApiFeatureObj({
     feature: current,
     organization: context.org,
     groupMap,
     experimentMap,
+    revision: currentRevision,
   });
   const previousApiFeature = getApiFeatureObj({
     feature: previous,
     organization: context.org,
     groupMap,
     experimentMap,
+    revision: previousRevision,
   });
 
   const payload: FeatureUpdatedNotificationEvent = {
@@ -433,12 +445,17 @@ async function logFeatureCreatedEvent(
 ): Promise<string | undefined> {
   const groupMap = await getSavedGroupMap(context.org);
   const experimentMap = await getExperimentMapForFeature(context, feature.id);
-
+  const revision = await getRevision(
+    feature.organization,
+    feature.id,
+    feature.version
+  );
   const apiFeature = getApiFeatureObj({
     feature,
     organization: context.org,
     groupMap,
     experimentMap,
+    revision,
   });
 
   const payload: FeatureCreatedNotificationEvent = {
@@ -474,12 +491,17 @@ async function logFeatureDeletedEvent(
     context,
     previousFeature.id
   );
-
+  const revision = await getRevision(
+    previousFeature.organization,
+    previousFeature.id,
+    previousFeature.version
+  );
   const apiFeature = getApiFeatureObj({
     feature: previousFeature,
     organization: context.org,
     groupMap,
     experimentMap,
+    revision,
   });
 
   const payload: FeatureDeletedNotificationEvent = {
@@ -703,7 +725,7 @@ export async function addFeatureRule(
   revision: FeatureRevisionInterface,
   env: string,
   rule: FeatureRule,
-  user: EventAuditUser,
+  user: EventUser,
   resetReview: boolean
 ) {
   if (!rule.id) {
@@ -734,7 +756,7 @@ export async function editFeatureRule(
   environment: string,
   i: number,
   updates: Partial<FeatureRule>,
-  user: EventAuditUser,
+  user: EventUser,
   resetReview: boolean
 ) {
   const changes = { rules: revision.rules || {}, status: revision.status };
@@ -812,7 +834,7 @@ export async function removeProjectFromFeatures(
 export async function setDefaultValue(
   revision: FeatureRevisionInterface,
   defaultValue: string,
-  user: EventAuditUser,
+  user: EventUser,
   requireReview: boolean
 ) {
   await updateRevision(

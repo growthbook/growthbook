@@ -22,6 +22,7 @@ import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { usesEventName } from "@/components/Metrics/MetricForm";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function FactTablePage() {
   const router = useRouter();
@@ -85,7 +86,20 @@ export default function FactTablePage() {
       )}
       {editProjectsOpen && (
         <EditProjectsForm
-          projects={factTable.projects}
+          label={
+            <>
+              Projects{" "}
+              <Tooltip
+                body={
+                  "The dropdown below has been filtered to only include projects where you have permission to update Fact Tables"
+                }
+              />
+            </>
+          }
+          value={factTable.projects}
+          permissionRequired={(project) =>
+            permissionsUtil.canUpdateFactTable({ projects: [project] }, {})
+          }
           cancel={() => setEditProjectsOpen(false)}
           save={async (projects) => {
             await apiCall(`/fact-tables/${factTable.id}`, {

@@ -13,4 +13,5 @@ export interface PrestoConnectionParams {
   caCert?: string;
   clientCert?: string;
   clientKey?: string;
+  requestTimeout?: number;
 }

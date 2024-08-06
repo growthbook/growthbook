@@ -362,9 +362,10 @@ export default function RuleModal({
                 feature.project || ""
               ),
               hashAttribute: values.hashAttribute,
-              metrics: [],
+              goalMetrics: [],
+              secondaryMetrics: [],
+              guardrailMetrics: [],
               activationMetric: "",
-              guardrails: [],
               name: values.name,
               hashVersion: hasSDKWithNoBucketingV2 ? 1 : 2,
               owner: "",

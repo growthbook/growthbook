@@ -68,7 +68,10 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     // transform into exp interface; set sane defaults
     const newExperiment = postExperimentApiPayloadToInterface(
-      { ...req.body, ...(ownerId ? { owner: ownerId } : {}) },
+      {
+        ...req.body,
+        ...(ownerId ? { owner: ownerId } : {}),
+      },
       req.organization,
       datasource
     );

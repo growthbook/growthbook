@@ -6,7 +6,7 @@ import { zodNotificationEventNamesEnum } from "../../events/base-types";
 import {
   eventWebHookMethods,
   eventWebHookPayloadTypes,
-} from "../../types/EventWebHook";
+} from "../../validators/event-webhook";
 import * as rawEventWebHooksController from "./event-webhooks.controller";
 
 const router = express.Router();
@@ -120,6 +120,20 @@ router.put(
       .strict(),
   }),
   eventWebHooksController.putEventWebHook
+);
+
+router.post(
+  "/event-webhooks/test-params",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        name: z.string().trim().min(1),
+        method: z.enum(eventWebHookMethods),
+        url: z.string().trim().min(1),
+      })
+      .strict(),
+  }),
+  eventWebHooksController.testWebHookParams
 );
 
 router.post(
