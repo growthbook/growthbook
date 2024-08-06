@@ -360,9 +360,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
           </div>
           <div className="my-3 bg-white p-3 border">
             <div className="row">
-              <div className="col-sm-3">
+              <div className="col-sm-3 h4">
                 <PremiumTooltip commercialFeature="custom-markdown">
-                  <h4>Custom Markdown</h4>
+                  Custom Markdown
                 </PremiumTooltip>
               </div>
               <div className="col-sm-9">

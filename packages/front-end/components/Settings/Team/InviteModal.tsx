@@ -22,7 +22,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   mutate,
   close,
 }) => {
-  const { license, seatsInUse, organization } = useUser();
+  const { license, seatsInUse, organization, effectiveAccountPlan } = useUser();
 
   const form = useForm<{
     email: string[];
@@ -53,7 +53,10 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   );
 
   const [showContactSupport, setShowContactSupport] = useState(
-    license && license.hardCap && license.seats <= seatsInUse
+    ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan || "") &&
+      license &&
+      license.hardCap &&
+      license.seats <= seatsInUse
   );
 
   // Hit their free limit and needs to upgrade to invite more team members
@@ -96,6 +99,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     }
 
     if (
+      ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan || "") &&
       license &&
       license.hardCap &&
       license.seats < seatsInUse + value.email.length

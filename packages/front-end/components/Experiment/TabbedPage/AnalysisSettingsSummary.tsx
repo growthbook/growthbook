@@ -14,6 +14,7 @@ import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot"
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { ago, datetime } from "shared/dates";
 import clsx from "clsx";
+import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBEdit } from "@/components/Icons";
@@ -125,17 +126,22 @@ export default function AnalysisSettingsSummary({
   );
 
   const goals: string[] = [];
-  experiment.metrics?.forEach((m) => {
+  experiment.goalMetrics?.forEach((m) => {
     const name = getExperimentMetricById(m)?.name;
     if (name) goals.push(name);
   });
+  const secondary: string[] = [];
+  experiment.secondaryMetrics?.forEach((m) => {
+    const name = getExperimentMetricById(m)?.name;
+    if (name) secondary.push(name);
+  });
   const guardrails: string[] = [];
-  experiment.guardrails?.forEach((m) => {
+  experiment.guardrailMetrics?.forEach((m) => {
     const name = getExperimentMetricById(m)?.name;
     if (name) guardrails.push(name);
   });
 
-  const numMetrics = goals.length + guardrails.length;
+  const numMetrics = goals.length + secondary.length + guardrails.length;
 
   const items: {
     value: string | number | ReactElement;
@@ -191,6 +197,18 @@ export default function AnalysisSettingsSummary({
             {goals.length > 0 ? (
               <ul className=" ml-0 pl-3 mb-0">
                 {goals.map((m, i) => (
+                  <li key={i}>{m}</li>
+                ))}
+              </ul>
+            ) : (
+              <em>none</em>
+            )}
+          </div>
+          <div className="mb-2 text-left">
+            <strong>Secondary Metrics:</strong>
+            {secondary.length > 0 ? (
+              <ul className=" ml-0 pl-3 mb-0">
+                {secondary.map((m, i) => (
                   <li key={i}>{m}</li>
                 ))}
               </ul>
@@ -339,7 +357,7 @@ export default function AnalysisSettingsSummary({
         </div>
 
         {(!ds || permissionsUtil.canRunExperimentQueries(ds)) &&
-          experiment.metrics.length > 0 && (
+          numMetrics > 0 && (
             <div className="col-auto">
               {experiment.datasource && latest && latest.queries?.length > 0 ? (
                 <form
@@ -450,8 +468,7 @@ export default function AnalysisSettingsSummary({
             id={snapshot?.id || ""}
             datasource={datasource}
             forceRefresh={
-              experiment.metrics.length > 0 ||
-              (experiment.guardrails?.length ?? 0) > 0
+              numMetrics > 0
                 ? async () => {
                     await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
                       `/experiment/${experiment.id}/snapshot?force=true`,
@@ -496,7 +513,7 @@ export default function AnalysisSettingsSummary({
             queryError={snapshot?.error}
             supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
             hasData={hasData}
-            metrics={[...experiment.metrics, ...(experiment.guardrails || [])]}
+            metrics={getAllMetricIdsFromExperiment(experiment, false)}
             results={analysis?.results}
             variations={variations}
             trackingKey={experiment.trackingKey}

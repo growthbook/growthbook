@@ -7,7 +7,7 @@ import {
   OrganizationInterface,
   UserPermissions,
 } from "../../types/organization";
-import { EventAuditUser } from "../events/event-types";
+import { EventUser } from "../events/event-types";
 import {
   getUserPermissions,
   roleToPermissionMap,
@@ -59,7 +59,7 @@ export class ReqContextClass {
   public role?: string;
   public isApiRequest = false;
   public environments: string[];
-  public auditUser: EventAuditUser;
+  public auditUser: EventUser;
   public apiKey?: string;
   public req?: Request;
   public logger: pino.BaseLogger;
@@ -86,7 +86,7 @@ export class ReqContextClass {
     apiKey?: string;
     role?: string;
     teams?: TeamInterface[];
-    auditUser: EventAuditUser;
+    auditUser: EventUser;
     req?: Request;
   }) {
     this.org = org;
@@ -112,7 +112,7 @@ export class ReqContextClass {
       this.email = user.email;
       this.userName = user.name || "";
       this.superAdmin = user.superAdmin || false;
-      this.userPermissions = getUserPermissions(user.id, org, teams || []);
+      this.userPermissions = getUserPermissions(user, org, teams || []);
     }
     // If an API key or background job is making this request
     else {
@@ -130,7 +130,7 @@ export class ReqContextClass {
       };
     }
 
-    this.permissions = new Permissions(this.userPermissions, this.superAdmin);
+    this.permissions = new Permissions(this.userPermissions);
 
     this.initModels();
   }

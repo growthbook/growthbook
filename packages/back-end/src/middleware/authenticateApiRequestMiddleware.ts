@@ -4,7 +4,7 @@ import { ApiRequestLocals } from "../../types/api";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import { getOrganizationById } from "../services/organizations";
 import { getCustomLogProps } from "../util/logger";
-import { EventAuditUserApiKey } from "../events/event-types";
+import { EventUserApiKey } from "../events/event-types";
 import { isApiKeyForUserInOrganization } from "../util/api-key.util";
 import { getTeamsForOrganization } from "../models/TeamModel";
 import { getUserById } from "../models/UserModel";
@@ -108,7 +108,7 @@ export default function authenticateApiRequestMiddleware(
 
       const teams = await getTeamsForOrganization(org.id);
 
-      const eventAudit: EventAuditUserApiKey = {
+      const eventAudit: EventUserApiKey = {
         type: "api_key",
         apiKey: id || "unknown",
       };

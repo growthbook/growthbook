@@ -3,28 +3,25 @@
 /**
  * You can get this property on the response.locals.eventAudit property
  */
-export type EventAuditUser =
-  | EventAuditUserLoggedIn
-  | EventAuditUserApiKey
-  | null;
+export type EventUser = EventUserLoggedIn | EventUserApiKey | null;
 
 /**
  * You can get this property on the response.locals.eventAudit property.
  * Example usage:
- *    (req, res: Response<MyResponseData, EventAuditUserForResponseLocals>) => {}
+ *    (req, res: Response<MyResponseData, EventUserForResponseLocals>) => {}
  */
-export type EventAuditUserForResponseLocals = {
-  eventAudit: EventAuditUser;
+export type EventUserForResponseLocals = {
+  eventAudit: EventUser;
 };
 
-export type EventAuditUserLoggedIn = {
+export type EventUserLoggedIn = {
   type: "dashboard";
   id: string;
   email: string;
   name: string;
 };
 
-export type EventAuditUserApiKey = {
+export type EventUserApiKey = {
   type: "api_key";
   apiKey: string;
 };

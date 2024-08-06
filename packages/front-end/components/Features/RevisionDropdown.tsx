@@ -2,7 +2,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { datetime } from "shared/dates";
 import SelectField from "@/components/Forms/SelectField";
-import AuditUser from "@/components/Avatar/AuditUser";
+import EventUser from "@/components/Avatar/EventUser";
 
 export interface Props {
   feature: FeatureInterface;
@@ -73,7 +73,7 @@ export default function RevisionDropdown({
             </div>
             {context !== "value" && (
               <div className="ml-auto">
-                <AuditUser user={revision?.createdBy} />
+                <EventUser user={revision?.createdBy} />
               </div>
             )}
           </div>

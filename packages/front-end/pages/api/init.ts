@@ -25,6 +25,7 @@ export interface EnvironmentInitValue {
   storeSegmentsInMongo: boolean;
   allowCreateMetrics: boolean;
   usingFileProxy: boolean;
+  superadminDefaultRole: string;
 }
 
 // Get env variables at runtime on the front-end while still using SSG
@@ -48,6 +49,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     STORE_SEGMENTS_IN_MONGO,
     ALLOW_CREATE_METRICS,
     USE_FILE_PROXY: USING_FILE_PROXY,
+    SUPERADMIN_DEFAULT_ROLE,
   } = process.env;
 
   const rootPath = path.join(__dirname, "..", "..", "..", "..", "..", "..");
@@ -105,6 +107,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     usingSSO: !!SSO_CONFIG, // No matter what SSO_CONFIG is set to we want it to count as using it.
     storeSegmentsInMongo: stringToBoolean(STORE_SEGMENTS_IN_MONGO),
     usingFileProxy: stringToBoolean(USING_FILE_PROXY),
+    superadminDefaultRole: SUPERADMIN_DEFAULT_ROLE || "readonly",
   };
 
   res.setHeader("Cache-Control", "max-age=3600").status(200).json(body);

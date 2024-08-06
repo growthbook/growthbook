@@ -4,6 +4,7 @@ import {
 } from "back-end/types/api";
 import { pick, omit } from "lodash";
 import cloneDeep from "lodash/cloneDeep";
+import { getAutoExperimentChangeType } from "@growthbook/growthbook";
 import { SDKCapability } from "./index";
 
 const strictFeatureKeys = ["defaultValue", "rules"];
@@ -114,7 +115,10 @@ export const scrubExperiments = (
 
   for (let experiment of experiments) {
     // Filter out any url redirect auto experiments if not supported
-    if (!supportsRedirects && experiment.changeType === "redirect") {
+    if (
+      !supportsRedirects &&
+      getAutoExperimentChangeType(experiment) === "redirect"
+    ) {
       continue;
     }
 

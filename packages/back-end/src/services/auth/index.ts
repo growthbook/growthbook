@@ -19,8 +19,8 @@ import {
   SSOConnectionIdCookie,
 } from "../../util/cookie";
 import {
-  EventAuditUserForResponseLocals,
-  EventAuditUserLoggedIn,
+  EventUserForResponseLocals,
+  EventUserLoggedIn,
 } from "../../events/event-types";
 import { insertAudit } from "../../models/AuditModel";
 import { getTeamsForOrganization } from "../../models/TeamModel";
@@ -76,7 +76,7 @@ function getInitialDataFromJWT(user: IdToken): JWTInfo {
 export async function processJWT(
   // eslint-disable-next-line
   req: AuthRequest & { user: IdToken },
-  res: Response<unknown, EventAuditUserForResponseLocals>,
+  res: Response<unknown, EventUserForResponseLocals>,
   next: NextFunction
 ): Promise<void> {
   const { email, name, verified } = getInitialDataFromJWT(req.user);
@@ -86,10 +86,18 @@ export async function processJWT(
   req.name = name || "";
   req.verified = verified || false;
   req.teams = [];
+  req.currentUser = {
+    id: "",
+    email: email || "",
+    superAdmin: false,
+    verified: verified || false,
+    name: name || "",
+  };
 
   const user = await getUserFromJWT(req.user);
 
   if (user) {
+    req.currentUser = user;
     req.email = user.email;
     req.userId = user.id;
     req.name = user.name;
@@ -181,7 +189,7 @@ export async function processJWT(
       }
     }
 
-    const eventAudit: EventAuditUserLoggedIn = {
+    const eventAudit: EventUserLoggedIn = {
       type: "dashboard",
       id: user.id,
       email: user.email,

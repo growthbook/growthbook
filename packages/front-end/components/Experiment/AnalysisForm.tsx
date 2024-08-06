@@ -29,13 +29,14 @@ import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
-import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
+import { MetricsSelectorTooltip } from "./MetricsSelector";
 import {
   EditMetricsFormInterface,
   fixMetricOverridesBeforeSaving,
   getDefaultMetricOverridesFormValue,
 } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
+import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -132,8 +133,9 @@ const AnalysisForm: FC<{
           ? experiment.sequentialTestingTuningParameter
           : orgSettings.sequentialTestingTuningParameter ??
             DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-      metrics: experiment.metrics,
-      guardrails: experiment.guardrails || [],
+      goalMetrics: experiment.goalMetrics,
+      guardrailMetrics: experiment.guardrailMetrics || [],
+      secondaryMetrics: experiment.secondaryMetrics || [],
       metricOverrides: getDefaultMetricOverridesFormValue(
         experiment.metricOverrides || [],
         getExperimentMetricById,
@@ -198,6 +200,11 @@ const AnalysisForm: FC<{
       />
     );
   }
+
+  const hasMetrics =
+    form.watch("goalMetrics").length > 0 ||
+    form.watch("guardrailMetrics").length > 0 ||
+    form.watch("secondaryMetrics").length > 0;
 
   return (
     <Modal
@@ -279,12 +286,17 @@ const AnalysisForm: FC<{
           }
 
           // Filter the selected metrics to only valid ones
-          const metrics = form.watch("metrics");
-          form.setValue("metrics", metrics.filter(isValidMetric));
+          const goals = form.watch("goalMetrics");
+          form.setValue("goalMetrics", goals.filter(isValidMetric));
 
-          // Filter the selected guardrails to only valid ones
-          const guardrails = form.watch("guardrails");
-          form.setValue("guardrails", guardrails.filter(isValidMetric));
+          const secondaryMetrics = form.watch("secondaryMetrics");
+          form.setValue(
+            "secondaryMetrics",
+            secondaryMetrics.filter(isValidMetric)
+          );
+
+          const guardrails = form.watch("guardrailMetrics");
+          form.setValue("guardrailMetrics", guardrails.filter(isValidMetric));
         }}
         options={datasources
           .filter(
@@ -602,46 +614,25 @@ const AnalysisForm: FC<{
       )}
       {editMetrics && (
         <>
-          <div className="form-group mt-3">
-            <label className="font-weight-bold mb-1">Goal Metrics</label>
-            <div className="mb-1">
-              <span className="font-italic">
-                Metrics you are trying to improve with this experiment.{" "}
-              </span>
-              <MetricsSelectorTooltip />
-            </div>
-            <MetricsSelector
-              selected={form.watch("metrics")}
-              onChange={(metrics) => form.setValue("metrics", metrics)}
-              datasource={form.watch("datasource")}
-              exposureQueryId={exposureQueryId}
-              project={experiment.project}
-              autoFocus={true}
-              includeFacts={true}
-            />
-          </div>
+          <ExperimentMetricsSelector
+            datasource={form.watch("datasource")}
+            exposureQueryId={exposureQueryId}
+            project={experiment.project}
+            goalMetrics={form.watch("goalMetrics")}
+            secondaryMetrics={form.watch("secondaryMetrics")}
+            guardrailMetrics={form.watch("guardrailMetrics")}
+            setGoalMetrics={(goalMetrics) =>
+              form.setValue("goalMetrics", goalMetrics)
+            }
+            setSecondaryMetrics={(secondaryMetrics) =>
+              form.setValue("secondaryMetrics", secondaryMetrics)
+            }
+            setGuardrailMetrics={(guardrailMetrics) =>
+              form.setValue("guardrailMetrics", guardrailMetrics)
+            }
+          />
 
-          <div className="form-group">
-            <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-            <div className="mb-1">
-              <span className="font-italic">
-                Metrics you want to monitor, but are NOT specifically trying to
-                improve.{" "}
-              </span>
-              <MetricsSelectorTooltip />
-            </div>
-            <MetricsSelector
-              selected={form.watch("guardrails")}
-              onChange={(metrics) => form.setValue("guardrails", metrics)}
-              datasource={form.watch("datasource")}
-              exposureQueryId={exposureQueryId}
-              project={experiment.project}
-              includeFacts={true}
-            />
-          </div>
-
-          {(form.watch("metrics").length > 0 ||
-            form.watch("guardrails").length > 0) && (
+          {hasMetrics && (
             <div className="form-group mb-2">
               <PremiumTooltip commercialFeature="override-metrics">
                 Metric Overrides (optional)

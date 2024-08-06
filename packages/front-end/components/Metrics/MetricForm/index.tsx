@@ -46,6 +46,8 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
+import useProjectOptions from "@/hooks/useProjectOptions";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
 import { MetricDelayHours } from "./MetricDelayHours";
@@ -597,6 +599,11 @@ const MetricForm: FC<MetricFormProps> = ({
     disabledMessage = "You don't have permission to create metrics.";
   }
 
+  const projectOptions = useProjectOptions(
+    (project) => permissionsUtil.canCreateMetric({ projects: [project] }),
+    form.watch("projects") || []
+  );
+
   // If creating a Fact Metric instead
   if (allowFactMetrics && factMetric) {
     return (
@@ -714,10 +721,19 @@ const MetricForm: FC<MetricFormProps> = ({
           {projects?.length > 0 && (
             <div className="form-group">
               <MultiSelectField
-                label="Projects"
+                label={
+                  <>
+                    Projects{" "}
+                    <Tooltip
+                      body={`The dropdown below has been filtered to only include projects where you have permission to ${
+                        edit ? "update" : "create"
+                      } Metrics.`}
+                    />
+                  </>
+                }
                 placeholder="All projects"
                 value={value.projects || []}
-                options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                options={projectOptions}
                 onChange={(v) => form.setValue("projects", v)}
                 customClassName="label-overflow-ellipsis"
                 helpText="Assign this metric to specific projects"

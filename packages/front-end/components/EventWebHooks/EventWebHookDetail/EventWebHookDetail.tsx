@@ -393,6 +393,7 @@ export const EventWebHookDetailContainer = ({
           handleUpdateError(response.error || "Unknown error");
         } else {
           mutateEventWebHook();
+          setIsEditModalOpen(false);
           setEditError(null);
         }
       } catch (e) {

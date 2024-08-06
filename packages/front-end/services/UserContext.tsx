@@ -30,8 +30,13 @@ import {
 } from "react";
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import { Permissions, getDefaultRole } from "shared/permissions";
-import { isCloud, isMultiOrg, isSentryEnabled } from "@/services/env";
+import { Permissions } from "shared/permissions";
+import {
+  getSuperadminDefaultRole,
+  isCloud,
+  isMultiOrg,
+  isSentryEnabled,
+} from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
 import track from "@/services/track";
@@ -159,17 +164,14 @@ export const UserContext = createContext<UserContextValue>({
   seatsInUse: 0,
   teams: [],
   hasCommercialFeature: () => false,
-  permissionsUtil: new Permissions(
-    {
-      global: {
-        permissions: {},
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {},
+  permissionsUtil: new Permissions({
+    global: {
+      permissions: {},
+      limitAccessByEnvironment: false,
+      environments: [],
     },
-    false
-  ),
+    projects: {},
+  }),
   quote: null,
   watching: {
     experiments: [],
@@ -222,7 +224,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (data?.organizations && setOrganizations) {
-      setOrganizations(data.organizations);
+      setOrganizations(data.organizations, data.superAdmin);
     }
   }, [data, setOrganizations]);
 
@@ -261,23 +263,19 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       environments: [],
       limitAccessByEnvironment: false,
       name: data.userName,
-      role: data.superAdmin ? "admin" : "readonly",
+      role: data.superAdmin ? getSuperadminDefaultRole() : "readonly",
       projectRoles: [],
     };
   }
-
-  const role =
-    (data?.superAdmin && "admin") ||
-    (user?.role ?? getDefaultRole(currentOrg?.organization || {}).role);
 
   // Update current user data for telemetry data
   useEffect(() => {
     currentUser = {
       org: orgId || "",
       id: data?.userId || "",
-      role: role || "",
+      role: user?.role || "",
     };
-  }, [orgId, data?.userId, role]);
+  }, [orgId, data?.userId, user?.role]);
 
   useEffect(() => {
     if (orgId && data?.userId) {
@@ -327,10 +325,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           environments: [],
         },
         projects: {},
-      },
-      data?.superAdmin || false
+      }
     );
-  }, [currentOrg?.currentUserPermissions, data?.superAdmin]);
+  }, [currentOrg?.currentUserPermissions]);
 
   const getUserDisplay = useCallback(
     (id: string, fallback = true) => {

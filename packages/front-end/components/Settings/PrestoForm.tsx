@@ -136,6 +136,21 @@ const PrestoForm: FC<{
         />
       </div>
       <div className="form-group col-md-12">
+        <label>Request Timeout</label>
+        <input
+          type="number"
+          className="form-control"
+          name="requestTimeout"
+          value={params.requestTimeout || ""}
+          onChange={onParamChange}
+          placeholder="(optional - in seconds. If empty or 0, there will be no limit)"
+        />
+        <div className="form-text text-muted small">
+          The number of seconds before a request will timeout. Set to 0 to
+          disable timeout.
+        </div>
+      </div>
+      <div className="form-group col-md-12">
         <label>Default Schema</label>
         <input
           type="text"

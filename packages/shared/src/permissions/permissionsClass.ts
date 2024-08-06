@@ -30,10 +30,8 @@ class PermissionError extends Error {
 
 export class Permissions {
   private userPermissions: UserPermissions;
-  private superAdmin: boolean;
-  constructor(permissions: UserPermissions, superAdmin: boolean) {
+  constructor(permissions: UserPermissions) {
     this.userPermissions = permissions;
-    this.superAdmin = superAdmin;
   }
 
   //Global Permissions
@@ -788,10 +786,6 @@ export class Permissions {
   public canReadMultiProjectResource = (
     projects: string[] | undefined
   ): boolean => {
-    if (this.superAdmin) {
-      return true;
-    }
-
     // If the resource doesn't have a projects property or it's an empty array
     // that means it's in all projects
     if (!projects || !projects.length) {
@@ -812,10 +806,6 @@ export class Permissions {
   };
 
   private checkGlobalPermission(permissionToCheck: GlobalPermission): boolean {
-    if (this.superAdmin) {
-      return true;
-    }
-
     return this.userPermissions.global.permissions[permissionToCheck] || false;
   }
 
@@ -901,10 +891,6 @@ export class Permissions {
     project: string,
     envs?: string[]
   ) {
-    if (this.superAdmin) {
-      return true;
-    }
-
     const usersPermissionsToCheck =
       this.userPermissions.projects[project] || this.userPermissions.global;
 
