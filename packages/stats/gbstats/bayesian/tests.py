@@ -15,7 +15,6 @@ from gbstats.messages import (
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
 from gbstats.models.statistics import (
     TestStatistic,
-    SampleMeanStatistic,
     BanditStatistic,
 )
 from gbstats.frequentist.tests import frequentist_diff, frequentist_variance
@@ -356,19 +355,6 @@ class Bandits:
         )
         # scale by number of counts to get back to distributional variance
         return sample_mean_variances * self.variation_counts
-
-    @property
-    def sample_mean_statistics(self) -> List[SampleMeanStatistic]:
-        return [
-            SampleMeanStatistic(
-                n=this_n,
-                sum=this_n * this_mn,
-                sum_squares=(this_n - 1) * this_var + this_n * this_mn**2,
-            )
-            for this_n, this_mn, this_var in zip(
-                self.variation_counts, self.variation_means, self.variation_variances
-            )
-        ]
 
     @property
     def prior_precision(self) -> np.ndarray:
