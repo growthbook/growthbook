@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { FiArrowRight } from "react-icons/fi";
-import usePermissions from "@/hooks/usePermissions";
 import track from "@/services/track";
 import { DocLink } from "@/components/DocLink";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function DocumentationLinksSidebar() {
-  const permissions = usePermissions();
+  const permissionsUtil = usePermissionsUtil();
 
   return (
     <div className="card gsbox mb-3">
@@ -73,7 +73,7 @@ export default function DocumentationLinksSidebar() {
           </div>
         </div>
       </div>
-      {permissions.manageTeam && (
+      {permissionsUtil.canManageTeam() && (
         <div className="card-body border-top">
           <div className="card-title">
             <h4 className="">Invite team</h4>

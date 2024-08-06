@@ -2,8 +2,7 @@ import {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
 } from "@growthbook/growthbook";
-import { EventUser } from "../src/events/event-types";
-import { PermissionFunctions } from "../src/types/AuthRequest";
+import { EventUser } from "@back-end/src/validators/events";
 import { AuditInterfaceInput } from "./audit";
 import { ExperimentStatus } from "./experiment";
 import { OrganizationInterface, ReqContext } from "./organization";
@@ -43,7 +42,7 @@ export interface ErrorResponse {
   error: string;
 }
 
-export type ApiRequestLocals = PermissionFunctions & {
+export type ApiRequestLocals = {
   apiKey: string;
   user?: UserInterface;
   organization: OrganizationInterface;

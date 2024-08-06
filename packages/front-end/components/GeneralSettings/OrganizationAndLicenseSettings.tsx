@@ -6,7 +6,7 @@ import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import { isCloud, isMultiOrg } from "@/services/env";
 import { useUser } from "@/services/UserContext";
-import usePermissions from "@/hooks/usePermissions";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export default function OrganizationAndLicenseSettings({
   org,
@@ -16,9 +16,9 @@ export default function OrganizationAndLicenseSettings({
   refreshOrg: () => Promise<void>;
 }) {
   const [editOpen, setEditOpen] = useState(false);
-  const permissions = usePermissions();
+  const permissions = usePermissionsUtil();
   // this check isn't strictly necessary, as we check permissions accessing the settings page, but it's a good to be safe
-  const canEdit = permissions.check("organizationSettings");
+  const canEdit = permissions.canManageOrgSettings();
   const { users } = useUser();
   const ownerEmailExists = !!Array.from(users).find(
     (e) => e[1].email === org.ownerEmail
