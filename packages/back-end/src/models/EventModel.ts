@@ -8,9 +8,9 @@ import {
   zodNotificationEventResources,
   NotificationEventResource,
   ResourceEvents,
-  NotificationEvents,
   NotificationEventPayloadSchemaType,
   NotificationEventPayloadDataType,
+  NotificationEventPayloadExtraAttributes,
   NotificationEventPayload,
 } from "../events/base-types";
 import { EventInterface, BaseEventInterface } from "../../types/event";
@@ -165,34 +165,31 @@ export const createEventWithPayload = async <
 
 // createEvent can handle creating the diff
 
-type CreateEventData<
+export type CreateEventData<
   Resource extends NotificationEventResource,
-  Event extends ResourceEvents<Resource>
-> = NotificationEvents[Resource][Event] extends {
-  isDiff: true;
-}
-  ? {
-      object: NotificationEventPayloadSchemaType<Resource, Event>;
-      previous_attributes: NotificationEventPayloadSchemaType<Resource, Event>;
-    }
-  : { object: NotificationEventPayloadSchemaType<Resource, Event> };
+  Event extends ResourceEvents<Resource>,
+  Payload = NotificationEventPayloadSchemaType<Resource, Event>
+> = NotificationEventPayloadDataType<Resource, Event, Payload, Payload>;
 
-const hasPreviousAttributes = <
+export const hasPreviousAttributes = <
   Resource extends NotificationEventResource,
-  Event extends ResourceEvents<Resource>
+  Event extends ResourceEvents<Resource>,
+  Payload = NotificationEventPayloadSchemaType<Resource, Event>
 >(
-  data: CreateEventData<Resource, Event>
+  data: CreateEventData<Resource, Event, Payload>
 ): data is {
-  object: NotificationEventPayloadSchemaType<Resource, Event>;
-  previous_attributes: NotificationEventPayloadSchemaType<Resource, Event>;
-} => Object.keys(data).includes("previous_attributes");
+  object: Payload;
+  previous_attributes: Payload;
+} & NotificationEventPayloadExtraAttributes<Resource, Event> =>
+  Object.keys(data).includes("previous_attributes");
 
 const diffData = <
   Resource extends NotificationEventResource,
-  Event extends ResourceEvents<Resource>
+  Event extends ResourceEvents<Resource>,
+  Payload = NotificationEventPayloadSchemaType<Resource, Event>
 >(
-  data: CreateEventData<Resource, Event>
-): NotificationEventPayloadDataType<Resource, Event> => {
+  data: CreateEventData<Resource, Event, Payload>
+): NotificationEventPayloadDataType<Resource, Event, Payload> => {
   if (!hasPreviousAttributes(data)) return data;
 
   const { object, previous_attributes } = data as {
@@ -216,7 +213,22 @@ const diffData = <
       }),
       {}
     ),
-  } as unknown) as NotificationEventPayloadDataType<Resource, Event>;
+  } as unknown) as NotificationEventPayloadDataType<Resource, Event, Payload>;
+};
+
+export type CreateEventParams<
+  Resource extends NotificationEventResource,
+  Event extends ResourceEvents<Resource>,
+  Payload = NotificationEventPayloadSchemaType<Resource, Event>
+> = {
+  context: ReqContext;
+  object: Resource;
+  event: Event;
+  data: CreateEventData<Resource, Event, Payload>;
+  containsSecrets: boolean;
+  projects: string[];
+  tags: string[];
+  environments: string[];
 };
 
 export const createEvent = async <
@@ -231,16 +243,7 @@ export const createEvent = async <
   projects,
   tags,
   environments,
-}: {
-  context: ReqContext;
-  object: Resource;
-  event: Event;
-  data: CreateEventData<Resource, Event>;
-  containsSecrets: boolean;
-  projects: string[];
-  tags: string[];
-  environments: string[];
-}) =>
+}: CreateEventParams<Resource, Event>) =>
   createEventWithPayload<Resource, Event>({
     payload: {
       event: `${object}.${event}`,

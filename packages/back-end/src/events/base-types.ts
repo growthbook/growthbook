@@ -12,8 +12,10 @@ type Webhook = {
   readonly [key: string]: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     readonly schema: ZodType<any>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    readonly extra?: ZodType<any>;
     readonly description: string;
-    readonly isDiff: boolean;
+    readonly isDiff?: boolean;
   };
 };
 
@@ -30,7 +32,6 @@ export const notificationEvents = {
     created: {
       schema: apiFeatureValidator,
       description: "Triggered when a feature is created",
-      isDiff: false,
     },
     updated: {
       schema: apiFeatureValidator,
@@ -40,14 +41,12 @@ export const notificationEvents = {
     deleted: {
       schema: apiFeatureValidator,
       description: "Triggered when a feature is deleted",
-      isDiff: false,
     },
   },
   experiment: {
     created: {
       schema: apiExperimentValidator,
       description: "Triggered when an experiment is created",
-      isDiff: false,
     },
     updated: {
       schema: apiExperimentValidator,
@@ -57,13 +56,11 @@ export const notificationEvents = {
     deleted: {
       schema: apiExperimentValidator,
       description: "Triggered when an experiment is deleted",
-      isDiff: false,
     },
     warning: {
       schema: experimentWarningNotificationPayload,
       description:
         "Triggered when a warning condition is detected on an experiment",
-      isDiff: false,
     },
   },
   user: {
@@ -152,19 +149,28 @@ export type NotificationEventPayloadSchemaType<
   ? z.infer<ZodType<T, U, V>>
   : never;
 
-export type NotificationEventPayloadDataType<
+export type NotificationEventPayloadExtraAttributes<
   Resource extends NotificationEventResource,
   Event extends ResourceEvents<Resource>
+> = NotificationEvents[Resource][Event] extends {
+  extra: ZodType<infer T, infer U, infer V>;
+}
+  ? z.infer<ZodType<T, U, V>>
+  : unknown;
+
+export type NotificationEventPayloadDataType<
+  Resource extends NotificationEventResource,
+  Event extends ResourceEvents<Resource>,
+  Obj = NotificationEventPayloadSchemaType<Resource, Event>,
+  PreviousAttributes = Partial<Obj>
 > = NotificationEvents[Resource][Event] extends {
   isDiff: true;
 }
   ? {
-      object: NotificationEventPayloadSchemaType<Resource, Event>;
-      previous_attributes: Partial<
-        NotificationEventPayloadSchemaType<Resource, Event>
-      >;
-    }
-  : { object: NotificationEventPayloadSchemaType<Resource, Event> };
+      object: Obj;
+      previous_attributes: PreviousAttributes;
+    } & NotificationEventPayloadExtraAttributes<Resource, Event>
+  : { object: Obj } & NotificationEventPayloadExtraAttributes<Resource, Event>;
 
 /**
  * Event Notification payload

@@ -31,7 +31,13 @@ import { getEnvironmentIdsFromOrg } from "../services/organizations";
 import { ApiReqContext } from "../../types/api";
 import { simpleSchemaValidator } from "../validators/features";
 import { getChangedApiFeatureEnvironments } from "../events/handlers/utils";
-import { createEvent } from "./EventModel";
+import { ResourceEvents } from "../events/base-types";
+import {
+  createEvent,
+  hasPreviousAttributes,
+  CreateEventData,
+  CreateEventParams,
+} from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
   getExperimentMapForFeature,
@@ -361,6 +367,93 @@ export async function deleteAllFeaturesForAProject({
   }
 }
 
+export const createFeatureEvent = async <
+  Event extends ResourceEvents<"feature">
+>(eventData: {
+  context: ReqContext;
+  event: Event;
+  data: CreateEventData<"feature", Event, FeatureInterface>;
+}) => {
+  const event: CreateEventParams<"feature", Event> = await (async () => {
+    const groupMap = await getSavedGroupMap(eventData.context.org);
+    const experimentMap = await getExperimentMapForFeature(
+      eventData.context,
+      eventData.data.object.id
+    );
+
+    const currentRevision = await getRevision(
+      eventData.data.object.organization,
+      eventData.data.object.id,
+      eventData.data.object.version
+    );
+
+    const currentApiFeature = getApiFeatureObj({
+      feature: eventData.data.object,
+      organization: eventData.context.org,
+      groupMap,
+      experimentMap,
+      revision: currentRevision,
+    });
+
+    if (
+      !hasPreviousAttributes<"feature", Event, FeatureInterface>(eventData.data)
+    )
+      return {
+        ...eventData,
+        object: "feature",
+        data: {
+          object: currentApiFeature,
+        },
+        projects: [currentApiFeature.project],
+        tags: currentApiFeature.tags,
+        environments: getApiFeatureEnabledEnvs(currentApiFeature),
+        containsSecrets: false,
+      } as CreateEventParams<"feature", Event>;
+
+    const previousRevision = await getRevision(
+      eventData.data.previous_attributes.organization,
+      eventData.data.previous_attributes.id,
+      eventData.data.previous_attributes.version
+    );
+
+    const previousApiFeature = getApiFeatureObj({
+      feature: eventData.data.previous_attributes,
+      organization: eventData.context.org,
+      groupMap,
+      experimentMap,
+      revision: previousRevision,
+    });
+
+    return {
+      ...eventData,
+      object: "feature",
+      data: {
+        object: currentApiFeature,
+        previous_attributes: getApiFeatureObj({
+          feature: eventData.data.previous_attributes,
+          organization: eventData.context.org,
+          groupMap,
+          experimentMap,
+          revision: previousRevision,
+        }),
+      },
+      projects: Array.from(
+        new Set([previousApiFeature.project, currentApiFeature.project])
+      ),
+      tags: Array.from(
+        new Set([...previousApiFeature.tags, ...currentApiFeature.tags])
+      ),
+      environments: getChangedApiFeatureEnvironments(
+        previousApiFeature,
+        currentApiFeature
+      ),
+      containsSecrets: false,
+    } as CreateEventParams<"feature", Event>;
+  })();
+
+  await createEvent<"feature", Event>(event);
+};
+
 /**
  * Given the common {@link FeatureInterface} for both previous and next states, and the organization,
  * will log an update event in the events collection
@@ -368,137 +461,52 @@ export async function deleteAllFeaturesForAProject({
  * @param previous
  * @param current
  */
-async function logFeatureUpdatedEvent(
+const logFeatureUpdatedEvent = async (
   context: ReqContext | ApiReqContext,
   previous: FeatureInterface,
   current: FeatureInterface
-) {
-  const groupMap = await getSavedGroupMap(context.org);
-  const experimentMap = await getExperimentMapForFeature(context, current.id);
-  const currentRevision = await getRevision(
-    current.organization,
-    current.id,
-    current.version
-  );
-  const previousRevision = await getRevision(
-    previous.organization,
-    previous.id,
-    previous.version
-  );
-  const currentApiFeature = getApiFeatureObj({
-    feature: current,
-    organization: context.org,
-    groupMap,
-    experimentMap,
-    revision: currentRevision,
-  });
-  const previousApiFeature = getApiFeatureObj({
-    feature: previous,
-    organization: context.org,
-    groupMap,
-    experimentMap,
-    revision: previousRevision,
-  });
-
-  await createEvent({
+) =>
+  createFeatureEvent({
     context,
-    object: "feature",
     event: "updated",
     data: {
-      object: currentApiFeature,
-      previous_attributes: previousApiFeature,
+      object: current,
+      previous_attributes: previous,
     },
-    projects: Array.from(
-      new Set([previousApiFeature.project, currentApiFeature.project])
-    ),
-    tags: Array.from(
-      new Set([...previousApiFeature.tags, ...currentApiFeature.tags])
-    ),
-    environments: getChangedApiFeatureEnvironments(
-      previousApiFeature,
-      currentApiFeature
-    ),
-    containsSecrets: false,
   });
-}
 
 /**
  * @param organization
  * @param feature
  * @returns event.id
  */
-async function logFeatureCreatedEvent(
+const logFeatureCreatedEvent = async (
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface
-) {
-  const groupMap = await getSavedGroupMap(context.org);
-  const experimentMap = await getExperimentMapForFeature(context, feature.id);
-  const revision = await getRevision(
-    feature.organization,
-    feature.id,
-    feature.version
-  );
-  const apiFeature = getApiFeatureObj({
-    feature,
-    organization: context.org,
-    groupMap,
-    experimentMap,
-    revision,
-  });
-
-  await createEvent({
+) =>
+  createFeatureEvent({
     context,
-    object: "feature",
     event: "created",
     data: {
-      object: apiFeature,
+      object: feature,
     },
-    projects: [apiFeature.project],
-    tags: apiFeature.tags,
-    environments: getApiFeatureEnabledEnvs(apiFeature),
-    containsSecrets: false,
   });
-}
 
 /**
  * @param organization
  * @param previousFeature
  */
-async function logFeatureDeletedEvent(
+const logFeatureDeletedEvent = async (
   context: ReqContext | ApiReqContext,
   previousFeature: FeatureInterface
-) {
-  const groupMap = await getSavedGroupMap(context.org);
-  const experimentMap = await getExperimentMapForFeature(
+) =>
+  createFeatureEvent({
     context,
-    previousFeature.id
-  );
-  const revision = await getRevision(
-    previousFeature.organization,
-    previousFeature.id,
-    previousFeature.version
-  );
-  const apiFeature = getApiFeatureObj({
-    feature: previousFeature,
-    organization: context.org,
-    groupMap,
-    experimentMap,
-    revision,
-  });
-
-  await createEvent({
-    context,
-    object: "feature",
     event: "deleted",
     data: {
-      object: apiFeature,
+      object: previousFeature,
     },
-    projects: [apiFeature.project],
-    tags: apiFeature.tags,
-    environments: getApiFeatureEnabledEnvs(apiFeature),
-    containsSecrets: false,
   });
-}
 
 async function onFeatureCreate(
   context: ReqContext | ApiReqContext,
@@ -680,6 +688,7 @@ export async function toggleMultipleEnvironments(
     const updatedFeature = await updateFeature(context, feature, {
       environmentSettings: featureCopy.environmentSettings,
     });
+
     return updatedFeature;
   }
 

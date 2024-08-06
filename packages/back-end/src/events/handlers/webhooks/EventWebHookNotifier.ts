@@ -117,7 +117,9 @@ export class EventWebHookNotifier implements Notifier {
 
       switch (payloadType) {
         case "raw": {
-          const legacyPayload: LegacyNotificationEvent = event.version
+          const legacyPayload:
+            | LegacyNotificationEvent
+            | undefined = event.version
             ? getLegacyMessageForNotificationEvent(event.data)
             : event.data;
           return legacyPayload;

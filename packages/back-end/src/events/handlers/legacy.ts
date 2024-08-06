@@ -5,7 +5,7 @@ import {
 
 export const getLegacyMessageForNotificationEvent = (
   event: NotificationEvent
-): LegacyNotificationEvent => {
+): LegacyNotificationEvent | undefined => {
   const { user, projects, tags, environments, containsSecrets } = event;
 
   const attributes = { user, projects, tags, environments, containsSecrets };
@@ -81,6 +81,6 @@ export const getLegacyMessageForNotificationEvent = (
         ...attributes,
       };
     default:
-      return event;
+      return;
   }
 };
