@@ -15,7 +15,6 @@ from gbstats.messages import (
 from gbstats.models.tests import BaseABTest, BaseConfig, TestResult, Uplift
 from gbstats.models.statistics import (
     TestStatistic,
-    SampleMeanStatistic,
     BanditStatistic,
 )
 from gbstats.frequentist.tests import frequentist_diff, frequentist_variance
