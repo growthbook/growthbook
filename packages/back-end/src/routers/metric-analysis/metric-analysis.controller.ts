@@ -42,6 +42,12 @@ export const postMetricAnalysis = async (
   if (!context.permissions.canRunMetricQueries(integration.datasource)) {
     context.permissions.throwPermissionError();
   }
+  if (
+    !context.hasPremiumFeature("metric-populations") &&
+    data.populationType !== "factTable"
+  ) {
+    throw new Error("Custom metric populations are a premium feature");
+  }
   const metricAnalysisSettings: MetricAnalysisSettings = {
     userIdType: data.userIdType,
     lookbackDays: data.lookbackDays,

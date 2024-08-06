@@ -28,6 +28,7 @@ export default function IdentifierChooser({
       <div className="uppercase-title text-muted">Aggregation Unit</div>
       <SelectField
         labelClassName={labelClassName}
+        disabled={factTable.userIdTypes.length < 2}
         containerClassName={"select-dropdown-underline"}
         options={factTable.userIdTypes.map((d) => {
           return { label: d, value: d };

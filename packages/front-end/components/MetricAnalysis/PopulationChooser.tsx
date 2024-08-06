@@ -1,7 +1,11 @@
-import { MetricAnalysisPopulationType } from "@back-end/types/metric-analysis";
 import React from "react";
+import { FaQuestionCircle } from "react-icons/fa";
+import { MetricAnalysisPopulationType } from "@back-end/types/metric-analysis";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export interface Props {
   value: string;
@@ -23,6 +27,9 @@ export default function PopulationChooser({
   labelClassName,
 }: Props) {
   const { getDatasourceById, segments } = useDefinitions();
+  const { hasCommercialFeature } = useUser();
+
+  const hasMetricPopulations = hasCommercialFeature("metric-populations");
 
   // get matching exposure queries
   const datasource = getDatasourceById(datasourceId);
@@ -33,6 +40,7 @@ export default function PopulationChooser({
     .map((e) => ({
       label: `Experiment Exposed Units: ${e.name}`,
       value: `experiment_${e.id}`,
+      isDisabled: !hasMetricPopulations,
     }));
 
   // get matching segments
@@ -42,12 +50,20 @@ export default function PopulationChooser({
       return {
         label: `Segment: ${s.name}`,
         value: `segment_${s.id}`,
+        isDisabled: !hasMetricPopulations,
       };
     });
 
   return (
     <div>
-      <div className="uppercase-title text-muted">Population</div>
+      <div className="uppercase-title text-muted">
+        Population{" "}
+        <Tooltip
+          body={`The metric values will only come from units in this population. For experiment assignment tables, any unit exposed to an experiment in the selected date window is in the population`}
+        >
+          <FaQuestionCircle />
+        </Tooltip>
+      </div>
       <SelectField
         labelClassName={labelClassName}
         containerClassName={"select-dropdown-underline"}
@@ -70,6 +86,15 @@ export default function PopulationChooser({
               ]
             : []),
         ]}
+        formatOptionLabel={(option) => {
+          return option.value === "factTable" ? (
+            <div>{option.label}</div>
+          ) : (
+            <PremiumTooltip commercialFeature="metric-populations">
+              <span className="text-muted">{option.label}</span>
+            </PremiumTooltip>
+          );
+        }}
         sort={false}
         value={value}
         onChange={(v) => {
