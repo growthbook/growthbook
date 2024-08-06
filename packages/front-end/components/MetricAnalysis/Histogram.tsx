@@ -48,7 +48,6 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
     range: [yMax, 0],
   });
 
-  // TODO currency
   // TODO add tooltip
 
   const binWidth = xMax / data.length;

@@ -17,7 +17,6 @@ export const postMetricAnalysis = async (
   req: AuthRequest<CreateMetricAnalysisProps>,
   res: Response<{ status: 200; metricAnalysis: MetricAnalysisInterface }>
 ) => {
-  // todo caching with date fudging of one day
   const data = req.body;
   const context = getContextFromReq(req);
 

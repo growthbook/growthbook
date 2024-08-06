@@ -79,7 +79,6 @@ export const metricAnalysisInterfaceValidator = z
     runStarted: z.date().nullable(),
     status: z.string(),
     result: metricAnalysisResultValidator.optional(),
-    // TODO better typing here
     settings: metricAnalysisSettingsValidator,
     queries: z.array(queryPointerValidator),
   })
