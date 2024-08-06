@@ -347,10 +347,12 @@ function ChangeTypeSelector({
       : []),
     {
       label: (
+        experiment.type !== "multi-armed-bandit" ? (
         <Tooltip body="Warning: When making multiple changes at the same time, it can be difficult to control for the impact of each change. The risk of introducing experimental bias increases. Proceed with caution.">
           Advanced: multiple changes at once{" "}
           <MdInfoOutline className="text-warning-orange" />
         </Tooltip>
+        ): "Advanced: multiple changes at once"
       ),
       value: "advanced",
     },

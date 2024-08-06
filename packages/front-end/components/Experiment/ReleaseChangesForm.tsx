@@ -47,6 +47,8 @@ export default function ReleaseChangesForm({
   const usingStickyBucketing =
     orgStickyBucketing && !experiment.disableStickyBucketing;
 
+  const isBandit = experiment.type === "multi-armed-bandit";
+
   const [showFullTargetingInfo, setShowFullTargetingInfo] = useState(false);
 
   const lastPhase: ExperimentPhaseStringDates | undefined =
@@ -82,7 +84,7 @@ export default function ReleaseChangesForm({
   useEffect(() => {
     if (releasePlan === "same-phase-sticky") {
       form.setValue("newPhase", false);
-      form.setValue("reseed", false);
+      form.setValue("reseed", isBandit);
       form.setValue("bucketVersion", experiment.bucketVersion);
       form.setValue("minBucketVersion", experiment.minBucketVersion);
     } else if (releasePlan === "same-phase-everyone") {
@@ -117,6 +119,7 @@ export default function ReleaseChangesForm({
     form,
     experiment.bucketVersion,
     experiment.minBucketVersion,
+    isBandit,
   ]);
 
   if (!lastPhase) return null;
@@ -133,7 +136,8 @@ export default function ReleaseChangesForm({
         })}
         onChange={(v) => {
           const requiresStickyBucketing =
-            v === "same-phase-sticky" || v === "new-phase-block-sticky";
+            !isBandit &&
+            (v === "same-phase-sticky" || v === "new-phase-block-sticky");
           const disabled = requiresStickyBucketing && !usingStickyBucketing;
           if (disabled) return;
           setReleasePlan(v as ReleasePlan);
@@ -142,9 +146,13 @@ export default function ReleaseChangesForm({
         isSearchable={false}
         formatOptionLabel={({ value, label }) => {
           const requiresStickyBucketing =
-            value === "same-phase-sticky" || value === "new-phase-block-sticky";
-          const recommended =
-            value === recommendedRolloutData.recommendedReleasePlan;
+            !isBandit &&
+            (value === "same-phase-sticky" ||
+              value === "new-phase-block-sticky");
+          const recommended = isBandit
+            ? value === recommendedRolloutData.recommendedReleasePlan &&
+              changeType !== "phase"
+            : value === recommendedRolloutData.recommendedReleasePlan;
           const disabled = requiresStickyBucketing && !usingStickyBucketing;
           return (
             <div
@@ -183,12 +191,17 @@ export default function ReleaseChangesForm({
         <div className="font-weight-semibold">
           {form.watch("newPhase")
             ? form.watch("reseed")
-              ? "New phase, new randomization seed."
-              : "New phase, same randomization seed."
+              ? `New phase${!isBandit ? ", new randomization seed." : "."}`
+              : `New phase${!isBandit ? ", same randomization seed." : "."}`
             : form.watch("reseed")
-            ? "Same phase, new randomization seed."
-            : "Same phase, same randomization seed."}{" "}
-          {usingStickyBucketing
+            ? `Same phase${!isBandit ? ", new randomization seed." : "."}`
+            : `Same phase${
+                !isBandit ? ", same randomization seed." : "."
+              }`}{" "}
+          {isBandit &&
+            form.watch("newPhase") &&
+            "Variation weights will be reset. "}
+          {isBandit || usingStickyBucketing
             ? (form.watch("bucketVersion") ?? 0) <=
               (experiment.bucketVersion ?? 0)
               ? "Sticky Bucketed users will keep their assigned bucket."
@@ -206,6 +219,7 @@ export default function ReleaseChangesForm({
           releasePlan={releasePlan}
           usingStickyBucketing={usingStickyBucketing}
           newPhase={form.watch("newPhase")}
+          isBandit={isBandit}
         />
       )}
       {changeType === "phase" && releasePlan === "new-phase-same-seed" && (
@@ -265,11 +279,13 @@ function ImpactTooltips({
   releasePlan = "",
   usingStickyBucketing = false,
   newPhase,
+  isBandit = false,
 }: {
   recommendedRolloutData: RecommendedRolloutData;
   releasePlan?: ReleasePlan;
   usingStickyBucketing?: boolean;
   newPhase: boolean;
+  isBandit: boolean;
 }) {
   const switchToSB =
     !usingStickyBucketing ||
@@ -414,7 +430,7 @@ function ImpactTooltips({
           </div>
         )}
 
-        {variationHopping && releasePlan !== "same-phase-sticky" && (
+        {!isBandit && variationHopping && releasePlan !== "same-phase-sticky" && (
           <div className="alert mt-2 mb-0 alert-info">
             <BsLightbulb /> You may be able to use Sticky Bucketing to prevent
             variation hopping.
@@ -422,14 +438,15 @@ function ImpactTooltips({
         )}
       </div>
 
-      {((variationHopping && releasePlan !== "same-phase-sticky") ||
-        recommendStickyBucketing) && (
-        <div className="text-right mb-2 small">
-          <DocLink docSection="stickyBucketing">
-            Learn about Sticky Bucketing <FaExternalLinkAlt />
-          </DocLink>
-        </div>
-      )}
+      {!isBandit &&
+        ((variationHopping && releasePlan !== "same-phase-sticky") ||
+          recommendStickyBucketing) && (
+          <div className="text-right mb-2 small">
+            <DocLink docSection="stickyBucketing">
+              Learn about Sticky Bucketing <FaExternalLinkAlt />
+            </DocLink>
+          </div>
+        )}
     </div>
   );
 }
@@ -474,6 +491,7 @@ function getRecommendedRolloutData({
 }): RecommendedRolloutData {
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
+  const isBandit = experiment.type === "multi-armed-bandit";
 
   let recommendedReleasePlan: ReleasePlan | undefined = undefined;
   let actualReleasePlan: ReleasePlan | undefined = undefined;
@@ -590,105 +608,36 @@ function getRecommendedRolloutData({
   // --> based on decision variables (1-8) and sticky bucketing support
   // ===============================
 
-  // A. Nothing risky has changed
-  if (
-    !moreRestrictiveTargeting &&
-    !otherTargetingChanges &&
-    !decreaseCoverage &&
-    !addToNamespace &&
-    !decreaseNamespaceRange &&
-    !otherNamespaceChanges &&
-    !changeVariationWeights &&
-    !disableVariation
-  ) {
-    // recommend no release changes
-    recommendedReleasePlan = "same-phase-sticky";
-    actualReleasePlan = stickyBucketing
-      ? recommendedReleasePlan
-      : "same-phase-everyone";
-    variationHopping["same-phase-everyone"] = false;
-  } else {
-    // B. Calculate recommendations as if sticky bucketing is enabled
-    // (We will override these later if it is not. Calculating this allows us to
-    // show the user the benefits of enabling sticky bucketing)
-    if (moreRestrictiveTargeting || decreaseCoverage || disableVariation) {
-      // safe
-      recommendedReleasePlan = "same-phase-sticky";
-      actualReleasePlan = recommendedReleasePlan;
-      riskLevels = {
-        "new-phase": "safe",
-        "same-phase-sticky": "safe",
-        "same-phase-everyone": disableVariation ? "danger" : "warning",
-        "new-phase-block-sticky": "safe",
-      };
-      variationHopping["same-phase-everyone"] = true;
-      reasons = {
-        ...reasons,
-        moreRestrictiveTargeting,
-        decreaseCoverage,
-        disableVariation,
-      };
-    }
-    if (otherTargetingChanges) {
-      // warning
-      recommendedReleasePlan = "new-phase";
-      actualReleasePlan = recommendedReleasePlan;
-      riskLevels = {
-        "new-phase": "safe",
-        "same-phase-sticky": "warning",
-        "same-phase-everyone": "danger",
-        "new-phase-block-sticky": "safe",
-      };
-      variationHopping["same-phase-everyone"] = true;
-      reasons = { ...reasons, otherTargetingChanges };
-    }
+  if (!isBandit) {
+    // A. Nothing risky has changed
     if (
-      addToNamespace ||
-      decreaseNamespaceRange ||
-      otherNamespaceChanges ||
-      changeVariationWeights
+      !moreRestrictiveTargeting &&
+      !otherTargetingChanges &&
+      !decreaseCoverage &&
+      !addToNamespace &&
+      !decreaseNamespaceRange &&
+      !otherNamespaceChanges &&
+      !changeVariationWeights &&
+      !disableVariation
     ) {
-      // danger
-      recommendedReleasePlan = "new-phase";
-      actualReleasePlan = recommendedReleasePlan;
-      disableSamePhase = true;
-      riskLevels = {
-        "new-phase": "safe",
-        "same-phase-sticky": "danger",
-        "same-phase-everyone": "danger",
-        "new-phase-block-sticky": "safe",
-      };
-      variationHopping["same-phase-everyone"] = true;
-      reasons = {
-        ...reasons,
-        addToNamespace,
-        decreaseNamespaceRange,
-        otherNamespaceChanges,
-        changeVariationWeights,
-      };
-    }
-
-    // C. Calculate recommendations when sticky bucketing is disabled
-    if (!stickyBucketing) {
-      // reset
-      actualReleasePlan = "same-phase-everyone";
-      riskLevels = {
-        "new-phase": "safe",
-        "same-phase-sticky": "safe",
-        "same-phase-everyone": "safe",
-        "new-phase-block-sticky": "safe",
-      };
+      // recommend no release changes
+      recommendedReleasePlan = "same-phase-sticky";
+      actualReleasePlan = stickyBucketing
+        ? recommendedReleasePlan
+        : "same-phase-everyone";
       variationHopping["same-phase-everyone"] = false;
-      disableSamePhase = false;
-      reasons = {};
-
-      if (moreRestrictiveTargeting || decreaseCoverage) {
-        // warning
-        actualReleasePlan = "new-phase";
+    } else {
+      // B. Calculate recommendations as if sticky bucketing is enabled
+      // (We will override these later if it is not. Calculating this allows us to
+      // show the user the benefits of enabling sticky bucketing)
+      if (moreRestrictiveTargeting || decreaseCoverage || disableVariation) {
+        // safe
+        recommendedReleasePlan = "same-phase-sticky";
+        actualReleasePlan = recommendedReleasePlan;
         riskLevels = {
           "new-phase": "safe",
           "same-phase-sticky": "safe",
-          "same-phase-everyone": "warning",
+          "same-phase-everyone": disableVariation ? "danger" : "warning",
           "new-phase-block-sticky": "safe",
         };
         variationHopping["same-phase-everyone"] = true;
@@ -696,18 +645,31 @@ function getRecommendedRolloutData({
           ...reasons,
           moreRestrictiveTargeting,
           decreaseCoverage,
+          disableVariation,
         };
+      }
+      if (otherTargetingChanges) {
+        // warning
+        recommendedReleasePlan = "new-phase";
+        actualReleasePlan = recommendedReleasePlan;
+        riskLevels = {
+          "new-phase": "safe",
+          "same-phase-sticky": "warning",
+          "same-phase-everyone": "danger",
+          "new-phase-block-sticky": "safe",
+        };
+        variationHopping["same-phase-everyone"] = true;
+        reasons = { ...reasons, otherTargetingChanges };
       }
       if (
         addToNamespace ||
         decreaseNamespaceRange ||
         otherNamespaceChanges ||
-        otherTargetingChanges ||
-        changeVariationWeights ||
-        disableVariation
+        changeVariationWeights
       ) {
         // danger
-        actualReleasePlan = "new-phase";
+        recommendedReleasePlan = "new-phase";
+        actualReleasePlan = recommendedReleasePlan;
         disableSamePhase = true;
         riskLevels = {
           "new-phase": "safe",
@@ -718,12 +680,100 @@ function getRecommendedRolloutData({
         variationHopping["same-phase-everyone"] = true;
         reasons = {
           ...reasons,
-          otherTargetingChanges,
+          addToNamespace,
+          decreaseNamespaceRange,
           otherNamespaceChanges,
           changeVariationWeights,
-          disableVariation,
         };
       }
+
+      // C. Calculate recommendations when sticky bucketing is disabled
+      if (!stickyBucketing) {
+        // reset
+        actualReleasePlan = "same-phase-everyone";
+        riskLevels = {
+          "new-phase": "safe",
+          "same-phase-sticky": "safe",
+          "same-phase-everyone": "safe",
+          "new-phase-block-sticky": "safe",
+        };
+        variationHopping["same-phase-everyone"] = false;
+        disableSamePhase = false;
+        reasons = {};
+
+        if (moreRestrictiveTargeting || decreaseCoverage) {
+          // warning
+          actualReleasePlan = "new-phase";
+          riskLevels = {
+            "new-phase": "safe",
+            "same-phase-sticky": "safe",
+            "same-phase-everyone": "warning",
+            "new-phase-block-sticky": "safe",
+          };
+          variationHopping["same-phase-everyone"] = true;
+          reasons = {
+            ...reasons,
+            moreRestrictiveTargeting,
+            decreaseCoverage,
+          };
+        }
+        if (
+          addToNamespace ||
+          decreaseNamespaceRange ||
+          otherNamespaceChanges ||
+          otherTargetingChanges ||
+          changeVariationWeights ||
+          disableVariation
+        ) {
+          // danger
+          actualReleasePlan = "new-phase";
+          disableSamePhase = true;
+          riskLevels = {
+            "new-phase": "safe",
+            "same-phase-sticky": "danger",
+            "same-phase-everyone": "danger",
+            "new-phase-block-sticky": "safe",
+          };
+          variationHopping["same-phase-everyone"] = true;
+          reasons = {
+            ...reasons,
+            otherTargetingChanges,
+            otherNamespaceChanges,
+            changeVariationWeights,
+            disableVariation,
+          };
+        }
+      }
+    }
+  }
+  // isBandit
+  else {
+    // Start with safe change (nothing || rollout change)
+    recommendedReleasePlan = "same-phase-sticky";
+    actualReleasePlan = recommendedReleasePlan;
+    disableSamePhase = false;
+    riskLevels = {
+      "new-phase": "safe",
+      "same-phase-sticky": "safe",
+      "same-phase-everyone": "safe",
+      "new-phase-block-sticky": "safe",
+    };
+    variationHopping["new-phase"] = true;
+    variationHopping["same-phase-sticky"] = false;
+
+    // If anything other than traffic changes, force a new phase
+    if (
+      moreRestrictiveTargeting ||
+      otherTargetingChanges ||
+      addToNamespace ||
+      decreaseNamespaceRange ||
+      otherNamespaceChanges ||
+      changeVariationWeights ||
+      disableVariation
+    ) {
+      recommendedReleasePlan = undefined;
+      actualReleasePlan = "new-phase";
+      disableSamePhase = true;
     }
   }
 
@@ -841,8 +891,6 @@ function getReleasePlanOptions({
   changeType?: ChangeType;
   recommendedRolloutData: RecommendedRolloutData;
 }) {
-  console.log("here");
-  console.log({ recommendedRolloutData });
   if (experiment.type !== "multi-armed-bandit") {
     return [
       { label: "New Phase, re-randomize traffic", value: "new-phase" },
@@ -879,7 +927,7 @@ function getReleasePlanOptions({
   } else {
     return [
       { label: "New Phase, reset experiment", value: "new-phase" },
-      ...(changeType === "traffic"
+      ...(!recommendedRolloutData.disableSamePhase && changeType !== "phase"
         ? [
             {
               label: "Same phase",
