@@ -8,7 +8,7 @@ export default function MetricAnalysisMoreMenu({
   forceRefresh,
   canRunMetricQuery,
 }: {
-  metricAnalysis?: MetricAnalysisInterface;
+  metricAnalysis?: MetricAnalysisInterface | null;
   forceRefresh?: () => Promise<void>;
   canRunMetricQuery?: boolean;
 }) {
