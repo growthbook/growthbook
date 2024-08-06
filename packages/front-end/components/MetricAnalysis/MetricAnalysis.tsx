@@ -39,6 +39,7 @@ import { useAuth } from "@/services/auth";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import MetricAnalysisMoreMenu from "@/components/MetricAnalysis/MetricAnalysisMoreMenu";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
+import track from "@/services/track";
 
 function MetricAnalysisOverview({
   name,
@@ -426,6 +427,11 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                         endOfToday
                       );
                       try {
+                        track("MetricAnalysis_Update", {
+                          type: factMetric.metricType,
+                          populationType: data.populationType,
+                          days: data.lookbackDays,
+                        });
                         await apiCall(`/metric-analysis`, {
                           method: "POST",
                           body: JSON.stringify(data),
@@ -465,6 +471,11 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                         ),
                         force: true,
                       };
+                      track("MetricAnalysis_ForceUpdate", {
+                        type: factMetric.metricType,
+                        populationType: data.populationType,
+                        days: data.lookbackDays,
+                      });
                       await apiCall(`/metric-analysis`, {
                         method: "POST",
                         body: JSON.stringify(data),
@@ -490,6 +501,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                         className="btn-link"
                         onClick={(e) => {
                           e.preventDefault();
+                          track("MetricAnalysis_ResetSettings");
                           reset(
                             getAnalysisSettingsForm(
                               metricAnalysis?.settings,
