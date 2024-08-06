@@ -170,6 +170,10 @@ export class GrowthBook<
       document.dispatchEvent(new Event("gbloaded"));
     }
 
+    if (context.antiFlicker && isBrowser) {
+      this._setAntiFlicker();
+    }
+
     if (context.experiments) {
       this.ready = true;
       this._updateAllAutoExperiments();
@@ -1803,8 +1807,10 @@ export class GrowthBook<
   }
 
   private _setAntiFlicker() {
-    if (!this._ctx.antiFlicker || !isBrowser) return;
-    if (this._ctx.disableUrlRedirectExperiments) return;
+    if (!this._ctx.disableUrlRedirectExperiments) {
+      this._unsetAntiFlicker();
+      return;
+    }
     try {
       window.clearTimeout(this._unsetAntiFlickerTimeout);
 
