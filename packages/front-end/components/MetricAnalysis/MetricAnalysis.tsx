@@ -1,5 +1,5 @@
-import React, { FC, useMemo, useEffect, useState } from "react";
-import { useForm, UseFormReset } from "react-hook-form";
+import React, { FC, useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
 import { FaQuestionCircle } from "react-icons/fa";
 import {
   CreateMetricAnalysisProps,
@@ -57,6 +57,33 @@ function MetricAnalysisOverview({
     options?: Intl.NumberFormatOptions
   ) => string;
 }) {
+  let numeratorText: string;
+  let denominatorText: JSX.Element;
+  let numeratorValue: JSX.Element;
+  let denominatorValue: JSX.Element;
+  if (metricType === "ratio" && numeratorFormatter && denominatorFormatter) {
+    numeratorText = "Numerator: ";
+    denominatorText = <>{"Denominator: "}</>;
+    numeratorValue = <>{numeratorFormatter(result.numerator ?? 0)}</>;
+    denominatorValue = <>{denominatorFormatter(result.denominator ?? 0)}</>;
+  } else {
+    numeratorText = "Metric Total: ";
+    numeratorValue = (
+      <>
+        {metricType === "proportion"
+          ? formatNumber(result.units * result.mean)
+          : formatter(result.units * result.mean)}
+      </>
+    );
+    denominatorText = (
+      <>
+        {"Unique "}
+        <code>{userIdType}</code>
+        {": "}
+      </>
+    );
+    denominatorValue = <>{formatNumber(result.units)}</>;
+  }
   return (
     <div className="mb-4">
       <div className="row mt-3">
@@ -67,34 +94,16 @@ function MetricAnalysisOverview({
       <div className="d-flex flex-row align-items-end">
         <div className="ml-0 appbox p-3 text-center row align-items-center">
           <div className="col-auto">
-            {metricType === "ratio" &&
-            numeratorFormatter &&
-            denominatorFormatter ? (
-              <>
-                <div className="border-bottom">
-                  {`Numerator: ${numeratorFormatter(result.numerator ?? 0)}`}
-                </div>
-                <div>
-                  {`Denominator: ${denominatorFormatter(
-                    result.denominator ?? 0
-                  )}`}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="border-bottom">
-                  Total:{" "}
-                  {metricType == "proportion"
-                    ? formatNumber(result.mean * result.units)
-                    : formatter(result.units * result.mean)}
-                </div>
-                <div>
-                  <code>{userIdType}</code>
-                  {": "}
-                  {formatNumber(result.units)}
-                </div>
-              </>
-            )}
+            <div className="border-bottom row">
+              <div className="mr-2">{numeratorText}</div>
+              <div style={{ flex: 1 }} />
+              <div>{numeratorValue}</div>
+            </div>
+            <div className="row">
+              <div className="mr-2">{denominatorText}</div>
+              <div style={{ flex: 1 }} />
+              <div>{denominatorValue}</div>
+            </div>
           </div>
           <div className="col-auto" style={{ fontSize: "2.5em" }}>
             {"="}
@@ -152,20 +161,19 @@ function settingsMatch(
   );
 }
 
-function setAnalysisSettingsForm(
+function getAnalysisSettingsForm(
   settings: MetricAnalysisSettings | undefined,
-  defaultUserIdType: string | undefined,
-  reset: UseFormReset<MetricAnalysisFormFields>
+  userIdTypes: string[] | undefined
 ) {
-  reset({
-    userIdType: settings?.userIdType ?? defaultUserIdType ?? "",
+  return {
+    userIdType: settings?.userIdType ?? userIdTypes?.[0] ?? "",
     lookbackSelected: settings
-      ? getLookbackSelected(settings?.lookbackDays ?? 30)
-      : "custom",
+      ? getLookbackSelected(settings.lookbackDays)
+      : "30",
     lookbackDays: settings?.lookbackDays ?? 30,
     populationType: settings?.populationType ?? "factTable",
     populationId: settings?.populationId ?? null,
-  });
+  };
 }
 
 type MetricAnalysisFormFields = {
@@ -218,6 +226,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
   }>(`/metric-analysis/metric/${factMetric.id}`);
 
   const metricAnalysis = data?.metricAnalysis;
+  const factTable = getFactTableById(factMetric.numerator.factTableId);
   // get latest full object or add reset to default?
   const {
     reset,
@@ -226,27 +235,18 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
     setValue,
     register,
   } = useForm<MetricAnalysisFormFields>({
-    defaultValues: useMemo(() => {
-      return {
-        userIdType: metricAnalysis?.settings?.userIdType ?? "",
-        lookbackSelected: metricAnalysis?.settings
-          ? getLookbackSelected(metricAnalysis?.settings?.lookbackDays ?? 30)
-          : "custom",
-        lookbackDays: metricAnalysis?.settings?.lookbackDays ?? 30,
-        populationType: metricAnalysis?.settings?.populationType ?? "factTable",
-        populationId: metricAnalysis?.settings?.populationId ?? null,
-      };
-    }, [metricAnalysis]),
+    defaultValues: getAnalysisSettingsForm(
+      metricAnalysis?.settings,
+      factTable?.userIdTypes
+    ),
   });
   const populationValue: string | undefined = watch("populationType");
-  const factTable = getFactTableById(factMetric.numerator.factTableId);
 
   // TODO better way to populate form/fields than the following
   useEffect(() => {
-    setAnalysisSettingsForm(
-      metricAnalysis?.settings,
-      factTable?.userIdTypes[0],
-      reset
+    console.log(metricAnalysis?.settings);
+    reset(
+      getAnalysisSettingsForm(metricAnalysis?.settings, factTable?.userIdTypes)
     );
   }, [metricAnalysis, reset, factTable]);
 
@@ -370,10 +370,15 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();
+                  const data = getDesiredSettings(
+                    factMetric.id,
+                    getValues(),
+                    endOfToday
+                  );
                   try {
                     await apiCall(`/metric-analysis`, {
                       method: "POST",
-                      body: JSON.stringify(desiredSettings),
+                      body: JSON.stringify(data),
                     });
                     mutate();
                   } catch (e) {
@@ -403,7 +408,11 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
               forceRefresh={async () => {
                 try {
                   const data: CreateMetricAnalysisProps = {
-                    ...desiredSettings,
+                    ...getDesiredSettings(
+                      factMetric.id,
+                      getValues(),
+                      endOfToday
+                    ),
                     force: true,
                   };
                   await apiCall(`/metric-analysis`, {
@@ -431,10 +440,11 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                     className="btn-link"
                     onClick={(e) => {
                       e.preventDefault();
-                      setAnalysisSettingsForm(
-                        metricAnalysis?.settings,
-                        factTable?.userIdTypes[0],
-                        reset
+                      reset(
+                        getAnalysisSettingsForm(
+                          metricAnalysis?.settings,
+                          factTable?.userIdTypes
+                        )
                       );
                     }}
                   >
@@ -477,19 +487,46 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                               <Tooltip
                                 body={
                                   <>
-                                    <p>
-                                      This figure shows the average metric value
+                                    {factMetric.metricType === "ratio" ? (
+                                      <>
+                                        <p>
+                                          {`This figure shows the numerator total
+                                      on a day divided by denominator total on a day
+                                      ${
+                                        metricAnalysis.settings
+                                          .populationType != "factTable"
+                                          ? `for units (e.g. users) that appear in the population at
+                                          any time in the selected window`
+                                          : ``
+                                      }
+                                      .`}
+                                        </p>
+                                        <p>
+                                          The standard deviation shows the
+                                          spread of the daily metric values.
+                                        </p>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <p>
+                                          {`This figure shows the average metric value
                                       on a day divided by number of unique units
-                                      (e.g. users)
-                                      <b> in the population</b> on that day.
-                                      This means this time series only shows
-                                      users in <b>both</b> the fact table and
-                                      the population on that day.
-                                    </p>
-                                    <p>
-                                      The standard deviation shows the spread of
-                                      the daily user metric values.
-                                    </p>
+                                      (e.g. users) that appear in the metric source
+                                      on that day
+                                      ${
+                                        metricAnalysis.settings
+                                          .populationType != "factTable"
+                                          ? `and in the population at any time in the selected window`
+                                          : ``
+                                      }.`}
+                                        </p>
+                                        <p>
+                                          The standard deviation shows the
+                                          spread of the daily user metric
+                                          values.
+                                        </p>
+                                      </>
+                                    )}
                                     <p>
                                       When smoothing is turned on, we simply
                                       average values and standard deviations
@@ -553,33 +590,29 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                               <Tooltip
                                 body={
                                   <>
-                                    {factMetric.metricType !== "proportion" ? (
-                                      <>
-                                        <p>
-                                          This figure shows the daily sum of
-                                          values in the metric source on that
-                                          day.
-                                        </p>
-                                        <p>
-                                          When smoothing is turned on, we simply
-                                          average values over the 7 trailing
-                                          days (including the selected day).
-                                        </p>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <p>
-                                          This figure shows the total count of
-                                          units (e.g. users) in the metric
-                                          source on that day.
-                                        </p>
-                                        <p>
-                                          When smoothing is turned on, we simply
-                                          average counts over the 7 trailing
-                                          days (including the selected day).
-                                        </p>
-                                      </>
-                                    )}
+                                    <p>
+                                      {`This figure shows the ${
+                                        factMetric.metricType !== "proportion"
+                                          ? `daily sum of values in the metric source`
+                                          : `daily count of units (e.g. users) that fit
+                                        the metric definition`
+                                      }${
+                                        metricAnalysis.settings
+                                          .populationType != "factTable"
+                                          ? ` that also appear in the population at
+                                          any time in the selected window`
+                                          : ``
+                                      }.`}
+                                    </p>
+                                    <p>
+                                      {`When smoothing is turned on, we simply
+                                      average ${
+                                        factMetric.metricType !== "proportion"
+                                          ? "values"
+                                          : "counts"
+                                      } over the 7 trailing
+                                      days (including the selected day).`}
+                                    </p>
                                   </>
                                 }
                               >

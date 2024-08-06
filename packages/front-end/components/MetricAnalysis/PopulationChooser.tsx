@@ -31,7 +31,7 @@ export default function PopulationChooser({
   )
     .filter((e) => e.userIdType === userIdType)
     .map((e) => ({
-      label: `Experiment Units: ${e.name}`,
+      label: `Experiment Exposed Units: ${e.name}`,
       value: `experiment_${e.id}`,
     }));
 
@@ -56,7 +56,7 @@ export default function PopulationChooser({
             label: "Fact Table",
             options: [
               {
-                label: `Entire Fact Table (default)`,
+                label: `Fact Table (default)`,
                 value: "factTable",
               },
             ],
@@ -64,7 +64,7 @@ export default function PopulationChooser({
           ...(availableSegments.length > 0
             ? [
                 {
-                  label: `Requires Join`,
+                  label: `Joined Populations`,
                   options: [...availableSegments, ...availableExposureQueries],
                 },
               ]
