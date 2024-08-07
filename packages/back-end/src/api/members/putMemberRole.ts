@@ -1,5 +1,5 @@
 import { isRoleValid } from "shared/permissions";
-import { auditDetailsUpdate } from "@back-end/src/services/audit";
+import { auditDetailsUpdate } from "../../services/audit";
 import { PutMemberRoleResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
 import { putMemberRoleValidator } from "../../validators/openapi";
