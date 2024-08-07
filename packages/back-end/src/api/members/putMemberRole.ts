@@ -15,8 +15,24 @@ export const putMemberRole = createApiRequestHandler(putMemberRoleValidator)(
 
     const { globalRole, environments } = req.body;
 
-    if (!isRoleValid(globalRole, req.context.org)) {
-      throw new Error(`${globalRole} is not a valid role`);
+    // validate the role
+    if (globalRole) {
+      if (!isRoleValid(globalRole, req.context.org)) {
+        throw new Error(`${globalRole} is not a valid role`);
+      }
+    }
+
+    // validate the environments
+    if (environments?.length) {
+      environments.forEach((env) => {
+        const environmentIds =
+          req.context.org.settings?.environments?.map((e) => e.id) || [];
+        if (!environmentIds.includes(env)) {
+          throw new Error(
+            `${env} is not a valid environment ID for this organization.`
+          );
+        }
+      });
     }
 
     const orgUser = req.context.org.members.find(
@@ -27,24 +43,19 @@ export const putMemberRole = createApiRequestHandler(putMemberRoleValidator)(
       throw new Error("Could not find user with that ID");
     }
 
-    const updates: Member = { ...orgUser, role: globalRole };
+    const updates: Member = { ...orgUser, role: globalRole || orgUser.role };
 
-    //TODO: Rethink this
-    // Now, handle env limit stuff
-    let updatedEnvs: string[] = [];
-    let updatedLimitAccessByEnv = false;
-
-    // Check if the globalRole supports env limits
-    if (
-      roleSupportsEnvLimit(globalRole, req.context.org) &&
-      environments?.length
-    ) {
-      updatedEnvs = environments;
-      updatedLimitAccessByEnv = true;
+    // update envs if new role supports it and envs are passed in
+    if (roleSupportsEnvLimit(updates.role, req.context.org) && !!environments) {
+      updates.environments = environments;
+      updates.limitAccessByEnvironment = !!environments.length;
     }
 
-    updates.environments = updatedEnvs;
-    updates.limitAccessByEnvironment = updatedLimitAccessByEnv;
+    // if role doesn't support envs, ensure we update it accordingly
+    if (!roleSupportsEnvLimit(updates.role, req.context.org)) {
+      updates.environments = [];
+      updates.limitAccessByEnvironment = false;
+    }
 
     try {
       const updatedOrgMembers = cloneDeep(req.context.org.members);
