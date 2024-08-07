@@ -51,12 +51,9 @@ export async function listUsers(
 
   return res.status(200).json({
     schemas: ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
-    totalResults: resources.length,
+    totalResults: filteredUsers.length,
     Resources: resources,
     startIndex: queryOptions.startIndex,
-    itemsPerPage:
-      !resources.length || resources.length > queryOptions.count
-        ? queryOptions.count
-        : resources.length,
+    itemsPerPage: queryOptions.count,
   });
 }
