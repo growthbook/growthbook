@@ -3,7 +3,6 @@ import { FormProvider, useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
-  ExperimentType,
   Variation,
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
@@ -16,7 +15,6 @@ import {
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import { getEqualWeights } from "shared/experiments";
-import clsx from "clsx";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -51,7 +49,6 @@ import SavedGroupTargetingField, {
 import Toggle from "@/components/Forms/Toggle";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import { useUser } from "@/services/UserContext";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 const weekAgo = new Date();
@@ -382,12 +379,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     header = "Duplicate Experiment";
   }
 
-  const setEqualWeights = () => {
-    getEqualWeights(form.watch("variations")?.length ?? 0).forEach((w, i) => {
-      form.setValue(`phases.0.variationWeights.${i}`, w);
-    });
-  };
-
   return (
     <PagedModal
       header={header}
@@ -466,73 +457,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             </div>
           )}
           {isNewExperiment && (
-            <div className="form-group">
-              <SelectField
-                label="Experiment type"
-                options={[
-                  { label: "Standard", value: "standard" },
-                  { label: "Multi-Armed Bandit", value: "multi-armed-bandit" },
-                ]}
-                value={
-                  !hasStickyBucketFeature || !usingStickyBucketing
-                    ? "standard"
-                    : form.watch("type") ?? "standard"
-                }
-                sort={false}
-                onChange={(v) => {
-                  if (!hasStickyBucketFeature || !usingStickyBucketing) {
-                    return;
-                  }
-                  form.setValue("type", v as ExperimentType);
-                  if (v === "multi-armed-bandit") {
-                    // equal weights
-                    setEqualWeights();
-                    // stats engine reset
-                    form.setValue("statsEngine", "bayesian");
-                    // 1 primary metric
-                    const goalMetric = form.watch("goalMetrics")?.[0];
-                    form.setValue(
-                      "goalMetrics",
-                      goalMetric ? [goalMetric] : []
-                    );
-                  }
-                }}
-                formatOptionLabel={({ value, label }) => {
-                  const disabled =
-                    value === "multi-armed-bandit" &&
-                    (!hasStickyBucketFeature || !usingStickyBucketing);
-                  return (
-                    <div
-                      className={clsx({
-                        "cursor-disabled": disabled,
-                      })}
-                    >
-                      <PremiumTooltip
-                        commercialFeature={
-                          value === "multi-armed-bandit"
-                            ? "multi-armed-bandits"
-                            : undefined
-                        }
-                        body={
-                          value === "multi-armed-bandit" &&
-                          !usingStickyBucketing &&
-                          hasStickyBucketFeature ? (
-                            <div>
-                              Enable Sticky Bucketing in your organization
-                              settings to run a Multi-Armed Bandit experiment.
-                            </div>
-                          ) : null
-                        }
-                      >
-                        <span style={{ opacity: disabled ? 0.5 : 1 }}>
-                          {label}{" "}
-                        </span>
-                      </PremiumTooltip>
-                    </div>
-                  );
-                }}
-              />
-            </div>
+            <Field
+              type="hidden"
+              value={
+                !hasStickyBucketFeature || !usingStickyBucketing
+                  ? "standard"
+                  : form.watch("type") ?? "standard"
+              }
+            />
           )}
           {!isNewExperiment && (
             <SelectField

@@ -7,7 +7,7 @@ const RadioSelector: FC<{
   options: {
     key: string;
     display?: string | ReactElement;
-    description: string | ReactElement;
+    description?: string | ReactElement;
     sub?: string;
     tooltip?: string;
     hidden?: boolean;
@@ -56,11 +56,16 @@ const RadioSelector: FC<{
     <div>
       {options.map(
         ({ key, display, description, sub, tooltip, disabled, hidden }) => (
-          <div
-            className={clsx("list-group", { "d-none": hidden === true })}
-            key={key}
-          >
-            <label className="list-group-item list-group-item-action border-0 m-0 px-1 py-2">
+          <div className={clsx("list-group", { "d-none": hidden })} key={key}>
+            <label
+              className={clsx(
+                "list-group-item list-group-item-action border-0 m-0 px-1 py-2",
+                {
+                  "cursor-pointer": !disabled,
+                  "cursor-disabled": disabled,
+                }
+              )}
+            >
               <div className="d-flex w-100">
                 <input
                   type="radio"

@@ -3164,6 +3164,21 @@ input:disabled {
   }
 }
 
+.btn-group-card {
+  .btn {
+    color: var(--text-color-main);
+    box-sizing: border-box;
+    border-color: var(--border-color-100);
+    background-color: var(--surface-background-color);
+    &.active {
+      border-color: var(--text-color-primary);
+    }
+    &:hover {
+      background-color: rgba(154, 110, 248, 0.1);
+    }
+  }
+}
+
 .sdk-security-button-wrapper {
   justify-content: space-around;
   gap: 1rem;

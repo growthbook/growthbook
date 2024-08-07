@@ -197,6 +197,18 @@ const Modal: FC<ModalProps> = ({
                 ))}
             </div>
           )}
+          {close && includeCloseCta ? (
+            <button
+              className={closeCtaClassName}
+              onClick={async (e) => {
+                e.preventDefault();
+                await onClickCloseCta?.();
+                close();
+              }}
+            >
+              {isSuccess && successMessage ? "Close" : closeCta}
+            </button>
+          ) : null}
           {secondaryCTA}
           {submit && !isSuccess ? (
             <Tooltip
@@ -218,18 +230,6 @@ const Modal: FC<ModalProps> = ({
           ) : (
             ""
           )}
-          {close && includeCloseCta ? (
-            <button
-              className={closeCtaClassName}
-              onClick={async (e) => {
-                e.preventDefault();
-                await onClickCloseCta?.();
-                close();
-              }}
-            >
-              {isSuccess && successMessage ? "Close" : closeCta}
-            </button>
-          ) : null}
           {tertiaryCTA}
         </div>
       ) : null}
