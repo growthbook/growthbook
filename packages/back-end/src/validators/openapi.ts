@@ -344,6 +344,12 @@ export const getMemberValidator = {
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };
 
+export const putMemberRoleValidator = {
+  bodySchema: z.object({ "globalRole": z.string().describe("The name of the global role. This can be one of GrowthBook's standard roles - read-only, collaborator, engineer, analyst, experimenter, or admin. Enterprise organizations who have defined custom roles can also specify the name of a custom role here.") }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
 export const listEnvironmentsValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),

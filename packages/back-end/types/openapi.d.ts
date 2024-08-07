@@ -206,6 +206,8 @@ export interface paths {
   "/members/{id}": {
     /** Get a single member */
     get: operations["getMember"];
+    /** Update a member's global role by ID */
+    put: operations["putMemberRole"];
   };
   "/environments": {
     /** Get the organization's environments */
@@ -5506,6 +5508,32 @@ export interface operations {
       };
     };
   };
+  putMemberRole: {
+    /** Update a member's global role by ID */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The name of the global role. This can be one of GrowthBook's standard roles - read-only, collaborator, engineer, analyst, experimenter, or admin. Enterprise organizations who have defined custom roles can also specify the name of a custom role here. */
+          globalRole?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            globalRole: string;
+          };
+        };
+      };
+    };
+  };
   listEnvironments: {
     /** Get the organization's environments */
     responses: {
@@ -6911,6 +6939,7 @@ export type PostOrganizationResponse = operations["postOrganization"]["responses
 export type PutOrganizationResponse = operations["putOrganization"]["responses"]["200"]["content"]["application/json"];
 export type ListMembersResponse = operations["listMembers"]["responses"]["200"]["content"]["application/json"];
 export type GetMemberResponse = operations["getMember"]["responses"]["200"]["content"]["application/json"];
+export type PutMemberRoleResponse = operations["putMemberRole"]["responses"]["200"]["content"]["application/json"];
 export type ListEnvironmentsResponse = operations["listEnvironments"]["responses"]["200"]["content"]["application/json"];
 export type PostEnvironmentResponse = operations["postEnvironment"]["responses"]["200"]["content"]["application/json"];
 export type PutEnvironmentResponse = operations["putEnvironment"]["responses"]["200"]["content"]["application/json"];

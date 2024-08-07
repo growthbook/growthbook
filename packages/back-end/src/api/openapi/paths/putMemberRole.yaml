@@ -1,0 +1,29 @@
+parameters:
+  - $ref: "../parameters.yaml#/id"
+tags:
+  - members
+summary: Update a member's global role by ID
+operationId: putMemberRole
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -XPUT https://api.growthbook.io/api/v1/members/user@team.com \
+        -d '{"globalRole": "experimenter"}' \
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/PutMemberRolePayload.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - globalRole
+          properties:
+            globalRole:
+              type: string

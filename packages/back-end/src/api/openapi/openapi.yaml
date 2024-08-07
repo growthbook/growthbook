@@ -221,6 +221,8 @@ paths:
   /members/{id}:
     get:
       $ref: "./paths/getMember.yaml"
+    put:
+      $ref: "./paths/putMemberRole.yaml"
   /environments:
     get:
       $ref: "./paths/listEnvironments.yaml"

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getMember } from "./getMember";
 import { listMembers } from "./listMembers";
+import { putMemberRole } from "./putMemberRole";
 
 const router = Router();
 
@@ -11,7 +12,7 @@ const router = Router();
 router.get("/", listMembers);
 // router.post("/", postProject);
 router.get("/:id", getMember);
-// router.put("/:id", putProject);
+router.put("/:id", putMemberRole);
 // router.delete("/:id", deleteProject);
 
 export default router;
