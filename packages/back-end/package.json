@@ -19,6 +19,7 @@
     "type-check": "tsc --pretty --noEmit",
     "unused-export-check": "npx ts-unused-exports tsconfig.json --findCompletelyUnusedFiles --allowUnusedTypes --showLineNumber",
     "generate-dummy-data": "ts-node ./test/data-generator/new-generator.ts",
+    "generate-migration": "ts-node -r tsconfig-paths/register src/scripts/generate-migration.ts",
     "test-integration-queries": "./test/integrations/integration-query-test.sh",
     "watch-compile": "swc src -w --out-dir dist",
     "watch-dev": "delay 1 && nodemon --watch dist --watch '../shared/dist' --watch '../enterprise/dist' -e js ./dist/server.js",
@@ -146,6 +147,7 @@
     "mongodb-memory-server": "^9.2.0",
     "rimraf": "^3.0.2",
     "supertest": "^7.0.0",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "5.3.3"
   },
   "optionalDependencies": {
