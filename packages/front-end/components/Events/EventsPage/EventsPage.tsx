@@ -1,6 +1,5 @@
 import React, { FC, useState } from "react";
 import { EventInterface, NotificationEventName } from "back-end/types/event";
-import { NotificationEvent } from "back-end/src/events/notification-events";
 import { FaDownload, FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import { useDownloadDataExport } from "@/hooks/useDownloadDataExport";
@@ -39,7 +38,7 @@ export const EventsPage: FC<EventsPageProps> = ({
   isDownloading,
 }) => {
   const { data, error } = useApi<{
-    events: EventInterface<NotificationEvent>[];
+    events: EventInterface[];
   }>("/events?" + filterURLParams);
   const permissionsUtil = usePermissionsUtil();
 

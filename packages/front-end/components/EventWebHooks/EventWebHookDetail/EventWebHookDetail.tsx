@@ -325,11 +325,6 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           mode={{
             mode: "edit",
             data: {
-              tags: [],
-              environments: [],
-              projects: [],
-              payloadType: "raw",
-              method: "POST",
               ...eventWebHook,
               headers: eventWebHook.headers
                 ? JSON.stringify(eventWebHook.headers)
