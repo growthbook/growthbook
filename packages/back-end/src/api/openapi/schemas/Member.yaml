@@ -1,7 +1,6 @@
 type: object
 required:
   - id
-  - name
   - email
   - globalRole
 properties:

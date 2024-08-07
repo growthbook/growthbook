@@ -2725,14 +2725,14 @@ paths:
   /members:
     get:
       summary: Get all organization members
+      tags:
+        - members
       parameters:
         - $ref: '#/components/parameters/limit'
         - $ref: '#/components/parameters/offset'
         - $ref: '#/components/parameters/userName'
         - $ref: '#/components/parameters/userEmail'
         - $ref: '#/components/parameters/globalRole'
-      tags:
-        - members
       operationId: listMembers
       x-codeSamples:
         - lang: cURL
@@ -4050,21 +4050,18 @@ components:
     userName:
       name: userName
       in: query
-      required: true
       description: Name of the user.
       schema:
         type: string
     userEmail:
       name: userEmail
       in: query
-      required: true
       description: Email address of the user.
       schema:
         type: string
     globalRole:
       name: globalRole
       in: query
-      required: true
       description: Name of the global role
       schema:
         type: string
@@ -5835,7 +5832,6 @@ components:
       type: object
       required:
         - id
-        - name
         - email
         - globalRole
       properties:

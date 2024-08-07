@@ -1,12 +1,12 @@
 summary: Get all organization members
+tags:
+  - members
 parameters:
   - $ref: "../parameters.yaml#/limit"
   - $ref: "../parameters.yaml#/offset"
   - $ref: "../parameters.yaml#/userName"
   - $ref: "../parameters.yaml#/userEmail"
   - $ref: "../parameters.yaml#/globalRole"
-tags:
-  - members
 operationId: listMembers
 x-codeSamples:
   - lang: "cURL"

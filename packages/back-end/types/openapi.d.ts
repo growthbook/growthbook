@@ -1420,7 +1420,7 @@ export interface components {
     };
     Member: {
       id: string;
-      name: string;
+      name?: string;
       email: string;
       globalRole: string;
       environments?: (string)[];
@@ -5428,9 +5428,9 @@ export interface operations {
       query: {
         limit?: number;
         offset?: number;
-        userName: string;
-        userEmail: string;
-        globalRole: string;
+        userName?: string;
+        userEmail?: string;
+        globalRole?: string;
       };
     };
     responses: {
@@ -5439,7 +5439,7 @@ export interface operations {
           "application/json": {
             members: ({
                 id: string;
-                name: string;
+                name?: string;
                 email: string;
                 globalRole: string;
                 environments?: (string)[];
@@ -5483,7 +5483,7 @@ export interface operations {
           "application/json": {
             member: {
               id: string;
-              name: string;
+              name?: string;
               email: string;
               globalRole: string;
               environments?: (string)[];
