@@ -1,6 +1,10 @@
 import { ListMembersResponse } from "../../../types/openapi";
 import { expandOrgMembers } from "../../services/organizations";
-import { applyPagination, createApiRequestHandler } from "../../util/handler";
+import {
+  applyFilter,
+  applyPagination,
+  createApiRequestHandler,
+} from "../../util/handler";
 import { listMembersValidator } from "../../validators/openapi";
 
 export const listMembers = createApiRequestHandler(listMembersValidator)(
@@ -11,10 +15,21 @@ export const listMembers = createApiRequestHandler(listMembersValidator)(
 
     const orgMembers = await expandOrgMembers(req.context.org.members);
 
-    const { returnFields } = applyPagination(orgMembers, req.query);
+    // TODO: Move sorting/limiting to the database query for better performance
+    const { filtered, returnFields } = applyPagination(
+      orgMembers
+        .filter(
+          (orgMember) =>
+            applyFilter(req.query.userName, orgMember.name) &&
+            applyFilter(req.query.userEmail, orgMember.email) &&
+            applyFilter(req.query.globalRole, orgMember.role)
+        )
+        .sort((a, b) => a.id.localeCompare(b.id)),
+      req.query
+    );
 
     return {
-      members: orgMembers.map((member) => {
+      members: filtered.map((member) => {
         return {
           id: member.id,
           name: member.name,
